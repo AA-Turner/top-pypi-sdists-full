@@ -6,15 +6,15 @@ import functools
 import logging
 from typing import Any
 
-from aigie.tracing.monkey_patch_lifecycle import PatchTarget
-
-from aigie.integrations.claude_agent_sdk.session_context import get_or_create_session_context
 from aigie.integrations.claude_agent_sdk._patches._shared import (
     _enable_hook_events,
     _extract_agent_name,
     _shorten_model_name,
+    _skip_instrumentation,
     _wrap_user_hooks,
 )
+from aigie.integrations.claude_agent_sdk.session_context import get_or_create_session_context
+from aigie.tracing.monkey_patch_lifecycle import PatchTarget
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,8 @@ def client_query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
         @functools.wraps(original_query)
         async def traced_client_query(self, prompt, session_id: str = "default"):  # noqa: C901, PLR0915, PLR0912
             """Traced version of ClaudeSDKClient.query()."""
+            if _skip_instrumentation(self):
+                return await original_query(self, prompt, session_id)
             from aigie.client import get_aigie
             from aigie.integrations.claude_agent_sdk.config import ClaudeAgentSDKConfig
             from aigie.integrations.claude_agent_sdk.native_callback import ClaudeAgentSDKEvents
@@ -76,6 +78,7 @@ def client_query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                     handler._aigie = aigie
                     self._aigie_handler = handler
                     _wrap_user_hooks(client_options, handler)
+                handler._aigie_client = self  # type: ignore[union-attr]
                 prompt_str = prompt if isinstance(prompt, str) else "<async_input>"
 
                 # Generate turn ID

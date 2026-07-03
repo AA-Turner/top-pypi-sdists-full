@@ -1,22 +1,15 @@
-from copy import deepcopy
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
-from urllib.parse import urlencode
+from typing import Any, Callable, Dict, Optional
 
 import click
 
-from tinybird.datafile.exceptions import ParseException
-from tinybird.datafile.parse_datasource import parse_datasource
-from tinybird.datafile.parse_pipe import parse_pipe
 from tinybird.tb.client import TinyB
 from tinybird.tb.config import CLOUD_HOSTS
 from tinybird.tb.modules.build_common import process
 from tinybird.tb.modules.cli import cli, get_current_git_branch
-from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 from tinybird.tb.modules.project import Project
-from tinybird.tb.modules.query_output import print_table_formatted
 from tinybird.tb.modules.watch import watch_project
 
 
@@ -182,41 +175,3 @@ def is_endpoint(f: Path) -> bool:
 
 def is_pipe(f: Path) -> bool:
     return f.suffix == ".pipe" and not is_vendor(f)
-
-
-def check_filenames(filenames: List[str]):
-    parser_matrix = {".pipe": parse_pipe, ".datasource": parse_datasource}
-    incl_suffix = ".incl"
-
-    for filename in filenames:
-        file_suffix = Path(filename).suffix
-        if file_suffix == incl_suffix:
-            continue
-
-        parser = parser_matrix.get(file_suffix)
-        if not parser:
-            raise ParseException(FeedbackManager.error_unsupported_datafile(extension=file_suffix))
-
-        parser(filename)
-
-
-def build_and_print_resource(config: CLIConfig, tb_client: TinyB, filename: str):
-    resource_path = Path(filename)
-    name = resource_path.stem
-    playground_name = name if filename.endswith(".pipe") else None
-    user_client = deepcopy(tb_client)
-    user_client.token = config.get_user_token() or ""
-    cli_params = {}
-    cli_params["workspace_id"] = config.get("id", None)
-    data = user_client._req(f"/v0/playgrounds?{urlencode(cli_params)}")
-    playgrounds = data["playgrounds"]
-    playground = next((p for p in playgrounds if p["name"] == (f"{playground_name}" + "__tb__playground")), None)
-    if not playground:
-        return
-    playground_id = playground["id"]
-    last_node = playground["nodes"][-1]
-    if not last_node:
-        return
-    node_sql = last_node["sql"]
-    res = tb_client.query(f"{node_sql} FORMAT JSON", playground=playground_id)
-    print_table_formatted(res, name)

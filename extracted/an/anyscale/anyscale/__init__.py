@@ -32,6 +32,7 @@ from anyscale import (
     project as project,
     resource_quota as resource_quota,
     schedule as schedule,
+    scheduler as scheduler,
     service as service,
     service_account as service_account,
     skills as skills,
@@ -60,6 +61,7 @@ from anyscale.policy import PolicySDK
 from anyscale.project import ProjectSDK
 from anyscale.resource_quota import ResourceQuotaSDK
 from anyscale.schedule import ScheduleSDK
+from anyscale.scheduler import SchedulerSDK
 from anyscale.service import ServiceSDK
 from anyscale.service_account import ServiceAccountSDK
 from anyscale.skills import SkillsSDK
@@ -156,6 +158,7 @@ class Anyscale:
         self._compute_config_sdk = ComputeConfigSDK(client=self._anyscale_client)
         self._cloud_sdk = CloudSDK(client=self._anyscale_client)
         self._schedule_sdk = ScheduleSDK(client=self._anyscale_client)
+        self._scheduler_sdk = SchedulerSDK(client=self._anyscale_client)
         self._image_sdk = ImageSDK(client=self._anyscale_client)
         self._organization_invitation_sdk = OrganizationInvitationSDK(
             client=self._anyscale_client
@@ -194,6 +197,9 @@ class Anyscale:
             client=client, logger=logger, timer=timer
         )
         obj._schedule_sdk = ScheduleSDK(  # noqa: SLF001
+            client=client, logger=logger, timer=timer,
+        )
+        obj._scheduler_sdk = SchedulerSDK(  # noqa: SLF001
             client=client, logger=logger, timer=timer,
         )
         obj._image_sdk = ImageSDK(client=client, logger=logger)  # noqa: SLF001
@@ -249,6 +255,10 @@ class Anyscale:
     @property
     def schedule(self) -> ScheduleSDK:  # noqa: F811
         return self._schedule_sdk
+
+    @property
+    def scheduler(self) -> SchedulerSDK:  # noqa: F811
+        return self._scheduler_sdk
 
     @property
     def image(self) -> ImageSDK:  # noqa: F811

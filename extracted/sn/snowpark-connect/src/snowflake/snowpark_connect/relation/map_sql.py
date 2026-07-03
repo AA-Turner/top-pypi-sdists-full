@@ -7,7 +7,7 @@ import math
 import re
 import typing
 from collections.abc import MutableMapping, MutableSequence
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager
 from contextvars import ContextVar
 from decimal import Decimal
 from functools import reduce
@@ -68,6 +68,7 @@ from snowflake.snowpark_connect.config import (
     get_return_dml_metadata_enabled,
     global_config,
     is_dynamic_partition_overwrite_enabled,
+    is_iceberg_sql_extensions_enabled,
     record_table_metadata,
     sessions_config,
     set_config_param,
@@ -142,9 +143,6 @@ from snowflake.snowpark_connect.utils.context import (
     set_sql_args,
     set_sql_plan_name,
 )
-from snowflake.snowpark_connect.utils.jvm_classpath import (
-    is_iceberg_sql_extensions_config,
-)
 from snowflake.snowpark_connect.utils.scala_udf_utils import (
     _build_scala_udf_sql_input_params,
 )
@@ -173,6 +171,7 @@ from ..utils.identifiers import (
     record_multipart_backtick_flags,
     spark_to_sf_single_id,
     spark_to_sf_single_id_with_unquoting,
+    split_fully_qualified_spark_name,
     split_fully_qualified_spark_name_with_quoting,
 )
 from ..utils.io_utils import (
@@ -184,9 +183,9 @@ from ..utils.io_utils import (
 from ..utils.temporary_view_helper import (
     create_snowflake_temporary_view,
     get_temp_view,
+    register_temp_view,
     store_temporary_view_as_dataframe,
     unregister_snowflake_temp_view,
-    unregister_temp_view,
 )
 from .catalogs import SNOWFLAKE_CATALOG
 
@@ -1460,6 +1459,119 @@ def _add_nested_field_to_structured_sql(
     return f"OBJECT({', '.join(fields_sql)})"
 
 
+def _nested_struct_add_unsupported_on_cld(
+    table_name: str,
+    col_name_parts: list[str],
+) -> SnowparkConnectNotImplementedError:
+    """Build the shared SNOW-3471827 actionable error for
+    ``ALTER TABLE ... ADD COLUMNS (<nested>.<field> ...)`` on Snowflake
+    catalog-linked Iceberg tables (Glue / Unity Iceberg REST).
+
+    Called from two sites:
+    1. the ``is_in_cld_context()`` short-circuit (preferred — fires
+       before we hand the DDL to Snowflake at all), and
+    2. ``_raise_if_cld_nested_add_sql_error`` (the
+       ``SnowparkSQLException`` fallback inside the managed Iceberg
+       helper), for the case where the request-level CLD flag wasn't
+       seeded and we only learn about the gap when Snowflake rejects
+       the rebuild DDL against a catalog-linked database.
+
+    Both sites need the *same* customer-facing message so users see
+    one stable error regardless of which path the request took.
+    """
+    nested_path = ".".join(col_name_parts)
+    exception = SnowparkConnectNotImplementedError(
+        "Nested struct schema evolution "
+        f"(ALTER TABLE ... ADD COLUMNS ({nested_path} ...)) "
+        "is not supported on Snowflake catalog-linked "
+        f"Iceberg tables ('{table_name}'). The external "
+        "catalog (e.g. AWS Glue, Unity Iceberg REST) owns "
+        "the struct schema and Snowflake CLD can only "
+        "mirror it. Workarounds: (a) add the nested field "
+        "via the external catalog directly (e.g. AWS Glue's "
+        "UpdateTable API or the Iceberg REST endpoint) and "
+        "Snowflake CLD will pick it up on the next metadata "
+        "refresh, or (b) recreate the table as a Managed "
+        "Iceberg table — which supports nested struct "
+        "evolution via ALTER TABLE ... ALTER COLUMN."
+    )
+    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+    return exception
+
+
+def _nested_struct_add_unsupported_on_non_iceberg(
+    table_name: str,
+    col_name_parts: list[str],
+) -> SnowparkConnectNotImplementedError:
+    """Build the actionable error for dotted ADD COLUMN against a
+    non-Iceberg Snowflake table.
+
+    Snowflake's plain ``ALTER TABLE ... ADD COLUMN`` rejects dotted
+    column references with ``001003 / 42000 syntax error ... unexpected
+    '.'``, which gives the customer no hint that the operation simply
+    isn't supported. We surface that explicitly here.
+    """
+    nested_path = ".".join(col_name_parts)
+    exception = SnowparkConnectNotImplementedError(
+        "Nested struct schema evolution "
+        f"(ALTER TABLE ... ADD COLUMNS ({nested_path} ...)) "
+        f"is not supported on table '{table_name}' because it "
+        "is not an Iceberg table. Snowflake only exposes "
+        "nested-struct ADD COLUMN via "
+        "ALTER ICEBERG TABLE ... ALTER COLUMN ... SET DATA TYPE "
+        "on Managed Iceberg tables. Workarounds: (a) recreate "
+        "the table as a Managed Iceberg table, or (b) drop "
+        "and rebuild the struct column with the desired "
+        "fields using ALTER TABLE ... DROP/ADD COLUMN."
+    )
+    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+    return exception
+
+
+def _table_name_on_catalog_linked_db(table_name: str, session: Session) -> bool:
+    """Best-effort: is ``table_name`` on a Snowflake catalog-linked database?"""
+    if is_in_cld_context():
+        return True
+    parts = split_fully_qualified_spark_name(table_name)
+    if not parts:
+        return False
+    db_name = parts[0].strip('"').upper()
+    if not db_name:
+        return False
+    try:
+        rows = session.sql(
+            "SELECT CATALOG_NAME FROM SNOWFLAKE.INFORMATION_SCHEMA.DATABASES "
+            "WHERE DATABASE_NAME = ? AND CATALOG_NAME IS NOT NULL",
+            params=[db_name],
+        ).collect()
+        return len(rows) > 0
+    except Exception:
+        return False
+
+
+def _should_translate_nested_add_sql_error_to_cld(
+    e: SnowparkSQLException,
+    table_name: str,
+    session: Session,
+) -> bool:
+    """True when ``e`` is a CLD nested-add rejection, not a DDL builder bug."""
+    if not _table_name_on_catalog_linked_db(table_name, session):
+        return False
+    code = getattr(e, "sql_error_code", None)
+    return code in (1003, 93678, 4508)
+
+
+def _raise_if_cld_nested_add_sql_error(
+    e: SnowparkSQLException,
+    table_name: str,
+    col_name_parts: list[str],
+    session: Session,
+) -> None:
+    if _should_translate_nested_add_sql_error_to_cld(e, table_name, session):
+        raise _nested_struct_add_unsupported_on_cld(table_name, col_name_parts) from e
+    raise e
+
+
 def _execute_managed_iceberg_nested_add_column(
     session: Session,
     table_name: str,
@@ -1638,6 +1750,74 @@ _SET_COMMAND_SCHEMA = (
 )
 
 
+def _execute_create_namespace(
+    session: snowpark.Session,
+    name: str,
+    if_not_exists: bool,
+) -> None:
+    """Run ``CREATE SCHEMA`` for Spark's ``CreateNamespace`` DDL.
+
+    When ``if_not_exists`` is true, swallow Snowflake error 2002 (object already
+    exists) so ``CREATE NAMESPACE IF NOT EXISTS`` matches Spark's no-op semantics
+    on catalog-linked databases that don't honor ``IF NOT EXISTS`` upstream.
+    """
+    previous_name = session.connection.schema
+    if_not_exists_sql = "IF NOT EXISTS " if if_not_exists else ""
+    try:
+        session.sql(f"CREATE SCHEMA {if_not_exists_sql}{name}").collect()
+    except SnowparkSQLException as e:
+        # SNOW-3471774: Snowflake catalog-linked databases
+        # (Glue / Unity Iceberg REST) don't always honor
+        # ``IF NOT EXISTS`` on schema creation — the underlying
+        # external catalog can surface a hard
+        # ``002002 / 42710 Object already exists`` even when
+        # the customer's ``CREATE NAMESPACE IF NOT EXISTS``
+        # should be a no-op. Spark's reference behavior is
+        # "exists => success". Honor that here when
+        # ``if_not_exists`` is true.
+        if if_not_exists and getattr(e, "sql_error_code", None) == 2002:
+            logger.info(
+                "CREATE NAMESPACE IF NOT EXISTS %s: target already "
+                "exists, treating as no-op (Snowflake error 2002).",
+                name,
+            )
+        else:
+            raise
+    if previous_name is not None:
+        session.sql(f"USE SCHEMA {quote_name(previous_name)}").collect()
+
+
+def _translate_create_view_snowpark_error(
+    e: SnowparkSQLException, view_name: str
+) -> None:
+    """Re-raise ``CREATE VIEW`` Snowflake errors with Spark-compatible types.
+
+    Snowflake rejects ``CREATE OR REPLACE VIEW`` when a TABLE with the same
+    name exists (1998). On catalog-linked databases, ``CREATE VIEW`` surfaces
+    93678 — translate that when the session is in CLD context.
+    """
+    if "already exists" in str(e) and e.sql_error_code == 1998:
+        exception = AnalysisException(str(e))
+        attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+        raise exception from e
+    if getattr(e, "sql_error_code", None) == 93678 and is_in_cld_context():
+        exception = AnalysisException(
+            "CREATE VIEW is not supported on Snowflake "
+            "catalog-linked databases (Glue / Unity "
+            "Iceberg REST). The target namespace "
+            f"'{view_name}' is backed by an external Iceberg "
+            "catalog which does not expose Snowflake "
+            "views. Workarounds: (a) create the view "
+            "in a regular Snowflake database and "
+            "reference the CLD table from there, or "
+            "(b) materialize the view contents into a "
+            "managed Iceberg table."
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception from e
+    raise e
+
+
 def map_sql_to_pandas_df(
     sql_string: str,
     named_args: MutableMapping[str, expressions_proto.Expression.Literal],
@@ -1679,18 +1859,43 @@ def map_sql_to_pandas_df(
                     col_name_parts = [str(part) for part in as_java_list(col.name())]
                     if len(col_name_parts) > 1:
                         if is_in_cld_context():
-                            exception = SnowparkConnectNotImplementedError(
-                                "Nested struct schema evolution is not supported for catalog-linked Iceberg tables"
+                            # SNOW-3471827: Snowflake catalog-linked
+                            # databases (Glue / Unity Iceberg REST) don't
+                            # expose the rebuild-the-struct-type DDL that
+                            # ``_execute_managed_iceberg_nested_add_column``
+                            # uses on Managed Iceberg, so nested struct
+                            # column additions are a platform gap. Surface
+                            # an actionable message rather than letting
+                            # the customer hit an opaque Snowflake error.
+                            raise _nested_struct_add_unsupported_on_cld(
+                                table_name, col_name_parts
                             )
-                            attach_custom_error_code(
-                                exception, ErrorCodes.UNSUPPORTED_OPERATION
-                            )
-                            raise exception
                         if get_table_type(table_name, session) == "ICEBERG":
-                            _execute_managed_iceberg_nested_add_column(
-                                session, table_name, col_name_parts, col.dataType()
-                            )
+                            try:
+                                _execute_managed_iceberg_nested_add_column(
+                                    session,
+                                    table_name,
+                                    col_name_parts,
+                                    col.dataType(),
+                                )
+                            except SnowparkSQLException as e:
+                                _raise_if_cld_nested_add_sql_error(
+                                    e, table_name, col_name_parts, session
+                                )
                             continue
+                        # SNOW-3471827: Dotted column names only make
+                        # sense as nested-struct paths, and Snowflake's
+                        # plain ``ALTER TABLE ... ADD COLUMN`` does not
+                        # accept the dotted syntax (it would compile-error
+                        # with ``001003 / 42000 syntax error ... unexpected
+                        # '.'``). For non-Iceberg tables this combination
+                        # has no Snowflake-side translation, so we surface
+                        # a Spark-flavored NotImplementedError instead of
+                        # forwarding the dotted DDL and letting the
+                        # parser bark at column 60-something.
+                        raise _nested_struct_add_unsupported_on_non_iceberg(
+                            table_name, col_name_parts
+                        )
                     col_name = ".".join(
                         spark_to_sf_single_id(part, is_column=True)
                         for part in col_name_parts
@@ -1760,14 +1965,7 @@ def map_sql_to_pandas_df(
                     raise exception
             case "CreateNamespace":
                 name = get_relation_identifier_name(logical_plan.name(), True)
-                previous_name = session.connection.schema
-                if_not_exists = "IF NOT EXISTS " if logical_plan.ifNotExists() else ""
-                session.sql(f"CREATE SCHEMA {if_not_exists}{name}").collect()
-                if previous_name is not None:
-                    session.sql(f"USE SCHEMA {quote_name(previous_name)}").collect()
-                else:
-                    # TODO: Unset the schema
-                    pass
+                _execute_create_namespace(session, name, logical_plan.ifNotExists())
             case "CreateOrReplaceTag":
                 # Iceberg Spark SQL Extension DDL:
                 #   ALTER TABLE <t> CREATE [OR REPLACE] TAG <name> [IF NOT EXISTS]
@@ -1904,8 +2102,11 @@ def map_sql_to_pandas_df(
                     attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
                     raise exception
                 else:
-                    unregister_temp_view(
-                        spark_to_sf_single_id_with_unquoting(spark_view_name)
+                    register_temp_view(
+                        spark_to_sf_single_id_with_unquoting(spark_view_name),
+                        True,
+                        None,
+                        logical_plan.replace(),
                     )
             case "CreateView":
                 current_schema = session.connection.schema
@@ -1946,16 +2147,7 @@ def map_sql_to_pandas_df(
                         else None,
                     )
                 except SnowparkSQLException as e:
-                    # Snowflake rejects CREATE OR REPLACE VIEW when a TABLE
-                    # with the same name exists (type mismatch or code 1998).
-                    # Spark raises AnalysisException for this conflict.
-                    if "already exists" in str(e) and e.sql_error_code == 1998:
-                        exception = AnalysisException(str(e))
-                        attach_custom_error_code(
-                            exception, ErrorCodes.INVALID_OPERATION
-                        )
-                        raise exception from e
-                    raise
+                    _translate_create_view_snowpark_error(e, name)
             case "CreateViewCommand":
                 with push_processed_view(logical_plan.name().identifier()):
                     df_container = execute_logical_plan(logical_plan.plan())
@@ -3522,8 +3714,7 @@ def map_logical_plan_relation(
             # Customers who hit this path without the extension get a
             # clear pointer to ``pip install 'snowpark-connect[iceberg]'``
             # rather than a generic "unsupported plan node" message.
-            extensions_value = global_config.get("spark.sql.extensions")
-            if not is_iceberg_sql_extensions_config(extensions_value):
+            if not is_iceberg_sql_extensions_enabled():
                 exception = AnalysisException(
                     "SQL time travel ('VERSION AS OF' / 'TIMESTAMP AS OF') "
                     "requires the Iceberg Spark SQL Extensions. Enable them "
@@ -4441,7 +4632,7 @@ def _extract_table_location(logical_plan) -> str | None:
     return str(loc)
 
 
-def _extract_table_provider(logical_plan) -> str:
+def _extract_table_provider(logical_plan: typing.Any) -> str:
     """Return Spark's table provider from ``tableSpec()``, lower-cased.
 
     Spark SQL ``CREATE TABLE ... USING iceberg`` and CTAS both expose the
@@ -4449,8 +4640,7 @@ def _extract_table_provider(logical_plan) -> str:
     can omit the accessor, so failures degrade to ``"default"`` and preserve the
     non-Iceberg path.
     """
-    data_source = "default"
-    with suppress(Exception):
+    try:
         table_spec = logical_plan.tableSpec()
         if hasattr(table_spec, "provider"):
             provider_opt = table_spec.provider()
@@ -4461,7 +4651,12 @@ def _extract_table_provider(logical_plan) -> str:
             for prop in table_properties.get():
                 if str(prop.key()) == "FORMAT":
                     return str(prop.value()).lower()
-    return data_source
+    except Exception:
+        logger.debug(
+            "tableSpec provider/properties not accessible; using default table provider",
+            exc_info=True,
+        )
+    return "default"
 
 
 def _extract_identity_partition_columns(logical_plan: typing.Any) -> list[str]:
@@ -4605,7 +4800,7 @@ def _build_create_iceberg_table_clauses(
 ) -> str:
     """Build the post-column DDL clauses for ``CREATE ICEBERG TABLE``.
 
-    Threads three optional clauses, in the order Snowflake's
+    Threads five optional clauses, in the order Snowflake's
     `CREATE ICEBERG TABLE <https://docs.snowflake.com/en/sql-reference/sql/create-iceberg-table>`_
     grammar lays them out — so that customer-facing DDL stays stable and
     diff-friendly:
@@ -4686,7 +4881,25 @@ def _build_managed_iceberg_external_volume_clause() -> str:
     return f"EXTERNAL_VOLUME = '{escaped}'"
 
 
-def _build_managed_iceberg_config_for_sql(logical_plan) -> dict[str, typing.Any]:
+def _resolve_managed_iceberg_base_location_for_sql(
+    logical_plan: typing.Any,
+) -> str | None:
+    explicit_location = _extract_table_location(logical_plan)
+    if explicit_location:
+        return explicit_location
+
+    value = sessions_config.get(get_spark_session_id(), {}).get(
+        "snowpark.connect.iceberg.base_location"
+    )
+    if not value:
+        return None
+    stripped = str(value).strip()
+    return stripped or None
+
+
+def _build_managed_iceberg_config_for_sql(
+    logical_plan: typing.Any,
+) -> dict[str, typing.Any]:
     config: dict[str, typing.Any] = {"catalog": "SNOWFLAKE"}
     external_volume = sessions_config.get(get_spark_session_id(), {}).get(
         "snowpark.connect.iceberg.external_volume"
@@ -4694,9 +4907,9 @@ def _build_managed_iceberg_config_for_sql(logical_plan) -> dict[str, typing.Any]
     if external_volume:
         config["external_volume"] = external_volume
 
-    explicit_location = _extract_table_location(logical_plan)
-    if explicit_location:
-        config["base_location"] = explicit_location
+    base_location = _resolve_managed_iceberg_base_location_for_sql(logical_plan)
+    if base_location:
+        config["base_location"] = base_location
 
     properties = _extract_table_properties(logical_plan)
     iceberg_version = _extract_iceberg_format_version(properties)

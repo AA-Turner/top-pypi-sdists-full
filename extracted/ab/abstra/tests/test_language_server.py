@@ -489,3 +489,47 @@ class TestEdgeCases(TestCase):
 
         for result in results:
             self.assertIsInstance(result, list)
+
+
+# ── file:// URI construction (Windows regression) ─────────────────────────
+
+
+class TestFileUriConstruction(TestCase):
+    """Regression for the Windows-only hang: the client built URIs as
+    ``"file://" + path``, which on Windows yields ``file://C:\\...`` (drive as
+    authority, backslashes invalid). Pyrefly publishes diagnostics under its
+    canonical ``file:///C:/.../...`` URI, so the keys never matched and every
+    file timed out with zero diagnostics (62 files x 5s ~= 310s)."""
+
+    def test_windows_path_produces_canonical_uri(self):
+        # _path_to_uri uses Path.as_uri(); on Windows that yields the canonical
+        # form below — exactly what Pyrefly published in the field report, so
+        # the key we wait on now matches. (PureWindowsPath lets this run on any
+        # OS: a bare Path("C:\\...") on POSIX would not be treated as absolute.)
+        from pathlib import PureWindowsPath
+
+        uri = PureWindowsPath(
+            r"C:\Users\lucas\Abstra\personal-project\.pyrefly_buffer.py"
+        ).as_uri()
+        self.assertEqual(
+            uri,
+            "file:///C:/Users/lucas/Abstra/personal-project/.pyrefly_buffer.py",
+        )
+        self.assertTrue(uri.startswith("file:///"))
+        self.assertNotIn("\\", uri)
+
+    def test_posix_uri_unchanged_from_old_concatenation(self):
+        from abstra_internals.controllers.language_server import _path_to_uri
+
+        path = "/home/user/project/.pyrefly_buffer.py"
+        # Old behavior on POSIX was "file://" + path — must stay identical.
+        self.assertEqual(_path_to_uri(path), "file://" + path)
+
+    def test_uri_to_path_round_trips(self):
+        from abstra_internals.controllers.language_server import (
+            _path_to_uri,
+            _uri_to_path,
+        )
+
+        path = "/home/user/project/my file.py"  # includes a space
+        self.assertEqual(_uri_to_path(_path_to_uri(path)), path)

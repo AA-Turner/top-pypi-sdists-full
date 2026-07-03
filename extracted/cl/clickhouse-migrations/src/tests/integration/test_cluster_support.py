@@ -1,0 +1,58 @@
+from pathlib import Path
+
+from clickhouse_migrations.clickhouse_cluster import ClickhouseCluster
+
+TESTS_DIR = Path(__file__).parents[1]
+
+CLICKHOUSE_SERVERS = (
+    "clickhouse01",
+    "clickhouse02",
+    "clickhouse03",
+    "clickhouse04",
+)
+
+
+def test_replicated_schema(_schema):
+    with _schema:
+        for server in CLICKHOUSE_SERVERS:
+            table_engine = _schema.execute(
+                f"select engine_full from remote('{server}', 'system.tables') where database = 'pytest' and name = 'schema_versions'"  # pylint: disable=C0301 # noqa: E501
+            )[0][0]
+            assert (
+                table_engine
+                == "ReplicatedMergeTree('/clickhouse/tables/pytest/schema_versions', '{replica}') ORDER BY tuple(created_at) SETTINGS index_granularity = 8192"  # pylint: disable=C0301 # noqa: E501
+            )
+
+
+def test_distributed_database_create(cluster, _clean_slate):
+    cluster.create_db("pytest", "company_cluster")
+    with cluster.connection("") as conn:
+        for server in CLICKHOUSE_SERVERS:
+            assert (
+                conn.execute(
+                    f"select count(*) from remote('{server}', 'system.databases') where name = 'pytest'"
+                )[0][0]
+                == 1
+            )
+
+
+def test_migration_with_replicated_schema(_schema):
+    cluster = ClickhouseCluster(db_host="localhost", db_user="default", db_password="")
+    result_set = []
+
+    cluster.migrate("pytest", TESTS_DIR / "migrations", "company_cluster")
+
+    with cluster.connection("pytest") as conn:
+        for server in CLICKHOUSE_SERVERS:
+            assert (
+                conn.execute(  # pylint: disable=no-member
+                    f"select count(*) from remote('{server}', 'pytest.schema_versions')"
+                )[0][0]
+                == 1
+            )
+            result_set.append(
+                conn.execute(  # pylint: disable=no-member
+                    f"select * from remote('{server}', 'pytest.schema_versions')"
+                )[0]
+            )
+        assert len(result_set) == len(CLICKHOUSE_SERVERS) and len(set(result_set)) == 1

@@ -21,6 +21,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from typing import Any
 from unittest import mock
 
 
@@ -135,8 +136,7 @@ class UtilsTest(test_utils.BaseTestCase):
                          strict=False, default='foo'))
 
     def test_check_for_invalid_fields(self) -> None:
-        self.assertIsNone(utils.check_for_invalid_fields(
-                          ['a', 'b'], ['a', 'b', 'c']))
+        utils.check_for_invalid_fields(['a', 'b'], ['a', 'b', 'c'])
         # 'd' is not a valid field
         self.assertRaises(exc.CommandError, utils.check_for_invalid_fields,
                           ['a', 'd'], ['a', 'b', 'c'])
@@ -176,7 +176,7 @@ class CommonParamsForListTest(test_utils.BaseTestCase):
         self.args = mock.Mock(marker=None, limit=None, sort_key=None,
                               sort_dir=None, detail=False, fields=None,
                               spec=True)
-        self.expected_params = {'detail': False}
+        self.expected_params: dict[str, Any] = {'detail': False}
 
     def test_nothing_set(self) -> None:
         self.assertEqual(self.expected_params,

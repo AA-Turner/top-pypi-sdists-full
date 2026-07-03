@@ -14,7 +14,7 @@ from collections.abc import Iterable
 from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import Enum, unique
-from typing import Optional
+from typing import Any, Optional
 
 import google.protobuf.message
 import pyspark.sql.connect.proto.base_pb2 as proto_base
@@ -65,6 +65,7 @@ class EventType(Enum):
     SUBMIT_COMPLETION = "scos_submit_completion"
     WARNING = "scos_warning"
     RESOLUTION_RULE = "scos_resolution_rule"
+    NULL_TYPE_FALLBACK = "scos_null_type_fallback"
 
 
 # global labels
@@ -642,6 +643,14 @@ class Telemetry:
         if error_location:
             summary["error_location"] = error_location
 
+        # Capture the plan node where the error originated. active_plan_id (the context manager
+        # in map_relation) tags the exception with _scos_plan_id before resetting the ContextVar,
+        # so we read from the exception attribute rather than from get_current_plan_id() which
+        # will have already been reset to None by the time we get here.
+        error_plan_id = getattr(e, "_scos_plan_id", None)
+        if error_plan_id is not None:
+            summary["error_plan_id"] = error_plan_id
+
         # Track session-level failure for job completion telemetry
         self._any_request_failed = True
         self._last_error_message = str(e)[:500]  # Limit length
@@ -925,15 +934,48 @@ class Telemetry:
             "rel_type": rel_type,
             "outcome": outcome,
         }
-        spark_session_id = self._request_summary.get().get("spark_session_id", None)
-        if spark_session_id is not None:
+        summary = self._request_summary.get()
+        if spark_session_id := summary.get("spark_session_id"):
             data["spark_session_id"] = spark_session_id
+        if operation_id := summary.get("spark_operation_id"):
+            data["spark_operation_id"] = operation_id
 
         message = {
             **self._basic_telemetry_data(),
             TelemetryField.KEY_TYPE.value: TelemetryType.TYPE_EVENT.value,
             TelemetryType.EVENT_TYPE.value: EventType.RESOLUTION_RULE.value,
             TelemetryField.KEY_DATA.value: data,
+        }
+        self._send(message)
+
+    @safe
+    def send_null_type_fallback_telemetry(
+        self,
+        data: dict[str, Any],
+        plan_id: int | None,
+        source: str,
+    ) -> None:
+        """Emitted when a column/argument type resolves to None and falls back to NullType.
+
+        source distinguishes the call site: "map_with_columns" or "map_unresolved_function/in".
+        data carries the context-specific fields (differs per call site).
+        plan_id and spark_session_id are injected automatically.
+        """
+        payload = dict(data)
+        payload["source"] = source
+        if plan_id is not None:
+            payload["plan_id"] = plan_id
+        summary = self._request_summary.get()
+        if spark_session_id := summary.get("spark_session_id"):
+            payload["spark_session_id"] = spark_session_id
+        if operation_id := summary.get("spark_operation_id"):
+            payload["spark_operation_id"] = operation_id
+
+        message = {
+            **self._basic_telemetry_data(),
+            TelemetryField.KEY_TYPE.value: TelemetryType.TYPE_EVENT.value,
+            TelemetryType.EVENT_TYPE.value: EventType.NULL_TYPE_FALLBACK.value,
+            TelemetryField.KEY_DATA.value: payload,
         }
         self._send(message)
 

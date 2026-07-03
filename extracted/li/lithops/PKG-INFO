@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: lithops
-Version: 3.6.4
+Version: 3.7.0
 Summary: Lithops lets you transparently run your Python applications in the Cloud
 Home-page: https://github.com/lithops-cloud/lithops
 Author: Gil Vernik, Josep Sampe
@@ -12,11 +12,11 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Natural Language :: English
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: System :: Distributed Computing

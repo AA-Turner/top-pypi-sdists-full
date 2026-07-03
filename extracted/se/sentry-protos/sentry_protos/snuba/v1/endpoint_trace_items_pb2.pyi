@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
 import sentry_protos.snuba.v1.request_common_pb2
+import sentry_protos.snuba.v1.trace_item_filter_pb2
 import sentry_protos.snuba.v1.trace_item_pb2
 import typing
 
@@ -21,20 +22,26 @@ class ExportTraceItemsRequest(google.protobuf.message.Message):
     META_FIELD_NUMBER: builtins.int
     PAGE_TOKEN_FIELD_NUMBER: builtins.int
     LIMIT_FIELD_NUMBER: builtins.int
+    FILTER_FIELD_NUMBER: builtins.int
     limit: builtins.int
     @property
     def meta(self) -> sentry_protos.snuba.v1.request_common_pb2.RequestMeta: ...
     @property
     def page_token(self) -> sentry_protos.snuba.v1.request_common_pb2.PageToken: ...
+    @property
+    def filter(self) -> sentry_protos.snuba.v1.trace_item_filter_pb2.TraceItemFilter:
+        """filter out trace items you dont want"""
+
     def __init__(
         self,
         *,
         meta: sentry_protos.snuba.v1.request_common_pb2.RequestMeta | None = ...,
         page_token: sentry_protos.snuba.v1.request_common_pb2.PageToken | None = ...,
         limit: builtins.int = ...,
+        filter: sentry_protos.snuba.v1.trace_item_filter_pb2.TraceItemFilter | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["meta", b"meta", "page_token", b"page_token"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["limit", b"limit", "meta", b"meta", "page_token", b"page_token"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["filter", b"filter", "meta", b"meta", "page_token", b"page_token"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["filter", b"filter", "limit", b"limit", "meta", b"meta", "page_token", b"page_token"]) -> None: ...
 
 global___ExportTraceItemsRequest = ExportTraceItemsRequest
 

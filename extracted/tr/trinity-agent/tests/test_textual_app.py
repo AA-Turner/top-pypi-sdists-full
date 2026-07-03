@@ -14,6 +14,7 @@ from textual.app import App
 from textual.color import Color
 from textual.containers import VerticalScroll
 from textual.css.query import NoMatches
+from textual.geometry import Region
 from textual.widgets import (
     Button,
     DataTable,
@@ -108,6 +109,7 @@ from trinity.textual_app.presenters import (
     model_settings_title,
     model_settings_unavailable_markdown,
     model_settings_updated_markdown,
+    nexus_next_action_line,
     packages_action_hint,
     packages_markdown,
     packages_rows,
@@ -274,6 +276,7 @@ from trinity.textual_app.widgets.workspace_picker import (
     WorkspacePicker,
     build_preflight,
 )
+from trinity.textual_app.widgets.workspace_select import WorkspaceSelectSurface
 from trinity.workflow import (
     ArchitectureComponent,
     Blueprint,
@@ -656,10 +659,17 @@ async def test_textual_command_palette_runs_slash_command_handler(tmp_path) -> N
         app._handle_textual_slash_command = handled.append  # type: ignore[method-assign]
         provider = SlashCommandPaletteProvider(app.screen)
         status_hit = [hit async for hit in provider.search("status")][0]
+        execute_hit = next(
+            hit
+            for hit in [hit async for hit in provider.search("execute")]
+            if hit.text == "/execute"
+        )
 
         status_hit.command()
 
     assert handled == ["/status"]
+    assert status_hit.help == "[local] show provider and workflow status"
+    assert execute_hit.help == "[run AI !write] open execution preflight"
 
 
 def test_status_modal_centers_and_uses_read_only_table() -> None:
@@ -1004,6 +1014,91 @@ def test_textual_nexus_binding_label_is_localized() -> None:
 
 def test_slash_command_notification_title_uses_korean_label() -> None:
     assert slash_command_notification_title(lang="ko") == "슬래시 명령"
+
+
+def test_nexus_next_action_line_prioritizes_user_decisions() -> None:
+    provider_error = WorkflowNexusSnapshot(
+        state="blueprint_ready",
+        work_packages=["WP-001"],
+        questions=[
+            QuestionSnapshot(
+                id="q-provider-error-retry",
+                question="Retry failed provider?",
+                options=["Retry failed providers", "Stop"],
+            )
+        ],
+    )
+    provider_error_with_continue = WorkflowNexusSnapshot(
+        state="needs_user_decision",
+        questions=[
+            QuestionSnapshot(
+                id="q-provider-error-retry",
+                question="Retry failed provider?",
+                options=[
+                    "Retry failed providers",
+                    "Continue without failed providers",
+                    "Stop workflow",
+                ],
+            )
+        ],
+    )
+    open_question = WorkflowNexusSnapshot(
+        questions=[QuestionSnapshot(id="q-1", question="Proceed?")]
+    )
+    repair_blocked = WorkflowNexusSnapshot(
+        state="needs_user_decision",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Implement",
+                owner_agent="codex",
+                status="blocked",
+                repair_blocked_reason="duplicate changes",
+            )
+        ],
+    )
+
+    assert nexus_next_action_line(provider_error) == (
+        "Now: Provider error decision | Next: central buttons: Retry failed / Stop"
+    )
+    assert nexus_next_action_line(provider_error_with_continue, lang="ko") == (
+        "현재: 프로바이더 오류 결정 | 다음: "
+        "중앙 버튼: 실패 재시도 / 제외하고 계속 / 중단"
+    )
+    assert nexus_next_action_line(open_question, lang="ko") == (
+        "현재: 사용자 답변 대기 (1) | 다음: 질문 패널 또는 `/answer next <답변>`"
+    )
+    assert nexus_next_action_line(repair_blocked, lang="ko") == (
+        "현재: 리뷰 보정 일시 중지 | 다음: "
+        "중앙 버튼: 재시도 / 완료 처리 / 리뷰 보기 / 중단"
+    )
+
+
+def test_nexus_next_action_line_guides_execution_states() -> None:
+    blueprint_ready = WorkflowNexusSnapshot(
+        state="blueprint_ready",
+        work_packages=["WP-001"],
+    )
+    retry_ready = WorkflowNexusSnapshot(
+        execution_recovery=ExecutionRecoverySnapshot(
+            state="interrupted",
+            retry_candidates=("WP-001",),
+        )
+    )
+    post_review_ready = WorkflowNexusSnapshot(
+        state="post_review_ready",
+        post_review_items=[PostReviewActionSnapshot(id="AI-001", title="Polish UX")],
+    )
+
+    assert nexus_next_action_line(blueprint_ready, lang="ko") == (
+        "현재: 설계 준비됨 | 다음: `/execute` 실행"
+    )
+    assert nexus_next_action_line(retry_ready) == (
+        "Now: Execution recovery | Next: central button: Retry failed WPs"
+    )
+    assert nexus_next_action_line(post_review_ready, lang="ko") == (
+        "현재: 리뷰 후속 보강 준비 (1) | 다음: `/improve high` 또는 `/improve done`"
+    )
 
 
 def test_workflow_presenter_uses_korean_labels() -> None:
@@ -1926,6 +2021,15 @@ async def test_start_workspace_label_stays_compact_with_long_path(
         )
 
 
+def _rendered_static_text(widget: Static) -> str:
+    return "\n".join(
+        strip.text
+        for strip in widget.render_lines(
+            Region(0, 0, widget.region.width, widget.region.height)
+        )
+    )
+
+
 @pytest.mark.asyncio
 async def test_start_workspace_button_keeps_korean_label_visible(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
@@ -1938,10 +2042,73 @@ async def test_start_workspace_button_keeps_korean_label_visible(tmp_path) -> No
         assert isinstance(start, StartScreen)
         select_workspace = start.query_one("#start-select-workspace", Static)
 
+        assert isinstance(select_workspace, WorkspaceSelectSurface)
         assert str(select_workspace.content) == "작업 폴더 선택"
+        assert select_workspace.has_class("workspace-select-surface")
+        assert select_workspace.has_class("workspace-select-surface-tall")
         assert select_workspace.styles.width.value == 28
         assert select_workspace.styles.min_width.value == 28
+        assert select_workspace.styles.outline_top[0] == "tall"
+        assert select_workspace.styles.outline_bottom[0] == "tall"
+        assert select_workspace.styles.outline_left[0] == "solid"
+        assert select_workspace.styles.outline_right[0] == "solid"
         assert select_workspace.region.width >= 28
+        assert "작업 폴더 선택" in _rendered_static_text(select_workspace)
+        screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
+        assert "작업 폴더 선택" in screenshot
+
+
+@pytest.mark.asyncio
+async def test_start_workspace_button_keeps_korean_label_visible_in_compact_density(
+    tmp_path,
+) -> None:
+    UISettingsStore(tmp_path / ".trinity").save(UISettings(density="compact"))
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        select_workspace = start.query_one("#start-select-workspace", Static)
+
+        assert app.has_class("ui-density-compact")
+        assert str(select_workspace.content) == "작업 폴더 선택"
+        assert select_workspace.has_class("workspace-select-surface")
+        assert select_workspace.has_class("workspace-select-surface-tall")
+        assert select_workspace.styles.height.value == 2
+        assert select_workspace.styles.outline_top[0] == ""
+        assert select_workspace.styles.outline_bottom[0] == ""
+        assert select_workspace.styles.outline_left[0] == "solid"
+        assert select_workspace.styles.outline_right[0] == "solid"
+        assert "작업 폴더 선택" in _rendered_static_text(select_workspace)
+        screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
+        assert "작업 폴더 선택" in screenshot
+
+
+@pytest.mark.asyncio
+async def test_start_workspace_button_stays_visible_with_command_palette_open(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        composer = start.query_one("#start-composer", PromptComposer)
+        composer.set_text("/")
+        await pilot.pause()
+
+        workspace_label = start.query_one("#workspace-candidate", Static)
+        select_workspace = start.query_one("#start-select-workspace", Static)
+        assert select_workspace.region.x > workspace_label.region.x
+        assert select_workspace.region.x + select_workspace.region.width <= start.size.width
+        assert str(select_workspace.content) == "작업 폴더 선택"
+        assert "작업 폴더 선택" in _rendered_static_text(select_workspace)
         screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
         assert "작업 폴더 선택" in screenshot
 
@@ -2101,6 +2268,36 @@ async def test_nexus_command_palette_keyboard_selection_stays_visible(
 
 
 @pytest.mark.asyncio
+async def test_nexus_workspace_button_keeps_korean_label_visible(tmp_path) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        workspace_label = screen.query_one("#nexus-target-workspace", Static)
+        select_workspace = screen.query_one("#nexus-select-workspace", Static)
+
+        assert str(select_workspace.content) == "작업 폴더 선택"
+        assert select_workspace.has_class("workspace-select-surface")
+        assert select_workspace.styles.width.value == 28
+        assert select_workspace.styles.min_width.value == 28
+        assert select_workspace.styles.outline_top[0] == "solid"
+        assert select_workspace.styles.outline_bottom[0] == "solid"
+        assert select_workspace.styles.outline_left[0] == "solid"
+        assert select_workspace.styles.outline_right[0] == "solid"
+        assert select_workspace.region.x > workspace_label.region.x
+        assert select_workspace.region.x + select_workspace.region.width <= screen.size.width
+        assert "작업 폴더 선택" in _rendered_static_text(select_workspace)
+        screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
+        assert "작업 폴더 선택" in screenshot
+
+
+@pytest.mark.asyncio
 async def test_nexus_command_palette_stays_visible_after_terminal_resize(
     tmp_path,
 ) -> None:
@@ -2145,6 +2342,69 @@ async def test_nexus_command_palette_stays_visible_after_terminal_resize(
 
 
 @pytest.mark.asyncio
+async def test_start_and_nexus_composers_share_command_palette_layout_contract(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        start_composer = start.query_one("#start-composer", PromptComposer)
+        assert start_composer.has_class("prompt-composer")
+        assert start_composer.styles.height.value == 8
+        start_composer.set_text("/")
+        await pilot.pause()
+        assert start_composer.styles.height.value == 11
+        assert start_composer.styles.dock == "none"
+
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        nexus_composer = nexus.query_one("#nexus-composer", PromptComposer)
+        assert nexus_composer.has_class("prompt-composer")
+        assert nexus_composer.styles.height.value == 7
+        nexus_composer.set_text("/")
+        await pilot.pause()
+        assert nexus_composer.styles.height.value == 11
+        assert nexus_composer.styles.dock == "bottom"
+
+
+@pytest.mark.asyncio
+async def test_start_and_nexus_composers_share_compact_palette_height(
+    tmp_path,
+) -> None:
+    UISettingsStore(tmp_path / ".trinity").save(UISettings(density="compact"))
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        start_composer = start.query_one("#start-composer", PromptComposer)
+        assert start_composer.styles.height.value == 6
+        start_composer.set_text("/")
+        await pilot.pause()
+        assert start_composer.styles.height.value == 9
+
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        nexus_composer = nexus.query_one("#nexus-composer", PromptComposer)
+        assert nexus_composer.styles.height.value == 6
+        nexus_composer.set_text("/")
+        await pilot.pause()
+        assert nexus_composer.styles.height.value == 9
+
+
+@pytest.mark.asyncio
 async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     config.agents["codex"].enabled = True
@@ -2159,8 +2419,10 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
         assert start_selector.selected_agents() == ("claude", "codex")
         claude_toggle = start_selector.query_one("#recipient-claude", AgentToggle)
         codex_toggle = start_selector.query_one("#recipient-codex", AgentToggle)
-        assert claude_toggle.styles.width.value == 12
-        assert codex_toggle.styles.width.value == 12
+        assert claude_toggle.styles.min_width.value == 8
+        assert codex_toggle.styles.min_width.value == 8
+        assert claude_toggle.region.width >= 8
+        assert codex_toggle.region.width >= 8
         assert claude_toggle.value is True
         assert codex_toggle.value is True
         assert start_selector.selected_model("codex") == "default"
@@ -2183,6 +2445,61 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
         assert nexus_selector.selected_agents() == ("claude", "codex")
         assert nexus_selector.selected_model("claude") == "default"
         assert nexus_selector.query_one("#recipient-antigravity", AgentToggle).value is False
+
+
+@pytest.mark.asyncio
+async def test_start_agent_selector_toggles_stay_inside_narrow_viewport(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    for spec in config.agents.values():
+        spec.enabled = True
+    app = TrinityTextualApp(config, FakeWorkflowController())
+
+    async with app.run_test(size=(60, 20)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        selector = start.query_one("#start-recipient-selector", AgentRecipientModelSelector)
+        assert selector.region.height == 1
+        assert selector.styles.height.value == 1
+        for toggle in selector.query(AgentToggle):
+            assert toggle.region.x >= selector.region.x
+            assert (
+                toggle.region.x + toggle.region.width
+                <= selector.region.x + selector.region.width
+            )
+            assert toggle.region.y == selector.region.y
+            assert toggle.region.x + toggle.region.width <= start.size.width
+
+
+@pytest.mark.asyncio
+async def test_nexus_agent_selector_toggles_stay_inside_narrow_viewport(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    for spec in config.agents.values():
+        spec.enabled = True
+    app = TrinityTextualApp(config, FakeWorkflowController())
+
+    async with app.run_test(size=(60, 20)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        selector = nexus.query_one("#nexus-recipient-selector", AgentRecipientModelSelector)
+        assert selector.region.height == 1
+        assert selector.styles.height.value == 1
+        for toggle in selector.query(AgentToggle):
+            assert toggle.region.x >= selector.region.x
+            assert (
+                toggle.region.x + toggle.region.width
+                <= selector.region.x + selector.region.width
+            )
+            assert toggle.region.y == selector.region.y
+            assert toggle.region.x + toggle.region.width <= nexus.size.width
 
 
 @pytest.mark.asyncio
@@ -7711,12 +8028,14 @@ async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
 
         assert palette.display is True
         assert any("/status" in option for option in options)
+        assert any("[local]" in option for option in options)
 
         composer.set_text("/ex")
         await pilot.pause()
         filtered_options = [str(option.content) for option in composer.query(".command-option")]
 
         assert any("/execute" in option for option in filtered_options)
+        assert any("[run AI !write]" in option for option in filtered_options)
 
         composer.set_text("/rep")
         await pilot.pause()
@@ -7749,6 +8068,7 @@ async def test_prompt_composer_localizes_slash_command_palette_in_korean(tmp_pat
         more = str(composer.query_one("#command-option-more").content)
 
         assert any("/status" in option for option in options)
+        assert any("[로컬]" in option for option in options)
         assert any("제공자와 워크플로우 상태 보기" in option for option in options)
         assert not any("show provider and workflow status" in option for option in options)
         assert "명령 더 있음" in more
@@ -7777,6 +8097,7 @@ async def test_nexus_composer_uses_configured_slash_command_language(tmp_path) -
         options = [str(option.content) for option in composer.query(".command-option")]
 
         assert any("/execute" in option for option in options)
+        assert any("[실행 AI !쓰기]" in option for option in options)
         assert any("실행 사전 점검 열기" in option for option in options)
         assert not any("open execution preflight" in option for option in options)
 
@@ -8263,6 +8584,27 @@ async def test_central_agent_view_renders_question_options(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_nexus_empty_question_panel_uses_one_line_status(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        screen.apply_snapshot(WorkflowNexusSnapshot())
+        await pilot.pause()
+
+        question_panel = screen.query_one(QuestionPanel)
+        assert question_panel.has_class("question-panel-empty")
+        assert question_panel.region.height == 1
+        assert str(question_panel.query_one("#question-panel-title", Static).content) == (
+            "No questions"
+        )
+
+
+@pytest.mark.asyncio
 async def test_central_agent_view_renders_all_questions(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
@@ -8690,11 +9032,12 @@ async def test_nexus_provider_strip_stays_compact_on_small_viewport(tmp_path) ->
         strip = screen.query_one("#provider-strip")
         panels = list(screen.query(ProviderPanel))
 
-        assert strip.region.height == 5
+        assert strip.region.height == 4
+        assert strip.has_class("provider-strip-compact")
         assert strip.has_class("provider-strip-3")
         assert len(panels) == 3
         for panel in panels:
-            assert panel.region.height == 5
+            assert panel.region.height == 4
             assert panel.region.y >= strip.region.y
             assert (
                 panel.region.y + panel.region.height
@@ -8706,9 +9049,54 @@ async def test_nexus_provider_strip_stays_compact_on_small_viewport(tmp_path) ->
         assert "Antigravity" in str(
             screen.query_one("#provider-antigravity .provider-name").content
         )
-        assert "out execution_v1" in str(
-            screen.query_one("#provider-codex .provider-meta").content
+        assert (
+            str(screen.query_one("#provider-codex .provider-meta").content)
+            == "codex · gpt-5.5"
         )
+
+
+@pytest.mark.asyncio
+async def test_nexus_disabled_provider_card_stays_quiet(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                providers=[
+                    ProviderSnapshot(
+                        name="claude",
+                        provider="claude-code",
+                        enabled=True,
+                        status="Ready",
+                        actual_model="sonnet",
+                    ),
+                    ProviderSnapshot(
+                        name="codex",
+                        provider="codex",
+                        enabled=False,
+                        status="Ready",
+                        actual_model="gpt-5.5",
+                    ),
+                ]
+            )
+        )
+        await pilot.pause()
+
+        active = screen.query_one("#provider-claude", ProviderPanel)
+        disabled = screen.query_one("#provider-codex", ProviderPanel)
+
+        assert not screen.query_one("#provider-strip").has_class("provider-strip-compact")
+        assert active.region.height == 5
+        assert disabled.has_class("provider-disabled")
+        assert disabled.region.height == 1
+        assert str(disabled.query_one(".provider-status").content) == "OFF"
+        assert disabled.query_one(".provider-meta").display is False
+        assert disabled.query_one(".provider-summary").display is False
 
 
 @pytest.mark.asyncio
@@ -9628,8 +10016,8 @@ def test_execution_matrix_detail_button_labels_review_escalation() -> None:
         status="done",
     )
 
-    assert _detail_button_label(package) == "2nd Review"
-    assert _detail_button_label(package, lang="ko") == "2차 리뷰"
+    assert _detail_button_label(package) == "Spec"
+    assert _detail_button_label(package, lang="ko") == "상세"
     assert _detail_button_label(blocked) == "Blocked"
     assert _detail_button_label(blocked, lang="ko") == "차단됨"
     assert _detail_button_label(default) == "Spec"
@@ -9780,9 +10168,64 @@ async def test_execution_matrix_80_columns_keeps_review_risk_and_spec_visible(
             assert widget.region.x + widget.region.width <= 80
 
         activity_lines = screen.activity_lines()
-        assert activity_lines[0] == "Activity"
+        assert activity_lines[0] == "Recent Log"
         assert "... 4 earlier log lines hidden" in activity_lines
         assert "event-11" in activity_lines
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_80_columns_keeps_korean_action_labels_visible(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                session_id="wf-action-labels",
+                state="executing",
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Compact action labels",
+                        owner_agent="codex",
+                        current_executor="codex",
+                        status="failed",
+                        review_status="needs_second_review",
+                        retryable=True,
+                        risk="high",
+                    )
+                ],
+                execution_log=[f"event-{index}" for index in range(1, 10)],
+            ),
+        )
+        await pilot.pause()
+
+        row = screen.query("#execution-package-list .execution-package-row").first()
+        actions = row.query_one(".execution-package-actions")
+        assert actions.region.x + actions.region.width <= 80
+        assert actions.styles.width.value == 20
+
+        expected = {
+            "#wp-detail-0": "상세",
+            "#wp-retry-0": "재시도",
+            "#wp-review-0": "2차",
+        }
+        for selector, label in expected.items():
+            button = row.query_one(selector, Button)
+            button_text = "\n".join(
+                strip.text
+                for strip in button.render_lines(
+                    Region(0, 0, button.region.width, button.region.height)
+                )
+            )
+            assert label in button_text
+            assert button.region.x + button.region.width <= 80
 
 
 def test_execution_matrix_recent_activity_reads_only_recent_log_window() -> None:
@@ -9809,7 +10252,7 @@ def test_execution_matrix_recent_activity_reads_only_recent_log_window() -> None
 
     activity_lines = screen.activity_lines()
 
-    assert activity_lines[0] == "Activity"
+    assert activity_lines[0] == "Recent Log"
     assert "... 93 earlier log lines hidden" in activity_lines
     assert activity_lines[-1] == "event-100"
     assert source.indexes == list(range(93, 100))
@@ -9842,7 +10285,9 @@ async def test_execution_matrix_row_labels_second_review_action(tmp_path) -> Non
         await pilot.pause()
 
         button = screen.query_one("#wp-detail-0", Button)
-        assert str(button.label) == "2nd Review"
+        assert str(button.label) == "Spec"
+        review_button = screen.query_one("#wp-review-0", Button)
+        assert str(review_button.label) == "2nd"
 
 
 @pytest.mark.asyncio
@@ -9882,7 +10327,7 @@ async def test_execution_matrix_row_requests_second_review(tmp_path) -> None:
         await pilot.pause()
 
         review_button = screen.query_one("#wp-review-0", Button)
-        assert str(review_button.label) == "Run 2nd"
+        assert str(review_button.label) == "2nd"
         assert review_button.region.x + review_button.region.width <= 100
         detail_button = screen.query_one("#wp-detail-0", Button)
         assert detail_button.region.x + detail_button.region.width <= 100
@@ -9892,6 +10337,50 @@ async def test_execution_matrix_row_requests_second_review(tmp_path) -> None:
         await pilot.pause()
 
         assert controller.review_requests == [("wp", "WP-001")]
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_compacts_three_row_actions_in_80_columns(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Retry and second review",
+                        owner_agent="codex",
+                        current_executor="codex",
+                        status="failed",
+                        retryable=True,
+                        review_status="needs_second_review",
+                    )
+                ]
+            ),
+        )
+        await pilot.pause()
+
+        row = screen.query("#execution-package-list .execution-package-row").first()
+        actions = row.query_one(".execution-package-actions")
+        buttons = list(actions.query(Button))
+        assert [button.id for button in buttons] == [
+            "wp-detail-0",
+            "wp-retry-0",
+            "wp-review-0",
+        ]
+        assert [str(button.label) for button in buttons] == ["Spec", "Retry", "2nd"]
+        for button in buttons:
+            assert button.region.x + button.region.width <= actions.region.x + actions.region.width
+            assert button.region.y + button.region.height <= row.region.y + row.region.height
+            assert button.region.x + button.region.width <= 80
 
 
 @pytest.mark.asyncio
@@ -9994,7 +10483,7 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
                     assert widget.region.x + widget.region.width <= width
 
             activity_lines = screen.activity_lines()
-            assert activity_lines[0] == "활동"
+            assert activity_lines[0] == "최근 로그"
             assert len(activity_lines) <= 9
             assert "event-13" in activity_lines
 
@@ -10059,10 +10548,11 @@ async def test_execution_matrix_opens_full_activity_log_modal(tmp_path) -> None:
         )
         await pilot.pause()
 
-        assert "Full Log" in str(
-            screen.query_one("#toggle-activity-expanded", Button).label
+        assert str(screen.query_one("#toggle-activity-expanded", Button).label) == (
+            "Full Log 11"
         )
         recent_lines = screen.activity_lines()
+        assert recent_lines[0] == "Recent Log"
         assert "... 4 earlier log lines hidden" in recent_lines
         assert "event-1" not in recent_lines
 
@@ -10146,6 +10636,9 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
         await pilot.pause()
 
         assert str(screen.query_one("#execution-retry", Button).label) == "재시도 1"
+        assert str(screen.query_one("#toggle-activity-expanded", Button).label) == (
+            "전체 로그 9"
+        )
         header_text = _widget_tree_text(
             screen.query("#execution-package-list .execution-package-header").first()
         )
@@ -10163,7 +10656,7 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
         assert "리스크: 알 수 없음" in second_row_text
 
         activity_lines = screen.activity_lines()
-        assert activity_lines[0] == "활동"
+        assert activity_lines[0] == "최근 로그"
         assert "... 이전 로그 2줄 숨김" in activity_lines
 
         screen.query_one("#toggle-activity-expanded", Button).press()
@@ -10346,7 +10839,8 @@ async def test_execution_log_modal_search_input_refreshes_log(tmp_path) -> None:
 
         modal = app.screen
         assert isinstance(modal, ExecutionLogModal)
-        await pilot.click("#execution-log-search")
+        search = modal.query_one("#execution-log-search", Input)
+        assert search.has_focus is True
         await pilot.press("f", "a", "i", "l")
         await pilot.pause()
 
@@ -11439,6 +11933,19 @@ async def test_provider_inspector_modal_uses_korean_chrome(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_provider_inspector_all_tab_handles_empty_provider_list(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.push_screen(ProviderInspector([], lang="ko"))
+        await pilot.pause()
+
+        output = app.screen.query_one("#inspect-all .provider-inspector-output", RichLog)
+        text = "\n".join(line.text for line in output.lines)
+        assert "아직 캡처된 원본 출력이 없습니다." in text
+
+
+@pytest.mark.asyncio
 async def test_provider_inspector_all_tab_wraps_long_output(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
@@ -11699,6 +12206,31 @@ async def test_start_workspace_button_opens_workspace_picker(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_start_workspace_button_opens_workspace_picker_from_keyboard(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        FakeWorkflowController(),
+        launch_cwd=tmp_path,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        select_workspace = start.query_one(
+            "#start-select-workspace",
+            WorkspaceSelectSurface,
+        )
+        select_workspace.focus()
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert isinstance(app.screen, WorkspacePicker)
+        assert app.screen.intent == "select"
+
+
+@pytest.mark.asyncio
 async def test_start_workspace_command_updates_workspace_candidate(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
@@ -11926,7 +12458,7 @@ async def test_nexus_workspace_command_selects_target_without_execution(
         select_workspace = nexus.query_one("#nexus-select-workspace", Static)
         assert str(target.resolve()) in str(workspace_label.content)
         assert workspace_label.styles.min_width.value == 0
-        assert workspace_label.styles.height.value == 2
+        assert workspace_label.styles.height.value == 3
         assert workspace_label.styles.content_align_vertical == "middle"
         assert str(select_workspace.content) == "Select Workspace"
         assert select_workspace.styles.width.value == 28
@@ -11981,6 +12513,43 @@ async def test_nexus_workspace_button_opens_workspace_picker(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_nexus_workspace_button_opens_workspace_picker_from_keyboard(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        select_workspace = nexus.query_one(
+            "#nexus-select-workspace",
+            WorkspaceSelectSurface,
+        )
+        select_workspace.focus()
+        await pilot.press("space")
+        await pilot.pause()
+
+        assert controller.execution_requests == 0
+        picker = app.screen
+        assert isinstance(picker, WorkspacePicker)
+        assert picker.intent == "select"
+
+
+@pytest.mark.asyncio
 async def test_nexus_workspace_label_stays_within_narrow_width(tmp_path) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "target-app-with-a-very-long-directory-name"
@@ -12025,11 +12594,17 @@ async def test_nexus_screen_stays_within_narrow_viewport(
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
         nexus_shell = nexus.query_one("#nexus-screen")
+        provider_strip = nexus.query_one("#provider-strip")
+        assert provider_strip.has_class("provider-strip-compact")
+        assert provider_strip.region.height == 4
+        for panel in nexus.query(ProviderPanel):
+            assert panel.region.height <= 4
         widgets = (
-            nexus.query_one("#provider-strip"),
+            provider_strip,
             nexus.query_one("#nexus-workspace-row"),
             nexus.query_one("#nexus-target-workspace", Static),
             nexus.query_one("#nexus-select-workspace", Static),
+            nexus.query_one("#nexus-next-action", Static),
             nexus.query_one("#nexus-main"),
             nexus.query_one("#nexus-recipient-selector"),
             nexus.query_one("#nexus-composer", PromptComposer),
@@ -12042,6 +12617,44 @@ async def test_nexus_screen_stays_within_narrow_viewport(
                 widget.region.y + widget.region.height
                 <= nexus_shell.region.y + nexus_shell.region.height
             )
+
+
+@pytest.mark.asyncio
+async def test_nexus_next_action_strip_updates_with_snapshot(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            state="blueprint_ready",
+            work_packages=["WP-001"],
+        )
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        next_action = nexus.query_one("#nexus-next-action", Static)
+        assert str(next_action.content) == "Now: Blueprint ready | Next: run `/execute`"
+        assert next_action.styles.height.value == 1
+
+        nexus.apply_snapshot(
+            WorkflowNexusSnapshot(
+                session_id="wf-fake",
+                questions=[QuestionSnapshot(id="q-1", question="Proceed?")],
+            )
+        )
+        await pilot.pause()
+
+        assert str(next_action.content) == (
+            "Now: Waiting for your answer (1) | Next: "
+            "use the question panel or `/answer next <answer>`"
+        )
 
 
 @pytest.mark.asyncio
@@ -12203,10 +12816,18 @@ async def test_nexus_action_bar_keeps_korean_workspace_label(tmp_path) -> None:
             nexus.query_one("#nexus-target-workspace", Static).content
         )
         select_workspace = nexus.query_one("#nexus-select-workspace", Static)
+        assert isinstance(select_workspace, WorkspaceSelectSurface)
         assert workspace_label.startswith("계획 대상: ")
         assert str(target.resolve()) in workspace_label
         assert str(select_workspace.content) == "작업 폴더 선택"
+        assert select_workspace.has_class("workspace-select-surface")
+        assert not select_workspace.has_class("workspace-select-surface-tall")
+        assert select_workspace.styles.outline_top[0] == "solid"
+        assert select_workspace.styles.outline_bottom[0] == "solid"
+        assert select_workspace.styles.outline_left[0] == "solid"
+        assert select_workspace.styles.outline_right[0] == "solid"
         assert select_workspace.region.width >= 28
+        assert "작업 폴더 선택" in _rendered_static_text(select_workspace)
         screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
         assert "작업 폴더 선택" in screenshot
         assert nexus.query_one("#nexus-composer", PromptComposer).placeholder == (
@@ -12217,6 +12838,34 @@ async def test_nexus_action_bar_keeps_korean_workspace_label(tmp_path) -> None:
         TrinityConfig.default_config(project_dir=control_repo, lang="ko")
     )
     assert screen.workspace_label() == "대상 작업 폴더 없음"
+
+
+@pytest.mark.asyncio
+async def test_nexus_workspace_button_stays_visible_with_command_palette_open(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        composer = nexus.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/")
+        await pilot.pause()
+
+        workspace_label = nexus.query_one("#nexus-target-workspace", Static)
+        select_workspace = nexus.query_one("#nexus-select-workspace", Static)
+        assert select_workspace.region.x > workspace_label.region.x
+        assert select_workspace.region.x + select_workspace.region.width <= nexus.size.width
+        assert str(select_workspace.content) == "작업 폴더 선택"
+        assert "작업 폴더 선택" in _rendered_static_text(select_workspace)
+        screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
+        assert "작업 폴더 선택" in screenshot
 
 
 @pytest.mark.asyncio
@@ -13124,15 +13773,72 @@ async def test_settings_preview_stays_bounded_on_small_terminals(tmp_path) -> No
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
 
+        settings_screen = screen.query_one("#settings-screen")
+        form = screen.query_one("#settings-form")
+        actions = screen.query_one("#settings-actions")
         preview = screen.query_one("#settings-summary", Static)
         apply_button = screen.query_one("#apply-settings", Button)
+        status = screen.query_one("#settings-status", Static)
 
         assert preview.styles.height.is_auto
         assert preview.styles.max_height.value == 14
         assert str(preview.styles.overflow_y) == "auto"
+        assert form.region.y >= settings_screen.region.y
+        assert form.region.y + form.region.height <= actions.region.y
+        for widget in (actions, apply_button, status):
+            assert widget.region.y >= settings_screen.region.y
+            assert (
+                widget.region.y + widget.region.height
+                <= settings_screen.region.y + settings_screen.region.height
+            )
         assert apply_button.is_mounted
         assert str(apply_button.label) == "Save & Apply"
         assert apply_button.region.width >= 16
+
+
+@pytest.mark.asyncio
+async def test_settings_korean_action_text_stays_visible_on_small_terminals(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(60, 20)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+        apply_button = screen.query_one("#apply-settings", Button)
+        status = screen.query_one("#settings-status", Static)
+
+        apply_text = "\n".join(
+            strip.text
+            for strip in apply_button.render_lines(
+                Region(0, 0, apply_button.region.width, apply_button.region.height)
+            )
+        )
+        saved_text = "\n".join(
+            strip.text
+            for strip in status.render_lines(
+                Region(0, 0, status.region.width, status.region.height)
+            )
+        )
+        assert "저장 및 적용" in apply_text
+        assert "저장됨" in saved_text
+        assert status.styles.min_width.value == 0
+
+        screen.query_one("#density", Select).value = "compact"
+        await pilot.pause()
+
+        unsaved_text = "\n".join(
+            strip.text
+            for strip in status.render_lines(
+                Region(0, 0, status.region.width, status.region.height)
+            )
+        )
+        assert "미저장 변경" in unsaved_text
+        assert "저장 및 적용" in unsaved_text
 
 
 @pytest.mark.asyncio
@@ -13276,7 +13982,8 @@ async def test_settings_screen_loads_saved_model_defaults(tmp_path) -> None:
         assert screen.query_one("#central-model", Select).value == "agent-default"
         preview = str(screen.query_one("#settings-summary", Static).content)
         assert "- Claude: sonnet[1m]" in preview
-        assert "- Codex: gpt-5" in preview
+        assert "- Codex:" in preview
+        assert "gpt-5" in preview.lower()
         assert "Saved central agent default model\n- Codex / Agent default" in preview
 
 
@@ -13744,6 +14451,7 @@ async def test_nexus_provider_error_gate_actions_answer_question(tmp_path) -> No
         assert screen.query_one("#central-action-title", Static).content == (
             "프로바이더 오류 결정"
         )
+        assert screen.query_one(CentralAgentView).has_class("central-provider-error")
         buttons = list(screen.query("#central-actions Button"))
         assert [str(button.label) for button in buttons] == [
             "실패 재시도",
@@ -13757,6 +14465,57 @@ async def test_nexus_provider_error_gate_actions_answer_question(tmp_path) -> No
     assert controller.answers == [
         ("q-provider-error-retry", "Retry failed providers", False)
     ]
+
+
+@pytest.mark.asyncio
+async def test_nexus_provider_error_actions_stay_visible_in_narrow_layout(
+    tmp_path,
+) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-provider-error",
+        state="needs_user_decision",
+        questions=[
+            QuestionSnapshot(
+                id="q-provider-error-retry",
+                question="Provider errors occurred.",
+                options=[
+                    "Retry failed providers",
+                    "Continue without failed providers",
+                    "Stop workflow",
+                ],
+            )
+        ],
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        FakeWorkflowController(snapshot),
+    )
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(snapshot)
+        await pilot.pause()
+
+        central = screen.query_one(CentralAgentView)
+        actions = central.query_one("#central-actions")
+        buttons = list(actions.query(Button))
+        assert [str(button.label) for button in buttons] == [
+            "실패 재시도",
+            "제외하고 계속",
+            "중단",
+        ]
+        for button in buttons:
+            assert button.region.x >= actions.region.x
+            assert button.region.x + button.region.width <= (
+                actions.region.x + actions.region.width
+            )
+            assert button.region.y >= central.region.y
+            assert button.region.y + button.region.height <= (
+                central.region.y + central.region.height
+            )
 
 
 def test_review_repair_details_markdown_summarizes_blocked_packages() -> None:

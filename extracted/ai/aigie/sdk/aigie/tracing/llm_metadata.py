@@ -2,6 +2,8 @@
 callback arguments. Used by framework bindings (LangGraph today; LangChain
 in a follow-up) when they receive on_llm_start / on_chat_model_start.
 
+Also owns the shared LLM-provider vocabulary.
+
 Pure functions only — no I/O, no global state.
 """
 
@@ -10,11 +12,62 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+CANONICAL_PROVIDERS = frozenset(
+    {
+        "openai",
+        "anthropic",
+        "gemini",
+        "bedrock",
+        "groq",
+        "mistral",
+        "cohere",
+        "fireworks",
+        "together",
+        "nvidia",
+        "ai21",
+        "deepseek",
+        "ollama",
+        "azure_openai",
+        "vertex_ai",
+        "huggingface",
+        "xai",
+        "cerebras",
+        "sambanova",
+        "foundry",
+        "anthropic_aws",
+    }
+)
+
+# Provider spellings emitted by LangChain that differ from our wire names.
+_PROVIDER_ALIASES = {
+    "amazon_bedrock": "bedrock",
+    "bedrock_converse": "bedrock",
+    "google_genai": "gemini",
+    "googlegenerativeai": "gemini",
+    "google_generative_ai": "gemini",
+    "google_vertexai": "vertex_ai",
+    "vertexai": "vertex_ai",
+    "azure": "azure_openai",
+    "azureopenai": "azure_openai",
+    "mistralai": "mistral",
+    "hugging_face": "huggingface",
+    "together_ai": "together",
+}
+
+
+def normalize_provider(raw: str | None) -> str | None:
+    """Normalize provider names while preserving unknown vendors."""
+    key = str(raw or "").strip().lower()
+    if not key:
+        return None
+    return _PROVIDER_ALIASES.get(key, key)
+
 
 @dataclass(frozen=True)
 class ModelInfo:
     display_name: str
     model_id: str | None  # canonical identifier suitable for cost-tracking lookups
+    provider: str | None = None
 
 
 _GENERIC_CLASS_NAME_PREFIXES = ("Chat", "LLM")
@@ -59,12 +112,35 @@ def _resolve_from_serialized(
     return str(serialized.get("name") or "LLM Call"), None
 
 
+def _resolve_known_provider(raw: Any) -> str | None:
+    provider = normalize_provider(str(raw))
+    if provider in CANONICAL_PROVIDERS:
+        return provider
+    return None
+
+
+def _resolve_provider(
+    serialized: dict[str, Any] | None,
+    metadata: dict[str, Any] | None,
+) -> str | None:
+    """Resolve provider from LangChain metadata, then trusted serialized class path segments."""
+    raw = (metadata or {}).get("ls_provider")
+    if raw:
+        return _resolve_known_provider(raw)
+    if not serialized:
+        return None
+    llm_id = serialized.get("id")
+    if isinstance(llm_id, list) and len(llm_id) >= 2:
+        return _resolve_known_provider(llm_id[-2])
+    return None
+
+
 def extract_model_info(
     serialized: dict[str, Any] | None,
     invocation_params: dict[str, Any] | None,
     metadata: dict[str, Any] | None = None,
 ) -> ModelInfo:
-    """Resolve a display name + canonical model identifier.
+    """Resolve a display name + canonical model identifier + provider.
 
     Priority:
       1. serialized["kwargs"][model | model_name | model_id]   (LangChain LLM class kwargs)
@@ -74,9 +150,8 @@ def extract_model_info(
       5. serialized["id"]                                       (qualified class path)
       6. fallback "LLM Call"
 
-    When the class name from (4) is generic (e.g. "ChatOpenAI",
-    "ChatBedrockConverse") AND a real model is found from (1)–(3), the real
-    model id becomes the display name.
+    When the class name from (4) is generic and a real model is found from
+    (1)–(3), the real model id becomes the display name.
     """
     if serialized:
         display_name, model_id = _resolve_from_serialized(serialized)
@@ -94,7 +169,8 @@ def extract_model_info(
             display_name = actual_model
         model_id = actual_model
 
-    return ModelInfo(display_name=display_name, model_id=model_id)
+    provider = _resolve_provider(serialized, metadata)
+    return ModelInfo(display_name=display_name, model_id=model_id, provider=provider)
 
 
 def _is_generic_class_name(name: str) -> bool:

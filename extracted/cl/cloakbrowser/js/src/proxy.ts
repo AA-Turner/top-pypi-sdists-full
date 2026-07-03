@@ -21,9 +21,9 @@ export function ensureProxyScheme(proxyUrl: string): string {
 /**
  * Parse a proxy URL, extracting credentials into separate fields.
  *
- * Handles: "http://user:pass@host:port" -> { server: "http://host:port", username: "user", password: "pass" }
- * Also handles: no credentials, URL-encoded special chars, socks5://, missing port,
- * and bare proxy strings without a scheme (e.g. "user:pass@host:port" -> treated as http).
+ * Handles authenticated proxy URLs by extracting credentials into separate
+ * fields. Also handles: no credentials, URL-encoded special chars, socks5://,
+ * missing port, and bare proxy strings without a scheme.
  */
 /** Proxy dict shape accepted by Playwright/Puppeteer wrappers. */
 export type ProxyDict = { server: string; bypass?: string; username?: string; password?: string };
@@ -277,8 +277,9 @@ export function resolveProxyConfig(
     return { proxyArgs: args };
   }
 
-  // HTTP/HTTPS with credentials on supported platforms: bypass Playwright's
-  // CDP auth interceptor, use Chrome's preemptive Proxy-Authorization (#182).
+  // HTTP/HTTPS with credentials on supported platforms: use Chrome's native
+  // proxy authentication path instead of Playwright's CDP auth interceptor
+  // (#182).
   const requestedVersion = normalizeRequestedVersion(browserVersion);
   if (hasCredentials(proxy) && supportsHttpProxyInlineAuth(requestedVersion)) {
     if (typeof proxy === "string") {

@@ -1424,15 +1424,6 @@ class OrganizationConformancePackTypeDef(TypedDict):
     ConformancePackInputParameters: NotRequired[list[ConformancePackInputParameterTypeDef]]
     ExcludedAccounts: NotRequired[list[str]]
 
-class PutOrganizationConformancePackRequestTypeDef(TypedDict):
-    OrganizationConformancePackName: str
-    TemplateS3Uri: NotRequired[str]
-    TemplateBody: NotRequired[str]
-    DeliveryS3Bucket: NotRequired[str]
-    DeliveryS3KeyPrefix: NotRequired[str]
-    ConformancePackInputParameters: NotRequired[Sequence[ConformancePackInputParameterTypeDef]]
-    ExcludedAccounts: NotRequired[Sequence[str]]
-
 class ConformancePackDetailTypeDef(TypedDict):
     ConformancePackName: str
     ConformancePackArn: str
@@ -1824,6 +1815,16 @@ class PutConformancePackRequestTypeDef(TypedDict):
     TemplateSSMDocumentDetails: NotRequired[TemplateSSMDocumentDetailsTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
+class PutOrganizationConformancePackRequestTypeDef(TypedDict):
+    OrganizationConformancePackName: str
+    TemplateS3Uri: NotRequired[str]
+    TemplateBody: NotRequired[str]
+    DeliveryS3Bucket: NotRequired[str]
+    DeliveryS3KeyPrefix: NotRequired[str]
+    ConformancePackInputParameters: NotRequired[Sequence[ConformancePackInputParameterTypeDef]]
+    ExcludedAccounts: NotRequired[Sequence[str]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
 class PutServiceLinkedConfigurationRecorderRequestTypeDef(TypedDict):
     ServicePrincipal: str
     Tags: NotRequired[Sequence[TagTypeDef]]
@@ -2053,6 +2054,7 @@ class PutOrganizationConfigRuleRequestTypeDef(TypedDict):
     OrganizationCustomRuleMetadata: NotRequired[OrganizationCustomRuleMetadataUnionTypeDef]
     ExcludedAccounts: NotRequired[Sequence[str]]
     OrganizationCustomPolicyRuleMetadata: NotRequired[OrganizationCustomPolicyRuleMetadataTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 class ConfigurationRecorderOutputTypeDef(TypedDict):
     arn: NotRequired[str]

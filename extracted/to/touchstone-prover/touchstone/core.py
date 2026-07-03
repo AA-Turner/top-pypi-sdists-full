@@ -290,9 +290,12 @@ class _Desugar(ast.NodeTransformer):
         if rows is None:
             return None
         out = []
-        for row in rows:
-            out += self._bind_target(node.target, row)
-            out += node.body
+        try:
+            for row in rows:
+                out += self._bind_target(node.target, row)
+                out += node.body
+        except Unsupported:
+            return None     # this loop stays unmodeled; the module's other functions still analyze
         return out + node.orelse
 
     def _const_rows(self, it):
@@ -428,14 +431,28 @@ class _Desugar(ast.NodeTransformer):
                 and isinstance(ex.body[0].value, ast.Constant) and bool(ex.body[0].value.value))
 
     def _bind_target(self, target, row):
-        """Assignments binding a for-target (a Name, or a tuple of Names) to one constant row."""
+        """Assignments binding a for-target (a Name, or a tuple of Names) to one constant row.
+        A row whose single element is itself a tuple/list literal of matching arity destructures
+        through temporaries (the whole element is evaluated before any name binds, so an element
+        reading a name the target rebinds -- `for a, b in ((b, a),)` -- keeps Python's order)."""
         if isinstance(target, ast.Name) and len(row) == 1:
             return [ast.Assign(targets=[ast.Name(id=target.id, ctx=ast.Store())], value=row[0])]
-        if isinstance(target, (ast.Tuple, ast.List)) and len(target.elts) == len(row) \
-                and all(isinstance(t, ast.Name) for t in target.elts):
-            return [ast.Assign(targets=[ast.Name(id=t.id, ctx=ast.Store())], value=v)
-                    for t, v in zip(target.elts, row)]
-        raise Unsupported("for-target does not match the iterable rows")
+        if isinstance(target, (ast.Tuple, ast.List)) and all(isinstance(t, ast.Name) for t in target.elts):
+            if len(target.elts) == len(row):
+                return [ast.Assign(targets=[ast.Name(id=t.id, ctx=ast.Store())], value=v)
+                        for t, v in zip(target.elts, row)]
+            if (len(row) == 1 and isinstance(row[0], (ast.Tuple, ast.List))
+                    and len(row[0].elts) == len(target.elts)
+                    and not any(isinstance(e, ast.Starred) for e in row[0].elts)):
+                temps = [f"_pa{self._bump()}" for _ in target.elts]
+                out = [ast.Assign(targets=[ast.Name(id=tp, ctx=ast.Store())], value=v)
+                       for tp, v in zip(temps, row[0].elts)]
+                out += [ast.Assign(targets=[ast.Name(id=t.id, ctx=ast.Store())],
+                                   value=ast.Name(id=tp, ctx=ast.Load()))
+                        for t, tp in zip(target.elts, temps)]
+                return out
+        raise Unsupported("for-target %s (line %s) does not match the shape of the iterable's elements"
+                          % (ast.unparse(target), getattr(target, "lineno", "?")))
 
     def visit_Assign(self, node):
         self.generic_visit(node)
@@ -577,7 +594,25 @@ def _parse_template(src: str) -> ast.Module:
 
 
 def _parse(src: str) -> ast.Module:
-    return _clone_ast(_parse_template(src))
+    tree = _clone_ast(_parse_template(src))
+    _mark_free_math_names(tree)
+    return tree
+
+
+def _mark_free_math_names(tree):
+    """Mark each bare math-family call name (sqrt, sin/cos/exp/log, floor/gcd/...) whose `from math import
+    ...` is NOT visible in this module (`node.func._ts_freename = True`), so ev resolves it as an ordinary
+    unmodeled call instead of borrowing the math semantics -- an unimported log() is somebody's logger, not
+    math.log with a domain trap. Body trees all come through _parse, so every engine sees the mark; spec
+    trees (parse_spec) are never marked, so a specification keeps the math reading."""
+    family = _BARE_MATH_FAMILY
+    imported = None                                          # computed on the first hit (most modules have none)
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in family:
+            if imported is None:
+                imported = _module_math_imports(tree)
+            if n.func.id not in imported:
+                n.func._ts_freename = True
 
 
 def _fndef(src: str):
@@ -1218,6 +1253,27 @@ _MATH_PURE_FLOAT = frozenset({"expm1", "atan", "atan2", "asinh", "sinh", "cosh",
                               "hypot", "dist", "erf", "erfc", "exp2", "cbrt", "ldexp", "nextafter", "ulp"})
 _MATH_FUNCS = (_MATH_INT_DOMAIN | _MATH_FLOAT_DOMAIN | _MATH_PURE_FLOAT
                | frozenset({"floor", "ceil", "trunc", "gcd", "lcm"}))
+
+
+# the bare names ev resolves to their math.* meaning when the from-import is visible (_mark_free_math_names)
+_BARE_MATH_FAMILY = frozenset({"sqrt"}) | _TRANSCENDENTAL | _MATH_FUNCS
+
+
+def _module_math_imports(mod):
+    """The bare names a module's `from math import ...` statements bind to their math meaning (an alias
+    renames the binding away, so it does not count; a star import binds every modeled math name). Gates the
+    bare-name math resolution in ev: `log(x)` is math.log only when the import that makes it so is visible,
+    so a same-named free function (a logger's `log`) stays an unmodeled call rather than borrowing math
+    semantics."""
+    out = set()
+    for n in ast.walk(mod):
+        if isinstance(n, ast.ImportFrom) and n.module == "math" and not n.level:
+            for al in n.names:
+                if al.name == "*":
+                    out |= _BARE_MATH_FAMILY
+                elif al.asname in (None, al.name):
+                    out.add(al.name)
+    return frozenset(out)
 
 
 def _math_call(name, args, ctx):
@@ -3819,11 +3875,14 @@ def ev(node, env: Dict[str, z3.ExprRef], ctx: Ctx) -> z3.ExprRef:
                 #                                                 independent len(xs) refutes -- both sound, since the
                 #                                                 sum can be zero (the empty list, or [1, -1])
             raise Unsupported("sum() over an unmodeled iterable")
-        if name == "sqrt" and len(node.args) == 1 and name not in ctx.repo:   # from math import sqrt
+        _math_vis = not getattr(node.func, "_ts_freename", False)   # the bare math reading needs its from-import
+        #                                                             visible (_mark_free_math_names); an unmarked
+        #                                                             tree (a spec) resolves as before
+        if name == "sqrt" and len(node.args) == 1 and name not in ctx.repo and _math_vis:   # from math import sqrt
             return _sqrt_model(ev(node.args[0], env, ctx), ctx)
-        if name in _TRANSCENDENTAL and len(node.args) == 1 and name not in ctx.repo:   # from math import sin, ...
+        if name in _TRANSCENDENTAL and len(node.args) == 1 and name not in ctx.repo and _math_vis:   # from math import sin, ...
             return _transcendental(name, ev(node.args[0], env, ctx), ctx)
-        if name in _MATH_FUNCS and name not in ctx.repo and name not in env:   # from math import floor, gcd, ...
+        if name in _MATH_FUNCS and name not in ctx.repo and name not in env and _math_vis:   # from math import floor, gcd, ...
             res = _math_call(name, [ev(a, env, ctx) for a in node.args], ctx)
             if res is not None:
                 return res

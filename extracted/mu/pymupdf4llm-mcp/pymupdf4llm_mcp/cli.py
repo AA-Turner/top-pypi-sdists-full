@@ -1,8 +1,28 @@
+import importlib.metadata
+from typing import Annotated
+
 import typer
 
 from pymupdf4llm_mcp.app import mcp
 
 app = typer.Typer()
+
+
+def _version_callback(value: bool) -> None:
+    if not value:
+        return
+    typer.echo(importlib.metadata.version("pymupdf4llm-mcp"))
+    raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: Annotated[
+        bool,
+        typer.Option("--version", help="Show package version and exit.", callback=_version_callback, is_eager=True),
+    ] = False,
+):
+    del version
 
 
 @app.command()

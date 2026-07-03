@@ -7983,6 +7983,7 @@ class CfnCluster(
                 subnet_ids=["subnetIds"],
         
                 # the properties below are optional
+                control_plane_egress_mode="controlPlaneEgressMode",
                 endpoint_private_access=False,
                 endpoint_public_access=False,
                 public_access_cidrs=["publicAccessCidrs"],
@@ -9996,6 +9997,7 @@ class CfnCluster(
         jsii_struct_bases=[],
         name_mapping={
             "subnet_ids": "subnetIds",
+            "control_plane_egress_mode": "controlPlaneEgressMode",
             "endpoint_private_access": "endpointPrivateAccess",
             "endpoint_public_access": "endpointPublicAccess",
             "public_access_cidrs": "publicAccessCidrs",
@@ -10007,6 +10009,7 @@ class CfnCluster(
             self,
             *,
             subnet_ids: typing.Sequence[builtins.str],
+            control_plane_egress_mode: typing.Optional[builtins.str] = None,
             endpoint_private_access: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             endpoint_public_access: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             public_access_cidrs: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -10023,6 +10026,7 @@ class CfnCluster(
                - ``PublicAccessCidrs``
 
             :param subnet_ids: Specify subnets for your Amazon EKS nodes. Amazon EKS creates cross-account elastic network interfaces in these subnets to allow communication between your nodes and the Kubernetes control plane.
+            :param control_plane_egress_mode: Specify the egress mode for the cluster control plane. If you set this to CUSTOMER_ROUTED, the control plane routes traffic through your VPC subnets instead of using AWS managed networking.
             :param endpoint_private_access: Set this value to ``true`` to enable private access for your cluster's Kubernetes API server endpoint. If you enable private access, Kubernetes API requests from within your cluster's VPC use the private VPC endpoint. The default value for this parameter is ``false`` , which disables private access for your Kubernetes API server. If you disable private access and you have nodes or AWS Fargate pods in the cluster, then ensure that ``publicAccessCidrs`` includes the necessary CIDR blocks for communication with the nodes or Fargate pods. For more information, see `Cluster API server endpoint <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** .
             :param endpoint_public_access: Set this value to ``false`` to disable public access to your cluster's Kubernetes API server endpoint. If you disable public access, your cluster's Kubernetes API server can only receive requests from within the cluster VPC. The default value for this parameter is ``true`` , which enables public access for your Kubernetes API server. The endpoint domain name and IP address family depends on the value of the ``ipFamily`` for the cluster. For more information, see `Cluster API server endpoint <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** .
             :param public_access_cidrs: The CIDR blocks that are allowed access to your cluster's public Kubernetes API server endpoint. Communication to the endpoint from addresses outside of the CIDR blocks that you specify is denied. The default value is ``0.0.0.0/0`` and additionally ``::/0`` for dual-stack ``IPv6`` clusters. If you've disabled private endpoint access, make sure that you specify the necessary CIDR blocks for every node and AWS Fargate ``Pod`` in the cluster. For more information, see `Cluster API server endpoint <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** . Note that the public endpoints are dual-stack for only ``IPv6`` clusters that are made after October 2024. You can't add ``IPv6`` CIDR blocks to ``IPv4`` clusters or ``IPv6`` clusters that were made before October 2024.
@@ -10041,6 +10045,7 @@ class CfnCluster(
                     subnet_ids=["subnetIds"],
                 
                     # the properties below are optional
+                    control_plane_egress_mode="controlPlaneEgressMode",
                     endpoint_private_access=False,
                     endpoint_public_access=False,
                     public_access_cidrs=["publicAccessCidrs"],
@@ -10050,6 +10055,7 @@ class CfnCluster(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__986289b8a80017f390950fa94e8370d9961848f3cf42f347c78c0c91f0d06148)
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+                check_type(argname="argument control_plane_egress_mode", value=control_plane_egress_mode, expected_type=type_hints["control_plane_egress_mode"])
                 check_type(argname="argument endpoint_private_access", value=endpoint_private_access, expected_type=type_hints["endpoint_private_access"])
                 check_type(argname="argument endpoint_public_access", value=endpoint_public_access, expected_type=type_hints["endpoint_public_access"])
                 check_type(argname="argument public_access_cidrs", value=public_access_cidrs, expected_type=type_hints["public_access_cidrs"])
@@ -10057,6 +10063,8 @@ class CfnCluster(
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "subnet_ids": subnet_ids,
             }
+            if control_plane_egress_mode is not None:
+                self._values["control_plane_egress_mode"] = control_plane_egress_mode
             if endpoint_private_access is not None:
                 self._values["endpoint_private_access"] = endpoint_private_access
             if endpoint_public_access is not None:
@@ -10077,6 +10085,17 @@ class CfnCluster(
             result = self._values.get("subnet_ids")
             assert result is not None, "Required property 'subnet_ids' is missing"
             return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def control_plane_egress_mode(self) -> typing.Optional[builtins.str]:
+            '''Specify the egress mode for the cluster control plane.
+
+            If you set this to CUSTOMER_ROUTED, the control plane routes traffic through your VPC subnets instead of using AWS managed networking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-resourcesvpcconfig.html#cfn-eks-cluster-resourcesvpcconfig-controlplaneegressmode
+            '''
+            result = self._values.get("control_plane_egress_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def endpoint_private_access(
@@ -10407,6 +10426,7 @@ class CfnClusterProps:
                     subnet_ids=["subnetIds"],
             
                     # the properties below are optional
+                    control_plane_egress_mode="controlPlaneEgressMode",
                     endpoint_private_access=False,
                     endpoint_public_access=False,
                     public_access_cidrs=["publicAccessCidrs"],
@@ -26535,6 +26555,7 @@ def _typecheckingstub__51b845e43ba054d464150b1f0fffb60f026af086df16857e5625284cc
 def _typecheckingstub__986289b8a80017f390950fa94e8370d9961848f3cf42f347c78c0c91f0d06148(
     *,
     subnet_ids: typing.Sequence[builtins.str],
+    control_plane_egress_mode: typing.Optional[builtins.str] = None,
     endpoint_private_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     endpoint_public_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     public_access_cidrs: typing.Optional[typing.Sequence[builtins.str]] = None,

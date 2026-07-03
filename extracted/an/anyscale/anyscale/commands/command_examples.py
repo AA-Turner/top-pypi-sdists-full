@@ -366,7 +366,6 @@ Listing workspaces with:
 • created_by_me     = False
 • states            = <all>
 • tags              = <none>
-• include_archived  = False
 • sort              = <none>
 • mode              = interactive
 • per-page limit    = 10

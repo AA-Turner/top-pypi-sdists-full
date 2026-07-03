@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clickhouse-migrations
-Version: 0.11.0
+Version: 0.12.0
 Summary: Simple file-based migrations for clickhouse
 Author-email: Aleh Strakachuk <zifter.ai+clickhouse.migrations@gmail.com>
 License: MIT
@@ -8,7 +8,7 @@ Project-URL: Homepage, https://github.com/zifter/clickhouse-migrations
 Project-URL: Source, https://github.com/zifter/clickhouse-migrations
 Project-URL: Tracker, https://github.com/zifter/clickhouse-migrations/issues
 Project-URL: Changelog, https://github.com/zifter/clickhouse-migrations/blob/main/CHANGELOG.md
-Keywords: clickhouse,migrations
+Keywords: clickhouse,migrations,migration,database,database-migration,schema-migration,sql,ddl,olap,cli
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.9
@@ -21,30 +21,45 @@ Requires-Python: <4,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: clickhouse-driver>=0.2.2
+Provides-Extra: connect
+Requires-Dist: clickhouse-connect>=0.7; extra == "connect"
 Provides-Extra: testing
 Requires-Dist: pytest==8.4.1; extra == "testing"
 Requires-Dist: pytest-cov==6.2.1; extra == "testing"
+Requires-Dist: clickhouse-connect>=0.7; extra == "testing"
 Dynamic: license-file
 
 [![ci](https://github.com/zifter/clickhouse-migrations/actions/workflows/ci.yaml/badge.svg)](https://github.com/zifter/clickhouse-migrations/actions/workflows/ci.yaml)
+[![codecov](https://codecov.io/gh/zifter/clickhouse-migrations/branch/main/graph/badge.svg)](https://codecov.io/gh/zifter/clickhouse-migrations)
 [![release](https://img.shields.io/github/release/zifter/clickhouse-migrations.svg)](https://github.com/zifter/clickhouse-migrations/releases)
-[![PyPI version](https://badge.fury.io/py/clickhouse-migrations.svg)]([https://badge.fury.io/py/clickhouse-migrate](https://pypi.org/project/clickhouse-migrations/))
+[![PyPI version](https://badge.fury.io/py/clickhouse-migrations.svg)](https://pypi.org/project/clickhouse-migrations/)
 [![supported versions](https://img.shields.io/pypi/pyversions/clickhouse-migrations.svg)](https://pypi.org/project/clickhouse-migrations/)
 [![downloads](https://img.shields.io/pypi/dm/clickhouse-migrations.svg)](https://pypi.org/project/clickhouse-migrations/)
+[![GitHub stars](https://img.shields.io/github/stars/zifter/clickhouse-migrations.svg)](https://github.com/zifter/clickhouse-migrations/stargazers)
 [![my site](https://img.shields.io/badge/site-my%20blog-yellow.svg)](https://zifter.github.io/)
 
-# Clickhouse Migrations
+# ClickHouse Migrations
 
-Python library for creating and applying migrations in ClickHouse database.
+**Simple, file-based schema migrations for ClickHouse** — the most actively maintained ClickHouse migration tool for Python. Write plain `.sql` files, apply them from the CLI, your code, CI, or Docker. Cluster-aware, with support for both the native [`clickhouse-driver`](https://github.com/mymarilyn/clickhouse-driver) and the official [`clickhouse-connect`](https://github.com/ClickHouse/clickhouse-connect) driver.
 
-Development and Maintenance of large-scale db systems many times requires constant changes to the actual DB system.
-Holding off the scripts to migrate these will be painful.
+## Quick start
 
-## Features:
-* Supports multi statements - more than one query per migration file.
-* Allow running migrations out-of-box
-* Simple file migrations format: {VERSION}_{name}.sql
-* Supports Cluster deployments, makes sure that migrations state is consistent on all cluster nodes
+```bash
+pip install clickhouse-migrations
+
+# put versioned .sql files in ./migrations (e.g. 001_init.sql), then apply them:
+clickhouse-migrations --db-host localhost --db-name mydb --migrations-dir ./migrations
+```
+
+📖 **Background:** [Managing ClickHouse migrations in production](https://medium.com/@zifter/managing-clickhouse-migrations-in-production-cluster-support-and-multi-statement-files-07d46c1de275) — why this tool exists, cluster support, and multi-statement migration files.
+
+## Features
+* **Multi-statement migrations** — more than one query per `.sql` file
+* **Cluster-aware** — keeps migration state consistent across all cluster nodes
+* **Zero-config file format** — `{VERSION}_{name}.sql`, applied in order
+* **Run anywhere** — CLI, Python API, [GitHub Action](#in-ci-github-action), or [Docker image](#with-docker)
+* **Two drivers** — native `clickhouse-driver` (TCP) or official `clickhouse-connect` (HTTP)
+* **Inspect before you apply** — [`status`](#migration-status) and `--dry-run` show applied vs pending migrations without touching data
 
 ## Known alternatives
 This package originally forked from [clickhouse-migrator](https://github.com/delium/clickhouse-migrator).
@@ -58,6 +73,14 @@ Package | Differences
 ## Installation
 
 You can install from pypi using `pip install clickhouse-migrations`.
+
+By default it uses the native [`clickhouse-driver`](https://github.com/mymarilyn/clickhouse-driver) (TCP, port 9000). To use the official HTTP [`clickhouse-connect`](https://github.com/ClickHouse/clickhouse-connect) driver instead, install the extra and pass `--driver clickhouse-connect`:
+
+```bash
+pip install 'clickhouse-migrations[connect]'
+```
+
+With `clickhouse-connect` the default port is `8123` (HTTP). Connecting via `--db-url` is only supported with the default `clickhouse-driver`; use `--db-host`/`--db-port` for `clickhouse-connect`.
 
 ## Migration files
 
@@ -113,6 +136,23 @@ CLI flag | Environment variable | Default
 `--secure` | `SECURE` | `false`
 `--log-level` | `LOG_LEVEL` | `WARNING`
 `--migration-log-format` | `MIGRATION_LOG_FORMAT` | `full`
+`--driver` | `DRIVER` | `clickhouse-driver`
+
+### Migration status
+
+Show which migrations are applied vs pending, without applying anything, using the `status` subcommand:
+
+```bash
+clickhouse-migrations status --db-name test --migrations-dir ./migrations
+```
+
+```
+VERSION  STATUS   MD5                               APPLIED AT
+1        applied  6172991b15b0852bc895e09b3e91ade4  2024-01-01 12:00:00
+2        pending  1a79a4d60de6718e8e5b326e338ae533
+```
+
+States: `applied`, `pending`, `md5-mismatch` (a file changed after being applied), and `unknown` (applied but no longer present locally). It is read-only and never creates the database.
 
 ### In code
 ```python
@@ -160,11 +200,87 @@ Parameter | Description | Default
 `secure` | Use secure (TLS) connection | `False`
 `migration_log_format` | Migration log format `full` logs the full Migration object, `compact` logs only version and md5 | `full`
 
+### In CI (GitHub Action)
+
+Apply migrations from a GitHub workflow with the composite action:
+
+```yaml
+- uses: zifter/clickhouse-migrations@v1
+  with:
+    migrations-dir: ./migrations
+    db-host: localhost
+    db-user: default
+    db-password: ${{ secrets.CLICKHOUSE_PASSWORD }}
+    db-name: mydb
+    # driver: clickhouse-connect   # optional; official HTTP driver (both are bundled). Defaults to native clickhouse-driver.
+    # db-port: "9000"              # optional; defaults to 9000 (clickhouse-driver) / 8123 (clickhouse-connect)
+    # or connect via a single URL instead of the db-* inputs (clickhouse-driver only):
+    # db-url: ${{ secrets.CLICKHOUSE_URL }}
+    # any extra raw CLI flags:
+    # extra-args: --secure --create-db-if-not-exists
+```
+
+Both drivers are bundled, so `driver: clickhouse-connect` works without extra setup. Inputs: `migrations-dir`, `db-url`, `db-host`, `db-port`, `db-user`, `db-password`, `db-name`, `cluster-name`, `driver`, `extra-args`, `version` (pin the package version), `python-version`. You can also pin an exact release, e.g. `zifter/clickhouse-migrations@v0.12.0`.
+
+### With Docker
+
+An image is published to the GitHub Container Registry. Mount your migrations directory at `/migrations`:
+
+```bash
+docker run --rm \
+    -v "$PWD/migrations:/migrations" \
+    ghcr.io/zifter/clickhouse-migrations:latest \
+    --db-url clickhouse://default:secret@clickhouse:9000/mydb
+```
+
+The image bundles **both drivers**. It uses the native `clickhouse-driver` by default; to use the official HTTP `clickhouse-connect` driver, pass `--driver clickhouse-connect` (default port `8123`, and note `--db-url` is `clickhouse-driver` only):
+
+```bash
+docker run --rm \
+    -v "$PWD/migrations:/migrations" \
+    ghcr.io/zifter/clickhouse-migrations:latest \
+    --driver clickhouse-connect --db-host clickhouse --db-name mydb
+```
+
+Run migrations as a Kubernetes `Job`, e.g. before rolling out a deployment:
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: clickhouse-migrations
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrations
+          image: ghcr.io/zifter/clickhouse-migrations:latest
+          args: ["--create-db-if-not-exists"]
+          env:
+            - name: DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: clickhouse
+                  key: url
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
+      volumes:
+        - name: migrations
+          configMap:
+            name: clickhouse-migrations
+```
+
+Migrations are provided here via a ConfigMap; alternatively bake them into your own image with `FROM ghcr.io/zifter/clickhouse-migrations`.
+
 ### Notes
 The ClickHouse driver does not natively support executing multiple statements in a single query.
 To allow for multiple statements in a single migration, you can use the `multi_statement` param.
-There are two important caveats:
-* This mode splits the migration text into separately-executed statements by a semi-colon `;`. Thus cannot be used when a statement in the migration contains a string with a semi-colon.
+This mode splits the migration text into separately-executed statements on the semicolon `;`. Semicolons inside string literals (`'...'`), quoted identifiers (`` `...` `` and `"..."`) and SQL comments (`-- ...` and `/* ... */`) are recognised and do not split a statement.
+
+One important caveat:
 * The queries are not executed in any sort of transaction/batch, meaning you are responsible for fixing partial migrations.
 
 ## Star History

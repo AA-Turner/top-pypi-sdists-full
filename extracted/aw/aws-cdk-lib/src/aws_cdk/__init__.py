@@ -8354,7 +8354,7 @@ class CfnParameter(
     ) -> None:
         '''Creates a parameter construct.
 
-        Note that the name (logical ID) of the parameter will derive from it's ``coname`` and location
+        Note that the name (logical ID) of the parameter will derive from its ``coname`` and location
         within the stack. Therefore, it is recommended that parameters are defined at the stack level.
 
         :param scope: The parent construct.
@@ -15641,7 +15641,7 @@ class FileAssetPackaging(enum.Enum):
     '''Packaging modes for file assets.'''
 
     ZIP_DIRECTORY = "ZIP_DIRECTORY"
-    '''The asset source path points to a directory, which should be archived using zip and and then uploaded to Amazon S3.'''
+    '''The asset source path points to a directory, which should be archived using zip and then uploaded to Amazon S3.'''
     FILE = "FILE"
     '''The asset source path points to a single file, which should be uploaded to Amazon S3.'''
 

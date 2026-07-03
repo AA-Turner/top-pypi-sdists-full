@@ -7,9 +7,10 @@
 """The pymarc field file."""
 
 import logging
+import typing
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 from pymarc.constants import END_OF_FIELD, SUBFIELD_INDICATOR
 from pymarc.marc8 import marc8_to_unicode
@@ -56,16 +57,21 @@ class Field:
     def __init__(
         self,
         tag: str,
-        indicators: Optional[Indicators] = None,
-        subfields: Optional[list[Subfield]] = None,
-        data: Optional[str] = None,
+        indicators: Indicators | None = None,
+        subfields: list[Subfield] | None = None,
+        data: str | None = None,
     ):
         """Initialize a field `tag`."""
-        # attempt to normalize integer tags if necessary
-        try:
-            self.tag = f"{int(tag):03}"
-        except ValueError:
-            self.tag = f"{tag}"
+        if isinstance(tag, str):
+            if tag.isdigit():
+                self.tag = tag if len(tag) == 3 else f"{int(tag):03}"
+            else:
+                self.tag = tag
+        else:
+            try:
+                self.tag = f"{int(tag):03}"
+            except (TypeError, ValueError):
+                self.tag = f"{tag}"
 
         if subfields and isinstance(subfields[0], str):
             raise ValueError(
@@ -75,8 +81,10 @@ class Field:
             )
 
         self.subfields: list[Subfield] = []
-        self._indicators: Optional[Indicators] = None
-        self.data: Optional[str] = None
+        # Indicators are None if this is a control field.
+        # This shadows the property "indicators" getter and setter below.
+        self._indicators: Indicators | None = None
+        self.data: str | None = None
         self.control_field: bool = False
 
         # assume control fields are numeric only; replicates ruby-marc behavior
@@ -86,25 +94,27 @@ class Field:
         else:
             self.subfields = subfields or []
             if not indicators:
-                self.indicators = Indicators(" ", " ")
+                self._indicators = Indicators(" ", " ")
             elif (
                 indicators
-                and isinstance(indicators, (list, tuple))
+                and isinstance(indicators, list | tuple)
                 and len(indicators) == 2
             ):
-                self.indicators = Indicators(*indicators)
+                self._indicators = Indicators(*indicators)
             else:
+                # Fall back to setting the indicators through the setter. This will
+                # raise a ValueError if the input is not valid.
                 self.indicators = indicators
 
     @property
-    def indicators(self) -> Optional[Indicators]:
+    def indicators(self) -> Indicators | None:
         """Return the field's indicators."""
         return self._indicators
 
     @indicators.setter
     def indicators(self, value: Sequence) -> None:
         """Set the field's indicators."""
-        if value and isinstance(value, (list, tuple)) and len(value) != 2:
+        if value and isinstance(value, list | tuple) and len(value) != 2:
             raise ValueError(
                 """The indicators input no longer accepts an iterable of arbitrary length. Use
                    the Indicators() named tuple instead. Please consult the documentation
@@ -148,7 +158,7 @@ class Field:
         # This creates a tuple based on the next value of the iterator. In this case,
         # the subfield code will be the first element, and then the subfield value
         # will be the second.
-        subf = zip(subf_it, subf_it)
+        subf = zip(subf_it, subf_it, strict=True)
         # Create a coded subfield tuple of each (code, value) item in the incoming
         # subfields.
         return [Subfield._make(t) for t in subf]
@@ -178,7 +188,7 @@ class Field:
             _ind = []
             _subf = []
 
-            for indicator in self.indicators:  # type: ignore
+            for indicator in self._indicators:  # type: ignore
                 if indicator in (" ", "\\"):
                     _ind.append("\\")
                 else:
@@ -189,7 +199,13 @@ class Field:
 
             return f"={self.tag}  {''.join(_ind)}{''.join(_subf)}"
 
-    def get(self, code: str, default=None):
+    @typing.overload
+    def get(self, code: str, default: str) -> str: ...
+
+    @typing.overload
+    def get(self, code: str, default: None = None) -> str | None: ...
+
+    def get(self, code: str, default: str | None = None) -> str | None:
         """A dict-like get method with a default value.
 
         Implements a non-raising getter for a subfield code that will
@@ -197,10 +213,13 @@ class Field:
         the default value if the field is a control field or if the code is
         not present in the field.
         """
-        try:
-            return self[code]
-        except KeyError:
+        if self.control_field:
             return default
+
+        for subfield in self.subfields:
+            if subfield.code == code:
+                return subfield.value
+        return default
 
     def __getitem__(self, code: str) -> str:
         """Retrieve the first subfield with a given subfield code in a field.
@@ -215,14 +234,9 @@ class Field:
         if self.control_field:
             raise KeyError
 
-        if code not in self:
-            raise KeyError
-
         for subf in self.subfields:
             if subf.code == code:
                 return subf.value
-        # This should not occur, but just incase we've looped through
-        # and couldn't find the code, default to raising KeyError.
         raise KeyError
 
     def __contains__(self, subfield: str) -> bool:
@@ -257,18 +271,19 @@ class Field:
         if self.control_field:
             raise KeyError("field is a control field")
 
-        num_subfields: int = [x.code for x in self.subfields].count(code)
-
-        if num_subfields > 1:
-            raise KeyError(f"more than one code '{code}'")
-        elif num_subfields == 0:
-            raise KeyError(f"no code '{code}'")
+        match_index: int | None = None
 
         for idx, subf in enumerate(self.subfields):
             if subf.code == code:
-                new_val = Subfield(code=subf.code, value=value)
-                self.subfields[idx] = new_val
-                break
+                if match_index is not None:
+                    raise KeyError(f"more than one code '{code}'")
+                match_index = idx
+
+        if match_index is None:
+            raise KeyError(f"no code '{code}'")
+
+        subfield = self.subfields[match_index]
+        self.subfields[match_index] = Subfield(code=subfield.code, value=value)
 
     def __next__(self) -> Subfield:
         if self.control_field:
@@ -302,6 +317,13 @@ class Field:
         """
         if self.control_field:
             return []
+        if not codes:
+            return []
+        if len(codes) == 1:
+            code = codes[0]
+            return [
+                subfield.value for subfield in self.subfields if subfield.code == code
+            ]
 
         return [subfield.value for subfield in self.subfields if subfield.code in codes]
 
@@ -325,12 +347,12 @@ class Field:
 
         if append:
             self.subfields.append(insertable)
-        else:
+        elif pos is not None:
             self.subfields.insert(pos, insertable)
 
         return None
 
-    def delete_subfield(self, code: str) -> Optional[str]:
+    def delete_subfield(self, code: str) -> str | None:
         """Deletes the first subfield with the specified 'code' and returns its value.
 
         .. code-block:: python
@@ -342,13 +364,10 @@ class Field:
         if self.control_field:
             return None
 
-        if code not in self:
-            return None
-
-        index: int = [s.code for s in self.subfields].index(code)
-        whole_field: Subfield = self.subfields.pop(index)
-
-        return whole_field.value
+        for idx, subfield in enumerate(self.subfields):
+            if subfield.code == code:
+                return self.subfields.pop(idx).value
+        return None
 
     def subfields_as_dict(self) -> dict[str, list]:
         """Returns the subfields as a dictionary.
@@ -376,7 +395,7 @@ class Field:
         """
         return self.control_field
 
-    def linkage_occurrence_num(self) -> Optional[str]:
+    def linkage_occurrence_num(self) -> str | None:
         """Return the 'occurrence number' part of subfield 6, or None if not present."""
         ocn = self.get("6", "")
         return ocn.split("-")[1].split("/")[0] if ocn else None
@@ -408,20 +427,18 @@ class Field:
         if self.control_field:
             return self.data or ""
 
-        field_data: str = ""
+        is_subject_field = self.is_subject_field()
+        fragments: list[str] = []
 
         for subfield in self.subfields:
             if subfield.code == "6":
                 continue
 
-            if not self.is_subject_field():
-                field_data += f" {subfield.value}"
+            if is_subject_field and subfield.code in ("v", "x", "y", "z"):
+                fragments.append(f" -- {subfield.value}")
             else:
-                if subfield.code not in ("v", "x", "y", "z"):
-                    field_data += f" {subfield.value}"
-                else:
-                    field_data += f" -- {subfield.value}"
-        return field_data.strip()
+                fragments.append(f" {subfield.value}")
+        return "".join(fragments).strip()
 
     def is_subject_field(self) -> bool:
         """Returns True or False if the field is considered a subject field.
@@ -436,7 +453,7 @@ class Field:
 
         Returns an empty string if this is a control field.
         """
-        return self.indicators.first if self.indicators else ""
+        return self._indicators.first if self._indicators else ""
 
     @indicator1.setter
     def indicator1(self, value: str) -> None:
@@ -452,7 +469,7 @@ class Field:
     def indicator2(self) -> str:
         """Indicator 2.
 
-        Returns an empty string if this is  a control field.
+        Returns an empty string if this is a control field.
         """
         return self._indicators.second if self._indicators else ""
 
@@ -473,7 +490,7 @@ class RawField(Field):
     Should only be used when input records are wrongly encoded.
     """
 
-    def as_marc(self, encoding: Optional[str] = None):
+    def as_marc(self, encoding: str | None = None):
         """Used during conversion of a field to raw MARC."""
         if encoding is not None:
             logger.warning("Attempt to force a RawField into encoding %s", encoding)

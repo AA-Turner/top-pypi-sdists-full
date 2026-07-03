@@ -16,18 +16,20 @@ namespace CloakBrowser;
 /// </summary>
 internal static class ViewportDefaults
 {
-    public static BrowserNewPageOptions ApplyHeadedNoViewport(BrowserNewPageOptions? options, bool headless)
+    public static BrowserNewPageOptions ApplyHeadedNoViewport(
+        BrowserNewPageOptions? options, bool headless, bool headlessNoViewport = false)
     {
-        if (headless) return options ?? new BrowserNewPageOptions();
         var o = options ?? new BrowserNewPageOptions();
+        if (headless && !headlessNoViewport) return o;
         o.ViewportSize ??= ViewportSize.NoViewport;
         return o;
     }
 
-    public static BrowserNewContextOptions ApplyHeadedNoViewport(BrowserNewContextOptions? options, bool headless)
+    public static BrowserNewContextOptions ApplyHeadedNoViewport(
+        BrowserNewContextOptions? options, bool headless, bool headlessNoViewport = false)
     {
-        if (headless) return options ?? new BrowserNewContextOptions();
         var o = options ?? new BrowserNewContextOptions();
+        if (headless && !headlessNoViewport) return o;
         o.ViewportSize ??= ViewportSize.NoViewport;
         return o;
     }

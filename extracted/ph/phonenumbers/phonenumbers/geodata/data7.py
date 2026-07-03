@@ -19,6 +19,14 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '55483538':{'en': u('Balne\u00e1rio Bela Torres - SC'), 'pt': u('Balne\u00e1rio Bela Torres - SC')},
+ '55483539':{'en': u('S\u00e3o Jo\u00e3o do Sul - SC'), 'pt': u('S\u00e3o Jo\u00e3o do Sul - SC')},
+ '55483544':{'en': 'Morro Grande - SC', 'pt': 'Morro Grande - SC'},
+ '55483546':{'en': 'Ermo - SC', 'pt': 'Ermo - SC'},
+ '55483548':{'en': 'Passo de Torres - SC', 'pt': 'Passo de Torres - SC'},
+ '55483583':{'en': u('Balne\u00e1rio Gaivota - SC'), 'pt': u('Balne\u00e1rio Gaivota - SC')},
+ '55483591':{'en': 'Jacinto Machado - SC', 'pt': 'Jacinto Machado - SC'},
+ '55483622':{'en': u('Tubar\u00e3o - SC'), 'pt': u('Tubar\u00e3o - SC')},
  '55483623':{'en': 'Capivari de Baixo - SC', 'pt': 'Capivari de Baixo - SC'},
  '55483624':{'en': 'Jaguaruna - SC', 'pt': 'Jaguaruna - SC'},
  '55483625':{'en': 'Treze de Maio - SC', 'pt': 'Treze de Maio - SC'},
@@ -10011,12 +10019,4 @@ data = {
  '609438':{'en': 'Perwira Jaya'},
  '609440':{'en': 'Bandar Tun Razak'},
  '609443':{'en': 'Bandar Tun Razak'},
- '609445':{'en': 'Bandar Tun Razak'},
- '609447':{'en': 'Bandar Tun Razak'},
- '609450':{'en': 'Bukit Ibam'},
- '609451':{'en': 'Bandar Tun Razak'},
- '609452':{'en': 'Bukit Ibam'},
- '609453':{'en': 'Bukit Ibam'},
- '609454':{'en': 'Bukit Ibam'},
- '609455':{'en': 'Bukit Ibam'},
 }

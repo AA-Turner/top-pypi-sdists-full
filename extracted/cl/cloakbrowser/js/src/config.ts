@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveLicenseKey } from "./license.js";
 
 // Read wrapper version from package.json (single source of truth)
 let WRAPPER_VERSION = "0.0.0";
@@ -236,6 +237,57 @@ export function versionNewer(a: string, b: string): boolean {
 // ---------------------------------------------------------------------------
 export function getLocalBinaryOverride(): string | undefined {
   return process.env.CLOAKBROWSER_BINARY_PATH || undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Headless viewport handling by binary version
+// ---------------------------------------------------------------------------
+// First Chromium build that reports coherent headless dimensions without an
+// emulated viewport. On these binaries the wrapper launches headless with no
+// viewport; older binaries need a fixed DEFAULT_VIEWPORT to stay coherent.
+// null => not shipped yet; feature off, behavior byte-identical to today.
+// TODO: set to the chromium version string that first ships it.
+export const HEADLESS_NO_VIEWPORT_MIN_VERSION: string | null = "148.0.7778.215.4";
+
+/**
+ * Whether headless can launch without an emulated viewport on the resolved
+ * binary. Only binaries at or above HEADLESS_NO_VIEWPORT_MIN_VERSION qualify;
+ * older ones keep DEFAULT_VIEWPORT. A local override binary
+ * (CLOAKBROWSER_BINARY_PATH) is unknown-version, so stay on the safe path.
+ */
+export function binarySupportsHeadlessNoViewport(
+  licenseKey?: string,
+  browserVersion?: string,
+): boolean {
+  if (HEADLESS_NO_VIEWPORT_MIN_VERSION === null) return false;
+  // A declared version (browserVersion arg OR CLOAKBROWSER_VERSION env) wins even
+  // under a local override — the caller asserts the version (also how internal builds
+  // opt in). Only an override with no declared version stays on the safe path.
+  let declared: string | undefined;
+  try {
+    declared = normalizeRequestedVersion(browserVersion);
+  } catch {
+    declared = undefined;
+  }
+  let version: string;
+  if (declared) {
+    version = declared;
+  } else if (getLocalBinaryOverride()) {
+    return false;
+  } else {
+    // Full resolution (param > env > ~/.cloakbrowser/license.key) — mirrors Python
+    // and .NET; a bare env/param check would miss file-based Pro keys.
+    const pro = Boolean(resolveLicenseKey(licenseKey));
+    version = getEffectiveVersion(pro);
+  }
+  try {
+    // Fail safe (feature OFF) on a malformed version — parseVersion yields NaN
+    // instead of throwing, so guard explicitly (Python/.NET throw + fail OFF).
+    if (parseVersion(version).some(Number.isNaN)) return false;
+    return !versionNewer(HEADLESS_NO_VIEWPORT_MIN_VERSION, version);
+  } catch {
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------

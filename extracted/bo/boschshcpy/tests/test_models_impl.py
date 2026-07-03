@@ -834,12 +834,15 @@ class TestSHCThermostat:
     def test_position(self):
         d = self._make(position=75)
         assert d.position == 75
-        assert isinstance(d.position, float)
+        assert isinstance(d.position, int)
 
-    def test_position_keeps_decimals(self):
-        d = self._make(position=42.5)
-        assert d.position == 42.5
-        assert isinstance(d.position, float)
+    def test_position_is_int_per_apk_model(self):
+        # APK's ValveTappetState client model types position as Integer
+        # (not Double, unlike TemperatureOffsetState/TemperatureLevelState),
+        # so this must stay int despite OpenAPI's loose "number" typing.
+        d = self._make(position=42)
+        assert d.position == 42
+        assert isinstance(d.position, int)
 
     def test_valvestate_adaption_successful(self):
         from boschshcpy.services_impl import ValveTappetService
@@ -1288,6 +1291,30 @@ class TestSHCMotionDetector2:
         d = self._make()
         assert d.binaryswitch is True
 
+    def test_supports_light_true_when_both_services_present(self):
+        d = self._make()
+        assert d.supports_light is True
+
+    def test_base_variant_no_light_services_does_not_raise(self):
+        """Regression: a base MD2 (without the [+M] light hardware) has
+        neither BinarySwitch nor MultiLevelSwitch — every read/write must
+        degrade gracefully instead of AttributeError on the None service.
+        Not profile-related: a GENERIC-profile MD2 [+M] still has both
+        services (rawscan-confirmed, hass#356)."""
+        d = self._make()
+        d._multi_level_switch_service = None
+        d._binaryswitch_service = None
+
+        assert d.supports_light is False
+        assert d.multi_level_switch == 0
+        assert d.binaryswitch is False
+        d.multi_level_switch = 50  # setter must not raise
+        d.binaryswitch = True  # setter must not raise
+
+        import asyncio
+        asyncio.run(d.async_set_multi_level_switch(50))  # must not raise
+        asyncio.run(d.async_set_binaryswitch(True))  # must not raise
+
     def test_detection_state_stopped(self):
         from boschshcpy.services_impl import DetectionTestService
         d = self._make()
@@ -1432,12 +1459,15 @@ class TestSHCTwinguard:
     def test_purity(self):
         d = self._make(purity=1000)
         assert d.purity == 1000
-        assert isinstance(d.purity, float)
+        assert isinstance(d.purity, int)
 
-    def test_purity_keeps_decimals(self):
-        d = self._make(purity=812.5)
-        assert d.purity == 812.5
-        assert isinstance(d.purity, float)
+    def test_purity_stays_int(self):
+        # APK's AirQualityLevelState model declares purity as
+        # java.lang.Integer (unlike temperature/humidity, which are Float);
+        # the OpenAPI "number" type over-generalizes this distinction.
+        d = self._make(purity=812.7)
+        assert d.purity == 812
+        assert isinstance(d.purity, int)
 
     def test_purity_rating_bad(self):
         from boschshcpy.services_impl import AirQualityLevelService
@@ -2256,10 +2286,10 @@ class TestCommunicationQuality:
         svc = self._make_cq_svc("BAD")
         assert svc.value == CommunicationQualityService.State.BAD
 
-    def test_quality_medium(self):
+    def test_quality_not_supported(self):
         from boschshcpy.services_impl import CommunicationQualityService
-        svc = self._make_cq_svc("MEDIUM")
-        assert svc.value == CommunicationQualityService.State.MEDIUM
+        svc = self._make_cq_svc("NOT_SUPPORTED")
+        assert svc.value == CommunicationQualityService.State.NOT_SUPPORTED
 
     def test_quality_normal(self):
         from boschshcpy.services_impl import CommunicationQualityService

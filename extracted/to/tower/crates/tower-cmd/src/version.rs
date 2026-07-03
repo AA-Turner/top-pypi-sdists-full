@@ -6,9 +6,6 @@ pub fn version_cmd() -> Command {
 }
 
 pub async fn do_version() {
-    let version = tower_version::current_version();
-    output::text(
-        &format!("v{}\n", version),
-        &serde_json::json!({ "version": version }),
-    );
+    let line = format!("v{}\n", tower_version::current_version());
+    output::write(&line);
 }

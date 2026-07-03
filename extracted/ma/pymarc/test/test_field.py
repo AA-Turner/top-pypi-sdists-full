@@ -54,7 +54,7 @@ class FieldTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             _ = Field(
                 tag="245",
-                indicators=["a", "b", "c"],  # noqa
+                indicators=["a", "b", "c"],  # type: ignore
                 subfields=[
                     Subfield(code="a", value="Huckleberry Finn: "),
                     Subfield(code="b", value="An American Odyssey"),
@@ -65,7 +65,7 @@ class FieldTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             _ = Field(
                 tag="245",
-                indicators=("a", "b", "c"),  # noqa
+                indicators=("a", "b", "c"),  # type: ignore
                 subfields=[
                     Subfield(code="a", value="Huckleberry Finn: "),
                     Subfield(code="b", value="An American Odyssey"),
@@ -75,7 +75,7 @@ class FieldTest(unittest.TestCase):
     def test_legacy_indicators_two_value_list(self):
         f = Field(
             tag="245",
-            indicators=["a", "b"],  # noqa
+            indicators=["a", "b"],  # type: ignore
             subfields=[
                 Subfield(code="a", value="Huckleberry Finn: "),
                 Subfield(code="b", value="An American Odyssey"),
@@ -113,7 +113,7 @@ class FieldTest(unittest.TestCase):
             _ = Field(
                 tag="245",
                 indicators=Indicators("0", "1"),
-                subfields=old_style_subfields,  # noqa
+                subfields=old_style_subfields,  # type: ignore
             )
 
     def test_string(self):
@@ -127,6 +127,7 @@ class FieldTest(unittest.TestCase):
         )
 
     def test_indicators(self):
+        assert self.field.indicators
         self.assertEqual(self.field.indicator1, "0")
         self.assertEqual(self.field.indicators.first, "0")
         self.assertEqual(self.field.indicator2, "1")
@@ -202,6 +203,18 @@ class FieldTest(unittest.TestCase):
             indicators=Indicators("0", "1"),
             subfields=[Subfield(code="a", value="foo")],
         )
+
+    def test_numeric_tag_is_zero_padded(self):
+        f = Field(tag="8", indicators=Indicators("", ""))
+        self.assertEqual(f.tag, "008")
+
+    def test_padded_numeric_tag_is_preserved(self):
+        f = Field(tag="008", data="foo")
+        self.assertEqual(f.tag, "008")
+
+    def test_integer_tag_is_zero_padded(self):
+        f = Field(tag=42, indicators=Indicators("", ""))  # type: ignore[arg-type]
+        self.assertEqual(f.tag, "042")
 
     def test_add_subfield(self):
         field = Field(

@@ -220,10 +220,19 @@ class ReadWriteLock(metaclass=_ReadWriteLockMeta):
         self._acquire_transaction_lock(blocking=blocking, timeout=timeout)
         try:
             return self._do_acquire_inner(mode, timeout, blocking=blocking, start_time=start_time)
-        except sqlite3.OperationalError as exc:
-            if "database is locked" not in str(exc):
-                raise
-            raise Timeout(self.lock_file) from None
+        except sqlite3.Error as exc:
+            # A read acquire runs BEGIN (a deferred transaction that takes no database lock) and only then the
+            # SELECT that actually takes the SHARED lock. If a writer grabs the EXCLUSIVE lock between the two,
+            # the SELECT fails but BEGIN's transaction is left open on the shared connection. Roll it back here,
+            # while we still hold _transaction_lock, otherwise the next acquire's BEGIN dies with "cannot start a
+            # transaction within a transaction" and the instance is wedged for good. Catch only sqlite3.Error: a
+            # reentrant-validation RuntimeError from _do_acquire_inner's double-check must not roll back, or it
+            # would drop a transaction another thread legitimately holds on the shared connection.
+            with suppress(sqlite3.Error):
+                self._con.rollback()
+            if isinstance(exc, sqlite3.OperationalError) and "database is locked" in str(exc):
+                raise Timeout(self.lock_file) from None
+            raise
         finally:
             self._transaction_lock.release()
 
@@ -312,7 +321,14 @@ class ReadWriteLock(metaclass=_ReadWriteLockMeta):
                 self._write_thread_id = None
                 should_rollback = True
         if should_rollback:
-            self._con.rollback()
+            # The rollback ends the transaction on the shared connection, so it has to be serialized against
+            # acquire()'s BEGIN the same way acquire() already serializes itself with _transaction_lock. Without
+            # this, another thread that sees lock_level back at 0 can start its BEGIN while this rollback's
+            # transaction is still open (raising "cannot start a transaction within a transaction") or, in the
+            # other ordering, have its freshly started transaction rolled back here, dropping the database lock
+            # while it still believes it holds it.
+            with self._transaction_lock:
+                self._con.rollback()
 
     @contextmanager
     def read_lock(self, timeout: float | None = None, *, blocking: bool | None = None) -> Generator[None]:

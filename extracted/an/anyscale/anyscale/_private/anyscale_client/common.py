@@ -939,6 +939,7 @@ class AnyscaleClientInterface(ABC):
         compute_config_id: Optional[str] = None,
         cluster_environment_build_id: Optional[str] = None,
         idle_timeout_minutes: Optional[int] = None,
+        priority: Optional[int] = None,
     ):
         """Update a workspace."""
         raise NotImplementedError

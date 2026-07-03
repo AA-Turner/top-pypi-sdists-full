@@ -8,7 +8,7 @@ import sys
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum
-from typing import Callable, Coroutine
+from typing import TYPE_CHECKING, Callable, Coroutine
 
 import typer
 from tabulate import tabulate
@@ -21,30 +21,38 @@ from pgqueuer.core import listeners, logconfig
 from pgqueuer.domain import models, types
 from pgqueuer.ports.driver import Driver
 
+if TYPE_CHECKING:
+    import uvloop
+
 try:
-    from uvloop import run as _asyncio_run
+    import uvloop  # noqa: F811
+
+    HAS_UVLOOP = True
 except ImportError:
-    from asyncio import run as _asyncio_run  # type: ignore[assignment]
+    HAS_UVLOOP = False
 
 
 def asyncio_run(coro: Coroutine[object, object, object]) -> None:
+    """Run *coro* on the best event loop for this platform."""
     if sys.platform != "win32":
-        _asyncio_run(coro)
+        if HAS_UVLOOP:
+            uvloop.run(coro)
+        else:
+            asyncio.run(coro)
         return
 
-    # psycopg async rejects ProactorEventLoop (Windows default).
+    # psycopg async rejects ProactorEventLoop (Windows default); force the
+    # selector loop on every supported Windows + Python combination.
     if sys.version_info >= (3, 12):
         asyncio.run(coro, loop_factory=asyncio.SelectorEventLoop)
         return
-
     if sys.version_info >= (3, 11):
         with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
             runner.run(coro)
         return
-
     # Python 3.10: no Runner, no loop_factory; mutate policy.
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    _asyncio_run(coro)
+    asyncio.run(coro)
 
 
 app = typer.Typer(
@@ -60,16 +68,12 @@ app = typer.Typer(
 
 
 class VerifyMode(Enum):
-    """Enumeration for expected object state in verification."""
-
     PRESENT = "present"
     ABSENT = "absent"
 
 
 @dataclass
 class AppConfig:
-    """Application configuration for PGQueuer CLI."""
-
     prefix: str = ""
     pg_dsn: str = ""
     factory_fn_ref: str | None = None
@@ -103,7 +107,6 @@ def main(
         help="A reference to a function that returns an instance of Queries",
     ),
 ) -> None:
-    """Main Typer callback to set up shared configuration."""
     config = AppConfig(
         prefix=prefix,
         pg_dsn=pg_dsn,
@@ -117,10 +120,7 @@ def create_default_queries_factory(
     config: AppConfig,
     settings: qb.DBSettings,
 ) -> Callable[..., contextlib.AbstractAsyncContextManager[queries.Queries]]:
-    """
-    This is the default implementation of a factory that returns an instance of Queries.
-    It attempts asyncpg first, then psycopg.
-    """
+    """Default Queries factory: try asyncpg, fall back to psycopg."""
 
     @contextlib.asynccontextmanager
     async def factory() -> AsyncGenerator[queries.Queries, None]:
@@ -160,10 +160,7 @@ async def yield_queries(
     ctx: Context,
     settings: qb.DBSettings,
 ) -> AsyncGenerator[queries.Queries, None]:
-    """
-    Async context manager that yields a Queries instance from either a user-supplied
-    factory function or the default factory.
-    """
+    """Yield Queries from the user-supplied factory or the built-in default."""
     config: AppConfig = ctx.obj
     if config.factory_fn_ref:
         factory_fn = factories.load_factory(config.factory_fn_ref)
@@ -254,7 +251,7 @@ async def fetch_and_display(
         await asyncio.sleep(interval.total_seconds())
 
 
-@app.command(help="Install the necessary database schema for PGQueuer.")
+@app.command(help="Install the necessary database schema for PgQueuer.")
 def install(
     ctx: Context,
     dry_run: bool = typer.Option(
@@ -278,7 +275,7 @@ def install(
         asyncio_run(run())
 
 
-@app.command(help="Verify PGQueuer database objects.")
+@app.command(help="Verify PgQueuer database objects.")
 def verify(
     ctx: Context,
     expect: VerifyMode = typer.Option(
@@ -318,16 +315,16 @@ def verify(
                 print("\n".join(divergence))
             else:
                 if expect == VerifyMode.PRESENT:
-                    print("All required PGQueuer database objects are present.")
+                    print("All required PgQueuer database objects are present.")
                 else:
-                    print("No PGQueuer database objects found")
+                    print("No PgQueuer database objects found")
 
             exit(1 if divergence else 0)
 
     asyncio_run(run())
 
 
-@app.command(help="Remove the PGQueuer schema from the database.")
+@app.command(help="Remove the PgQueuer schema from the database.")
 def uninstall(
     ctx: Context,
     dry_run: bool = typer.Option(
@@ -345,7 +342,7 @@ def uninstall(
         asyncio_run(run())
 
 
-@app.command(help="Apply upgrades to the existing PGQueuer database schema.")
+@app.command(help="Apply upgrades to the existing PgQueuer database schema.")
 def upgrade(
     ctx: Context,
     dry_run: bool = typer.Option(
@@ -407,7 +404,7 @@ def listen(
     asyncio_run(run())
 
 
-@app.command(help="Start a PGQueuer.")
+@app.command(help="Start a PgQueuer.")
 def run(
     factory_fn: str = typer.Argument(
         ...,
@@ -426,6 +423,11 @@ def run(
         10,
         "--batch-size",
         help="Number of jobs to pull from the queue at once.",
+    ),
+    heartbeat_timeout: float = typer.Option(
+        30.0,
+        "--heartbeat-timeout",
+        help="Seconds without a heartbeat before a job is re-picked by another worker.",
     ),
     restart_delay: float = typer.Option(
         5.0,
@@ -481,11 +483,12 @@ def run(
             mode=mode,
             max_concurrent_tasks=max_concurrent_tasks,
             shutdown_on_listener_failure=shutdown_on_listener_failure,
+            heartbeat_timeout=timedelta(seconds=heartbeat_timeout),
         )
     )
 
 
-@app.command(help="Manage schedules in the PGQueuer system.")
+@app.command(help="Manage schedules in the PgQueuer system.")
 def schedules(
     ctx: Context,
     remove: list[str] = typer.Option(
@@ -506,7 +509,7 @@ def schedules(
     asyncio_run(run_async())
 
 
-@app.command(help="Manually enqueue a job into the PGQueuer system.")
+@app.command(help="Manually enqueue a job into the PgQueuer system.")
 def queue(
     ctx: Context,
     entrypoint: str = typer.Argument(
@@ -576,7 +579,7 @@ def requeue(
     asyncio_run(run())
 
 
-@app.command(help="Alter the logging durability for PGQueuer tables.")
+@app.command(help="Alter the logging durability for PgQueuer tables.")
 def durability(
     ctx: Context,
     durability: qb.Durability = typer.Argument(
@@ -591,14 +594,7 @@ def durability(
         help="Print SQL commands without executing them.",
     ),
 ) -> None:
-    """
-    Command to alter the durability level of the tables in PGQueuer without data loss.
-
-    Args:
-        ctx: Context object with configuration information.
-        durability: The desired durability level ('volatile', 'balanced', or 'durable').
-        dry_run: Whether to print SQL commands without executing them.
-    """
+    """Switch durability level of PgQueuer tables without data loss."""
     print(
         "\n".join(
             qb.QueryBuilderEnvironment(
@@ -615,7 +611,7 @@ def durability(
         asyncio_run(run())
 
 
-@app.command(name="autovac", help="Optimize autovacuum settings for PGQueuer tables.")
+@app.command(name="autovac", help="Optimize autovacuum settings for PgQueuer tables.")
 def optimize_autovacuum(
     ctx: Context,
     dry_run: bool = typer.Option(False, help="Print SQL commands only."),

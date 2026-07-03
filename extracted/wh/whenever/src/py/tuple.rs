@@ -46,7 +46,7 @@ impl PyTuple {
 
     /// Create a new tuple with the given length.
     pub(crate) fn with_len(len: Py_ssize_t) -> PyResult<Owned<Self>> {
-        Ok(unsafe { PyTuple_New(len).rust_owned()?.cast_unchecked::<PyTuple>() })
+        Ok(unsafe { PyTuple_New(len).own()?.cast_unchecked::<PyTuple>() })
     }
 }
 
@@ -59,7 +59,7 @@ impl Owned<PyTuple> {
 
     /// Get a Python iterator over this tuple.
     pub(crate) fn py_iter(self) -> PyReturn {
-        unsafe { PyObject_GetIter(self.as_ptr()) }.rust_owned()
+        unsafe { PyObject_GetIter(self.as_ptr()) }.own()
     }
 }
 
@@ -83,59 +83,15 @@ impl Iterator for PyTupleIter {
 }
 
 pub(crate) trait IntoPyTuple {
-    fn into_pytuple(self) -> PyResult<Owned<PyTuple>>;
+    fn into_pytuple(self) -> PyReturn;
 }
 
-impl<T: PyBase> IntoPyTuple for (Owned<T>,) {
-    fn into_pytuple(self) -> PyResult<Owned<PyTuple>> {
-        let tuple = unsafe { PyTuple_New(1).rust_owned()?.cast_unchecked::<PyTuple>() };
-        unsafe { PyTuple_SET_ITEM(tuple.as_ptr(), 0, self.0.py_owned().as_ptr()) };
-        Ok(tuple)
-    }
-}
-
-impl<T: PyBase, U: PyBase> IntoPyTuple for (Owned<T>, Owned<U>) {
-    fn into_pytuple(self) -> PyResult<Owned<PyTuple>> {
-        let tuple = unsafe { PyTuple_New(2).rust_owned()?.cast_unchecked::<PyTuple>() };
-        unsafe { PyTuple_SET_ITEM(tuple.as_ptr(), 0, self.0.py_owned().as_ptr()) };
-        unsafe { PyTuple_SET_ITEM(tuple.as_ptr(), 1, self.1.py_owned().as_ptr()) };
-        Ok(tuple)
-    }
-}
-
-impl<T: PyBase, U: PyBase, V: PyBase> IntoPyTuple for (Owned<T>, Owned<U>, Owned<V>) {
-    fn into_pytuple(self) -> PyResult<Owned<PyTuple>> {
-        let tuple = unsafe { PyTuple_New(3).rust_owned()?.cast_unchecked::<PyTuple>() };
-        unsafe { PyTuple_SET_ITEM(tuple.as_ptr(), 0, self.0.py_owned().as_ptr()) };
-        unsafe { PyTuple_SET_ITEM(tuple.as_ptr(), 1, self.1.py_owned().as_ptr()) };
-        unsafe { PyTuple_SET_ITEM(tuple.as_ptr(), 2, self.2.py_owned().as_ptr()) };
-        Ok(tuple)
-    }
-}
-
-impl<T: PyBase, U: PyBase, V: PyBase, W: PyBase> IntoPyTuple
-    for (Owned<T>, Owned<U>, Owned<V>, Owned<W>)
-{
-    fn into_pytuple(self) -> PyResult<Owned<PyTuple>> {
-        let tuple = unsafe { PyTuple_New(4).rust_owned()?.cast_unchecked::<PyTuple>() };
-        unsafe { PyTuple_SET_ITEM(tuple.as_ptr(), 0, self.0.py_owned().as_ptr()) };
-        unsafe { PyTuple_SET_ITEM(tuple.as_ptr(), 1, self.1.py_owned().as_ptr()) };
-        unsafe { PyTuple_SET_ITEM(tuple.as_ptr(), 2, self.2.py_owned().as_ptr()) };
-        unsafe { PyTuple_SET_ITEM(tuple.as_ptr(), 3, self.3.py_owned().as_ptr()) };
-        Ok(tuple)
-    }
-}
-
-impl<T: PyBase, U: PyBase, V: PyBase, W: PyBase, X: PyBase> IntoPyTuple
-    for (Owned<T>, Owned<U>, Owned<V>, Owned<W>, Owned<X>)
-{
-    fn into_pytuple(self) -> PyResult<Owned<PyTuple>> {
-        let tuple = unsafe { PyTuple_New(5).rust_owned()?.cast_unchecked::<PyTuple>() };
-        unsafe { PyTuple_SET_ITEM(tuple.as_ptr(), 0, self.0.py_owned().as_ptr()) };
-        unsafe { PyTuple_SET_ITEM(tuple.as_ptr(), 1, self.1.py_owned().as_ptr()) };
-        unsafe { PyTuple_SET_ITEM(tuple.as_ptr(), 2, self.2.py_owned().as_ptr()) };
-        unsafe { PyTuple_SET_ITEM(tuple.as_ptr(), 3, self.3.py_owned().as_ptr()) };
-        unsafe { PyTuple_SET_ITEM(tuple.as_ptr(), 4, self.4.py_owned().as_ptr()) };
-        Ok(tuple)
+impl<const N: usize, T: PyBase> IntoPyTuple for [Owned<T>; N] {
+    fn into_pytuple(self) -> PyReturn {
+        let tuple = PyTuple::with_len(N as _)?;
+        for (i, item) in self.into_iter().enumerate() {
+            tuple.init_item(i as _, item);
+        }
+        Ok(tuple.into_obj())
     }
 }

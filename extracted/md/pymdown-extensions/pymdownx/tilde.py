@@ -52,7 +52,7 @@ SUB = r'(~)(?!\s){}(?<!\s)\1'.format(CONTENT)
 # `~sub ~~sub,del~~~`
 SUB_DEL2 = r'(?<!~)(~)(?![~\s]){}~{{2}}{}~{{3}}'.format(CONTENT, CONTENT)
 # Prioritize ~value~ when ~~value~~ is nested within
-SUB2 = r'(?<!~)(~)(?![~\s])((?:[^\s~]|~{2,})+?)(?<![~\s])(~)(?!~)'
+SUB2 = r'(?<!~)(~)(?![~\s])((?:[^\s~]|~{2,}(?!~))+?)(?<![~\s])(~)(?!~)'
 
 # Smart rules for when "smart tilde" is enabled
 # SMART: `~~~del,sub~~~`

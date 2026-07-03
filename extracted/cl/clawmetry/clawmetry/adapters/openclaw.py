@@ -120,6 +120,39 @@ def _is_docker_runtime_down() -> Optional[bool]:
         return None
 
 
+def _openclaw_doctor_findings() -> list:
+    """Run ``openclaw doctor --json`` and return the list of structured
+    diagnostic findings (auth-profile, workspace, device-pairing,
+    channel-plugin, memory-provider, systemd-exhaustion, LAN-firewall).
+    Available since OpenClaw harness 2026.7.1 (#97125+). Returns [] when
+    openclaw is absent, the --json flag is unsupported, or output is not
+    valid JSON. Never raises.
+    """
+    try:
+        import shutil as _sh
+        if not _sh.which("openclaw"):
+            return []
+        import subprocess as _sp
+        res = _sp.run(
+            ["openclaw", "doctor", "--json"],
+            capture_output=True, text=True, timeout=15,
+        )
+        raw = (res.stdout or "").strip()
+        if not raw:
+            return []
+        import json as _json
+        data = _json.loads(raw)
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            for _key in ("findings", "results", "diagnostics"):
+                if isinstance(data.get(_key), list):
+                    return data[_key]
+        return []
+    except Exception:
+        return []
+
+
 def _real_install(sessions_dir: str) -> bool:
     """A genuine OpenClaw install signal, NOT the bare ~/.openclaw dir that
     ClawMetry itself creates as a scratch workspace. Any one of: the openclaw
@@ -325,6 +358,38 @@ def _openshell_sandbox_logs(name: str, count: int = 20) -> list:
         return []
 
 
+def _sandbox_egress_denied_count(name: str, count: int = 100) -> dict:
+    """Count DNS-backed HTTPS fail-closed denial events in recent sandbox OCSF logs.
+
+    Fetches the <count> most-recent OCSF audit events for sandbox <name> and
+    counts those with verdict=='deny' that carry a network-egress context:
+    either an OCSF network-activity class_uid (4001-4004) or the presence of
+    endpoint fields (dst_endpoint / src_endpoint) that imply a connection
+    attempt.  Returns {"egressDeniedCount": N} when N>0 so callers can
+    .update() a sandbox entry dict directly; returns {} otherwise -- identical
+    to the _openshell_sandbox_ocsf_enabled() contract.  Never raises.
+    """
+    _NETWORK_CLASS_UIDS = frozenset([4001, 4002, 4003, 4004])
+    try:
+        events = _openshell_sandbox_logs(name, count=count)
+        denied = 0
+        for evt in events:
+            if not isinstance(evt, dict):
+                continue
+            if evt.get("verdict") != "deny":
+                continue
+            class_uid = evt.get("class_uid")
+            if class_uid in _NETWORK_CLASS_UIDS:
+                denied += 1
+            elif "dst_endpoint" in evt or "src_endpoint" in evt:
+                denied += 1
+        if denied:
+            return {"egressDeniedCount": denied}
+        return {}
+    except Exception:
+        return {}
+
+
 def _openshell_sandbox_logs_tail(name: str):
     """Spawn ``openshell logs <name> --source all --tail`` as a long-lived child
     process and return the ``subprocess.Popen`` handle.
@@ -420,6 +485,7 @@ def _sandbox_inference_configs() -> list:
                 }
                 entry.update(_openshell_sandbox_phase_policy(name))
                 entry.update(_openshell_sandbox_ocsf_enabled(name))
+                entry.update(_sandbox_egress_denied_count(name))
                 if json_runtime_kind and "sandboxRuntimeKind" not in entry:
                     entry["sandboxRuntimeKind"] = json_runtime_kind
                 out.append(entry)
@@ -446,6 +512,7 @@ def _sandbox_inference_configs() -> list:
             }
             entry.update(_openshell_sandbox_phase_policy(name))
             entry.update(_openshell_sandbox_ocsf_enabled(name))
+            entry.update(_sandbox_egress_denied_count(name))
             if json_runtime_kind and "sandboxRuntimeKind" not in entry:
                 entry["sandboxRuntimeKind"] = json_runtime_kind
             out.append(entry)
@@ -964,6 +1031,15 @@ class OpenClawAdapter(AgentAdapter):
             _sb_configs = _sandbox_inference_configs()
             if _sb_configs:
                 meta["sandboxInferenceConfigs"] = _sb_configs
+            # DNS-backed HTTPS fail-closed enforcement (#3471): aggregate denial
+            # events across all known sandboxes.  Only written when >0 denials
+            # so absence of the key on plain OpenClaw installs is unambiguous.
+            _dns_denied_total = sum(
+                c.get("egressDeniedCount", 0) for c in _sb_configs
+            ) if _sb_configs else 0
+            if _dns_denied_total:
+                meta["dnsFailClosedCount"] = _dns_denied_total
+                meta["networkEgressDenied"] = True
             # Agents manifest (#3185): agent roster + per-agent sandbox/config
             # from ~/.nemoclaw/agents.yaml (written by harness onboarding,
             # commit 01e5525).
@@ -980,6 +1056,13 @@ class OpenClawAdapter(AgentAdapter):
             _docker_down = _is_docker_runtime_down()
             if _docker_down is not None:
                 meta["dockerRuntimeDown"] = _docker_down
+            # Doctor findings (#3468): structured diagnostic findings from
+            # `openclaw doctor --json` (harness 2026.7.1). Categories:
+            # auth-profile, workspace, device-pairing, channel-plugin,
+            # memory-provider, systemd-exhaustion, Windows LAN-firewall.
+            _doctor = _openclaw_doctor_findings()
+            if _doctor:
+                meta["doctorFindings"] = _doctor
             return DetectResult(
                 name=self.name,
                 display_name=self.display_name,
@@ -1070,6 +1153,15 @@ class OpenClawAdapter(AgentAdapter):
             _idt = s.get("target") or s.get("identityTarget")
             if _idt is not None:
                 extra["identityTarget"] = _idt
+            # External-harness attachment (#3470): `openclaw attach` resumes an
+            # existing gateway session via an external harness (PR #96454).  The
+            # gateway stamps kind='attached' and/or an externalHarness boolean.
+            # Surface a typed flag so the frontend can distinguish these sessions.
+            _ext = s.get("externalHarness") or (
+                s.get("kind", "").lower() in ("attached", "external")
+            )
+            if _ext:
+                extra["externalHarness"] = True
             # Cron delivery awareness (#3342): PR #93580 stamps a
             # cronDeliveryTarget marker on sessions that are delivery targets
             # of a cron job so they can be correlated with the originating
@@ -1115,6 +1207,15 @@ class OpenClawAdapter(AgentAdapter):
             _zai = s.get("zaiBaseUrl") or s.get("synthesizedModelBaseUrl") or s.get("glm5BaseUrl")
             if _zai is not None:
                 extra["zaiBaseUrl"] = _zai
+            # Per-conversation capability profile (#3469): PR #98536 adds
+            # capabilityProfile / conversationCapability to session records
+            # (OpenClaw harness 2026.7.1, "Safer scoped conversations").
+            _cap_profile = (
+                s.get("capabilityProfile")
+                or s.get("conversationCapability")
+            )
+            if _cap_profile is not None:
+                extra["capabilityProfile"] = _cap_profile
             tok_total = int(s.get("totalTokens") or 0)
             tok_in = int(s.get("inputTokens") or 0)
             tok_out = int(s.get("outputTokens") or 0)
@@ -1325,6 +1426,13 @@ class OpenClawAdapter(AgentAdapter):
                             _zai = obj.get("zaiBaseUrl") or obj.get("synthesizedModelBaseUrl") or obj.get("glm5BaseUrl")
                             if _zai is not None:
                                 extra["zaiBaseUrl"] = _zai
+                            # Per-conversation capability profile (#3469): PR #98536.
+                            _cap_profile = (
+                                obj.get("capabilityProfile")
+                                or obj.get("conversationCapability")
+                            )
+                            if _cap_profile is not None:
+                                extra["capabilityProfile"] = _cap_profile
                             # Normalized TTFR keys (#3054): also write ttfr_ms /
                             # slow_reply so callers that read the normalized form
                             # don't need to know the original key spellings.

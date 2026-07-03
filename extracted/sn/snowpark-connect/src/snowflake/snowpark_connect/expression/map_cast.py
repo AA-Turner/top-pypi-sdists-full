@@ -53,6 +53,7 @@ from snowflake.snowpark_connect.expression.integral_types_support import (
     apply_fractional_to_integral_cast,
     apply_fractional_to_integral_cast_with_ansi_check,
     apply_integral_overflow_with_ansi_check,
+    apply_interval_to_integral_overflow,
     get_integral_type_bounds,
 )
 from snowflake.snowpark_connect.expression.typer import ExpressionTyper
@@ -427,14 +428,9 @@ def map_cast(
     # SNOW-3585747: Reject char/varchar casts to match Spark Connect
     # (DATATYPE_MISMATCH.CAST_WITHOUT_SUGGESTION).
     if _CHAR_VARCHAR_TYPE_RE.match(to_type_str):
-        exception = AnalysisException(
-            f'[DATATYPE_MISMATCH.CAST_WITHOUT_SUGGESTION] Cannot resolve "{col_name}" '
-            f"due to data type mismatch: cannot cast "
-            f'"{next(iter(snowpark_to_proto_type(from_type, column_mapping))).upper()}" '
-            f'to "{to_type_str}".;'
+        raise _cast_without_suggestion_error(
+            col_name, from_type, to_type_str, column_mapping
         )
-        attach_custom_error_code(exception, ErrorCodes.INVALID_CAST)
-        raise exception
 
     match (from_type, to_type):
         # Integral Types may require casting even if they are already the same type
@@ -681,12 +677,29 @@ def map_cast(
             result_exp = _cast_string_to_day_time_interval(col, to_type)
         case (DayTimeIntervalType(), StringType()):
             result_exp = _cast_day_time_interval_to_string(col, from_type)
-        case (StringType(), _):
-            exception = AnalysisException(
-                f"""[DATATYPE_MISMATCH.CAST_WITHOUT_SUGGESTION] Cannot resolve "{col_name}" due to data type mismatch: cannot cast "{snowpark_to_proto_type(from_type, column_mapping)}" to "{exp.cast.type_str.upper()}".;"""
+        case (DayTimeIntervalType() | YearMonthIntervalType(), _) if isinstance(
+            to_type, _IntegralType
+        ):
+            result_exp = _cast_interval_to_integral(col, from_type, to_type)
+        case (_IntegralType() | DecimalType(), YearMonthIntervalType()):
+            result_exp = _cast_numeric_to_year_month_interval(
+                col, from_type, to_type, to_type_str
             )
-            attach_custom_error_code(exception, ErrorCodes.INVALID_CAST)
-            raise exception
+        case (_IntegralType() | DecimalType(), DayTimeIntervalType()):
+            result_exp = _cast_numeric_to_day_time_interval(
+                col, from_type, to_type, to_type_str
+            )
+        case (StringType(), _) | (
+            (
+                # Spark disallows float/double -> interval at analysis time.
+                FloatType() | DoubleType(),
+                YearMonthIntervalType() | DayTimeIntervalType(),
+            )
+        ):
+
+            raise _cast_without_suggestion_error(
+                col_name, from_type, to_type_str, column_mapping
+            )
         case (_, StringType()) if isinstance(from_type, (FloatType, DoubleType)):
             # Spark renders whole-number floats/doubles with a trailing ".0"
             # (e.g. 980.0 → "980.0", -250.0 → "-250.0"). Snowflake's default
@@ -1076,3 +1089,185 @@ def _cast_day_time_interval_to_string(
     return format_udf(
         total_microseconds, snowpark_fn.lit(start_field), snowpark_fn.lit(end_field)
     )
+
+
+# Spark source-type names used in CAST_OVERFLOW messages.
+_SPARK_NUMERIC_TYPE_NAMES = {
+    ByteType: "TINYINT",
+    ShortType: "SMALLINT",
+    IntegerType: "INT",
+    LongType: "BIGINT",
+}
+
+# Year-month interval internal value is a 32-bit month count (Spark stores it as
+# an int). Snowflake's INTERVAL_YEAR_MONTH range coincides with this bound.
+_YEAR_MONTH_MONTHS_MIN = -2147483648
+_YEAR_MONTH_MONTHS_MAX = 2147483647
+
+# Day-time interval internal value is a 64-bit microsecond count.
+_DAY_TIME_MICROS_MIN = -9223372036854775808
+_DAY_TIME_MICROS_MAX = 9223372036854775807
+
+# Microseconds per unit, keyed by DayTimeIntervalType end field code.
+_DAY_TIME_MICROS_PER_UNIT = {
+    DayTimeIntervalType.DAY: 86_400_000_000,
+    DayTimeIntervalType.HOUR: 3_600_000_000,
+    DayTimeIntervalType.MINUTE: 60_000_000,
+    DayTimeIntervalType.SECOND: 1_000_000,
+}
+
+
+def _spark_source_type_name(from_type: DataType) -> str:
+    if isinstance(from_type, DecimalType):
+        return f"DECIMAL({from_type.precision},{from_type.scale})"
+    return _SPARK_NUMERIC_TYPE_NAMES.get(type(from_type), "BIGINT")
+
+
+def _cast_without_suggestion_error(
+    col_name: str,
+    from_type: DataType,
+    to_type_str: str,
+    column_mapping: ColumnNameMap,
+) -> AnalysisException:
+    """Build Spark's DATATYPE_MISMATCH.CAST_WITHOUT_SUGGESTION analysis error."""
+    from_type_str = next(
+        iter(snowpark_to_proto_type(from_type, column_mapping))
+    ).upper()
+    exception = AnalysisException(
+        f'[DATATYPE_MISMATCH.CAST_WITHOUT_SUGGESTION] Cannot resolve "{col_name}" '
+        f"due to data type mismatch: cannot cast "
+        f'"{from_type_str}" to "{to_type_str}".;'
+    )
+    attach_custom_error_code(exception, ErrorCodes.INVALID_CAST)
+    return exception
+
+
+def _cast_overflow_error(
+    col: Column, from_type: DataType, to_type: DataType, to_type_str: str
+) -> Column:
+    """Runtime CAST_OVERFLOW error matching Spark's numeric -> interval overflow."""
+    from_type_name = _spark_source_type_name(from_type)
+    suffix = "L" if isinstance(from_type, LongType) else ""
+    raise_error = raise_error_helper(to_type, ArithmeticException)
+    return raise_error(
+        snowpark_fn.lit("[CAST_OVERFLOW] The value "),
+        col.cast(StringType()),
+        snowpark_fn.lit(
+            f'{suffix} of the type "{from_type_name}" cannot be cast to '
+            f'"{to_type_str}" due to an overflow. Use `try_cast` to tolerate '
+            f"overflow and return NULL instead. If necessary set "
+            f'"spark.sql.ansi.enabled" to "false" to bypass this error.'
+        ),
+    )
+
+
+def integral_sql_type_name(typ: DataType) -> str:
+    return _SPARK_NUMERIC_TYPE_NAMES.get(type(typ), typ.typeName().upper())
+
+
+def _cast_interval_to_integral(
+    col: Column,
+    from_type: DataType,
+    to_type: DataType,
+) -> Column:
+    """Cast an ANSI interval to an integral type with Spark's overflow semantics.
+
+    Snowflake's native interval -> number cast already yields the value in the
+    unit of the interval's end field, truncated toward zero (e.g. HOUR TO SECOND
+    -> total seconds, YEAR -> years), matching Spark. We widen to BIGINT first --
+    a narrow target would either silently overflow into Snowflake's wider NUMBER
+    or raise Snowflake's "interval out of representable range" error -- then defer
+    to the interval overflow guard, which raises CAST_OVERFLOW on out-of-range
+    values in both ANSI-enabled and ANSI-disabled modes (matching Spark, where
+    interval narrowing always throws). We pass the interval's SQL type name and a
+    column rendering the value (e.g. ``INTERVAL '23:59:59' HOUR TO SECOND``) so
+    the message matches Spark.
+    """
+    value_repr = (
+        _cast_year_month_interval_to_string(col, from_type)
+        if isinstance(from_type, YearMonthIntervalType)
+        else _cast_day_time_interval_to_string(col, from_type)
+    )
+    return apply_interval_to_integral_overflow(
+        col.cast(LongType()),
+        to_type,
+        source_type_name=from_type.simpleString().upper(),
+        target_type_name=integral_sql_type_name(to_type),
+        value_repr=value_repr,
+    )
+
+
+def _cast_numeric_to_year_month_interval(
+    col: Column,
+    from_type: DataType,
+    to_type: YearMonthIntervalType,
+    to_type_str: str,
+) -> Column:
+    """Cast an integral/decimal value to a YearMonthIntervalType.
+
+    Mirrors Spark: the number maps to the unit of the target's end field
+    (YEAR -> value * 12 months, MONTH -> value months) and decimals are rounded
+    HALF_UP. We compute the total month count, build a native ``INTERVAL MONTH``
+    (the finest year-month unit, which Snowflake accepts from a number), then let
+    Snowflake's interval -> interval cast narrow it to the requested field range.
+    That narrowing truncates toward zero, matching Spark's display semantics
+    (e.g. 18 months -> ``INTERVAL '1' YEAR``).
+    """
+    factor = 12 if to_type.end_field == YearMonthIntervalType.YEAR else 1
+
+    total_months = col * snowpark_fn.lit(factor)
+    if isinstance(from_type, DecimalType):
+        total_months = snowpark_fn.round(total_months, 0)
+    total_months = total_months.cast(LongType())
+
+    overflow = (total_months < snowpark_fn.lit(_YEAR_MONTH_MONTHS_MIN)) | (
+        total_months > snowpark_fn.lit(_YEAR_MONTH_MONTHS_MAX)
+    )
+
+    months_interval = total_months.cast(
+        YearMonthIntervalType(YearMonthIntervalType.MONTH, YearMonthIntervalType.MONTH)
+    )
+    interval_col = months_interval.cast(to_type)
+
+    return snowpark_fn.when(
+        overflow, _cast_overflow_error(col, from_type, to_type, to_type_str)
+    ).otherwise(interval_col)
+
+
+def _cast_numeric_to_day_time_interval(
+    col: Column,
+    from_type: DataType,
+    to_type: DayTimeIntervalType,
+    to_type_str: str,
+) -> Column:
+    """Cast an integral/decimal value to a DayTimeIntervalType.
+
+    Mirrors Spark: the number maps to the unit of the target's end field
+    (DAY/HOUR/MINUTE/SECOND -> value * micros-per-unit) and decimals are rounded
+    HALF_UP at the microsecond level. The full-precision microsecond value is the
+    interval's value; Spark keeps every microsecond regardless of the target's
+    field range (the range only governs the *display*, e.g. 1h 20m 39.25926s
+    shows as ``INTERVAL '01:20' HOUR TO MINUTE`` but still collects as
+    timedelta(seconds=4839, microseconds=259260)). We therefore build a native
+    ``INTERVAL SECOND`` (the finest day-time unit, which keeps fractional micros)
+    and report it as ``to_type`` without a narrowing cast -- narrowing would
+    truncate the stored value and drop the sub-field microseconds.
+    """
+    micros_per_unit = _DAY_TIME_MICROS_PER_UNIT[to_type.end_field]
+
+    total_micros = col * snowpark_fn.lit(micros_per_unit)
+    if isinstance(from_type, DecimalType):
+        total_micros = snowpark_fn.round(total_micros, 0)
+
+    overflow = (total_micros < snowpark_fn.lit(_DAY_TIME_MICROS_MIN)) | (
+        total_micros > snowpark_fn.lit(_DAY_TIME_MICROS_MAX)
+    )
+
+    total_seconds = total_micros / snowpark_fn.lit(1_000_000)
+    interval_col = total_seconds.cast(
+        DayTimeIntervalType(DayTimeIntervalType.SECOND, DayTimeIntervalType.SECOND)
+    )
+
+    return snowpark_fn.when(
+        overflow, _cast_overflow_error(col, from_type, to_type, to_type_str)
+    ).otherwise(interval_col)

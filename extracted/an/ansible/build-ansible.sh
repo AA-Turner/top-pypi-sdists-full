@@ -5,7 +5,7 @@
 
 set -e
 
-VERSION="14.0.0"
+VERSION="14.1.0"
 MAJOR="14"
 
 # For idempotency, remove build data or built output first

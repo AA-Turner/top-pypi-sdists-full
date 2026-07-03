@@ -1,11 +1,19 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: yq
-Version: 3.4.3
+Version: 4.0.0
 Summary: Command-line YAML/XML processor - jq wrapper for YAML/XML documents
-Home-page: https://github.com/kislyuk/yq
+Project-URL: Homepage, https://github.com/kislyuk/yq
+Project-URL: Documentation, https://xml-security.github.io/yq/
+Project-URL: Source Code, https://github.com/kislyuk/yq
+Project-URL: Issue Tracker, https://github.com/kislyuk/yq/issues
+Project-URL: Change Log, https://github.com/kislyuk/yq/blob/main/Changes.rst
 Author: Andrey Kislyuk
 Author-email: kislyuk@gmail.com
+Maintainer: Andrey Kislyuk
+Maintainer-email: kislyuk@gmail.com
 License: Apache Software License
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: MacOS :: MacOS X
@@ -17,19 +25,23 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.8
-License-File: LICENSE
-Requires-Dist: PyYAML>=5.3.1
-Requires-Dist: xmltodict>=0.11.0
-Requires-Dist: tomlkit>=0.11.6
 Requires-Dist: argcomplete>=1.8.1
-Provides-Extra: tests
-Requires-Dist: coverage; extra == "tests"
-Requires-Dist: wheel; extra == "tests"
-Requires-Dist: build; extra == "tests"
-Requires-Dist: ruff; extra == "tests"
-Requires-Dist: mypy; extra == "tests"
+Requires-Dist: pyyaml>=5.3.1
+Requires-Dist: tomlkit>=0.11.6
+Requires-Dist: xmltodict>=0.11.0
+Provides-Extra: test
+Requires-Dist: build; extra == 'test'
+Requires-Dist: coverage; extra == 'test'
+Requires-Dist: mypy; extra == 'test'
+Requires-Dist: ruff; extra == 'test'
+Requires-Dist: wheel; extra == 'test'
+Description-Content-Type: text/x-rst
 
 yq: Command-line YAML/XML/TOML processor - jq wrapper for YAML, XML, TOML documents
 ===================================================================================
@@ -71,7 +83,7 @@ yq can be called as a module if needed. With ``-y/-Y``, files can be edited in p
 
     python -m yq -Y --indentless --in-place '.["current-context"] = "staging-cluster"' ~/.kube/config
 
-Use the ``--width``/``-w`` option to pass the line wrap width for string literals. Use
+Use the ``--width``/``-w`` option to pass the line wrap width for string literals; ``--width 0`` disables wrapping. Use
 ``--explicit-start``/``--explicit-end`` to emit YAML start/end markers even when processing a single document. All other
 command line arguments are forwarded to ``jq``. ``yq`` forwards the exit code ``jq`` produced, unless there was an error
 in YAML parsing, in which case the exit code is 1. See the `jq manual <https://stedolan.github.io/jq/manual/>`_ for more
@@ -153,7 +165,8 @@ TOML support
 ------------
 ``yq`` supports `TOML <https://toml.io/>`_ as well. The ``yq`` package installs an executable, ``tomlq``, which uses the
 `tomlkit library <https://github.com/sdispater/tomlkit>`_ to transcode TOML to JSON, then pipes it to ``jq``. Roundtrip
-transcoding is available with the ``tomlq --toml-output``/``tomlq -t`` option. Use ``python -m yq.tomlq`` if you want to
+transcoding is available with the ``tomlq --toml-output``/``tomlq -t`` option. Use ``tomlq --toml-roundtrip``/``tomlq -T``
+to preserve TOML comments, whitespace, and formatting metadata while editing. Use ``python -m yq.tomlq`` if you want to
 ensure a specific Python runtime.
 
 .. admonition:: Compatibility note
@@ -182,12 +195,3 @@ Please report bugs, issues, feature requests, etc. on `GitHub <https://github.co
 License
 -------
 Licensed under the terms of the `Apache License, Version 2.0 <http://www.apache.org/licenses/LICENSE-2.0>`_.
-
-.. image:: https://github.com/kislyuk/yq/workflows/Python%20package/badge.svg
-        :target: https://github.com/kislyuk/yq/actions
-.. image:: https://codecov.io/github/kislyuk/yq/coverage.svg?branch=master
-        :target: https://codecov.io/github/kislyuk/yq?branch=master
-.. image:: https://img.shields.io/pypi/v/yq.svg
-        :target: https://pypi.python.org/pypi/yq
-.. image:: https://img.shields.io/pypi/l/yq.svg
-        :target: https://pypi.python.org/pypi/yq

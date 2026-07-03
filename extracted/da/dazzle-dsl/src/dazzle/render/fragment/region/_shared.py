@@ -58,7 +58,12 @@ def _wrap_surface(title: str, kind: str, body: Fragment) -> Surface:
 
 
 def _render_status_badge_html(
-    value: Any, *, size: str = "md", bordered: bool = False, display: Any = None
+    value: Any,
+    *,
+    size: str = "md",
+    bordered: bool = False,
+    display: Any = None,
+    semantic_map: dict[str, str] | None = None,
 ) -> str:
     """Replicate the legacy `render_status_badge` macro byte-for-byte.
 
@@ -77,23 +82,29 @@ def _render_status_badge_html(
     from html import escape as _esc
 
     from dazzle.render.filters import (
-        _badge_tone_filter,
         _humanize_filter,
+        badge_icon_html,
+        resolve_status_tone,
     )
 
     if value in (None, "", "—"):
         return '<span class="dz-badge-empty" aria-label="No status">—</span>'
-    tone = _badge_tone_filter(value)
+    # #1493 slice 2: a declared `semantic:` binding (semantic_map) wins over the
+    # name guess; None/empty map → byte-identical to the legacy name guess.
+    tone = resolve_status_tone(value, semantic_map)
     label = display if display is not None else _humanize_filter(value)
     label_str = str(label)
     size_class = "dz-badge-sm" if size == "sm" else ""
     border_class = "bordered" if bordered else ""
+    # #1493 slice 2 part 3: WCAG colour+icon+text — non-neutral tones lead with a
+    # glyph so the state isn't colour-only. Neutral → "" (byte-identical default).
+    icon = badge_icon_html(tone)
     return (
         f'<span class="dz-badge {size_class} {border_class}" '
         f'data-dz-tone="{_esc(tone, quote=True)}" '
         f'role="status" '
         f'aria-label="Status: {_esc(label_str, quote=True)}">'
-        f"{_esc(label_str)}</span>"
+        f"{icon}{_esc(label_str)}</span>"
     )
 
 
@@ -125,7 +136,14 @@ def _render_typed_value(
     value = item.get(key) if key else None
 
     if col_type == "badge":
-        return RawHTML(_render_status_badge_html(value, size=badge_size, bordered=badge_bordered))
+        return RawHTML(
+            _render_status_badge_html(
+                value,
+                size=badge_size,
+                bordered=badge_bordered,
+                semantic_map=col.get("semantic_map"),  # #1493 slice 2
+            )
+        )
 
     if col_type == "bool":
         from dazzle.render.filters import _bool_icon_filter

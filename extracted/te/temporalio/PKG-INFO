@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: temporalio
-Version: 1.29.0
+Version: 1.30.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -8,9 +8,9 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: nexus-rpc==1.4.0
-Requires-Dist: protobuf>=3.20,<7.0.0
+Requires-Dist: protobuf>=3.20,<8.0.0
 Requires-Dist: python-dateutil>=2.8.2,<3 ; python_full_version < '3.11'
-Requires-Dist: types-protobuf>=3.20,<7.0.0
+Requires-Dist: types-protobuf>=3.20,<8.0.0
 Requires-Dist: typing-extensions>=4.2.0,<5
 Requires-Dist: aioboto3>=10.4.0 ; extra == 'aioboto3'
 Requires-Dist: types-aioboto3[s3]>=10.4.0 ; extra == 'aioboto3'

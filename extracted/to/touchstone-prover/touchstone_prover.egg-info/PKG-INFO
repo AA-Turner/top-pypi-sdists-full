@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: touchstone-prover
-Version: 1.41.0
+Version: 1.43.0
 Summary: An SMT-based verifier for Python with a machine-checked trust base.
 Author: CharlesCNorton
 License: MIT
@@ -133,6 +133,10 @@ A refutation comes back with the counterexample and the path it took; add `--rep
 also emits a runnable failing test that reproduces it. An UNKNOWN is labeled `budget` (raise `--budget`),
 `approximation` (a sound over-approximation it will not certify), or `unmodeled` (a construct outside the
 subset, named with its line) so the next step is clear.
+
+`--func` takes a top-level name or a `Class.method` (a bare method name works when it is unique across
+the file's classes), so the single-file verbs reach the methods that `repo` / `scan` already triage; the
+method is analyzed standalone with `self` an ordinary opaque parameter.
 
 For triage at scale, `scan` and `repo` emit `--sarif` (a SARIF 2.1.0 log for GitHub code scanning or any
 viewer); `scan --cache FILE` reuses a content-addressed verdict cache so a re-scan only re-triages changed

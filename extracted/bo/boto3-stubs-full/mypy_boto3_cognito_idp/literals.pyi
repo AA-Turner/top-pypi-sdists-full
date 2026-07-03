@@ -58,6 +58,7 @@ __all__ = (
     "IdentityProviderTypeTypeType",
     "InboundFederationLambdaVersionTypeType",
     "IssuerTypeType",
+    "LimitClassType",
     "ListGroupsPaginatorName",
     "ListIdentityProvidersPaginatorName",
     "ListResourceServersPaginatorName",
@@ -187,6 +188,7 @@ IdentityProviderTypeTypeType = Literal[
 ]
 InboundFederationLambdaVersionTypeType = Literal["V1_0"]
 IssuerTypeType = Literal["ORIGINAL", "UPDATED"]
+LimitClassType = Literal["API_CATEGORY"]
 ListGroupsPaginatorName = Literal["list_groups"]
 ListIdentityProvidersPaginatorName = Literal["list_identity_providers"]
 ListResourceServersPaginatorName = Literal["list_resource_servers"]

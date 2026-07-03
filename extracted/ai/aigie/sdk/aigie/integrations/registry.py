@@ -46,6 +46,7 @@ class IntegrationInfo:
     display_name: str
     description: str
     package_name: str  # pip package name
+    import_name: str | None = None  # Runtime import module name if different
     patch_function: str | None = None  # Module path to patch function
     handler_class: str | None = None  # Module path to handler class
     status: IntegrationStatus = IntegrationStatus.AVAILABLE
@@ -80,6 +81,15 @@ _INTEGRATION_REGISTRY: dict[str, IntegrationInfo] = {
         package_name="claude-agent-sdk",
         patch_function="aigie.integrations.claude_agent_sdk.lifecycle.install_claude_agent_sdk_patches",
         handler_class="aigie.integrations.claude_agent_sdk.native_callback.ClaudeAgentSDKNativeCallback",
+    ),
+    "strands": IntegrationInfo(
+        name="strands",
+        display_name="Strands Agents",
+        description="AWS Strands Agents SDK — agent, tool, and model tracing.",
+        package_name="strands-agents",
+        import_name="strands",
+        patch_function="aigie.integrations.strands.lifecycle.install_strands_patches",
+        handler_class="aigie.integrations.strands.native_callback.StrandsHookProvider",
     ),
     # LLM Providers (direct patching)
     "openai": IntegrationInfo(
@@ -137,13 +147,12 @@ def _import_from_path(module_path: str) -> Any:
     return getattr(module, attr_name)
 
 
-def _check_package_installed(package_name: str) -> bool:
-    """Check if a package is installed."""
+def _check_package_installed(package_name: str, import_name: str | None = None) -> bool:
+    """Check if a package's runtime import is available."""
     try:
         import importlib.util
 
-        # Handle package names with dashes (convert to underscores for import)
-        module_name = package_name.replace("-", "_").split("[")[0]
+        module_name = import_name or package_name.replace("-", "_").split("[")[0]
         spec = importlib.util.find_spec(module_name)
         return spec is not None
     except (ImportError, ModuleNotFoundError):
@@ -208,7 +217,7 @@ def patch(  # noqa: PLR0915 — orchestration dispatcher over the integration re
             continue
 
         # Check if package is installed
-        if not _check_package_installed(info.package_name):
+        if not _check_package_installed(info.package_name, info.import_name):
             if ignore_errors:
                 logger.debug(f"Package {info.package_name} not installed for {name}")
                 info.status = IntegrationStatus.NOT_INSTALLED
@@ -295,7 +304,7 @@ def is_integration_available(integration: str) -> bool:
         return False
 
     info = _INTEGRATION_REGISTRY[normalized_name]
-    return _check_package_installed(info.package_name)
+    return _check_package_installed(info.package_name, info.import_name)
 
 
 def get_integration_info(integration: str) -> IntegrationInfo | None:
@@ -318,7 +327,9 @@ def list_integrations(installed_only: bool = False) -> list[IntegrationInfo]:
 
     if installed_only:
         integrations = [
-            info for info in integrations if _check_package_installed(info.package_name)
+            info
+            for info in integrations
+            if _check_package_installed(info.package_name, info.import_name)
         ]
 
     return integrations
@@ -379,6 +390,7 @@ def register_integration(
     patch_function: str | None = None,
     handler_class: str | None = None,
     metadata: dict[str, Any] | None = None,
+    import_name: str | None = None,
 ) -> None:
     """
     Register a custom integration.
@@ -394,6 +406,7 @@ def register_integration(
         patch_function: Dotted path to patch function
         handler_class: Dotted path to handler class
         metadata: Additional metadata
+        import_name: Runtime import module name if different from package_name
 
     Usage:
         aigie.register_integration(
@@ -401,6 +414,7 @@ def register_integration(
             display_name="My Framework",
             description="Trace My Framework workflows",
             package_name="my-framework",
+            import_name="my_framework",
             patch_function="my_framework.aigie.patch_my_framework",
         )
 
@@ -411,6 +425,7 @@ def register_integration(
         display_name=display_name,
         description=description,
         package_name=package_name,
+        import_name=import_name,
         patch_function=patch_function,
         handler_class=handler_class,
         metadata=metadata or {},

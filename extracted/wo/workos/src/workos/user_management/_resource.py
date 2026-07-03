@@ -21,19 +21,24 @@ from .models import (
     JWTTemplateResponse,
     JwksResponse,
     MagicAuth,
+    MagicAuthSendMagicAuthCodeAndReturnResponse,
     PasswordReset,
     PasswordSessionAuthenticateRequest,
     RedirectUri,
     RefreshTokenSessionAuthenticateRequest,
     ResetPasswordResponse,
+    SendRadarSmsChallengeResponse,
     SendVerificationEmailResponse,
     DeviceCodeSessionAuthenticateRequest,
     EmailVerificationCodeSessionAuthenticateRequest,
     MagicAuthCodeSessionAuthenticateRequest,
     MFATotpSessionAuthenticateRequest,
     OrganizationSelectionSessionAuthenticateRequest,
+    RadarEmailChallengeCodeSessionAuthenticateRequest,
+    RadarSmsChallengeCodeSessionAuthenticateRequest,
     UserApiKey,
     UserApiKeyWithValue,
+    UserCreateResponse,
     UserIdentitiesGetItem,
     UserInvite,
     VerifyEmailResponse,
@@ -126,6 +131,8 @@ class UserManagement:
             EmailVerificationCodeSessionAuthenticateRequest,
             MFATotpSessionAuthenticateRequest,
             OrganizationSelectionSessionAuthenticateRequest,
+            RadarEmailChallengeCodeSessionAuthenticateRequest,
+            RadarSmsChallengeCodeSessionAuthenticateRequest,
             DeviceCodeSessionAuthenticateRequest,
             Dict[str, Any],
         ],
@@ -136,7 +143,7 @@ class UserManagement:
         Authenticate a user with a specified [authentication method](https://workos.com/docs/reference/authkit/authentication).
 
         Args:
-            body: The request body. Accepts: AuthorizationCodeSessionAuthenticateRequest, PasswordSessionAuthenticateRequest, RefreshTokenSessionAuthenticateRequest, MagicAuthCodeSessionAuthenticateRequest, EmailVerificationCodeSessionAuthenticateRequest, MFATotpSessionAuthenticateRequest, OrganizationSelectionSessionAuthenticateRequest, DeviceCodeSessionAuthenticateRequest, or a plain dict.
+            body: The request body. Accepts: AuthorizationCodeSessionAuthenticateRequest, PasswordSessionAuthenticateRequest, RefreshTokenSessionAuthenticateRequest, MagicAuthCodeSessionAuthenticateRequest, EmailVerificationCodeSessionAuthenticateRequest, MFATotpSessionAuthenticateRequest, OrganizationSelectionSessionAuthenticateRequest, RadarEmailChallengeCodeSessionAuthenticateRequest, RadarSmsChallengeCodeSessionAuthenticateRequest, DeviceCodeSessionAuthenticateRequest, or a plain dict.
             request_options: Per-request options. Supports extra_headers, timeout, max_retries, and base_url override.
 
         Returns:
@@ -459,6 +466,7 @@ class UserManagement:
         provider_query_params: Optional[Dict[str, str]] = None,
         provider_scopes: Optional[List[str]] = None,
         invitation_token: Optional[str] = None,
+        max_age: Optional[int] = None,
         screen_hint: Optional[
             Union[UserManagementAuthenticationScreenHint, str]
         ] = None,
@@ -482,6 +490,7 @@ class UserManagement:
             provider_query_params: Key/value pairs of query parameters to pass to the OAuth provider.
             provider_scopes: Additional OAuth scopes to request from the identity provider.
             invitation_token: A token representing a user invitation to redeem during authentication.
+            max_age: Maximum allowable elapsed time, in seconds, since the user last actively authenticated. If the last authentication is older than this value, the user is prompted to re-authenticate; a value of `0` forces re-authentication. Only supported when the provider is `authkit`.
             screen_hint: Used to specify which screen to display when the provider is `authkit`. Defaults to `sign-in`.
             login_hint: A hint to the authorization server about the login identifier the user might use.
             provider: The OAuth provider to authenticate with (e.g., GoogleOAuth, MicrosoftOAuth, GitHubOAuth).
@@ -511,6 +520,7 @@ class UserManagement:
                 if provider_scopes is not None
                 else None,
                 "invitation_token": invitation_token,
+                "max_age": max_age,
                 "screen_hint": enum_value(screen_hint)
                 if screen_hint is not None
                 else None,
@@ -560,6 +570,55 @@ class UserManagement:
             path=("user_management", "authorize", "device"),
             body=body,
             model=DeviceAuthorizationResponse,
+            request_options=request_options,
+        )
+
+    def create_radar_challenge(
+        self,
+        *,
+        user_id: str,
+        pending_authentication_token: str,
+        phone_number: str,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        request_options: Optional[RequestOptions] = None,
+    ) -> SendRadarSmsChallengeResponse:
+        """Send a Radar SMS challenge
+
+        Sends a one-time verification code over SMS to a user as part of a Radar challenge. Use the returned `verification_id` to authenticate the user with the `urn:workos:oauth:grant-type:radar-sms-challenge:code` grant type.
+
+        Args:
+            user_id: The ID of the user to send the SMS challenge to.
+            pending_authentication_token: The pending authentication token from a previous authentication attempt that triggered the Radar challenge.
+            phone_number: The phone number to send the SMS verification code to.
+            ip_address: The IP address of the user's request.
+            user_agent: The user agent string from the user's request.
+            request_options: Per-request options. Supports extra_headers, timeout, max_retries, and base_url override.
+
+        Returns:
+            SendRadarSmsChallengeResponse
+
+        Raises:
+            AuthenticationError: If the API key is invalid (401).
+            RateLimitExceededError: If rate limited (429).
+            ServerError: If the server returns a 5xx error.
+        """
+        body: Dict[str, Any] = {
+            k: v
+            for k, v in {
+                "user_id": user_id,
+                "pending_authentication_token": pending_authentication_token,
+                "phone_number": phone_number,
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+            }.items()
+            if v is not None
+        }
+        return self._client.request(
+            method="post",
+            path=("user_management", "radar_challenges"),
+            body=body,
+            model=SendRadarSmsChallengeResponse,
             request_options=request_options,
         )
 
@@ -625,6 +684,52 @@ class UserManagement:
             method="post",
             path=("user_management", "sessions", "revoke"),
             body=body,
+            request_options=request_options,
+        )
+
+    def list_cors_origins(
+        self,
+        *,
+        limit: Optional[int] = None,
+        before: Optional[str] = None,
+        after: Optional[str] = None,
+        order: Optional[Union[PaginationOrder, str]] = "desc",
+        request_options: Optional[RequestOptions] = None,
+    ) -> SyncPage[CORSOriginResponse]:
+        """List CORS origins
+
+        Lists the CORS origins for the current environment.
+
+        Args:
+            limit: Upper limit on the number of objects to return, between `1` and `100`. Defaults to `10`.
+            before: An object ID that defines your place in the list. When the ID is not present, you are at the end of the list. For example, if you make a list request and receive 100 objects, ending with `"obj_123"`, your subsequent call can include `before="obj_123"` to fetch a new batch of objects before `"obj_123"`.
+            after: An object ID that defines your place in the list. When the ID is not present, you are at the end of the list. For example, if you make a list request and receive 100 objects, ending with `"obj_123"`, your subsequent call can include `after="obj_123"` to fetch a new batch of objects after `"obj_123"`.
+            order: Order the results by the creation time. Supported values are `"asc"` (ascending), `"desc"` (descending), and `"normal"` (descending with reversed cursor semantics where `before` fetches older records and `after` fetches newer records). Defaults to `desc`.
+            request_options: Per-request options. Supports extra_headers, timeout, max_retries, and base_url override.
+
+        Returns:
+            SyncPage[CORSOriginResponse]
+
+        Raises:
+            AuthenticationError: If the API key is invalid (401).
+            RateLimitExceededError: If rate limited (429).
+            ServerError: If the server returns a 5xx error.
+        """
+        params = {
+            k: v
+            for k, v in {
+                "limit": limit,
+                "before": before,
+                "after": after,
+                "order": enum_value(order) if order is not None else None,
+            }.items()
+            if v is not None
+        }
+        return self._client.request_page(
+            method="get",
+            path=("user_management", "cors_origins"),
+            model=CORSOriginResponse,
+            params=params,
             request_options=request_options,
         )
 
@@ -865,9 +970,12 @@ class UserManagement:
         email_verified: Optional[bool] = None,
         metadata: Optional[Dict[str, str]] = None,
         external_id: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        signals_id: Optional[str] = None,
         password: Optional[Union[PasswordPlaintext, PasswordHashed]] = None,
         request_options: Optional[RequestOptions] = None,
-    ) -> User:
+    ) -> UserCreateResponse:
         """Create a user
 
         Create a new user in the current environment.
@@ -880,11 +988,14 @@ class UserManagement:
             email_verified: Whether the user's email has been verified.
             metadata: Object containing metadata key/value pairs associated with the user.
             external_id: The external ID of the user.
+            ip_address: The IP address of the user's request.
+            user_agent: The user agent string from the user's request.
+            signals_id: An optional Radar signals ID to correlate client-side signals with this request.
             password: Identifies the password. One of: PasswordPlaintext, PasswordHashed.
             request_options: Per-request options. Supports extra_headers, timeout, max_retries, and base_url override.
 
         Returns:
-            User
+            UserCreateResponse
 
         Raises:
             BadRequestError: If the request is malformed (400).
@@ -904,6 +1015,9 @@ class UserManagement:
                 "email_verified": email_verified,
                 "metadata": metadata,
                 "external_id": external_id,
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+                "signals_id": signals_id,
             }.items()
             if v is not None
         }
@@ -917,7 +1031,7 @@ class UserManagement:
             method="post",
             path=("user_management", "users"),
             body=body,
-            model=User,
+            model=UserCreateResponse,
             request_options=request_options,
         )
 
@@ -1640,8 +1754,12 @@ class UserManagement:
         *,
         email: str,
         invitation_token: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        radar_auth_attempt_id: Optional[str] = None,
+        signals_id: Optional[str] = None,
         request_options: Optional[RequestOptions] = None,
-    ) -> MagicAuth:
+    ) -> MagicAuthSendMagicAuthCodeAndReturnResponse:
         """Create a Magic Auth code
 
         Creates a one-time authentication code that can be sent to the user's email address. The code expires in 10 minutes. To verify the code, [authenticate the user with Magic Auth](https://workos.com/docs/reference/authkit/authentication/magic-auth).
@@ -1649,10 +1767,14 @@ class UserManagement:
         Args:
             email: The email address to send the magic code to.
             invitation_token: The invitation token to associate with this magic code.
+            ip_address: The IP address of the user's request.
+            user_agent: The user agent string from the user's request.
+            radar_auth_attempt_id: The ID of an existing Radar authentication attempt to associate with this request.
+            signals_id: An optional Radar signals ID to correlate client-side signals with this request.
             request_options: Per-request options. Supports extra_headers, timeout, max_retries, and base_url override.
 
         Returns:
-            MagicAuth
+            MagicAuthSendMagicAuthCodeAndReturnResponse
 
         Raises:
             BadRequestError: If the request is malformed (400).
@@ -1666,6 +1788,10 @@ class UserManagement:
             for k, v in {
                 "email": email,
                 "invitation_token": invitation_token,
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+                "radar_auth_attempt_id": radar_auth_attempt_id,
+                "signals_id": signals_id,
             }.items()
             if v is not None
         }
@@ -1673,7 +1799,7 @@ class UserManagement:
             method="post",
             path=("user_management", "magic_auth"),
             body=body,
-            model=MagicAuth,
+            model=MagicAuthSendMagicAuthCodeAndReturnResponse,
             request_options=request_options,
         )
 
@@ -1704,6 +1830,52 @@ class UserManagement:
             method="get",
             path=("user_management", "magic_auth", str(id)),
             model=MagicAuth,
+            request_options=request_options,
+        )
+
+    def list_redirect_uris(
+        self,
+        *,
+        limit: Optional[int] = None,
+        before: Optional[str] = None,
+        after: Optional[str] = None,
+        order: Optional[Union[PaginationOrder, str]] = "desc",
+        request_options: Optional[RequestOptions] = None,
+    ) -> SyncPage[RedirectUri]:
+        """List redirect URIs
+
+        Lists the redirect URIs for an environment.
+
+        Args:
+            limit: Upper limit on the number of objects to return, between `1` and `100`. Defaults to `10`.
+            before: An object ID that defines your place in the list. When the ID is not present, you are at the end of the list. For example, if you make a list request and receive 100 objects, ending with `"obj_123"`, your subsequent call can include `before="obj_123"` to fetch a new batch of objects before `"obj_123"`.
+            after: An object ID that defines your place in the list. When the ID is not present, you are at the end of the list. For example, if you make a list request and receive 100 objects, ending with `"obj_123"`, your subsequent call can include `after="obj_123"` to fetch a new batch of objects after `"obj_123"`.
+            order: Order the results by the creation time. Supported values are `"asc"` (ascending), `"desc"` (descending), and `"normal"` (descending with reversed cursor semantics where `before` fetches older records and `after` fetches newer records). Defaults to `desc`.
+            request_options: Per-request options. Supports extra_headers, timeout, max_retries, and base_url override.
+
+        Returns:
+            SyncPage[RedirectUri]
+
+        Raises:
+            AuthenticationError: If the API key is invalid (401).
+            RateLimitExceededError: If rate limited (429).
+            ServerError: If the server returns a 5xx error.
+        """
+        params = {
+            k: v
+            for k, v in {
+                "limit": limit,
+                "before": before,
+                "after": after,
+                "order": enum_value(order) if order is not None else None,
+            }.items()
+            if v is not None
+        }
+        return self._client.request_page(
+            method="get",
+            path=("user_management", "redirect_uris"),
+            model=RedirectUri,
+            params=params,
             request_options=request_options,
         )
 
@@ -2162,6 +2334,8 @@ class AsyncUserManagement:
             EmailVerificationCodeSessionAuthenticateRequest,
             MFATotpSessionAuthenticateRequest,
             OrganizationSelectionSessionAuthenticateRequest,
+            RadarEmailChallengeCodeSessionAuthenticateRequest,
+            RadarSmsChallengeCodeSessionAuthenticateRequest,
             DeviceCodeSessionAuthenticateRequest,
             Dict[str, Any],
         ],
@@ -2172,7 +2346,7 @@ class AsyncUserManagement:
         Authenticate a user with a specified [authentication method](https://workos.com/docs/reference/authkit/authentication).
 
         Args:
-            body: The request body. Accepts: AuthorizationCodeSessionAuthenticateRequest, PasswordSessionAuthenticateRequest, RefreshTokenSessionAuthenticateRequest, MagicAuthCodeSessionAuthenticateRequest, EmailVerificationCodeSessionAuthenticateRequest, MFATotpSessionAuthenticateRequest, OrganizationSelectionSessionAuthenticateRequest, DeviceCodeSessionAuthenticateRequest, or a plain dict.
+            body: The request body. Accepts: AuthorizationCodeSessionAuthenticateRequest, PasswordSessionAuthenticateRequest, RefreshTokenSessionAuthenticateRequest, MagicAuthCodeSessionAuthenticateRequest, EmailVerificationCodeSessionAuthenticateRequest, MFATotpSessionAuthenticateRequest, OrganizationSelectionSessionAuthenticateRequest, RadarEmailChallengeCodeSessionAuthenticateRequest, RadarSmsChallengeCodeSessionAuthenticateRequest, DeviceCodeSessionAuthenticateRequest, or a plain dict.
             request_options: Per-request options. Supports extra_headers, timeout, max_retries, and base_url override.
 
         Returns:
@@ -2495,6 +2669,7 @@ class AsyncUserManagement:
         provider_query_params: Optional[Dict[str, str]] = None,
         provider_scopes: Optional[List[str]] = None,
         invitation_token: Optional[str] = None,
+        max_age: Optional[int] = None,
         screen_hint: Optional[
             Union[UserManagementAuthenticationScreenHint, str]
         ] = None,
@@ -2518,6 +2693,7 @@ class AsyncUserManagement:
             provider_query_params: Key/value pairs of query parameters to pass to the OAuth provider.
             provider_scopes: Additional OAuth scopes to request from the identity provider.
             invitation_token: A token representing a user invitation to redeem during authentication.
+            max_age: Maximum allowable elapsed time, in seconds, since the user last actively authenticated. If the last authentication is older than this value, the user is prompted to re-authenticate; a value of `0` forces re-authentication. Only supported when the provider is `authkit`.
             screen_hint: Used to specify which screen to display when the provider is `authkit`. Defaults to `sign-in`.
             login_hint: A hint to the authorization server about the login identifier the user might use.
             provider: The OAuth provider to authenticate with (e.g., GoogleOAuth, MicrosoftOAuth, GitHubOAuth).
@@ -2547,6 +2723,7 @@ class AsyncUserManagement:
                 if provider_scopes is not None
                 else None,
                 "invitation_token": invitation_token,
+                "max_age": max_age,
                 "screen_hint": enum_value(screen_hint)
                 if screen_hint is not None
                 else None,
@@ -2596,6 +2773,55 @@ class AsyncUserManagement:
             path=("user_management", "authorize", "device"),
             body=body,
             model=DeviceAuthorizationResponse,
+            request_options=request_options,
+        )
+
+    async def create_radar_challenge(
+        self,
+        *,
+        user_id: str,
+        pending_authentication_token: str,
+        phone_number: str,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        request_options: Optional[RequestOptions] = None,
+    ) -> SendRadarSmsChallengeResponse:
+        """Send a Radar SMS challenge
+
+        Sends a one-time verification code over SMS to a user as part of a Radar challenge. Use the returned `verification_id` to authenticate the user with the `urn:workos:oauth:grant-type:radar-sms-challenge:code` grant type.
+
+        Args:
+            user_id: The ID of the user to send the SMS challenge to.
+            pending_authentication_token: The pending authentication token from a previous authentication attempt that triggered the Radar challenge.
+            phone_number: The phone number to send the SMS verification code to.
+            ip_address: The IP address of the user's request.
+            user_agent: The user agent string from the user's request.
+            request_options: Per-request options. Supports extra_headers, timeout, max_retries, and base_url override.
+
+        Returns:
+            SendRadarSmsChallengeResponse
+
+        Raises:
+            AuthenticationError: If the API key is invalid (401).
+            RateLimitExceededError: If rate limited (429).
+            ServerError: If the server returns a 5xx error.
+        """
+        body: Dict[str, Any] = {
+            k: v
+            for k, v in {
+                "user_id": user_id,
+                "pending_authentication_token": pending_authentication_token,
+                "phone_number": phone_number,
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+            }.items()
+            if v is not None
+        }
+        return await self._client.request(
+            method="post",
+            path=("user_management", "radar_challenges"),
+            body=body,
+            model=SendRadarSmsChallengeResponse,
             request_options=request_options,
         )
 
@@ -2661,6 +2887,52 @@ class AsyncUserManagement:
             method="post",
             path=("user_management", "sessions", "revoke"),
             body=body,
+            request_options=request_options,
+        )
+
+    async def list_cors_origins(
+        self,
+        *,
+        limit: Optional[int] = None,
+        before: Optional[str] = None,
+        after: Optional[str] = None,
+        order: Optional[Union[PaginationOrder, str]] = "desc",
+        request_options: Optional[RequestOptions] = None,
+    ) -> AsyncPage[CORSOriginResponse]:
+        """List CORS origins
+
+        Lists the CORS origins for the current environment.
+
+        Args:
+            limit: Upper limit on the number of objects to return, between `1` and `100`. Defaults to `10`.
+            before: An object ID that defines your place in the list. When the ID is not present, you are at the end of the list. For example, if you make a list request and receive 100 objects, ending with `"obj_123"`, your subsequent call can include `before="obj_123"` to fetch a new batch of objects before `"obj_123"`.
+            after: An object ID that defines your place in the list. When the ID is not present, you are at the end of the list. For example, if you make a list request and receive 100 objects, ending with `"obj_123"`, your subsequent call can include `after="obj_123"` to fetch a new batch of objects after `"obj_123"`.
+            order: Order the results by the creation time. Supported values are `"asc"` (ascending), `"desc"` (descending), and `"normal"` (descending with reversed cursor semantics where `before` fetches older records and `after` fetches newer records). Defaults to `desc`.
+            request_options: Per-request options. Supports extra_headers, timeout, max_retries, and base_url override.
+
+        Returns:
+            AsyncPage[CORSOriginResponse]
+
+        Raises:
+            AuthenticationError: If the API key is invalid (401).
+            RateLimitExceededError: If rate limited (429).
+            ServerError: If the server returns a 5xx error.
+        """
+        params = {
+            k: v
+            for k, v in {
+                "limit": limit,
+                "before": before,
+                "after": after,
+                "order": enum_value(order) if order is not None else None,
+            }.items()
+            if v is not None
+        }
+        return await self._client.request_page(
+            method="get",
+            path=("user_management", "cors_origins"),
+            model=CORSOriginResponse,
+            params=params,
             request_options=request_options,
         )
 
@@ -2901,9 +3173,12 @@ class AsyncUserManagement:
         email_verified: Optional[bool] = None,
         metadata: Optional[Dict[str, str]] = None,
         external_id: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        signals_id: Optional[str] = None,
         password: Optional[Union[PasswordPlaintext, PasswordHashed]] = None,
         request_options: Optional[RequestOptions] = None,
-    ) -> User:
+    ) -> UserCreateResponse:
         """Create a user
 
         Create a new user in the current environment.
@@ -2916,11 +3191,14 @@ class AsyncUserManagement:
             email_verified: Whether the user's email has been verified.
             metadata: Object containing metadata key/value pairs associated with the user.
             external_id: The external ID of the user.
+            ip_address: The IP address of the user's request.
+            user_agent: The user agent string from the user's request.
+            signals_id: An optional Radar signals ID to correlate client-side signals with this request.
             password: Identifies the password. One of: PasswordPlaintext, PasswordHashed.
             request_options: Per-request options. Supports extra_headers, timeout, max_retries, and base_url override.
 
         Returns:
-            User
+            UserCreateResponse
 
         Raises:
             BadRequestError: If the request is malformed (400).
@@ -2940,6 +3218,9 @@ class AsyncUserManagement:
                 "email_verified": email_verified,
                 "metadata": metadata,
                 "external_id": external_id,
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+                "signals_id": signals_id,
             }.items()
             if v is not None
         }
@@ -2953,7 +3234,7 @@ class AsyncUserManagement:
             method="post",
             path=("user_management", "users"),
             body=body,
-            model=User,
+            model=UserCreateResponse,
             request_options=request_options,
         )
 
@@ -3676,8 +3957,12 @@ class AsyncUserManagement:
         *,
         email: str,
         invitation_token: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        radar_auth_attempt_id: Optional[str] = None,
+        signals_id: Optional[str] = None,
         request_options: Optional[RequestOptions] = None,
-    ) -> MagicAuth:
+    ) -> MagicAuthSendMagicAuthCodeAndReturnResponse:
         """Create a Magic Auth code
 
         Creates a one-time authentication code that can be sent to the user's email address. The code expires in 10 minutes. To verify the code, [authenticate the user with Magic Auth](https://workos.com/docs/reference/authkit/authentication/magic-auth).
@@ -3685,10 +3970,14 @@ class AsyncUserManagement:
         Args:
             email: The email address to send the magic code to.
             invitation_token: The invitation token to associate with this magic code.
+            ip_address: The IP address of the user's request.
+            user_agent: The user agent string from the user's request.
+            radar_auth_attempt_id: The ID of an existing Radar authentication attempt to associate with this request.
+            signals_id: An optional Radar signals ID to correlate client-side signals with this request.
             request_options: Per-request options. Supports extra_headers, timeout, max_retries, and base_url override.
 
         Returns:
-            MagicAuth
+            MagicAuthSendMagicAuthCodeAndReturnResponse
 
         Raises:
             BadRequestError: If the request is malformed (400).
@@ -3702,6 +3991,10 @@ class AsyncUserManagement:
             for k, v in {
                 "email": email,
                 "invitation_token": invitation_token,
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+                "radar_auth_attempt_id": radar_auth_attempt_id,
+                "signals_id": signals_id,
             }.items()
             if v is not None
         }
@@ -3709,7 +4002,7 @@ class AsyncUserManagement:
             method="post",
             path=("user_management", "magic_auth"),
             body=body,
-            model=MagicAuth,
+            model=MagicAuthSendMagicAuthCodeAndReturnResponse,
             request_options=request_options,
         )
 
@@ -3740,6 +4033,52 @@ class AsyncUserManagement:
             method="get",
             path=("user_management", "magic_auth", str(id)),
             model=MagicAuth,
+            request_options=request_options,
+        )
+
+    async def list_redirect_uris(
+        self,
+        *,
+        limit: Optional[int] = None,
+        before: Optional[str] = None,
+        after: Optional[str] = None,
+        order: Optional[Union[PaginationOrder, str]] = "desc",
+        request_options: Optional[RequestOptions] = None,
+    ) -> AsyncPage[RedirectUri]:
+        """List redirect URIs
+
+        Lists the redirect URIs for an environment.
+
+        Args:
+            limit: Upper limit on the number of objects to return, between `1` and `100`. Defaults to `10`.
+            before: An object ID that defines your place in the list. When the ID is not present, you are at the end of the list. For example, if you make a list request and receive 100 objects, ending with `"obj_123"`, your subsequent call can include `before="obj_123"` to fetch a new batch of objects before `"obj_123"`.
+            after: An object ID that defines your place in the list. When the ID is not present, you are at the end of the list. For example, if you make a list request and receive 100 objects, ending with `"obj_123"`, your subsequent call can include `after="obj_123"` to fetch a new batch of objects after `"obj_123"`.
+            order: Order the results by the creation time. Supported values are `"asc"` (ascending), `"desc"` (descending), and `"normal"` (descending with reversed cursor semantics where `before` fetches older records and `after` fetches newer records). Defaults to `desc`.
+            request_options: Per-request options. Supports extra_headers, timeout, max_retries, and base_url override.
+
+        Returns:
+            AsyncPage[RedirectUri]
+
+        Raises:
+            AuthenticationError: If the API key is invalid (401).
+            RateLimitExceededError: If rate limited (429).
+            ServerError: If the server returns a 5xx error.
+        """
+        params = {
+            k: v
+            for k, v in {
+                "limit": limit,
+                "before": before,
+                "after": after,
+                "order": enum_value(order) if order is not None else None,
+            }.items()
+            if v is not None
+        }
+        return await self._client.request_page(
+            method="get",
+            path=("user_management", "redirect_uris"),
+            model=RedirectUri,
+            params=params,
             request_options=request_options,
         )
 

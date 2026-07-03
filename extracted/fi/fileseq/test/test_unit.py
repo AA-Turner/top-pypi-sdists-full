@@ -11,13 +11,17 @@ with warnings.catch_warnings():
 
 from decimal import Decimal
 import json
+import multiprocessing
 import operator
 import os
 import pathlib
 import pickle
 import re
+import shutil
 import string
 import sys
+import tempfile
+import time
 import unittest
 from collections import namedtuple
 
@@ -70,6 +74,24 @@ def _getCommonPathSep(path):
 
 
 # No longer need to mock _getPathSep - it now detects separators natively
+
+
+def _findSequencesOnDiskWorker(klass, pattern, queue):
+    """
+    multiprocessing target for testGlobPatternRegexInjection: runs
+    findSequencesOnDisk() in a subprocess so the test can enforce a hard
+    timeout instead of hanging if the pattern triggers catastrophic regex
+    backtracking.
+
+    :type klass: type
+    :param klass: FileSequence or FilePathSequence
+    :type pattern: str
+    :param pattern: glob-like pattern to search
+    :type queue: multiprocessing.Queue
+    :param queue: signaled once findSequencesOnDisk() returns
+    """
+    klass.findSequencesOnDisk(pattern)
+    queue.put(True)
 
 
 class TestUtils(unittest.TestCase):
@@ -907,6 +929,11 @@ class AbstractBaseTests:
                 Case("/dir/file", "/dir/file"),
                 Case("/dir/.ext", "/dir/.ext"),
                 Case("file", "file"),
+                # Issue #159: '#' and '@' in filenames should be preserved as literal
+                # characters (treated as a plain file), not stripped as padding tokens.
+                Case("helloMyPhone#Is911.json", "helloMyPhone#Is911.json"),
+                Case("/path/to/helloMyPhone#Is911.json", "/path/to/helloMyPhone#Is911.json"),
+                Case("shot_@_v001.exr", "shot_@_v001.exr"),
             ]
 
             for case in table:
@@ -918,6 +945,56 @@ class AbstractBaseTests:
             fs._frameSet = None
             actual = str(fs)
             self.assertEqual("/dir/file..ext", actual)
+
+        def testHashAtInFilename(self):
+            """Issue #159: '#' and '@' in filenames must not raise ParseException.
+
+            These characters appear literally in filenames and should be preserved
+            in the basename.  They must NOT be treated as padding tokens.
+            """
+            FS = self.FS
+            # '#' followed by mixed text+digits — reported in issue #159
+            seq = FS(r'C:\tests\helloMyPhone#Is911.json')
+            self.assertEqual('helloMyPhone#Is911', seq.basename())
+            self.assertEqual('.json', seq.extension())
+            self.assertEqual('', seq.padding())
+            self.assertEqual('', seq.frameRange())
+            self.assertEqual(r'C:\tests\helloMyPhone#Is911.json', str(seq))
+
+            # Forward-slash variant
+            seq = FS('C:/tests/helloMyPhone#Is911.json')
+            self.assertEqual('helloMyPhone#Is911', seq.basename())
+            self.assertEqual('.json', seq.extension())
+            self.assertEqual('', seq.padding())
+            self.assertEqual('', seq.frameRange())
+
+            # '@' between underscores
+            seq = FS('shot_@_v001.exr')
+            self.assertEqual('shot_@_v001', seq.basename())
+            self.assertEqual('.exr', seq.extension())
+            self.assertEqual('', seq.padding())
+            self.assertEqual('', seq.frameRange())
+
+        def testConstructorNotVulnerableToBraceReDoS(self):
+            """Issue 161 PoC: constructor must not be vulnerable to catastrophic
+            backtracking via brace patterns.
+
+            The reported proof-of-concept claimed FileSequence(payload) hangs on
+            a crafted "{a?a?...}" brace payload. The brace-to-regex conversion
+            only exists in findSequencesOnDisk(), not in the constructor, so
+            this must return near-instantly and treat the payload as literal
+            text (see testGlobPatternRegexInjection for the actual vulnerable
+            code path).
+            """
+            FS = self.FS
+            payload = "a" * 30 + "{" + "a?" * 30 + "}"
+
+            start = time.time()
+            seq = FS(payload)
+            elapsed = time.time() - start
+
+            self.assertLess(elapsed, 1.0)
+            self.assertEqual(payload, str(seq))
 
         def testEqual(self):
             @dataclasses.dataclass
@@ -2033,7 +2110,7 @@ class AbstractBaseTests:
 
         def testFindSequencesOnDisk(self):
             seqs = self.FS.findSequencesOnDisk("seq", strictPadding=True)
-            self.assertEquals(len(seqs), 10)
+            self.assertEquals(len(seqs), 11)
 
             known = {
                 "seq/bar1000-1002,1004-1006#.exr",
@@ -2046,6 +2123,10 @@ class AbstractBaseTests:
                 "seq/baz_left.1-3#.exr",
                 "seq/baz_right.1-3#.exr",
                 "seq/big.999-1003#.ext",
+                # foo.0001_1.exr: underscore fixture for issue #158; DISK_RE
+                # parses it as basename="foo.0001_", frame="1", so it appears
+                # as a standalone sequence rather than contaminating foo.1-5#.exr
+                "seq/foo.0001_1@.exr",
             }
             found = set([str(s) for s in seqs])
             self.assertEqualPaths(found, known)
@@ -2237,6 +2318,46 @@ class AbstractBaseTests:
                 expected = self.toNormpaths(expected)
                 self.assertEqual(expected, actual)
 
+        def testGlobPatternRegexInjection(self):
+            """Issue 161 - pattern argument must not allow regex injection / ReDoS.
+
+            Only ``? * {foo,bar}`` are documented as meaningful glob syntax; any
+            other regex metacharacter (e.g. ``( ) + $``) in the pattern must be
+            treated as a literal character, not compiled as live regex syntax.
+            """
+            tmpdir = tempfile.mkdtemp()
+            try:
+                # Filename does NOT match the crafted pattern below, forcing
+                # maximal backtracking if "(a+)+" leaks through as regex syntax.
+                fname = "a" * 30 + "X.ext"
+                with open(os.path.join(tmpdir, fname), "w"):
+                    pass
+
+                evil_pattern = os.path.join(tmpdir, "(a+)+$.ext")
+                timeout_secs = 3
+
+                queue = multiprocessing.Queue()
+                proc = multiprocessing.Process(
+                    target=_findSequencesOnDiskWorker,
+                    args=(self.FS, evil_pattern, queue))
+                proc.start()
+                proc.join(timeout_secs)
+
+                hung = proc.is_alive()
+                if hung:
+                    proc.terminate()
+                    proc.join()
+
+                self.assertFalse(
+                    hung,
+                    "findSequencesOnDisk() did not return within {}s; regex "
+                    "metacharacters in the pattern argument are not escaped "
+                    "before compilation, allowing catastrophic backtracking"
+                    .format(timeout_secs)
+                )
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+
 
     class BaseTestFindSequenceOnDisk(TestBase):
 
@@ -2276,6 +2397,17 @@ class AbstractBaseTests:
                 with self.assertRaises(FileSeqException) as cm:
                     self.FS.findSequenceOnDisk(pattern, strictPadding=False)
                 self.assertEqual(str(cm.exception), 'no sequence found on disk matching ' + pattern)
+
+        def testFindSequenceOnDiskUnderscoreFrameIgnored(self):
+            # Issue #158: findSequenceOnDisk should not match filenames whose
+            # "frame" component contains an underscore (e.g. foo.0001_1.exr).
+            # Python's int() accepts underscore digit separators (PEP 515), so
+            # "1001_1" would previously be treated as a valid frame, causing
+            # "multiple sequences found on disk" errors.
+            # seq/foo.0001_1.exr is present on disk alongside seq/foo.{0001-0005}.exr
+            for strict in (False, True):
+                seq = self.FS.findSequenceOnDisk('seq/foo.#.exr', strictPadding=strict)
+                self.assertEqual(str(seq), 'seq/foo.1-5#.exr')
 
         def testFindSequenceOnDiskSubFrames(self):
             tests = [

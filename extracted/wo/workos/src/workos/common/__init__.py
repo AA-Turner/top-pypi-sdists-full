@@ -121,6 +121,7 @@ from .models import (
     AuthenticationSSOTimedOutDataError as AuthenticationSSOTimedOutDataError,
 )
 from .models import AuthenticationSSOTimedOutDataSSO as AuthenticationSSOTimedOutDataSSO
+from .models import AuthMethodMismatchError as AuthMethodMismatchError
 from .models import AuthorizationPermission as AuthorizationPermission
 from .models import ConnectApplication as ConnectApplication
 from .models import ConnectApplicationM2M as ConnectApplicationM2M
@@ -130,6 +131,7 @@ from .models import (
 )
 from .models import ConnectApplicationUnknown as ConnectApplicationUnknown
 from .models import ConnectApplicationVariant as ConnectApplicationVariant
+from .models import ConnectedAccount as ConnectedAccount
 from .models import ConnectedAccountAuthMethod as ConnectedAccountAuthMethod
 from .models import ConnectedAccountState as ConnectedAccountState
 from .models import ConnectionActivated as ConnectionActivated
@@ -169,10 +171,21 @@ from .models import CreateUserInviteOptionsLocale as CreateUserInviteOptionsLoca
 from .models import CreateUserPasswordHashType as CreateUserPasswordHashType
 from .models import CreateWebhookEndpointEvents as CreateWebhookEndpointEvents
 from .models import (
+    CustomProviderDefinitionAuthenticateVia as CustomProviderDefinitionAuthenticateVia,
+)
+from .models import (
     DataIntegrationAccessTokenResponseError as DataIntegrationAccessTokenResponseError,
 )
 from .models import (
     DataIntegrationCredentialsCredentialsType as DataIntegrationCredentialsCredentialsType,
+)
+from .models import (
+    DataIntegrationCredentialsResponseError as DataIntegrationCredentialsResponseError,
+)
+from .models import DataIntegrationCredentialsType as DataIntegrationCredentialsType
+from .models import DataIntegrationCredentialType as DataIntegrationCredentialType
+from .models import (
+    DataIntegrationCustomProviderAuthenticateVia as DataIntegrationCustomProviderAuthenticateVia,
 )
 from .models import (
     DataIntegrationsListResponseDataAuthMethods as DataIntegrationsListResponseDataAuthMethods,
@@ -186,6 +199,7 @@ from .models import (
 from .models import (
     DataIntegrationsListResponseDataOwnership as DataIntegrationsListResponseDataOwnership,
 )
+from .models import DataIntegrationState as DataIntegrationState
 from .models import DirectoryGroup as DirectoryGroup
 from .models import DirectoryState as DirectoryState
 from .models import DirectoryType as DirectoryType
@@ -397,6 +411,9 @@ from .models import SessionRevoked as SessionRevoked
 from .models import SessionRevokedData as SessionRevokedData
 from .models import SessionRevokedDataImpersonator as SessionRevokedDataImpersonator
 from .models import SlimRole as SlimRole
+from .models import (
+    UpdateCustomProviderDefinitionAuthenticateVia as UpdateCustomProviderDefinitionAuthenticateVia,
+)
 from .models import UpdateUserPasswordHashType as UpdateUserPasswordHashType
 from .models import UpdateWebhookEndpointEvents as UpdateWebhookEndpointEvents
 from .models import UpdateWebhookEndpointStatus as UpdateWebhookEndpointStatus
@@ -415,6 +432,7 @@ from .models import (
     UserOrganizationMembershipBaseListDataStatus as UserOrganizationMembershipBaseListDataStatus,
 )
 from .models import UserOrganizationMembershipStatus as UserOrganizationMembershipStatus
+from .models import UserRoleAssignmentSourceType as UserRoleAssignmentSourceType
 from .models import UserSessionsAuthMethod as UserSessionsAuthMethod
 from .models import UserSessionsImpersonator as UserSessionsImpersonator
 from .models import UserSessionsListItem as UserSessionsListItem

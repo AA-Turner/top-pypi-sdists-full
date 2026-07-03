@@ -139,6 +139,7 @@ from snowflake.snowpark_connect.typed_column import (
 from snowflake.snowpark_connect.utils.context import (
     add_sql_aggregate_function,
     get_current_grouping_columns,
+    get_current_plan_id,
     get_is_aggregate_function,
     get_is_evaluating_sql,
     get_is_in_udtf_context,
@@ -5835,11 +5836,28 @@ def map_unresolved_function(
             all_types = [left_type] + right_types
             type_names = []
 
-            for typ in all_types:
+            for i, typ in enumerate(all_types):
                 try:
                     spark_type = map_snowpark_to_pyspark_types(typ)
                     type_names.append(f'"{spark_type.simpleString().upper()}"')
                 except Exception:
+                    if typ is None:
+                        # Diagnostic only: typ is None when a column type was unresolvable
+                        # upstream (see _resolve_column_types in map_column_ops). Emit
+                        # telemetry to confirm in production whether this path is hit, then
+                        # fall through to the original behavior (which raises
+                        # 'NoneType' object has no attribute 'simple_string') so we can
+                        # observe whether the issue persists before attempting a patch.
+                        arg_name = (
+                            snowpark_arg_names[i]
+                            if i < len(snowpark_arg_names)
+                            else f"arg_{i}"
+                        )
+                        telemetry.send_null_type_fallback_telemetry(
+                            data={"arg_name": arg_name},
+                            plan_id=get_current_plan_id(),
+                            source="map_unresolved_function/in",
+                        )
                     type_names.append(f'"{typ.simple_string().upper()}"')
 
             # Check for type mismatches
@@ -6768,28 +6786,72 @@ def map_unresolved_function(
             else:
                 value_type = value_type if value_type else NullType()
 
-                # initialize map with empty object
-                result_exp = snowpark_fn.object_construct()
-                # insert key-value pairs, null values are converted to json null
-                for i in range(0, num_args, 2):
-                    result_exp = snowpark_fn.object_insert(
-                        result_exp,
-                        snowpark_fn.when(
-                            snowpark_fn.is_null(snowpark_args[i]),
-                            # udf execution on XP seems to be lazy, so this should only run when there is a null key
-                            # otherwise there should be no udf env setup or execution
-                            _raise_error_helper(VariantType())(
-                                snowpark_fn.lit(
-                                    "[NULL_MAP_KEY] Cannot use null as map key."
-                                )
-                            ),
-                        ).otherwise(snowpark_args[i]),
-                        snowpark_fn.nvl(
-                            snowpark_fn.cast(snowpark_args[i + 1], VariantType()),
-                            snowpark_fn.parse_json(snowpark_fn.lit("null")),
+                def _guarded_key(
+                    idx: int, otherwise: Column, err_type: DataType | None = None
+                ) -> Column:
+                    # NULL keys are illegal; raise lazily (the XP UDF only runs on a
+                    # null key, so the happy path pays no UDF cost).
+                    err_type = err_type or VariantType()
+                    return snowpark_fn.when(
+                        snowpark_fn.is_null(snowpark_args[idx]),
+                        _raise_error_helper(err_type)(
+                            snowpark_fn.lit(
+                                "[NULL_MAP_KEY] Cannot use null as map key."
+                            )
                         ),
-                        snowpark_fn.lit(allow_duplicate_keys),
+                    ).otherwise(otherwise)
+
+                def _map_value(idx: int) -> Column:
+                    # null values are stored as json null
+                    return snowpark_fn.nvl(
+                        snowpark_fn.cast(snowpark_args[idx], VariantType()),
+                        snowpark_fn.parse_json(snowpark_fn.lit("null")),
                     )
+
+                key_indices = range(0, num_args, 2)
+
+                def _keys_literal_and_distinct() -> bool:
+                    lits = [snowpark_args[i]._expression for i in key_indices]
+                    if not all(isinstance(e, Literal) for e in lits):
+                        return False
+                    try:
+                        values = [e.value for e in lits]
+                        return len(values) == len(set(values))
+                    except TypeError:  # unhashable literal -> not provably distinct
+                        return False
+
+                # Use OBJECT_CONSTRUCT_KEEP_NULL (one flat call) only when a runtime
+                # duplicate key is impossible: a single pair, or all-literal distinct
+                # keys. It throws on duplicates regardless of allow_duplicate_keys, so
+                # fall back to the OBJECT_INSERT loop (whose 4th arg picks the dedup
+                # policy) when duplicates are possible.
+                if num_args == 2 or _keys_literal_and_distinct():
+                    kv_args = []
+                    for i in key_indices:
+                        # Keys must be VARCHAR; route through VARIANT so stringification
+                        # matches the OBJECT_INSERT path (e.g. NUMBER(2,1) 1.0 -> "1").
+                        # err_type=StringType() matches the otherwise branch type.
+                        str_key = _guarded_key(
+                            i,
+                            snowpark_fn.cast(
+                                snowpark_fn.to_variant(snowpark_args[i]), StringType()
+                            ),
+                            StringType(),
+                        )
+                        kv_args.append(str_key)
+                        kv_args.append(_map_value(i + 1))
+                    result_exp = snowpark_fn.object_construct_keep_null(*kv_args)
+                else:
+                    # initialize map with empty object
+                    result_exp = snowpark_fn.object_construct()
+                    # insert key-value pairs, null values are converted to json null
+                    for i in key_indices:
+                        result_exp = snowpark_fn.object_insert(
+                            result_exp,
+                            _guarded_key(i, snowpark_args[i]),
+                            _map_value(i + 1),
+                            snowpark_fn.lit(allow_duplicate_keys),
+                        )
 
                 value_contains_null = any(
                     snowpark_typed_args[i].nullable for i in range(1, num_args, 2)
@@ -6808,27 +6870,6 @@ def map_unresolved_function(
                 global_config.spark_sql_mapKeyDedupPolicy == "LAST_WIN"
             )
 
-            def _map_concat(allow_dups, arg_array):
-                new_map = {}
-                for m in arg_array:
-                    if m is None:
-                        # return none if any of the input maps are none
-                        return None
-                    for key, value in m.items():
-                        if key in new_map and not allow_dups:
-                            raise ValueError(
-                                f"[snowpark_connect::invalid_operation] {DUPLICATE_KEY_FOUND_ERROR_TEMPLATE.format(key=key)}"
-                            )
-                        else:
-                            new_map[key] = value
-                return new_map
-
-            map_concat_udf = cached_udf(
-                _map_concat,
-                input_types=[BooleanType(), ArrayType()],
-                return_type=VariantType(),
-            )
-
             key_type = _find_common_type(
                 list(map(lambda x: x.typ.key_type, snowpark_typed_args))
             )
@@ -6836,15 +6877,90 @@ def map_unresolved_function(
                 list(map(lambda x: x.typ.value_type, snowpark_typed_args))
             )
 
-            input_args = [snowpark_fn.cast(arg, StructType()) for arg in snowpark_args]
+            # Native object merge: fold all input maps' key/value pairs into one
+            # OBJECT via REDUCE + OBJECT_INSERT, replacing the per-row Python UDF.
+            # Each map is cast to OBJECT so OBJECT_KEYS/GET work for both MAP and
+            # semi-structured OBJECT inputs.
+            analyzer = Session.get_active_session()._analyzer
 
-            result_exp = snowpark_fn.cast(
-                map_concat_udf(
-                    snowpark_fn.lit(allow_duplicate_keys),
-                    snowpark_fn.array_construct(*input_args),
-                ),
-                MapType(key_type, value_type),
+            def to_sql(col: Column) -> str:
+                return analyzer.analyze(col._expression, defaultdict())
+
+            arg_sqls = [f"({to_sql(arg)})::OBJECT" for arg in snowpark_args]
+
+            # Entry array: [{k, v}, ...] across all maps, preserving JSON-null
+            # values via OBJECT_CONSTRUCT_KEEP_NULL. The object is carried in the
+            # REDUCE seed (acc:o) and read back inside the lambda, so the argument's
+            # SQL is never embedded in a lambda body. That matters when an argument
+            # is itself a non-SQL UDF (e.g. map_from_arrays) or an aggregate, which
+            # Snowflake forbids inside a lambda expression.
+            entries_sql = ", ".join(
+                f"reduce(object_keys({s}), "
+                f"object_construct_keep_null('o', to_variant({s}), 'e', array_construct()), "
+                f"(acc, k) -> object_insert(acc, 'e', array_append(acc:e, "
+                f"object_construct_keep_null('k', k, 'v', get(acc:o, to_varchar(k)))), true)):e"
+                for s in arg_sqls
             )
+            entry_array_sql = f"array_flatten(array_construct({entries_sql}))"
+
+            # Last value wins on collision; for the EXCEPTION policy the dup check
+            # below raises before the merge result is ever observed, so OBJECT_INSERT
+            # with the update flag is correct for both policies.
+            merge_sql = (
+                f"reduce({entry_array_sql}, object_construct(), "
+                f"(acc, e) -> object_insert(acc, e:k, "
+                f"nvl(e:v::variant, parse_json('null')), true))"
+            )
+
+            null_guard_sql = " OR ".join(f"{s} IS NULL" for s in arg_sqls)
+
+            if allow_duplicate_keys:
+                merged = snowpark_fn.sql_expr(
+                    f"CASE WHEN {null_guard_sql} THEN NULL ELSE {merge_sql} END"
+                )
+            else:
+                # EXCEPTION policy: a cross-map duplicate key is an error. Detect it
+                # by comparing total vs distinct key counts, then raise
+                # DUPLICATE_KEY_FOUND_ERROR_TEMPLATE as a Spark SparkRuntimeException
+                # (via _raise_error_helper). first_dup_sql recovers the offending key.
+                all_keys_sql = (
+                    "array_flatten(array_construct("
+                    + ", ".join(f"object_keys({s})" for s in arg_sqls)
+                    + "))"
+                )
+                first_dup_sql = (
+                    f"reduce({all_keys_sql}, object_construct('seen', array_construct()), "
+                    f"(acc, k) -> iff(acc:dup IS NOT NULL, acc, "
+                    f"iff(array_contains(k::variant, acc:seen), "
+                    f"object_insert(acc, 'dup', k, true), "
+                    f"object_insert(acc, 'seen', array_append(acc:seen, k), true)))):dup::string"
+                )
+                # Splice the recovered dup key into the message via SQL concatenation
+                # so first_dup_sql stays executable SQL; only the literal prefix/suffix
+                # are quote-escaped.
+                msg_prefix, msg_suffix = DUPLICATE_KEY_FOUND_ERROR_TEMPLATE.split(
+                    "{key}"
+                )
+                prefix_lit = msg_prefix.replace("'", "''")
+                suffix_lit = msg_suffix.replace("'", "''")
+                dup_message_sql = (
+                    f"'{prefix_lit}' || ({first_dup_sql}) || '{suffix_lit}'"
+                )
+                raise_dup = _raise_error_helper(VariantType(), SparkRuntimeException)(
+                    snowpark_fn.sql_expr(dup_message_sql)
+                )
+                raise_dup_sql = to_sql(raise_dup)
+                has_dup_sql = (
+                    f"array_size(array_distinct({all_keys_sql})) "
+                    f"< array_size({all_keys_sql})"
+                )
+                merged = snowpark_fn.sql_expr(
+                    f"CASE WHEN {null_guard_sql} THEN NULL "
+                    f"WHEN {has_dup_sql} THEN {raise_dup_sql} "
+                    f"ELSE {merge_sql} END"
+                )
+
+            result_exp = snowpark_fn.cast(merged, MapType(key_type, value_type))
             value_contains_null = any(
                 a.typ.value_contains_null
                 for a in snowpark_typed_args
@@ -6933,36 +7049,82 @@ def map_unresolved_function(
                 global_config.spark_sql_mapKeyDedupPolicy == "LAST_WIN"
             )
 
-            def _map_from_arrays(allow_dups, keys, values):
-                if keys is None or values is None:
-                    return None
-                if len(keys) != len(values):
-                    raise ValueError(
-                        "[snowpark_connect::internal_error] The key array and value array of must have the same length"
-                    )
+            # Build the map natively with REDUCE + OBJECT_INSERT instead of a per-row
+            # Python UDF: walk an index range, inserting keys[i]/values[i]. OBJECT_INSERT's
+            # 4th arg is the dedup policy (false=raise on dup, true=LAST_WIN). The
+            # ARRAY_GENERATE_RANGE index is VARIANT, so cast to int for subscripting.
+            keys_array = snowpark_fn.cast(snowpark_args[0], ArrayType())
+            values_array = snowpark_fn.cast(snowpark_args[1], ArrayType())
+            keys_size = snowpark_fn.function("array_size")(keys_array)
+            values_size = snowpark_fn.function("array_size")(values_array)
 
-                if not allow_dups and len(set(keys)) != len(keys):
-                    seen = set()
-                    for key in keys:
-                        if key in seen:
-                            raise ValueError(
-                                f"[snowpark_connect::invalid_operation] {DUPLICATE_KEY_FOUND_ERROR_TEMPLATE.format(key=key)}"
-                            )
-                        seen.add(key)
-                # will overwrite the last occurrence if there are duplicates.
-                return dict(zip(keys, values))
-
-            _map_from_arrays_udf = cached_udf(
-                _map_from_arrays,
-                return_type=VariantType(),
-                input_types=[BooleanType(), ArrayType(), ArrayType()],
+            # Carry the source arrays in the REDUCE seed (evaluated outside the
+            # lambda) and read them back as accumulator fields, so an aggregate input
+            # such as COLLECT_LIST/ARRAY_AGG is never embedded inside the lambda body
+            # (Snowflake rejects "ARRAY_AGG ... not allowed inside lambda expression").
+            # acc:k / acc:v hold the key/value arrays; acc:m accumulates the result.
+            seed = snowpark_fn.function("object_construct_keep_null")(
+                snowpark_fn.lit("k"),
+                keys_array,
+                snowpark_fn.lit("v"),
+                values_array,
+                snowpark_fn.lit("m"),
+                snowpark_fn.object_construct(),
             )
-            result_exp = snowpark_fn.cast(
-                _map_from_arrays_udf(
-                    snowpark_fn.lit(allow_duplicate_keys),
-                    snowpark_fn.cast(snowpark_args[0], ArrayType()),
-                    snowpark_fn.cast(snowpark_args[1], ArrayType()),
+            reduce_lambda = (
+                "(acc, i) -> object_insert(acc, 'm', object_insert("
+                "acc:m, acc:k[i::int], "
+                "nvl(acc:v[i::int]::variant, parse_json('null')), "
+                f"{str(allow_duplicate_keys).lower()}), true)"
+            )
+            reduce_result = snowpark_fn.get(
+                snowpark_fn.function("reduce")(
+                    snowpark_fn.function("array_generate_range")(
+                        snowpark_fn.lit(0),
+                        keys_size,
+                        snowpark_fn.lit(1),
+                    ),
+                    seed,
+                    snowpark_fn.sql_expr(reduce_lambda),
                 ),
+                snowpark_fn.lit("m"),
+            )
+
+            # Spark errors on length mismatch (SparkRuntimeException) and null keys
+            # (NULL_MAP_KEY); mirror both via raise-error helpers (as `map` /
+            # `map_from_entries` do). A null input array yields a null map.
+            length_mismatch = keys_size != values_size
+            length_error = _raise_error_helper(VariantType())(
+                snowpark_fn.lit(
+                    "The key array and value array of MapData "
+                    "must have the same length."
+                )
+            )
+            has_null_key = (
+                snowpark_fn.function("array_size")(
+                    snowpark_fn.function("filter")(
+                        keys_array,
+                        snowpark_fn.sql_expr("k -> k IS NULL"),
+                    )
+                )
+                > 0
+            )
+            null_key_error = _raise_error_helper(VariantType())(
+                snowpark_fn.lit("[NULL_MAP_KEY] Cannot use null as map key.")
+            )
+
+            guarded_result = (
+                snowpark_fn.when(
+                    snowpark_fn.is_null(keys_array) | snowpark_fn.is_null(values_array),
+                    snowpark_fn.lit(None),
+                )
+                .when(length_mismatch, length_error)
+                .when(has_null_key, null_key_error)
+                .otherwise(reduce_result)
+            )
+
+            result_exp = snowpark_fn.cast(
+                guarded_result,
                 MapType(
                     key_type,
                     value_type,
@@ -10633,41 +10795,31 @@ def map_unresolved_function(
                             snowpark_fn.cast(e.col * 1_000_000, LongType()),
                             snowpark_fn.lit(6),
                         )
+                case ([e], _) if type(e.typ) in (DateType, TimestampType, NullType):
+                    # try_to_timestamp rejects DATE/TIMESTAMP/NULL inputs (TRY_CAST
+                    # type error); to_timestamp accepts them and never fails for these
+                    # types, matching Spark (a non-string arg is reinterpreted directly).
+                    result_exp = snowpark_fn.to_timestamp(e.col)
                 case ([e], _):
-                    result_exp = snowpark_fn.when(
-                        snowpark_fn.function(function_name)(
-                            snowpark_fn.cast(e.col, StringType())
-                        ).isNull(),
-                        snowpark_fn.lit(None),
-                    ).otherwise(snowpark_fn.to_timestamp(e.col))
+                    result_exp = snowpark_fn.function(function_name)(e.col)
                 case ([e, _], _) if type(e.typ) in (DateType, TimestampType):
-                    result_exp = snowpark_fn.when(
-                        snowpark_fn.function(function_name)(
-                            snowpark_fn.cast(e.col, StringType())
-                        ).isNull(),
-                        snowpark_fn.lit(None),
-                    ).otherwise(snowpark_fn.to_timestamp(e.col))
+                    result_exp = snowpark_fn.to_timestamp(e.col)
                 case ([e, _], [_, fmt]):
                     if input_is_literal:
                         _timestamp_format_sanity_check(
                             snowpark_arg_names[0], snowpark_arg_names[1]
                         )
-                    result_exp = snowpark_fn.when(
-                        snowpark_fn.function(function_name)(
-                            snowpark_fn.cast(e.col, StringType()),
-                            snowpark_fn.lit(
-                                map_spark_timestamp_format_expression(fmt, e.typ)
-                            ),
-                        ).isNull(),
-                        snowpark_fn.lit(None),
-                    ).otherwise(
-                        snowpark_fn.to_timestamp(
-                            e.col,
-                            snowpark_fn.lit(
-                                map_spark_timestamp_format_expression(fmt, e.typ)
-                            ),
-                        )
+                    fmt_lit = snowpark_fn.lit(
+                        map_spark_timestamp_format_expression(fmt, e.typ)
                     )
+                    # NULL input: plain to_timestamp accepts it; try_to_timestamp
+                    # would TRY_CAST-error on the NULL-typed column.
+                    ts_fn = (
+                        snowpark_fn.to_timestamp
+                        if type(e.typ) is NullType
+                        else snowpark_fn.function(function_name)
+                    )
+                    result_exp = ts_fn(e.col, fmt_lit)
                 case _:
                     exception = ValueError(
                         f"Invalid number of arguments to {function_name}"

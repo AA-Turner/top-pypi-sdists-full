@@ -99,7 +99,12 @@ class FieldNotFound(PymarcException):
 class BadSubfieldCodeWarning(Warning):
     """Warning about a non-ASCII subfield code."""
 
-    pass
+    def __init__(self, subf):
+        super().__init__()
+        self.subf = subf
+
+    def __str__(self):
+        return f"The subfield contained a non-ASCII subfield code: {self.subf}"
 
 
 class BadLeaderValue(PymarcException):

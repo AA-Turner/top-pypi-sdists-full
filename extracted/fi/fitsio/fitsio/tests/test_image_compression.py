@@ -610,6 +610,75 @@ def test_image_mem_reopen_noop():
         assert np.array_equal(rimg, img)
 
 
+@pytest.mark.slow
+@pytest.mark.parallel_threads_limit(1)
+@pytest.mark.iterations(1)
+@pytest.mark.parametrize(
+    "coef",
+    [
+        1,
+        pytest.param(
+            2,
+            marks=[
+                pytest.mark.xfail(
+                    condition=CFITSIO_VERSION < 4.04,
+                    reason=(
+                        "Writing compressed binary tables exceeding "
+                        "2**32 bytes fails for cfitsio < 4.040!"
+                    ),
+                ),
+                pytest.mark.slow,
+            ],
+        ),
+    ],
+)
+def test_image_compression_big_gzip(coef):
+    n1 = 50
+    n2 = 50
+    nHDU = 10
+    rng = np.random.RandomState(seed=10)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tot = 0
+        pth = os.path.join(tmpdir, "test.fits.gz")
+        with FITS(pth, "rw", clobber=True) as out:
+            for i in range(nHDU):
+                out_list = []
+                out_names = []
+
+                out_names += ['A']
+                out_list += [rng.normal(size=n1 * n2 * coef * coef)]
+
+                out_names += ['B']
+                out_list += [np.ones(n1 * n2 * coef * coef)]
+
+                out_names += ['C']
+                out_list += [np.ones(n1 * n2 * coef * coef)]
+
+                out_names += ['D']
+                out_list += [np.ones(n1 * n2 * coef * coef)]
+
+                out_names += ['E']
+                out_list += [
+                    np.ones((n1 * n2 * coef * coef, n1 * n2 * coef * coef))
+                ]
+
+                tot += sum(
+                    out_val.itemsize * out_val.size for out_val in out_list
+                )
+
+                out.write(out_list, names=out_names)
+
+        print("wrote %0.2f MB" % (tot / 1e6), flush=True)
+        os.system(f"ls -lah {tmpdir}/test.fits.gz")
+
+        with FITS(pth, "r") as h:
+            print(h, flush=True)
+            assert len(h) == nHDU + 1
+            for k, name in zip([0, 1, -1], ["A", "B", "E"]):
+                assert np.array_equal(h[-1][name][:], out_list[k])
+
+
 @pytest.mark.parametrize("nan_value", [np.nan, np.inf, -np.inf])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize(
@@ -659,6 +728,163 @@ def test_image_compression_nulls(fname, dtype, nan_value):
                     read_data,
                     cdata,
                 )
+
+
+@pytest.mark.parametrize(
+    "compress,qlevel",
+    [
+        ("RICE_1", 4),
+        ("GZIP", 0),
+    ],
+)
+@pytest.mark.parametrize("ncols", [8, 9, 10, 11, 12])
+def test_image_compression_nulls_patches_with_subnormal(
+    compress, qlevel, ncols
+):
+    rng = np.random.RandomState(seed=10)
+    data = np.arange(ncols * 4).reshape((4, ncols)).astype(np.float32)
+    data += rng.normal(scale=0.5, size=data.shape)
+    data[1, 0] = np.nan
+    data[1, 1:] = 8.82818e-44
+
+    data[2, 0] = np.nan
+    data[2, 1:] = 5.0
+
+    with FITS("mem://", "rw") as fits:
+        fits.write(
+            data,
+            compress=compress,
+            tile_dims=(1, ncols),
+            dither_seed=10,
+            qlevel=qlevel,
+        )
+        read_data = fits[1].read()
+        read_slice1 = fits[1][1, :][0]
+        read_slice2 = fits[1][2, :][0]
+
+        assert np.isnan(read_data[1, 0])
+        assert np.isnan(read_slice1[0])
+        assert np.isnan(read_slice2[0])
+
+        if qlevel > 0:
+            np.testing.assert_allclose(
+                read_data,
+                data,
+                rtol=0,
+                atol=0.1,
+            )
+            np.testing.assert_allclose(
+                read_slice1,
+                data[1, :],
+                rtol=0,
+                atol=0.1,
+            )
+            np.testing.assert_allclose(
+                read_slice2,
+                data[2, :],
+                rtol=0,
+                atol=0.1,
+            )
+            hdr = fits[1].read_header()
+            if "TTYPE4" in hdr and hdr["TTYPE4"] == "GZIP_COMPRESSED_DATA":
+                # in this case, cfitsio finds zero variance in the compressed
+                # tile and so uses GZIP to compress the data losslessly.
+                # however, on read, we send nullcheck=NAN and as a side
+                # effect the subnormal float value in this row gets truncated
+                # to zero
+                np.testing.assert_array_equal(read_data[1, 1:], 0.0)
+                np.testing.assert_array_equal(read_slice1[1:], 0.0)
+
+                # this does not happen for row index 2 which doesn't have
+                # subnormal float values
+                np.testing.assert_array_equal(read_data[2, 1:], 5.0)
+                np.testing.assert_array_equal(read_slice2[1:], 5.0)
+        else:
+            np.testing.assert_array_equal(
+                read_data,
+                data,
+            )
+            np.testing.assert_array_equal(
+                read_slice1,
+                data[1, :],
+            )
+            np.testing.assert_array_equal(
+                read_slice2,
+                data[2, :],
+            )
+
+
+def test_image_compression_read_chunks():
+    data = np.arange(127, dtype='i4')
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        fpth = os.path.join(tmpdir, 'test.fits')
+
+        with FITS(fpth, "rw") as fits:
+            fits.write(
+                data,
+                compress='RICE_1',
+                tile_dims=(3,),
+                dither_seed=10,
+                qlevel=2,
+            )
+
+            chunksize = 2
+            nchunks = data.size // chunksize
+            if data.size % chunksize != 0:
+                nchunks += 1
+
+            for ichunk in range(nchunks):
+                start = ichunk * chunksize
+                end = (ichunk + 1) * chunksize
+
+                read_data = fits[1][start:end]
+                assert np.all(read_data == data[start:end])
+
+
+def test_image_compression_write_read_comp_to_osx_arm64():
+    pth = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "test_images",
+        "test_rice_dither2_seed42.fits",
+    )
+    seed = 42
+    rng = np.random.RandomState(seed=seed)
+    data = rng.normal(size=(100, 100))
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tpth = os.path.join(tmpdir, f"test_rice_dither2_seed{seed}.fits.fz")
+        write(
+            tpth,
+            data,
+            compress="RICE",
+            qmethod="SUBTRACTIVE_DITHER_2",
+            dither_seed=seed,
+        )
+        tdata = read(tpth)
+    data = read(pth)
+
+    np.testing.assert_array_equal(data, tdata)
+
+
+def test_image_compression_read_from_osx_arm64():
+    pth = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "test_images",
+        "test_rice_dither2_seed42.fits",
+    )
+    cpth = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "test_images",
+        "test_rice_dither2_seed42.fits.fz",
+    )
+    cdata = read(cpth)
+    data = read(pth)
+
+    np.testing.assert_array_equal(data, cdata)
 
 
 if __name__ == '__main__':

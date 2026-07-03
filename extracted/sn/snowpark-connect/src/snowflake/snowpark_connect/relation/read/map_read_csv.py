@@ -41,6 +41,8 @@ from snowflake.snowpark.types import (
 from snowflake.snowpark_connect.config import (
     get_boolean_session_config_param,
     get_string_session_config_param,
+    get_timestamp_type,
+    global_config,
     str_to_bool,
 )
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
@@ -1370,7 +1372,7 @@ def _infer_csv_schema_for_stage_chunk(
             [StructField(f.name, f.datatype, f.nullable) for f in inferred_fields]
         )
         if relax_types_to_infer_schema:
-            logical = relax_csv_types(logical)
+            logical = relax_csv_types(logical, infer_schema=True)
         return logical
 
     if names_only:
@@ -1693,7 +1695,7 @@ def _resolve_csv_schemas(
     return logical, False
 
 
-def relax_csv_types(t: DataType) -> DataType:
+def relax_csv_types(t: DataType, *, infer_schema: bool = False) -> DataType:
     """Widen numeric types to match OSS Spark's CSV schema inference rules.
 
     Snowpark's USE_RELAXED_TYPES (most_permissive_type) which incorrectly maps all numerics to DoubleType.
@@ -1707,18 +1709,19 @@ def relax_csv_types(t: DataType) -> DataType:
     - DecimalType with precision > 9 -> LongType
     - DecimalType with precision <= 9 -> IntegerType
     - FloatType, DoubleType -> DoubleType
+    - TimestampType (infer_schema=True only): coerce to spark.sql.timestampType session config
     """
     if isinstance(t, StructType):
         for sf in t.fields:
-            sf.datatype = relax_csv_types(sf.datatype)
+            sf.datatype = relax_csv_types(sf.datatype, infer_schema=infer_schema)
         return t
     elif isinstance(t, ArrayType):
         if t.element_type is not None:
-            t.element_type = relax_csv_types(t.element_type)
+            t.element_type = relax_csv_types(t.element_type, infer_schema=infer_schema)
         return t
     elif isinstance(t, MapType):
-        t.key_type = relax_csv_types(t.key_type)
-        t.value_type = relax_csv_types(t.value_type)
+        t.key_type = relax_csv_types(t.key_type, infer_schema=infer_schema)
+        t.value_type = relax_csv_types(t.value_type, infer_schema=infer_schema)
         return t
 
     # First apply standard integral type conversion
@@ -1743,6 +1746,26 @@ def relax_csv_types(t: DataType) -> DataType:
     elif isinstance(t, _FractionalType):
         # FloatType, DoubleType -> DoubleType
         return DoubleType()
+    elif isinstance(t, TimestampType) and infer_schema:
+        # Timestamp coercion is only applied during schema inference (infer_schema=True),
+        # NOT when the user has provided an explicit schema.  Applying it with an explicit
+        # schema would override user-specified TIMESTAMP_NTZ/LTZ column types.
+        #
+        # When spark.sql.legacy.timeParserPolicy=LEGACY, OSS Spark's CSV inference falls
+        # back to StringType for timestamps (the legacy parser doesn't infer timestamps in
+        # the same way as the modern parser).  Mirror that behaviour here.
+        # ``global_config`` maps an explicitly-set empty string to ``None`` (see
+        # GlobalConfig.set), so coalesce to "" before ``.upper()``.
+        time_parser_policy = (
+            global_config.get("spark.sql.legacy.timeParserPolicy") or ""
+        ).upper()
+        if time_parser_policy == "LEGACY":
+            return StringType()
+        # For EXCEPTION/CORRECTED (and default), honor spark.sql.timestampType: coerce any
+        # inferred timestamp (LTZ or NTZ) to the session-configured type.  This matches OSS
+        # Spark CSV inference which uses the timestampType config to decide whether inferred
+        # timestamp columns are TIMESTAMP_LTZ or TIMESTAMP_NTZ.
+        return get_timestamp_type()
 
     return t
 

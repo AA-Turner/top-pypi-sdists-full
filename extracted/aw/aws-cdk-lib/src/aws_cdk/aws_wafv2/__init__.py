@@ -2049,6 +2049,7 @@ class CfnRuleGroup(
         consumed_labels: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.LabelSummaryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         custom_response_bodies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CustomResponseBodyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        monetization_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.MonetizationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2064,6 +2065,7 @@ class CfnRuleGroup(
         :param consumed_labels: The labels that one or more rules in this rule group match against in label match statements. These labels are defined in a ``LabelMatchStatement`` specification, in the ``Statement`` definition of a rule.
         :param custom_response_bodies: A map of custom response keys and content bodies. When you create a rule with a block action, you can send a custom response to the web request. You define these for the rule group, and then use them in the rules that you define in the rule group. For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* . For information about the limits on count and size for custom request and response settings, see `AWS WAF quotas <https://docs.aws.amazon.com/waf/latest/developerguide/limits.html>`_ in the *AWS WAF Developer Guide* .
         :param description: A description of the rule group that helps with identification.
+        :param monetization_config: Configures monetization for the web ACL or rule group.
         :param name: The name of the rule group. You cannot change the name of a rule group after you create it.
         :param rules: The rule statements used to identify the web requests that you want to allow, block, or count. Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
         :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
@@ -2080,6 +2082,7 @@ class CfnRuleGroup(
             consumed_labels=consumed_labels,
             custom_response_bodies=custom_response_bodies,
             description=description,
+            monetization_config=monetization_config,
             name=name,
             rules=rules,
             tags=tags,
@@ -2305,6 +2308,24 @@ class CfnRuleGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__8a74ba4694f9055d7fa9dea9d8533dae3a9863fe2c52936a40f56b5ee621a7bd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="monetizationConfig")
+    def monetization_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.MonetizationConfigProperty"]]:
+        '''Configures monetization for the web ACL or rule group.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.MonetizationConfigProperty"]], jsii.get(self, "monetizationConfig"))
+
+    @monetization_config.setter
+    def monetization_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.MonetizationConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__59959d79d6cbb566e834f19aee0f100a1166fee0e02ffef2f32dfc5e969e7c52)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "monetizationConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3920,6 +3941,71 @@ class CfnRuleGroup(
 
         def __repr__(self) -> str:
             return "CountProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroup.CryptoConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"payment_networks": "paymentNetworks"},
+    )
+    class CryptoConfigProperty:
+        def __init__(
+            self,
+            *,
+            payment_networks: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.PaymentNetworkProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''Configures cryptocurrency payment settings.
+
+            :param payment_networks: List of payment network configurations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-cryptoconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                crypto_config_property = wafv2.CfnRuleGroup.CryptoConfigProperty(
+                    payment_networks=[wafv2.CfnRuleGroup.PaymentNetworkProperty(
+                        chain="chain",
+                        prices=[wafv2.CfnRuleGroup.PriceProperty(
+                            amount="amount",
+                            currency="currency"
+                        )],
+                        wallet_address="walletAddress"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__93c587f35308d87260150f980a71985c81686391c47d657bd2b5198719f995fc)
+                check_type(argname="argument payment_networks", value=payment_networks, expected_type=type_hints["payment_networks"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "payment_networks": payment_networks,
+            }
+
+        @builtins.property
+        def payment_networks(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.PaymentNetworkProperty"]]]:
+            '''List of payment network configurations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-cryptoconfig.html#cfn-wafv2-rulegroup-cryptoconfig-paymentnetworks
+            '''
+            result = self._values.get("payment_networks")
+            assert result is not None, "Required property 'payment_networks' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.PaymentNetworkProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CryptoConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -5937,6 +6023,147 @@ class CfnRuleGroup(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroup.MonetizationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "crypto_config": "cryptoConfig",
+            "currency_mode": "currencyMode",
+        },
+    )
+    class MonetizationConfigProperty:
+        def __init__(
+            self,
+            *,
+            crypto_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CryptoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            currency_mode: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configures monetization for the web ACL or rule group.
+
+            :param crypto_config: Configures cryptocurrency payment settings.
+            :param currency_mode: The currency mode for monetization. Use REAL for production payments and TEST for testing with testnet currencies.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-monetizationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                monetization_config_property = wafv2.CfnRuleGroup.MonetizationConfigProperty(
+                    crypto_config=wafv2.CfnRuleGroup.CryptoConfigProperty(
+                        payment_networks=[wafv2.CfnRuleGroup.PaymentNetworkProperty(
+                            chain="chain",
+                            prices=[wafv2.CfnRuleGroup.PriceProperty(
+                                amount="amount",
+                                currency="currency"
+                            )],
+                            wallet_address="walletAddress"
+                        )]
+                    ),
+                    currency_mode="currencyMode"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ceb78dda46ae1b19d0de4ea9d2b3587e4e9b855dae4193ffeed916904b69546b)
+                check_type(argname="argument crypto_config", value=crypto_config, expected_type=type_hints["crypto_config"])
+                check_type(argname="argument currency_mode", value=currency_mode, expected_type=type_hints["currency_mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if crypto_config is not None:
+                self._values["crypto_config"] = crypto_config
+            if currency_mode is not None:
+                self._values["currency_mode"] = currency_mode
+
+        @builtins.property
+        def crypto_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CryptoConfigProperty"]]:
+            '''Configures cryptocurrency payment settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-monetizationconfig.html#cfn-wafv2-rulegroup-monetizationconfig-cryptoconfig
+            '''
+            result = self._values.get("crypto_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CryptoConfigProperty"]], result)
+
+        @builtins.property
+        def currency_mode(self) -> typing.Optional[builtins.str]:
+            '''The currency mode for monetization.
+
+            Use REAL for production payments and TEST for testing with testnet currencies.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-monetizationconfig.html#cfn-wafv2-rulegroup-monetizationconfig-currencymode
+            '''
+            result = self._values.get("currency_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MonetizationConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroup.MonetizeActionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"price_multiplier": "priceMultiplier"},
+    )
+    class MonetizeActionProperty:
+        def __init__(
+            self,
+            *,
+            price_multiplier: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Monetize action for rules.
+
+            :param price_multiplier: The price multiplier for the monetize action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-monetizeaction.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                monetize_action_property = wafv2.CfnRuleGroup.MonetizeActionProperty(
+                    price_multiplier="priceMultiplier"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5336be6fd1883e7784e8df144a223528ca32533a6728bb53a76bbba880c8355e)
+                check_type(argname="argument price_multiplier", value=price_multiplier, expected_type=type_hints["price_multiplier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if price_multiplier is not None:
+                self._values["price_multiplier"] = price_multiplier
+
+        @builtins.property
+        def price_multiplier(self) -> typing.Optional[builtins.str]:
+            '''The price multiplier for the monetize action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-monetizeaction.html#cfn-wafv2-rulegroup-monetizeaction-pricemultiplier
+            '''
+            result = self._values.get("price_multiplier")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MonetizeActionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroup.NotStatementProperty",
         jsii_struct_bases=[],
         name_mapping={"statement": "statement"},
@@ -6997,6 +7224,167 @@ class CfnRuleGroup(
 
         def __repr__(self) -> str:
             return "OrStatementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroup.PaymentNetworkProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "chain": "chain",
+            "prices": "prices",
+            "wallet_address": "walletAddress",
+        },
+    )
+    class PaymentNetworkProperty:
+        def __init__(
+            self,
+            *,
+            chain: builtins.str,
+            prices: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.PriceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            wallet_address: builtins.str,
+        ) -> None:
+            '''Configuration for a single payment network.
+
+            :param chain: The blockchain chain to use.
+            :param prices: List of price configurations.
+            :param wallet_address: The wallet address for receiving payments.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-paymentnetwork.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                payment_network_property = wafv2.CfnRuleGroup.PaymentNetworkProperty(
+                    chain="chain",
+                    prices=[wafv2.CfnRuleGroup.PriceProperty(
+                        amount="amount",
+                        currency="currency"
+                    )],
+                    wallet_address="walletAddress"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2a70700a7a89cbf7428537b29eebe42b8bc2bd7d0e7c48deacb7f77d37b4c8eb)
+                check_type(argname="argument chain", value=chain, expected_type=type_hints["chain"])
+                check_type(argname="argument prices", value=prices, expected_type=type_hints["prices"])
+                check_type(argname="argument wallet_address", value=wallet_address, expected_type=type_hints["wallet_address"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "chain": chain,
+                "prices": prices,
+                "wallet_address": wallet_address,
+            }
+
+        @builtins.property
+        def chain(self) -> builtins.str:
+            '''The blockchain chain to use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-paymentnetwork.html#cfn-wafv2-rulegroup-paymentnetwork-chain
+            '''
+            result = self._values.get("chain")
+            assert result is not None, "Required property 'chain' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def prices(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.PriceProperty"]]]:
+            '''List of price configurations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-paymentnetwork.html#cfn-wafv2-rulegroup-paymentnetwork-prices
+            '''
+            result = self._values.get("prices")
+            assert result is not None, "Required property 'prices' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.PriceProperty"]]], result)
+
+        @builtins.property
+        def wallet_address(self) -> builtins.str:
+            '''The wallet address for receiving payments.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-paymentnetwork.html#cfn-wafv2-rulegroup-paymentnetwork-walletaddress
+            '''
+            result = self._values.get("wallet_address")
+            assert result is not None, "Required property 'wallet_address' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PaymentNetworkProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroup.PriceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"amount": "amount", "currency": "currency"},
+    )
+    class PriceProperty:
+        def __init__(self, *, amount: builtins.str, currency: builtins.str) -> None:
+            '''A price configuration.
+
+            :param amount: The price amount.
+            :param currency: The cryptocurrency to use for payment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-price.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                price_property = wafv2.CfnRuleGroup.PriceProperty(
+                    amount="amount",
+                    currency="currency"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e51c42b2b4bbf11a63c396ba4b795def07bec59a9bdabca53d4e6f18da269045)
+                check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
+                check_type(argname="argument currency", value=currency, expected_type=type_hints["currency"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "amount": amount,
+                "currency": currency,
+            }
+
+        @builtins.property
+        def amount(self) -> builtins.str:
+            '''The price amount.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-price.html#cfn-wafv2-rulegroup-price-amount
+            '''
+            result = self._values.get("amount")
+            assert result is not None, "Required property 'amount' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def currency(self) -> builtins.str:
+            '''The cryptocurrency to use for payment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-price.html#cfn-wafv2-rulegroup-price-currency
+            '''
+            result = self._values.get("currency")
+            assert result is not None, "Required property 'currency' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PriceProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -8895,6 +9283,7 @@ class CfnRuleGroup(
             "captcha": "captcha",
             "challenge": "challenge",
             "count": "count",
+            "monetize": "monetize",
         },
     )
     class RuleActionProperty:
@@ -8906,6 +9295,7 @@ class CfnRuleGroup(
             captcha: typing.Any = None,
             challenge: typing.Any = None,
             count: typing.Any = None,
+            monetize: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.MonetizeActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The action that AWS WAF should take on a web request when it matches a rule's statement.
 
@@ -8916,6 +9306,7 @@ class CfnRuleGroup(
             :param captcha: Specifies that AWS WAF should run a ``CAPTCHA`` check against the request:. - If the request includes a valid, unexpired ``CAPTCHA`` token, AWS WAF allows the web request inspection to proceed to the next rule, similar to a ``CountAction`` . - If the request doesn't include a valid, unexpired ``CAPTCHA`` token, AWS WAF discontinues the web ACL evaluation of the request and blocks it from going to its intended destination. AWS WAF generates a response that it sends back to the client, which includes the following: - The header ``x-amzn-waf-action`` with a value of ``captcha`` . - The HTTP status code ``405 Method Not Allowed`` . - If the request contains an ``Accept`` header with a value of ``text/html`` , the response includes a ``CAPTCHA`` challenge. You can configure the expiration time in the ``CaptchaConfig`` ``ImmunityTimeProperty`` setting at the rule and web ACL level. The rule setting overrides the web ACL setting. This action option is available for rules. It isn't available for web ACL default actions.
             :param challenge: Instructs AWS WAF to run a ``Challenge`` check against the web request.
             :param count: Instructs AWS WAF to count the web request and then continue evaluating the request using the remaining rules in the web ACL.
+            :param monetize: Monetize action for rules.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ruleaction.html
             :exampleMetadata: fixture=_generated
@@ -8937,7 +9328,10 @@ class CfnRuleGroup(
                     block=block,
                     captcha=captcha,
                     challenge=challenge,
-                    count=count
+                    count=count,
+                    monetize=wafv2.CfnRuleGroup.MonetizeActionProperty(
+                        price_multiplier="priceMultiplier"
+                    )
                 )
             '''
             if __debug__:
@@ -8947,6 +9341,7 @@ class CfnRuleGroup(
                 check_type(argname="argument captcha", value=captcha, expected_type=type_hints["captcha"])
                 check_type(argname="argument challenge", value=challenge, expected_type=type_hints["challenge"])
                 check_type(argname="argument count", value=count, expected_type=type_hints["count"])
+                check_type(argname="argument monetize", value=monetize, expected_type=type_hints["monetize"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if allow is not None:
                 self._values["allow"] = allow
@@ -8958,6 +9353,8 @@ class CfnRuleGroup(
                 self._values["challenge"] = challenge
             if count is not None:
                 self._values["count"] = count
+            if monetize is not None:
+                self._values["monetize"] = monetize
 
         @builtins.property
         def allow(self) -> typing.Any:
@@ -9016,6 +9413,17 @@ class CfnRuleGroup(
             '''
             result = self._values.get("count")
             return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def monetize(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.MonetizeActionProperty"]]:
+            '''Monetize action for rules.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ruleaction.html#cfn-wafv2-rulegroup-ruleaction-monetize
+            '''
+            result = self._values.get("monetize")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.MonetizeActionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10930,6 +11338,7 @@ class CfnRuleGroup(
         "consumed_labels": "consumedLabels",
         "custom_response_bodies": "customResponseBodies",
         "description": "description",
+        "monetization_config": "monetizationConfig",
         "name": "name",
         "rules": "rules",
         "tags": "tags",
@@ -10946,6 +11355,7 @@ class CfnRuleGroupProps:
         consumed_labels: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.LabelSummaryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         custom_response_bodies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CustomResponseBodyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        monetization_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.MonetizationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10959,6 +11369,7 @@ class CfnRuleGroupProps:
         :param consumed_labels: The labels that one or more rules in this rule group match against in label match statements. These labels are defined in a ``LabelMatchStatement`` specification, in the ``Statement`` definition of a rule.
         :param custom_response_bodies: A map of custom response keys and content bodies. When you create a rule with a block action, you can send a custom response to the web request. You define these for the rule group, and then use them in the rules that you define in the rule group. For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* . For information about the limits on count and size for custom request and response settings, see `AWS WAF quotas <https://docs.aws.amazon.com/waf/latest/developerguide/limits.html>`_ in the *AWS WAF Developer Guide* .
         :param description: A description of the rule group that helps with identification.
+        :param monetization_config: Configures monetization for the web ACL or rule group.
         :param name: The name of the rule group. You cannot change the name of a rule group after you create it.
         :param rules: The rule statements used to identify the web requests that you want to allow, block, or count. Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
         :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
@@ -10979,6 +11390,7 @@ class CfnRuleGroupProps:
             check_type(argname="argument consumed_labels", value=consumed_labels, expected_type=type_hints["consumed_labels"])
             check_type(argname="argument custom_response_bodies", value=custom_response_bodies, expected_type=type_hints["custom_response_bodies"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument monetization_config", value=monetization_config, expected_type=type_hints["monetization_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -10995,6 +11407,8 @@ class CfnRuleGroupProps:
             self._values["custom_response_bodies"] = custom_response_bodies
         if description is not None:
             self._values["description"] = description
+        if monetization_config is not None:
+            self._values["monetization_config"] = monetization_config
         if name is not None:
             self._values["name"] = name
         if rules is not None:
@@ -11094,6 +11508,17 @@ class CfnRuleGroupProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def monetization_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.MonetizationConfigProperty"]]:
+        '''Configures monetization for the web ACL or rule group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-monetizationconfig
+        '''
+        result = self._values.get("monetization_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.MonetizationConfigProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -11199,6 +11624,7 @@ class CfnWebACL(
         custom_response_bodies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CustomResponseBodyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         data_protection_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.DataProtectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        monetization_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.MonetizationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         on_source_d_do_s_protection_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.OnSourceDDoSProtectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -11219,6 +11645,7 @@ class CfnWebACL(
         :param custom_response_bodies: A map of custom response keys and content bodies. When you create a rule with a block action, you can send a custom response to the web request. You define these for the web ACL, and then use them in the rules and default actions that you define in the web ACL. For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* . For information about the limits on count and size for custom request and response settings, see `AWS WAF quotas <https://docs.aws.amazon.com/waf/latest/developerguide/limits.html>`_ in the *AWS WAF Developer Guide* .
         :param data_protection_config: Specifies data protection to apply to the web request data for the web ACL. This is a web ACL level data protection option. The data protection that you configure for the web ACL alters the data that's available for any other data collection activity, including your AWS WAF logging destinations, web ACL request sampling, and Amazon Security Lake data collection and management. Your other option for data protection is in the logging configuration, which only affects logging.
         :param description: A description of the web ACL that helps with identification.
+        :param monetization_config: Configures monetization for the web ACL or rule group.
         :param name: The name of the web ACL. You cannot change the name of a web ACL after you create it.
         :param on_source_d_do_s_protection_config: Configures the level of DDoS protection that applies to web ACLs associated with Application Load Balancers.
         :param rules: The rule statements used to identify the web requests that you want to manage. Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
@@ -11240,6 +11667,7 @@ class CfnWebACL(
             custom_response_bodies=custom_response_bodies,
             data_protection_config=data_protection_config,
             description=description,
+            monetization_config=monetization_config,
             name=name,
             on_source_d_do_s_protection_config=on_source_d_do_s_protection_config,
             rules=rules,
@@ -11537,6 +11965,24 @@ class CfnWebACL(
             type_hints = typing.get_type_hints(_typecheckingstub__b7cfda3db6502d36377ec778a8c90e7487c0f54a00cb343261a4d256ace27df9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="monetizationConfig")
+    def monetization_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.MonetizationConfigProperty"]]:
+        '''Configures monetization for the web ACL or rule group.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.MonetizationConfigProperty"]], jsii.get(self, "monetizationConfig"))
+
+    @monetization_config.setter
+    def monetization_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.MonetizationConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5170daf49b58ece32f7aadfde393e6e8805bd0cfd30cd3247a74787ffe8c3984)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "monetizationConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -13706,6 +14152,71 @@ class CfnWebACL(
 
         def __repr__(self) -> str:
             return "CountActionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.CryptoConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"payment_networks": "paymentNetworks"},
+    )
+    class CryptoConfigProperty:
+        def __init__(
+            self,
+            *,
+            payment_networks: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.PaymentNetworkProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''Configures cryptocurrency payment settings.
+
+            :param payment_networks: List of payment network configurations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-cryptoconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                crypto_config_property = wafv2.CfnWebACL.CryptoConfigProperty(
+                    payment_networks=[wafv2.CfnWebACL.PaymentNetworkProperty(
+                        chain="chain",
+                        prices=[wafv2.CfnWebACL.PriceProperty(
+                            amount="amount",
+                            currency="currency"
+                        )],
+                        wallet_address="walletAddress"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0ef1aa07666e5e1219ac770026cdacd9313c9c0d037c4613fa55e74c06eacc98)
+                check_type(argname="argument payment_networks", value=payment_networks, expected_type=type_hints["payment_networks"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "payment_networks": payment_networks,
+            }
+
+        @builtins.property
+        def payment_networks(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.PaymentNetworkProperty"]]]:
+            '''List of payment network configurations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-cryptoconfig.html#cfn-wafv2-webacl-cryptoconfig-paymentnetworks
+            '''
+            result = self._values.get("payment_networks")
+            assert result is not None, "Required property 'payment_networks' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.PaymentNetworkProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CryptoConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -16645,6 +17156,147 @@ class CfnWebACL(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.MonetizationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "crypto_config": "cryptoConfig",
+            "currency_mode": "currencyMode",
+        },
+    )
+    class MonetizationConfigProperty:
+        def __init__(
+            self,
+            *,
+            crypto_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CryptoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            currency_mode: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configures monetization for the web ACL or rule group.
+
+            :param crypto_config: Configures cryptocurrency payment settings.
+            :param currency_mode: The currency mode for monetization. Use REAL for production payments and TEST for testing with testnet currencies.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-monetizationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                monetization_config_property = wafv2.CfnWebACL.MonetizationConfigProperty(
+                    crypto_config=wafv2.CfnWebACL.CryptoConfigProperty(
+                        payment_networks=[wafv2.CfnWebACL.PaymentNetworkProperty(
+                            chain="chain",
+                            prices=[wafv2.CfnWebACL.PriceProperty(
+                                amount="amount",
+                                currency="currency"
+                            )],
+                            wallet_address="walletAddress"
+                        )]
+                    ),
+                    currency_mode="currencyMode"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__27fb0b62f379bd661e6d54af30b9ca6c33afbffcb2754b2066a55be0d28369a4)
+                check_type(argname="argument crypto_config", value=crypto_config, expected_type=type_hints["crypto_config"])
+                check_type(argname="argument currency_mode", value=currency_mode, expected_type=type_hints["currency_mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if crypto_config is not None:
+                self._values["crypto_config"] = crypto_config
+            if currency_mode is not None:
+                self._values["currency_mode"] = currency_mode
+
+        @builtins.property
+        def crypto_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CryptoConfigProperty"]]:
+            '''Configures cryptocurrency payment settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-monetizationconfig.html#cfn-wafv2-webacl-monetizationconfig-cryptoconfig
+            '''
+            result = self._values.get("crypto_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CryptoConfigProperty"]], result)
+
+        @builtins.property
+        def currency_mode(self) -> typing.Optional[builtins.str]:
+            '''The currency mode for monetization.
+
+            Use REAL for production payments and TEST for testing with testnet currencies.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-monetizationconfig.html#cfn-wafv2-webacl-monetizationconfig-currencymode
+            '''
+            result = self._values.get("currency_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MonetizationConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.MonetizeActionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"price_multiplier": "priceMultiplier"},
+    )
+    class MonetizeActionProperty:
+        def __init__(
+            self,
+            *,
+            price_multiplier: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Monetize action for rules.
+
+            :param price_multiplier: The price multiplier for the monetize action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-monetizeaction.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                monetize_action_property = wafv2.CfnWebACL.MonetizeActionProperty(
+                    price_multiplier="priceMultiplier"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c6388435f8c1ab3197633cfcd544ae989ba6c14f48ae438be29a395cbffa96cd)
+                check_type(argname="argument price_multiplier", value=price_multiplier, expected_type=type_hints["price_multiplier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if price_multiplier is not None:
+                self._values["price_multiplier"] = price_multiplier
+
+        @builtins.property
+        def price_multiplier(self) -> typing.Optional[builtins.str]:
+            '''The price multiplier for the monetize action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-monetizeaction.html#cfn-wafv2-webacl-monetizeaction-pricemultiplier
+            '''
+            result = self._values.get("price_multiplier")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MonetizeActionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.NotStatementProperty",
         jsii_struct_bases=[],
         name_mapping={"statement": "statement"},
@@ -16893,6 +17545,167 @@ class CfnWebACL(
 
         def __repr__(self) -> str:
             return "OverrideActionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.PaymentNetworkProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "chain": "chain",
+            "prices": "prices",
+            "wallet_address": "walletAddress",
+        },
+    )
+    class PaymentNetworkProperty:
+        def __init__(
+            self,
+            *,
+            chain: builtins.str,
+            prices: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.PriceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            wallet_address: builtins.str,
+        ) -> None:
+            '''Configuration for a single payment network.
+
+            :param chain: The blockchain chain to use.
+            :param prices: List of price configurations.
+            :param wallet_address: The wallet address for receiving payments.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-paymentnetwork.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                payment_network_property = wafv2.CfnWebACL.PaymentNetworkProperty(
+                    chain="chain",
+                    prices=[wafv2.CfnWebACL.PriceProperty(
+                        amount="amount",
+                        currency="currency"
+                    )],
+                    wallet_address="walletAddress"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ea1f7c61c4159dbe7b1e466dfe3a5f65c1b64a9ae484d772434803f3c8c45b02)
+                check_type(argname="argument chain", value=chain, expected_type=type_hints["chain"])
+                check_type(argname="argument prices", value=prices, expected_type=type_hints["prices"])
+                check_type(argname="argument wallet_address", value=wallet_address, expected_type=type_hints["wallet_address"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "chain": chain,
+                "prices": prices,
+                "wallet_address": wallet_address,
+            }
+
+        @builtins.property
+        def chain(self) -> builtins.str:
+            '''The blockchain chain to use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-paymentnetwork.html#cfn-wafv2-webacl-paymentnetwork-chain
+            '''
+            result = self._values.get("chain")
+            assert result is not None, "Required property 'chain' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def prices(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.PriceProperty"]]]:
+            '''List of price configurations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-paymentnetwork.html#cfn-wafv2-webacl-paymentnetwork-prices
+            '''
+            result = self._values.get("prices")
+            assert result is not None, "Required property 'prices' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.PriceProperty"]]], result)
+
+        @builtins.property
+        def wallet_address(self) -> builtins.str:
+            '''The wallet address for receiving payments.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-paymentnetwork.html#cfn-wafv2-webacl-paymentnetwork-walletaddress
+            '''
+            result = self._values.get("wallet_address")
+            assert result is not None, "Required property 'wallet_address' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PaymentNetworkProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.PriceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"amount": "amount", "currency": "currency"},
+    )
+    class PriceProperty:
+        def __init__(self, *, amount: builtins.str, currency: builtins.str) -> None:
+            '''A price configuration.
+
+            :param amount: The price amount.
+            :param currency: The cryptocurrency to use for payment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-price.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                price_property = wafv2.CfnWebACL.PriceProperty(
+                    amount="amount",
+                    currency="currency"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c315232258226b8cdec302b0fb765565339df784546af812ee60763b654ff158)
+                check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
+                check_type(argname="argument currency", value=currency, expected_type=type_hints["currency"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "amount": amount,
+                "currency": currency,
+            }
+
+        @builtins.property
+        def amount(self) -> builtins.str:
+            '''The price amount.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-price.html#cfn-wafv2-webacl-price-amount
+            '''
+            result = self._values.get("amount")
+            assert result is not None, "Required property 'amount' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def currency(self) -> builtins.str:
+            '''The cryptocurrency to use for payment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-price.html#cfn-wafv2-webacl-price-currency
+            '''
+            result = self._values.get("currency")
+            assert result is not None, "Required property 'currency' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PriceProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -19374,6 +20187,9 @@ class CfnWebACL(
                                     value="value"
                                 )]
                             )
+                        ),
+                        monetize=wafv2.CfnWebACL.MonetizeActionProperty(
+                            price_multiplier="priceMultiplier"
                         )
                     ),
                     name="name"
@@ -19430,6 +20246,7 @@ class CfnWebACL(
             "captcha": "captcha",
             "challenge": "challenge",
             "count": "count",
+            "monetize": "monetize",
         },
     )
     class RuleActionProperty:
@@ -19441,6 +20258,7 @@ class CfnWebACL(
             captcha: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CaptchaActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             challenge: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ChallengeActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             count: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CountActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            monetize: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.MonetizeActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The action that AWS WAF should take on a web request when it matches a rule's statement.
 
@@ -19451,6 +20269,7 @@ class CfnWebACL(
             :param captcha: Specifies that AWS WAF should run a ``CAPTCHA`` check against the request:. - If the request includes a valid, unexpired ``CAPTCHA`` token, AWS WAF allows the web request inspection to proceed to the next rule, similar to a ``CountAction`` . - If the request doesn't include a valid, unexpired ``CAPTCHA`` token, AWS WAF discontinues the web ACL evaluation of the request and blocks it from going to its intended destination. AWS WAF generates a response that it sends back to the client, which includes the following: - The header ``x-amzn-waf-action`` with a value of ``captcha`` . - The HTTP status code ``405 Method Not Allowed`` . - If the request contains an ``Accept`` header with a value of ``text/html`` , the response includes a ``CAPTCHA`` challenge. You can configure the expiration time in the ``CaptchaConfig`` ``ImmunityTimeProperty`` setting at the rule and web ACL level. The rule setting overrides the web ACL setting. This action option is available for rules. It isn't available for web ACL default actions.
             :param challenge: Instructs AWS WAF to run a ``Challenge`` check against the web request.
             :param count: Instructs AWS WAF to count the web request and then continue evaluating the request using the remaining rules in the web ACL.
+            :param monetize: Monetize action for rules.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ruleaction.html
             :exampleMetadata: fixture=_generated
@@ -19505,6 +20324,9 @@ class CfnWebACL(
                                 value="value"
                             )]
                         )
+                    ),
+                    monetize=wafv2.CfnWebACL.MonetizeActionProperty(
+                        price_multiplier="priceMultiplier"
                     )
                 )
             '''
@@ -19515,6 +20337,7 @@ class CfnWebACL(
                 check_type(argname="argument captcha", value=captcha, expected_type=type_hints["captcha"])
                 check_type(argname="argument challenge", value=challenge, expected_type=type_hints["challenge"])
                 check_type(argname="argument count", value=count, expected_type=type_hints["count"])
+                check_type(argname="argument monetize", value=monetize, expected_type=type_hints["monetize"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if allow is not None:
                 self._values["allow"] = allow
@@ -19526,6 +20349,8 @@ class CfnWebACL(
                 self._values["challenge"] = challenge
             if count is not None:
                 self._values["count"] = count
+            if monetize is not None:
+                self._values["monetize"] = monetize
 
         @builtins.property
         def allow(
@@ -19594,6 +20419,17 @@ class CfnWebACL(
             '''
             result = self._values.get("count")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CountActionProperty"]], result)
+
+        @builtins.property
+        def monetize(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.MonetizeActionProperty"]]:
+            '''Monetize action for rules.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ruleaction.html#cfn-wafv2-webacl-ruleaction-monetize
+            '''
+            result = self._values.get("monetize")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.MonetizeActionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19694,6 +20530,9 @@ class CfnWebACL(
                                         value="value"
                                     )]
                                 )
+                            ),
+                            monetize=wafv2.CfnWebACL.MonetizeActionProperty(
+                                price_multiplier="priceMultiplier"
                             )
                         ),
                         name="name"
@@ -21518,6 +22357,7 @@ class CfnWebACLAssociationProps:
         "custom_response_bodies": "customResponseBodies",
         "data_protection_config": "dataProtectionConfig",
         "description": "description",
+        "monetization_config": "monetizationConfig",
         "name": "name",
         "on_source_d_do_s_protection_config": "onSourceDDoSProtectionConfig",
         "rules": "rules",
@@ -21539,6 +22379,7 @@ class CfnWebACLProps:
         custom_response_bodies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CustomResponseBodyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         data_protection_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.DataProtectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        monetization_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.MonetizationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         on_source_d_do_s_protection_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.OnSourceDDoSProtectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -21557,6 +22398,7 @@ class CfnWebACLProps:
         :param custom_response_bodies: A map of custom response keys and content bodies. When you create a rule with a block action, you can send a custom response to the web request. You define these for the web ACL, and then use them in the rules and default actions that you define in the web ACL. For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* . For information about the limits on count and size for custom request and response settings, see `AWS WAF quotas <https://docs.aws.amazon.com/waf/latest/developerguide/limits.html>`_ in the *AWS WAF Developer Guide* .
         :param data_protection_config: Specifies data protection to apply to the web request data for the web ACL. This is a web ACL level data protection option. The data protection that you configure for the web ACL alters the data that's available for any other data collection activity, including your AWS WAF logging destinations, web ACL request sampling, and Amazon Security Lake data collection and management. Your other option for data protection is in the logging configuration, which only affects logging.
         :param description: A description of the web ACL that helps with identification.
+        :param monetization_config: Configures monetization for the web ACL or rule group.
         :param name: The name of the web ACL. You cannot change the name of a web ACL after you create it.
         :param on_source_d_do_s_protection_config: Configures the level of DDoS protection that applies to web ACLs associated with Application Load Balancers.
         :param rules: The rule statements used to identify the web requests that you want to manage. Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
@@ -21582,6 +22424,7 @@ class CfnWebACLProps:
             check_type(argname="argument custom_response_bodies", value=custom_response_bodies, expected_type=type_hints["custom_response_bodies"])
             check_type(argname="argument data_protection_config", value=data_protection_config, expected_type=type_hints["data_protection_config"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument monetization_config", value=monetization_config, expected_type=type_hints["monetization_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument on_source_d_do_s_protection_config", value=on_source_d_do_s_protection_config, expected_type=type_hints["on_source_d_do_s_protection_config"])
             check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
@@ -21606,6 +22449,8 @@ class CfnWebACLProps:
             self._values["data_protection_config"] = data_protection_config
         if description is not None:
             self._values["description"] = description
+        if monetization_config is not None:
+            self._values["monetization_config"] = monetization_config
         if name is not None:
             self._values["name"] = name
         if on_source_d_do_s_protection_config is not None:
@@ -21753,6 +22598,17 @@ class CfnWebACLProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def monetization_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.MonetizationConfigProperty"]]:
+        '''Configures monetization for the web ACL or rule group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-monetizationconfig
+        '''
+        result = self._values.get("monetization_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.MonetizationConfigProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -22156,6 +23012,7 @@ def _typecheckingstub__39414085bb3516b24d65751cc1c079ecf5858068f282c2e495c801870
     consumed_labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.LabelSummaryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     custom_response_bodies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.CustomResponseBodyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    monetization_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.MonetizationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -22225,6 +23082,12 @@ def _typecheckingstub__9c6734af8825be0006d3866bbb0cbe92224af63291661891e57e0c755
 
 def _typecheckingstub__8a74ba4694f9055d7fa9dea9d8533dae3a9863fe2c52936a40f56b5ee621a7bd(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59959d79d6cbb566e834f19aee0f100a1166fee0e02ffef2f32dfc5e969e7c52(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRuleGroup.MonetizationConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22343,6 +23206,13 @@ def _typecheckingstub__687d06c7916771b985b2d22b396936b0c009299c093162a7c6c076037
 def _typecheckingstub__71e61a42e92f193c85d1fcfd81493f8469fc462d68588518298fa55ac4d312ce(
     *,
     custom_request_handling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.CustomRequestHandlingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93c587f35308d87260150f980a71985c81686391c47d657bd2b5198719f995fc(
+    *,
+    payment_networks: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.PaymentNetworkProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22518,6 +23388,21 @@ def _typecheckingstub__4c5532fc362b33574821b7df757d816e9a7fbb8ef8a968abb72e75963
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ceb78dda46ae1b19d0de4ea9d2b3587e4e9b855dae4193ffeed916904b69546b(
+    *,
+    crypto_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.CryptoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    currency_mode: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5336be6fd1883e7784e8df144a223528ca32533a6728bb53a76bbba880c8355e(
+    *,
+    price_multiplier: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5739539e5cf7f8d7c902a07e2068450067fcde040af783d61ea32e816467f4b0(
     *,
     statement: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.StatementProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -22528,6 +23413,23 @@ def _typecheckingstub__5739539e5cf7f8d7c902a07e2068450067fcde040af783d61ea32e816
 def _typecheckingstub__ac0f7a31c2c062eaaca70b7d43c11c1e6b78ce7502ec2206e832cabc7d2428c0(
     *,
     statements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.StatementProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a70700a7a89cbf7428537b29eebe42b8bc2bd7d0e7c48deacb7f77d37b4c8eb(
+    *,
+    chain: builtins.str,
+    prices: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.PriceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    wallet_address: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e51c42b2b4bbf11a63c396ba4b795def07bec59a9bdabca53d4e6f18da269045(
+    *,
+    amount: builtins.str,
+    currency: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22646,6 +23548,7 @@ def _typecheckingstub__39522e2876cae159806be752e9ce4c0e4fb8f4dd0ef92591b3957abd0
     captcha: typing.Any = None,
     challenge: typing.Any = None,
     count: typing.Any = None,
+    monetize: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.MonetizeActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22758,6 +23661,7 @@ def _typecheckingstub__c8dfa44d9c30297c12ad00bd34bbd4b85ea5438f4127e7e97226c1656
     consumed_labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.LabelSummaryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     custom_response_bodies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.CustomResponseBodyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    monetization_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.MonetizationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -22779,6 +23683,7 @@ def _typecheckingstub__03030a65c492e95a1d1ae5ddafd6acbb9efdfa7e18b6367ac7e03eb8f
     custom_response_bodies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.CustomResponseBodyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     data_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.DataProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    monetization_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.MonetizationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     on_source_d_do_s_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.OnSourceDDoSProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -22868,6 +23773,12 @@ def _typecheckingstub__c8fdb8c606175920c3facb5c8db0632e7cdc7bedffcd3c6c787bab31b
 
 def _typecheckingstub__b7cfda3db6502d36377ec778a8c90e7487c0f54a00cb343261a4d256ace27df9(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5170daf49b58ece32f7aadfde393e6e8805bd0cfd30cd3247a74787ffe8c3984(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebACL.MonetizationConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23073,6 +23984,13 @@ def _typecheckingstub__5ad212e56575cb6c1346d11d3fd80ae8eba42e3155418b11a1bec5383
 def _typecheckingstub__ad85beaba3815f0aba760c694686ca93d6643507bcf4f500bf71e7da4c260e18(
     *,
     custom_request_handling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.CustomRequestHandlingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ef1aa07666e5e1219ac770026cdacd9313c9c0d037c4613fa55e74c06eacc98(
+    *,
+    payment_networks: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.PaymentNetworkProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23315,6 +24233,21 @@ def _typecheckingstub__f4f6c9025d3a7ae0d9ee82e8e6b386992bc78314180fcac33b95584e8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__27fb0b62f379bd661e6d54af30b9ca6c33afbffcb2754b2066a55be0d28369a4(
+    *,
+    crypto_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.CryptoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    currency_mode: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6388435f8c1ab3197633cfcd544ae989ba6c14f48ae438be29a395cbffa96cd(
+    *,
+    price_multiplier: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6323d964e28230f9d2649acc0c25b70ee57b1f6721b37df85848f3c969c544ff(
     *,
     statement: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.StatementProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -23340,6 +24273,23 @@ def _typecheckingstub__799e1b838f491914647df091fcbac72eb8119756fda0c013be732c461
     *,
     count: typing.Any = None,
     none: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea1f7c61c4159dbe7b1e466dfe3a5f65c1b64a9ae484d772434803f3c8c45b02(
+    *,
+    chain: builtins.str,
+    prices: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.PriceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    wallet_address: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c315232258226b8cdec302b0fb765565339df784546af812ee60763b654ff158(
+    *,
+    amount: builtins.str,
+    currency: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23545,6 +24495,7 @@ def _typecheckingstub__baf6edb4c818930b2402022177da307d779bfdc03cd1e96dc76af277a
     captcha: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.CaptchaActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     challenge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.ChallengeActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.CountActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    monetize: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.MonetizeActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23720,6 +24671,7 @@ def _typecheckingstub__6e738df983d65d43590c0a02c03e6e0daa3a2097ae335371d22711838
     custom_response_bodies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.CustomResponseBodyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     data_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.DataProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    monetization_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.MonetizationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     on_source_d_do_s_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.OnSourceDDoSProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,

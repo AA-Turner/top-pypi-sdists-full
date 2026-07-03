@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nedb-engine
-Version: 2.5.45
+Version: 2.6.1
 Summary: NEDB — a versioned, self-compressing, time-traveling embedded database (replay-protected, idempotent, relational, searchable) with durable AOF persistence and a server daemon (nedbd).
 Project-URL: Homepage, https://github.com/aiassistsecure/nedb
 Project-URL: Repository, https://github.com/aiassistsecure/nedb

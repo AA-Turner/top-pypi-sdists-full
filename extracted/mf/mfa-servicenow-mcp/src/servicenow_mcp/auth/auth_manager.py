@@ -13,19 +13,68 @@ from typing import Any, Dict, Optional
 from urllib.parse import parse_qsl, urljoin, urlparse
 
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 from ..utils.config import AuthConfig, AuthType, BrowserAuthConfig
+from ._browser_dom import (  # noqa: F401
+    _PROFILE_LOCK_HINTS,
+    PASSWORD_SELECTORS,
+    SUBMIT_SELECTORS,
+    USERNAME_SELECTORS,
+    _click_first_matching,
+    _ensure_private_dir,
+    _fill_first_matching,
+    _is_debug_mode,
+    _launch_persistent_with_retry,
+    _selector_exists,
+    _target_label,
+)
+from ._cookies import (  # noqa: F401
+    _cookie_header_to_dict,
+    _extract_cookie_names,
+    _replace_cookie_value_in_header,
+)
+from ._diagnostics import (  # noqa: F401
+    _LOG_BODY_PREVIEW_LEN,
+    _LOG_COOKIE_VALUE_PREFIX_LEN,
+    _LOG_HEADER_VALUE_MAX,
+    _LOG_TOKEN_VALUE_PREFIX_LEN,
+    _format_cookie_values_for_log,
+    _format_request_cookies_dict_for_log,
+    _format_response_diagnostic,
+    _redact_value,
+)
+from ._http_session import (  # noqa: F401
+    _CROSS_ORIGIN_STRIP_HEADERS,
+    _MAX_MANUAL_REDIRECTS,
+    _SESSION_MAX_RETRIES_CONNECT,
+    _SESSION_POOL_SIZE,
+    _TLS_IMPERSONATE_DEFAULT_PROFILE,
+    _TLS_IMPERSONATE_ENV_VAR,
+    _TLS_IMPERSONATE_OFF_VALUES,
+    _build_http_session,
+    _describe_http_session,
+    _resolve_tls_impersonate_profile,
+    _SafeRedirectSession,
+    _same_origin,
+    _strip_sensitive_headers,
+)
+from ._response_predicates import (  # noqa: F401
+    _STALE_PROFILE_COOKIE_NAMES,
+    _extract_bigip_routing_hint,
+    _response_confirms_browser_probe_session,
+    _response_indicates_acl_block,
+    _response_indicates_authenticated_session,
+    _response_indicates_login_redirect,
+    _response_redirected_through_logout,
+)
+from ._url_predicates import (  # noqa: F401
+    USER_CLOSE_ERROR_MARKERS,
+    _is_login_page_url,
+    _is_mfa_challenge_url,
+    _looks_like_user_close,
+)
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Shared HTTP Session Factory
-# ---------------------------------------------------------------------------
-
-_SESSION_POOL_SIZE = 20  # Max connections per host (default urllib3 is 10)
-_SESSION_MAX_RETRIES_CONNECT = 0  # Connection-level retries handled by make_request
 
 # Bounded retries for capturing window.g_ck after the post-login navigation.
 # Module-level constants so tests can monkeypatch them down to keep the
@@ -66,770 +115,12 @@ _MIN_LOGIN_INTERVAL_SECONDS = 60.0
 _CIRCUIT_ESCAPE_PROBE_INTERVAL_SECONDS = 10.0
 
 
-# v1.12.21: TLS impersonation default-ON via the
-# SERVICENOW_TLS_IMPERSONATE environment variable, with tri-state semantics:
-#
-#   unset  → use ``chrome120`` profile (the default, after field evidence
-#            on a JA3-gated customer instance showed rejection of stock Python
-#            ``requests``; turning this on by default catches the next
-#            user hitting the symptom without forcing them to find an
-#            env-var flag).
-#   off / false / 0 / disable / no  → stock requests.Session, explicit
-#            opt-out for instances where impersonation either isn't
-#            needed or causes regressions.
-#   anything else  → use the value as the curl_cffi impersonation profile
-#            name (e.g. ``chrome131``, ``chrome120_arm64``, ``safari17_0``).
-#
-# curl_cffi routes through libcurl-impersonate (BoringSSL fork). That
-# makes our TLS handshake byte-for-byte identical to a real browser —
-# matching JA3/JA4 fingerprint, TLS extension order, GREASE values, HTTP/2
-# SETTINGS frames, and ALPN. ServiceNow instances fronted by JA3-based
-# bot detection (Cloudflare, Akamai, ServiceNow's own) reject Python's
-# stock requests with 302→/logout_success.do regardless of whether the
-# session cookies are valid; impersonation is the only client-side fix.
-_TLS_IMPERSONATE_ENV_VAR = "SERVICENOW_TLS_IMPERSONATE"
-_TLS_IMPERSONATE_DEFAULT_PROFILE = "chrome120"
-_TLS_IMPERSONATE_OFF_VALUES = frozenset({"off", "false", "0", "disable", "disabled", "no", "none"})
-
 # Auto-download the matching Chromium build when it's missing at startup (e.g.
 # uvx pulled a newer Playwright than the cached browser). Background-only, so it
 # never blocks the MCP handshake. Opt out with SERVICENOW_AUTO_INSTALL_CHROMIUM.
 _AUTO_INSTALL_CHROMIUM_ENV_VAR = "SERVICENOW_AUTO_INSTALL_CHROMIUM"
 _AUTO_INSTALL_CHROMIUM_OFF_VALUES = _TLS_IMPERSONATE_OFF_VALUES
 _AUTO_INSTALL_CHROMIUM_TIMEOUT_SECONDS = 600.0
-
-
-def _describe_http_session(session) -> str:
-    """Return a short label for the active HTTP session: 'curl_cffi:<profile>'
-    when libcurl-impersonate is in play, otherwise 'requests'.
-
-    Used by ``_auth_event`` so every emitted auth_event line carries the
-    wire-layer identity. Two events with identical cookies but different
-    ``http_client`` values mean a wire-layer switch (default-ON flipped
-    off, or curl_cffi failed init and we fell back); a routing or
-    fingerprint regression then localizes to that boundary.
-    """
-    cls = type(session)
-    module = getattr(cls, "__module__", "") or ""
-    if "curl_cffi" in module:
-        impersonate = (
-            getattr(session, "impersonate", None) or getattr(session, "_impersonate", None) or "?"
-        )
-        return f"curl_cffi:{impersonate}"
-    return "requests"
-
-
-def _resolve_tls_impersonate_profile() -> Optional[str]:
-    """Apply the tri-state env var semantics; returns the curl_cffi profile
-    name to use, or ``None`` for the explicit-off branch.
-
-    Pulled out so tests and tooling can read the resolution without
-    spinning up a full session.
-    """
-    raw = (os.environ.get(_TLS_IMPERSONATE_ENV_VAR) or "").strip()
-    if not raw:
-        return _TLS_IMPERSONATE_DEFAULT_PROFILE
-    if raw.lower() in _TLS_IMPERSONATE_OFF_VALUES:
-        return None
-    return raw
-
-
-def _build_http_session():
-    """Create the HTTP session for ServiceNow API calls.
-
-    Env-var-driven (v1.12.21 default-ON, tri-state):
-      - unset       → curl_cffi.Session(impersonate='chrome120')
-      - off/false/0 → stock requests.Session (explicit opt-out)
-      - <name>      → curl_cffi.Session(impersonate=<name>)
-
-    See _resolve_tls_impersonate_profile for the resolution rules. The
-    return type is intentionally untyped — curl_cffi's Session is API-
-    compatible with ``requests.Session`` for the methods we actually call
-    (``.request``, ``.headers``, ``.cookies``, ``.close``) but is NOT a
-    subclass, so typing it as ``requests.Session`` would lie. Callers stay
-    duck-typed.
-
-    Benefits of pooling (stock-requests path):
-    - TCP keep-alive: avoids 3-way handshake on every call
-    - TLS session resumption: saves ~100-300ms per request
-    - urllib3 connection pool: reuses sockets across threads
-    """
-    raw_env = (os.environ.get(_TLS_IMPERSONATE_ENV_VAR) or "").strip()
-    impersonate = _resolve_tls_impersonate_profile()
-    if impersonate:
-        # Default ON path or explicit profile name. Any failure (import,
-        # wrong profile, init error) logs a clear warning and falls
-        # through to stock requests, so a bad env var never breaks a
-        # working install.
-        try:
-            from curl_cffi import requests as cffi_requests  # type: ignore
-        except ImportError:
-            logger.warning(
-                "TLS impersonation requested (profile=%s, %s=%r) but "
-                "curl_cffi is not importable. curl_cffi is a regular "
-                "dependency as of v1.12.20; if this fires, the install "
-                "is incomplete. Falling back to stock requests — "
-                "JA3-gated ServiceNow instances will reject. To suppress "
-                "this attempt entirely, set %s=off.",
-                impersonate,
-                _TLS_IMPERSONATE_ENV_VAR,
-                raw_env or "<unset (default)>",
-                _TLS_IMPERSONATE_ENV_VAR,
-            )
-        else:
-            try:
-                session = cffi_requests.Session(impersonate=impersonate)
-            except Exception as exc:  # noqa: BLE001 — bad profile name etc.
-                logger.warning(
-                    "curl_cffi.Session(impersonate=%r) failed: %s. "
-                    "Falling back to stock requests. Set %s=off to skip "
-                    "this attempt, or pick a different profile (chrome131, "
-                    "chrome120_arm64, safari17_0, etc.).",
-                    impersonate,
-                    exc,
-                    _TLS_IMPERSONATE_ENV_VAR,
-                )
-            else:
-                session.headers.update({"Accept-Encoding": "gzip, deflate"})
-                logger.info(
-                    "HTTP session: curl_cffi impersonate=%s (TLS "
-                    "handshake matches a real browser to defeat JA3-based "
-                    "bot detection on hardened ServiceNow instances). "
-                    "Env source: %s=%r%s",
-                    impersonate,
-                    _TLS_IMPERSONATE_ENV_VAR,
-                    raw_env,
-                    " (default applied: empty value → chrome120)" if not raw_env else "",
-                )
-                return session
-    else:
-        logger.info(
-            "HTTP session: stock requests (TLS impersonation explicitly "
-            "disabled via %s=%r). Switch back on by unsetting the env "
-            "var if a hardened instance starts rejecting calls.",
-            _TLS_IMPERSONATE_ENV_VAR,
-            raw_env,
-        )
-
-    session = requests.Session()
-    # Enable gzip/deflate — reduces payload 60-80% on large JSON responses.
-    # NOTE: Do NOT set Accept or Content-Type here — individual requests set
-    # these via get_headers(). Setting Accept: application/json at session
-    # level breaks browser auth (login page expects HTML negotiation).
-    session.headers.update({"Accept-Encoding": "gzip, deflate"})
-    # Disable automatic cookie handling — browser auth manages cookies manually
-    # via the Cookie header. Session-level cookie jar would conflict.
-    session.cookies.clear()
-    session.trust_env = False  # Skip .netrc / env proxy cookies
-    # urllib3 retries are deliberately disabled (connect=0, read=0). Transient
-    # network errors (ConnectionError / Timeout, including ReadTimeout) and
-    # transient upstream 5xx responses (502/503/504) are retried at the
-    # application layer in AuthManager.make_request, which gives us:
-    #   - identical backoff/logging across both exception and 5xx paths,
-    #   - awareness of browser-session re-auth for 401, and
-    #   - the ability to surface intermediate state to the LLM caller.
-    # See make_request's `for attempt in range(1 + max_transient_retries)` loop.
-    adapter = HTTPAdapter(
-        pool_connections=_SESSION_POOL_SIZE,
-        pool_maxsize=_SESSION_POOL_SIZE,
-        max_retries=Retry(connect=_SESSION_MAX_RETRIES_CONNECT, read=0),
-    )
-    session.mount("https://", adapter)
-    session.mount("http://", adapter)
-    return session
-
-
-_PROFILE_LOCK_HINTS = (
-    "singletonlock",
-    "profile directory is already",
-    "already in use",
-    "failed to create /",
-    "process already exists",
-)
-
-
-# Substrings (lowercase) that indicate the persistent Chromium context was
-# closed before login completed OR that the user simply walked away without
-# completing MFA before the polling-loop budget expired. Both shapes carry the
-# same intent — the user did not authenticate this session — so they share the
-# same path: short fixed cooldown, no exponential backoff. Without this the
-# walk-away timeout would feed the regular failure counter and inflate the
-# cooldown to 30/60/120s, making the next legitimate retry feel "stuck".
-USER_CLOSE_ERROR_MARKERS = (
-    "target closed",
-    "browser closed",
-    "browser was closed",
-    "browser has been closed",
-    "target page, context or browser has been closed",
-    "connection closed",
-    "login_cancelled_by_user",
-    "timed out waiting for manual browser login/mfa completion",
-)
-
-
-def _looks_like_user_close(error_text: str) -> bool:
-    """Return True if `error_text` (lowercased exception message) contains
-    a marker indicating the browser/login window was closed before auth
-    completed."""
-    return any(marker in error_text for marker in USER_CLOSE_ERROR_MARKERS)
-
-
-def _is_debug_mode() -> bool:
-    """Debug mode: SERVICENOW_BROWSER_DEBUG=1/true keeps the Chromium window open
-    even on errors and auto-opens DevTools, so the user can inspect the failing
-    401 response, request headers, cookies, and X-UserToken without the auth
-    manager auto-closing the window mid-investigation."""
-    val = (os.environ.get("SERVICENOW_BROWSER_DEBUG") or "").strip().lower()
-    return val in ("1", "true", "yes", "on")
-
-
-def _launch_persistent_with_retry(chromium, user_data_dir: str, *, headless: bool):
-    """Launch a persistent Chromium context, retrying briefly if the profile
-    directory is locked by a concurrent MCP process.
-
-    With a per-instance shared profile path, two processes starting at the
-    same time can briefly race on the Chromium profile lock (the losing side
-    typically releases within 1-2s after a quick headless probe). Without a
-    retry we would surface that transient lock as a login failure.
-
-    Debug mode (SERVICENOW_BROWSER_DEBUG=true) forces headed + auto-opens
-    DevTools so the user can inspect the failing requests directly.
-    """
-    debug = _is_debug_mode()
-    if debug:
-        headless = False
-    launch_kwargs: dict = {"headless": headless}
-    if debug:
-        launch_kwargs["args"] = ["--auto-open-devtools-for-tabs"]
-
-    attempts = 5
-    backoff = 1.5
-    for attempt in range(1, attempts + 1):
-        try:
-            return chromium.launch_persistent_context(user_data_dir, **launch_kwargs)
-        except Exception as exc:
-            msg = str(exc).lower()
-            if attempt == attempts or not any(hint in msg for hint in _PROFILE_LOCK_HINTS):
-                raise
-            logger.info(
-                "Chromium profile locked by another process "
-                "(attempt %d/%d): %s — retrying in %.1fs",
-                attempt,
-                attempts,
-                exc,
-                backoff,
-            )
-            time.sleep(backoff)
-            backoff *= 1.5
-
-
-USERNAME_SELECTORS = (
-    "input#user_name",
-    "input[name='user_name']",
-    "input#username",
-    "input[name='username']",
-    "input[type='email']",
-    "input[name='identifier']",
-    "input[name='loginfmt']",
-)
-
-PASSWORD_SELECTORS = (
-    "input#user_password",
-    "input[name='user_password']",
-    "input#password",
-    "input[name='password']",
-    "input[name='passwd']",
-    "input[type='password']",
-)
-
-SUBMIT_SELECTORS = (
-    "button#sysverb_login",
-    "input#sysverb_login",
-    "button[type='submit']",
-    "input[type='submit']",
-    "button[name='login']",
-    "input[name='login']",
-    "input#idSIButton9",
-    "button[data-type='save']",
-)
-
-
-def _is_login_page_url(url: str) -> bool:
-    """Return True when the URL still indicates ServiceNow login or MFA flow.
-
-    Covers initial /login.do, the various MFA challenge / setup pages
-    (including `validate_multifactor_auth_code.do` — the prompt the user
-    actually sees while entering their code), SSO redirect bouncers, and
-    sysparm hints that indicate auth is still mid-flight. The browser-
-    state success gate keys off this — false negatives here cause us to
-    declare login complete while the user is still typing an MFA code.
-    """
-    parsed = urlparse(url)
-    path = parsed.path.lower()
-    query = parsed.query.lower()
-    # Explicit login/logout page markers
-    login_markers = [
-        "/login.do",
-        "/login_redirect.do",
-        "/auth_redirect.do",
-        "/external_logout_complete.do",
-        "/multi_factor_auth_view.do",
-        "/multi_factor_auth_setup.do",
-        "/validate_multifactor_auth_code.do",
-        "/external_login_complete.do",
-        "/sys_auth_info.do",
-        "/mfa.do",
-        "/mfa_setup.do",
-    ]
-    # Generic substring guards — catch instance- or version-specific
-    # variants we have not seen explicitly. "/login_" covers ServiceNow's
-    # post-MFA bounce pages like login_redirect.do and any future
-    # login_* variants; "multifactor" / "mfa_" are narrow enough not to
-    # false-positive on dashboard URLs.
-    generic_substrings = ("multifactor", "/mfa_", "/mfa/", "/login_")
-    return (
-        any(marker in path for marker in login_markers)
-        or any(sub in path for sub in generic_substrings)
-        or "sysparm_type=login" in query
-        or "sysparm_reauth=true" in query
-        or "sysparm_mfa_needed=true" in query
-        or "sysparm_direct=true" in query
-        or path == "/login"
-        or path == "/auth"
-    )
-
-
-def _is_mfa_challenge_url(url: str) -> bool:
-    """Return True only for ServiceNow's MFA/TOTP *challenge* pages.
-
-    A headless browser can never satisfy these — there is no human to type
-    the code into the invisible window — so the login flow aborts fast and
-    falls back to a visible window the moment it lands here.
-
-    Deliberately NARROWER than ``_is_login_page_url``: it must NOT match the
-    plain ``/login.do`` the success path transits for a beat before the
-    remembered-browser cookie redirects to the dashboard, or we would kill a
-    login that was about to succeed. Only the explicit multi-factor endpoints.
-    """
-    path = urlparse(url or "").path.lower()
-    mfa_markers = (
-        "/validate_multifactor_auth_code.do",
-        "/multi_factor_auth_view.do",
-        "/multi_factor_auth_setup.do",
-        "/mfa.do",
-        "/mfa_setup.do",
-    )
-    return any(marker in path for marker in mfa_markers) or "multifactor" in path
-
-
-def _extract_cookie_names(cookie_header: Optional[str]) -> list[str]:
-    if not cookie_header:
-        return []
-    names: list[str] = []
-    for part in cookie_header.split(";"):
-        token = part.strip()
-        if not token or "=" not in token:
-            continue
-        names.append(token.split("=", 1)[0].strip())
-    return names
-
-
-def _cookie_header_to_dict(cookie_header: Optional[str]) -> dict[str, str]:
-    if not cookie_header:
-        return {}
-    cookie_map: dict[str, str] = {}
-    for part in cookie_header.split(";"):
-        token = part.strip()
-        if not token or "=" not in token:
-            continue
-        name, value = token.split("=", 1)
-        key = name.strip()
-        if not key:
-            continue
-        cookie_map[key] = value.strip()
-    return cookie_map
-
-
-def _replace_cookie_value_in_header(cookie_header: str, name: str, new_value: str) -> str:
-    """Swap the value of cookie ``name`` in a serialized ``Cookie:`` header.
-
-    If ``name`` is not present, append it. Used by v1.12.18 BIG-IP
-    routing absorption to overwrite ``BIGipServerpool_<host>`` with the
-    backend value the server hinted at via Set-Cookie. Preserves order
-    and other cookies untouched so the request looks otherwise identical
-    to the rejected one.
-    """
-    pairs: list[str] = []
-    found = False
-    for piece in cookie_header.split(";"):
-        piece = piece.strip()
-        if not piece:
-            continue
-        if "=" in piece:
-            cur_name, _, _ = piece.partition("=")
-            if cur_name.strip() == name:
-                pairs.append(f"{name}={new_value}")
-                found = True
-                continue
-        pairs.append(piece)
-    if not found:
-        pairs.append(f"{name}={new_value}")
-    return "; ".join(pairs)
-
-
-def _extract_bigip_routing_hint(response: requests.Response) -> Optional[tuple]:
-    """v1.12.18: pull BIGipServerpool_<host>=<value> from a response's
-    Set-Cookie if present. Returns ``(name, value)`` or ``None``.
-
-    F5 BIG-IP uses BIGipServerpool to bind a client to a specific backend.
-    When the client's existing BIG-IP cookie sticks it to backend A but
-    the session was minted on backend B (because Playwright Chromium
-    connected at a different time and got round-robined elsewhere), F5
-    responds 302 with a Set-Cookie redirecting future requests to B.
-    Absorbing that hint and retrying with the new BIG-IP cookie lets the
-    same captured session work without a re-auth round.
-
-    ``requests`` parses Set-Cookie into ``response.cookies`` correctly
-    even when multiple cookies are comma-merged in the raw header
-    (which Python's stdlib SimpleCookie chokes on). Only values that
-    are non-empty and aren't being expired (no Max-Age=0 + past Expires)
-    are returned.
-    """
-    try:
-        for cookie in response.cookies:
-            if not cookie.name or not cookie.name.startswith("BIGipServerpool"):
-                continue
-            if not cookie.value:
-                continue  # an empty / revocation Set-Cookie — not a routing hint
-            return (cookie.name, cookie.value)
-    except Exception:  # noqa: BLE001
-        return None
-    return None
-
-
-def _response_indicates_login_redirect(response: requests.Response) -> bool:
-    location = (response.headers.get("Location") or "").lower()
-    response_url = str(response.url or "").lower()
-    return (
-        "login.do" in location
-        or "sysparm_type=login" in location
-        or _is_login_page_url(response_url)
-    )
-
-
-# Cookies that bind a Chromium persistent profile to a specific server-side
-# session. When the server has invalidated that session, leaving any of these
-# in the profile causes the next ``login.do`` submission to be treated as a
-# logout flow — the symptom is the user seeing the login window reopen on
-# every tool call.
-#
-# Evolution of ``glide_mfa_remembered_browser`` handling:
-#   v1.11.12 — preserved (didn't help, kept the phantom-session loop)
-#   v1.11.14 — purged with everything else (broke the loop, but cost the
-#              user one MFA prompt per session expiry)
-#   v1.11.20 — back to preserved. The v1.11.18 server-side ``/logout.do``
-#              flush is what actually breaks the phantom loop, so this
-#              cookie can stay and let the user skip MFA on re-auth.
-_STALE_PROFILE_COOKIE_NAMES: tuple[str, ...] = (
-    "glide_session_store",
-    "JSESSIONID",
-    "glide_user",
-    "glide_user_route",
-    "glide_user_activity",
-    "glide_node_id_for_js",
-    "factor",
-    "UX-Token",
-    "__CJ_g_startTime",
-)
-
-
-def _response_indicates_authenticated_session(response: requests.Response) -> bool:
-    if _response_indicates_login_redirect(response):
-        return False
-
-    # Defence-in-depth: ``requests`` silently follows 302 → /logout_success.do
-    # and returns the logout-success HTML body with a 200 status, which
-    # makes status-only checks misclassify the call as authenticated.
-    # Inspect the redirect chain — any hop through a logout endpoint means
-    # the original request was unauthenticated, regardless of the final
-    # status. The body-marker check below catches some of these via
-    # localized copy, but not all instances ship English / not all
-    # logout pages contain the markers we look for.
-    try:
-        for hop in response.history or ():
-            location = (hop.headers.get("Location") or "").lower()
-            if (
-                "logout_success" in location
-                or "/logout.do" in location
-                or location.startswith("/logout?")
-            ):
-                return False
-    except Exception:
-        pass
-
-    try:
-        body = (response.text or "")[:2000].lower()
-    except Exception:
-        body = ""
-
-    unauthenticated_markers = [
-        # Match both "user not authenticated" and "User is not authenticated"
-        # (the literal ServiceNow REST 401 body). The earlier "user not
-        # authenticated" form missed the "is" variant, so a dead session whose
-        # probe returns 401+JSON was misread as authenticated and adopted.
-        "not authenticated",
-        "required to provide auth",
-        "login with sso",
-        "forgot password ?",
-        "forgot password?",
-        "log in | servicenow",
-        "<title>log in",
-    ]
-    return not any(marker in body for marker in unauthenticated_markers)
-
-
-def _response_redirected_through_logout(response: requests.Response) -> bool:
-    """Return True if the response chain passed through ServiceNow logout.
-
-    ``requests`` follows 302→/logout_success.do silently and surfaces the
-    logout HTML with status 200, masking a torn-down session. v1.11.44 uses
-    this signal as the runtime self-heal trigger: treat the response as a
-    session-died 401 instead of a success.
-    """
-    try:
-        for hop in response.history or ():
-            location = (hop.headers.get("Location") or "").lower()
-            if (
-                "logout_success" in location
-                or "/logout.do" in location
-                or location.startswith("/logout?")
-            ):
-                return True
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        final_url = (getattr(response, "url", "") or "").lower()
-        if "logout_success" in final_url:
-            return True
-    except Exception:  # noqa: BLE001
-        pass
-    return False
-
-
-def _response_confirms_browser_probe_session(response: requests.Response) -> bool:
-    """Confirm a reusable session only on POSITIVE evidence of authentication.
-
-    Structural rule: a session is trusted only when the probe returns a positive
-    authenticated signal — NOT merely the absence of a failure marker. Absence-of-
-    failure was brittle: when an instance changed how it signals an unauthenticated
-    REST call (e.g. 302->logout flipped to a bare 401+JSON after a clone), a dead
-    session slipped through and was adopted. See issue #40.
-
-      - 2xx   -> authenticated (still guard against a 200 logout-HTML body).
-      - 403   -> authenticated but unauthorized for the probe path (an
-                 authorization failure necessarily implies authentication passed).
-      - 401   -> unauthenticated BY DEFAULT. Trusted only when the body POSITIVELY
-                 indicates an ACL/permission block (some instances answer 401
-                 instead of 403 for a probe-path ACL deny). A plain or
-                 "not authenticated" 401 is rejected -> caller re-authenticates.
-      - else  -> rejected.
-    """
-    status = response.status_code
-    if 200 <= status < 300:
-        return _response_indicates_authenticated_session(response)
-    if status == 403:
-        return not _response_indicates_login_redirect(response)
-    if status == 401:
-        return _response_indicates_acl_block(response)
-    return False
-
-
-# ---------------------------------------------------------------------------
-# v1.12.16: comprehensive auth-event diagnostic helpers.
-#
-# Cookie *names* alone don't reveal whether values rotated between events;
-# when ServiceNow kills a session by minting a fresh JSESSIONID and our
-# captured one becomes stale, names-only logs hide the smoking gun. These
-# helpers redact values to short prefixes (enough to compare across log
-# lines without leaking the live credential) and pack the full response
-# forensics into a single grep-able dict.
-# ---------------------------------------------------------------------------
-
-_LOG_COOKIE_VALUE_PREFIX_LEN = 8
-_LOG_TOKEN_VALUE_PREFIX_LEN = 8
-_LOG_BODY_PREVIEW_LEN = 200
-_LOG_HEADER_VALUE_MAX = 240
-
-
-def _redact_value(value: Optional[str], n: int = _LOG_COOKIE_VALUE_PREFIX_LEN) -> str:
-    if not value:
-        return "<empty>"
-    value = str(value)
-    if len(value) <= n:
-        return value
-    return f"{value[:n]}..."
-
-
-def _format_cookie_values_for_log(cookie_header: Optional[str]) -> str:
-    """Return cookies as 'name=valpref... | name=valpref...' for diagnostics.
-
-    Two log lines emitted seconds apart with identical cookie *names* but
-    different prefixes prove the server rotated session cookies between
-    capture and use — which is exactly the failure mode we cannot diagnose
-    from names-only logs.
-    """
-    if not cookie_header:
-        return "<none>"
-    pairs = []
-    for piece in cookie_header.split(";"):
-        piece = piece.strip()
-        if not piece:
-            continue
-        if "=" in piece:
-            name, _, value = piece.partition("=")
-            pairs.append(f"{name.strip()}={_redact_value(value.strip())}")
-        else:
-            pairs.append(piece)
-    return " | ".join(pairs) if pairs else "<none>"
-
-
-def _format_request_cookies_dict_for_log(cookie_map: Optional[Dict[str, str]]) -> str:
-    """Same shape as _format_cookie_values_for_log but for the dict form
-    used when cookies live in ``kwargs['cookies']`` instead of the Cookie
-    header."""
-    if not cookie_map:
-        return "<none>"
-    return " | ".join(f"{n}={_redact_value(v)}" for n, v in cookie_map.items())
-
-
-def _format_response_diagnostic(
-    response: requests.Response,
-    body_chars: int = _LOG_BODY_PREVIEW_LEN,
-) -> Dict[str, str]:
-    """Capture every shred of forensic info a logout/401/302 response can
-    carry. Designed to be passed as ``**context`` to ``_auth_event``.
-
-    Fields:
-    - status: HTTP status code
-    - final_url: requests' resolved URL after redirect-follow (or the
-      original URL when allow_redirects=False, which is the more honest
-      shape for 302 responses)
-    - location: Location header (truncated)
-    - set_cookie: Set-Cookie header value (truncated) — server's attempt
-      to rotate / revoke / refresh cookies
-    - x_usertoken_resp: X-UserToken response header (rotated g_ck), so we
-      can see if the server tried to hand back a fresh token even on
-      failure
-    - content_type: Content-Type header
-    - hops: redirect chain as 'NNN Location -> NNN Location'
-    - body_head: first N chars of body (newlines stripped)
-    """
-    out: Dict[str, str] = {
-        "status": str(response.status_code),
-        "final_url": str(getattr(response, "url", "<n/a>")),
-        "location": str(response.headers.get("Location", "-"))[:_LOG_HEADER_VALUE_MAX],
-        "set_cookie_resp": str(response.headers.get("Set-Cookie", "-"))[:_LOG_HEADER_VALUE_MAX],
-        "x_usertoken_resp": _redact_value(
-            response.headers.get("X-UserToken"), _LOG_TOKEN_VALUE_PREFIX_LEN
-        ),
-        "content_type": str(response.headers.get("Content-Type", "-")),
-    }
-    hops = []
-    try:
-        for hop in response.history or ():
-            hops.append(f"{hop.status_code} {(hop.headers.get('Location') or '-')[:80]}")
-    except Exception:  # noqa: BLE001
-        pass
-    out["hops"] = " -> ".join(hops) if hops else "-"
-    try:
-        body = (response.text or "")[:body_chars]
-        out["body_head"] = body.replace("\n", " ").replace("\r", " ")
-    except Exception:  # noqa: BLE001
-        out["body_head"] = "<unreadable>"
-    return out
-
-
-def _response_indicates_acl_block(response: requests.Response) -> bool:
-    """Return True only when a 401 JSON body clearly indicates an ACL/permission block
-    (not a session/token expiry).
-
-    ServiceNow returns 401 + JSON for both stale X-UserToken AND ACL denials, so we
-    must inspect the body to tell them apart. When uncertain, return False so the
-    caller treats it as a session issue and re-authenticates.
-    """
-    if response.status_code != 401:
-        return False
-    content_type = (response.headers.get("Content-Type") or "").lower()
-    if "application/json" not in content_type:
-        return False
-    if _response_indicates_login_redirect(response):
-        return False
-    try:
-        body = (response.text or "")[:2000].lower()
-    except Exception:
-        return False
-    # Strong session-expiry signals — definitively NOT ACL.
-    # "not authenticated" matches both "user not authenticated" and the literal
-    # "User is not authenticated" REST 401 body; "required to provide auth" is
-    # ServiceNow's detail string for an unauthenticated REST call.
-    session_expiry_markers = (
-        "not authenticated",
-        "required to provide auth",
-        "session has expired",
-        "session expired",
-        "invalid session",
-        "x-usertoken",
-    )
-    if any(marker in body for marker in session_expiry_markers):
-        return False
-    # Strong ACL signals
-    acl_markers = (
-        "insufficient rights",
-        "access denied",
-        "acl ",
-        "operation against the requested object is not allowed",
-        "no permission",
-        "not authorized to",
-    )
-    return any(marker in body for marker in acl_markers)
-
-
-def _selector_exists(target, selector: str) -> bool:
-    try:
-        return target.locator(selector).count() > 0
-    except Exception:
-        return False
-
-
-def _fill_first_matching(target, selectors: tuple[str, ...], value: str) -> Optional[str]:
-    for selector in selectors:
-        if _selector_exists(target, selector):
-            try:
-                target.fill(selector, value)
-                return selector
-            except Exception:
-                continue
-    return None
-
-
-def _click_first_matching(target, selectors: tuple[str, ...]) -> Optional[str]:
-    for selector in selectors:
-        if _selector_exists(target, selector):
-            try:
-                target.click(selector)
-                return selector
-            except Exception:
-                continue
-    return None
-
-
-def _target_label(target, index: int) -> str:
-    try:
-        url = str(getattr(target, "url", "") or "")
-    except Exception:
-        url = ""
-    prefix = "main" if index == 0 else f"frame[{index}]"
-    return f"{prefix}:{url}" if url else prefix
 
 
 class AuthManager:
@@ -857,6 +148,11 @@ class AuthManager:
         # Session (default; not a requests.Session subclass) which is API-
         # compatible for those methods — see _build_http_session's docstring.
         self._http_session: requests.Session = _build_http_session()
+        # An API-key custom header is also a credential — strip it cross-origin.
+        if config.type == AuthType.API_KEY and config.api_key:
+            register = getattr(self._http_session, "register_sensitive_header", None)
+            if callable(register):
+                register(config.api_key.header_name)
         self.token: Optional[str] = None
         self.token_type: Optional[str] = None
         self.token_expires_at: Optional[float] = None
@@ -1319,28 +615,42 @@ class AuthManager:
         share this path, so a single login is reused across hosts.
 
         Override via ``SERVICENOW_BROWSER_USER_DATA_DIR`` for non-standard
-        layouts; the session JSON sits next to the configured profile dir.
+        layouts. The configured value is treated as a BASE directory that holds
+        BOTH ``session_<host>_<user>.json`` and ``profile_<host>_<user>/`` — same
+        structure as the default home dir. So a shared/global user_data_dir can
+        no longer collapse multiple instances (or users) onto one Chromium cookie
+        store: each instance+user still lands in its own profile subdir.
 
         Performs a one-time migration from the v1.12.4-1.12.6 location
         (``~/.servicenow_mcp/``) so users keep their existing sessions.
         """
         if self.config.browser and self.config.browser.user_data_dir:
-            cache_dir = os.path.dirname(os.path.abspath(self.config.browser.user_data_dir))
-        else:
-            cache_dir = str(Path.home() / ".mfa_servicenow_mcp")
-            legacy_dir = str(Path.home() / ".servicenow_mcp")
-            if os.path.isdir(legacy_dir) and not os.path.exists(cache_dir):
-                try:
-                    os.rename(legacy_dir, cache_dir)
-                    logger.info("Migrated cache directory: %s → %s", legacy_dir, cache_dir)
-                except OSError as exc:
-                    logger.warning(
-                        "Failed to migrate %s → %s: %s. Starting fresh in new location.",
-                        legacy_dir,
-                        cache_dir,
-                        exc,
-                    )
-        os.makedirs(cache_dir, exist_ok=True)
+            # User-chosen base: create it private if missing, but NEVER chmod a
+            # pre-existing directory the user may deliberately share (imagine
+            # user_data_dir pointed at $HOME). The secrets inside are protected
+            # regardless: session JSON is 0600 and the profile subdir is forced
+            # 0700 in _resolve_user_data_dir.
+            cache_dir = os.path.abspath(self.config.browser.user_data_dir)
+            _ensure_private_dir(cache_dir, chmod_existing=False)
+            return cache_dir
+        cache_dir = str(Path.home() / ".mfa_servicenow_mcp")
+        legacy_dir = str(Path.home() / ".servicenow_mcp")
+        if os.path.isdir(legacy_dir) and not os.path.exists(cache_dir):
+            try:
+                os.rename(legacy_dir, cache_dir)
+                logger.info("Migrated cache directory: %s → %s", legacy_dir, cache_dir)
+            except OSError as exc:
+                logger.warning(
+                    "Failed to migrate %s → %s: %s. Starting fresh in new location.",
+                    legacy_dir,
+                    cache_dir,
+                    exc,
+                )
+        # Default dir is OURS — force private even if an older version created
+        # it 0755. It holds the Chromium profile whose cookie DB is a live
+        # replayable SSO session; the session JSON alone being 0600 is not
+        # enough on a shared host.
+        _ensure_private_dir(cache_dir, chmod_existing=True)
         return cache_dir
 
     def _get_instance_user_suffix(self) -> str:
@@ -1380,8 +690,24 @@ class AuthManager:
         return os.path.join(self._get_cache_dir(), f"profile_{self._get_instance_user_suffix()}")
 
     def _resolve_user_data_dir(self, browser_config: BrowserAuthConfig) -> str:
-        """Return the configured Playwright profile dir, or the per-instance default."""
-        return browser_config.user_data_dir or self._get_default_user_data_dir()
+        """Per-instance Playwright profile dir, ALWAYS scoped by host+user.
+
+        A configured ``user_data_dir`` is a BASE, not the literal profile — it is
+        folded into the cache dir by ``_get_cache_dir``, so the profile is
+        ``<base>/profile_<host>_<user>``. This keeps the profile keyed the same
+        way as the session JSON, so two instances (dev/test) or two users never
+        share one cookie store even under a shared/global user_data_dir.
+
+        The profile dir is forced 0700: its Chromium cookie DB is a replayable
+        SSO session, and Playwright would otherwise create it with umask perms
+        (0755) — exposed whenever the base dir is user-chosen and shared.
+        """
+        profile_dir = self._get_default_user_data_dir()
+        try:
+            _ensure_private_dir(profile_dir, chmod_existing=True)
+        except OSError:  # pragma: no cover — never block login on perms
+            pass
+        return profile_dir
 
     def _instance_profile_label(self) -> str:
         """Short ``instance=<host> profile=<suffix>`` tag for auth messages.
@@ -3138,24 +2464,13 @@ class AuthManager:
             return False
         return False
 
-    def _login_with_browser_sync(
-        self, browser_config: BrowserAuthConfig, force_interactive: bool = False
-    ) -> None:
-        instance_url = self.instance_url
-        if not instance_url:
-            raise ValueError("Instance URL is required for browser authentication")
+    def _enforce_login_circuit(self) -> None:
+        """Circuit-breaker guard at browser-login entry (extracted).
 
-        # v1.12.0: the v1.11.49 profile-cookie pre-probe was REMOVED.
-        # Field report: it sometimes adopted an incomplete cookie set
-        # (missing JSESSIONID and BIGipServer*) that passed the
-        # sys_user_preference probe but caused parallel API calls to be
-        # routed to random load-balancer backends where the session did
-        # not exist, producing a wave of 401s. Pre-v1.11.49 callers had
-        # been depending on a clean login.do flow that yields a full
-        # cookie jar, and the field user confirmed that earlier
-        # behaviour was working fine. Helper retained in the file in
-        # case a future caller wants to opt back in deliberately.
-
+        Cohesive prologue — returns to allow the login, or raises
+        SELF_HEAL_CIRCUIT_OPEN. Runs BEFORE any window opens, so no
+        window-close path is involved. Mirror of _enforce_self_heal_circuit
+        on the request side. Pinned by test_browser_grace_period.py."""
         # v1.11.48: circuit breaker enforcement at login entry.
         # Once the breaker is open (≥ threshold consecutive 302→logouts),
         # opening another browser window just produces another rejected
@@ -3183,6 +2498,26 @@ class AuthManager:
                 "status on the ServiceNow instance, or restart MCP to reset."
                 % self._consecutive_self_heal_count
             )
+
+    def _login_with_browser_sync(
+        self, browser_config: BrowserAuthConfig, force_interactive: bool = False
+    ) -> None:
+        instance_url = self.instance_url
+        if not instance_url:
+            raise ValueError("Instance URL is required for browser authentication")
+
+        # v1.12.0: the v1.11.49 profile-cookie pre-probe was REMOVED.
+        # Field report: it sometimes adopted an incomplete cookie set
+        # (missing JSESSIONID and BIGipServer*) that passed the
+        # sys_user_preference probe but caused parallel API calls to be
+        # routed to random load-balancer backends where the session did
+        # not exist, producing a wave of 401s. Pre-v1.11.49 callers had
+        # been depending on a clean login.do flow that yields a full
+        # cookie jar, and the field user confirmed that earlier
+        # behaviour was working fine. Helper retained in the file in
+        # case a future caller wants to opt back in deliberately.
+
+        self._enforce_login_circuit()
 
         # v1.12.0: minimum interval between login attempts (safe zone).
         # Server-side abuse detection flags accounts that submit login.do
@@ -3963,32 +3298,13 @@ class AuthManager:
             except Exception as exc:
                 logger.warning("Failed to remove session cache file: %s", exc)
 
-    def make_request(
-        self,
-        method: str,
-        url: str,
-        max_retries: int = 1,
-        **kwargs,
-    ) -> requests.Response:
-        """
-        Make an authenticated HTTP request with automatic retry on 401
-        and transient network errors (ConnectionError, Timeout).
+    def _enforce_self_heal_circuit(self, method: str, url: str) -> None:
+        """Self-heal circuit breaker guard (extracted from make_request).
 
-        For Browser Auth, 401 responses trigger session invalidation and
-        re-authentication before retry.
-
-        Args:
-            method: HTTP method (GET, POST, PATCH, PUT, DELETE).
-            url: Request URL.
-            max_retries: Maximum number of retries on 401 (default: 1).
-            **kwargs: Additional arguments passed to requests.request().
-
-        Returns:
-            requests.Response: The HTTP response.
-
-        Raises:
-            requests.RequestException: If the request fails after all retries.
-        """
+        A cohesive prologue: either returns (let the request proceed) or
+        raises SELF_HEAL_CIRCUIT_OPEN. Single entry / single exit-or-raise —
+        no state is threaded back to the caller, so lifting it out is
+        behavior-preserving. Pinned by test_browser_grace_period.py."""
         # v1.12.0: fail fast when the self-heal circuit is open. Without
         # this guard, every retry from source_tools / sn_api parallel page
         # fetch / etc. would still try to send (and fail), pumping
@@ -4090,6 +3406,38 @@ class AuthManager:
                         ),
                     )
                 )
+
+    def make_request(
+        self,
+        method: str,
+        url: str,
+        max_retries: int = 1,
+        **kwargs,
+    ) -> requests.Response:
+        """
+        Make an authenticated HTTP request with automatic retry on 401
+        and transient network errors (ConnectionError, Timeout).
+
+        For Browser Auth, 401 responses trigger session invalidation and
+        re-authentication before retry.
+
+        Args:
+            method: HTTP method (GET, POST, PATCH, PUT, DELETE).
+            url: Request URL.
+            max_retries: Maximum number of retries on 401 (default: 1).
+            **kwargs: Additional arguments passed to requests.request().
+
+        Returns:
+            requests.Response: The HTTP response.
+
+        Raises:
+            requests.RequestException: If the request fails after all retries.
+        """
+        # v1.12.0/v1.12.1: self-heal circuit breaker — fail fast (with a
+        # throttled escape probe) when the server rejects every session.
+        # Raises SELF_HEAL_CIRCUIT_OPEN if the circuit is open and the
+        # escape probe does not recover the session.
+        self._enforce_self_heal_circuit(method, url)
 
         # Get auth headers
         headers = kwargs.pop("headers", {})

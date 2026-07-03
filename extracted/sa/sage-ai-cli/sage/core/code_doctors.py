@@ -905,10 +905,6 @@ def fix_sqlmodel_json_fields(path: Path) -> int:
                             new_src = f"Field({inner}, sa_type=JSON)"
                     else:
                         new_src = "Field(sa_type=JSON)"
-                else:
-                    new_src = "Field(sa_type=JSON)"
-            else:
-                new_src = "Field(sa_type=JSON)"
             modifications.append((field_call.lineno, field_call.col_offset, field_call.end_lineno, field_call.end_col_offset, new_src))
         elif node.value is not None:
             val_src = get_node_source(node.value)
@@ -1057,6 +1053,7 @@ def fix_vitest_test_script(frontend_root: Path) -> int:
     new_cmd = re.sub(r"\s*--watchAll(?:=\S+)?", "", test_cmd).strip()
     if new_cmd == test_cmd:
         return 0
+    data["scripts"]["test"] = new_cmd
     pkg.write_text(_json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return 1
 
@@ -1074,11 +1071,6 @@ def fix_package_level_imports(path: Path) -> int:
         if parent.name == "backend" or (parent / "app").is_dir():
             backend_root = parent
             break
-    if not backend_root:
-        for parent in path.parents:
-            if (parent / "app").is_dir():
-                backend_root = parent
-                break
     if not backend_root:
         return 0
 

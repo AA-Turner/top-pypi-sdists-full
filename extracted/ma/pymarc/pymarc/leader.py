@@ -56,12 +56,12 @@ class Leader:
             raise RecordLeaderInvalid
         self.leader = leader
 
-    def __getitem__(self, item: Union[str, int, slice]) -> str:
+    def __getitem__(self, item: str | int | slice) -> str:
         """Get values using position, slice or properties.
 
         leader[:4] == leader.length
         """
-        if isinstance(item, (slice, int)):
+        if isinstance(item, slice | int):
             return self.leader[item]
         return getattr(self, item)
 

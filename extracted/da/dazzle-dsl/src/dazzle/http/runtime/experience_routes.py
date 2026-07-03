@@ -20,7 +20,10 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from dazzle.core import ir
 from dazzle.core.ir.experiences import StepKind
 from dazzle.core.strings import entity_slug
+from dazzle.http.runtime.page_routes import _build_dispatch_ctx
 from dazzle.page.utils.expression_eval import evaluate_simple_condition
+from dazzle.render.dispatch import dispatch_render
+from dazzle.render.fragment.errors import FragmentError
 
 logger = logging.getLogger(__name__)
 
@@ -241,6 +244,33 @@ async def _experience_entry(deps: _ExperienceDeps, request: Request, name: str) 
     return response
 
 
+def _render_experience_surface_step(exp_ctx: Any, deps: _ExperienceDeps, request: Request) -> str:
+    """ADR-0049 Phase 2 Task 6: render an experience list-step (Phase 1) OR
+    detail-step through the substrate. The page layer can't import the http
+    dispatch seam (page↛http), so the route pre-renders the surface body here
+    and passes the HTML down. dispatch_render handles both list and view modes
+    (it reads pc.table / pc.detail off the same dispatch ctx). Returns "" for
+    form/placeholder steps or when services/surface are unavailable — the page
+    renderer then shows a loud placeholder (D4: no silent legacy fallback)."""
+    pc = getattr(exp_ctx, "page_context", None)
+    if pc is None or (getattr(pc, "table", None) is None and getattr(pc, "detail", None) is None):
+        return ""
+    surface_name = getattr(exp_ctx, "surface_name", "") or ""
+    appspec = getattr(deps, "appspec", None)
+    surface = appspec.get_surface(surface_name) if (appspec and surface_name) else None
+    if surface is None:
+        return ""
+    app_state = getattr(getattr(request, "app", None), "state", None)
+    services = getattr(app_state, "services", None) if app_state is not None else None
+    if services is None:
+        return ""
+    ctx = _build_dispatch_ctx(pc, surface, services=services)
+    try:
+        return dispatch_render(surface, ctx=ctx, services=services)
+    except FragmentError:
+        return ""
+
+
 async def _experience_step_get(
     deps: _ExperienceDeps, request: Request, name: str, step: str
 ) -> Response:
@@ -342,9 +372,12 @@ async def _experience_step_get(
     htmx = HtmxDetails.from_request(request)
     current_route = f"{deps.app_prefix}/experiences/{name}/{step}"
 
+    # ADR-0049 Task 6: pre-render a list- or detail-step's body via the substrate.
+    surface_step_html = _render_experience_surface_step(exp_ctx, deps, request)
+
     # Fragment targeting: return only the content
     if htmx.wants_fragment:
-        html = render_experience_inner_html(exp_ctx)
+        html = render_experience_inner_html(exp_ctx, surface_step_html=surface_step_html)
         headers = {
             "HX-Trigger": json.dumps({"dz:titleUpdate": exp_ctx.title}),
         }
@@ -360,7 +393,7 @@ async def _experience_step_get(
         from dazzle.render.context import NavItemContext, PageContext
         from dazzle.render.dispatch import dispatch_render_page
 
-        inner_html = render_experience_inner_html(exp_ctx)
+        inner_html = render_experience_inner_html(exp_ctx, surface_step_html=surface_step_html)
         nav_items_ctx = [
             NavItemContext(
                 label=getattr(n, "label", None) or n.get("label", "")

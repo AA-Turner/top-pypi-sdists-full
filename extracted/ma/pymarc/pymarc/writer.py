@@ -10,8 +10,9 @@ import json
 import xml.etree.ElementTree as ET
 from typing import IO
 
-import pymarc
-from pymarc import Record, WriteNeedsRecord
+from pymarc.exceptions import WriteNeedsRecord
+from pymarc.marcxml import record_to_xml_node
+from pymarc.record import Record
 
 
 class Writer:
@@ -32,7 +33,7 @@ class Writer:
         If close_fh is False close will also close the underlying file handle
         that was passed in to the constructor. The default is True.
         """
-        if close_fh:
+        if close_fh and self.file_handle:
             self.file_handle.close()
         self.file_handle = None  # type: ignore
 
@@ -66,15 +67,17 @@ class JSONWriter(Writer):
         """You need to pass in a text file like object."""
         super().__init__(file_handle)
         self.write_count = 0
-        self.file_handle.write("[")
+        if self.file_handle:
+            self.file_handle.write("[")
 
     def write(self, record: Record) -> None:
         """Writes a record."""
         Writer.write(self, record)
-        if self.write_count > 0:
-            self.file_handle.write(",")
-        json.dump(record.as_dict(), self.file_handle, separators=(",", ":"))
-        self.write_count += 1
+        if self.file_handle:
+            if self.write_count > 0:
+                self.file_handle.write(",")
+            json.dump(record.as_dict(), self.file_handle, separators=(",", ":"))
+            self.write_count += 1
 
     def close(self, close_fh: bool = True) -> None:
         """Closes the writer.
@@ -82,7 +85,8 @@ class JSONWriter(Writer):
         If close_fh is False close will also close the underlying file
         handle that was passed in to the constructor. The default is True.
         """
-        self.file_handle.write("]")
+        if self.file_handle:
+            self.file_handle.write("]")
         Writer.close(self, close_fh)
 
 
@@ -122,7 +126,8 @@ class MARCWriter(Writer):
     def write(self, record: Record) -> None:
         """Writes a record."""
         Writer.write(self, record)
-        self.file_handle.write(record.as_marc())
+        if self.file_handle:
+            self.file_handle.write(record.as_marc())
 
 
 class TextWriter(Writer):
@@ -157,10 +162,11 @@ class TextWriter(Writer):
     def write(self, record: Record) -> None:
         """Writes a record."""
         Writer.write(self, record)
-        if self.write_count > 0:
-            self.file_handle.write("\n")
-        self.file_handle.write(str(record))
-        self.write_count += 1
+        if self.file_handle:
+            if self.write_count > 0:
+                self.file_handle.write("\n")
+            self.file_handle.write(str(record))
+            self.write_count += 1
 
 
 class XMLWriter(Writer):
@@ -197,14 +203,18 @@ class XMLWriter(Writer):
     def __init__(self, file_handle: IO) -> None:
         """You need to pass in a binary file like object."""
         super().__init__(file_handle)
-        self.file_handle.write(b'<?xml version="1.0" encoding="UTF-8"?>')
-        self.file_handle.write(b'<collection xmlns="http://www.loc.gov/MARC21/slim">')
+        if self.file_handle:
+            self.file_handle.write(b'<?xml version="1.0" encoding="UTF-8"?>')
+            self.file_handle.write(
+                b'<collection xmlns="http://www.loc.gov/MARC21/slim">'
+            )
 
     def write(self, record: Record) -> None:
         """Writes a record."""
         Writer.write(self, record)
-        node = pymarc.record_to_xml_node(record)
-        self.file_handle.write(ET.tostring(node, encoding="utf-8"))
+        if self.file_handle:
+            node = record_to_xml_node(record)
+            self.file_handle.write(ET.tostring(node, encoding="utf-8"))
 
     def close(self, close_fh: bool = True) -> None:
         """Closes the writer.
@@ -212,5 +222,6 @@ class XMLWriter(Writer):
         If close_fh is False close will also close the underlying file handle
         that was passed in to the constructor. The default is True.
         """
-        self.file_handle.write(b"</collection>")
+        if self.file_handle:
+            self.file_handle.write(b"</collection>")
         Writer.close(self, close_fh)

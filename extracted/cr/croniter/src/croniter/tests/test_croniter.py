@@ -271,6 +271,35 @@ class CroniterTest(base.TestCase):
         self.assertEqual(n4.month, 12)
         self.assertEqual(n4.day, 31)
 
+    def test_last_day_of_month_with_leap_year(self):
+        base = datetime(2020, 2, 1)
+        itr = croniter("0 0 l * *", base)
+        n1 = itr.get_next(datetime)
+        self.assertEqual(n1.month, 2)
+        self.assertEqual(n1.day, 29)
+        n2 = itr.get_next(datetime)
+        self.assertEqual(n2.month, 3)
+        self.assertEqual(n2.day, 31)
+
+    def test_last_day_of_month_with_leap_year_century_exception(self):
+        base = datetime(2100, 2, 1)
+        itr = croniter("0 0 l * *", base)
+        n1 = itr.get_next(datetime)
+        self.assertEqual(n1.month, 2)
+        self.assertEqual(n1.day, 28)
+        n2 = itr.get_next(datetime)
+        self.assertEqual(n2.month, 3)
+        self.assertEqual(n2.day, 31)
+
+        base = datetime(2400, 2, 1)
+        itr = croniter("0 0 l * *", base)
+        n1 = itr.get_next(datetime)
+        self.assertEqual(n1.month, 2)
+        self.assertEqual(n1.day, 29)
+        n2 = itr.get_next(datetime)
+        self.assertEqual(n2.month, 3)
+        self.assertEqual(n2.day, 31)
+
     def test_range_with_uppercase_last_day_of_month(self):
         base = datetime(2015, 9, 4)
         itr = croniter("0 0 29-L * *", base)
@@ -1292,6 +1321,13 @@ class CroniterTest(base.TestCase):
 
     def test_invalid_zerorepeat(self):
         self.assertFalse(croniter.is_valid("*/0 * * * *"))
+        # a zero step must be rejected the same way in every range form, not
+        # only `*/0`/`low-high/0` (low < high).  `low == high` and the reversed
+        # `low > high` forms previously reached `range(..., 0)` and surfaced a
+        # bare `ValueError` out of the constructor instead of CroniterBadCronError.
+        for expr in ("5-5/0 * * * *", "59-0/0 * * * *", "* * 31-1/0 * *", "* * * * 6-0/0"):
+            self.assertFalse(croniter.is_valid(expr))
+            self.assertRaises(CroniterBadCronError, croniter, expr, datetime(2020, 1, 1))
 
     def test_weekday_range(self):
         ret = []
@@ -2349,6 +2385,24 @@ class CroniterTest(base.TestCase):
             expand_from_start_time=True,
         ).get_prev(datetime)
         self.assertEqual(ret4, datetime(2024, 5, 1))
+
+    def test_expand_from_start_time_month_divisible(self):
+        # A start month that is a multiple of the step (here 6 % 3 == 0) must
+        # still expand to a valid 1-12 month, not month 0.
+        three_monts_interval_pattern = "0 0 1 */3 *"
+        ret1 = croniter(
+            three_monts_interval_pattern,
+            start_time=datetime(2024, 6, 1),
+            expand_from_start_time=True,
+        ).get_next(datetime)
+        self.assertEqual(ret1, datetime(2024, 9, 1))
+
+        ret2 = croniter(
+            three_monts_interval_pattern,
+            start_time=datetime(2024, 6, 1),
+            expand_from_start_time=True,
+        ).get_prev(datetime)
+        self.assertEqual(ret2, datetime(2024, 3, 1))
 
     def test_expand_from_start_time_day_of_week(self):
         three_monts_interval_pattern = "0 0 * * */2"

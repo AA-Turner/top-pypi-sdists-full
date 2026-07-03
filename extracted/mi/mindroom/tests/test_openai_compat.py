@@ -1023,7 +1023,7 @@ class TestChatCompletions:
         """Cancellation after lock acquisition must not leave the OpenAI session locked."""
         completion_lock = asyncio.Lock()
 
-        async def cancelled_response(**_kwargs: object) -> str:
+        async def cancelled_response(_ctx: object, **_kwargs: object) -> str:
             raise asyncio.CancelledError
 
         with (
@@ -1056,7 +1056,26 @@ class TestChatCompletions:
 
             assert "include_default_tools" not in mock_ai.call_args.kwargs
             assert mock_ai.call_args.kwargs["include_interactive_questions"] is False
-            assert mock_ai.call_args.kwargs["active_event_ids"] == set()
+            assert mock_ai.call_args.args[0].active_event_ids == frozenset()
+
+    def test_agent_completion_mints_fresh_uuid_correlation_id(self, app_client: TestClient) -> None:
+        """Each OpenAI-compatible agent completion mints its own uuid-hex correlation id."""
+        with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = "Response"
+
+            for _ in range(2):
+                app_client.post(
+                    "/v1/chat/completions",
+                    json={
+                        "model": "general",
+                        "messages": [{"role": "user", "content": "Hi"}],
+                    },
+                )
+
+            first_ctx, second_ctx = (call.args[0] for call in mock_ai.call_args_list)
+            assert re.fullmatch(r"[0-9a-f]{32}", first_ctx.correlation_id)
+            assert re.fullmatch(r"[0-9a-f]{32}", second_ctx.correlation_id)
+            assert first_ctx.correlation_id != second_ctx.correlation_id
 
     def test_passes_knowledge_none(self, app_client: TestClient) -> None:
         """Passes knowledge=None when agent has no knowledge_bases."""
@@ -1087,7 +1106,7 @@ class TestChatCompletions:
                 },
             )
 
-            assert mock_ai.call_args.kwargs["user_id"] is None
+            assert mock_ai.call_args.args[0].requester_id is None
 
     def test_request_body_user_is_not_used_for_openai_execution_identity(self, app_client: TestClient) -> None:
         """The OpenAI user field should not become credential-routing identity."""
@@ -1359,7 +1378,7 @@ class TestChatCompletions:
         observed_session_ids: list[str] = []
 
         async def _capture(*args: object, **kwargs: object) -> str:  # noqa: ARG001
-            observed_session_ids.append(kwargs["session_id"])
+            observed_session_ids.append(args[0].session_id)
             return "Response"
 
         with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
@@ -1391,7 +1410,7 @@ class TestChatCompletions:
         observed_session_ids: list[str] = []
 
         async def _capture(*args: object, **kwargs: object) -> str:  # noqa: ARG001
-            observed_session_ids.append(kwargs["session_id"])
+            observed_session_ids.append(args[0].session_id)
             return "Response"
 
         with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
@@ -1540,7 +1559,7 @@ class TestStreamingCompletion:
     def test_streaming_sse_format(self, app_client: TestClient) -> None:
         """Streaming returns valid SSE format."""
 
-        async def mock_stream(**_kw: object) -> AsyncIterator[RunContentEvent]:
+        async def mock_stream(_ctx: object, **_kw: object) -> AsyncIterator[RunContentEvent]:
             yield RunContentEvent(content="Hello ")
             yield RunContentEvent(content="world!")
 
@@ -1584,7 +1603,7 @@ class TestStreamingCompletion:
     def test_streaming_passes_include_interactive_questions_false(self, app_client: TestClient) -> None:
         """Streaming disables interactive question prompting for OpenAI compatibility."""
 
-        async def mock_stream(**_kw: object) -> AsyncIterator[RunContentEvent]:
+        async def mock_stream(_ctx: object, **_kw: object) -> AsyncIterator[RunContentEvent]:
             yield RunContentEvent(content="ok")
 
         with patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream) as mock_stream_fn:
@@ -1600,12 +1619,12 @@ class TestStreamingCompletion:
         assert response.status_code == 200
         assert "include_default_tools" not in mock_stream_fn.call_args.kwargs
         assert mock_stream_fn.call_args.kwargs["include_interactive_questions"] is False
-        assert mock_stream_fn.call_args.kwargs["active_event_ids"] == set()
+        assert mock_stream_fn.call_args.args[0].active_event_ids == frozenset()
 
     def test_streaming_consistent_id(self, app_client: TestClient) -> None:
         """All streaming chunks have the same completion ID."""
 
-        async def mock_stream(**_kw: object) -> AsyncIterator[RunContentEvent]:
+        async def mock_stream(_ctx: object, **_kw: object) -> AsyncIterator[RunContentEvent]:
             yield RunContentEvent(content="test")
 
         with patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream):
@@ -1634,7 +1653,7 @@ class TestStreamingCompletion:
         """Worker-routing identity must stay active after the first streamed event."""
         observed_session_ids: list[str | None] = []
 
-        async def mock_stream(**_kw: object) -> AsyncIterator[RunContentEvent]:
+        async def mock_stream(_ctx: object, **_kw: object) -> AsyncIterator[RunContentEvent]:
             identity = get_tool_execution_identity()
             observed_session_ids.append(identity.session_id if identity is not None else None)
             yield RunContentEvent(content="Hello ")
@@ -1673,7 +1692,7 @@ class TestStreamingCompletion:
         )
         observed_final_identities: list[ToolExecutionIdentity | None] = []
 
-        async def mock_stream(**_kw: object) -> AsyncIterator[RunContentEvent]:
+        async def mock_stream(_ctx: object, **_kw: object) -> AsyncIterator[RunContentEvent]:
             try:
                 assert get_tool_execution_identity() == execution_identity
                 yield RunContentEvent(content="Hello")
@@ -1703,7 +1722,7 @@ class TestStreamingCompletion:
     def test_streaming_cached_response(self, app_client: TestClient) -> None:
         """Cached full response (string) is streamed correctly."""
 
-        async def mock_stream(**_kw: object) -> AsyncIterator[str]:
+        async def mock_stream(_ctx: object, **_kw: object) -> AsyncIterator[str]:
             yield "This is a cached response"
 
         with patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream):
@@ -1724,7 +1743,7 @@ class TestStreamingCompletion:
     def test_streaming_first_event_error_returns_500(self, app_client: TestClient) -> None:
         """If first stream event is an error string, return HTTP 500 instead of SSE."""
 
-        async def mock_stream(**_kw: object) -> AsyncIterator[str]:
+        async def mock_stream(_ctx: object, **_kw: object) -> AsyncIterator[str]:
             yield "❌ Authentication failed (openai): Invalid API key"
 
         with patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream):
@@ -1759,7 +1778,7 @@ class TestStreamingCompletion:
             result="3 results",
         )
 
-        async def mock_stream(**_kw: object) -> AsyncIterator[object]:
+        async def mock_stream(_ctx: object, **_kw: object) -> AsyncIterator[object]:
             yield RunContentEvent(content="Let me search. ")
             yield ToolCallStartedEvent(tool=tool_started)
             yield ToolCallCompletedEvent(tool=tool_completed)
@@ -1811,7 +1830,7 @@ class TestStreamingCompletion:
             result="</tool><i>boom</i>" + ("x" * 600),
         )
 
-        async def mock_stream(**_kw: object) -> AsyncIterator[object]:
+        async def mock_stream(_ctx: object, **_kw: object) -> AsyncIterator[object]:
             yield ToolCallStartedEvent(tool=tool_started)
             yield ToolCallCompletedEvent(tool=tool_completed)
 
@@ -1875,7 +1894,7 @@ class TestStreamingCompletion:
             result="two-result",
         )
 
-        async def mock_stream(**_kw: object) -> AsyncIterator[object]:
+        async def mock_stream(_ctx: object, **_kw: object) -> AsyncIterator[object]:
             yield RunContentEvent(content="Start ")
             yield ToolCallStartedEvent(tool=first_started)
             yield ToolCallCompletedEvent(tool=first_completed)
@@ -2678,7 +2697,7 @@ class TestAutoRouting:
     def test_auto_streaming(self, app_client: TestClient) -> None:
         """Auto model works with streaming, chunks carry resolved agent name."""
 
-        async def mock_stream(**_kw: object) -> AsyncIterator[RunContentEvent]:
+        async def mock_stream(_ctx: object, **_kw: object) -> AsyncIterator[RunContentEvent]:
             yield RunContentEvent(content="Streamed!")
 
         with (
@@ -2755,10 +2774,10 @@ class TestAutoRouting:
                 headers={"X-LibreChat-Conversation-Id": "conv-abc"},
             )
 
-            # ai_response should receive agent_name="code", not "auto"
-            assert mock_ai.call_args.kwargs["agent_name"] == "code"
+            # ai_response should receive entity_label="code", not "auto"
+            assert mock_ai.call_args.args[0].entity_label == "code"
             # Session ID should use the resolved model name with LibreChat IDs.
-            session_id = mock_ai.call_args.kwargs["session_id"]
+            session_id = mock_ai.call_args.args[0].session_id
             assert session_id.endswith(":conv-abc:code")
             assert "auto" not in session_id
 
@@ -2890,22 +2909,22 @@ class TestTeamCompletion:
         assert prepared.run_metadata is run_metadata
         assert mock_prepare.await_count == 1
         preparation_kwargs = mock_prepare.await_args.kwargs
+        preparation_ctx = mock_prepare.await_args.args[0]
         assert preparation_kwargs["agents"] == mock_agents
         assert preparation_kwargs["team"] is mock_team
         assert preparation_kwargs["message"] == "Build it"
         assert preparation_kwargs["thread_history"] == []
-        assert preparation_kwargs["reply_to_event_id"] is None
-        assert preparation_kwargs["active_event_ids"] == frozenset()
+        assert preparation_ctx.reply_to_event_id is None
+        assert preparation_ctx.active_event_ids == frozenset()
         assert preparation_kwargs["response_sender_id"] is None
         assert preparation_kwargs["current_sender_id"] is None
-        assert preparation_kwargs["room_id"] is None
-        assert preparation_kwargs["thread_id"] is None
-        assert preparation_kwargs["requester_id"] is None
-        assert re.fullmatch(r"[0-9a-f]{32}", preparation_kwargs["correlation_id"])
-        assert preparation_kwargs["compaction_outcomes_collector"] is None
+        assert preparation_ctx.room_id is None
+        assert preparation_ctx.thread_id is None
+        assert preparation_ctx.requester_id is None
+        assert re.fullmatch(r"[0-9a-f]{32}", preparation_ctx.correlation_id)
         assert preparation_kwargs["configured_team_name"] == "super_team"
-        assert preparation_kwargs["matrix_run_metadata"] is None
-        assert preparation_kwargs["active_model_name"] == "default"
+        assert preparation_ctx.matrix_run_metadata is None
+        assert preparation_kwargs["runtime_model"].model_name == "default"
 
     def test_team_listed_in_models(self, team_app_client: TestClient) -> None:
         """Teams appear in /v1/models with team/ prefix."""
@@ -3065,10 +3084,10 @@ class TestTeamCompletion:
         prepared_correlation_ids: list[str] = []
         request_log_contexts: list[dict[str, object]] = []
 
-        async def mock_prepare_team_execution(**kwargs: object) -> SimpleNamespace:
-            correlation_id = kwargs["correlation_id"]
+        async def mock_prepare_team_execution(ctx: object, **_kwargs: object) -> SimpleNamespace:
+            correlation_id = ctx.correlation_id
             assert isinstance(correlation_id, str)
-            assert kwargs["requester_id"] is None
+            assert ctx.requester_id is None
             prepared_correlation_ids.append(correlation_id)
             return _prepared_team_execution_context(
                 final_prompt="Build it",
@@ -3327,10 +3346,10 @@ class TestTeamCompletion:
         prepared_correlation_ids: list[str] = []
         request_log_contexts: list[dict[str, object]] = []
 
-        async def mock_prepare_team_execution(**kwargs: object) -> SimpleNamespace:
-            correlation_id = kwargs["correlation_id"]
+        async def mock_prepare_team_execution(ctx: object, **_kwargs: object) -> SimpleNamespace:
+            correlation_id = ctx.correlation_id
             assert isinstance(correlation_id, str)
-            assert kwargs["requester_id"] is None
+            assert ctx.requester_id is None
             prepared_correlation_ids.append(correlation_id)
             return _prepared_team_execution_context(
                 final_prompt="Build it",
@@ -4527,7 +4546,7 @@ class TestTeamCompletion:
             assert scope_context is not None
             assert scope_context.session is not None
 
-            async def fake_prepare_bound_team_run_context(**kwargs: object) -> SimpleNamespace:
+            async def fake_prepare_bound_team_run_context(_ctx: object, **kwargs: object) -> SimpleNamespace:
                 prepared_scope_context = kwargs["scope_context"]
                 assert prepared_scope_context is not None
                 assert prepared_scope_context.session is not None
@@ -5170,7 +5189,7 @@ class TestKnowledgeIntegration:
         """Knowledge is passed through in streaming mode too."""
         mock_knowledge = MagicMock()
 
-        async def mock_stream(**_kw: object) -> AsyncIterator[RunContentEvent]:
+        async def mock_stream(_ctx: object, **_kw: object) -> AsyncIterator[RunContentEvent]:
             yield RunContentEvent(content="Streamed!")
 
         with (

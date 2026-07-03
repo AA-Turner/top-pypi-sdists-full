@@ -2,14 +2,13 @@
 Coordinator for per-broker MQTT discovery monitors.
 
 Reads each MQTT-using device's YAML, resolves ``!secret`` references via
-``secrets.yaml``, groups by broker host/port, and runs one
-:class:`DeviceMqttMonitor` per unique broker. Re-runs lifecycle on each
-poll so monitors track YAML edits.
+``secrets.yaml``, groups by broker host/port/username, and runs one
+:class:`DeviceMqttMonitor` per unique broker login. Re-runs lifecycle on
+each poll so monitors track YAML edits.
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import Callable
 from pathlib import Path
@@ -19,6 +18,7 @@ import yaml
 from esphome.core import EsphomeError
 
 from ..constants import SECRETS_FILENAME
+from ..helpers.async_ import run_in_executor
 from ..helpers.device_yaml import (
     _UNRESOLVED_SUBSTITUTION_RE,
     _extract_resolved_substitutions,
@@ -45,11 +45,11 @@ _BROKER_FIELDS = ("broker", "port", "username", "password")
 
 class DeviceMqttCoordinator:
     """
-    Manage one :class:`DeviceMqttMonitor` per unique broker.
+    Manage one :class:`DeviceMqttMonitor` per unique broker login.
 
     ``reconcile()`` is idempotent — call it after every device scan to
-    pick up YAML edits. Adds monitors for new brokers, stops monitors
-    for brokers no longer referenced.
+    pick up YAML edits. Adds monitors for new ``(host, port, username)``
+    logins, stops monitors for logins no longer referenced.
     """
 
     def __init__(
@@ -63,7 +63,7 @@ class DeviceMqttCoordinator:
         self._get_devices = get_devices
         self._on_state_change = on_state_change
         self._on_ip_change = on_ip_change
-        self._monitors: dict[tuple[str, int], DeviceMqttMonitor] = {}
+        self._monitors: dict[tuple[str, int, str | None], DeviceMqttMonitor] = {}
         # Positive-only slow-path cache keyed on ``(yaml_mtime,
         # secrets_mtime)``. Package / ``!include`` edits on a
         # previously-cached device won't invalidate — user needs a
@@ -72,6 +72,9 @@ class DeviceMqttCoordinator:
         # Per-device dedupe for the broker-unresolvable WARNING —
         # WARNING once, DEBUG on repeats.
         self._unresolved_logged: set[str] = set()
+        # Per-login dedupe for the same-username/different-password
+        # WARNING — WARNING once, DEBUG on repeats.
+        self._conflict_logged: set[tuple[str, int, str | None]] = set()
 
     @property
     def active_brokers(self) -> int:
@@ -88,14 +91,13 @@ class DeviceMqttCoordinator:
                 )
             return
 
-        loop = asyncio.get_running_loop()
-        brokers = await loop.run_in_executor(None, self._collect_brokers)
+        brokers = await run_in_executor(self._collect_brokers)
         wanted_keys = {b.key for b in brokers}
         existing_keys = set(self._monitors.keys())
 
         for key in existing_keys - wanted_keys:
-            host, port = key
-            _LOGGER.info("Stopping MQTT monitor for %s:%s", host, port)
+            host, port, username = key
+            _LOGGER.info("Stopping MQTT monitor for %s:%s user %r", host, port, username)
             await self._monitors.pop(key).stop()
 
         for broker in brokers:
@@ -118,8 +120,9 @@ class DeviceMqttCoordinator:
     def _collect_brokers(self) -> list[MqttBrokerConfig]:
         secrets_map = _load_secrets(self._config_dir)
         secrets_mtime = _safe_mtime(self._config_dir / SECRETS_FILENAME)
-        seen: dict[tuple[str, int], MqttBrokerConfig] = {}
+        seen: dict[tuple[str, int, str | None], MqttBrokerConfig] = {}
         seen_devices: set[str] = set()
+        conflicts: set[tuple[str, int, str | None]] = set()
         for device in self._get_devices():
             if not device.uses_mqtt:
                 continue
@@ -144,15 +147,15 @@ class DeviceMqttCoordinator:
             if existing is None:
                 seen[broker.key] = broker
                 continue
-            if (existing.username, existing.password) != (broker.username, broker.password):
-                _LOGGER.warning(
-                    "Multiple devices reference broker %s:%s with different credentials — "
-                    "using credentials from the first device",
-                    broker.host,
-                    broker.port,
-                )
-        # Drop tracking for devices no longer declaring ``mqtt:``.
+            # Same host/port/username but a different password: the login
+            # is ambiguous, so the first device's password wins.
+            if existing.password != broker.password:
+                conflicts.add(broker.key)
+                self._log_credential_conflict(broker)
+        # Drop tracking for devices no longer declaring ``mqtt:`` and
+        # logins that no longer conflict, so a recurrence re-warns.
         self._unresolved_logged &= seen_devices
+        self._conflict_logged &= conflicts
         self._broker_cache = {k: v for k, v in self._broker_cache.items() if k in seen_devices}
         return list(seen.values())
 
@@ -193,6 +196,24 @@ class DeviceMqttCoordinator:
             configuration,
         )
         self._unresolved_logged.add(configuration)
+
+    def _log_credential_conflict(self, broker: MqttBrokerConfig) -> None:
+        if broker.key in self._conflict_logged:
+            _LOGGER.debug(
+                "Broker %s:%s user %r still referenced with different passwords — using the first",
+                broker.host,
+                broker.port,
+                broker.username,
+            )
+            return
+        _LOGGER.warning(
+            "Multiple devices reference broker %s:%s as user %r with different passwords — "
+            "using the password from the first device",
+            broker.host,
+            broker.port,
+            broker.username,
+        )
+        self._conflict_logged.add(broker.key)
 
 
 # ---------------------------------------------------------------------------

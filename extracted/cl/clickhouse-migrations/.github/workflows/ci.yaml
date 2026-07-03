@@ -1,0 +1,69 @@
+name: ci
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/**
+      - src/**
+      - dev/**
+      - tox.ini
+
+jobs:
+  test:
+    name: test ${{ matrix.py }} - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu
+#          - Windows
+#          - MacOs
+        py:
+          - "3.14"
+          - "3.13"
+          - "3.12"
+          - "3.11"
+          - "3.10"
+          - "3.9"
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          # setuptools-scm derives the version from git tags/history
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.py }}
+
+      - uses: KengoTODA/actions-setup-docker-compose@v1
+        with:
+          version: '2.14.2' # the full version of `docker-compose` command
+
+      - name: Docker compose up
+        run: make docker-compose-up-deamon
+
+      - name: Setup
+        run: make setup
+
+      - name: Test
+        run: make test
+
+      - name: Upload coverage to Codecov
+        if: matrix.py == '3.13'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
+      - name: Stop
+        if: always()
+        run: make docker-compose-down

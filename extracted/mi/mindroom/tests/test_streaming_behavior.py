@@ -2042,7 +2042,7 @@ class TestStreamingBehavior:
                 typing_indicator=noop_typing,
             ),
         ):
-            delivery = await bot._response_runner.process_and_respond_streaming(
+            generation = await bot._response_runner.process_and_respond_streaming(
                 ResponseRequest(
                     thread_history=[],
                     prompt="Continue",
@@ -2052,7 +2052,7 @@ class TestStreamingBehavior:
                 ),
             )
 
-        assert delivery.event_id == "$stream_1"
+        assert generation.delivery.event_id == "$stream_1"
         assert sent_contents
         first_content = sent_contents[0]
         assert first_content["m.relates_to"]["rel_type"] == "m.thread"
@@ -2119,8 +2119,8 @@ class TestStreamingBehavior:
         bot.client.room_send.return_value = mock_send_response
         pipeline_timing = DispatchPipelineTiming(source_event_id="$request", room_id="!test:localhost")
 
-        async def fake_stream_agent_response(*_args: object, **kwargs: object) -> AsyncIterator[str]:
-            system_enrichment_items = kwargs["system_enrichment_items"]
+        async def fake_stream_agent_response(*args: object, **_kwargs: object) -> AsyncIterator[str]:
+            system_enrichment_items = args[0].system_enrichment_items
             assert len(system_enrichment_items) == 1
             assert (
                 f"Knowledge base `{base_id}` is initializing and unavailable for semantic search this turn."
@@ -2186,8 +2186,8 @@ class TestStreamingBehavior:
             base_id="fresh_turn_docs",
         )
 
-        async def fake_ai_response(*_args: object, **kwargs: object) -> str:
-            system_enrichment_items = kwargs["system_enrichment_items"]
+        async def fake_ai_response(*args: object, **_kwargs: object) -> str:
+            system_enrichment_items = args[0].system_enrichment_items
             assert len(system_enrichment_items) == 1
             assert "Knowledge base `fresh_turn_docs` is initializing" in system_enrichment_items[0].text
             return "handled"
@@ -2218,7 +2218,7 @@ class TestStreamingBehavior:
                 typing_indicator=_noop_typing_indicator,
             ),
         ):
-            delivery = await bot._response_runner.process_and_respond(
+            generation = await bot._response_runner.process_and_respond(
                 ResponseRequest(
                     thread_history=[],
                     prompt="Please check the docs",
@@ -2232,7 +2232,7 @@ class TestStreamingBehavior:
                 ),
             )
 
-        assert delivery.event_id == "$response"
+        assert generation.delivery.event_id == "$response"
         assert sync_git_source.await_count == 0
         assert reindex_all.await_count == 0
 

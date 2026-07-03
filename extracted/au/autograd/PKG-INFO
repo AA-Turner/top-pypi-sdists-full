@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autograd
-Version: 1.9.0
+Version: 1.9.1
 Summary: Efficiently computes derivatives of NumPy code.
 Project-URL: Source, https://github.com/HIPS/autograd
 Author-email: Dougal Maclaurin <maclaurin@physics.harvard.edu>, David Duvenaud <duvenaud@cs.toronto.edu>, Matthew Johnson <mattjj@csail.mit.edu>, Jamie Townsend <j.h.n.townsend@uva.nl>

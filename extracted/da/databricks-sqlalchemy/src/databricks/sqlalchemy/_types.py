@@ -1,6 +1,7 @@
 from datetime import datetime, time, timezone
 from itertools import product
 from typing import Any, Union, Optional
+from uuid import UUID
 
 import sqlalchemy
 from sqlalchemy.engine.interfaces import Dialect
@@ -85,6 +86,31 @@ def compile_numeric_databricks(type_, compiler, **kw):
     to the SQLAlchemy Decimal() implementation
     """
     return compiler.visit_DECIMAL(type_, **kw)
+
+
+@compiles(sqlalchemy.types.Float, "databricks")
+def compile_float_databricks(type_, compiler, **kw):
+    """Promote ``Float(precision > 24)`` to ``DOUBLE`` (64-bit) on Databricks.
+
+    Databricks ``FLOAT`` is 32-bit (~7 significant digits) and ``DOUBLE`` is
+    64-bit (~15-17 significant digits). SQLAlchemy's default ``visit_float``
+    drops the precision argument entirely for Databricks (no ``FLOAT(p)`` form
+    exists), so ``Float(precision=53)`` silently compiles to a 32-bit ``FLOAT``
+    column. ``pandas.DataFrame.to_sql`` maps ``float64`` to ``Float(precision=53)``,
+    which means every ``to_sql`` round-trip of a ``float64`` column was being
+    permanently truncated at the ``CREATE TABLE`` step — there is no way to
+    recover the lost bits later, even after the INSERT path was fixed in
+    databricks-sql-python v4.2.6.
+
+    The 24-bit threshold matches the SQL standard convention: ``FLOAT(p)`` with
+    ``p <= 24`` is single precision (IEEE 754 binary32's 24-bit significand),
+    ``p > 24`` is double precision. ``Float()`` with no precision keeps the
+    current ``FLOAT`` behavior — only callers who explicitly asked for >24-bit
+    precision get the promotion.
+    """
+    if getattr(type_, "precision", None) is not None and type_.precision > 24:
+        return "DOUBLE"
+    return "FLOAT"
 
 
 @compiles(sqlalchemy.types.DateTime, "databricks")
@@ -311,6 +337,60 @@ class DatabricksStringType(sqlalchemy.types.TypeDecorator):
                 _step2 = _step1
 
             return "%s" % _step2
+
+        return process
+
+
+class DatabricksUUID(sqlalchemy.types.Uuid):
+    """Bind UUIDs in their canonical 8-4-4-4-12 hyphenated form.
+
+    Databricks has no native UUID type, so SQLAlchemy's default ``Uuid``
+    bind/literal processors render the 32-character hex form without dashes
+    (e.g. ``1daa91d78d35468486d63fa89042c1f4``). That breaks equality against
+    UUIDs stored as canonical strings in Databricks. We coerce every input
+    through ``uuid.UUID`` so the wire value is always the canonical hyphenated
+    form regardless of whether the caller passed a ``UUID``, a hyphenated
+    string, or a dash-less hex string. The ``UUID(...)`` round-trip also
+    validates the input — any non-UUID string raises ``ValueError`` instead of
+    being silently injected into SQL, which is critical for ``literal_binds``
+    rendering safety.
+
+    With the default ``as_uuid=True``, the inherited ``result_processor``
+    parses both hyphenated and dash-less hex forms back into a ``UUID``
+    object, so reads of legacy hex-stored rows continue to work. With
+    ``as_uuid=False`` the result is returned as the raw column string —
+    callers who mix legacy hex-stored rows with the canonical form should
+    normalize on read themselves.
+    """
+
+    cache_ok = True
+
+    @staticmethod
+    def _canonical(value):
+        """Return the canonical hyphenated string for ``value``.
+
+        For UUID instances we rebuild a stdlib ``UUID`` from ``.int`` so a
+        subclass cannot smuggle an arbitrary string through an overridden
+        ``__str__`` — the canonical hyphenated form of ``value.int`` goes to
+        the wire, so no attacker-controlled string can escape the quotes.
+        """
+        if isinstance(value, UUID):
+            return str(UUID(int=value.int))
+        return str(UUID(str(value)))
+
+    def bind_processor(self, dialect):
+        def process(value):
+            if value is None:
+                return None
+            return self._canonical(value)
+
+        return process
+
+    def literal_processor(self, dialect):
+        def process(value):
+            if value is None:
+                return "NULL"
+            return "'%s'" % self._canonical(value)
 
         return process
 

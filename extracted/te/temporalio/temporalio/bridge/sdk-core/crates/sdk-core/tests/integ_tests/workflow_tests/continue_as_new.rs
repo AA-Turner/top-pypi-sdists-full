@@ -1,16 +1,15 @@
 use crate::common::{CoreWfStarter, SEARCH_ATTR_TXT, build_fake_sdk};
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use temporalio_client::WorkflowStartOptions;
 use temporalio_common::{
-    protos::{
-        coresdk::AsJsonPayloadExt,
-        temporal::api::{
-            command::v1::command::Attributes,
-            common::v1::SearchAttributes,
-            enums::v1::{CommandType, ContinueAsNewVersioningBehavior},
-            history::v1::history_event,
+    protos::temporal::api::{
+        command::v1::command::Attributes,
+        enums::v1::{
+            CommandType, ContinueAsNewVersioningBehavior as ProtoContinueAsNewVersioningBehavior,
         },
+        history::v1::history_event,
     },
+    search_attributes::{SearchAttributeKey, SearchAttributes},
     worker::WorkerTaskTypes,
 };
 use temporalio_macros::{workflow, workflow_methods};
@@ -21,6 +20,8 @@ use temporalio_sdk_core::{
     test_help::MockPollCfg,
 };
 use temporalio_workflow::runtime::types::ContinueAsNewRequest;
+
+const SA_TXT: SearchAttributeKey<String> = SearchAttributeKey::text(SEARCH_ATTR_TXT);
 
 #[workflow]
 #[derive(Default)]
@@ -94,7 +95,7 @@ impl WfWithTimer {
         ctx.timer(Duration::from_millis(500)).await;
         Err(WorkflowTermination::continue_as_new(ContinueAsNewRequest {
             arguments: vec![[1].into()],
-            initial_versioning_behavior: ContinueAsNewVersioningBehavior::AutoUpgrade.into(),
+            initial_versioning_behavior: ProtoContinueAsNewVersioningBehavior::AutoUpgrade.into(),
             ..Default::default()
         }))
     }
@@ -119,7 +120,7 @@ async fn wf_completing_with_continue_as_new() {
                 assert_matches!(
                     wft.commands[0].attributes.as_ref().unwrap(),
                     Attributes::ContinueAsNewWorkflowExecutionCommandAttributes(can_attrs)
-                        if can_attrs.initial_versioning_behavior == ContinueAsNewVersioningBehavior::AutoUpgrade as i32
+                        if can_attrs.initial_versioning_behavior == ProtoContinueAsNewVersioningBehavior::AutoUpgrade as i32
                 );
             });
     });
@@ -139,9 +140,11 @@ impl ContinueAsNewSuggestedWf {
     async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
         // First WFT: flag should be false
         assert!(!ctx.continue_as_new_suggested());
+        assert!(!ctx.target_worker_deployment_version_changed());
         ctx.timer(Duration::from_millis(500)).await;
         // Second WFT: flag should be true (set on WFT started event 8)
         assert!(ctx.continue_as_new_suggested());
+        assert!(ctx.target_worker_deployment_version_changed());
         ctx.continue_as_new(&(), ContinueAsNewOptions::default())?;
         Ok(())
     }
@@ -156,6 +159,7 @@ async fn continue_as_new_suggested_flag_exposed() {
             he.attributes
         {
             attrs.suggest_continue_as_new = true;
+            attrs.target_worker_deployment_version_changed = true;
         }
     });
 
@@ -181,7 +185,7 @@ impl ClearSearchAttrsOnContinueAsNewWf {
             ctx.continue_as_new(&false, opts)?;
         }
 
-        assert!(ctx.search_attributes().indexed_fields.is_empty());
+        assert!(ctx.search_attributes().is_empty());
         Ok(())
     }
 }
@@ -202,10 +206,7 @@ async fn clear_search_attributes_on_continue_as_new() {
             ClearSearchAttrsOnContinueAsNewWf::run,
             true,
             WorkflowStartOptions::new(task_queue, wf_name.to_string())
-                .search_attributes(HashMap::from([(
-                    SEARCH_ATTR_TXT.to_string(),
-                    "hello".as_json_payload().unwrap(),
-                )]))
+                .search_attributes(SearchAttributes::new([SA_TXT.value_set("hello".into())]))
                 .build(),
         )
         .await

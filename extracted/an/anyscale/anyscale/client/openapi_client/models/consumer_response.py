@@ -37,7 +37,8 @@ class ConsumerResponse(object):
         'name': 'str',
         'project': 'str',
         'nodes': 'int',
-        'duration_seconds': 'int'
+        'duration_seconds': 'int',
+        'url': 'str'
     }
 
     attribute_map = {
@@ -45,10 +46,11 @@ class ConsumerResponse(object):
         'name': 'name',
         'project': 'project',
         'nodes': 'nodes',
-        'duration_seconds': 'duration_seconds'
+        'duration_seconds': 'duration_seconds',
+        'url': 'url'
     }
 
-    def __init__(self, cluster_id=None, name=None, project=None, nodes=None, duration_seconds=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cluster_id=None, name=None, project=None, nodes=None, duration_seconds=None, url=None, local_vars_configuration=None):  # noqa: E501
         """ConsumerResponse - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -59,6 +61,7 @@ class ConsumerResponse(object):
         self._project = None
         self._nodes = None
         self._duration_seconds = None
+        self._url = None
         self.discriminator = None
 
         self.cluster_id = cluster_id
@@ -68,6 +71,8 @@ class ConsumerResponse(object):
             self.project = project
         self.nodes = nodes
         self.duration_seconds = duration_seconds
+        if url is not None:
+            self.url = url
 
     @property
     def cluster_id(self):
@@ -179,6 +184,27 @@ class ConsumerResponse(object):
             raise ValueError("Invalid value for `duration_seconds`, must not be `None`")  # noqa: E501
 
         self._duration_seconds = duration_seconds
+
+    @property
+    def url(self):
+        """Gets the url of this ConsumerResponse.  # noqa: E501
+
+
+        :return: The url of this ConsumerResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._url
+
+    @url.setter
+    def url(self, url):
+        """Sets the url of this ConsumerResponse.
+
+
+        :param url: The url of this ConsumerResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._url = url
 
     def to_dict(self):
         """Returns the model properties as a dict"""

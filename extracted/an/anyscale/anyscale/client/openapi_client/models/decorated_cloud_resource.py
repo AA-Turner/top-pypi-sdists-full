@@ -46,6 +46,7 @@ class DecoratedCloudResource(object):
         'gcp_config': 'GCPConfig',
         'azure_config': 'AzureConfig',
         'kubernetes_config': 'KubernetesConfig',
+        'connector_config': 'ConnectorConfig',
         'created_at': 'datetime',
         'is_default': 'bool',
         'operator_status': 'OperatorStatus',
@@ -66,13 +67,14 @@ class DecoratedCloudResource(object):
         'gcp_config': 'gcp_config',
         'azure_config': 'azure_config',
         'kubernetes_config': 'kubernetes_config',
+        'connector_config': 'connector_config',
         'created_at': 'created_at',
         'is_default': 'is_default',
         'operator_status': 'operator_status',
         'operator_status_details': 'operator_status_details'
     }
 
-    def __init__(self, cloud_resource_id=None, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, azure_config=None, kubernetes_config=None, created_at=None, is_default=False, operator_status=None, operator_status_details=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cloud_resource_id=None, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, azure_config=None, kubernetes_config=None, connector_config=None, created_at=None, is_default=False, operator_status=None, operator_status_details=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedCloudResource - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -91,6 +93,7 @@ class DecoratedCloudResource(object):
         self._gcp_config = None
         self._azure_config = None
         self._kubernetes_config = None
+        self._connector_config = None
         self._created_at = None
         self._is_default = None
         self._operator_status = None
@@ -116,6 +119,7 @@ class DecoratedCloudResource(object):
         self.gcp_config = gcp_config
         self.azure_config = azure_config
         self.kubernetes_config = kubernetes_config
+        self.connector_config = connector_config
         if created_at is not None:
             self.created_at = created_at
         if is_default is not None:
@@ -423,6 +427,29 @@ class DecoratedCloudResource(object):
         """
 
         self._kubernetes_config = kubernetes_config
+
+    @property
+    def connector_config(self):
+        """Gets the connector_config of this DecoratedCloudResource.  # noqa: E501
+
+        Anyscale Connector configuration.  # noqa: E501
+
+        :return: The connector_config of this DecoratedCloudResource.  # noqa: E501
+        :rtype: ConnectorConfig
+        """
+        return self._connector_config
+
+    @connector_config.setter
+    def connector_config(self, connector_config):
+        """Sets the connector_config of this DecoratedCloudResource.
+
+        Anyscale Connector configuration.  # noqa: E501
+
+        :param connector_config: The connector_config of this DecoratedCloudResource.  # noqa: E501
+        :type: ConnectorConfig
+        """
+
+        self._connector_config = connector_config
 
     @property
     def created_at(self):

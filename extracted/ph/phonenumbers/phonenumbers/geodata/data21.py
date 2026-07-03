@@ -19,6 +19,14 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '861534373':{'en': 'Xinxiang, Henan', 'zh': u('\u6cb3\u5357\u7701\u65b0\u4e61\u5e02')},
+ '861534374':{'en': 'Xuchang, Henan', 'zh': u('\u6cb3\u5357\u7701\u8bb8\u660c\u5e02')},
+ '861534375':{'en': 'Pingdingshan, Henan', 'zh': u('\u6cb3\u5357\u7701\u5e73\u9876\u5c71\u5e02')},
+ '861534376':{'en': 'Xinyang, Henan', 'zh': u('\u6cb3\u5357\u7701\u4fe1\u9633\u5e02')},
+ '861534377':{'en': 'Nanyang, Henan', 'zh': u('\u6cb3\u5357\u7701\u5357\u9633\u5e02')},
+ '861534378':{'en': 'Kaifeng, Henan', 'zh': u('\u6cb3\u5357\u7701\u5f00\u5c01\u5e02')},
+ '861534379':{'en': 'Luoyang, Henan', 'zh': u('\u6cb3\u5357\u7701\u6d1b\u9633\u5e02')},
+ '861534380':{'en': 'Zhengzhou, Henan', 'zh': u('\u6cb3\u5357\u7701\u90d1\u5dde\u5e02')},
  '861534381':{'en': 'Zhengzhou, Henan', 'zh': u('\u6cb3\u5357\u7701\u90d1\u5dde\u5e02')},
  '861534382':{'en': 'Zhengzhou, Henan', 'zh': u('\u6cb3\u5357\u7701\u90d1\u5dde\u5e02')},
  '861534383':{'en': 'Zhengzhou, Henan', 'zh': u('\u6cb3\u5357\u7701\u90d1\u5dde\u5e02')},
@@ -10011,12 +10019,4 @@ data = {
  '861568169':{'en': 'Bazhong, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u5df4\u4e2d\u5e02')},
  '86156817':{'en': 'Yibin, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u5b9c\u5bbe\u5e02')},
  '861568180':{'en': 'Garze, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u7518\u5b5c\u85cf\u65cf\u81ea\u6cbb\u5dde')},
- '861568181':{'en': 'Garze, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u7518\u5b5c\u85cf\u65cf\u81ea\u6cbb\u5dde')},
- '861568182':{'en': 'GuangAn, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u5e7f\u5b89\u5e02')},
- '861568183':{'en': 'GuangAn, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u5e7f\u5b89\u5e02')},
- '861568184':{'en': 'Zigong, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u81ea\u8d21\u5e02')},
- '861568185':{'en': 'Zigong, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u81ea\u8d21\u5e02')},
- '861568186':{'en': 'Zigong, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u81ea\u8d21\u5e02')},
- '861568187':{'en': 'Dazhou, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u8fbe\u5dde\u5e02')},
- '861568188':{'en': 'Dazhou, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u8fbe\u5dde\u5e02')},
 }

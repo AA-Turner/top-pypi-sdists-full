@@ -40,7 +40,7 @@ def config_cli() -> None:
 @config_cli.command(
     name="apply",
     cls=AnyscaleCommand,
-    is_beta=True,
+    is_alpha=True,
     example=command_examples.SCHEDULER_CONFIG_APPLY_EXAMPLE,
 )
 @click.option(
@@ -75,7 +75,7 @@ def apply(config_file: str) -> None:
 @config_cli.command(
     name="get",
     cls=AnyscaleCommand,
-    is_beta=True,
+    is_alpha=True,
     example=command_examples.SCHEDULER_CONFIG_GET_EXAMPLE,
 )
 @click.option(
@@ -112,7 +112,7 @@ def get(version: Optional[int], output: str) -> None:
 @config_cli.command(
     name="list",
     cls=AnyscaleCommand,
-    is_beta=True,
+    is_alpha=True,
     example=command_examples.SCHEDULER_CONFIG_LIST_EXAMPLE,
 )
 @click.option(

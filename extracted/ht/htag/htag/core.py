@@ -56,7 +56,9 @@ class State:
         self.value = value
         return value
 
-    def get(self) -> Any:
+    def get(self, *args: Any, **kwargs: Any) -> Any:
+        if (args or kwargs) and hasattr(self.value, "get") and callable(self.value.get):
+            return self.value.get(*args, **kwargs)
         return self.value
 
     def notify(self) -> None:
@@ -266,7 +268,10 @@ class _StateProxy:
         self._state = state
         self._value = value
 
-    def get(self) -> Any:
+    def get(self, *args: Any, **kwargs: Any) -> Any:
+        if (args or kwargs) and hasattr(self._value, "get") and callable(self._value.get):
+            return self._value.get(*args, **kwargs)
+            
         if _ctx.current_eval is not None:
             self._state._observers.add(_ctx.current_eval)
         return self._value
@@ -575,7 +580,7 @@ class GTag:  # aka "Generic Tag"
     def _trigger_mount(self) -> None:
         import inspect
         res = self.on_mount()
-        if inspect.isgenerator(res) or inspect.isasyncgen(res):
+        if inspect.isgenerator(res) or inspect.isasyncgen(res) or inspect.iscoroutine(res):
             root = self.root
             if root is not None and type(root).__name__ != "GTag":
                 # Only root representing the application
@@ -593,7 +598,7 @@ class GTag:  # aka "Generic Tag"
     def _trigger_unmount(self) -> None:
         import inspect
         res = self.on_unmount()
-        if inspect.isgenerator(res) or inspect.isasyncgen(res):
+        if inspect.isgenerator(res) or inspect.isasyncgen(res) or inspect.iscoroutine(res):
             root = self.root
             if root is not None and type(root).__name__ != "GTag":
                 # Only root representing the application
@@ -639,6 +644,11 @@ class GTag:  # aka "Generic Tag"
 
     def __le__(self, other: Any) -> "GTag":
         return self.add(other)
+
+    def __lshift__(self, other: Any) -> Any:
+        raise TypeError(
+            "L'opérateur '<<' n'est pas supporté par htag. Utilisez '<=' ou '+=' pour ajouter un enfant."
+        )
 
     def __getitem__(self, name: str) -> Any:
         if isinstance(name, str):
@@ -800,14 +810,14 @@ class GTag:  # aka "Generic Tag"
         self.__js_calls.append(script)
         return self
 
-    def update(self) -> None:
+    def update(self, throttle: float | None = None) -> None:
         """
         Schedules a UI synchronization.
         Useful when modifying state from background tasks or outside regular event handlers.
         """
         root = self.root
         if root and hasattr(root, "update"):
-            root.update()
+            root.update(throttle=throttle)
 
     # --- Public API for server-side access (avoids name-mangled access) ---
 

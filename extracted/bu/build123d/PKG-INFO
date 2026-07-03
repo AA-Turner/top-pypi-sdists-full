@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: build123d
-Version: 0.11.0
+Version: 0.11.1
 Summary: A python CAD programming library
 Author-email: Roger Maitland <gumyr9@gmail.com>
 License: Apache-2.0
@@ -39,7 +39,7 @@ Provides-Extra: development
 Requires-Dist: black; extra == "development"
 Requires-Dist: mypy; extra == "development"
 Requires-Dist: pylint; extra == "development"
-Requires-Dist: pytest==8.4.2; extra == "development"
+Requires-Dist: pytest>=9.1.1; extra == "development"
 Requires-Dist: pytest-benchmark; extra == "development"
 Requires-Dist: pytest-cov; extra == "development"
 Requires-Dist: pytest-xdist; extra == "development"

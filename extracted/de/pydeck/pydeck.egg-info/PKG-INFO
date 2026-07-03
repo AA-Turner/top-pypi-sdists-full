@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydeck
-Version: 0.9.2
+Version: 0.9.3
 Summary: Widget for deck.gl maps
 Home-page: https://github.com/visgl/deck.gl/tree/master/bindings/pydeck
 Author: Andrew Duberstein

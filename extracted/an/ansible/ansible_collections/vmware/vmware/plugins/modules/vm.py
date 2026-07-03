@@ -145,9 +145,9 @@ options:
 
     delete_from_inventory:
         description:
-            - Whether to delete the VM from the datastore when removing it, or just remove the VM from the vSphere inventory.
-            - If this is set to true, the VM will be deleted from the datastore when it is removed.
-            - If this is set to false, the VM will remain on the datastore when it is removed.
+            - Whether to remove the VM from the vSphere inventory only, or to also delete the VM and its files from the datastore.
+            - If this is set to true, the VM will only be removed from the vSphere inventory. Files will remain on the datastore.
+            - If this is set to false, the VM will be deleted from both the inventory and datastore.
             - This parameter is only used when O(state) is set to C(absent).
         type: bool
         required: false
@@ -181,7 +181,7 @@ options:
         required: false
         default: 600
 
-    # resources
+    # begin compute resources
     cpu:
         description:
             - Options related to CPU resource allocation.
@@ -300,7 +300,9 @@ options:
                     - The maximum amount of memory the VM can use.
                 type: int
                 required: false
+    # end compute resources
 
+    # begin storage resources
     disks_remove_unmanaged:
         description:
             - Whether to remove disks that are not specified in the O(disks) parameter.
@@ -395,7 +397,9 @@ options:
                     - Only one of O(disks[].datastore) or O(disks[].filename) can be set.
                 type: str
                 required: false
+    # end storage resources
 
+    # begin devices
     cdroms_remove_unmanaged:
         description:
             - Whether to remove CD-ROMs that are not specified in the O(cdroms) parameter.
@@ -687,6 +691,20 @@ options:
                 type: int
                 required: true
 
+    enable_vtpm:
+        description:
+            - Whether to enable Virtual Trusted Platform Module (vTPM) for the VM.
+            - vTPM requires EFI boot firmware (O(vm_options.boot_firmware)).
+            - A TPM enabled key provider must already be configured in vCenter, and the host the VM
+              runs on must be TPM enabled.
+            - The VM must not have any existing snapshots before enabling vTPM.
+            - The VM must be powered off when adding or removing a vTPM device. See O(allow_power_cycling).
+
+        type: bool
+        required: false
+    # end devices
+
+    # begin vm options
     vm_options:
         description:
             - Advanced and miscellaneous options for the VM, including things like BIOS settings,
@@ -764,6 +782,7 @@ options:
                 type: str
                 required: false
                 choices: [ bios, efi ]
+    # end vm options
 
 extends_documentation_fragment:
     - vmware.vmware.base_options
@@ -821,6 +840,7 @@ EXAMPLES = r'''
         connected: true
         connect_at_power_on: true
         mac_address: 11:11:11:11:11:11
+    enable_vtpm: true
     vm_options:
       maximum_remote_console_sessions: 10
       enable_io_mmu: true
@@ -982,6 +1002,7 @@ from ansible_collections.vmware.vmware.plugins.module_utils.vm.parameter_handler
     _network_adapters,
     _cdroms,
     _nvdimms,
+    _vtpms,
 )
 from ansible_collections.vmware.vmware.plugins.module_utils.vm._configuration_builder import (
     ConfigurationRegistry,
@@ -1013,6 +1034,7 @@ class VmModule(ModulePyvmomiBase):
         self.configuration_registry.register_device_linked_handler(_network_adapters.NetworkAdapterParameterHandler)
         self.configuration_registry.register_device_linked_handler(_cdroms.CdromParameterHandler)
         self.configuration_registry.register_device_linked_handler(_nvdimms.NvdimmParameterHandler)
+        self.configuration_registry.register_device_linked_handler(_vtpms.VtpmParameterHandler)
 
         self.configuration_registry.register_controller_handler(_controllers.ScsiControllerParameterHandler)
         self.configuration_registry.register_controller_handler(_controllers.NvmeControllerParameterHandler)
@@ -1331,6 +1353,8 @@ def main():
                         size_mb=dict(type='int', required=True),
                     )
                 ),
+
+                enable_vtpm=dict(type='bool', required=False),
 
                 vm_options=dict(
                     type='dict', required=False, options=dict(

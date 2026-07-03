@@ -29,6 +29,12 @@ from dazzle.core.condition_eval import evaluate_condition
 from dazzle.core.ir import SurfaceMode
 from dazzle.core.ir.integrations import MappingTriggerType
 from dazzle.core.strings import to_api_plural
+from dazzle.http.runtime.htmx import HtmxDetails, is_peek_request
+from dazzle.http.runtime.usage_signal import (
+    USAGE_KIND_ACTION,
+    USAGE_KIND_FIELD,
+    read_usage_counts_for_request,
+)
 from dazzle.page import app_paths
 from dazzle.page.converters.nav_builder import (
     NavGroup,
@@ -37,10 +43,15 @@ from dazzle.page.converters.nav_builder import (
     build_all_persona_navs,
     build_anon_nav,
 )
+from dazzle.page.runtime.action_prominence_resolver import (
+    resolve_action_prominence_by_usage,
+)
+from dazzle.page.runtime.form_engagement_resolver import annotate_form_fields_by_usage
 from dazzle.rbac.matrix import generate_access_matrix
 from dazzle.render.access_evaluator import evaluate_permission
 from dazzle.render.access_messages import _forbidden_detail
 from dazzle.render.display_names import _inject_display_names
+from dazzle.render.fragment.form_field import field_context_to_dict
 
 logger = logging.getLogger(__name__)
 
@@ -1568,6 +1579,13 @@ def _build_dispatch_ctx(
                     "sortable": getattr(col, "sortable", False),
                     "filterable": getattr(col, "filterable", False),
                     "hidden": getattr(col, "hidden", False),
+                    # ADR-0049 Task 5: the canonical ListFilterBar needs the
+                    # per-column filter kind + ref wiring, or text/ref filters
+                    # degrade to empty selects. (filter_type "text"/"select"/
+                    # "ref"; ref_* drive dzFilterRefSelect.)
+                    "filter_type": getattr(col, "filter_type", "text") or "text",
+                    "filter_ref_entity": getattr(col, "filter_ref_entity", "") or "",
+                    "filter_ref_api": getattr(col, "filter_ref_api", "") or "",
                     # Issue #1029 phase 5: filter options for select-typed
                     # filterable columns. Each option is {"value", "label"}.
                     "filter_options": [
@@ -1576,9 +1594,19 @@ def _build_dispatch_ctx(
                     ],
                 }
             )
+        # #1494 (2c, Slice 2): the explicit `peek:` mode threads to the list
+        # adapter so `peek: slide_over` emits its shared right-side panel with the
+        # initial chrome. Only the explicit author value matters here (slide_over
+        # is never a default; `expand`/unset/`off` need no list-level container —
+        # the chevron's per-row resolution rides the `/api` row-hydrate path).
+        _peek = getattr(surface, "peek", None)
+        # PeekMode (a StrEnum) carries `.value`; a duck-typed raw string falls
+        # back to str(); unset → "off".
+        peek_mode = "off" if _peek is None else (getattr(_peek, "value", None) or str(_peek))
         return {
             "items": list(getattr(table, "rows", []) or []),
             "columns": columns_out,
+            "peek_mode": peek_mode,
             "endpoint": getattr(table, "api_endpoint", "") or "",
             "total": int(getattr(table, "total", 0) or 0),
             "page": int(getattr(table, "page", 1) or 1),
@@ -1621,59 +1649,26 @@ def _build_dispatch_ctx(
             "sort_dir": str(getattr(table, "sort_dir", "asc") or "asc"),
             # Issue #1029 phase 7: bulk-actions flag + per-row ids.
             "bulk_actions": bool(getattr(table, "bulk_actions", False)),
+            # ADR-0049 Task 5: fields the canonical substrate list reads that
+            # the legacy renderer read straight off TableContext. Without these
+            # the flip silently regresses inline-edit, live-refresh, infinite
+            # scroll, and search-first lists.
+            "inline_editable": list(getattr(table, "inline_editable", []) or []),
+            "refresh_interval": getattr(table, "refresh_interval", None),
+            "pagination_mode": str(getattr(table, "pagination_mode", "pages") or "pages"),
+            "search_first": bool(getattr(table, "search_first", False)),
         }
 
     form = getattr(render_ctx, "form", None)
     if form is not None:
-        fields_out: list[dict[str, Any]] = []
         initial_values = getattr(form, "initial_values", {}) or {}
-        for field in getattr(form, "fields", []) or []:
-            fname = getattr(field, "name", "")
-            kind = getattr(field, "type", None) or "str"
-            raw_value = initial_values.get(fname, "")
-            entry = {
-                "name": fname,
-                "label": getattr(field, "label", "") or fname,
-                "kind": str(kind).lower(),
-                "required": bool(getattr(field, "required", False)),
-                "value": raw_value or "",
-                "placeholder": getattr(field, "placeholder", "") or "",
-            }
-            options = getattr(field, "options", None)
-            if options:
-                # Each option dict has {"value": ..., "label": ...}
-                entry["options"] = [
-                    (str(o.get("value", "")), str(o.get("label", o.get("value", ""))))
-                    for o in options
-                ]
-            # Plan 14: thread ref_api into Fragment dispatch ctx so the
-            # adapter's REF branch can produce a RefPicker primitive.
-            ref_api = str(getattr(field, "ref_api", "") or "")
-            if ref_api:
-                entry["ref_api"] = ref_api
-            initial_label_value = str(getattr(field, "initial_label", "") or "")
-            if initial_label_value:
-                entry["initial_label"] = initial_label_value
-            # Issue #1027: ref-typed fields in EDIT mode receive an
-            # eagerly-expanded related-record dict from the loader,
-            # not the bare FK UUID. Coerce to the FK scalar and lift
-            # a sensible display value into `initial_label` so the
-            # dropdown reads something while the lazy fetch resolves.
-            if ref_api and isinstance(raw_value, dict):
-                entry["value"] = str(raw_value.get("id", "") or "")
-                if not entry.get("initial_label"):
-                    for label_key in (
-                        "__display__",
-                        "name",
-                        "title",
-                        "label",
-                        "email",
-                        "code",
-                    ):
-                        if raw_value.get(label_key):
-                            entry["initial_label"] = str(raw_value[label_key])
-                            break
-            fields_out.append(entry)
+        # ADR-0049 Phase 3b: the per-field FieldContext→dict mapping moved to
+        # the render layer (`render.fragment.form_field.field_context_to_dict`)
+        # so the page-layer experience form renderer can share it (page ↛ http).
+        fields_out: list[dict[str, Any]] = [
+            field_context_to_dict(field, initial_values)
+            for field in getattr(form, "fields", []) or []
+        ]
         is_edit = str(getattr(form, "mode", "create")).lower() == "edit"
         # Issue #1031: thread `form.sections` into the ctx alongside the
         # flat fields. The adapter prefers sections when populated;
@@ -1704,6 +1699,12 @@ def _build_dispatch_ctx(
             "action": getattr(form, "action_url", "") or "",
             "method": str(getattr(form, "method", "POST") or "POST").upper(),
             "submit_label": "Save" if is_edit else "Create",
+            # #1494 (2c, Slice 2): click-to-edit in the peek panel. `cancel_url`
+            # for an EDIT form is the detail view path (template_compiler), so the
+            # inline Cancel can re-fetch the read-only view back into the panel;
+            # `item_id` anchors the panel target (`#peek-content-{id}`).
+            "cancel_url": getattr(form, "cancel_url", "") or "",
+            "item_id": str((getattr(form, "initial_values", {}) or {}).get("id", "") or ""),
         }
         if sections_out:
             ctx_out["sections"] = sections_out
@@ -1725,13 +1726,27 @@ def _build_dispatch_ctx(
         detail_fields_out: list[dict[str, Any]] = []
         for f in getattr(detail, "fields", []) or []:
             field_name = getattr(f, "name", "") or getattr(f, "key", "")
+            kind = getattr(f, "type", "text") or "text"
             value = item.get(field_name, "") if isinstance(item, dict) else ""
+            # ADR-0049 Phase 2 (flip review): for ref fields prefer the resolved
+            # `{name}_display` / `{rel}_display` (else the raw UUID renders).
+            if kind == "ref" and isinstance(item, dict):
+                rel = field_name[:-3] if field_name.endswith("_id") else field_name
+                value = item.get(f"{rel}_display") or item.get(f"{field_name}_display") or value
+            extra = getattr(f, "extra", None) or {}
+            currency_code = (
+                str(extra.get("currency_code", "") or "") if isinstance(extra, dict) else ""
+            )
             detail_fields_out.append(
                 {
                     "key": field_name,
                     "label": getattr(f, "label", "") or field_name,
                     "value": "" if value is None else value,
-                    "kind": getattr(f, "type", "text") or "text",
+                    "kind": kind,
+                    # flip-review fix: thread the typed-render inputs the
+                    # substrate cell core needs (currency / badge tone).
+                    "currency_code": currency_code,
+                    "semantic_map": dict(getattr(f, "enum_semantics", {}) or {}),
                 }
             )
         # #1217 Phase 3e: when a section has subtype_panel and the row's
@@ -1775,20 +1790,48 @@ def _build_dispatch_ctx(
                         )
                         seen_keys.add(field_name)
         fields_out = detail_fields_out
-        # Plan 10: thread surface.related_groups (IR-level) into the ctx
+        # ADR-0049 Phase 2 Task 3a: thread the FETCHED related groups
+        # (`detail.related_groups` — RelatedGroupContext w/ tabs + rows), not
+        # the surface IR config. The substrate previously only got the config
+        # (name/title/display), so it could only render a Skeleton placeholder;
+        # the real related-record content needs the fetched tabs/columns/rows.
         related_groups_out: list[dict[str, Any]] = []
-        for rg in getattr(surface, "related_groups", []) or []:
-            display = getattr(rg, "display", None)
-            display_str: str
-            if display is not None and hasattr(display, "value"):
-                display_str = str(display.value)
-            else:
-                display_str = str(display or "table")
+        for rg in getattr(detail, "related_groups", []) or []:
+            tabs_out: list[dict[str, Any]] = []
+            for tab in getattr(rg, "tabs", []) or []:
+                if not bool(getattr(tab, "visible", True)):
+                    continue
+                cols_out = [
+                    {
+                        "key": getattr(c, "key", ""),
+                        "label": getattr(c, "label", "") or getattr(c, "key", ""),
+                        "type": getattr(c, "type", "text") or "text",
+                        "currency_code": getattr(c, "currency_code", "") or "",
+                    }
+                    for c in (getattr(tab, "columns", []) or [])
+                ]
+                tabs_out.append(
+                    {
+                        "tab_id": getattr(tab, "tab_id", "") or "",
+                        "label": getattr(tab, "label", "") or "",
+                        "entity_name": getattr(tab, "entity_name", "") or "",
+                        "columns": cols_out,
+                        "rows": list(getattr(tab, "rows", []) or []),
+                        "total": int(getattr(tab, "total", 0) or 0),
+                        "detail_url_template": getattr(tab, "detail_url_template", "") or "",
+                        "create_url": getattr(tab, "create_url", "") or "",
+                        "filter_field": getattr(tab, "filter_field", "") or "",
+                        "filter_type_field": getattr(tab, "filter_type_field", "") or "",
+                        "filter_type_value": getattr(tab, "filter_type_value", "") or "",
+                    }
+                )
             related_groups_out.append(
                 {
-                    "name": getattr(rg, "name", ""),
-                    "title": getattr(rg, "title", "") or getattr(rg, "name", ""),
-                    "display": display_str,
+                    "group_id": getattr(rg, "group_id", "") or "",
+                    "label": getattr(rg, "label", "") or "",
+                    "display": str(getattr(rg, "display", "table") or "table"),
+                    "is_auto": bool(getattr(rg, "is_auto", False)),
+                    "tabs": tabs_out,
                 }
             )
         # Issue #1030: thread action-bearing fields from DetailContext
@@ -1809,6 +1852,10 @@ def _build_dispatch_ctx(
             {
                 "label": getattr(a, "label", "") or "",
                 "api_url": getattr(a, "api_url", "") or "",
+                # ADR-0049 Phase 2: thread the names for the action anchor
+                # `data-dazzle-action="{entity}.integration.{name}.{mapping}"`.
+                "integration_name": getattr(a, "integration_name", "") or "",
+                "mapping_name": getattr(a, "mapping_name", "") or "",
             }
             for a in (getattr(detail, "integration_actions", []) or [])
         ]
@@ -1817,6 +1864,8 @@ def _build_dispatch_ctx(
                 "label": getattr(a, "label", "") or "",
                 "url": getattr(a, "url", "") or "",
                 "new_tab": bool(getattr(a, "new_tab", True)),
+                # ADR-0049 Phase 2: the action anchor needs the link name.
+                "name": getattr(a, "name", "") or "",
             }
             for a in (getattr(detail, "external_link_actions", []) or [])
         ]
@@ -1829,8 +1878,14 @@ def _build_dispatch_ctx(
             "back_url": getattr(detail, "back_url", "/") or "/",
             "entity_name": getattr(detail, "entity_name", "") or "",
             "transitions": transitions_out,
+            "status_field": getattr(detail, "status_field", "status") or "status",
             "integration_actions": integration_actions_out,
             "external_link_actions": external_links_out,
+            # ADR-0049 Phase 2 Task 3a: the parent record id for related-group
+            # create hrefs (`?{filter_field}={item_id}`).
+            "item_id": str(item.get("id", "") or "") if isinstance(item, dict) else "",
+            # Task 3b: opt-in audit-history region (#956).
+            "show_history": bool(getattr(detail, "show_history", False)),
             # #1297: hand VIEW-mode custom renderers the original
             # DetailContext so a per-entity detail viewer can *delegate*
             # to the generic detail rendering — the modern replacement
@@ -1838,13 +1893,40 @@ def _build_dispatch_ctx(
             # `{% else %}{% include "dz://…" %}` fall-through. A renderer
             # registered via `render: <name>` on a VIEW surface renders its
             # bespoke chrome, then optionally appends/wraps the standard
-            # view via `render_detail_view(ctx["detail_context"])`. Lazy by
-            # construction: the generic HTML is only produced if the
-            # renderer asks for it, so the override case costs nothing.
+            # view via `render_generic_detail(surface, ctx)` (substrate-backed,
+            # ADR-0049 Phase 2). Lazy by construction: the generic HTML is only
+            # produced if the renderer asks for it, so override costs nothing.
             "detail_context": detail,
         }
 
     return {}
+
+
+def _annotate_form_usage(
+    prc: _PageRequestContext, render_ctx: Any, surface: Any, ctx_dict: dict[str, Any]
+) -> None:
+    """ADR-0050 Phase 5b (#1517 1a): usage-annotate CREATE/EDIT field dicts.
+
+    Reads the entity's field-engagement signal and lets the page-layer
+    resolver autofocus the hottest plain field / upgrade heavily-used long
+    selects to the searchable combobox. Keyed by ENTITY name — the
+    dz-usage.js beacon records `data-dazzle-form` (the entity), so reads
+    match writes. Best-effort: no usage / no entity → dicts untouched →
+    byte-identical form (cold-start parity). Section dicts alias the flat
+    entries, so sectioned forms are covered by the same pass.
+    """
+    # Forms only: the detail ctx also carries "fields", and annotating those
+    # dicts (widget upgrades) would leak into read-only rendering.
+    if getattr(render_ctx, "form", None) is None or not ctx_dict.get("fields"):
+        return
+    form_entity = (getattr(surface, "entity_ref", "") or "").strip()
+    if not form_entity:
+        return
+    field_usage = read_usage_counts_for_request(
+        prc.request, surface=form_entity, kind=USAGE_KIND_FIELD
+    )
+    if field_usage:
+        annotate_form_fields_by_usage(ctx_dict["fields"], field_usage)
 
 
 def _maybe_dispatch_inner_html(prc: _PageRequestContext, render_ctx: Any) -> str | None:
@@ -1862,7 +1944,19 @@ def _maybe_dispatch_inner_html(prc: _PageRequestContext, render_ctx: Any) -> str
         return None
     appspec = prc.deps.appspec
     surface = appspec.get_surface(surface_name) if appspec is not None else None
-    if surface is None or surface.render is None:
+    if surface is None:
+        return None
+    # ADR-0049: list (Phase 1), view (Phase 2) and create/edit (Phase 3)
+    # surfaces all dispatch to the typed substrate even when `render is None`
+    # (the fleet default) — the substrate is the universal render path for
+    # every standard surface mode now. CUSTOM is dispatched by the branch
+    # below only when `render` is set (the project renderer is explicit).
+    if surface.render is None and surface.mode not in (
+        SurfaceMode.LIST,
+        SurfaceMode.VIEW,
+        SurfaceMode.CREATE,
+        SurfaceMode.EDIT,
+    ):
         return None
 
     # Services live on the FastAPI app state. Fall back to legacy path
@@ -1938,6 +2032,11 @@ def _maybe_dispatch_inner_html(prc: _PageRequestContext, render_ctx: Any) -> str
         return None
 
     ctx_dict = _build_dispatch_ctx(render_ctx, surface, services=services)
+    _annotate_form_usage(prc, render_ctx, surface, ctx_dict)
+    # ADR-0049 Phase 2: a peek fetch (`?peek=1`) wants the detail body
+    # content-only (no Surface header / Back) — it loads into an inline list-row
+    # panel. `_build_view` reads this flag.
+    ctx_dict["peek"] = is_peek_request(prc.request)
     try:
         return _compose(dispatch_render(surface, ctx=ctx_dict, services=services))
     except FragmentError as e:
@@ -1952,7 +2051,7 @@ def _maybe_dispatch_inner_html(prc: _PageRequestContext, render_ctx: Any) -> str
 
 def _render_response(prc: _PageRequestContext) -> Response:
     """Build the final HTML response, handling HTMX fragment/drawer/full modes."""
-    from dazzle.http.runtime.htmx import HtmxDetails
+    from dazzle.http.runtime.htmx import HtmxDetails, is_peek_request
     from dazzle.page.runtime.template_renderer import render_page
 
     htmx = HtmxDetails.from_request(prc.request)
@@ -1989,6 +2088,14 @@ def _render_response(prc: _PageRequestContext) -> Response:
     # every surface without ``render:`` set (the overwhelming majority),
     # which preserves the legacy direct-template path unchanged.
     inner_html = _maybe_dispatch_inner_html(prc, render_ctx)
+
+    # #1494 (2c): row-peek fetch (`?peek=1`) — the list-row chevron loads this
+    # entity's detail *body* into an inline panel. Return content-only (no app
+    # chrome) and, unlike the generic htmx-partial path below, fire NO
+    # dz:titleUpdate trigger — expanding a row must not retitle the page.
+    if is_peek_request(prc.request):
+        html = render_page(render_ctx, content_only=True, inner_html=inner_html)
+        return HTMLResponse(content=html)  # nosemgrep
 
     # Fragment targeting: nav links target #main-content directly,
     # so return only the content template (no layout wrapper).
@@ -2297,6 +2404,16 @@ def _resolve_workspace_authored_actions(
     return resolved
 
 
+def _read_workspace_action_usage(request: Any, surface_name: str) -> dict[str, int]:
+    """Best-effort per-render read of heading-action usage counts (ADR-0050 3a).
+
+    Thin wrapper over the shared ``read_usage_counts_for_request`` — returns
+    ``{route: click_count}`` for the resolved tenant over the trailing 90 days, or
+    ``{}`` on any failure / no DB (→ ``resolve_action_prominence_by_usage`` falls back
+    byte-identically to the declared order)."""
+    return read_usage_counts_for_request(request, surface=surface_name, kind=USAGE_KIND_ACTION)
+
+
 async def _workspace_handler(
     deps: _PageRouterConfig,
     ws_context: Any,
@@ -2375,8 +2492,6 @@ async def _workspace_handler(
                 detail="You don't have permission to access this workspace.",
             )
 
-    from dazzle.http.runtime.htmx import HtmxDetails
-
     htmx = HtmxDetails.from_request(request)
 
     effective_route = ws_route
@@ -2427,6 +2542,18 @@ async def _workspace_handler(
     # at registration time (already validated at lint time).
     primary_actions.extend(authored_actions)
 
+    # 3a (#1491 → L4, ADR-0050): demote the action tail to a `More ⋯` overflow menu
+    # so an action-heavy heading keeps a clear primary row. Ordering is now
+    # usage-weighted: above a min-sample floor the heading's own click history
+    # (captured in Phase 3) promotes frequently-used actions and demotes rare ones;
+    # below the floor / no usage / no DB it is byte-identical to the declared-order
+    # split. Read is best-effort (a failure → declared order). A ≤3-action heading
+    # is unchanged (empty overflow) regardless.
+    _action_usage = _read_workspace_action_usage(request, render_ws_ctx.name)
+    primary_actions, overflow_actions = resolve_action_prominence_by_usage(
+        primary_actions, _action_usage, route_of=lambda a: a["route"]
+    )
+
     # Phase 4 app-shell migration (v0.67.44): the workspace page
     # renders unconditionally through the typed-Fragment substrate.
     # The `fragment_chrome` flag is no longer consulted; the typed
@@ -2456,6 +2583,7 @@ async def _workspace_handler(
         catalog=catalog,
         fold_count=fold_count,
         primary_actions=primary_actions,
+        overflow_actions=overflow_actions,
         can_edit_layout=is_superuser,
     )
 

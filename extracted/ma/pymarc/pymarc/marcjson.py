@@ -6,7 +6,10 @@
 
 """From JSON to MARC21."""
 
-from pymarc import Field, Indicators, JSONReader, Leader, Record
+from pymarc.field import Field, Indicators
+from pymarc.leader import Leader
+from pymarc.reader import JSONReader
+from pymarc.record import Record
 
 
 class JSONHandler:
@@ -24,10 +27,10 @@ class JSONHandler:
         if not name:
             self._record = Record()
             self.element(element_dict, "leader")
-        elif name == "leader":
+        elif name == "leader" and self._record:
             self._record.leader = Leader(element_dict[name])
             self.element(element_dict, "fields")
-        elif name == "fields":
+        elif name == "fields" and self._record:
             fields = iter(element_dict[name])
             for field in fields:
                 tag, remaining = field.popitem()
@@ -41,7 +44,7 @@ class JSONHandler:
                     )
                 self._record.add_field(self._field)
             self.process_record(self._record)
-        elif name == "subfields":
+        elif name == "subfields" and self._field:
             subfields = iter(element_dict[name])
             for subfield in subfields:
                 code, text = subfield.popitem()

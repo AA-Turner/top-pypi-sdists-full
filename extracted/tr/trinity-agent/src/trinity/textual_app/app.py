@@ -385,28 +385,43 @@ class TrinityTextualApp(App[None]):
         color: $accent;
     }
 
-    #start-composer {
+    .prompt-composer {
         width: 100%;
-        height: 8;
         border: round $accent;
         padding: 0 1;
     }
 
-    #start-composer.-commands-open {
+    #start-composer {
+        height: 8;
+    }
+
+    #nexus-composer {
+        height: 7;
+    }
+
+    #start-composer.-commands-open,
+    #nexus-composer.-commands-open {
         height: 11;
     }
 
-    .ui-density-compact #start-composer {
+    #nexus-composer.-commands-open {
+        dock: bottom;
+    }
+
+    .ui-density-compact #start-composer,
+    .ui-density-compact #nexus-composer {
         height: 6;
     }
 
-    .ui-density-compact #start-composer.-commands-open {
+    .ui-density-compact #start-composer.-commands-open,
+    .ui-density-compact #nexus-composer.-commands-open {
         height: 9;
     }
 
     .agent-recipient-selector {
         width: 100%;
-        height: auto;
+        height: 1;
+        min-height: 1;
         margin-top: 0;
         align-vertical: middle;
     }
@@ -456,7 +471,7 @@ class TrinityTextualApp(App[None]):
         height: 2;
     }
 
-    #start-select-workspace {
+    .workspace-select-surface {
         width: 28;
         min-width: 28;
         height: 3;
@@ -465,11 +480,37 @@ class TrinityTextualApp(App[None]):
         text-style: bold;
         color: $text;
         background: $surface;
+        outline-top: solid $surface-lighten-1;
+        outline-bottom: solid $surface-darken-1;
+        outline-left: solid $surface-lighten-1;
+        outline-right: solid $surface-darken-1;
         pointer: pointer;
     }
 
-    .ui-density-compact #start-select-workspace {
+    .workspace-select-surface:focus {
+        color: $accent;
+        outline-top: solid $accent;
+        outline-bottom: solid $accent;
+        outline-left: solid $accent;
+        outline-right: solid $accent;
+    }
+
+    .workspace-select-surface-tall {
+        height: 3;
+        outline-top: tall $surface-lighten-1;
+        outline-bottom: tall $surface-darken-1;
+    }
+
+    .ui-density-compact .workspace-select-surface-tall {
         height: 2;
+        outline-top: none;
+        outline-bottom: none;
+    }
+
+    .ui-density-compact .workspace-select-surface {
+        height: 2;
+        outline-top: none;
+        outline-bottom: none;
     }
 
     #prompt-textarea {
@@ -507,6 +548,10 @@ class TrinityTextualApp(App[None]):
         height: 4;
     }
 
+    #provider-strip.provider-strip-compact {
+        height: 4;
+    }
+
     .provider-strip-1 {
         grid-size: 1 1;
     }
@@ -526,6 +571,10 @@ class TrinityTextualApp(App[None]):
     }
 
     .ui-density-compact .provider-panel {
+        height: 4;
+    }
+
+    #provider-strip.provider-strip-compact .provider-panel {
         height: 4;
     }
 
@@ -566,6 +615,21 @@ class TrinityTextualApp(App[None]):
     }
 
     .provider-disabled {
+        color: $text-muted;
+        border: none;
+        height: 1;
+    }
+
+    #provider-strip.provider-strip-compact .provider-disabled {
+        height: 1;
+    }
+
+    .provider-disabled .provider-meta,
+    .provider-disabled .provider-summary {
+        display: none;
+    }
+
+    .provider-disabled .provider-status {
         color: $text-muted;
     }
 
@@ -632,9 +696,17 @@ class TrinityTextualApp(App[None]):
         border: heavy $warning;
     }
 
+    #central-agent.central-provider-error {
+        border: heavy $error;
+    }
+
+    #central-agent.central-provider-error #central-action-title {
+        color: $error;
+    }
+
     #nexus-main {
         height: 1fr;
-        margin: 1 0;
+        margin: 0;
     }
 
     .ui-density-compact #nexus-main {
@@ -799,8 +871,14 @@ class TrinityTextualApp(App[None]):
         margin-bottom: 1;
     }
 
+    #central-agent.central-provider-error #central-actions {
+        grid-size: 3;
+    }
+
     #central-actions Button {
         width: 100%;
+        height: 1;
+        min-height: 1;
     }
 
     #nexus-question-panel {
@@ -818,8 +896,8 @@ class TrinityTextualApp(App[None]):
     }
 
     #nexus-question-panel.question-panel-empty {
-        height: 3;
-        border: round $primary;
+        height: 1;
+        border: none;
     }
 
     #question-panel-title {
@@ -827,6 +905,11 @@ class TrinityTextualApp(App[None]):
         color: $warning;
         height: 1;
         margin-bottom: 1;
+    }
+
+    #nexus-question-panel.question-panel-empty #question-panel-title {
+        color: $text-muted;
+        margin-bottom: 0;
     }
 
     #question-panel-body {
@@ -881,29 +964,30 @@ class TrinityTextualApp(App[None]):
 
     #nexus-workspace-row {
         width: 100%;
-        height: 2;
+        height: 3;
         align-vertical: middle;
     }
 
     #nexus-target-workspace {
         width: 1fr;
         min-width: 0;
-        height: 2;
+        height: 3;
         margin-right: 1;
         content-align: left middle;
         color: $text-muted;
     }
 
-    #nexus-select-workspace {
-        width: 28;
-        min-width: 28;
+    .ui-density-compact #nexus-workspace-row,
+    .ui-density-compact #nexus-target-workspace {
         height: 2;
-        content-align: center middle;
-        text-align: center;
+    }
+
+    #nexus-next-action {
+        width: 100%;
+        height: 1;
+        content-align: left middle;
+        color: $text-muted;
         text-style: bold;
-        color: $text;
-        background: $surface;
-        pointer: pointer;
     }
 
     ProviderInspector {
@@ -934,6 +1018,11 @@ class TrinityTextualApp(App[None]):
         width: 100%;
         height: 1fr;
         padding: 1 2;
+    }
+
+    #settings-form {
+        width: 100%;
+        height: 1fr;
     }
 
     #settings-title {
@@ -989,6 +1078,28 @@ class TrinityTextualApp(App[None]):
         max-height: 10;
         margin-top: 0;
         padding: 0 1;
+    }
+
+    #settings-actions {
+        width: 100%;
+        max-width: 96;
+        height: 3;
+        margin-top: 1;
+        align-vertical: middle;
+    }
+
+    #apply-settings {
+        min-width: 16;
+        height: 3;
+        margin-right: 1;
+    }
+
+    #settings-status {
+        width: 1fr;
+        min-width: 0;
+        height: 3;
+        content-align: left middle;
+        color: $text-muted;
     }
 
     WorkspacePicker {
@@ -1055,7 +1166,9 @@ class TrinityTextualApp(App[None]):
     }
 
     #workspace-picker-status {
-        height: 1;
+        height: auto;
+        max-height: 3;
+        overflow-y: auto;
         margin-top: 1;
     }
 
@@ -1147,7 +1260,7 @@ class TrinityTextualApp(App[None]):
     }
 
     .execution-package-assignee {
-        width: 20;
+        width: 18;
         color: $text-muted;
     }
 
@@ -1161,26 +1274,38 @@ class TrinityTextualApp(App[None]):
     }
 
     .execution-package-review {
-        width: 22;
-        color: $text-muted;
-    }
-
-    .execution-package-risk {
         width: 18;
         color: $text-muted;
     }
 
-    .execution-package-actions {
+    .execution-package-risk {
         width: 16;
+        color: $text-muted;
+    }
+
+    .execution-package-actions {
+        width: 20;
         height: 1;
     }
 
+    .execution-package-actions Button {
+        height: 1;
+        min-height: 1;
+    }
+
     .execution-package-spec {
-        width: 8;
+        width: 6;
+        min-width: 6;
     }
 
     .execution-package-retry {
         width: 8;
+        min-width: 8;
+    }
+
+    .execution-package-review-action {
+        width: 6;
+        min-width: 6;
     }
 
     .execution-package-empty {
@@ -1353,18 +1478,6 @@ class TrinityTextualApp(App[None]):
 
     .ui-density-compact #report-body {
         padding: 0 1;
-    }
-
-    #nexus-composer {
-        width: 100%;
-        height: 7;
-        border: round $accent;
-        padding: 0 1;
-    }
-
-    #nexus-composer.-commands-open {
-        dock: bottom;
-        height: 11;
     }
 
     #prompt-command-palette {

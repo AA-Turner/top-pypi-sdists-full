@@ -859,6 +859,8 @@ __all__ = [
     'EnvironmentsDefaultWorkspaceBaseEnvironmentProviderConfigArgsDict',
     'EnvironmentsWorkspaceBaseEnvironmentProviderConfigArgs',
     'EnvironmentsWorkspaceBaseEnvironmentProviderConfigArgsDict',
+    'EnvironmentsWorkspaceBaseEnvironmentSpecArgs',
+    'EnvironmentsWorkspaceBaseEnvironmentSpecArgsDict',
     'ExternalLocationEffectiveFileEventQueueArgs',
     'ExternalLocationEffectiveFileEventQueueArgsDict',
     'ExternalLocationEffectiveFileEventQueueManagedAqsArgs',
@@ -1261,6 +1263,12 @@ __all__ = [
     'JobSparkSubmitTaskArgsDict',
     'JobTaskArgs',
     'JobTaskArgsDict',
+    'JobTaskAiRuntimeTaskArgs',
+    'JobTaskAiRuntimeTaskArgsDict',
+    'JobTaskAiRuntimeTaskDeploymentArgs',
+    'JobTaskAiRuntimeTaskDeploymentArgsDict',
+    'JobTaskAiRuntimeTaskDeploymentComputeArgs',
+    'JobTaskAiRuntimeTaskDeploymentComputeArgsDict',
     'JobTaskAlertTaskArgs',
     'JobTaskAlertTaskArgsDict',
     'JobTaskAlertTaskSubscriberArgs',
@@ -1291,6 +1299,12 @@ __all__ = [
     'JobTaskForEachTaskArgsDict',
     'JobTaskForEachTaskTaskArgs',
     'JobTaskForEachTaskTaskArgsDict',
+    'JobTaskForEachTaskTaskAiRuntimeTaskArgs',
+    'JobTaskForEachTaskTaskAiRuntimeTaskArgsDict',
+    'JobTaskForEachTaskTaskAiRuntimeTaskDeploymentArgs',
+    'JobTaskForEachTaskTaskAiRuntimeTaskDeploymentArgsDict',
+    'JobTaskForEachTaskTaskAiRuntimeTaskDeploymentComputeArgs',
+    'JobTaskForEachTaskTaskAiRuntimeTaskDeploymentComputeArgsDict',
     'JobTaskForEachTaskTaskAlertTaskArgs',
     'JobTaskForEachTaskTaskAlertTaskArgsDict',
     'JobTaskForEachTaskTaskAlertTaskSubscriberArgs',
@@ -1783,6 +1797,10 @@ __all__ = [
     'ModelServingRateLimitArgsDict',
     'ModelServingTagArgs',
     'ModelServingTagArgsDict',
+    'ModelServingTelemetryConfigArgs',
+    'ModelServingTelemetryConfigArgsDict',
+    'ModelServingTelemetryConfigInferenceTableConfigArgs',
+    'ModelServingTelemetryConfigInferenceTableConfigArgsDict',
     'MountAbfsArgs',
     'MountAbfsArgsDict',
     'MountAdlArgs',
@@ -2127,6 +2145,12 @@ __all__ = [
     'PostgresCatalogSpecArgsDict',
     'PostgresCatalogStatusArgs',
     'PostgresCatalogStatusArgsDict',
+    'PostgresDataApiProviderConfigArgs',
+    'PostgresDataApiProviderConfigArgsDict',
+    'PostgresDataApiSpecArgs',
+    'PostgresDataApiSpecArgsDict',
+    'PostgresDataApiStatusArgs',
+    'PostgresDataApiStatusArgsDict',
     'PostgresDatabaseProviderConfigArgs',
     'PostgresDatabaseProviderConfigArgsDict',
     'PostgresDatabaseSpecArgs',
@@ -2149,6 +2173,8 @@ __all__ = [
     'PostgresEndpointStatusHostsArgsDict',
     'PostgresEndpointStatusSettingsArgs',
     'PostgresEndpointStatusSettingsArgsDict',
+    'PostgresProjectInitialBranchSpecArgs',
+    'PostgresProjectInitialBranchSpecArgsDict',
     'PostgresProjectInitialEndpointSpecArgs',
     'PostgresProjectInitialEndpointSpecArgsDict',
     'PostgresProjectInitialEndpointSpecGroupArgs',
@@ -3351,6 +3377,8 @@ __all__ = [
     'GetPostgresBranchesProviderConfigArgsDict',
     'GetPostgresCatalogProviderConfigArgs',
     'GetPostgresCatalogProviderConfigArgsDict',
+    'GetPostgresDataApiProviderConfigArgs',
+    'GetPostgresDataApiProviderConfigArgsDict',
     'GetPostgresDatabaseProviderConfigArgs',
     'GetPostgresDatabaseProviderConfigArgsDict',
     'GetPostgresDatabasesProviderConfigArgs',
@@ -3475,6 +3503,10 @@ __all__ = [
     'GetServingEndpointsEndpointStateArgsDict',
     'GetServingEndpointsEndpointTagArgs',
     'GetServingEndpointsEndpointTagArgsDict',
+    'GetServingEndpointsEndpointTelemetryConfigArgs',
+    'GetServingEndpointsEndpointTelemetryConfigArgsDict',
+    'GetServingEndpointsEndpointTelemetryConfigInferenceTableConfigArgs',
+    'GetServingEndpointsEndpointTelemetryConfigInferenceTableConfigArgsDict',
     'GetServingEndpointsProviderConfigArgs',
     'GetServingEndpointsProviderConfigArgsDict',
     'GetShareObjectArgs',
@@ -18733,6 +18765,7 @@ class ClusterAzureAttributesArgsDict(TypedDict):
     """
     Availability type used for all subsequent nodes past the `first_on_demand` ones. Valid values are `SPOT_AZURE`, `SPOT_WITH_FALLBACK_AZURE`, and `ON_DEMAND_AZURE`. Note: If `first_on_demand` is zero, this availability type will be used for the entire cluster.
     """
+    capacity_reservation_group: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     first_on_demand: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     """
     The first `first_on_demand` nodes of the cluster will be placed on on-demand instances. If this value is greater than 0, the cluster driver node will be placed on an on-demand instance. If this value is greater than or equal to the current cluster size, all nodes will be placed on on-demand instances. If this value is less than the current cluster size, `first_on_demand` nodes will be placed on on-demand instances, and the remainder will be placed on availability instances. This value does not affect cluster size and cannot be mutated over the lifetime of a cluster.
@@ -18747,6 +18780,7 @@ class ClusterAzureAttributesArgsDict(TypedDict):
 class ClusterAzureAttributesArgs:
     def __init__(__self__, *,
                  availability: pulumi.Input[Optional[_builtins.str]] = None,
+                 capacity_reservation_group: pulumi.Input[Optional[_builtins.str]] = None,
                  first_on_demand: pulumi.Input[Optional[_builtins.int]] = None,
                  log_analytics_info: pulumi.Input[Optional['ClusterAzureAttributesLogAnalyticsInfoArgs']] = None,
                  spot_bid_max_price: pulumi.Input[Optional[_builtins.float]] = None):
@@ -18757,6 +18791,8 @@ class ClusterAzureAttributesArgs:
         """
         if availability is not None:
             pulumi.set(__self__, "availability", availability)
+        if capacity_reservation_group is not None:
+            pulumi.set(__self__, "capacity_reservation_group", capacity_reservation_group)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if log_analytics_info is not None:
@@ -18775,6 +18811,15 @@ class ClusterAzureAttributesArgs:
     @availability.setter
     def availability(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "availability", value)
+
+    @_builtins.property
+    @pulumi.getter(name="capacityReservationGroup")
+    def capacity_reservation_group(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "capacity_reservation_group")
+
+    @capacity_reservation_group.setter
+    def capacity_reservation_group(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "capacity_reservation_group", value)
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -21364,16 +21409,25 @@ class DataClassificationCatalogConfigAutoTagConfigArgs:
 
 class DataClassificationCatalogConfigIncludedSchemasArgsDict(TypedDict):
     names: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
+    """
+    Schema names, each relative to the parent catalog. Must not be empty
+    """
 
 @pulumi.input_type
 class DataClassificationCatalogConfigIncludedSchemasArgs:
     def __init__(__self__, *,
                  names: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] names: Schema names, each relative to the parent catalog. Must not be empty
+        """
         pulumi.set(__self__, "names", names)
 
     @_builtins.property
     @pulumi.getter
     def names(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
+        """
+        Schema names, each relative to the parent catalog. Must not be empty
+        """
         return pulumi.get(self, "names")
 
     @names.setter
@@ -24519,14 +24573,15 @@ class DisasterRecoveryFailoverGroupWorkspaceSetArgsDict(TypedDict):
     (string) - Fully qualified resource name in the format
     accounts/{account_id}/failover-groups/{failover_group_id}
     """
-    replicate_workspace_assets: pulumi.Input[_builtins.bool]
-    """
-    Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set
-    """
     workspace_ids: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
     """
     Workspace IDs in this set. The system derives and validates regions.
     All workspaces must be in the Mission Critical tier
+    """
+    replicate_workspace_assets: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set.
+    Defaults to false
     """
     stable_url_names: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -24539,22 +24594,24 @@ class DisasterRecoveryFailoverGroupWorkspaceSetArgsDict(TypedDict):
 class DisasterRecoveryFailoverGroupWorkspaceSetArgs:
     def __init__(__self__, *,
                  name: pulumi.Input[_builtins.str],
-                 replicate_workspace_assets: pulumi.Input[_builtins.bool],
                  workspace_ids: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]],
+                 replicate_workspace_assets: pulumi.Input[Optional[_builtins.bool]] = None,
                  stable_url_names: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         :param pulumi.Input[_builtins.str] name: (string) - Fully qualified resource name in the format
                accounts/{account_id}/failover-groups/{failover_group_id}
-        :param pulumi.Input[_builtins.bool] replicate_workspace_assets: Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] workspace_ids: Workspace IDs in this set. The system derives and validates regions.
                All workspaces must be in the Mission Critical tier
+        :param pulumi.Input[_builtins.bool] replicate_workspace_assets: Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set.
+               Defaults to false
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] stable_url_names: Resource names of stable URLs associated with this workspace set.
                Format: accounts/{account_id}/stable-urls/{stable_url_id}.
                The referenced stable URLs must already exist (via CreateStableUrl)
         """
         pulumi.set(__self__, "name", name)
-        pulumi.set(__self__, "replicate_workspace_assets", replicate_workspace_assets)
         pulumi.set(__self__, "workspace_ids", workspace_ids)
+        if replicate_workspace_assets is not None:
+            pulumi.set(__self__, "replicate_workspace_assets", replicate_workspace_assets)
         if stable_url_names is not None:
             pulumi.set(__self__, "stable_url_names", stable_url_names)
 
@@ -24572,18 +24629,6 @@ class DisasterRecoveryFailoverGroupWorkspaceSetArgs:
         pulumi.set(self, "name", value)
 
     @_builtins.property
-    @pulumi.getter(name="replicateWorkspaceAssets")
-    def replicate_workspace_assets(self) -> pulumi.Input[_builtins.bool]:
-        """
-        Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set
-        """
-        return pulumi.get(self, "replicate_workspace_assets")
-
-    @replicate_workspace_assets.setter
-    def replicate_workspace_assets(self, value: pulumi.Input[_builtins.bool]):
-        pulumi.set(self, "replicate_workspace_assets", value)
-
-    @_builtins.property
     @pulumi.getter(name="workspaceIds")
     def workspace_ids(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
         """
@@ -24595,6 +24640,19 @@ class DisasterRecoveryFailoverGroupWorkspaceSetArgs:
     @workspace_ids.setter
     def workspace_ids(self, value: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
         pulumi.set(self, "workspace_ids", value)
+
+    @_builtins.property
+    @pulumi.getter(name="replicateWorkspaceAssets")
+    def replicate_workspace_assets(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set.
+        Defaults to false
+        """
+        return pulumi.get(self, "replicate_workspace_assets")
+
+    @replicate_workspace_assets.setter
+    def replicate_workspace_assets(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "replicate_workspace_assets", value)
 
     @_builtins.property
     @pulumi.getter(name="stableUrlNames")
@@ -24854,6 +24912,67 @@ class EnvironmentsWorkspaceBaseEnvironmentProviderConfigArgs:
     @workspace_id.setter
     def workspace_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "workspace_id", value)
+
+
+class EnvironmentsWorkspaceBaseEnvironmentSpecArgsDict(TypedDict):
+    dependencies: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    """
+    List of pip dependencies, as supported by the version of pip in this environment.
+    Each dependency is a valid pip requirements file line per https://pip.pypa.io/en/stable/reference/requirements-file-format/.
+    Allowed dependencies include a requirement specifier, an archive URL, a local project path (such as WSFS or UC Volumes in Databricks), or a VCS project URL
+    """
+    environment_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Environment version used by the environment.
+    Each version comes with a specific Python version and a set of Python packages.
+    The version is a string, consisting of an integer
+    """
+
+@pulumi.input_type
+class EnvironmentsWorkspaceBaseEnvironmentSpecArgs:
+    def __init__(__self__, *,
+                 dependencies: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 environment_version: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] dependencies: List of pip dependencies, as supported by the version of pip in this environment.
+               Each dependency is a valid pip requirements file line per https://pip.pypa.io/en/stable/reference/requirements-file-format/.
+               Allowed dependencies include a requirement specifier, an archive URL, a local project path (such as WSFS or UC Volumes in Databricks), or a VCS project URL
+        :param pulumi.Input[_builtins.str] environment_version: Environment version used by the environment.
+               Each version comes with a specific Python version and a set of Python packages.
+               The version is a string, consisting of an integer
+        """
+        if dependencies is not None:
+            pulumi.set(__self__, "dependencies", dependencies)
+        if environment_version is not None:
+            pulumi.set(__self__, "environment_version", environment_version)
+
+    @_builtins.property
+    @pulumi.getter
+    def dependencies(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        List of pip dependencies, as supported by the version of pip in this environment.
+        Each dependency is a valid pip requirements file line per https://pip.pypa.io/en/stable/reference/requirements-file-format/.
+        Allowed dependencies include a requirement specifier, an archive URL, a local project path (such as WSFS or UC Volumes in Databricks), or a VCS project URL
+        """
+        return pulumi.get(self, "dependencies")
+
+    @dependencies.setter
+    def dependencies(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "dependencies", value)
+
+    @_builtins.property
+    @pulumi.getter(name="environmentVersion")
+    def environment_version(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Environment version used by the environment.
+        Each version comes with a specific Python version and a set of Python packages.
+        The version is a string, consisting of an integer
+        """
+        return pulumi.get(self, "environment_version")
+
+    @environment_version.setter
+    def environment_version(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "environment_version", value)
 
 
 class ExternalLocationEffectiveFileEventQueueArgsDict(TypedDict):
@@ -31543,6 +31662,7 @@ class JobJobClusterNewClusterAwsAttributesArgs:
 
 class JobJobClusterNewClusterAzureAttributesArgsDict(TypedDict):
     availability: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    capacity_reservation_group: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     first_on_demand: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     log_analytics_info: NotRequired[pulumi.Input[Optional['JobJobClusterNewClusterAzureAttributesLogAnalyticsInfoArgsDict']]]
     spot_bid_max_price: NotRequired[pulumi.Input[Optional[_builtins.float]]]
@@ -31551,11 +31671,14 @@ class JobJobClusterNewClusterAzureAttributesArgsDict(TypedDict):
 class JobJobClusterNewClusterAzureAttributesArgs:
     def __init__(__self__, *,
                  availability: pulumi.Input[Optional[_builtins.str]] = None,
+                 capacity_reservation_group: pulumi.Input[Optional[_builtins.str]] = None,
                  first_on_demand: pulumi.Input[Optional[_builtins.int]] = None,
                  log_analytics_info: pulumi.Input[Optional['JobJobClusterNewClusterAzureAttributesLogAnalyticsInfoArgs']] = None,
                  spot_bid_max_price: pulumi.Input[Optional[_builtins.float]] = None):
         if availability is not None:
             pulumi.set(__self__, "availability", availability)
+        if capacity_reservation_group is not None:
+            pulumi.set(__self__, "capacity_reservation_group", capacity_reservation_group)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if log_analytics_info is not None:
@@ -31571,6 +31694,15 @@ class JobJobClusterNewClusterAzureAttributesArgs:
     @availability.setter
     def availability(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "availability", value)
+
+    @_builtins.property
+    @pulumi.getter(name="capacityReservationGroup")
+    def capacity_reservation_group(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "capacity_reservation_group")
+
+    @capacity_reservation_group.setter
+    def capacity_reservation_group(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "capacity_reservation_group", value)
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -33736,6 +33868,7 @@ class JobNewClusterAwsAttributesArgs:
 
 class JobNewClusterAzureAttributesArgsDict(TypedDict):
     availability: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    capacity_reservation_group: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     first_on_demand: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     log_analytics_info: NotRequired[pulumi.Input[Optional['JobNewClusterAzureAttributesLogAnalyticsInfoArgsDict']]]
     spot_bid_max_price: NotRequired[pulumi.Input[Optional[_builtins.float]]]
@@ -33744,11 +33877,14 @@ class JobNewClusterAzureAttributesArgsDict(TypedDict):
 class JobNewClusterAzureAttributesArgs:
     def __init__(__self__, *,
                  availability: pulumi.Input[Optional[_builtins.str]] = None,
+                 capacity_reservation_group: pulumi.Input[Optional[_builtins.str]] = None,
                  first_on_demand: pulumi.Input[Optional[_builtins.int]] = None,
                  log_analytics_info: pulumi.Input[Optional['JobNewClusterAzureAttributesLogAnalyticsInfoArgs']] = None,
                  spot_bid_max_price: pulumi.Input[Optional[_builtins.float]] = None):
         if availability is not None:
             pulumi.set(__self__, "availability", availability)
+        if capacity_reservation_group is not None:
+            pulumi.set(__self__, "capacity_reservation_group", capacity_reservation_group)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if log_analytics_info is not None:
@@ -33764,6 +33900,15 @@ class JobNewClusterAzureAttributesArgs:
     @availability.setter
     def availability(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "availability", value)
+
+    @_builtins.property
+    @pulumi.getter(name="capacityReservationGroup")
+    def capacity_reservation_group(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "capacity_reservation_group")
+
+    @capacity_reservation_group.setter
+    def capacity_reservation_group(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "capacity_reservation_group", value)
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -35748,6 +35893,7 @@ class JobTaskArgsDict(TypedDict):
     string specifying an unique key for a given task.
     * `*_task` - (Required) one of the specific task blocks described below:
     """
+    ai_runtime_task: NotRequired[pulumi.Input[Optional['JobTaskAiRuntimeTaskArgsDict']]]
     alert_task: NotRequired[pulumi.Input[Optional['JobTaskAlertTaskArgsDict']]]
     clean_rooms_notebook_task: NotRequired[pulumi.Input[Optional['JobTaskCleanRoomsNotebookTaskArgsDict']]]
     compute: NotRequired[pulumi.Input[Optional['JobTaskComputeArgsDict']]]
@@ -35850,6 +35996,7 @@ class JobTaskArgsDict(TypedDict):
 class JobTaskArgs:
     def __init__(__self__, *,
                  task_key: pulumi.Input[_builtins.str],
+                 ai_runtime_task: pulumi.Input[Optional['JobTaskAiRuntimeTaskArgs']] = None,
                  alert_task: pulumi.Input[Optional['JobTaskAlertTaskArgs']] = None,
                  clean_rooms_notebook_task: pulumi.Input[Optional['JobTaskCleanRoomsNotebookTaskArgs']] = None,
                  compute: pulumi.Input[Optional['JobTaskComputeArgs']] = None,
@@ -35914,6 +36061,8 @@ class JobTaskArgs:
         :param pulumi.Input['JobTaskWebhookNotificationsArgs'] webhook_notifications: (List) An optional set of system destinations (for example, webhook destinations or Slack) to be notified when runs of this task begins, completes or fails. The default behavior is to not send any notifications. This field is a block and is documented below.
         """
         pulumi.set(__self__, "task_key", task_key)
+        if ai_runtime_task is not None:
+            pulumi.set(__self__, "ai_runtime_task", ai_runtime_task)
         if alert_task is not None:
             pulumi.set(__self__, "alert_task", alert_task)
         if clean_rooms_notebook_task is not None:
@@ -36003,6 +36152,15 @@ class JobTaskArgs:
     @task_key.setter
     def task_key(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "task_key", value)
+
+    @_builtins.property
+    @pulumi.getter(name="aiRuntimeTask")
+    def ai_runtime_task(self) -> pulumi.Input[Optional['JobTaskAiRuntimeTaskArgs']]:
+        return pulumi.get(self, "ai_runtime_task")
+
+    @ai_runtime_task.setter
+    def ai_runtime_task(self, value: pulumi.Input[Optional['JobTaskAiRuntimeTaskArgs']]):
+        pulumi.set(self, "ai_runtime_task", value)
 
     @_builtins.property
     @pulumi.getter(name="alertTask")
@@ -36404,6 +36562,173 @@ class JobTaskArgs:
     @webhook_notifications.setter
     def webhook_notifications(self, value: pulumi.Input[Optional['JobTaskWebhookNotificationsArgs']]):
         pulumi.set(self, "webhook_notifications", value)
+
+
+class JobTaskAiRuntimeTaskArgsDict(TypedDict):
+    deployments: pulumi.Input[Sequence[pulumi.Input['JobTaskAiRuntimeTaskDeploymentArgsDict']]]
+    experiment: pulumi.Input[_builtins.str]
+    code_source_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    mlflow_experiment_directory: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    mlflow_run: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class JobTaskAiRuntimeTaskArgs:
+    def __init__(__self__, *,
+                 deployments: pulumi.Input[Sequence[pulumi.Input['JobTaskAiRuntimeTaskDeploymentArgs']]],
+                 experiment: pulumi.Input[_builtins.str],
+                 code_source_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 mlflow_experiment_directory: pulumi.Input[Optional[_builtins.str]] = None,
+                 mlflow_run: pulumi.Input[Optional[_builtins.str]] = None):
+        pulumi.set(__self__, "deployments", deployments)
+        pulumi.set(__self__, "experiment", experiment)
+        if code_source_path is not None:
+            pulumi.set(__self__, "code_source_path", code_source_path)
+        if mlflow_experiment_directory is not None:
+            pulumi.set(__self__, "mlflow_experiment_directory", mlflow_experiment_directory)
+        if mlflow_run is not None:
+            pulumi.set(__self__, "mlflow_run", mlflow_run)
+
+    @_builtins.property
+    @pulumi.getter
+    def deployments(self) -> pulumi.Input[Sequence[pulumi.Input['JobTaskAiRuntimeTaskDeploymentArgs']]]:
+        return pulumi.get(self, "deployments")
+
+    @deployments.setter
+    def deployments(self, value: pulumi.Input[Sequence[pulumi.Input['JobTaskAiRuntimeTaskDeploymentArgs']]]):
+        pulumi.set(self, "deployments", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def experiment(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "experiment")
+
+    @experiment.setter
+    def experiment(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "experiment", value)
+
+    @_builtins.property
+    @pulumi.getter(name="codeSourcePath")
+    def code_source_path(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "code_source_path")
+
+    @code_source_path.setter
+    def code_source_path(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "code_source_path", value)
+
+    @_builtins.property
+    @pulumi.getter(name="mlflowExperimentDirectory")
+    def mlflow_experiment_directory(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "mlflow_experiment_directory")
+
+    @mlflow_experiment_directory.setter
+    def mlflow_experiment_directory(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "mlflow_experiment_directory", value)
+
+    @_builtins.property
+    @pulumi.getter(name="mlflowRun")
+    def mlflow_run(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "mlflow_run")
+
+    @mlflow_run.setter
+    def mlflow_run(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "mlflow_run", value)
+
+
+class JobTaskAiRuntimeTaskDeploymentArgsDict(TypedDict):
+    command_path: pulumi.Input[_builtins.str]
+    compute: pulumi.Input['JobTaskAiRuntimeTaskDeploymentComputeArgsDict']
+    """
+    Task level compute configuration. This block is documented below.
+
+    > If no `job_cluster_key`, `existing_cluster_id`, or `new_cluster` were specified in task definition, then task will executed using serverless compute.
+    """
+    name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    An optional name for the job. The default value is Untitled.
+    """
+
+@pulumi.input_type
+class JobTaskAiRuntimeTaskDeploymentArgs:
+    def __init__(__self__, *,
+                 command_path: pulumi.Input[_builtins.str],
+                 compute: pulumi.Input['JobTaskAiRuntimeTaskDeploymentComputeArgs'],
+                 name: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input['JobTaskAiRuntimeTaskDeploymentComputeArgs'] compute: Task level compute configuration. This block is documented below.
+               
+               > If no `job_cluster_key`, `existing_cluster_id`, or `new_cluster` were specified in task definition, then task will executed using serverless compute.
+        :param pulumi.Input[_builtins.str] name: An optional name for the job. The default value is Untitled.
+        """
+        pulumi.set(__self__, "command_path", command_path)
+        pulumi.set(__self__, "compute", compute)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter(name="commandPath")
+    def command_path(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "command_path")
+
+    @command_path.setter
+    def command_path(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "command_path", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def compute(self) -> pulumi.Input['JobTaskAiRuntimeTaskDeploymentComputeArgs']:
+        """
+        Task level compute configuration. This block is documented below.
+
+        > If no `job_cluster_key`, `existing_cluster_id`, or `new_cluster` were specified in task definition, then task will executed using serverless compute.
+        """
+        return pulumi.get(self, "compute")
+
+    @compute.setter
+    def compute(self, value: pulumi.Input['JobTaskAiRuntimeTaskDeploymentComputeArgs']):
+        pulumi.set(self, "compute", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        An optional name for the job. The default value is Untitled.
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "name", value)
+
+
+class JobTaskAiRuntimeTaskDeploymentComputeArgsDict(TypedDict):
+    accelerator_count: pulumi.Input[_builtins.int]
+    accelerator_type: pulumi.Input[_builtins.str]
+
+@pulumi.input_type
+class JobTaskAiRuntimeTaskDeploymentComputeArgs:
+    def __init__(__self__, *,
+                 accelerator_count: pulumi.Input[_builtins.int],
+                 accelerator_type: pulumi.Input[_builtins.str]):
+        pulumi.set(__self__, "accelerator_count", accelerator_count)
+        pulumi.set(__self__, "accelerator_type", accelerator_type)
+
+    @_builtins.property
+    @pulumi.getter(name="acceleratorCount")
+    def accelerator_count(self) -> pulumi.Input[_builtins.int]:
+        return pulumi.get(self, "accelerator_count")
+
+    @accelerator_count.setter
+    def accelerator_count(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "accelerator_count", value)
+
+    @_builtins.property
+    @pulumi.getter(name="acceleratorType")
+    def accelerator_type(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "accelerator_type")
+
+    @accelerator_type.setter
+    def accelerator_type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "accelerator_type", value)
 
 
 class JobTaskAlertTaskArgsDict(TypedDict):
@@ -37423,6 +37748,7 @@ class JobTaskForEachTaskTaskArgsDict(TypedDict):
     string specifying an unique key for a given task.
     * `*_task` - (Required) one of the specific task blocks described below:
     """
+    ai_runtime_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskAiRuntimeTaskArgsDict']]]
     alert_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskAlertTaskArgsDict']]]
     clean_rooms_notebook_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskCleanRoomsNotebookTaskArgsDict']]]
     compute: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskComputeArgsDict']]]
@@ -37524,6 +37850,7 @@ class JobTaskForEachTaskTaskArgsDict(TypedDict):
 class JobTaskForEachTaskTaskArgs:
     def __init__(__self__, *,
                  task_key: pulumi.Input[_builtins.str],
+                 ai_runtime_task: pulumi.Input[Optional['JobTaskForEachTaskTaskAiRuntimeTaskArgs']] = None,
                  alert_task: pulumi.Input[Optional['JobTaskForEachTaskTaskAlertTaskArgs']] = None,
                  clean_rooms_notebook_task: pulumi.Input[Optional['JobTaskForEachTaskTaskCleanRoomsNotebookTaskArgs']] = None,
                  compute: pulumi.Input[Optional['JobTaskForEachTaskTaskComputeArgs']] = None,
@@ -37587,6 +37914,8 @@ class JobTaskForEachTaskTaskArgs:
         :param pulumi.Input['JobTaskForEachTaskTaskWebhookNotificationsArgs'] webhook_notifications: (List) An optional set of system destinations (for example, webhook destinations or Slack) to be notified when runs of this task begins, completes or fails. The default behavior is to not send any notifications. This field is a block and is documented below.
         """
         pulumi.set(__self__, "task_key", task_key)
+        if ai_runtime_task is not None:
+            pulumi.set(__self__, "ai_runtime_task", ai_runtime_task)
         if alert_task is not None:
             pulumi.set(__self__, "alert_task", alert_task)
         if clean_rooms_notebook_task is not None:
@@ -37674,6 +38003,15 @@ class JobTaskForEachTaskTaskArgs:
     @task_key.setter
     def task_key(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "task_key", value)
+
+    @_builtins.property
+    @pulumi.getter(name="aiRuntimeTask")
+    def ai_runtime_task(self) -> pulumi.Input[Optional['JobTaskForEachTaskTaskAiRuntimeTaskArgs']]:
+        return pulumi.get(self, "ai_runtime_task")
+
+    @ai_runtime_task.setter
+    def ai_runtime_task(self, value: pulumi.Input[Optional['JobTaskForEachTaskTaskAiRuntimeTaskArgs']]):
+        pulumi.set(self, "ai_runtime_task", value)
 
     @_builtins.property
     @pulumi.getter(name="alertTask")
@@ -38066,6 +38404,173 @@ class JobTaskForEachTaskTaskArgs:
     @webhook_notifications.setter
     def webhook_notifications(self, value: pulumi.Input[Optional['JobTaskForEachTaskTaskWebhookNotificationsArgs']]):
         pulumi.set(self, "webhook_notifications", value)
+
+
+class JobTaskForEachTaskTaskAiRuntimeTaskArgsDict(TypedDict):
+    deployments: pulumi.Input[Sequence[pulumi.Input['JobTaskForEachTaskTaskAiRuntimeTaskDeploymentArgsDict']]]
+    experiment: pulumi.Input[_builtins.str]
+    code_source_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    mlflow_experiment_directory: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    mlflow_run: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class JobTaskForEachTaskTaskAiRuntimeTaskArgs:
+    def __init__(__self__, *,
+                 deployments: pulumi.Input[Sequence[pulumi.Input['JobTaskForEachTaskTaskAiRuntimeTaskDeploymentArgs']]],
+                 experiment: pulumi.Input[_builtins.str],
+                 code_source_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 mlflow_experiment_directory: pulumi.Input[Optional[_builtins.str]] = None,
+                 mlflow_run: pulumi.Input[Optional[_builtins.str]] = None):
+        pulumi.set(__self__, "deployments", deployments)
+        pulumi.set(__self__, "experiment", experiment)
+        if code_source_path is not None:
+            pulumi.set(__self__, "code_source_path", code_source_path)
+        if mlflow_experiment_directory is not None:
+            pulumi.set(__self__, "mlflow_experiment_directory", mlflow_experiment_directory)
+        if mlflow_run is not None:
+            pulumi.set(__self__, "mlflow_run", mlflow_run)
+
+    @_builtins.property
+    @pulumi.getter
+    def deployments(self) -> pulumi.Input[Sequence[pulumi.Input['JobTaskForEachTaskTaskAiRuntimeTaskDeploymentArgs']]]:
+        return pulumi.get(self, "deployments")
+
+    @deployments.setter
+    def deployments(self, value: pulumi.Input[Sequence[pulumi.Input['JobTaskForEachTaskTaskAiRuntimeTaskDeploymentArgs']]]):
+        pulumi.set(self, "deployments", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def experiment(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "experiment")
+
+    @experiment.setter
+    def experiment(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "experiment", value)
+
+    @_builtins.property
+    @pulumi.getter(name="codeSourcePath")
+    def code_source_path(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "code_source_path")
+
+    @code_source_path.setter
+    def code_source_path(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "code_source_path", value)
+
+    @_builtins.property
+    @pulumi.getter(name="mlflowExperimentDirectory")
+    def mlflow_experiment_directory(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "mlflow_experiment_directory")
+
+    @mlflow_experiment_directory.setter
+    def mlflow_experiment_directory(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "mlflow_experiment_directory", value)
+
+    @_builtins.property
+    @pulumi.getter(name="mlflowRun")
+    def mlflow_run(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "mlflow_run")
+
+    @mlflow_run.setter
+    def mlflow_run(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "mlflow_run", value)
+
+
+class JobTaskForEachTaskTaskAiRuntimeTaskDeploymentArgsDict(TypedDict):
+    command_path: pulumi.Input[_builtins.str]
+    compute: pulumi.Input['JobTaskForEachTaskTaskAiRuntimeTaskDeploymentComputeArgsDict']
+    """
+    Task level compute configuration. This block is documented below.
+
+    > If no `job_cluster_key`, `existing_cluster_id`, or `new_cluster` were specified in task definition, then task will executed using serverless compute.
+    """
+    name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    An optional name for the job. The default value is Untitled.
+    """
+
+@pulumi.input_type
+class JobTaskForEachTaskTaskAiRuntimeTaskDeploymentArgs:
+    def __init__(__self__, *,
+                 command_path: pulumi.Input[_builtins.str],
+                 compute: pulumi.Input['JobTaskForEachTaskTaskAiRuntimeTaskDeploymentComputeArgs'],
+                 name: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input['JobTaskForEachTaskTaskAiRuntimeTaskDeploymentComputeArgs'] compute: Task level compute configuration. This block is documented below.
+               
+               > If no `job_cluster_key`, `existing_cluster_id`, or `new_cluster` were specified in task definition, then task will executed using serverless compute.
+        :param pulumi.Input[_builtins.str] name: An optional name for the job. The default value is Untitled.
+        """
+        pulumi.set(__self__, "command_path", command_path)
+        pulumi.set(__self__, "compute", compute)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter(name="commandPath")
+    def command_path(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "command_path")
+
+    @command_path.setter
+    def command_path(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "command_path", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def compute(self) -> pulumi.Input['JobTaskForEachTaskTaskAiRuntimeTaskDeploymentComputeArgs']:
+        """
+        Task level compute configuration. This block is documented below.
+
+        > If no `job_cluster_key`, `existing_cluster_id`, or `new_cluster` were specified in task definition, then task will executed using serverless compute.
+        """
+        return pulumi.get(self, "compute")
+
+    @compute.setter
+    def compute(self, value: pulumi.Input['JobTaskForEachTaskTaskAiRuntimeTaskDeploymentComputeArgs']):
+        pulumi.set(self, "compute", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        An optional name for the job. The default value is Untitled.
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "name", value)
+
+
+class JobTaskForEachTaskTaskAiRuntimeTaskDeploymentComputeArgsDict(TypedDict):
+    accelerator_count: pulumi.Input[_builtins.int]
+    accelerator_type: pulumi.Input[_builtins.str]
+
+@pulumi.input_type
+class JobTaskForEachTaskTaskAiRuntimeTaskDeploymentComputeArgs:
+    def __init__(__self__, *,
+                 accelerator_count: pulumi.Input[_builtins.int],
+                 accelerator_type: pulumi.Input[_builtins.str]):
+        pulumi.set(__self__, "accelerator_count", accelerator_count)
+        pulumi.set(__self__, "accelerator_type", accelerator_type)
+
+    @_builtins.property
+    @pulumi.getter(name="acceleratorCount")
+    def accelerator_count(self) -> pulumi.Input[_builtins.int]:
+        return pulumi.get(self, "accelerator_count")
+
+    @accelerator_count.setter
+    def accelerator_count(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "accelerator_count", value)
+
+    @_builtins.property
+    @pulumi.getter(name="acceleratorType")
+    def accelerator_type(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "accelerator_type")
+
+    @accelerator_type.setter
+    def accelerator_type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "accelerator_type", value)
 
 
 class JobTaskForEachTaskTaskAlertTaskArgsDict(TypedDict):
@@ -40234,6 +40739,7 @@ class JobTaskForEachTaskTaskNewClusterAwsAttributesArgs:
 
 class JobTaskForEachTaskTaskNewClusterAzureAttributesArgsDict(TypedDict):
     availability: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    capacity_reservation_group: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     first_on_demand: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     log_analytics_info: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterAzureAttributesLogAnalyticsInfoArgsDict']]]
     spot_bid_max_price: NotRequired[pulumi.Input[Optional[_builtins.float]]]
@@ -40242,11 +40748,14 @@ class JobTaskForEachTaskTaskNewClusterAzureAttributesArgsDict(TypedDict):
 class JobTaskForEachTaskTaskNewClusterAzureAttributesArgs:
     def __init__(__self__, *,
                  availability: pulumi.Input[Optional[_builtins.str]] = None,
+                 capacity_reservation_group: pulumi.Input[Optional[_builtins.str]] = None,
                  first_on_demand: pulumi.Input[Optional[_builtins.int]] = None,
                  log_analytics_info: pulumi.Input[Optional['JobTaskForEachTaskTaskNewClusterAzureAttributesLogAnalyticsInfoArgs']] = None,
                  spot_bid_max_price: pulumi.Input[Optional[_builtins.float]] = None):
         if availability is not None:
             pulumi.set(__self__, "availability", availability)
+        if capacity_reservation_group is not None:
+            pulumi.set(__self__, "capacity_reservation_group", capacity_reservation_group)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if log_analytics_info is not None:
@@ -40262,6 +40771,15 @@ class JobTaskForEachTaskTaskNewClusterAzureAttributesArgs:
     @availability.setter
     def availability(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "availability", value)
+
+    @_builtins.property
+    @pulumi.getter(name="capacityReservationGroup")
+    def capacity_reservation_group(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "capacity_reservation_group")
+
+    @capacity_reservation_group.setter
+    def capacity_reservation_group(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "capacity_reservation_group", value)
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -44712,6 +45230,7 @@ class JobTaskNewClusterAwsAttributesArgs:
 
 class JobTaskNewClusterAzureAttributesArgsDict(TypedDict):
     availability: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    capacity_reservation_group: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     first_on_demand: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     log_analytics_info: NotRequired[pulumi.Input[Optional['JobTaskNewClusterAzureAttributesLogAnalyticsInfoArgsDict']]]
     spot_bid_max_price: NotRequired[pulumi.Input[Optional[_builtins.float]]]
@@ -44720,11 +45239,14 @@ class JobTaskNewClusterAzureAttributesArgsDict(TypedDict):
 class JobTaskNewClusterAzureAttributesArgs:
     def __init__(__self__, *,
                  availability: pulumi.Input[Optional[_builtins.str]] = None,
+                 capacity_reservation_group: pulumi.Input[Optional[_builtins.str]] = None,
                  first_on_demand: pulumi.Input[Optional[_builtins.int]] = None,
                  log_analytics_info: pulumi.Input[Optional['JobTaskNewClusterAzureAttributesLogAnalyticsInfoArgs']] = None,
                  spot_bid_max_price: pulumi.Input[Optional[_builtins.float]] = None):
         if availability is not None:
             pulumi.set(__self__, "availability", availability)
+        if capacity_reservation_group is not None:
+            pulumi.set(__self__, "capacity_reservation_group", capacity_reservation_group)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if log_analytics_info is not None:
@@ -44740,6 +45262,15 @@ class JobTaskNewClusterAzureAttributesArgs:
     @availability.setter
     def availability(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "availability", value)
+
+    @_builtins.property
+    @pulumi.getter(name="capacityReservationGroup")
+    def capacity_reservation_group(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "capacity_reservation_group")
+
+    @capacity_reservation_group.setter
+    def capacity_reservation_group(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "capacity_reservation_group", value)
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -53991,6 +54522,77 @@ class ModelServingTagArgs:
         pulumi.set(self, "value", value)
 
 
+class ModelServingTelemetryConfigArgsDict(TypedDict):
+    inference_table_config: NotRequired[pulumi.Input[Optional['ModelServingTelemetryConfigInferenceTableConfigArgsDict']]]
+    """
+    Block describing the configuration of usage tracking. Consists of the following attributes:
+    """
+
+@pulumi.input_type
+class ModelServingTelemetryConfigArgs:
+    def __init__(__self__, *,
+                 inference_table_config: pulumi.Input[Optional['ModelServingTelemetryConfigInferenceTableConfigArgs']] = None):
+        """
+        :param pulumi.Input['ModelServingTelemetryConfigInferenceTableConfigArgs'] inference_table_config: Block describing the configuration of usage tracking. Consists of the following attributes:
+        """
+        if inference_table_config is not None:
+            pulumi.set(__self__, "inference_table_config", inference_table_config)
+
+    @_builtins.property
+    @pulumi.getter(name="inferenceTableConfig")
+    def inference_table_config(self) -> pulumi.Input[Optional['ModelServingTelemetryConfigInferenceTableConfigArgs']]:
+        """
+        Block describing the configuration of usage tracking. Consists of the following attributes:
+        """
+        return pulumi.get(self, "inference_table_config")
+
+    @inference_table_config.setter
+    def inference_table_config(self, value: pulumi.Input[Optional['ModelServingTelemetryConfigInferenceTableConfigArgs']]):
+        pulumi.set(self, "inference_table_config", value)
+
+
+class ModelServingTelemetryConfigInferenceTableConfigArgsDict(TypedDict):
+    name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The name of the model serving endpoint. This field is required and must be unique across a workspace. An endpoint name can consist of alphanumeric characters, dashes, and underscores. NOTE: Changing this name will delete the existing endpoint and create a new endpoint with the updated name.
+    """
+    sampling_fraction: NotRequired[pulumi.Input[Optional[_builtins.float]]]
+
+@pulumi.input_type
+class ModelServingTelemetryConfigInferenceTableConfigArgs:
+    def __init__(__self__, *,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 sampling_fraction: pulumi.Input[Optional[_builtins.float]] = None):
+        """
+        :param pulumi.Input[_builtins.str] name: The name of the model serving endpoint. This field is required and must be unique across a workspace. An endpoint name can consist of alphanumeric characters, dashes, and underscores. NOTE: Changing this name will delete the existing endpoint and create a new endpoint with the updated name.
+        """
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+        if sampling_fraction is not None:
+            pulumi.set(__self__, "sampling_fraction", sampling_fraction)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The name of the model serving endpoint. This field is required and must be unique across a workspace. An endpoint name can consist of alphanumeric characters, dashes, and underscores. NOTE: Changing this name will delete the existing endpoint and create a new endpoint with the updated name.
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="samplingFraction")
+    def sampling_fraction(self) -> pulumi.Input[Optional[_builtins.float]]:
+        return pulumi.get(self, "sampling_fraction")
+
+    @sampling_fraction.setter
+    def sampling_fraction(self, value: pulumi.Input[Optional[_builtins.float]]):
+        pulumi.set(self, "sampling_fraction", value)
+
+
 class MountAbfsArgsDict(TypedDict):
     client_id: pulumi.Input[_builtins.str]
     client_secret_key: pulumi.Input[_builtins.str]
@@ -55204,13 +55806,13 @@ class MwsNetworksGcpNetworkInfoArgs:
         pulumi.set(__self__, "subnet_region", subnet_region)
         pulumi.set(__self__, "vpc_id", vpc_id)
         if pod_ip_range_name is not None:
-            warnings.warn("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.119.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
-            pulumi.log.warn("""pod_ip_range_name is deprecated: gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.119.0/docs/guides/gcp-workspace#creating-a-vpc""")
+            warnings.warn("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.120.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
+            pulumi.log.warn("""pod_ip_range_name is deprecated: gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.120.0/docs/guides/gcp-workspace#creating-a-vpc""")
         if pod_ip_range_name is not None:
             pulumi.set(__self__, "pod_ip_range_name", pod_ip_range_name)
         if service_ip_range_name is not None:
-            warnings.warn("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.119.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
-            pulumi.log.warn("""service_ip_range_name is deprecated: gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.119.0/docs/guides/gcp-workspace#creating-a-vpc""")
+            warnings.warn("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.120.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
+            pulumi.log.warn("""service_ip_range_name is deprecated: gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.120.0/docs/guides/gcp-workspace#creating-a-vpc""")
         if service_ip_range_name is not None:
             pulumi.set(__self__, "service_ip_range_name", service_ip_range_name)
 
@@ -55264,7 +55866,7 @@ class MwsNetworksGcpNetworkInfoArgs:
 
     @_builtins.property
     @pulumi.getter(name="podIpRangeName")
-    @_utilities.deprecated("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.119.0/docs/guides/gcp-workspace#creating-a-vpc""")
+    @_utilities.deprecated("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.120.0/docs/guides/gcp-workspace#creating-a-vpc""")
     def pod_ip_range_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "pod_ip_range_name")
 
@@ -55274,7 +55876,7 @@ class MwsNetworksGcpNetworkInfoArgs:
 
     @_builtins.property
     @pulumi.getter(name="serviceIpRangeName")
-    @_utilities.deprecated("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.119.0/docs/guides/gcp-workspace#creating-a-vpc""")
+    @_utilities.deprecated("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.120.0/docs/guides/gcp-workspace#creating-a-vpc""")
     def service_ip_range_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "service_ip_range_name")
 
@@ -55532,13 +56134,13 @@ class MwsWorkspacesGcpManagedNetworkConfigArgs:
                  gke_cluster_service_ip_range: pulumi.Input[Optional[_builtins.str]] = None):
         pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         if gke_cluster_pod_ip_range is not None:
-            warnings.warn("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.119.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
-            pulumi.log.warn("""gke_cluster_pod_ip_range is deprecated: gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.119.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+            warnings.warn("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.120.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
+            pulumi.log.warn("""gke_cluster_pod_ip_range is deprecated: gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.120.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
         if gke_cluster_pod_ip_range is not None:
             pulumi.set(__self__, "gke_cluster_pod_ip_range", gke_cluster_pod_ip_range)
         if gke_cluster_service_ip_range is not None:
-            warnings.warn("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.119.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
-            pulumi.log.warn("""gke_cluster_service_ip_range is deprecated: gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.119.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+            warnings.warn("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.120.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
+            pulumi.log.warn("""gke_cluster_service_ip_range is deprecated: gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.120.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
         if gke_cluster_service_ip_range is not None:
             pulumi.set(__self__, "gke_cluster_service_ip_range", gke_cluster_service_ip_range)
 
@@ -55553,7 +56155,7 @@ class MwsWorkspacesGcpManagedNetworkConfigArgs:
 
     @_builtins.property
     @pulumi.getter(name="gkeClusterPodIpRange")
-    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.119.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.120.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_cluster_pod_ip_range(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "gke_cluster_pod_ip_range")
 
@@ -55563,7 +56165,7 @@ class MwsWorkspacesGcpManagedNetworkConfigArgs:
 
     @_builtins.property
     @pulumi.getter(name="gkeClusterServiceIpRange")
-    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.119.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.120.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_cluster_service_ip_range(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "gke_cluster_service_ip_range")
 
@@ -57620,6 +58222,7 @@ class PipelineClusterAwsAttributesArgs:
 
 class PipelineClusterAzureAttributesArgsDict(TypedDict):
     availability: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    capacity_reservation_group: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     first_on_demand: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     log_analytics_info: NotRequired[pulumi.Input[Optional['PipelineClusterAzureAttributesLogAnalyticsInfoArgsDict']]]
     spot_bid_max_price: NotRequired[pulumi.Input[Optional[_builtins.float]]]
@@ -57628,11 +58231,14 @@ class PipelineClusterAzureAttributesArgsDict(TypedDict):
 class PipelineClusterAzureAttributesArgs:
     def __init__(__self__, *,
                  availability: pulumi.Input[Optional[_builtins.str]] = None,
+                 capacity_reservation_group: pulumi.Input[Optional[_builtins.str]] = None,
                  first_on_demand: pulumi.Input[Optional[_builtins.int]] = None,
                  log_analytics_info: pulumi.Input[Optional['PipelineClusterAzureAttributesLogAnalyticsInfoArgs']] = None,
                  spot_bid_max_price: pulumi.Input[Optional[_builtins.float]] = None):
         if availability is not None:
             pulumi.set(__self__, "availability", availability)
+        if capacity_reservation_group is not None:
+            pulumi.set(__self__, "capacity_reservation_group", capacity_reservation_group)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if log_analytics_info is not None:
@@ -57648,6 +58254,15 @@ class PipelineClusterAzureAttributesArgs:
     @availability.setter
     def availability(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "availability", value)
+
+    @_builtins.property
+    @pulumi.getter(name="capacityReservationGroup")
+    def capacity_reservation_group(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "capacity_reservation_group")
+
+    @capacity_reservation_group.setter
+    def capacity_reservation_group(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "capacity_reservation_group", value)
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -65105,6 +65720,453 @@ class PostgresCatalogStatusArgs:
         pulumi.set(self, "project", value)
 
 
+class PostgresDataApiProviderConfigArgsDict(TypedDict):
+    workspace_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+    """
+
+@pulumi.input_type
+class PostgresDataApiProviderConfigArgs:
+    def __init__(__self__, *,
+                 workspace_id: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+    @workspace_id.setter
+    def workspace_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "workspace_id", value)
+
+
+class PostgresDataApiSpecArgsDict(TypedDict):
+    db_aggregates_enabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    (boolean) - Actual aggregate function setting read from the database
+    """
+    db_extra_search_paths: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    """
+    (list of string) - Actual extra search path schemas read from the database
+    """
+    db_max_rows: NotRequired[pulumi.Input[Optional[_builtins.int]]]
+    """
+    (integer) - Actual max rows setting read from the database
+    """
+    db_schemas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    """
+    (list of string) - Actual exposed schemas read from the database
+    """
+    jwt_cache_max_lifetime: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Actual JWT cache max lifetime read from the database
+    """
+    jwt_role_claim_key: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Actual JWT role claim key read from the database
+    """
+    openapi_mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Actual OpenAPI mode read from the database. Possible values are: `OPEN_API_MODE_DISABLED`, `OPEN_API_MODE_IGNORE_PRIVILEGES`
+    """
+    server_cors_allowed_origins: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    """
+    (list of string) - Actual CORS allowed origins read from the database
+    """
+    server_timing_enabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    (boolean) - Actual Server-Timing header setting read from the database
+    """
+
+@pulumi.input_type
+class PostgresDataApiSpecArgs:
+    def __init__(__self__, *,
+                 db_aggregates_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 db_extra_search_paths: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 db_max_rows: pulumi.Input[Optional[_builtins.int]] = None,
+                 db_schemas: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 jwt_cache_max_lifetime: pulumi.Input[Optional[_builtins.str]] = None,
+                 jwt_role_claim_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 openapi_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 server_cors_allowed_origins: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 server_timing_enabled: pulumi.Input[Optional[_builtins.bool]] = None):
+        """
+        :param pulumi.Input[_builtins.bool] db_aggregates_enabled: (boolean) - Actual aggregate function setting read from the database
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] db_extra_search_paths: (list of string) - Actual extra search path schemas read from the database
+        :param pulumi.Input[_builtins.int] db_max_rows: (integer) - Actual max rows setting read from the database
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] db_schemas: (list of string) - Actual exposed schemas read from the database
+        :param pulumi.Input[_builtins.str] jwt_cache_max_lifetime: (string) - Actual JWT cache max lifetime read from the database
+        :param pulumi.Input[_builtins.str] jwt_role_claim_key: (string) - Actual JWT role claim key read from the database
+        :param pulumi.Input[_builtins.str] openapi_mode: (string) - Actual OpenAPI mode read from the database. Possible values are: `OPEN_API_MODE_DISABLED`, `OPEN_API_MODE_IGNORE_PRIVILEGES`
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] server_cors_allowed_origins: (list of string) - Actual CORS allowed origins read from the database
+        :param pulumi.Input[_builtins.bool] server_timing_enabled: (boolean) - Actual Server-Timing header setting read from the database
+        """
+        if db_aggregates_enabled is not None:
+            pulumi.set(__self__, "db_aggregates_enabled", db_aggregates_enabled)
+        if db_extra_search_paths is not None:
+            pulumi.set(__self__, "db_extra_search_paths", db_extra_search_paths)
+        if db_max_rows is not None:
+            pulumi.set(__self__, "db_max_rows", db_max_rows)
+        if db_schemas is not None:
+            pulumi.set(__self__, "db_schemas", db_schemas)
+        if jwt_cache_max_lifetime is not None:
+            pulumi.set(__self__, "jwt_cache_max_lifetime", jwt_cache_max_lifetime)
+        if jwt_role_claim_key is not None:
+            pulumi.set(__self__, "jwt_role_claim_key", jwt_role_claim_key)
+        if openapi_mode is not None:
+            pulumi.set(__self__, "openapi_mode", openapi_mode)
+        if server_cors_allowed_origins is not None:
+            pulumi.set(__self__, "server_cors_allowed_origins", server_cors_allowed_origins)
+        if server_timing_enabled is not None:
+            pulumi.set(__self__, "server_timing_enabled", server_timing_enabled)
+
+    @_builtins.property
+    @pulumi.getter(name="dbAggregatesEnabled")
+    def db_aggregates_enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        (boolean) - Actual aggregate function setting read from the database
+        """
+        return pulumi.get(self, "db_aggregates_enabled")
+
+    @db_aggregates_enabled.setter
+    def db_aggregates_enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "db_aggregates_enabled", value)
+
+    @_builtins.property
+    @pulumi.getter(name="dbExtraSearchPaths")
+    def db_extra_search_paths(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        (list of string) - Actual extra search path schemas read from the database
+        """
+        return pulumi.get(self, "db_extra_search_paths")
+
+    @db_extra_search_paths.setter
+    def db_extra_search_paths(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "db_extra_search_paths", value)
+
+    @_builtins.property
+    @pulumi.getter(name="dbMaxRows")
+    def db_max_rows(self) -> pulumi.Input[Optional[_builtins.int]]:
+        """
+        (integer) - Actual max rows setting read from the database
+        """
+        return pulumi.get(self, "db_max_rows")
+
+    @db_max_rows.setter
+    def db_max_rows(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "db_max_rows", value)
+
+    @_builtins.property
+    @pulumi.getter(name="dbSchemas")
+    def db_schemas(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        (list of string) - Actual exposed schemas read from the database
+        """
+        return pulumi.get(self, "db_schemas")
+
+    @db_schemas.setter
+    def db_schemas(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "db_schemas", value)
+
+    @_builtins.property
+    @pulumi.getter(name="jwtCacheMaxLifetime")
+    def jwt_cache_max_lifetime(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Actual JWT cache max lifetime read from the database
+        """
+        return pulumi.get(self, "jwt_cache_max_lifetime")
+
+    @jwt_cache_max_lifetime.setter
+    def jwt_cache_max_lifetime(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "jwt_cache_max_lifetime", value)
+
+    @_builtins.property
+    @pulumi.getter(name="jwtRoleClaimKey")
+    def jwt_role_claim_key(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Actual JWT role claim key read from the database
+        """
+        return pulumi.get(self, "jwt_role_claim_key")
+
+    @jwt_role_claim_key.setter
+    def jwt_role_claim_key(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "jwt_role_claim_key", value)
+
+    @_builtins.property
+    @pulumi.getter(name="openapiMode")
+    def openapi_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Actual OpenAPI mode read from the database. Possible values are: `OPEN_API_MODE_DISABLED`, `OPEN_API_MODE_IGNORE_PRIVILEGES`
+        """
+        return pulumi.get(self, "openapi_mode")
+
+    @openapi_mode.setter
+    def openapi_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "openapi_mode", value)
+
+    @_builtins.property
+    @pulumi.getter(name="serverCorsAllowedOrigins")
+    def server_cors_allowed_origins(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        (list of string) - Actual CORS allowed origins read from the database
+        """
+        return pulumi.get(self, "server_cors_allowed_origins")
+
+    @server_cors_allowed_origins.setter
+    def server_cors_allowed_origins(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "server_cors_allowed_origins", value)
+
+    @_builtins.property
+    @pulumi.getter(name="serverTimingEnabled")
+    def server_timing_enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        (boolean) - Actual Server-Timing header setting read from the database
+        """
+        return pulumi.get(self, "server_timing_enabled")
+
+    @server_timing_enabled.setter
+    def server_timing_enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "server_timing_enabled", value)
+
+
+class PostgresDataApiStatusArgsDict(TypedDict):
+    available_schemas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    """
+    (list of string) - Schemas available in the database (for reference when configuring db_schemas)
+    """
+    db_aggregates_enabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    (boolean) - Actual aggregate function setting read from the database
+    """
+    db_extra_search_paths: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    """
+    (list of string) - Actual extra search path schemas read from the database
+    """
+    db_max_rows: NotRequired[pulumi.Input[Optional[_builtins.int]]]
+    """
+    (integer) - Actual max rows setting read from the database
+    """
+    db_schemas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    """
+    (list of string) - Actual exposed schemas read from the database
+    """
+    jwt_cache_max_lifetime: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Actual JWT cache max lifetime read from the database
+    """
+    jwt_role_claim_key: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Actual JWT role claim key read from the database
+    """
+    openapi_mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Actual OpenAPI mode read from the database. Possible values are: `OPEN_API_MODE_DISABLED`, `OPEN_API_MODE_IGNORE_PRIVILEGES`
+    """
+    server_cors_allowed_origins: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    """
+    (list of string) - Actual CORS allowed origins read from the database
+    """
+    server_timing_enabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    (boolean) - Actual Server-Timing header setting read from the database
+    """
+    url: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Data API endpoint URL
+    """
+
+@pulumi.input_type
+class PostgresDataApiStatusArgs:
+    def __init__(__self__, *,
+                 available_schemas: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 db_aggregates_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 db_extra_search_paths: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 db_max_rows: pulumi.Input[Optional[_builtins.int]] = None,
+                 db_schemas: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 jwt_cache_max_lifetime: pulumi.Input[Optional[_builtins.str]] = None,
+                 jwt_role_claim_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 openapi_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 server_cors_allowed_origins: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 server_timing_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 url: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] available_schemas: (list of string) - Schemas available in the database (for reference when configuring db_schemas)
+        :param pulumi.Input[_builtins.bool] db_aggregates_enabled: (boolean) - Actual aggregate function setting read from the database
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] db_extra_search_paths: (list of string) - Actual extra search path schemas read from the database
+        :param pulumi.Input[_builtins.int] db_max_rows: (integer) - Actual max rows setting read from the database
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] db_schemas: (list of string) - Actual exposed schemas read from the database
+        :param pulumi.Input[_builtins.str] jwt_cache_max_lifetime: (string) - Actual JWT cache max lifetime read from the database
+        :param pulumi.Input[_builtins.str] jwt_role_claim_key: (string) - Actual JWT role claim key read from the database
+        :param pulumi.Input[_builtins.str] openapi_mode: (string) - Actual OpenAPI mode read from the database. Possible values are: `OPEN_API_MODE_DISABLED`, `OPEN_API_MODE_IGNORE_PRIVILEGES`
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] server_cors_allowed_origins: (list of string) - Actual CORS allowed origins read from the database
+        :param pulumi.Input[_builtins.bool] server_timing_enabled: (boolean) - Actual Server-Timing header setting read from the database
+        :param pulumi.Input[_builtins.str] url: (string) - Data API endpoint URL
+        """
+        if available_schemas is not None:
+            pulumi.set(__self__, "available_schemas", available_schemas)
+        if db_aggregates_enabled is not None:
+            pulumi.set(__self__, "db_aggregates_enabled", db_aggregates_enabled)
+        if db_extra_search_paths is not None:
+            pulumi.set(__self__, "db_extra_search_paths", db_extra_search_paths)
+        if db_max_rows is not None:
+            pulumi.set(__self__, "db_max_rows", db_max_rows)
+        if db_schemas is not None:
+            pulumi.set(__self__, "db_schemas", db_schemas)
+        if jwt_cache_max_lifetime is not None:
+            pulumi.set(__self__, "jwt_cache_max_lifetime", jwt_cache_max_lifetime)
+        if jwt_role_claim_key is not None:
+            pulumi.set(__self__, "jwt_role_claim_key", jwt_role_claim_key)
+        if openapi_mode is not None:
+            pulumi.set(__self__, "openapi_mode", openapi_mode)
+        if server_cors_allowed_origins is not None:
+            pulumi.set(__self__, "server_cors_allowed_origins", server_cors_allowed_origins)
+        if server_timing_enabled is not None:
+            pulumi.set(__self__, "server_timing_enabled", server_timing_enabled)
+        if url is not None:
+            pulumi.set(__self__, "url", url)
+
+    @_builtins.property
+    @pulumi.getter(name="availableSchemas")
+    def available_schemas(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        (list of string) - Schemas available in the database (for reference when configuring db_schemas)
+        """
+        return pulumi.get(self, "available_schemas")
+
+    @available_schemas.setter
+    def available_schemas(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "available_schemas", value)
+
+    @_builtins.property
+    @pulumi.getter(name="dbAggregatesEnabled")
+    def db_aggregates_enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        (boolean) - Actual aggregate function setting read from the database
+        """
+        return pulumi.get(self, "db_aggregates_enabled")
+
+    @db_aggregates_enabled.setter
+    def db_aggregates_enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "db_aggregates_enabled", value)
+
+    @_builtins.property
+    @pulumi.getter(name="dbExtraSearchPaths")
+    def db_extra_search_paths(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        (list of string) - Actual extra search path schemas read from the database
+        """
+        return pulumi.get(self, "db_extra_search_paths")
+
+    @db_extra_search_paths.setter
+    def db_extra_search_paths(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "db_extra_search_paths", value)
+
+    @_builtins.property
+    @pulumi.getter(name="dbMaxRows")
+    def db_max_rows(self) -> pulumi.Input[Optional[_builtins.int]]:
+        """
+        (integer) - Actual max rows setting read from the database
+        """
+        return pulumi.get(self, "db_max_rows")
+
+    @db_max_rows.setter
+    def db_max_rows(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "db_max_rows", value)
+
+    @_builtins.property
+    @pulumi.getter(name="dbSchemas")
+    def db_schemas(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        (list of string) - Actual exposed schemas read from the database
+        """
+        return pulumi.get(self, "db_schemas")
+
+    @db_schemas.setter
+    def db_schemas(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "db_schemas", value)
+
+    @_builtins.property
+    @pulumi.getter(name="jwtCacheMaxLifetime")
+    def jwt_cache_max_lifetime(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Actual JWT cache max lifetime read from the database
+        """
+        return pulumi.get(self, "jwt_cache_max_lifetime")
+
+    @jwt_cache_max_lifetime.setter
+    def jwt_cache_max_lifetime(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "jwt_cache_max_lifetime", value)
+
+    @_builtins.property
+    @pulumi.getter(name="jwtRoleClaimKey")
+    def jwt_role_claim_key(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Actual JWT role claim key read from the database
+        """
+        return pulumi.get(self, "jwt_role_claim_key")
+
+    @jwt_role_claim_key.setter
+    def jwt_role_claim_key(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "jwt_role_claim_key", value)
+
+    @_builtins.property
+    @pulumi.getter(name="openapiMode")
+    def openapi_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Actual OpenAPI mode read from the database. Possible values are: `OPEN_API_MODE_DISABLED`, `OPEN_API_MODE_IGNORE_PRIVILEGES`
+        """
+        return pulumi.get(self, "openapi_mode")
+
+    @openapi_mode.setter
+    def openapi_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "openapi_mode", value)
+
+    @_builtins.property
+    @pulumi.getter(name="serverCorsAllowedOrigins")
+    def server_cors_allowed_origins(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        (list of string) - Actual CORS allowed origins read from the database
+        """
+        return pulumi.get(self, "server_cors_allowed_origins")
+
+    @server_cors_allowed_origins.setter
+    def server_cors_allowed_origins(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "server_cors_allowed_origins", value)
+
+    @_builtins.property
+    @pulumi.getter(name="serverTimingEnabled")
+    def server_timing_enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        (boolean) - Actual Server-Timing header setting read from the database
+        """
+        return pulumi.get(self, "server_timing_enabled")
+
+    @server_timing_enabled.setter
+    def server_timing_enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "server_timing_enabled", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def url(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Data API endpoint URL
+        """
+        return pulumi.get(self, "url")
+
+    @url.setter
+    def url(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "url", value)
+
+
 class PostgresDatabaseProviderConfigArgsDict(TypedDict):
     workspace_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -65906,21 +66968,84 @@ class PostgresEndpointStatusSettingsArgs:
         pulumi.set(self, "pg_settings", value)
 
 
+class PostgresProjectInitialBranchSpecArgsDict(TypedDict):
+    is_protected: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    Whether the initial default branch should be protected from deletion
+    """
+
+@pulumi.input_type
+class PostgresProjectInitialBranchSpecArgs:
+    def __init__(__self__, *,
+                 is_protected: pulumi.Input[Optional[_builtins.bool]] = None):
+        """
+        :param pulumi.Input[_builtins.bool] is_protected: Whether the initial default branch should be protected from deletion
+        """
+        if is_protected is not None:
+            pulumi.set(__self__, "is_protected", is_protected)
+
+    @_builtins.property
+    @pulumi.getter(name="isProtected")
+    def is_protected(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        Whether the initial default branch should be protected from deletion
+        """
+        return pulumi.get(self, "is_protected")
+
+    @is_protected.setter
+    def is_protected(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "is_protected", value)
+
+
 class PostgresProjectInitialEndpointSpecArgsDict(TypedDict):
+    autoscaling_limit_max_cu: NotRequired[pulumi.Input[Optional[_builtins.float]]]
+    autoscaling_limit_min_cu: NotRequired[pulumi.Input[Optional[_builtins.float]]]
     group: NotRequired[pulumi.Input[Optional['PostgresProjectInitialEndpointSpecGroupArgsDict']]]
     """
     Settings for HA configuration of the endpoint
     """
+    no_suspension: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    suspend_timeout_duration: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
 @pulumi.input_type
 class PostgresProjectInitialEndpointSpecArgs:
     def __init__(__self__, *,
-                 group: pulumi.Input[Optional['PostgresProjectInitialEndpointSpecGroupArgs']] = None):
+                 autoscaling_limit_max_cu: pulumi.Input[Optional[_builtins.float]] = None,
+                 autoscaling_limit_min_cu: pulumi.Input[Optional[_builtins.float]] = None,
+                 group: pulumi.Input[Optional['PostgresProjectInitialEndpointSpecGroupArgs']] = None,
+                 no_suspension: pulumi.Input[Optional[_builtins.bool]] = None,
+                 suspend_timeout_duration: pulumi.Input[Optional[_builtins.str]] = None):
         """
         :param pulumi.Input['PostgresProjectInitialEndpointSpecGroupArgs'] group: Settings for HA configuration of the endpoint
         """
+        if autoscaling_limit_max_cu is not None:
+            pulumi.set(__self__, "autoscaling_limit_max_cu", autoscaling_limit_max_cu)
+        if autoscaling_limit_min_cu is not None:
+            pulumi.set(__self__, "autoscaling_limit_min_cu", autoscaling_limit_min_cu)
         if group is not None:
             pulumi.set(__self__, "group", group)
+        if no_suspension is not None:
+            pulumi.set(__self__, "no_suspension", no_suspension)
+        if suspend_timeout_duration is not None:
+            pulumi.set(__self__, "suspend_timeout_duration", suspend_timeout_duration)
+
+    @_builtins.property
+    @pulumi.getter(name="autoscalingLimitMaxCu")
+    def autoscaling_limit_max_cu(self) -> pulumi.Input[Optional[_builtins.float]]:
+        return pulumi.get(self, "autoscaling_limit_max_cu")
+
+    @autoscaling_limit_max_cu.setter
+    def autoscaling_limit_max_cu(self, value: pulumi.Input[Optional[_builtins.float]]):
+        pulumi.set(self, "autoscaling_limit_max_cu", value)
+
+    @_builtins.property
+    @pulumi.getter(name="autoscalingLimitMinCu")
+    def autoscaling_limit_min_cu(self) -> pulumi.Input[Optional[_builtins.float]]:
+        return pulumi.get(self, "autoscaling_limit_min_cu")
+
+    @autoscaling_limit_min_cu.setter
+    def autoscaling_limit_min_cu(self, value: pulumi.Input[Optional[_builtins.float]]):
+        pulumi.set(self, "autoscaling_limit_min_cu", value)
 
     @_builtins.property
     @pulumi.getter
@@ -65933,6 +67058,24 @@ class PostgresProjectInitialEndpointSpecArgs:
     @group.setter
     def group(self, value: pulumi.Input[Optional['PostgresProjectInitialEndpointSpecGroupArgs']]):
         pulumi.set(self, "group", value)
+
+    @_builtins.property
+    @pulumi.getter(name="noSuspension")
+    def no_suspension(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "no_suspension")
+
+    @no_suspension.setter
+    def no_suspension(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "no_suspension", value)
+
+    @_builtins.property
+    @pulumi.getter(name="suspendTimeoutDuration")
+    def suspend_timeout_duration(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "suspend_timeout_duration")
+
+    @suspend_timeout_duration.setter
+    def suspend_timeout_duration(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "suspend_timeout_duration", value)
 
 
 class PostgresProjectInitialEndpointSpecGroupArgsDict(TypedDict):
@@ -66263,29 +67406,13 @@ class PostgresProjectSpecCustomTagArgs:
 
 class PostgresProjectSpecDefaultEndpointSettingsArgsDict(TypedDict):
     autoscaling_limit_max_cu: NotRequired[pulumi.Input[Optional[_builtins.float]]]
-    """
-    The maximum number of Compute Units. Minimum value is 0.5
-    """
     autoscaling_limit_min_cu: NotRequired[pulumi.Input[Optional[_builtins.float]]]
-    """
-    The minimum number of Compute Units. Minimum value is 0.5
-    """
     no_suspension: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    """
-    When set to true, explicitly disables automatic suspension (never suspend).
-    Should be set to true when provided.
-    Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
-    """
     pg_settings: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     """
     A raw representation of Postgres settings
     """
     suspend_timeout_duration: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    """
-    Duration of inactivity after which the compute endpoint is automatically suspended.
-    If specified should be between 60s and 604800s (1 minute to 1 week).
-    Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
-    """
 
 @pulumi.input_type
 class PostgresProjectSpecDefaultEndpointSettingsArgs:
@@ -66296,15 +67423,7 @@ class PostgresProjectSpecDefaultEndpointSettingsArgs:
                  pg_settings: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  suspend_timeout_duration: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.float] autoscaling_limit_max_cu: The maximum number of Compute Units. Minimum value is 0.5
-        :param pulumi.Input[_builtins.float] autoscaling_limit_min_cu: The minimum number of Compute Units. Minimum value is 0.5
-        :param pulumi.Input[_builtins.bool] no_suspension: When set to true, explicitly disables automatic suspension (never suspend).
-               Should be set to true when provided.
-               Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] pg_settings: A raw representation of Postgres settings
-        :param pulumi.Input[_builtins.str] suspend_timeout_duration: Duration of inactivity after which the compute endpoint is automatically suspended.
-               If specified should be between 60s and 604800s (1 minute to 1 week).
-               Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         if autoscaling_limit_max_cu is not None:
             pulumi.set(__self__, "autoscaling_limit_max_cu", autoscaling_limit_max_cu)
@@ -66320,9 +67439,6 @@ class PostgresProjectSpecDefaultEndpointSettingsArgs:
     @_builtins.property
     @pulumi.getter(name="autoscalingLimitMaxCu")
     def autoscaling_limit_max_cu(self) -> pulumi.Input[Optional[_builtins.float]]:
-        """
-        The maximum number of Compute Units. Minimum value is 0.5
-        """
         return pulumi.get(self, "autoscaling_limit_max_cu")
 
     @autoscaling_limit_max_cu.setter
@@ -66332,9 +67448,6 @@ class PostgresProjectSpecDefaultEndpointSettingsArgs:
     @_builtins.property
     @pulumi.getter(name="autoscalingLimitMinCu")
     def autoscaling_limit_min_cu(self) -> pulumi.Input[Optional[_builtins.float]]:
-        """
-        The minimum number of Compute Units. Minimum value is 0.5
-        """
         return pulumi.get(self, "autoscaling_limit_min_cu")
 
     @autoscaling_limit_min_cu.setter
@@ -66344,11 +67457,6 @@ class PostgresProjectSpecDefaultEndpointSettingsArgs:
     @_builtins.property
     @pulumi.getter(name="noSuspension")
     def no_suspension(self) -> pulumi.Input[Optional[_builtins.bool]]:
-        """
-        When set to true, explicitly disables automatic suspension (never suspend).
-        Should be set to true when provided.
-        Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
-        """
         return pulumi.get(self, "no_suspension")
 
     @no_suspension.setter
@@ -66370,11 +67478,6 @@ class PostgresProjectSpecDefaultEndpointSettingsArgs:
     @_builtins.property
     @pulumi.getter(name="suspendTimeoutDuration")
     def suspend_timeout_duration(self) -> pulumi.Input[Optional[_builtins.str]]:
-        """
-        Duration of inactivity after which the compute endpoint is automatically suspended.
-        If specified should be between 60s and 604800s (1 minute to 1 week).
-        Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
-        """
         return pulumi.get(self, "suspend_timeout_duration")
 
     @suspend_timeout_duration.setter
@@ -66390,6 +67493,10 @@ class PostgresProjectStatusArgsDict(TypedDict):
     budget_policy_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     (string) - The budget policy that is applied to the project
+    """
+    compute_last_active_time: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - The most recent time when any endpoint of this project was active
     """
     custom_tags: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PostgresProjectStatusCustomTagArgsDict']]]]]
     """
@@ -66437,6 +67544,7 @@ class PostgresProjectStatusArgs:
     def __init__(__self__, *,
                  branch_logical_size_limit_bytes: pulumi.Input[Optional[_builtins.int]] = None,
                  budget_policy_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 compute_last_active_time: pulumi.Input[Optional[_builtins.str]] = None,
                  custom_tags: pulumi.Input[Optional[Sequence[pulumi.Input['PostgresProjectStatusCustomTagArgs']]]] = None,
                  default_branch: pulumi.Input[Optional[_builtins.str]] = None,
                  default_endpoint_settings: pulumi.Input[Optional['PostgresProjectStatusDefaultEndpointSettingsArgs']] = None,
@@ -66450,6 +67558,7 @@ class PostgresProjectStatusArgs:
         """
         :param pulumi.Input[_builtins.int] branch_logical_size_limit_bytes: (integer) - The logical size limit for a branch
         :param pulumi.Input[_builtins.str] budget_policy_id: (string) - The budget policy that is applied to the project
+        :param pulumi.Input[_builtins.str] compute_last_active_time: (string) - The most recent time when any endpoint of this project was active
         :param pulumi.Input[Sequence[pulumi.Input['PostgresProjectStatusCustomTagArgs']]] custom_tags: (list of ProjectCustomTag) - The effective custom tags associated with the project
         :param pulumi.Input[_builtins.str] default_branch: (string) - The full resource path of the default branch of the project
         :param pulumi.Input['PostgresProjectStatusDefaultEndpointSettingsArgs'] default_endpoint_settings: (ProjectDefaultEndpointSettings) - The effective default endpoint settings
@@ -66465,6 +67574,8 @@ class PostgresProjectStatusArgs:
             pulumi.set(__self__, "branch_logical_size_limit_bytes", branch_logical_size_limit_bytes)
         if budget_policy_id is not None:
             pulumi.set(__self__, "budget_policy_id", budget_policy_id)
+        if compute_last_active_time is not None:
+            pulumi.set(__self__, "compute_last_active_time", compute_last_active_time)
         if custom_tags is not None:
             pulumi.set(__self__, "custom_tags", custom_tags)
         if default_branch is not None:
@@ -66509,6 +67620,18 @@ class PostgresProjectStatusArgs:
     @budget_policy_id.setter
     def budget_policy_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "budget_policy_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="computeLastActiveTime")
+    def compute_last_active_time(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - The most recent time when any endpoint of this project was active
+        """
+        return pulumi.get(self, "compute_last_active_time")
+
+    @compute_last_active_time.setter
+    def compute_last_active_time(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "compute_last_active_time", value)
 
     @_builtins.property
     @pulumi.getter(name="customTags")
@@ -66682,29 +67805,13 @@ class PostgresProjectStatusCustomTagArgs:
 
 class PostgresProjectStatusDefaultEndpointSettingsArgsDict(TypedDict):
     autoscaling_limit_max_cu: NotRequired[pulumi.Input[Optional[_builtins.float]]]
-    """
-    The maximum number of Compute Units. Minimum value is 0.5
-    """
     autoscaling_limit_min_cu: NotRequired[pulumi.Input[Optional[_builtins.float]]]
-    """
-    The minimum number of Compute Units. Minimum value is 0.5
-    """
     no_suspension: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
-    """
-    When set to true, explicitly disables automatic suspension (never suspend).
-    Should be set to true when provided.
-    Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
-    """
     pg_settings: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     """
     A raw representation of Postgres settings
     """
     suspend_timeout_duration: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    """
-    Duration of inactivity after which the compute endpoint is automatically suspended.
-    If specified should be between 60s and 604800s (1 minute to 1 week).
-    Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
-    """
 
 @pulumi.input_type
 class PostgresProjectStatusDefaultEndpointSettingsArgs:
@@ -66715,15 +67822,7 @@ class PostgresProjectStatusDefaultEndpointSettingsArgs:
                  pg_settings: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  suspend_timeout_duration: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.float] autoscaling_limit_max_cu: The maximum number of Compute Units. Minimum value is 0.5
-        :param pulumi.Input[_builtins.float] autoscaling_limit_min_cu: The minimum number of Compute Units. Minimum value is 0.5
-        :param pulumi.Input[_builtins.bool] no_suspension: When set to true, explicitly disables automatic suspension (never suspend).
-               Should be set to true when provided.
-               Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] pg_settings: A raw representation of Postgres settings
-        :param pulumi.Input[_builtins.str] suspend_timeout_duration: Duration of inactivity after which the compute endpoint is automatically suspended.
-               If specified should be between 60s and 604800s (1 minute to 1 week).
-               Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
         """
         if autoscaling_limit_max_cu is not None:
             pulumi.set(__self__, "autoscaling_limit_max_cu", autoscaling_limit_max_cu)
@@ -66739,9 +67838,6 @@ class PostgresProjectStatusDefaultEndpointSettingsArgs:
     @_builtins.property
     @pulumi.getter(name="autoscalingLimitMaxCu")
     def autoscaling_limit_max_cu(self) -> pulumi.Input[Optional[_builtins.float]]:
-        """
-        The maximum number of Compute Units. Minimum value is 0.5
-        """
         return pulumi.get(self, "autoscaling_limit_max_cu")
 
     @autoscaling_limit_max_cu.setter
@@ -66751,9 +67847,6 @@ class PostgresProjectStatusDefaultEndpointSettingsArgs:
     @_builtins.property
     @pulumi.getter(name="autoscalingLimitMinCu")
     def autoscaling_limit_min_cu(self) -> pulumi.Input[Optional[_builtins.float]]:
-        """
-        The minimum number of Compute Units. Minimum value is 0.5
-        """
         return pulumi.get(self, "autoscaling_limit_min_cu")
 
     @autoscaling_limit_min_cu.setter
@@ -66763,11 +67856,6 @@ class PostgresProjectStatusDefaultEndpointSettingsArgs:
     @_builtins.property
     @pulumi.getter(name="noSuspension")
     def no_suspension(self) -> pulumi.Input[Optional[_builtins.bool]]:
-        """
-        When set to true, explicitly disables automatic suspension (never suspend).
-        Should be set to true when provided.
-        Mutually exclusive with `suspend_timeout_duration`. When updating, use `spec.project_default_settings.suspension` in the update_mask
-        """
         return pulumi.get(self, "no_suspension")
 
     @no_suspension.setter
@@ -66789,11 +67877,6 @@ class PostgresProjectStatusDefaultEndpointSettingsArgs:
     @_builtins.property
     @pulumi.getter(name="suspendTimeoutDuration")
     def suspend_timeout_duration(self) -> pulumi.Input[Optional[_builtins.str]]:
-        """
-        Duration of inactivity after which the compute endpoint is automatically suspended.
-        If specified should be between 60s and 604800s (1 minute to 1 week).
-        Mutually exclusive with `no_suspension`. When updating, use `spec.project_default_settings.suspension` in the update_mask
-        """
         return pulumi.get(self, "suspend_timeout_duration")
 
     @suspend_timeout_duration.setter
@@ -78249,6 +79332,7 @@ class GetClusterClusterInfoAwsAttributesArgs:
 
 class GetClusterClusterInfoAzureAttributesArgsDict(TypedDict):
     availability: NotRequired[_builtins.str]
+    capacity_reservation_group: NotRequired[_builtins.str]
     first_on_demand: NotRequired[_builtins.int]
     log_analytics_info: NotRequired['GetClusterClusterInfoAzureAttributesLogAnalyticsInfoArgsDict']
     spot_bid_max_price: NotRequired[_builtins.float]
@@ -78257,11 +79341,14 @@ class GetClusterClusterInfoAzureAttributesArgsDict(TypedDict):
 class GetClusterClusterInfoAzureAttributesArgs:
     def __init__(__self__, *,
                  availability: Optional[_builtins.str] = None,
+                 capacity_reservation_group: Optional[_builtins.str] = None,
                  first_on_demand: Optional[_builtins.int] = None,
                  log_analytics_info: Optional['GetClusterClusterInfoAzureAttributesLogAnalyticsInfoArgs'] = None,
                  spot_bid_max_price: Optional[_builtins.float] = None):
         if availability is not None:
             pulumi.set(__self__, "availability", availability)
+        if capacity_reservation_group is not None:
+            pulumi.set(__self__, "capacity_reservation_group", capacity_reservation_group)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if log_analytics_info is not None:
@@ -78277,6 +79364,15 @@ class GetClusterClusterInfoAzureAttributesArgs:
     @availability.setter
     def availability(self, value: Optional[_builtins.str]):
         pulumi.set(self, "availability", value)
+
+    @_builtins.property
+    @pulumi.getter(name="capacityReservationGroup")
+    def capacity_reservation_group(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "capacity_reservation_group")
+
+    @capacity_reservation_group.setter
+    def capacity_reservation_group(self, value: Optional[_builtins.str]):
+        pulumi.set(self, "capacity_reservation_group", value)
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -80096,6 +81192,7 @@ class GetClusterClusterInfoSpecAwsAttributesArgs:
 
 class GetClusterClusterInfoSpecAzureAttributesArgsDict(TypedDict):
     availability: NotRequired[_builtins.str]
+    capacity_reservation_group: NotRequired[_builtins.str]
     first_on_demand: NotRequired[_builtins.int]
     log_analytics_info: NotRequired['GetClusterClusterInfoSpecAzureAttributesLogAnalyticsInfoArgsDict']
     spot_bid_max_price: NotRequired[_builtins.float]
@@ -80104,11 +81201,14 @@ class GetClusterClusterInfoSpecAzureAttributesArgsDict(TypedDict):
 class GetClusterClusterInfoSpecAzureAttributesArgs:
     def __init__(__self__, *,
                  availability: Optional[_builtins.str] = None,
+                 capacity_reservation_group: Optional[_builtins.str] = None,
                  first_on_demand: Optional[_builtins.int] = None,
                  log_analytics_info: Optional['GetClusterClusterInfoSpecAzureAttributesLogAnalyticsInfoArgs'] = None,
                  spot_bid_max_price: Optional[_builtins.float] = None):
         if availability is not None:
             pulumi.set(__self__, "availability", availability)
+        if capacity_reservation_group is not None:
+            pulumi.set(__self__, "capacity_reservation_group", capacity_reservation_group)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if log_analytics_info is not None:
@@ -80124,6 +81224,15 @@ class GetClusterClusterInfoSpecAzureAttributesArgs:
     @availability.setter
     def availability(self, value: Optional[_builtins.str]):
         pulumi.set(self, "availability", value)
+
+    @_builtins.property
+    @pulumi.getter(name="capacityReservationGroup")
+    def capacity_reservation_group(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "capacity_reservation_group")
+
+    @capacity_reservation_group.setter
+    def capacity_reservation_group(self, value: Optional[_builtins.str]):
+        pulumi.set(self, "capacity_reservation_group", value)
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -100270,6 +101379,34 @@ class GetPostgresCatalogProviderConfigArgs:
         pulumi.set(self, "workspace_id", value)
 
 
+class GetPostgresDataApiProviderConfigArgsDict(TypedDict):
+    workspace_id: _builtins.str
+    """
+    Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+    """
+
+@pulumi.input_type
+class GetPostgresDataApiProviderConfigArgs:
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+    @workspace_id.setter
+    def workspace_id(self, value: _builtins.str):
+        pulumi.set(self, "workspace_id", value)
+
+
 class GetPostgresDatabaseProviderConfigArgsDict(TypedDict):
     workspace_id: _builtins.str
     """
@@ -102537,6 +103674,7 @@ class GetServingEndpointsEndpointArgsDict(TypedDict):
     Tags to be attached to the serving endpoint and automatically propagated to billing logs.
     """
     task: NotRequired[_builtins.str]
+    telemetry_configs: NotRequired[Sequence['GetServingEndpointsEndpointTelemetryConfigArgsDict']]
     usage_policy_id: NotRequired[_builtins.str]
 
 @pulumi.input_type
@@ -102554,6 +103692,7 @@ class GetServingEndpointsEndpointArgs:
                  states: Optional[Sequence['GetServingEndpointsEndpointStateArgs']] = None,
                  tags: Optional[Sequence['GetServingEndpointsEndpointTagArgs']] = None,
                  task: Optional[_builtins.str] = None,
+                 telemetry_configs: Optional[Sequence['GetServingEndpointsEndpointTelemetryConfigArgs']] = None,
                  usage_policy_id: Optional[_builtins.str] = None):
         """
         :param Sequence['GetServingEndpointsEndpointAiGatewayArgs'] ai_gateways: A block with AI Gateway configuration for the serving endpoint.
@@ -102585,6 +103724,8 @@ class GetServingEndpointsEndpointArgs:
             pulumi.set(__self__, "tags", tags)
         if task is not None:
             pulumi.set(__self__, "task", task)
+        if telemetry_configs is not None:
+            pulumi.set(__self__, "telemetry_configs", telemetry_configs)
         if usage_policy_id is not None:
             pulumi.set(__self__, "usage_policy_id", usage_policy_id)
 
@@ -102707,6 +103848,15 @@ class GetServingEndpointsEndpointArgs:
     @task.setter
     def task(self, value: Optional[_builtins.str]):
         pulumi.set(self, "task", value)
+
+    @_builtins.property
+    @pulumi.getter(name="telemetryConfigs")
+    def telemetry_configs(self) -> Optional[Sequence['GetServingEndpointsEndpointTelemetryConfigArgs']]:
+        return pulumi.get(self, "telemetry_configs")
+
+    @telemetry_configs.setter
+    def telemetry_configs(self, value: Optional[Sequence['GetServingEndpointsEndpointTelemetryConfigArgs']]):
+        pulumi.set(self, "telemetry_configs", value)
 
     @_builtins.property
     @pulumi.getter(name="usagePolicyId")
@@ -104244,6 +105394,67 @@ class GetServingEndpointsEndpointTagArgs:
     @value.setter
     def value(self, value: Optional[_builtins.str]):
         pulumi.set(self, "value", value)
+
+
+class GetServingEndpointsEndpointTelemetryConfigArgsDict(TypedDict):
+    inference_table_configs: NotRequired[Sequence['GetServingEndpointsEndpointTelemetryConfigInferenceTableConfigArgsDict']]
+
+@pulumi.input_type
+class GetServingEndpointsEndpointTelemetryConfigArgs:
+    def __init__(__self__, *,
+                 inference_table_configs: Optional[Sequence['GetServingEndpointsEndpointTelemetryConfigInferenceTableConfigArgs']] = None):
+        if inference_table_configs is not None:
+            pulumi.set(__self__, "inference_table_configs", inference_table_configs)
+
+    @_builtins.property
+    @pulumi.getter(name="inferenceTableConfigs")
+    def inference_table_configs(self) -> Optional[Sequence['GetServingEndpointsEndpointTelemetryConfigInferenceTableConfigArgs']]:
+        return pulumi.get(self, "inference_table_configs")
+
+    @inference_table_configs.setter
+    def inference_table_configs(self, value: Optional[Sequence['GetServingEndpointsEndpointTelemetryConfigInferenceTableConfigArgs']]):
+        pulumi.set(self, "inference_table_configs", value)
+
+
+class GetServingEndpointsEndpointTelemetryConfigInferenceTableConfigArgsDict(TypedDict):
+    name: _builtins.str
+    """
+    The name of the model serving endpoint.
+    """
+    sampling_fraction: NotRequired[_builtins.float]
+
+@pulumi.input_type
+class GetServingEndpointsEndpointTelemetryConfigInferenceTableConfigArgs:
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 sampling_fraction: Optional[_builtins.float] = None):
+        """
+        :param _builtins.str name: The name of the model serving endpoint.
+        """
+        pulumi.set(__self__, "name", name)
+        if sampling_fraction is not None:
+            pulumi.set(__self__, "sampling_fraction", sampling_fraction)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the model serving endpoint.
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: _builtins.str):
+        pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="samplingFraction")
+    def sampling_fraction(self) -> Optional[_builtins.float]:
+        return pulumi.get(self, "sampling_fraction")
+
+    @sampling_fraction.setter
+    def sampling_fraction(self, value: Optional[_builtins.float]):
+        pulumi.set(self, "sampling_fraction", value)
 
 
 class GetServingEndpointsProviderConfigArgsDict(TypedDict):

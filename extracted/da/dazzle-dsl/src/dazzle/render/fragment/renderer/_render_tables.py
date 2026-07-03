@@ -23,6 +23,7 @@ See issue #1064 for the full decomposition plan.
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from dazzle.render.fragment.context import RenderContext
@@ -32,6 +33,8 @@ from dazzle.render.fragment.primitives import (
     ActionGrid,
     ActivityFeed,
     BarTrack,
+    ColumnVisibilityMenu,
+    DataListScroll,
     DetailGrid,
     GridRegion,
     ListRegion,
@@ -41,10 +44,21 @@ from dazzle.render.fragment.primitives import (
     PivotTableRegion,
     ProfileCard,
     QueueRegion,
+    RelatedGroup,
+    RelatedTab,
+    SlideOver,
     SortHeader,
     StageBar,
     StatusList,
     Table,
+)
+from dazzle.render.fragment.renderer._data_row import (
+    ARCHETYPE_EMBEDDED,
+    ARCHETYPE_LIST_REGION,
+    assemble_list_row,
+    drill_row_attrs,
+    slideover_content_id,
+    slideover_panel_id,
 )
 from dazzle.render.fragment.renderer._helpers import _render_references
 
@@ -61,6 +75,45 @@ class _RenderTablesMixin:
 
         def _emit(self, fragment: Fragment, ctx: RenderContext) -> str: ...
 
+    def _emit_slide_over(self, so: SlideOver, ctx: RenderContext) -> str:
+        """The one shared right-side slide-over panel for `peek: slide_over`
+        (#1494, 2c, Slice 2). Emitted once per list; a row's chevron `hx-get`s
+        the detail body into `#slideover-content-{table_id}` and reveals
+        `#slideover-{table_id}`. Open/close is **JS-free** — an inline
+        `hx-on:click` toggling the `hidden` attribute on the container (backdrop
+        + close button hide it; the row chevron reveals it). Markup matches the
+        purpose-built `.dz-slideover-*` CSS family; `data-dz-width` picks the
+        max-width preset."""
+        panel_id_raw = slideover_panel_id(so.table_id)
+        panel_id = ctx.escape_attr(panel_id_raw)
+        content_id = ctx.escape_attr(slideover_content_id(so.table_id))
+        title = ctx.escape(so.title)  # text context (<h2> body)
+        title_attr = ctx.escape_attr(so.title)  # attribute context (aria-label)
+        width = ctx.escape_attr(so.width)
+        # The container id crosses into a JS-string context inside the hx-on
+        # close handlers — json.dumps for the JS layer, escape_attr for the HTML
+        # attribute layer (#1494 Slice-2 hardening; table_id is a parser-validated
+        # identifier, so this is defense-in-depth).
+        panel_js = ctx.escape_attr(json.dumps(panel_id_raw))
+        hide = f"document.getElementById({panel_js}).setAttribute('hidden','')"
+        return (
+            f'<div id="{panel_id}" class="dz-slideover" data-dz-width="{width}" hidden>'
+            f'<div class="dz-slideover-backdrop" hx-on:click="{hide}"></div>'
+            f'<aside class="dz-slideover-panel" role="dialog" aria-modal="true" '
+            f'aria-label="{title_attr}">'
+            f'<header class="dz-slideover-header">'
+            f'<h2 class="dz-slideover-title">{title}</h2>'
+            f'<button type="button" class="dz-slideover-close" aria-label="Close" '
+            f'hx-on:click="{hide}">'
+            '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" '
+            'xmlns="http://www.w3.org/2000/svg">'
+            '<path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" '
+            'stroke-linecap="round"/></svg></button>'
+            f"</header>"
+            f'<div id="{content_id}" class="dz-slideover-body"></div>'
+            f"</aside></div>"
+        )
+
     def _emit_table(self, t: Table, ctx: RenderContext) -> str:
         # Issue #1029 phase 6: columns can be plain strings (legacy
         # static labels) or SortHeader primitives (clickable column
@@ -71,31 +124,120 @@ class _RenderTablesMixin:
         # checkbox header cell. Alpine `dzTable` controller owns
         # bulkCount + toggleSelectAll.
         if t.bulk_select:
+            # Task 5: the select-all checkbox reflects selection state via the
+            # dzTable controller's bulkCount vs the rendered row count (legacy
+            # parity) — checked when all rows selected, indeterminate for some.
             head_cells_parts.append(
                 '<th scope="col" class="dz-table-th-select">'
                 '<input type="checkbox" class="dz-table-col-menu-checkbox" '
                 '@change="toggleSelectAll($event.target.checked)" '
-                'aria-label="Select all rows" />'
+                ':checked="bulkCount > 0 && bulkCount === '
+                "$el.closest('table').querySelectorAll('tbody tr[data-dz-row-id]').length\" "
+                ':indeterminate="bulkCount > 0 && bulkCount < '
+                "$el.closest('table').querySelectorAll('tbody tr[data-dz-row-id]').length\" "
+                'aria-label="Select all rows">'
                 "</th>"
             )
-        for c in t.columns:
-            if isinstance(c, SortHeader):
+        # Task 4e: when column keys are supplied (the canonical list path), each
+        # data header carries `data-dz-col="{key}"` so the dzTable controller's
+        # column-visibility toggle (which sets style.display on every
+        # `[data-dz-col]` cell) hides the header in lock-step with the hydrated
+        # body cells (which already carry data-dz-col via render_data_row).
+        keys = t.column_keys if (t.column_keys and len(t.column_keys) == len(t.columns)) else None
+        sortable = set(t.sortable_keys)
+        for i, c in enumerate(t.columns):
+            if keys:
+                # Canonical list header: data-dz-col (column-visibility) +
+                # dz-table-th; sortable columns are dzTable toggleSort buttons.
+                ck = ctx.escape_attr(keys[i])
+                label = ctx.escape(str(c))
+                if keys[i] in sortable:
+                    head_cells_parts.append(
+                        f'<th data-dz-col="{ck}" :aria-sort="ariaSortDir(\'{ck}\')" '
+                        'scope="col" class="dz-table-th">'
+                        f'<button type="button" @click="toggleSort(\'{ck}\')" '
+                        f'aria-label="Sort by {label}" class="dz-table-sort-button">'
+                        f"{label}"
+                        '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" '
+                        'aria-hidden="true" xmlns="http://www.w3.org/2000/svg" '
+                        f':class="sortIcon(\'{ck}\')" class="dz-table-sort-icon">'
+                        '<path d="M2 4.5l4 4 4-4" stroke="currentColor" stroke-width="1.5" '
+                        'stroke-linecap="round" stroke-linejoin="round"/></svg></button></th>'
+                    )
+                else:
+                    head_cells_parts.append(
+                        f'<th data-dz-col="{ck}" scope="col" class="dz-table-th">{label}</th>'
+                    )
+            elif isinstance(c, SortHeader):
                 head_cells_parts.append(f"<th>{self._emit(c, ctx)}</th>")
             else:
                 head_cells_parts.append(f"<th>{ctx.escape(str(c))}</th>")
         head_cells = "".join(head_cells_parts)
+        # ADR-0049 Phase 1 (D2): skeleton mode — first paint emits an empty
+        # hydrating tbody instead of inline rows. The body is fetched from
+        # `hx_endpoint` and rendered by the substrate row-core
+        # (`render_data_row`, ADR-0048), so rows have exactly one source.
+        # Mirrors the legacy `render_filterable_table` tbody (table_renderer.py).
+        if t.skeleton:
+            # Task 4a: the canonical list table carries the actions header so
+            # its column count matches the hydrated render_data_row rows.
+            head_html = head_cells
+            if t.has_actions:
+                head_html += (
+                    '<th scope="col" class="dz-table-th-actions">'
+                    '<span class="visually-hidden">Actions</span></th>'
+                )
+            caption_html = (
+                f'<caption class="visually-hidden">{ctx.escape(t.caption)}</caption>'
+                if t.caption
+                else ""
+            )
+            id_attr = f' id="{ctx.escape_attr(t.tbody_id)}"' if t.tbody_id else ""
+            triggers: list[str] = []
+            if t.hx_trigger:
+                triggers.append(t.hx_trigger)
+            if t.refresh_interval:
+                triggers.append(f"every {int(t.refresh_interval)}s")
+            trigger_attr = f' hx-trigger="{", ".join(triggers)}"' if triggers else ""
+            indicator_attr = (
+                f' hx-indicator="{ctx.escape_attr(t.loading_indicator)}"'
+                if t.loading_indicator
+                else ""
+            )
+            skeleton_tbody = (
+                f"<tbody{id_attr} "
+                f'hx-get="{ctx.escape_attr(t.hx_endpoint)}"'
+                f"{trigger_attr} "
+                'hx-swap="innerMorph" '
+                'hx-headers=\'{"Accept": "text/html"}\''
+                f"{indicator_attr} "
+                '@htmx:before-request="loading = true" '
+                '@htmx:after-settle="loading = false" '
+                'class="dz-table-body"></tbody>'
+            )
+            return (
+                f'<table class="dz-table-grid">'
+                f"{caption_html}"
+                f"<thead><tr>{head_html}</tr></thead>"
+                f"{skeleton_tbody}"
+                f"</table>"
+            )
         # Issue #1029 phase 1: row_links — when set, each row carries
         # an hx-get on the <tr> so clicking navigates to the detail
         # URL via htmx (full-page swap into <body>). Wrapping each
         # cell in an <a> would break <td> nesting; wrapping the <tr>
         # is the htmx-idiomatic shape for clickable rows.
-        body_parts: list[str] = []
+        # #1511: each `<tr>` is assembled by the shared `assemble_list_row` seam
+        # (the `embedded` archetype). The checkbox cell + the bare `<td>` data
+        # cells are this archetype's content; the row skeleton, the
+        # `data-dz-list-kind` marker, and the clickable-row drill converge there.
+        body_parts = []
         for i, row in enumerate(t.rows):
-            row_cells: list[str] = []
             # Phase 7: per-row checkbox cell when bulk_select is on.
+            checkbox_cell = ""
             if t.bulk_select:
                 row_id = ctx.escape_attr(t.row_ids[i]) if t.row_ids else ""
-                row_cells.append(
+                checkbox_cell = (
                     f'<td class="dz-tr-checkbox-cell" '
                     f'onclick="event.stopPropagation()">'
                     f'<input type="checkbox" class="dz-tr-checkbox" '
@@ -104,30 +246,262 @@ class _RenderTablesMixin:
                     f'aria-label="Select row" />'
                     f"</td>"
                 )
-            row_cells.extend(f"<td>{ctx.escape(cell)}</td>" for cell in row)
-            cells_html = "".join(row_cells)
+            cells_html = "".join(f"<td>{ctx.escape(cell)}</td>" for cell in row)
             url = t.row_links[i] if t.row_links else None
-            row_id_attr = (
-                f' data-dz-row-id="{ctx.escape_attr(t.row_ids[i])}"'
-                if t.bulk_select and t.row_ids
-                else ""
-            )
-            if url:
-                url_attr = ctx.escape_attr(url)
-                body_parts.append(
-                    f'<tr class="dz-table__row dz-table__row--linked" '
-                    f'hx-get="{url_attr}" hx-trigger="click" hx-target="body" hx-swap="innerHTML" '
-                    f'hx-push-url="true" tabindex="0"{row_id_attr}>'
-                    f"{cells_html}</tr>"
+            row_id_attr = ctx.escape_attr(t.row_ids[i]) if t.bulk_select and t.row_ids else ""
+            body_parts.append(
+                assemble_list_row(
+                    archetype=ARCHETYPE_EMBEDDED,
+                    cells_html=cells_html,
+                    row_id_attr=row_id_attr,
+                    checkbox_cell=checkbox_cell,
+                    class_extra=" dz-table__row--linked" if url else "",
+                    drill_attrs=drill_row_attrs(ctx.escape_attr(url)) if url else "",
                 )
-            else:
-                body_parts.append(f"<tr{row_id_attr}>{cells_html}</tr>")
+            )
         body_rows = "".join(body_parts)
         return (
             f'<table class="dz-table">'
             f"<thead><tr>{head_cells}</tr></thead>"
             f"<tbody>{body_rows}</tbody>"
             f"</table>"
+        )
+
+    def _emit_data_list_scroll(self, s: DataListScroll, ctx: RenderContext) -> str:
+        """Task 4b: the canonical list-table shell around a skeleton Table.
+
+        Reproduces the legacy `render_filterable_table` shell so all of
+        `table.css` applies: the `.dz-table` ancestor scopes the loading
+        overlay (`:has(.htmx-request)`), the empty sibling follows the
+        `.dz-table-grid` (CSS `:not(:has(tbody tr td)) ~ .dz-table-empty`),
+        and `--dz-list-rows` sizes the min-height.
+        """
+        table_id = ctx.escape_attr(s.table_id)
+        table_html = self._emit(s.table, ctx)  # type: ignore[arg-type]
+        aria_label = ctx.escape_attr(f"{s.aria_label} table" if s.aria_label else "Data table")
+
+        loading_overlay = (
+            '<div aria-hidden="true" class="dz-table-loading">'
+            '<svg class="dz-table-loading-spinner" viewBox="0 0 24 24" fill="none" '
+            'xmlns="http://www.w3.org/2000/svg">'
+            '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" '
+            'stroke-width="2"/>'
+            '<path class="opacity-75" fill="currentColor" '
+            'd="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>'
+            '<span class="visually-hidden">Loading…</span></div>'
+        )
+
+        empty_cta = ""
+        if s.empty_action_href and s.empty_action_label:
+            empty_cta = (
+                f'<a href="{ctx.escape_attr(s.empty_action_href)}" class="dz-button-primary">'
+                '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">'
+                '<path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.5" '
+                'stroke-linecap="round"/></svg>'
+                f"{ctx.escape(s.empty_action_label)}</a>"
+            )
+        empty_html = (
+            f'<div id="{table_id}-empty" role="status" class="dz-table-empty">'
+            '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" '
+            'aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="dz-table-empty-icon">'
+            '<rect x="4" y="4" width="32" height="32" rx="4" stroke="currentColor" '
+            'stroke-width="2"/>'
+            '<path d="M12 16h16M12 20h10M12 24h8" stroke="currentColor" stroke-width="1.5" '
+            'stroke-linecap="round"/></svg>'
+            f'<p class="dz-table-empty-title">{ctx.escape(s.empty_title)}</p>'
+            f'<p class="dz-table-empty-hint">{ctx.escape(s.empty_description)}</p>'
+            f"{empty_cta}</div>"
+        )
+
+        loading_sr = (
+            f'<div id="{table_id}-loading-sr" class="htmx-indicator visually-hidden" '
+            'role="status" aria-label="Loading data">Loading…</div>'
+        )
+        # The /api response fills this via an hx-swap-oob pagination swap
+        # (list_handlers). Empty at first paint; absent for infinite lists.
+        pagination_footer = (
+            f'<div id="{table_id}-pagination" class="dz-table-footer"></div>' if s.paginated else ""
+        )
+
+        return (
+            '<div class="dz-table">'
+            f'<div class="dz-table-scroll" style="--dz-list-rows: {int(s.page_size)}">'
+            f"{loading_overlay}"
+            f'<div class="dz-table-scroll-x" role="region" aria-label="{aria_label}" tabindex="0">'
+            f"{table_html}{empty_html}"
+            "</div></div>"
+            f"{loading_sr}"
+            f"{pagination_footer}"
+            "</div>"
+        )
+
+    def _emit_related_group(self, g: RelatedGroup, ctx: RenderContext) -> str:
+        """Task 3a: render a related-entity group's real content (table /
+        status_cards / file_list), reproducing the legacy detail related-group
+        renderers. Cells are pre-formatted value strings (escaped here)."""
+        tabs = list(g.tabs)
+        if g.display == "table":
+            return self._emit_related_table(tabs, ctx)
+        if g.display == "status_cards":
+            return self._emit_related_cards(tabs, ctx)
+        return self._emit_related_files(tabs, ctx)
+
+    @staticmethod
+    def _related_drill_attrs(drill: str, ctx: RenderContext) -> str:
+        """The htmx click-to-detail attrs for a related row/card/file (or "")."""
+        if not drill:
+            return ""
+        return (
+            f' hx-get="{ctx.escape_attr(drill)}" hx-push-url="true" '
+            'hx-trigger="click" hx-target="body" hx-swap="innerHTML"'
+        )
+
+    @staticmethod
+    def _related_create_row(t: RelatedTab, ctx: RenderContext) -> str:
+        if not t.create_href:
+            return ""
+        return (
+            '<div class="dz-related-create-row">'
+            f'<a href="{ctx.escape_attr(t.create_href)}" class="dz-related-create-button" '
+            f'data-dazzle-action="{ctx.escape_attr(t.create_action)}">'
+            f"+ New {ctx.escape(t.create_label)}</a></div>"
+        )
+
+    def _emit_related_table(self, tabs: list[RelatedTab], ctx: RenderContext) -> str:
+        multi = len(tabs) > 1
+        first = tabs[0].tab_id if tabs else ""
+        parts = [f"<div x-data=\"{{ activeTab: '{ctx.escape_attr(first)}' }}\">"]
+        if multi:
+            buttons = "".join(
+                f'<button type="button" class="dz-related-tab" role="tab" '
+                f":class=\"{{ 'is-active': activeTab === '{ctx.escape_attr(t.tab_id)}' }}\" "
+                f":aria-selected=\"activeTab === '{ctx.escape_attr(t.tab_id)}'\" "
+                f"@click=\"activeTab = '{ctx.escape_attr(t.tab_id)}'\">"
+                f'{ctx.escape(t.label)}<span class="dz-related-tab-count">{len(t.rows)}</span>'
+                "</button>"
+                for t in tabs
+            )
+            parts.append(f'<div class="dz-related-tabs" role="tablist">{buttons}</div>')
+        for t in tabs:
+            x_show = f" x-show=\"activeTab === '{ctx.escape_attr(t.tab_id)}'\"" if multi else ""
+            head = "".join(f'<th scope="col">{ctx.escape(h)}</th>' for h in t.headers)
+            if t.rows:
+                body_rows = []
+                for i, row in enumerate(t.rows):
+                    drill = t.row_drill[i] if t.row_drill else ""
+                    attrs = (
+                        f' hx-get="{ctx.escape_attr(drill)}" hx-push-url="true" '
+                        'hx-trigger="click" hx-target="body" hx-swap="innerHTML"'
+                        if drill
+                        else ""
+                    )
+                    cells = "".join(f"<td>{ctx.escape(c)}</td>" for c in row)
+                    body_rows.append(f"<tr{attrs}>{cells}</tr>")
+                body = "".join(body_rows)
+            else:
+                body = (
+                    f'<tr><td colspan="{max(1, len(t.headers))}" '
+                    f'class="dz-related-table-empty-cell">No {ctx.escape(t.label.lower())} found.'
+                    "</td></tr>"
+                )
+            parts.append(
+                f'<div{x_show} role="tabpanel"><div class="dz-related-table-card">'
+                f"{self._related_create_row(t, ctx)}"
+                '<div class="dz-related-table-scroll">'
+                '<table class="dz-related-table">'
+                f"<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
+                "</div></div></div>"
+            )
+        parts.append("</div>")
+        return "".join(parts)
+
+    def _emit_related_cards(self, tabs: list[RelatedTab], ctx: RenderContext) -> str:
+        multi = len(tabs) > 1
+        parts: list[str] = []
+        for t in tabs:
+            block = ['<div class="dz-related-group">']
+            if multi:
+                block.append(f'<h4 class="dz-related-tab-label">{ctx.escape(t.label)}</h4>')
+            block.append(self._related_create_row(t, ctx))
+            cards = []
+            for i, row in enumerate(t.rows):
+                drill = t.row_drill[i] if t.row_drill else ""
+                attrs = self._related_drill_attrs(drill, ctx)
+                lines = "".join(
+                    f'<div class="dz-related-status-card-'
+                    f'{"primary" if j == 0 else "secondary"}">{ctx.escape(c)}</div>'
+                    for j, c in enumerate(row[:3])
+                )
+                cards.append(f'<div class="dz-related-status-card"{attrs}>{lines}</div>')
+            if cards:
+                block.append(f'<div class="dz-related-status-cards">{"".join(cards)}</div>')
+            else:
+                block.append(
+                    f'<p class="dz-related-empty">No {ctx.escape(t.label.lower())} found.</p>'
+                )
+            block.append("</div>")
+            parts.append("".join(block))
+        return "".join(parts)
+
+    def _emit_related_files(self, tabs: list[RelatedTab], ctx: RenderContext) -> str:
+        multi = len(tabs) > 1
+        parts: list[str] = []
+        for t in tabs:
+            block = ['<div class="dz-related-group">']
+            if multi:
+                block.append(f'<h4 class="dz-related-tab-label">{ctx.escape(t.label)}</h4>')
+            block.append(self._related_create_row(t, ctx))
+            files = []
+            for i, row in enumerate(t.rows):
+                drill = t.row_drill[i] if t.row_drill else ""
+                attrs = self._related_drill_attrs(drill, ctx)
+                lines = "".join(
+                    f'<span class="dz-related-file-{"name" if j == 0 else "meta"}">'
+                    f"{ctx.escape(c)}</span>"
+                    for j, c in enumerate(row[:2])
+                )
+                files.append(f'<div class="dz-related-file-row"{attrs}>{lines}</div>')
+            if files:
+                block.append(f'<div class="dz-related-file-list">{"".join(files)}</div>')
+            else:
+                block.append(
+                    f'<p class="dz-related-empty">No {ctx.escape(t.label.lower())} found.</p>'
+                )
+            block.append("</div>")
+            parts.append("".join(block))
+        return "".join(parts)
+
+    def _emit_column_visibility_menu(self, m: ColumnVisibilityMenu, ctx: RenderContext) -> str:
+        """Task 4c: the column-visibility dropdown, bound to dzTable."""
+        items: list[str] = []
+        for key, label in m.columns:
+            ck = ctx.escape_attr(key)
+            cl_attr = ctx.escape_attr(label)
+            items.append(
+                '<label role="menuitemcheckbox" class="dz-table-col-menu-item">'
+                '<input type="checkbox" class="dz-table-col-menu-checkbox" '
+                f":checked=\"isColumnVisible('{ck}')\" "
+                f"@change=\"toggleColumn('{ck}')\" "
+                f'aria-label="Show {cl_attr} column">'
+                f"<span>{ctx.escape(label)}</span></label>"
+            )
+        return (
+            '<div class="dz-table-col-menu" @click.outside="colMenuOpen = false">'
+            '<button type="button" @click="colMenuOpen = !colMenuOpen" '
+            ':aria-expanded="colMenuOpen" aria-label="Toggle column visibility" '
+            'aria-haspopup="menu" class="dz-table-col-menu-trigger">'
+            '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" '
+            'aria-hidden="true" xmlns="http://www.w3.org/2000/svg">'
+            '<rect x="1" y="1" width="3" height="12" rx="0.5" stroke="currentColor" '
+            'stroke-width="1.5"/>'
+            '<rect x="5.5" y="1" width="3" height="12" rx="0.5" stroke="currentColor" '
+            'stroke-width="1.5"/>'
+            '<rect x="10" y="1" width="3" height="12" rx="0.5" stroke="currentColor" '
+            'stroke-width="1.5"/>'
+            "</svg>Columns</button>"
+            '<div x-show="colMenuOpen" x-transition.opacity.duration.80ms '
+            'role="menu" class="dz-table-col-menu-panel">'
+            f"{''.join(items)}</div></div>"
         )
 
     def _emit_kpi(self, k: KPI, ctx: RenderContext) -> str:
@@ -626,37 +1000,44 @@ class _RenderTablesMixin:
             )
         thead = "<thead><tr>" + "".join(thead_cells) + "</tr></thead>"
 
-        tbody_rows: list[str] = []
+        # #1511: each `<tr>` flows through the shared `assemble_list_row` seam
+        # (the `region` archetype). The data `<td>` cells + the #1148 trailing
+        # action cell are this archetype's content; the row skeleton, the
+        # `data-dz-list-kind` marker, and the #1303 clickable-row drill converge
+        # there. The legacy trailing space on the non-clickable `dz-list-row `
+        # class is preserved as a class suffix.
+        tbody_rows = []
         for i, row in enumerate(lst.rows):
-            cells_html = ""
-            for cell in row:
-                if isinstance(cell, str):
-                    cells_html += f"<td>{ctx.escape(cell)}</td>"
-                else:
-                    cells_html += f"<td>{self._emit(cell, ctx)}</td>"  # type: ignore[arg-type]
-            if has_actions:
-                # #1148: per-row action button HTML is pre-rendered by
-                # the data builder (already-escaped attributes, hx-post
-                # URL, JSON-encoded bound args). Trust contract: builder
-                # owns escape for the values it pulls off row dicts.
-                cells_html += f'<td class="dz-list-row-action">{lst.row_actions[i]}</td>'
-            # #1303: per-row drill-to-detail. When a row link is set, the
-            # <tr> carries an hx-get to the entity detail (full-page swap),
-            # the htmx-idiomatic clickable-row shape the standalone list uses
-            # (#1029) — not a cell <a>, which would break <td> nesting.
+            cells_html = "".join(
+                f"<td>{ctx.escape(cell)}</td>"
+                if isinstance(cell, str)
+                else f"<td>{self._emit(cell, ctx)}</td>"  # type: ignore[arg-type]
+                for cell in row
+            )
+            # #1148: per-row action button HTML is pre-rendered by the data
+            # builder (already-escaped attributes, hx-post URL, JSON-encoded
+            # bound args). Trust contract: builder owns escape for the values it
+            # pulls off row dicts. Empty cell when the row's action is hidden so
+            # column arity stays stable. #1511: the action `<td>` stops click
+            # propagation so the button never co-fires with the row-level drill
+            # (the §3.2 rule — every interactive sub-element opts out of the
+            # bare-click the row owns), matching the queue-region pattern.
+            actions_cell = (
+                f'<td class="dz-list-row-action" onclick="event.stopPropagation()">'
+                f"{lst.row_actions[i]}</td>"
+                if has_actions
+                else ""
+            )
             url = lst.row_links[i] if lst.row_links else None
-            if url:
-                url_attr = ctx.escape_attr(url)
-                tbody_rows.append(
-                    f'<tr class="dz-list-row is-clickable" '
-                    f'hx-get="{url_attr}" hx-trigger="click" hx-target="body" hx-swap="innerHTML" '
-                    f'hx-push-url="true" tabindex="0">{cells_html}</tr>'
+            tbody_rows.append(
+                assemble_list_row(
+                    archetype=ARCHETYPE_LIST_REGION,
+                    cells_html=cells_html,
+                    actions_cell=actions_cell,
+                    class_extra=" is-clickable" if url else " ",
+                    drill_attrs=drill_row_attrs(ctx.escape_attr(url)) if url else "",
                 )
-            else:
-                # Trailing space on `class="dz-list-row "` mirrors legacy
-                # `class="dz-list-row {{ attention_classes(...) }}{% if action_url %} is-clickable{% endif %}"`
-                # for the no-attention, no-action_url case.
-                tbody_rows.append(f'<tr class="dz-list-row ">{cells_html}</tr>')
+            )
         tbody = f"<tbody>{''.join(tbody_rows)}</tbody>"
 
         table = (

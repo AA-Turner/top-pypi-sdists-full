@@ -86,6 +86,55 @@ _METRIC_DELTA_SENTIMENTS = ("", "positive_up", "positive_down")
 
 
 @dataclass(frozen=True, slots=True)
+class RowCapabilities:
+    """Orthogonal per-row capability vector for the converged list row-core
+    (#1505 — `docs/superpowers/specs/2026-06-28-list-render-convergence-design.md`
+    §3). Each flag honours the one composition rule: *the row owns the bare
+    click (`drill`); every interactive sub-element stops propagation*.
+
+    Phase 1 carries only the flags that gate the rich `data-table` archetype's
+    output — the subset that varies in today's `_render_table_row`. The field
+    set grows in Phase 3 as the `list-region` / `embedded` archetypes are folded
+    onto the shared core (e.g. an explicit `row_actions` flavour). Adding a
+    capability that cannot satisfy the composition rule is the signal it belongs
+    to a new archetype, not a new flag here.
+    """
+
+    bulk_select: bool = False
+    inline_editable: tuple[str, ...] = ()
+    drill: bool = False
+    peek: str = "off"
+
+
+@dataclass(frozen=True, slots=True)
+class DataTable:
+    """Rich CRUD data-table primitive (#1505) — the `render/` substrate home for
+    the `dz-tr-row` archetype previously rendered by
+    `http/runtime/htmx_render.py::_render_table_row`.
+
+    Unlike `Table`/`ListRegion` (which carry pre-rendered string/Fragment cells),
+    `DataTable` carries the *raw inputs* the row-core needs to render cells
+    itself: `columns` are column-spec mappings (``key``/``type``/optional
+    ``hidden``/``currency_code``/``semantic_map``/``filter_options``/``label``)
+    and `rows` are item mappings. Rendered by `_emit_data_table` (full table) and
+    `render_data_table_rows` (the `<tbody>`-only entry the http/ HTMX-refresh
+    transport path calls down into).
+    """
+
+    columns: tuple[typing.Mapping[str, Any], ...]
+    rows: tuple[typing.Mapping[str, Any], ...] = ()
+    entity_name: str = "Item"
+    api_endpoint: str = ""
+    detail_url_template: str = ""
+    table_id: str = "dt-table"
+    capabilities: RowCapabilities = field(default_factory=RowCapabilities)
+    # No empty-columns guard: the rich row-core renders an actions-only row for a
+    # column-less table exactly as the retired `_render_table_row` did, so the
+    # #1505-P2 switch stays byte-identical even for a misconfigured (column-less)
+    # refresh. A column-less data-table is degenerate, not an error to raise.
+
+
+@dataclass(frozen=True, slots=True)
 class Table:
     """Plain tabular data primitive.
 
@@ -108,10 +157,46 @@ class Table:
     # `toggleRow`, `toggleSelectAll`, `bulkDelete`, `clearSelection`.
     bulk_select: bool = False
     row_ids: tuple[str, ...] = ()
+    # ADR-0049 Phase 1 (D2): skeleton mode. When `skeleton=True` the table
+    # first-paints chrome (thead) + an empty hydrating `<tbody>` that `hx-get`s
+    # the row body from `hx_endpoint` (→ `render_data_row`, the sole row
+    # source). No inline `<tr>` rows. Mirrors the legacy
+    # `render_filterable_table` skeleton tbody so the hydrate is identical.
+    skeleton: bool = False
+    tbody_id: str = ""  # legacy `{table_id}-body` — htmx target for refreshes
+    hx_endpoint: str = ""  # row-body endpoint (already carries any sort qs)
+    hx_trigger: str = "load"  # base trigger; "" suppresses (search_first lists)
+    refresh_interval: int | None = None  # appends `, every Ns` to the trigger
+    loading_indicator: str = ""  # `#{table_id}-loading-sr` selector
+    # ADR-0049 Phase 1 Task 4a: in skeleton mode the list `<table>` carries the
+    # canonical `dz-table-grid` class + a visually-hidden `<caption>` (the
+    # accessible name) + a trailing actions `<th>` so the thead column count
+    # matches the hydrated `render_data_row` rows (which always emit a trailing
+    # actions `<td>`). All three are skeleton-only — embedded plain tables are
+    # unaffected.
+    caption: str = ""
+    has_actions: bool = False
+    # ADR-0049 Phase 1 Task 4e: parallel column keys (aligned to `columns`).
+    # When set, each data `<th>` carries `data-dz-col="{key}"` so the dzTable
+    # column-visibility toggle hides the header in lock-step with the hydrated
+    # `render_data_row` body cells. Empty = plain headers (embedded tables).
+    column_keys: tuple[str, ...] = ()
+    # Keys whose canonical list header renders as a dzTable `toggleSort`
+    # button (client-state sort + aria-sort + sort icon), not a static label.
+    # Only consulted in skeleton mode alongside `column_keys`.
+    sortable_keys: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        if not self.columns:
+        # Skeleton (list) tables may have zero data columns — they still render
+        # a valid actions-only / select+actions table (legacy parity; ADR-0049
+        # Task 5). Non-skeleton embedded tables still require ≥1 column.
+        if not self.columns and not self.skeleton:
             raise ValueError("Table requires at least one column")
+        if self.skeleton and self.rows:
+            raise ValueError(
+                "skeleton tables must not carry inline rows — rows hydrate "
+                "from hx_endpoint via render_data_row (ADR-0049 D2)"
+            )
         for i, row in enumerate(self.rows):
             if len(row) != len(self.columns):
                 raise ValueError(
@@ -127,6 +212,91 @@ class Table:
                 f"row_ids length {len(self.row_ids)} != rows length {len(self.rows)} "
                 "(bulk_select requires a per-row id for the checkbox/Alpine binding)"
             )
+
+
+@dataclass(frozen=True, slots=True)
+class DataListScroll:
+    """The canonical list-table shell (ADR-0049 Phase 1 Task 4b).
+
+    Wraps a skeleton `Table` with the scroll container + loading-spinner
+    overlay + focusable horizontal scroll region + empty-state sibling +
+    screen-reader loading indicator — reproducing the legacy
+    `render_filterable_table` table shell so the whole `table.css` (loading
+    `:has(.htmx-request)`, the `.dz-table-grid ~ .dz-table-empty` empty guard,
+    the `--dz-list-rows` sizing) applies unchanged. The outermost `.dz-table`
+    class is what scopes those rules.
+
+    `table` is the skeleton `Table` child (rendered inside the scroll region,
+    immediately before the empty sibling so the CSS following-sibling guard
+    fires). `empty_action_*` render an optional create CTA in the empty state.
+    """
+
+    table: object
+    table_id: str
+    page_size: int = 10
+    aria_label: str = ""
+    empty_title: str = "No items found"
+    empty_description: str = "Try adjusting your search or filter criteria."
+    empty_action_href: str = ""
+    empty_action_label: str = ""
+    # Task 4e: emit the empty `#{table_id}-pagination` footer the /api response
+    # fills via its `hx-swap-oob` pagination swap (list_handlers). False for
+    # infinite-scroll lists (no footer).
+    paginated: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class RelatedTab:
+    """One related-entity tab inside a `RelatedGroup` (ADR-0049 Phase 2).
+
+    The adapter pre-formats each row's cells (via `_format_cell` — typed
+    date/currency/bool/enum) into plain value strings (the renderer escapes
+    them), so the primitive stays fully typed-simple. `row_drill` is parallel
+    to `rows` (per-row detail URL, "" = not clickable). The create affordance
+    is the pre-built `+ New {create_label}` link with its RBAC anchor."""
+
+    tab_id: str
+    label: str
+    headers: tuple[str, ...]
+    rows: tuple[tuple[str, ...], ...]
+    row_drill: tuple[str, ...] = ()
+    create_href: str = ""
+    create_action: str = ""
+    create_label: str = ""
+
+    def __post_init__(self) -> None:
+        if self.row_drill and len(self.row_drill) != len(self.rows):
+            raise ValueError(
+                f"row_drill length {len(self.row_drill)} != rows length {len(self.rows)}"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class RelatedGroup:
+    """A group of related-entity tabs on a detail page (ADR-0049 Phase 2),
+    rendered by `display` mode: `table` (Alpine tab-strip + per-tab table),
+    `status_cards` (cards of the first 3 columns), or `file_list` (file rows
+    of the first 2 columns). Reproduces the legacy `_render_related_group`
+    content the substrate previously stubbed as a `Skeleton`."""
+
+    group_id: str
+    label: str
+    display: str  # "table" | "status_cards" | "file_list"
+    tabs: tuple[RelatedTab, ...]
+    is_auto: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class ColumnVisibilityMenu:
+    """The list header's column-visibility menu (ADR-0049 Phase 1 Task 4c).
+
+    A dropdown of per-column checkboxes bound to the `dzTable` controller's
+    `isColumnVisible`/`toggleColumn` — mirrors the legacy
+    `render_filterable_table` column menu. `columns` is the ordered tuple of
+    visible `(key, label)` pairs. `_build_list` only constructs the menu when
+    there are more than three visible columns (the legacy gate)."""
+
+    columns: tuple[tuple[str, str], ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1164,6 +1334,13 @@ class FilterColumn:
     label: str
     options: tuple[tuple[str, str], ...]  # (value, display_label) pairs
     selected: str = ""
+    # ADR-0049 Phase 1 Task 4d: filter control kind for ListFilterBar.
+    # "select" (static options), "text" (free-text contains), or "ref" (a
+    # FK select whose options are fetched at runtime via `dzFilterRefSelect`
+    # from `ref_api`). The workspace FilterBar ignores these (it only renders
+    # static selects).
+    filter_type: str = "select"
+    ref_api: str = ""
 
     def __post_init__(self) -> None:
         if not self.key:
@@ -1196,6 +1373,33 @@ class FilterBar:
         keys = [c.key for c in self.columns]
         if len(set(keys)) != len(keys):
             raise ValueError(f"FilterBar column keys must be unique; got duplicates in {keys}")
+
+
+@dataclass(frozen=True, slots=True)
+class ListFilterBar:
+    """List-surface filter row (ADR-0049 Phase 1 Task 4d).
+
+    Distinct from the workspace `FilterBar`: it targets the list's hydrating
+    `<tbody>` (`#{tbody_id}`) with `filter[{key}]` param names + `innerMorph`
+    — exactly what the `/api` list handler parses (list_handlers.py) and what
+    the skeleton tbody hydrates with. (The workspace `FilterBar` targets
+    `#region-{name}` with `filter_{key}` names, which the list handler does
+    not parse.) The FTS search box is the canonical free-text affordance;
+    these selects narrow the list in place.
+
+    `hx-include="closest [data-dazzle-table]"` makes every active filter ride
+    along on each change, matching the legacy list filter bar."""
+
+    tbody_id: str
+    endpoint: URL
+    columns: tuple[FilterColumn, ...]
+    loading_indicator: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.tbody_id:
+            raise ValueError("ListFilterBar requires a non-empty tbody_id")
+        if not self.columns:
+            raise ValueError("ListFilterBar requires at least one column")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1707,6 +1911,32 @@ class WorkspaceDrawer:
 
 
 @dataclass(frozen=True, slots=True)
+class SlideOver:
+    """Right-side slide-over panel for `peek: slide_over` (#1494, 2c, Slice 2).
+
+    One shared panel per list, keyed by `table_id`: a row's peek chevron
+    `hx-get`s the entity's detail *body* (`?peek=1`) into the panel body
+    (`#slideover-content-{table_id}`) and reveals the container
+    (`#slideover-{table_id}`); the backdrop + close button re-hide it. **JS-free**
+    — open/close is an inline `hx-on:click` toggling the `hidden` attribute, the
+    same build-free pattern the peek-*expand* panel uses (no JS module, no `dist`
+    rebuild). Renders against the purpose-built `.dz-slideover-*` CSS family;
+    `width` drives the `data-dz-width` max-width preset.
+
+    Unlike the workspace-only `dzDrawer` (`#dz-detail-drawer-content`), this
+    panel is emitted inline with the list body, so `slide_over` works on both
+    workspace cards and standalone surface list pages."""
+
+    table_id: str
+    title: str = "Detail"
+    width: Literal["sm", "md", "lg", "xl", "full"] = "md"
+
+    def __post_init__(self) -> None:
+        if not self.table_id:
+            raise ValueError("SlideOver requires a table_id")
+
+
+@dataclass(frozen=True, slots=True)
 class AddCardRow:
     """The "Add Card" row that anchors the picker popover (Phase 4B.5.b.2.iii).
 
@@ -1776,6 +2006,9 @@ class WorkspaceShell:
     title: str
     body: object  # Fragment — typed as object per primitive convention
     primary_actions: tuple[WorkspacePrimaryAction, ...] = ()
+    # 3a (#1491): actions demoted past the prominence budget. Rendered in a
+    # native `<details>` `More ⋯` overflow menu after the primary row.
+    overflow_actions: tuple[WorkspacePrimaryAction, ...] = ()
     fold_count: int | None = None
 
 

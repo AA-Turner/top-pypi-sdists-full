@@ -12,13 +12,17 @@ import contextlib
 import functools
 import logging
 import re
+import uuid
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from aigie.auto_instrument._callback_utils import normalize_callbacks
 from aigie.auto_instrument.trace import get_or_create_trace, get_or_create_trace_sync
 from aigie.context_manager import merge_metadata
 from aigie.integrations.langgraph.native_callback import LangGraphNativeCallback
+from aigie.integrations.langgraph.rewind import LangGraphRewindCapability
 from aigie.integrations.langgraph.utils import extract_reasoning_plan
+from aigie.rewind.coordinator import RewindCoordinator
 from aigie.tracing.callback_lifecycle import CallbackLifecycle
 from aigie.tracing.lifecycle import FrameworkLifecycleBridge
 from aigie.tracing.reasoning_plan import ReasoningPlan
@@ -42,6 +46,14 @@ _GENERIC_SCHEMA_NAMES = frozenset(
 )
 
 
+@dataclass(frozen=True)
+class _RewindHook:
+    coordinator: RewindCoordinator
+    capability: LangGraphRewindCapability
+    app: Any
+    config: dict | None
+
+
 def _is_aigie_callback(cb: object) -> bool:
     """Detect any Aigie-injected callback handler regardless of its concrete
     class. Aigie native callbacks (LangGraph / LangChain) set
@@ -62,6 +74,7 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
         adapter: Any = None,
         *,
         config: Any = None,
+        coordinator: RewindCoordinator | None = None,
     ) -> None:
         CallbackLifecycle.__init__(self)
         self._emitter = emitter
@@ -69,6 +82,11 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
         self._config = config
         self._current_workflow_name: str = "LangGraph Workflow"
         self._current_graph_schema: Any = None
+        self._coordinator = coordinator
+        self._capability: LangGraphRewindCapability | None = None
+        if coordinator is not None:
+            self._capability = LangGraphRewindCapability()
+            coordinator.register(self._capability)
 
     def _zero_retention_from_handler(self) -> bool:
         cfg = self._config
@@ -209,14 +227,39 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
 
     # ---- Workflow-span integration (uses the L2 _before_run/_after_run) ---
 
-    def _before_run(self, handler: Any, input: Any, config: dict | None) -> None:
+    def _before_run(
+        self, handler: Any, framework_handle: Any, input: Any, config: dict | None
+    ) -> None:
         handler.open_workflow_span(input=input)
         if config is not None and self._adapter is not None:
             self._adapter.register_callback(handler, config)
+        self._synthesize_thread_id(framework_handle, config)
+        self._arm_rewind(handler, framework_handle, config)
         # Thread-counter is a fallback for raw-thread code paths where the
         # ambient ContextVar doesn't propagate (e.g. LangChain dispatching
         # callbacks from a threadpool without copy_context).
         _inc_thread_counter()
+
+    def _synthesize_thread_id(self, app: Any, config: dict | None) -> None:
+        """Add a per-invoke thread_id for Aigie-injected checkpointers."""
+        if config is None or getattr(app, "_aigie_injected_checkpointer", None) is None:
+            return
+        if self._extract_thread_id(config):
+            return
+        configurable = config.get("configurable")
+        configurable = dict(configurable) if isinstance(configurable, dict) else {}
+        configurable["thread_id"] = uuid.uuid4().hex
+        config["configurable"] = configurable
+
+    def _arm_rewind(self, handler: Any, app: Any, config: dict | None) -> None:
+        if self._coordinator is None or self._capability is None:
+            return
+        handler._aigie_rewind = _RewindHook(
+            coordinator=self._coordinator,
+            capability=self._capability,
+            app=app,
+            config=config,
+        )
 
     def _after_run(
         self, handler: Any, input: Any, config: dict | None, error: Exception | None
@@ -249,6 +292,24 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
             return
         pop_resumable_trace(self._extract_thread_id(config))
 
+    def _auto_checkpointer_for_rewind(self) -> bool:
+        cfg = self._config
+        return bool(cfg and getattr(cfg, "auto_checkpointer_for_rewind", False))
+
+    def _inject_checkpointer(self, kwargs: dict[str, Any]) -> Any:
+        """Inject MemorySaver only when the rewind auto-checkpointer flag is enabled."""
+        if self._coordinator is None or not self._auto_checkpointer_for_rewind():
+            return None
+        if kwargs.get("checkpointer") is not None:
+            return None
+        try:
+            from langgraph.checkpoint.memory import MemorySaver
+        except ImportError:
+            return None
+        saver = MemorySaver()
+        kwargs["checkpointer"] = saver
+        return saver
+
     # ---- StateGraph.compile patcher --------------------------------------
 
     def _install_native_hook(self) -> bool:
@@ -266,7 +327,11 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
 
         @functools.wraps(original_compile)
         def traced_compile(graph_self: Any, **kwargs: Any) -> Any:
+            injected = lifecycle._inject_checkpointer(kwargs)
             app = original_compile(graph_self, **kwargs)
+            if injected is not None:
+                with contextlib.suppress(AttributeError, TypeError):
+                    app._aigie_injected_checkpointer = injected  # type: ignore[attr-defined]
             lifecycle._capture_schema(graph_self)
             lifecycle._wrap_compiled_app(app)
             return app
@@ -340,17 +405,17 @@ def _install_prebuilt_prompt_capture() -> None:
     """Patch create_react_agent / langchain.agents.create_agent to stamp the
     static `prompt`/`system_prompt` kwarg onto the returned CompiledStateGraph
     as ``_aigie_static_prompt``. Idempotent and silent on import failure."""
-    _prebuilt: Any
+    _prebuilt: Any = None
     try:
-        import langgraph.prebuilt as _prebuilt
+        import langgraph.prebuilt as _prebuilt  # type: ignore[no-redef]
     except ImportError:
         _prebuilt = None
     if _prebuilt is not None and hasattr(_prebuilt, "create_react_agent"):
         _wrap_prebuilt_factory(_prebuilt, "create_react_agent", ("prompt", "system_prompt"))
 
-    _lc_agents: Any
+    _lc_agents: Any = None
     try:
-        import langchain.agents as _lc_agents
+        import langchain.agents as _lc_agents  # type: ignore[no-redef]
     except ImportError:
         _lc_agents = None
     if _lc_agents is not None and hasattr(_lc_agents, "create_agent"):

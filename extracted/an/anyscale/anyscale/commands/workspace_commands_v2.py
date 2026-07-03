@@ -1754,7 +1754,8 @@ def get(
     "--include-archived",
     is_flag=True,
     default=False,
-    help="Include archived workspaces in the results.",
+    hidden=True,
+    help="(Deprecated) No longer has any effect; will be removed in a future release.",
 )
 @click.option(
     "--tag",
@@ -1825,6 +1826,15 @@ def list(  # noqa: A001, PLR0912, PLR0913, PLR0917
     verbose: bool,
 ) -> None:
     """List workspaces with optional filters."""
+    if include_archived:
+        # --include-archived no longer has any effect (it was never forwarded to
+        # anyscale.workspace.list()). It is kept as a hidden, accepted no-op so
+        # existing scripts that pass it do not break; warn and proceed. Full
+        # removal will follow in a later change. See MLDX-1246.
+        log.warning(
+            "The --include-archived flag is deprecated and has no effect; "
+            "it will be removed in a future release."
+        )
     if max_items is not None and interactive:
         raise click.UsageError("--max-items only allowed with --no-interactive")
 
@@ -1861,7 +1871,6 @@ def list(  # noqa: A001, PLR0912, PLR0913, PLR0917
     stderr.print(f"• created_by_me     = {created_by_me}")
     stderr.print(f"• states            = {', '.join(state_filter) or '<all>'}")
     stderr.print(f"• tags              = {tags_filter or '<none>'}")
-    stderr.print(f"• include_archived  = {include_archived}")
     stderr.print(f"• sort              = {sort or '<none>'}")
     stderr.print(f"• mode                = {'interactive' if interactive else 'batch'}")
     stderr.print(f"• per-page limit      = {page_size}")

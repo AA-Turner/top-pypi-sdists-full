@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: timeout-sampler
-Version: 1.0.22
+Version: 1.1.0
 Summary: Timeout utility class to wait for any function output and interact with it in given time
 Project-URL: homepage, https://github.com/RedHatQE/timeout-sampler
 Project-URL: repository, https://github.com/RedHatQE/timeout-sampler
@@ -10,7 +10,7 @@ Author-email: Meni Yakove <myakove@gmail.com>
 License-Expression: Apache-2.0
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: pytest>=8.3.4
 Requires-Dist: python-simple-logger>=2.0.2
 Description-Content-Type: text/markdown
@@ -18,6 +18,8 @@ Description-Content-Type: text/markdown
 # TimeoutSampler
 
 Utility class for waiting to any function output and interact with it in given time.
+
+📖 **[Full Documentation](https://redhatqe.github.io/timeout-sampler/)**
 
 ## Installation
 
@@ -88,6 +90,55 @@ for sample in TimeoutSampler(
 ):
     if sample:
         return
+
+
+# Use callable filters to retry based on exception attributes.
+# Callables receive the exception and should return a truthy value to ignore (retry).
+# Example: HttpError is a custom exception with a `status` attribute,
+# and make_request() is a function that may raise it.
+# Only retry on HTTP 5xx errors; 4xx errors raise immediately.
+for sample in TimeoutSampler(
+    wait_timeout=60,
+    sleep=1,
+    func=make_request,
+    exceptions_dict={HttpError: [lambda exc: exc.status >= 500]},
+):
+    if sample:
+        break
+
+# Callable and string filters can be combined in the same list.
+for sample in TimeoutSampler(
+    wait_timeout=60,
+    sleep=1,
+    func=make_request,
+    exceptions_dict={HttpError: ["connection refused", lambda exc: exc.status >= 500]},
+):
+    if sample:
+        break
+
+
+# Sensitive kwargs (Authorization, token, password, etc.) are automatically
+# redacted from log output. You can customize which keys are redacted:
+for sample in TimeoutSampler(
+    wait_timeout=60,
+    sleep=1,
+    func=make_request,
+    headers={"Authorization": "Bearer my-secret-token"},
+):
+    if sample:
+        break
+# Log output will show: Kwargs: {'headers': {'Authorization': '***'}}
+
+# To add custom sensitive keys (merged with defaults):
+for sample in TimeoutSampler(
+    wait_timeout=60,
+    sleep=1,
+    func=call_api,
+    sensitive_keys=frozenset({"x-custom-secret"}),
+    headers={"Authorization": "Bearer token", "x-custom-secret": "value"},  # pragma: allowlist secret
+):
+    if sample:
+        break
 
 
 # Use as decorator. (Any argument that TimeoutSampler accepts will be passed to the decorated function)

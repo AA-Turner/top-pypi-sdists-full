@@ -15,7 +15,11 @@ from typing import TYPE_CHECKING, Any
 from aigie.context_manager import merge_metadata
 from aigie.integrations.claude_agent_sdk.cost_tracking import calculate_claude_cost
 from aigie.integrations.claude_agent_sdk.monitoring import DriftDetector
-from aigie.integrations.claude_agent_sdk.native_callback import _pick_error_message, _utc_now
+from aigie.integrations.claude_agent_sdk.native_callback import (
+    _pick_error_message,
+    _usage_dict,
+    _utc_now,
+)
 
 if TYPE_CHECKING:
     pass
@@ -449,11 +453,7 @@ class QueryEvents:
             query_output = {
                 "response": output,
                 "message_count": len(messages),
-                "usage": {
-                    "input_tokens": span_input_tokens,
-                    "output_tokens": span_output_tokens,
-                    "total_tokens": span_total_tokens,
-                },
+                "usage": _usage_dict(span_input_tokens, span_output_tokens),
                 "cost": span_cost,
                 "tool_calls": self.total_tool_calls,
                 "monitoring": monitoring_summary,

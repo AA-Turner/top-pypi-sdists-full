@@ -8147,7 +8147,7 @@ class ManagedRuleIdentifiers(
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFORMATION_STACK_DRIFT_DETECTION_CHECK")
     def CLOUDFORMATION_STACK_DRIFT_DETECTION_CHECK(cls) -> builtins.str:
-        '''Checks whether an AWS CloudFormation stack's actual configuration differs, or has drifted, from it's expected configuration.
+        '''Checks whether an AWS CloudFormation stack's actual configuration differs, or has drifted, from its expected configuration.
 
         :see: https://docs.aws.amazon.com/config/latest/developerguide/cloudformation-stack-drift-detection-check.html
         '''

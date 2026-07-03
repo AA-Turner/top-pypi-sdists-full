@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "LCPDelta"
-version = "2.2.0"
+version = "2.2.2"
 authors = [
   { name="LCP Delta", email="enact.helpdesk@lcp.uk.com" },
 ]
 description = "LCPDelta Python Package"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 keywords = ["LCPDelta", "Enact", "Flextrack", "Storetrack"]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -52,7 +52,7 @@ dev = [
 [tool.ruff]
 src = ["lcpdelta_python_package/src"]
 line-length = 120
-target-version = "2.2.0"
+target-version = "2.2.2"
 
 [tool.ruff.lint.extend-per-file-ignores]
 "__init__.py" = ["E402", "F401"]

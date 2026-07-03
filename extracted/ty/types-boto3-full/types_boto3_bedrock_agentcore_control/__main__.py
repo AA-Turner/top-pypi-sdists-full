@@ -12,8 +12,8 @@ def print_info() -> None:
     Print package info to stdout.
     """
     sys.stdout.write(
-        "Type annotations for boto3 BedrockAgentCoreControl 1.43.39\n"
-        "Version:         1.43.39\n"
+        "Type annotations for boto3 BedrockAgentCoreControl 1.43.40\n"
+        "Version:         1.43.40\n"
         "Builder version: 8.12.0\n"
         "Docs:            https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control//\n"
         "Boto3 docs:      https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control.html#bedrockagentcorecontrol\n"
@@ -26,7 +26,7 @@ def print_version() -> None:
     """
     Print package version to stdout.
     """
-    sys.stdout.write("1.43.39\n")
+    sys.stdout.write("1.43.40\n")
 
 
 def main() -> None:

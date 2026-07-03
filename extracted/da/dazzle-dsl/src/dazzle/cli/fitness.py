@@ -23,6 +23,7 @@ from dazzle.fitness.triage import (
     read_queue_file,
     write_queue_file,
 )
+from dazzle.fitness.vitality import analyze_connectedness, render_report_md
 
 fitness_app = typer.Typer(
     name="fitness",
@@ -361,3 +362,41 @@ def clones_command(
             typer.echo(f"    {member}")
     if not index:
         typer.echo("No clone clusters found.")
+
+
+@fitness_app.command("vitality")
+def vitality(
+    project: Path | None = typer.Option(None, "--project", help="Repo root (default: cwd)"),
+    output: Path | None = typer.Option(
+        None, "--output", "-o", help="Write the report markdown to this file"
+    ),
+    coverage: Path | None = typer.Option(
+        None,
+        "--coverage",
+        help="Path to a coverage.py data file (e.g. .coverage) — overlays test exercise "
+        "so islet candidates split into unexercised (genuine) vs covered (Phase 2)",
+    ),
+    git: bool = typer.Option(
+        True, "--git/--no-git", help="Rank islet candidates by file staleness (git last-commit age)"
+    ),
+    top: int = typer.Option(40, "--top", help="Max islet candidates to list"),
+) -> None:
+    """Static connectedness report — Vitality Phase 1 (#1521).
+
+    Builds an AST call graph over ``src/``, augments it with registry/decorator
+    dispatch recovered from the code, and reports: reachability, the augmentation
+    delta (functions rescued by the dispatch recovery — the acceptance signal), and
+    the islet candidates (functions with no caller that are neither reached nor
+    dispatch-referenced). Report-only; AST-only over-reports, so candidates are
+    review prompts, not dead code (Phase 2 coverage/runtime would clear false
+    positives). See ``dev_docs/dazzle-vitality-thesis.md``.
+    """
+    repo = project or Path.cwd()
+    src_root = repo / "src"
+    report = analyze_connectedness(src_root, coverage_path=coverage, git_root=repo if git else None)
+    md = render_report_md(report, top=top)
+    if output is not None:
+        output.write_text(md, encoding="utf-8")
+        typer.echo(f"Wrote {output}")
+    else:
+        typer.echo(md)

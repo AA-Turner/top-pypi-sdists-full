@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import re
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
@@ -10,6 +12,42 @@ from servicenow_mcp.utils import json_fast
 
 INSTANCE_CONFIG_ENV = "SERVICENOW_INSTANCE_CONFIG"
 ACTIVE_INSTANCE_ENV = "SERVICENOW_ACTIVE_INSTANCE"
+
+_ENV_REF_PATTERN = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$")
+
+
+def has_env_reference(value: Any) -> bool:
+    """True when *value* textually contains a ``${`` env-reference marker.
+
+    Companion to :func:`resolve_env_reference`, which only expands FULL
+    ``${VAR}`` values. A partial/embedded reference ("${VAULT}_prod", "${A}b")
+    passes through resolution unchanged — callers use this check to reject such
+    values loudly instead of shipping the literal ``${...}`` as a credential.
+    Single source of truth for "did the user intend interpolation here".
+    """
+    return isinstance(value, str) and "${" in value
+
+
+def resolve_env_reference(value: str | None) -> str | None:
+    """Resolve ``${ENV_NAME}`` style values to the actual environment value.
+
+    Shared by the active-instance path (cli) and the named-instance contexts
+    (server) so per-instance credentials never have to be plaintext in
+    SERVICENOW_INSTANCE_CONFIG. Non-placeholder values pass through unchanged;
+    an unset or self-referential env var resolves to None (caller decides
+    whether that is fatal — for credentials it should be, never a silent
+    fallback to another instance's secret).
+    """
+    if not value:
+        return value
+    stripped = value.strip()
+    match = _ENV_REF_PATTERN.match(stripped)
+    if not match:
+        return value
+    resolved = os.getenv(match.group(1))
+    if not resolved or resolved.strip() == stripped:
+        return None
+    return resolved
 
 
 @dataclass(frozen=True)
@@ -59,6 +97,33 @@ def build_instance_definition(alias: str, entry: dict[str, Any]) -> InstanceDefi
         allow_writes=allow_writes,
         raw=dict(entry),
     )
+
+
+def resolve_auth_type(entry: dict[str, Any] | None, default_auth_type: str) -> str:
+    """Resolve an instance's auth type, honoring an explicit opt-out of browser.
+
+    Browser is the global default (headless), and instances that specify nothing
+    keep it. But an instance that brings its OWN ``username`` + ``password`` almost
+    always means "use these directly" — so it opts OUT of browser to ``basic`` (no
+    browser window, straight Table-API auth). This is the common "attach a temp
+    service account to prod for read-only checks" case: just add username/password,
+    no need to also spell out ``auth_type``.
+
+    Precedence:
+      1. explicit ``auth_type`` on the entry always wins (set ``"browser"`` to keep
+         browser even with creds present, or ``"oauth"``/``"api_key"`` as needed);
+      2. else, if the default is browser AND the entry carries both username and
+         password, use ``basic``;
+      3. else, the global default.
+    """
+    entry = entry or {}
+    explicit = entry.get("auth_type")
+    if explicit:
+        return str(explicit).strip().lower()
+    default = str(default_auth_type).strip().lower()
+    if default == "browser" and entry.get("username") and entry.get("password"):
+        return "basic"
+    return default
 
 
 def select_active_alias(

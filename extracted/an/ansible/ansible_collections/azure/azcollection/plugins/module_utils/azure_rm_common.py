@@ -242,6 +242,7 @@ try:
     from azure.mgmt.managementgroups import ManagementGroupsAPI as ManagementGroupsClient
     from azure.mgmt.resource.subscriptions import SubscriptionClient
     from azure.mgmt.storage import StorageManagementClient
+    import azure.mgmt.storage.models as StorageModels
     from azure.mgmt.compute import ComputeManagementClient
     from azure.mgmt.dns import DnsManagementClient
     from azure.mgmt.privatedns import PrivateDnsManagementClient
@@ -252,6 +253,7 @@ try:
     from azure.mgmt.marketplaceordering import MarketplaceOrderingAgreements
     from azure.mgmt.trafficmanager import TrafficManagerManagementClient
     from azure.storage.blob import BlobServiceClient
+    from azure.storage.fileshare import ShareDirectoryClient, ShareClient, ShareFileClient
     from azure.mgmt.authorization import AuthorizationManagementClient
     from azure.mgmt.sql import SqlManagementClient
     from azure.mgmt.servicebus import ServiceBusManagementClient
@@ -685,7 +687,7 @@ class AzureRMModuleBase(object):
                                                                   client_secret=self.azure_auth.credentials.get('secret'))
             else:
                 account_keys = self.storage_client.storage_accounts.list_keys(resource_group_name=resource_group_name, account_name=storage_account_name)
-                credential = account_keys.keys[0].value
+                credential = account_keys.keys_property[0].value
         except Exception as exc:
             self.fail("Error getting storage account detail for {0}: {1}".format(storage_account_name, str(exc)))
 
@@ -697,6 +699,64 @@ class AzureRMModuleBase(object):
             )
         except Exception as exc:
             self.fail("Error creating blob service client for storage account {0} - {1}".format(storage_account_name, str(exc)))
+
+    def _get_file_share_endpoint_credential(self, resource_group_name, storage_account_name):
+        '''
+        Resolve the file share data-plane endpoint and account-key credential for the
+        given storage account. Used by the file-share directory/file helpers.
+        '''
+        try:
+            account = self.storage_client.storage_accounts.get_properties(resource_group_name=resource_group_name,
+                                                                          account_name=storage_account_name)
+            account_keys = self.storage_client.storage_accounts.list_keys(resource_group_name=resource_group_name,
+                                                                          account_name=storage_account_name)
+        except Exception as exc:
+            self.fail("Error getting storage account detail for {0}: {1}".format(storage_account_name, str(exc)))
+        return account.primary_endpoints.file, account_keys.keys_property[0].value
+
+    def get_share_directory_client(self, resource_group_name, storage_account_name, share_name, directory_path):
+        '''
+        Build a ShareDirectoryClient for the given directory path inside a file share,
+        using the storage account key resolved from the management plane.
+        '''
+        account_url, credential = self._get_file_share_endpoint_credential(resource_group_name, storage_account_name)
+        try:
+            return ShareDirectoryClient(account_url=account_url,
+                                        share_name=share_name,
+                                        directory_path=directory_path,
+                                        credential=credential)
+        except Exception as exc:
+            self.fail("Error creating share directory client for {0}/{1}/{2}: {3}".format(
+                storage_account_name, share_name, directory_path, str(exc)))
+
+    def get_share_client(self, resource_group_name, storage_account_name, share_name):
+        '''
+        Build a ShareClient for the given file share, using the storage account key
+        resolved from the management plane.
+        '''
+        account_url, credential = self._get_file_share_endpoint_credential(resource_group_name, storage_account_name)
+        try:
+            return ShareClient(account_url=account_url,
+                               share_name=share_name,
+                               credential=credential)
+        except Exception as exc:
+            self.fail("Error creating share client for {0}/{1}: {2}".format(
+                storage_account_name, share_name, str(exc)))
+
+    def get_share_file_client(self, resource_group_name, storage_account_name, share_name, file_path):
+        '''
+        Build a ShareFileClient for the given file path inside a file share, using
+        the storage account key resolved from the management plane.
+        '''
+        account_url, credential = self._get_file_share_endpoint_credential(resource_group_name, storage_account_name)
+        try:
+            return ShareFileClient(account_url=account_url,
+                                   share_name=share_name,
+                                   file_path=file_path,
+                                   credential=credential)
+        except Exception as exc:
+            self.fail("Error creating share file client for {0}/{1}/{2}: {3}".format(
+                storage_account_name, share_name, file_path, str(exc)))
 
     def create_default_pip(self, resource_group, location, public_ip_name, allocation_method='Dynamic', sku=None):
         '''
@@ -1004,12 +1064,12 @@ class AzureRMModuleBase(object):
         if not self._storage_client:
             self._storage_client = self.get_mgmt_svc_client(StorageManagementClient,
                                                             base_url=self._cloud_environment.endpoints.resource_manager,
-                                                            api_version='2023-05-01')
+                                                            api_version='2025-08-01')
         return self._storage_client
 
     @property
     def storage_models(self):
-        return StorageManagementClient.models("2023-05-01")
+        return StorageModels
 
     @property
     def authorization_client(self):

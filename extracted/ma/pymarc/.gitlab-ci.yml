@@ -9,11 +9,13 @@ default:
 lint:
   stage: linting
   before_script:
+    - apt-get update
+    - apt-get install -y libatomic1
     - pip install uv
   script:
     - uv run ruff check .
     - uv run ruff format --check --diff .
-    - uv run mypy .
+    - uv run pyright .
 
 # run tests and measure coverage with the default python version
 test-coverage:
@@ -41,7 +43,7 @@ test-python:
   stage: tests
   parallel:
     matrix:
-      - PYTHON_VERSION: ['3.9', '3.10', '3.11', '3.12', '3.13']
+      - PYTHON_VERSION: ['3.10', '3.11', '3.12', '3.13']
   image: python:${PYTHON_VERSION}-slim
   before_script:
     - pip install uv

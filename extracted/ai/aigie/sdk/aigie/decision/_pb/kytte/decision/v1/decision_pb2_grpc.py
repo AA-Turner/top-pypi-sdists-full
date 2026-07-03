@@ -39,6 +39,11 @@ class DecisionOrchestratorStub(object):
                 request_serializer=kytte_dot_decision_dot_v1_dot_decision__pb2.EvaluateSpanRequest.SerializeToString,
                 response_deserializer=kytte_dot_decision_dot_v1_dot_decision__pb2.EvaluateSpanResponse.FromString,
                 _registered_method=True)
+        self.ReportExecutionResult = channel.unary_unary(
+                '/kytte.decision.v1.DecisionOrchestrator/ReportExecutionResult',
+                request_serializer=kytte_dot_decision_dot_v1_dot_decision__pb2.ReportExecutionResultRequest.SerializeToString,
+                response_deserializer=kytte_dot_decision_dot_v1_dot_decision__pb2.ReportExecutionResultResponse.FromString,
+                _registered_method=True)
 
 
 class DecisionOrchestratorServicer(object):
@@ -46,7 +51,14 @@ class DecisionOrchestratorServicer(object):
 
     def EvaluateSpan(self, request, context):
         """Hot-path: evaluate one finalized span for errors (drift, hallucination,
-        runtime failures). MVP: SDK calls this fire-and-forget per span.
+        runtime failures).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReportExecutionResult(self, request, context):
+        """Report the outcome of applying an autonomous action.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -59,6 +71,11 @@ def add_DecisionOrchestratorServicer_to_server(servicer, server):
                     servicer.EvaluateSpan,
                     request_deserializer=kytte_dot_decision_dot_v1_dot_decision__pb2.EvaluateSpanRequest.FromString,
                     response_serializer=kytte_dot_decision_dot_v1_dot_decision__pb2.EvaluateSpanResponse.SerializeToString,
+            ),
+            'ReportExecutionResult': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReportExecutionResult,
+                    request_deserializer=kytte_dot_decision_dot_v1_dot_decision__pb2.ReportExecutionResultRequest.FromString,
+                    response_serializer=kytte_dot_decision_dot_v1_dot_decision__pb2.ReportExecutionResultResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -88,6 +105,33 @@ class DecisionOrchestrator(object):
             '/kytte.decision.v1.DecisionOrchestrator/EvaluateSpan',
             kytte_dot_decision_dot_v1_dot_decision__pb2.EvaluateSpanRequest.SerializeToString,
             kytte_dot_decision_dot_v1_dot_decision__pb2.EvaluateSpanResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReportExecutionResult(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/kytte.decision.v1.DecisionOrchestrator/ReportExecutionResult',
+            kytte_dot_decision_dot_v1_dot_decision__pb2.ReportExecutionResultRequest.SerializeToString,
+            kytte_dot_decision_dot_v1_dot_decision__pb2.ReportExecutionResultResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -62,6 +62,113 @@ def str_to_bool(boolean_str: str) -> bool:
     return boolean_str in ["True", "true", "1"]
 
 
+# Spark byte-size suffixes accepted by JavaUtils.byteStringAsBytes. Powers of
+# 1024, case-insensitive. See:
+# https://github.com/apache/spark/blob/v3.5.3/common/network-common/src/main/java/org/apache/spark/network/util/JavaUtils.java
+_SPARK_BYTE_SIZE_SUFFIXES: dict[str, int] = {
+    "b": 1,
+    "k": 1024,
+    "kb": 1024,
+    "m": 1024**2,
+    "mb": 1024**2,
+    "g": 1024**3,
+    "gb": 1024**3,
+    "t": 1024**4,
+    "tb": 1024**4,
+    "p": 1024**5,
+    "pb": 1024**5,
+}
+
+# Snowflake TARGET_FILE_SIZE buckets for Iceberg tables, in (bytes, label)
+# pairs, ordered smallest-first. See:
+# https://docs.snowflake.com/en/sql-reference/sql/create-iceberg-table
+_TARGET_FILE_SIZE_BUCKETS: tuple[tuple[int, str], ...] = (
+    (16 * 1024**2, "16MB"),
+    (32 * 1024**2, "32MB"),
+    (64 * 1024**2, "64MB"),
+    (128 * 1024**2, "128MB"),
+)
+
+
+def _parse_spark_byte_size(value: str) -> int:
+    """Parse a Spark-style byte-size string into a byte count.
+
+    Mirrors ``JavaUtils.byteStringAsBytes`` from Spark: an integer followed by
+    an optional case-insensitive suffix (``b``, ``k``/``kb``, ``m``/``mb``,
+    ``g``/``gb``, ``t``/``tb``, ``p``/``pb``). No suffix means raw bytes.
+    Suffix multipliers use powers of 1024.
+
+    Raises:
+        ValueError: if ``value`` is empty, negative, or unparseable.
+    """
+    if str(value).strip() == "":
+        raise ValueError("Empty byte size string")
+
+    stripped = str(value).strip().lower()
+    # Match 2-char suffixes (kb, mb, gb, tb, pb) before 1-char (k, m, g, t, p),
+    # so "512mb" is read as 512 * MB and not 51 * 2b.
+    for suffix_len in (2, 1):
+        if (
+            len(stripped) > suffix_len
+            and stripped[-suffix_len:] in _SPARK_BYTE_SIZE_SUFFIXES
+        ):
+            number_part = stripped[:-suffix_len]
+            suffix = stripped[-suffix_len:]
+            if not number_part.lstrip("-").isdigit():
+                raise ValueError(f"Invalid byte size string: {value!r}")
+            number = int(number_part)
+            if number < 0:
+                raise ValueError(f"Negative byte size not allowed: {value!r}")
+            return number * _SPARK_BYTE_SIZE_SUFFIXES[suffix]
+
+    if not stripped.lstrip("-").isdigit():
+        raise ValueError(f"Invalid byte size string: {value!r}")
+    number = int(stripped)
+    if number < 0:
+        raise ValueError(f"Negative byte size not allowed: {value!r}")
+    return number
+
+
+def _bucket_to_target_file_size(byte_size: int) -> str:
+    """Bucket a byte count to a Snowflake ``TARGET_FILE_SIZE`` value.
+
+    Snowflake supports only ``{AUTO, 16MB, 32MB, 64MB, 128MB}`` for Iceberg
+    tables. We round *down* to the largest bucket that does not exceed
+    ``byte_size`` (so we never produce files larger than the user asked for),
+    with a floor of ``16MB`` (smallest supported bucket) and a cap of
+    ``128MB`` (largest supported bucket). A non-positive ``byte_size`` returns
+    ``AUTO``.
+    """
+    if byte_size <= 0:
+        return "AUTO"
+
+    chosen = _TARGET_FILE_SIZE_BUCKETS[0][1]
+    for threshold_bytes, label in _TARGET_FILE_SIZE_BUCKETS:
+        if byte_size >= threshold_bytes:
+            chosen = label
+    return chosen
+
+
+def spark_max_partition_bytes_to_target_file_size(value: str | None) -> str | None:
+    """Translate ``spark.sql.files.maxPartitionBytes`` to Snowflake ``TARGET_FILE_SIZE``.
+
+    Returns ``None`` when ``value`` is unset (caller should ``UNSET`` the
+    session parameter), the literal string ``"AUTO"`` (any case) when the user
+    explicitly passes ``AUTO``, or a bucketed label such as ``"32MB"``
+    otherwise.
+
+    Raises:
+        ValueError: if ``value`` is not parseable as a Spark byte-size string.
+    """
+    if value is None or str(value).strip() == "":
+        return None
+    stripped = str(value).strip()
+    if stripped.upper() == "AUTO":
+        return "AUTO"
+    byte_size = _parse_spark_byte_size(stripped)
+    return _bucket_to_target_file_size(byte_size)
+
+
 class GlobalConfig:
     """This class contains the global configuration for the Spark Server."""
 
@@ -425,7 +532,25 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "snowpark.connect.large_query_breakdown.complexity_lower_bound",
     "snowpark.connect.large_query_breakdown.complexity_upper_bound",
     "spark.sql.columnNameOfCorruptRecord",
+    # SNOW-3674169: Spark's read-side partition-bytes hint; SCOS uses it as a
+    # session-scoped default for Iceberg ``TARGET_FILE_SIZE`` on subsequent
+    # CREATE ICEBERG TABLE writes (see ``_build_iceberg_config``).
+    "spark.sql.files.maxPartitionBytes",
 }
+
+# Static Spark configs that nonetheless accept a *per-session* override at
+# runtime. Kept separate from SESSION_CONFIG_KEY_WHITELIST because the two drive
+# different write paths: whitelist keys are non-static and go through the normal
+# set_config_param path (validated, then written to BOTH global_config and the
+# session config); these keys are *static* (in default_static_global_config, so
+# Spark-accurately report isModifiable=False) and must instead (a) skip the
+# static-modification guard and (b) leave the immutable process-global value
+# untouched -- only the per-session overlay is written. The process-global value
+# (set once at server startup, e.g. via ``--conf`` on EMR-style deployments)
+# stays as the fallback. Currently only ``spark.sql.extensions`` (so a session
+# can opt into the Iceberg SQL parser without a process-global, parser-replacing
+# change). Readers resolve session-overlay first, then global.
+SESSION_OVERRIDABLE_STATIC = {"spark.sql.extensions"}
 AZURE_ACCOUNT_KEY = re.compile(
     r"^fs\.azure\.sas\.[^\.]+\.[^\.]+\.blob\.core\.windows\.net$"
 )
@@ -437,6 +562,7 @@ AZURE_SAS_KEY = re.compile(
 def valid_session_config_key(key: str):
     return (
         key in SESSION_CONFIG_KEY_WHITELIST  # AWS session keys
+        or key in SESSION_OVERRIDABLE_STATIC  # e.g. spark.sql.extensions
         or AZURE_SAS_KEY.match(key)  # Azure session keys
         or AZURE_ACCOUNT_KEY.match(key)  # Azure account keys
     )
@@ -493,6 +619,9 @@ class SessionConfig:
         # Spark default for the corrupt-record column injected/used by CSV/JSON
         # readers in PERMISSIVE mode. See SQLConf.COLUMN_NAME_OF_CORRUPT_RECORD.
         "spark.sql.columnNameOfCorruptRecord": "_corrupt_record",
+        # SNOW-3674169: ``""`` means unset — the Iceberg writer falls back to
+        # Snowflake's own ``TARGET_FILE_SIZE`` default (``AUTO``).
+        "spark.sql.files.maxPartitionBytes": "",
     }
 
     def __init__(self) -> None:
@@ -658,7 +787,13 @@ def route_config_proto(
                     # Spark-defined default in the session config, not in
                     # global_config. Fall back to it before deciding the key is
                     # unknown.
-                    val = SessionConfig.default_session_config.get(key)
+                    #
+                    # SNOW-3674169: ``spark.sql.files.maxPartitionBytes`` uses
+                    # ``""`` in SessionConfig only for the Iceberg write path
+                    # (defer to Snowflake AUTO). Spark ``conf.get`` after
+                    # ``unset`` must return ``None``, not ``""``.
+                    if key != "spark.sql.files.maxPartitionBytes":
+                        val = SessionConfig.default_session_config.get(key)
                 if val is not None:
                     pair.value = _config_value_to_proto_str(val)
                 elif not _is_known_config(key):
@@ -779,6 +914,14 @@ def _load_spark_jars(jars_value: str) -> None:
 def set_config_param(
     session_id: str, key, val, snowpark_session: snowpark.Session
 ) -> None:
+    # Session-overridable static configs (e.g. ``spark.sql.extensions``): record
+    # the value as a per-session overlay and leave the immutable process-global
+    # value untouched. This is the one allowed way to "modify" such a static
+    # config at runtime, so it must come before the static-config guard.
+    if key in SESSION_OVERRIDABLE_STATIC:
+        sessions_config[session_id][key] = val
+        return
+
     _verify_static_config_not_modified(key)
     _verify_is_not_readonly_config(key)
     _verify_is_valid_config_value(key, val)
@@ -801,12 +944,22 @@ def set_config_param(
 def unset_config_param(
     session_id: str, key, snowpark_session: snowpark.Session
 ) -> None:
+    # Clear the per-session overlay for session-overridable static configs; the
+    # process-global value remains the fallback.
+    if key in SESSION_OVERRIDABLE_STATIC:
+        sessions_config[session_id].set(key, "")
+        return
+
     _verify_static_config_not_modified(key)
 
     default_value = global_config.default_global_config.get(key, None)
 
-    # Remove the key from global config
-    if default_value is None:
+    # Remove the key from global config. For ``spark.sql.files.maxPartitionBytes``
+    # the built-in default is ``""`` (meaning "defer to Snowflake AUTO"), but
+    # Spark's ``conf.get`` after ``unset`` must return ``None``, not ``""``.
+    if default_value is None or (
+        key == "spark.sql.files.maxPartitionBytes" and default_value == ""
+    ):
         global_config.unset(key)
     else:
         global_config[key] = default_value
@@ -820,6 +973,33 @@ def unset_config_param(
         default_value = default_session_value
 
     set_snowflake_parameters(key, default_value, snowpark_session)
+
+
+def is_iceberg_sql_extensions_enabled() -> bool:
+    """True when the Iceberg Spark SQL Extensions parser should be active for the
+    current request.
+
+    Resolves ``spark.sql.extensions`` with **session overlay first, then the
+    process-global static value** (see ``SESSION_OVERRIDABLE_STATIC``):
+    - a session that opted in via ``conf.set("spark.sql.extensions", <iceberg
+      extension class>)`` activates the Iceberg parser for that session only, so
+      non-iceberg sessions keep the base SCOS parser; and
+    - server-configured / EMR-style deployments that set the static, process
+      -global ``spark.sql.extensions`` at startup still work via the fallback.
+    """
+    from snowflake.snowpark_connect.utils.context import get_spark_session_id
+    from snowflake.snowpark_connect.utils.jvm_classpath import (
+        is_iceberg_sql_extensions_config,
+    )
+
+    value = None
+    try:
+        value = sessions_config[get_spark_session_id()].get("spark.sql.extensions")
+    except Exception:
+        value = None
+    if not value:
+        value = global_config.get("spark.sql.extensions")
+    return is_iceberg_sql_extensions_config(value)
 
 
 def _verify_static_config_not_modified(key: str) -> None:
@@ -840,6 +1020,24 @@ def _verify_is_valid_config_value(key: str, value: Any) -> None:
         )
         exception = ValueError(
             f"Invalid value '{value}' for key '{key}'. Allowed values: {allowed_values_str}."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
+        raise exception
+    _verify_max_partition_bytes_config_value(key, value)
+
+
+def _verify_max_partition_bytes_config_value(key: str, value: Any) -> None:
+    """Reject unparseable ``spark.sql.files.maxPartitionBytes`` before persisting."""
+    if key != "spark.sql.files.maxPartitionBytes":
+        return
+    if value is None or str(value).strip() == "":
+        return
+    try:
+        spark_max_partition_bytes_to_target_file_size(value)
+    except ValueError as parse_error:
+        exception = ValueError(
+            f"Invalid value '{value}' for "
+            f"'spark.sql.files.maxPartitionBytes': {parse_error}"
         )
         attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
         raise exception
@@ -1055,6 +1253,11 @@ def set_snowflake_parameters(
             _set_large_query_breakdown_bound(
                 snowpark_session, key, value, bound_index=1
             )
+        case "spark.sql.files.maxPartitionBytes":
+            # Validated in ``set_config_param`` via
+            # ``_verify_max_partition_bytes_config_value`` before the value is
+            # persisted; nothing to do here on the unset path.
+            pass
         case _:
             pass
 
@@ -1427,3 +1630,34 @@ def is_hive_partition_pruning_enabled() -> bool:
     return get_boolean_session_config_param(
         "snowpark.connect.read.hivePartitionPruning"
     )
+
+
+def get_iceberg_target_file_size_for_writes() -> str | None:
+    """Return a session-scoped ``TARGET_FILE_SIZE`` derived from Spark's
+    ``spark.sql.files.maxPartitionBytes``, if the user has set it.
+
+    Snowflake's ``TARGET_FILE_SIZE`` parameter is only settable at
+    ACCOUNT/SCHEMA/TABLE level (not SESSION), so we cannot translate the Spark
+    knob via ``ALTER SESSION``. Instead, the Iceberg write path
+    (``_build_iceberg_config``) consults this helper to choose a default
+    bucketed value to inject into the ``CREATE ICEBERG TABLE`` DDL. An
+    explicit ``tableProperty("write.target-file-size", ...)`` always wins.
+
+    Returns ``None`` when the user has not set ``spark.sql.files.maxPartitionBytes``
+    or the stored value can no longer be parsed (we never raise from the
+    write path; an invalid value is rejected eagerly at ``conf.set`` time by
+    ``set_snowflake_parameters``).
+    """
+    session_config = sessions_config[get_spark_session_id()]
+    raw = session_config.get("spark.sql.files.maxPartitionBytes")
+    if raw == "":
+        return None
+    try:
+        return spark_max_partition_bytes_to_target_file_size(raw)
+    except ValueError:
+        logger.debug(
+            "Ignoring unparseable spark.sql.files.maxPartitionBytes=%r "
+            "in get_iceberg_target_file_size_for_writes",
+            raw,
+        )
+        return None

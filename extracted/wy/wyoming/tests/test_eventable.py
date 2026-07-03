@@ -75,6 +75,7 @@ TEST_ATTRIBUTION = Attribution(name=TEST_NAME, url=TEST_URL)
 TEST_DATA: Dict[str, Dict[str, Any]] = {
     # info
     "Describe": {},
+    "SelectProgram": {"name": TEST_NAME},
     "Info": {
         "asr": [
             AsrProgram(
@@ -94,6 +95,9 @@ TEST_DATA: Dict[str, Dict[str, Any]] = {
                     )
                 ],
                 supports_transcript_streaming=True,
+                requires_external_vad=False,
+                prefers_auto_gain_enabled=False,
+                prefers_noise_reduction_enabled=False,
             )
         ],
         "tts": [
@@ -231,6 +235,9 @@ TEST_DATA: Dict[str, Dict[str, Any]] = {
         "name": TEST_NAME,
         "context": TEST_CONTEXT,
         "language": TEST_LANGUAGE,
+        "vad_sensitivity": "default",
+        "transcript_names": ["EcoBee"],
+        "transcript_terms": ["pause"],
     },
     "Transcript": {
         "text": TEST_TEXT,
@@ -266,11 +273,20 @@ TEST_DATA: Dict[str, Dict[str, Any]] = {
         "context": TEST_CONTEXT,
     },
     # tts
-    "SynthesizeStart": {"voice": TEST_VOICE, "context": TEST_CONTEXT},
+    "SynthesizeStart": {
+        "voice": TEST_VOICE,
+        "text_format": "ssml",
+        "context": TEST_CONTEXT,
+    },
     "SynthesizeChunk": {"text": TEST_TEXT},
     "SynthesizeStop": {},
     "SynthesizeStopped": {},
-    "Synthesize": {"text": TEST_TEXT, "voice": TEST_VOICE, "context": TEST_CONTEXT},
+    "Synthesize": {
+        "text": TEST_TEXT,
+        "voice": TEST_VOICE,
+        "text_format": "text",
+        "context": TEST_CONTEXT,
+    },
     # timers
     "TimerStarted": {"id": TEST_ID, "total_seconds": 100},
     "TimerUpdated": {"id": TEST_ID, "total_seconds": 100, "is_active": True},

@@ -375,6 +375,18 @@ class TunnelDAG:
             resource_vertex.belongs_to(config_vertex, EdgeType.LINK)
             self.linking_dag.save()
 
+    def user_linked_to_config_for_noop(self, user_uid):
+        if not self.linking_dag.has_graph:
+            return False
+        user_vertex = self.linking_dag.get_vertex_by_uid(user_uid)
+        config_vertex = self.linking_dag.get_vertex_by_uid(self.record.record_uid)
+        if not (user_vertex and config_vertex and config_vertex.has(user_vertex, EdgeType.ACL)):
+            return False
+        acl_edge = user_vertex.get_edge(config_vertex, EdgeType.ACL)
+        content = acl_edge.content_as_dict or {}
+        rotation_settings = content.get('rotation_settings') or {}
+        return bool(rotation_settings.get('noop'))
+
     def link_user_to_config(self, user_uid):
         config_vertex = self.linking_dag.get_vertex(self.record.record_uid)
         if config_vertex is None:
@@ -386,6 +398,41 @@ class TunnelDAG:
         # - if the call fails, propagate so the unauthorized link is never written.
         self._permission_check_iam_user_link(user_uid)
         self.link_user(user_uid, config_vertex, belongs_to=True, is_iam_user=True)
+
+    def link_user_to_config_noop(self, user_uid):
+        """Link a pamUser to a PAM configuration for scripts-only (noop) rotation."""
+        if not self.linking_dag.has_graph:
+            logging.error("linking graph is empty")
+            return False
+
+        config_vertex = self.linking_dag.get_vertex(self.record.record_uid)
+        if config_vertex is None:
+            config_vertex = self.linking_dag.add_vertex(uid=self.record.record_uid)
+
+        user_vertex = self.linking_dag.get_vertex(user_uid)
+        if user_vertex is None:
+            user_vertex = self.linking_dag.add_vertex(uid=user_uid, vertex_type=RefType.PAM_USER)
+
+        acl_edge = user_vertex.get_edge(vertex=config_vertex, edge_type=EdgeType.ACL)
+        if acl_edge is not None:
+            acl = acl_edge.content_as_object(UserAcl)
+        else:
+            acl = UserAcl.default()
+
+        if acl is not None and acl.rotation_settings is None:
+            acl.rotation_settings = UserAclRotationSettings()
+
+        acl.belongs_to = False
+        acl.rotation_settings.noop = True
+        acl.is_iam_user = False
+        acl.is_admin = False
+
+        user_vertex.belongs_to(vertex=config_vertex,
+                               edge_type=EdgeType.ACL,
+                               content=acl,
+                               is_encrypted=False)
+        self.linking_dag.save()
+        return True
 
     def _permission_check_iam_user_link(self, user_uid):
         """Call set_record_rotation(recordUid=user_uid, noop=False) to permission-check
@@ -733,13 +780,16 @@ class TunnelDAG:
         ALREADY-EXISTING ACL edge: a standalone configure_resource(adminUid) with no
         connectUsers no-ops on an existing edge (UserRest.kt:331-341 only touches
         is_launch_credential), whereas adminUid alongside connectUsers flips is_admin
-        on that edge (UserRest.kt:295-318). Sent on a user NOT in connectUsers so the
-        admin does not also become a launch credential.
+        on that edge (UserRest.kt:295-318). When admin and launch are different
+        users, adminUid must not appear in connectUsers. When they are the same
+        pamUser, krouter sets both is_admin and is_launch_credential on one edge
+        (UserRest.kt:258-273).
 
         For a fresh launch_uid (no existing edge), krouter creates the new edge with
-        belongs_to=null; a follow-up local DAG-write of belongs_to=True preserves
-        legacy parity. For existing edges, krouter preserves belongs_to already so
-        the follow-up is a no-op.
+        belongs_to=null; a follow-up local DAG-write must set belongs_to=True AND
+        preserve is_launch_credential (and is_admin when admin_uid == launch_uid).
+        Writing belongs_to alone clobbers krouter flags (KC-1330). For existing
+        edges where belongs_to is already true, an unchanged follow-up is a no-op.
 
         Fallback on RRC_NOT_ALLOWED* (or feature-disabled) with KEEPER_DAG_LB_FALLBACK
         enabled: legacy clear + link (if set) + admin link (if set) + meta-upgrade.
@@ -775,7 +825,10 @@ class TunnelDAG:
                     f"launch_uid={launch_uid} admin_uid={admin_uid} via configure_resource"
                 )
                 if launch_uid is not None:
-                    self.link_user(launch_uid, resource_vertex, belongs_to=True)
+                    link_kwargs = dict(belongs_to=True, is_launch_credential=True)
+                    if admin_uid is not None and admin_uid == launch_uid:
+                        link_kwargs['is_admin'] = True
+                    self.link_user(launch_uid, resource_vertex, **link_kwargs)
                 return
             except Exception as err:
                 if not should_fallback_on_layer_b_error(err, host=host, endpoint=endpoint):

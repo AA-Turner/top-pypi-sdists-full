@@ -56,8 +56,8 @@ RE_MAIL = r'''(?xi)
 RE_LINK = r'''(?xi)
 (?P<link>
     (?:(?<=\b)|(?<=_))(?:
-        (?:ht|f)tps?://[^_\W][-\w]*(?:\.[-\w.]+)*|          # (http|ftp)://
-        (?P<www>w{3}\.)[^_\W][-\w]*(?:\.[-\w.]+)*           # www.
+        (?:ht|f)tps?://[^_\W](?:[-\w]|\.(?!=$))*|           # (http|ftp)://host.name
+        (?P<www>w{3}\.)[^_\W](?:[-\w]|\.(?!=$))*            # www.host.name
     )
     /?[-\w.?,!'(){}\[\]/+&@%$#=:"|~;]*                      # url path, fragments, and query stuff
     (?:[^_\W]|[-/#@$+=])                                    # allowed end chars

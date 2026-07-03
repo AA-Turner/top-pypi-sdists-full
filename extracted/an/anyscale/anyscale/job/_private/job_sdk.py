@@ -286,6 +286,7 @@ class PrivateJobSDK(WorkloadSDK):
             max_retries=config.max_retries,
             timeout_s=config.timeout_s,
             connection_ids=connection_ids,
+            priority=config.priority,
         )
 
     def create_job_queue_config(
@@ -449,6 +450,7 @@ class PrivateJobSDK(WorkloadSDK):
             project=project,
             connections=connections,
             timeout_s=prod_job_config.timeout_s,
+            priority=prod_job_config.priority,
         )
 
     def _job_model_to_status(

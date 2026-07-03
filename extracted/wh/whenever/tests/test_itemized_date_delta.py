@@ -4,7 +4,6 @@ from collections.abc import ItemsView, KeysView, Mapping, ValuesView
 from typing import Any, Literal, Sequence, cast
 
 import pytest
-
 from whenever import Date, ItemizedDateDelta, ItemizedDelta
 
 from .common import AlwaysEqual, NeverEqual
@@ -20,7 +19,6 @@ pytestmark = pytest.mark.filterwarnings(
 
 
 class TestInit:
-
     @pytest.mark.parametrize(
         "kwargs, expect_sign",
         [
@@ -113,7 +111,7 @@ def test_mapping_like_interface(
     assert dict(d) == expected
     assert Counter(d) == Counter(expected)
     # mypy ignore awaiting release of https://github.com/python/mypy/pull/20416
-    assert ItemizedDateDelta(**d) == d  # type: ignore[misc]
+    assert ItemizedDateDelta(**d) == d  # type: ignore[arg-type]
 
     for key in expected:
         assert key in d
@@ -275,7 +273,6 @@ def test_exact_eq():
 
 
 class TestFormatIso:
-
     @pytest.mark.parametrize(
         "d, expected",
         [
@@ -375,7 +372,6 @@ INVALID_DELTAS = [
 
 
 class TestParseIso:
-
     @pytest.mark.parametrize(
         "s, expected",
         [
@@ -528,7 +524,7 @@ class TestAddSub:
         assert result.exact_eq(expected)
 
         # same result with kwargs
-        assert d1.add(**d2, relative_to=relative_to, **kwargs).exact_eq(  # type: ignore[call-overload, misc]
+        assert d1.add(**d2, relative_to=relative_to, **kwargs).exact_eq(  # type: ignore[call-overload, arg-type]
             expected
         )
 
@@ -542,7 +538,7 @@ class TestAddSub:
             ).exact_eq(expected)
 
             assert d1.subtract(  # type: ignore[call-overload]
-                **{k: -v for k, v in d2.items()},  # type: ignore[misc]
+                **{k: -v for k, v in d2.items()},
                 relative_to=relative_to,
                 **kwargs,
             ).exact_eq(expected)
@@ -628,7 +624,6 @@ class TestAddSub:
 
 
 class TestTotal:
-
     @pytest.mark.parametrize(
         "d, relative_to, unit, expected",
         [
@@ -672,7 +667,8 @@ class TestTotal:
     def test_invalid_unit(self):
         with pytest.raises(ValueError, match="foo"):
             ItemizedDateDelta(years=2).total(
-                "foo", relative_to=Date("2021-12-31")  # type: ignore[arg-type]
+                "foo",  # type: ignore[arg-type]
+                relative_to=Date("2021-12-31"),
             )
 
     def test_no_relative_to(self):

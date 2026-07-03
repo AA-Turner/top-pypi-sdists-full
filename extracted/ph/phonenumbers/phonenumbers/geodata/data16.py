@@ -19,6 +19,14 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '861324632':{'en': 'Foshan, Guangdong', 'zh': u('\u5e7f\u4e1c\u7701\u4f5b\u5c71\u5e02')},
+ '861324633':{'en': 'Foshan, Guangdong', 'zh': u('\u5e7f\u4e1c\u7701\u4f5b\u5c71\u5e02')},
+ '861324634':{'en': 'Foshan, Guangdong', 'zh': u('\u5e7f\u4e1c\u7701\u4f5b\u5c71\u5e02')},
+ '861324635':{'en': 'Zhuhai, Guangdong', 'zh': u('\u5e7f\u4e1c\u7701\u73e0\u6d77\u5e02')},
+ '861324636':{'en': 'Zhuhai, Guangdong', 'zh': u('\u5e7f\u4e1c\u7701\u73e0\u6d77\u5e02')},
+ '861324637':{'en': 'Zhuhai, Guangdong', 'zh': u('\u5e7f\u4e1c\u7701\u73e0\u6d77\u5e02')},
+ '861324638':{'en': 'Zhuhai, Guangdong', 'zh': u('\u5e7f\u4e1c\u7701\u73e0\u6d77\u5e02')},
+ '861324639':{'en': 'Zhuhai, Guangdong', 'zh': u('\u5e7f\u4e1c\u7701\u73e0\u6d77\u5e02')},
  '86132464':{'en': 'Guangzhou, Guangdong', 'zh': u('\u5e7f\u4e1c\u7701\u5e7f\u5dde\u5e02')},
  '861324650':{'en': 'Zhanjiang, Guangdong', 'zh': u('\u5e7f\u4e1c\u7701\u6e5b\u6c5f\u5e02')},
  '861324651':{'en': 'Zhanjiang, Guangdong', 'zh': u('\u5e7f\u4e1c\u7701\u6e5b\u6c5f\u5e02')},
@@ -10011,12 +10019,4 @@ data = {
  '86134087':{'en': 'Qujing, Yunnan', 'zh': u('\u4e91\u5357\u7701\u66f2\u9756\u5e02')},
  '86134088':{'en': 'Zhaotong, Yunnan', 'zh': u('\u4e91\u5357\u7701\u662d\u901a\u5e02')},
  '861340888':{'en': 'Lincang, Yunnan', 'zh': u('\u4e91\u5357\u7701\u4e34\u6ca7\u5e02')},
- '861340889':{'en': 'Lincang, Yunnan', 'zh': u('\u4e91\u5357\u7701\u4e34\u6ca7\u5e02')},
- '86134089':{'en': 'Honghe, Yunnan', 'zh': u('\u4e91\u5357\u7701\u7ea2\u6cb3\u54c8\u5c3c\u65cf\u5f5d\u65cf\u81ea\u6cbb\u5dde')},
- '86134090':{'en': 'Zibo, Shandong', 'zh': u('\u5c71\u4e1c\u7701\u6dc4\u535a\u5e02')},
- '861340902':{'en': 'Rizhao, Shandong', 'zh': u('\u5c71\u4e1c\u7701\u65e5\u7167\u5e02')},
- '861340903':{'en': 'Rizhao, Shandong', 'zh': u('\u5c71\u4e1c\u7701\u65e5\u7167\u5e02')},
- '861340904':{'en': 'Rizhao, Shandong', 'zh': u('\u5c71\u4e1c\u7701\u65e5\u7167\u5e02')},
- '86134091':{'en': 'Yulin, Shaanxi', 'zh': u('\u9655\u897f\u7701\u6986\u6797\u5e02')},
- '861340910':{'en': 'Xianyang, Shaanxi', 'zh': u('\u9655\u897f\u7701\u54b8\u9633\u5e02')},
 }

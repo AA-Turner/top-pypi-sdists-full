@@ -246,9 +246,17 @@ def _infer_json_schema_from_rows(
     drop_field_if_all_null: bool,
     skip_parse_errors: bool = False,
     corrupt_record_column_name: str | None = None,
+    strict_invalid_characters: bool = False,
 ) -> StructType:
     """
     Infer JSON schema by iterating rows from a DataFrame.
+
+    When ``strict_invalid_characters`` is True (the user passed
+    ``replaceInvalidCharacters=False``), an invalid-UTF-8 parse error is fatal
+    and re-raised regardless of ``skip_parse_errors`` / Spark ``mode`` — the
+    strict opt-out must be honored. Structurally malformed JSON is unaffected:
+    it is still swallowed under PERMISSIVE (``skip_parse_errors=True``) as
+    before.
     """
     inferred_schema = copy.deepcopy(initial_schema)
     columns_with_valid_contents = set()
@@ -269,6 +277,13 @@ def _infer_json_schema_from_rows(
                 drop_field_if_all_null,
             )
     except SnowparkSQLException as exc:
+        # Strict opt-out: when replaceInvalidCharacters=False, an invalid-UTF-8
+        # parse error is fatal regardless of skip_parse_errors / Spark mode.
+        # Checked first so it short-circuits the PERMISSIVE swallow below. Only
+        # the invalid-UTF-8 subclass is escalated — structurally malformed JSON
+        # still follows the existing skip_parse_errors path.
+        if strict_invalid_characters and _is_invalid_utf8_error(exc):
+            raise
         if not skip_parse_errors or not _is_json_parse_error(exc):
             raise
         # PERMISSIVE/DROPMALFORMED: file has unparseable rows — fall back to
@@ -552,6 +567,45 @@ def _is_json_parse_error(exc: SnowparkSQLException) -> bool:
     return "Error parsing JSON" in str(exc)
 
 
+def _is_invalid_utf8_error(exc: SnowparkSQLException) -> bool:
+    """Detect the *invalid-UTF-8* subclass of a JSON parse error.
+
+    Snowflake error ``100069`` ("Error parsing JSON") is generic: it covers
+    BOTH invalid UTF-8 bytes AND structurally malformed JSON. The strict
+    ``replaceInvalidCharacters=False`` opt-out must re-raise ONLY the
+    invalid-UTF-8 subclass, while leaving structural malformation to PERMISSIVE
+    mode's malformed-row fallback. We therefore primarily key off the server
+    message rather than the (generic) ``100069`` code.
+
+    Defense in depth: when the SQL error code is available we additionally
+    require it to be ``100069`` (the JSON-parse-error code) as a NECESSARY
+    precondition, so an unrelated error that merely happens to mention "UTF8"
+    in its text cannot be misclassified as a fatal invalid-character error.
+    When the code is absent or unparseable, we fall back to the message match
+    alone — losing the code attribute must not regress detection of a genuine
+    invalid-UTF-8 error.
+
+    The canonical server message form is ``"Invalid UTF8 detected in string"``
+    (note: "UTF8" with no hyphen — observed in the CSV sibling path, see
+    ``tests/expectation_tests/test_csv_permissive_tuning.py``). We also match
+    hyphenated / alternate phrasings defensively. Matching is case-insensitive.
+    """
+    text = str(exc).lower()
+    message_matches = (
+        "invalid utf8" in text or "invalid utf-8" in text or "not a valid utf-8" in text
+    )
+    if not message_matches:
+        return False
+    # Necessary precondition: when a code is present and parseable, it must be
+    # the JSON-parse-error code 100069. A present-but-different code disqualifies.
+    error_code = getattr(exc, "sql_error_code", None)
+    if error_code is not None:
+        with suppress(TypeError, ValueError):
+            return int(error_code) == 100069
+    # Code absent or unparseable: fall back to the message match alone.
+    return True
+
+
 def _get_schema_for_copy_into_json(
     session: snowpark.Session,
     schema: StructType | None,
@@ -565,6 +619,7 @@ def _get_schema_for_copy_into_json(
     infer_schema_all_files: bool = True,
     mode: str = "PERMISSIVE",
     corrupt_record_column_name: str | None = None,
+    strict_invalid_characters: bool = False,
 ) -> StructType:
     """
     Get merged schema for COPY INTO by scanning all files via INFER_SCHEMA.
@@ -667,6 +722,14 @@ def _get_schema_for_copy_into_json(
     raw_options_lower = {k.lower() for k in raw_options}
     user_set_rows_to_infer = "rowstoinferschema" in raw_options_lower
     has_structured_types = _has_structured_complex_types(df.schema)
+    # Note: ``strict_invalid_characters`` is intentionally NOT consulted on this
+    # fast path. The fast path returns the INFER_SCHEMA types directly without a
+    # local row scan, so there is no schema-inference site here that could
+    # swallow an invalid-UTF-8 error. An invalid-UTF-8 row still aborts the read
+    # later at COPY INTO, because the file format already carries
+    # ``REPLACE_INVALID_CHARACTERS=FALSE`` (the strict opt-out) and the COPY step
+    # enforces it. The leak the strict flag fixes is specific to the slow-path
+    # row scan below.
     if (
         has_structured_types
         and not drop_field_if_all_null
@@ -720,6 +783,7 @@ def _get_schema_for_copy_into_json(
         drop_field_if_all_null=drop_field_if_all_null,
         skip_parse_errors=(mode.upper() != "FAILFAST"),
         corrupt_record_column_name=corrupt_record_column_name,
+        strict_invalid_characters=strict_invalid_characters,
     )
 
     return _apply_schema_post_processing(
@@ -915,6 +979,11 @@ def read_single_bz2_file(
     schema_was_inferred = schema is None
     if schema is None:
         schema = StructType([StructField(LINE_CONTENT, StructType([]))])
+        # Strict ``replaceInvalidCharacters=False`` handling is intentionally
+        # out of scope for the bz2 path: ``strict_invalid_characters`` is left
+        # at its default (False), so this path stays lenient regardless of the
+        # opt-out — matching pre-fix behavior. (The SNOW-3670779 fix targets the
+        # normal-files slow path in ``read_normal_json_files``.)
         schema = _infer_json_schema_from_rows(
             df=df,
             initial_schema=schema,
@@ -947,6 +1016,7 @@ def _build_json_typed_transformations(
     corrupt_record_column_name: str | None = None,
     *,
     load_as_variant: bool = False,
+    failfast_mode: bool = False,
 ) -> tuple[list[str], list["snowpark.Column"]]:
     """Build COPY INTO transformations that cast JSON fields to typed columns.
 
@@ -1002,6 +1072,7 @@ def _build_json_typed_transformations(
             date_format=date_format,
             timestamp_format=timestamp_format,
             copy_into=True,
+            failfast_mode=failfast_mode,
         )
         transforms.append(sql_expr(cast_expr).alias(field.name))
 
@@ -1061,6 +1132,18 @@ def read_normal_json_files(
         schema = StructType([StructField(VALUE_COLUMN, VariantType())])
 
     file_format_options = _parse_json_snowpark_options(snowpark_options)
+    # Strict opt-out: when the user passes replaceInvalidCharacters=False, an
+    # invalid-UTF-8 parse error during slow-path schema inference must be fatal
+    # regardless of Spark `mode`. Read it from the full snowpark_options BEFORE
+    # the reader_options filter below strips file-format keys (and
+    # REPLACE_INVALID_CHARACTERS is a file-format option, so it would be gone
+    # from reader_options). `is False` (identity) is deliberate: the value is a
+    # real Python bool after config conversion; we want the strict path ONLY on
+    # an explicit False, never on a missing key (defaults lenient) or a truthy
+    # value.
+    strict_invalid_characters = (
+        snowpark_options.get("REPLACE_INVALID_CHARACTERS") is False
+    )
     # Keep reader-level options separate from file format options.
     # ENFORCE_EXISTING_FILE_FORMAT cannot be used together with format type options.
     reader_options = {
@@ -1110,6 +1193,7 @@ def read_normal_json_files(
                 corrupt_record_column_name=corrupt_record_column_name
                 if mode_options.mode == "PERMISSIVE" and schema is None
                 else None,
+                strict_invalid_characters=strict_invalid_characters,
             )
         if len(stage_files) == 1:
             stage_file_paths = []
@@ -1152,6 +1236,7 @@ def read_normal_json_files(
             file_format_options,
             corrupt_record_column_name if has_corrupt_record_field else None,
             load_as_variant=load_as_variant,
+            failfast_mode=(mode_options.mode == "FAILFAST"),
         )
 
         _load_file_with_copy_into(
@@ -1766,17 +1851,23 @@ def _generate_json_path_reference(
     date_format: str | None = None,
     timestamp_format: str | None = None,
     copy_into: bool = False,
+    failfast_mode: bool = False,
 ) -> str:
     """
     Generate a JSON path reference with appropriate casting for nested fields.
 
     COPY INTO and bulk INSERT paths deliberately differ for scalar casts.
-    COPY INTO passes ON_ERROR=PERMISSIVE separately, so scalar expressions can
-    stay as raw JSON paths and let COPY null type mismatches. Non-COPY paths
+    COPY INTO passes ON_ERROR separately, so scalar expressions can stay as
+    raw JSON paths and let COPY null type mismatches. Non-COPY paths
     (e.g. jsonFileParallelLoading/construct_dataframe_by_schema_bulk) do not
     have COPY ON_ERROR available, so they keep explicit TRY_CAST for scalars.
-    Structured COPY transformations pass raw JSON paths through to COPY so the
-    target column cast and COPY ON_ERROR enforce the selected mode.
+    For FAILFAST COPY INTO, structured types (StructType/ArrayType/MapType)
+    use TRY_CAST ... PERMISSIVE to match Spark's field-level leniency: Spark
+    FAILFAST only throws for corrupt records (unparseable JSON), not for
+    struct-level schema drift (extra keys, sub-field type mismatches).
+    Snowflake typed OBJECT/ARRAY columns are stricter and raise 220000 on any
+    schema mismatch, so TRY_CAST PERMISSIVE bridges that gap for FAILFAST.
+    For PERMISSIVE/DROPMALFORMED, ON_ERROR already handles this correctly.
     Date/Timestamp with custom formats use TRY_TO_DATE/TRY_TO_TIMESTAMP because
     COPY INTO file format options do not apply to VARIANT path extractions.
 
@@ -1789,9 +1880,14 @@ def _generate_json_path_reference(
         timestamp_format: Optional Snowflake timestamp format string
         copy_into: Whether this expression is used as a COPY INTO
             transformation with COPY ON_ERROR handling scalar mismatches.
+        failfast_mode: Whether the read mode is FAILFAST. When True, structured
+            types use TRY_CAST PERMISSIVE to avoid aborting on struct schema
+            drift that Spark FAILFAST would handle silently.
     """
     if copy_into:
         if isinstance(data_type, (StructType, ArrayType, MapType)):
+            if failfast_mode:
+                return f"TRY_CAST({json_path} AS {_generate_snowflake_type_signature(data_type)} PERMISSIVE)"
             return json_path
         if isinstance(data_type, DateType) and date_format and date_format != "auto":
             return f"TRY_TO_DATE(TO_VARCHAR({json_path}), '{date_format}')"
@@ -1815,6 +1911,14 @@ def _generate_json_path_reference(
         return f"TRY_TO_TIMESTAMP(TO_VARCHAR({json_path}), '{timestamp_format}')"
     if isinstance(data_type, StringType):
         return f"TO_VARCHAR({json_path})"
+    if isinstance(data_type, VariantType):
+        # SNOW-3585743: a JSON-path extraction is already a VARIANT value, and
+        # any value is a valid VARIANT, so TRY_CAST(... AS VARIANT) is both
+        # unnecessary and rejected by Snowflake with error 001065 ("Function
+        # TRY_CAST cannot be used with arguments of types ... and VARIANT") --
+        # TRY_CAST only supports string input and a fixed set of scalar target
+        # types. TO_VARIANT is a no-op wrap that never fails.
+        return json_path if is_root else f"TO_VARIANT({json_path})"
     return (
         json_path
         if is_root

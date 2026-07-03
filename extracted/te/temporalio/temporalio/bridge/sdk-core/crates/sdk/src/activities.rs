@@ -69,10 +69,10 @@ use std::{
     sync::Arc,
     time::{Duration as StdDuration, SystemTime},
 };
-use temporalio_client::Priority;
+use temporalio_client::{Client, ClientOptions, Priority, WorkflowExecutionInfo, WorkflowHandle};
 pub use temporalio_common::ActivityError;
 use temporalio_common::{
-    ActivityDefinition,
+    ActivityDefinition, HasWorkflowDefinition,
     data_converters::{
         DataConverter, GenericPayloadConverter, SerializationContext, SerializationContextData,
     },
@@ -90,6 +90,7 @@ use tokio_util::sync::CancellationToken;
 #[derive(Clone)]
 pub struct ActivityContext {
     worker: Arc<CoreWorker>,
+    client_options: ClientOptions,
     cancellation_token: CancellationToken,
     heartbeat_details: Vec<Payload>,
     header_fields: HashMap<String, Payload>,
@@ -100,6 +101,7 @@ impl ActivityContext {
     /// Construct new Activity Context, returning the context and all arguments to the activity.
     pub fn new(
         worker: Arc<CoreWorker>,
+        client_options: ClientOptions,
         cancellation_token: CancellationToken,
         task_queue: String,
         task_token: Vec<u8>,
@@ -136,6 +138,7 @@ impl ActivityContext {
         (
             ActivityContext {
                 worker,
+                client_options,
                 cancellation_token,
                 heartbeat_details,
                 header_fields,
@@ -194,6 +197,32 @@ impl ActivityContext {
     /// Returns activity info of the executing activity
     pub fn info(&self) -> &ActivityInfo {
         &self.info
+    }
+
+    /// Return a client targeting the same Temporal service and namespace as this activity's worker.
+    pub fn client(&self) -> Client {
+        let connection = self.worker.get_client_connection().expect(
+            "activity context client is unavailable because the worker was not created from a \
+             Temporal client",
+        );
+        Client::new(connection, self.client_options.clone())
+            .expect("client construction from a worker connection should be infallible")
+    }
+
+    /// Return a workflow handle for the workflow execution that started this activity, if any.
+    pub fn workflow_handle<W: HasWorkflowDefinition>(&self) -> Option<WorkflowHandle<Client, W>> {
+        let workflow_execution = self.info.workflow_execution.as_ref()?;
+        let run_id =
+            (!workflow_execution.run_id.is_empty()).then_some(workflow_execution.run_id.clone());
+        Some(WorkflowHandle::new(
+            self.client(),
+            WorkflowExecutionInfo {
+                namespace: self.client_options.namespace.clone(),
+                workflow_id: workflow_execution.workflow_id.clone(),
+                run_id: run_id.clone(),
+                first_execution_run_id: run_id,
+            },
+        ))
     }
 
     /// Get headers attached to this activity
@@ -340,8 +369,9 @@ pub trait ActivityImplementer {
 }
 
 #[doc(hidden)]
-pub trait ExecutableActivity: ActivityDefinition {
+pub trait ExecutableActivity: ActivityDefinition + Sized {
     type Implementer: ActivityImplementer + Send + Sync + 'static;
+    fn definition() -> Self;
     fn execute(
         receiver: Option<Arc<Self::Implementer>>,
         ctx: ActivityContext,
@@ -355,7 +385,7 @@ pub trait HasOnlyStaticMethods {}
 /// Contains activity registrations in a form ready for execution by workers.
 #[derive(Default, Clone)]
 pub struct ActivityDefinitions {
-    activities: HashMap<&'static str, ActivityInvocation>,
+    activities: HashMap<String, ActivityInvocation>,
 }
 
 impl ActivityDefinitions {
@@ -373,7 +403,7 @@ impl ActivityDefinitions {
         AD::Output: Send + Sync,
     {
         self.activities.insert(
-            AD::name(),
+            AD::definition().name().to_string(),
             Arc::new(move |payloads, dc, c, activity_inbound_interceptors| {
                 let instance = instance.clone();
                 async move {
@@ -412,8 +442,8 @@ impl ActivityDefinitions {
         self.activities.get(act_type).cloned()
     }
 
-    pub(crate) fn names(&self) -> Vec<&'static str> {
-        let mut names: Vec<_> = self.activities.keys().copied().collect();
+    pub(crate) fn names(&self) -> Vec<String> {
+        let mut names: Vec<_> = self.activities.keys().cloned().collect();
         names.sort_unstable();
         names
     }
@@ -435,7 +465,7 @@ where
                 Err(_) => {
                     return ready(Err(ApplicationFailure::new(anyhow::anyhow!(
                     "Activity inbound interceptor returned arguments with wrong concrete type for activity {}",
-                    AD::name()
+                    AD::definition().name()
                 ))
                 .into()))
                 .boxed();

@@ -1894,12 +1894,6 @@ class CfnCluster(
                 )
             ),
             restricted_instance_groups=[sagemaker.CfnCluster.ClusterRestrictedInstanceGroupProperty(
-                environment_config=sagemaker.CfnCluster.EnvironmentConfigProperty(
-                    f_sx_lustre_config=sagemaker.CfnCluster.FSxLustreConfigProperty(
-                        per_unit_storage_throughput=123,
-                        size_in_gi_b=123
-                    )
-                ),
                 execution_role="executionRole",
                 instance_count=123,
                 instance_group_name="instanceGroupName",
@@ -1907,6 +1901,12 @@ class CfnCluster(
         
                 # the properties below are optional
                 current_count=123,
+                environment_config=sagemaker.CfnCluster.EnvironmentConfigProperty(
+                    f_sx_lustre_config=sagemaker.CfnCluster.FSxLustreConfigProperty(
+                        per_unit_storage_throughput=123,
+                        size_in_gi_b=123
+                    )
+                ),
                 instance_storage_configs=[sagemaker.CfnCluster.ClusterInstanceStorageConfigProperty(
                     ebs_volume_config=sagemaker.CfnCluster.ClusterEbsVolumeConfigProperty(
                         root_volume=False,
@@ -1935,6 +1935,17 @@ class CfnCluster(
                 threads_per_core=123,
                 training_plan_arn="trainingPlanArn"
             )],
+            restricted_instance_groups_config=sagemaker.CfnCluster.RestrictedInstanceGroupsConfigProperty(
+                shared_environment_config=sagemaker.CfnCluster.SharedEnvironmentConfigProperty(
+                    f_sx_lustre_deletion_policy="fSxLustreDeletionPolicy",
+        
+                    # the properties below are optional
+                    f_sx_lustre_config=sagemaker.CfnCluster.FSxLustreConfigProperty(
+                        per_unit_storage_throughput=123,
+                        size_in_gi_b=123
+                    )
+                )
+            ),
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -1965,6 +1976,7 @@ class CfnCluster(
         node_recovery: typing.Optional[builtins.str] = None,
         orchestrator: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.OrchestratorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         restricted_instance_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterRestrictedInstanceGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        restricted_instance_groups_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.RestrictedInstanceGroupsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         tiered_storage_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.TieredStorageConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1981,6 +1993,7 @@ class CfnCluster(
         :param node_recovery: Specifies whether to enable or disable the automatic node recovery feature of SageMaker HyperPod. Available values are ``Automatic`` for enabling and ``None`` for disabling.
         :param orchestrator: The orchestrator type for the SageMaker HyperPod cluster. Currently, ``'eks'`` is the only available option.
         :param restricted_instance_groups: The restricted instance groups of the SageMaker HyperPod cluster.
+        :param restricted_instance_groups_config: The cluster-level configuration for restricted instance groups, including shared environment settings for inter-RIG communication and FSx Lustre sharing.
         :param tags: A tag object that consists of a key and an optional value, used to manage metadata for SageMaker AWS resources. You can add tags to notebook instances, training jobs, hyperparameter tuning jobs, batch transform jobs, models, labeling jobs, work teams, endpoint configurations, and endpoints. For more information on adding tags to SageMaker resources, see `AddTags <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_AddTags.html>`_ . For more information on adding metadata to your AWS resources with tagging, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ . For advice on best practices for managing AWS resources with tagging, see `Tagging Best Practices: Implement an Effective AWS Resource Tagging Strategy <https://docs.aws.amazon.com/https://d1.awsstatic.com/whitepapers/aws-tagging-best-practices.pdf>`_ .
         :param tiered_storage_config: Configuration for tiered storage in the SageMaker HyperPod cluster.
         :param vpc_config: Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to. You can control access to and from your resources by configuring a VPC. For more information, see `Give SageMaker Access to Resources in your Amazon VPC <https://docs.aws.amazon.com/sagemaker/latest/dg/infrastructure-give-access.html>`_ .
@@ -1998,6 +2011,7 @@ class CfnCluster(
             node_recovery=node_recovery,
             orchestrator=orchestrator,
             restricted_instance_groups=restricted_instance_groups,
+            restricted_instance_groups_config=restricted_instance_groups_config,
             tags=tags,
             tiered_storage_config=tiered_storage_config,
             vpc_config=vpc_config,
@@ -2239,6 +2253,24 @@ class CfnCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__eb098436cfb738855f83865dfef39e1aa3903e59cbc86da6e0a424615a383a95)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "restrictedInstanceGroups", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="restrictedInstanceGroupsConfig")
+    def restricted_instance_groups_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.RestrictedInstanceGroupsConfigProperty"]]:
+        '''The cluster-level configuration for restricted instance groups, including shared environment settings for inter-RIG communication and FSx Lustre sharing.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.RestrictedInstanceGroupsConfigProperty"]], jsii.get(self, "restrictedInstanceGroupsConfig"))
+
+    @restricted_instance_groups_config.setter
+    def restricted_instance_groups_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.RestrictedInstanceGroupsConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__42c1c266f113a0e6bc08eae3bac812933c6702d1a34f41d5a46c46eb7dfc0e57)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "restrictedInstanceGroupsConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3831,12 +3863,12 @@ class CfnCluster(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.ClusterRestrictedInstanceGroupProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "environment_config": "environmentConfig",
             "execution_role": "executionRole",
             "instance_count": "instanceCount",
             "instance_group_name": "instanceGroupName",
             "instance_type": "instanceType",
             "current_count": "currentCount",
+            "environment_config": "environmentConfig",
             "instance_storage_configs": "instanceStorageConfigs",
             "on_start_deep_health_checks": "onStartDeepHealthChecks",
             "override_vpc_config": "overrideVpcConfig",
@@ -3848,12 +3880,12 @@ class CfnCluster(
         def __init__(
             self,
             *,
-            environment_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.EnvironmentConfigProperty", typing.Dict[builtins.str, typing.Any]]],
             execution_role: builtins.str,
             instance_count: jsii.Number,
             instance_group_name: builtins.str,
             instance_type: builtins.str,
             current_count: typing.Optional[jsii.Number] = None,
+            environment_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.EnvironmentConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             instance_storage_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterInstanceStorageConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
             override_vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3862,12 +3894,12 @@ class CfnCluster(
         ) -> None:
             '''Details of a restricted instance group in a SageMaker HyperPod cluster.
 
-            :param environment_config: The configuration for the restricted instance groups (RIG) environment.
             :param execution_role: The execution role for the instance group to assume.
             :param instance_count: The number of instances you specified to add to the restricted instance group of a SageMaker HyperPod cluster.
             :param instance_group_name: The name of the instance group of a SageMaker HyperPod cluster.
             :param instance_type: The instance type of the instance group of a SageMaker HyperPod cluster.
             :param current_count: The number of instances that are currently in the restricted instance group of a SageMaker HyperPod cluster.
+            :param environment_config: The configuration for the restricted instance groups (RIG) environment.
             :param instance_storage_configs: The instance storage configuration for the instance group.
             :param on_start_deep_health_checks: Nodes will undergo advanced stress test to detect and replace faulty instances, based on the type of deep health check(s) passed in.
             :param override_vpc_config: Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to. You can control access to and from your resources by configuring a VPC.
@@ -3884,12 +3916,6 @@ class CfnCluster(
                 from aws_cdk import aws_sagemaker as sagemaker
                 
                 cluster_restricted_instance_group_property = sagemaker.CfnCluster.ClusterRestrictedInstanceGroupProperty(
-                    environment_config=sagemaker.CfnCluster.EnvironmentConfigProperty(
-                        f_sx_lustre_config=sagemaker.CfnCluster.FSxLustreConfigProperty(
-                            per_unit_storage_throughput=123,
-                            size_in_gi_b=123
-                        )
-                    ),
                     execution_role="executionRole",
                     instance_count=123,
                     instance_group_name="instanceGroupName",
@@ -3897,6 +3923,12 @@ class CfnCluster(
                 
                     # the properties below are optional
                     current_count=123,
+                    environment_config=sagemaker.CfnCluster.EnvironmentConfigProperty(
+                        f_sx_lustre_config=sagemaker.CfnCluster.FSxLustreConfigProperty(
+                            per_unit_storage_throughput=123,
+                            size_in_gi_b=123
+                        )
+                    ),
                     instance_storage_configs=[sagemaker.CfnCluster.ClusterInstanceStorageConfigProperty(
                         ebs_volume_config=sagemaker.CfnCluster.ClusterEbsVolumeConfigProperty(
                             root_volume=False,
@@ -3928,19 +3960,18 @@ class CfnCluster(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__b93ff4f69c672c7cfa634445653e3f5eacc520b4a55f74e9e45bbbb13341f9df)
-                check_type(argname="argument environment_config", value=environment_config, expected_type=type_hints["environment_config"])
                 check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
                 check_type(argname="argument instance_count", value=instance_count, expected_type=type_hints["instance_count"])
                 check_type(argname="argument instance_group_name", value=instance_group_name, expected_type=type_hints["instance_group_name"])
                 check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
                 check_type(argname="argument current_count", value=current_count, expected_type=type_hints["current_count"])
+                check_type(argname="argument environment_config", value=environment_config, expected_type=type_hints["environment_config"])
                 check_type(argname="argument instance_storage_configs", value=instance_storage_configs, expected_type=type_hints["instance_storage_configs"])
                 check_type(argname="argument on_start_deep_health_checks", value=on_start_deep_health_checks, expected_type=type_hints["on_start_deep_health_checks"])
                 check_type(argname="argument override_vpc_config", value=override_vpc_config, expected_type=type_hints["override_vpc_config"])
                 check_type(argname="argument threads_per_core", value=threads_per_core, expected_type=type_hints["threads_per_core"])
                 check_type(argname="argument training_plan_arn", value=training_plan_arn, expected_type=type_hints["training_plan_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
-                "environment_config": environment_config,
                 "execution_role": execution_role,
                 "instance_count": instance_count,
                 "instance_group_name": instance_group_name,
@@ -3948,6 +3979,8 @@ class CfnCluster(
             }
             if current_count is not None:
                 self._values["current_count"] = current_count
+            if environment_config is not None:
+                self._values["environment_config"] = environment_config
             if instance_storage_configs is not None:
                 self._values["instance_storage_configs"] = instance_storage_configs
             if on_start_deep_health_checks is not None:
@@ -3958,18 +3991,6 @@ class CfnCluster(
                 self._values["threads_per_core"] = threads_per_core
             if training_plan_arn is not None:
                 self._values["training_plan_arn"] = training_plan_arn
-
-        @builtins.property
-        def environment_config(
-            self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCluster.EnvironmentConfigProperty"]:
-            '''The configuration for the restricted instance groups (RIG) environment.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterrestrictedinstancegroup.html#cfn-sagemaker-cluster-clusterrestrictedinstancegroup-environmentconfig
-            '''
-            result = self._values.get("environment_config")
-            assert result is not None, "Required property 'environment_config' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCluster.EnvironmentConfigProperty"], result)
 
         @builtins.property
         def execution_role(self) -> builtins.str:
@@ -4019,6 +4040,17 @@ class CfnCluster(
             '''
             result = self._values.get("current_count")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def environment_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EnvironmentConfigProperty"]]:
+            '''The configuration for the restricted instance groups (RIG) environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterrestrictedinstancegroup.html#cfn-sagemaker-cluster-clusterrestrictedinstancegroup-environmentconfig
+            '''
+            result = self._values.get("environment_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EnvironmentConfigProperty"]], result)
 
         @builtins.property
         def instance_storage_configs(
@@ -4536,6 +4568,72 @@ class CfnCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.RestrictedInstanceGroupsConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"shared_environment_config": "sharedEnvironmentConfig"},
+    )
+    class RestrictedInstanceGroupsConfigProperty:
+        def __init__(
+            self,
+            *,
+            shared_environment_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.SharedEnvironmentConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The cluster-level configuration for restricted instance groups, including shared environment settings for inter-RIG communication and FSx Lustre sharing.
+
+            :param shared_environment_config: The shared environment configuration for restricted instance groups that use cluster-level shared FSx Lustre storage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-restrictedinstancegroupsconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                restricted_instance_groups_config_property = sagemaker.CfnCluster.RestrictedInstanceGroupsConfigProperty(
+                    shared_environment_config=sagemaker.CfnCluster.SharedEnvironmentConfigProperty(
+                        f_sx_lustre_deletion_policy="fSxLustreDeletionPolicy",
+                
+                        # the properties below are optional
+                        f_sx_lustre_config=sagemaker.CfnCluster.FSxLustreConfigProperty(
+                            per_unit_storage_throughput=123,
+                            size_in_gi_b=123
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cd9373956f3525d76d42899429d847310056d728f755659608b272f1e266797f)
+                check_type(argname="argument shared_environment_config", value=shared_environment_config, expected_type=type_hints["shared_environment_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "shared_environment_config": shared_environment_config,
+            }
+
+        @builtins.property
+        def shared_environment_config(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnCluster.SharedEnvironmentConfigProperty"]:
+            '''The shared environment configuration for restricted instance groups that use cluster-level shared FSx Lustre storage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-restrictedinstancegroupsconfig.html#cfn-sagemaker-cluster-restrictedinstancegroupsconfig-sharedenvironmentconfig
+            '''
+            result = self._values.get("shared_environment_config")
+            assert result is not None, "Required property 'shared_environment_config' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCluster.SharedEnvironmentConfigProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RestrictedInstanceGroupsConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.RollingUpdatePolicyProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -4721,6 +4819,89 @@ class CfnCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.SharedEnvironmentConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "f_sx_lustre_deletion_policy": "fSxLustreDeletionPolicy",
+            "f_sx_lustre_config": "fSxLustreConfig",
+        },
+    )
+    class SharedEnvironmentConfigProperty:
+        def __init__(
+            self,
+            *,
+            f_sx_lustre_deletion_policy: builtins.str,
+            f_sx_lustre_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.FSxLustreConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The shared environment configuration for restricted instance groups that use cluster-level shared FSx Lustre storage.
+
+            :param f_sx_lustre_deletion_policy: The deletion policy for the shared FSx Lustre file system. Keep retains the FSx when RIGs are deleted. DeleteIfNotUsed deletes the FSx when no RIGs reference it.
+            :param f_sx_lustre_config: Configuration settings for an Amazon FSx for Lustre file system to be used with the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-sharedenvironmentconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                shared_environment_config_property = sagemaker.CfnCluster.SharedEnvironmentConfigProperty(
+                    f_sx_lustre_deletion_policy="fSxLustreDeletionPolicy",
+                
+                    # the properties below are optional
+                    f_sx_lustre_config=sagemaker.CfnCluster.FSxLustreConfigProperty(
+                        per_unit_storage_throughput=123,
+                        size_in_gi_b=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__020f5809b2d67df7b63708f69bdc63bfbdc0a89db15fcfdd46785c575eabe83b)
+                check_type(argname="argument f_sx_lustre_deletion_policy", value=f_sx_lustre_deletion_policy, expected_type=type_hints["f_sx_lustre_deletion_policy"])
+                check_type(argname="argument f_sx_lustre_config", value=f_sx_lustre_config, expected_type=type_hints["f_sx_lustre_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "f_sx_lustre_deletion_policy": f_sx_lustre_deletion_policy,
+            }
+            if f_sx_lustre_config is not None:
+                self._values["f_sx_lustre_config"] = f_sx_lustre_config
+
+        @builtins.property
+        def f_sx_lustre_deletion_policy(self) -> builtins.str:
+            '''The deletion policy for the shared FSx Lustre file system.
+
+            Keep retains the FSx when RIGs are deleted. DeleteIfNotUsed deletes the FSx when no RIGs reference it.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-sharedenvironmentconfig.html#cfn-sagemaker-cluster-sharedenvironmentconfig-fsxlustredeletionpolicy
+            '''
+            result = self._values.get("f_sx_lustre_deletion_policy")
+            assert result is not None, "Required property 'f_sx_lustre_deletion_policy' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def f_sx_lustre_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.FSxLustreConfigProperty"]]:
+            '''Configuration settings for an Amazon FSx for Lustre file system to be used with the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-sharedenvironmentconfig.html#cfn-sagemaker-cluster-sharedenvironmentconfig-fsxlustreconfig
+            '''
+            result = self._values.get("f_sx_lustre_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.FSxLustreConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SharedEnvironmentConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.TieredStorageConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -4886,6 +5067,7 @@ class CfnCluster(
         "node_recovery": "nodeRecovery",
         "orchestrator": "orchestrator",
         "restricted_instance_groups": "restrictedInstanceGroups",
+        "restricted_instance_groups_config": "restrictedInstanceGroupsConfig",
         "tags": "tags",
         "tiered_storage_config": "tieredStorageConfig",
         "vpc_config": "vpcConfig",
@@ -4903,6 +5085,7 @@ class CfnClusterProps:
         node_recovery: typing.Optional[builtins.str] = None,
         orchestrator: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.OrchestratorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         restricted_instance_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterRestrictedInstanceGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        restricted_instance_groups_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.RestrictedInstanceGroupsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         tiered_storage_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.TieredStorageConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4917,6 +5100,7 @@ class CfnClusterProps:
         :param node_recovery: Specifies whether to enable or disable the automatic node recovery feature of SageMaker HyperPod. Available values are ``Automatic`` for enabling and ``None`` for disabling.
         :param orchestrator: The orchestrator type for the SageMaker HyperPod cluster. Currently, ``'eks'`` is the only available option.
         :param restricted_instance_groups: The restricted instance groups of the SageMaker HyperPod cluster.
+        :param restricted_instance_groups_config: The cluster-level configuration for restricted instance groups, including shared environment settings for inter-RIG communication and FSx Lustre sharing.
         :param tags: A tag object that consists of a key and an optional value, used to manage metadata for SageMaker AWS resources. You can add tags to notebook instances, training jobs, hyperparameter tuning jobs, batch transform jobs, models, labeling jobs, work teams, endpoint configurations, and endpoints. For more information on adding tags to SageMaker resources, see `AddTags <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_AddTags.html>`_ . For more information on adding metadata to your AWS resources with tagging, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ . For advice on best practices for managing AWS resources with tagging, see `Tagging Best Practices: Implement an Effective AWS Resource Tagging Strategy <https://docs.aws.amazon.com/https://d1.awsstatic.com/whitepapers/aws-tagging-best-practices.pdf>`_ .
         :param tiered_storage_config: Configuration for tiered storage in the SageMaker HyperPod cluster.
         :param vpc_config: Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to. You can control access to and from your resources by configuring a VPC. For more information, see `Give SageMaker Access to Resources in your Amazon VPC <https://docs.aws.amazon.com/sagemaker/latest/dg/infrastructure-give-access.html>`_ .
@@ -5048,12 +5232,6 @@ class CfnClusterProps:
                     )
                 ),
                 restricted_instance_groups=[sagemaker.CfnCluster.ClusterRestrictedInstanceGroupProperty(
-                    environment_config=sagemaker.CfnCluster.EnvironmentConfigProperty(
-                        f_sx_lustre_config=sagemaker.CfnCluster.FSxLustreConfigProperty(
-                            per_unit_storage_throughput=123,
-                            size_in_gi_b=123
-                        )
-                    ),
                     execution_role="executionRole",
                     instance_count=123,
                     instance_group_name="instanceGroupName",
@@ -5061,6 +5239,12 @@ class CfnClusterProps:
             
                     # the properties below are optional
                     current_count=123,
+                    environment_config=sagemaker.CfnCluster.EnvironmentConfigProperty(
+                        f_sx_lustre_config=sagemaker.CfnCluster.FSxLustreConfigProperty(
+                            per_unit_storage_throughput=123,
+                            size_in_gi_b=123
+                        )
+                    ),
                     instance_storage_configs=[sagemaker.CfnCluster.ClusterInstanceStorageConfigProperty(
                         ebs_volume_config=sagemaker.CfnCluster.ClusterEbsVolumeConfigProperty(
                             root_volume=False,
@@ -5089,6 +5273,17 @@ class CfnClusterProps:
                     threads_per_core=123,
                     training_plan_arn="trainingPlanArn"
                 )],
+                restricted_instance_groups_config=sagemaker.CfnCluster.RestrictedInstanceGroupsConfigProperty(
+                    shared_environment_config=sagemaker.CfnCluster.SharedEnvironmentConfigProperty(
+                        f_sx_lustre_deletion_policy="fSxLustreDeletionPolicy",
+            
+                        # the properties below are optional
+                        f_sx_lustre_config=sagemaker.CfnCluster.FSxLustreConfigProperty(
+                            per_unit_storage_throughput=123,
+                            size_in_gi_b=123
+                        )
+                    )
+                ),
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -5115,6 +5310,7 @@ class CfnClusterProps:
             check_type(argname="argument node_recovery", value=node_recovery, expected_type=type_hints["node_recovery"])
             check_type(argname="argument orchestrator", value=orchestrator, expected_type=type_hints["orchestrator"])
             check_type(argname="argument restricted_instance_groups", value=restricted_instance_groups, expected_type=type_hints["restricted_instance_groups"])
+            check_type(argname="argument restricted_instance_groups_config", value=restricted_instance_groups_config, expected_type=type_hints["restricted_instance_groups_config"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tiered_storage_config", value=tiered_storage_config, expected_type=type_hints["tiered_storage_config"])
             check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
@@ -5135,6 +5331,8 @@ class CfnClusterProps:
             self._values["orchestrator"] = orchestrator
         if restricted_instance_groups is not None:
             self._values["restricted_instance_groups"] = restricted_instance_groups
+        if restricted_instance_groups_config is not None:
+            self._values["restricted_instance_groups_config"] = restricted_instance_groups_config
         if tags is not None:
             self._values["tags"] = tags
         if tiered_storage_config is not None:
@@ -5229,6 +5427,17 @@ class CfnClusterProps:
         '''
         result = self._values.get("restricted_instance_groups")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterRestrictedInstanceGroupProperty"]]]], result)
+
+    @builtins.property
+    def restricted_instance_groups_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.RestrictedInstanceGroupsConfigProperty"]]:
+        '''The cluster-level configuration for restricted instance groups, including shared environment settings for inter-RIG communication and FSx Lustre sharing.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-cluster.html#cfn-sagemaker-cluster-restrictedinstancegroupsconfig
+        '''
+        result = self._values.get("restricted_instance_groups_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.RestrictedInstanceGroupsConfigProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -58948,6 +59157,7 @@ def _typecheckingstub__b1441bbec1bb60460bda62b43765e140885fbb36e13b090ded31c919b
     node_recovery: typing.Optional[builtins.str] = None,
     orchestrator: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.OrchestratorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     restricted_instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterRestrictedInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    restricted_instance_groups_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.RestrictedInstanceGroupsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     tiered_storage_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.TieredStorageConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -59023,6 +59233,12 @@ def _typecheckingstub__b28b5799cdd1c859107ae372c1215ec60b0e0936d622ea46ffde5ae87
 
 def _typecheckingstub__eb098436cfb738855f83865dfef39e1aa3903e59cbc86da6e0a424615a383a95(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ClusterRestrictedInstanceGroupProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42c1c266f113a0e6bc08eae3bac812933c6702d1a34f41d5a46c46eb7dfc0e57(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.RestrictedInstanceGroupsConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -59185,12 +59401,12 @@ def _typecheckingstub__c26797bd93cd7f8db64f992faf8467f4712b6ac3db043444a37316f7e
 
 def _typecheckingstub__b93ff4f69c672c7cfa634445653e3f5eacc520b4a55f74e9e45bbbb13341f9df(
     *,
-    environment_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EnvironmentConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     execution_role: builtins.str,
     instance_count: jsii.Number,
     instance_group_name: builtins.str,
     instance_type: builtins.str,
     current_count: typing.Optional[jsii.Number] = None,
+    environment_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EnvironmentConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     instance_storage_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceStorageConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
     override_vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -59247,6 +59463,13 @@ def _typecheckingstub__bd76c8323d4b86bae18d24faa04bdbae1945db1d8ba5ca351b2ce27ff
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cd9373956f3525d76d42899429d847310056d728f755659608b272f1e266797f(
+    *,
+    shared_environment_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SharedEnvironmentConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__009b52494cdfca8c8c772675b8315c71bd7b7eba9c48e4dc433f6d571074d1ad(
     *,
     maximum_batch_size: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.CapacitySizeConfigProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -59259,6 +59482,14 @@ def _typecheckingstub__81dc9ecbde9bb4b8c0eba924792ecc3f847c8f654d60156a7fde757af
     *,
     schedule_expression: builtins.str,
     deployment_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.DeploymentConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__020f5809b2d67df7b63708f69bdc63bfbdc0a89db15fcfdd46785c575eabe83b(
+    *,
+    f_sx_lustre_deletion_policy: builtins.str,
+    f_sx_lustre_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.FSxLustreConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -59289,6 +59520,7 @@ def _typecheckingstub__c8126a53dc1741a2edde75d8d4eca79c53a2294746ea237dfba0097a7
     node_recovery: typing.Optional[builtins.str] = None,
     orchestrator: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.OrchestratorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     restricted_instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterRestrictedInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    restricted_instance_groups_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.RestrictedInstanceGroupsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     tiered_storage_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.TieredStorageConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

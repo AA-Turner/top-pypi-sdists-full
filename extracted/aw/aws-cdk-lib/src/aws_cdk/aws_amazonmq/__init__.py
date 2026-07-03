@@ -164,6 +164,7 @@ class CfnBroker(
                 time_of_day="timeOfDay",
                 time_zone="timeZone"
             ),
+            resource_share_arns=["resourceShareArns"],
             security_groups=["securityGroups"],
             storage_type="storageType",
             subnet_ids=["subnetIds"],
@@ -203,6 +204,7 @@ class CfnBroker(
         ldap_server_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.LdapServerMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         logs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.LogListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         maintenance_window_start_time: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_share_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
         storage_type: typing.Optional[builtins.str] = None,
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -228,6 +230,7 @@ class CfnBroker(
         :param ldap_server_metadata: Optional. The metadata of the LDAP server used to authenticate and authorize connections to the broker. Does not apply to RabbitMQ brokers.
         :param logs: Enables Amazon CloudWatch logging for brokers.
         :param maintenance_window_start_time: The parameters that determine the WeeklyStartTime.
+        :param resource_share_arns: The ARNs of the resource shares to be associated with the broker.
         :param security_groups: The list of rules (1 minimum, 125 maximum) that authorize connections to brokers.
         :param storage_type: The broker's storage type.
         :param subnet_ids: The list of groups that define which subnets and IP ranges the broker can use from different Availability Zones. If you specify more than one subnet, the subnets must be in different Availability Zones. Amazon MQ will not be able to create VPC endpoints for your broker with multiple subnets in the same Availability Zone. A SINGLE_INSTANCE deployment requires one subnet (for example, the default subnet). An ACTIVE_STANDBY_MULTI_AZ Amazon MQ for ActiveMQ deployment requires two subnets. A CLUSTER_MULTI_AZ Amazon MQ for RabbitMQ deployment has no subnet requirements when deployed with public accessibility. Deployment without public accessibility requires at least one subnet. .. epigraph:: If you specify subnets in a `shared VPC <https://docs.aws.amazon.com/vpc/latest/userguide/vpc-sharing.html>`_ for a RabbitMQ broker, the associated VPC to which the specified subnets belong must be owned by your AWS account . Amazon MQ will not be able to create VPC endpoints in VPCs that are not owned by your AWS account .
@@ -254,6 +257,7 @@ class CfnBroker(
             ldap_server_metadata=ldap_server_metadata,
             logs=logs,
             maintenance_window_start_time=maintenance_window_start_time,
+            resource_share_arns=resource_share_arns,
             security_groups=security_groups,
             storage_type=storage_type,
             subnet_ids=subnet_ids,
@@ -696,6 +700,22 @@ class CfnBroker(
             type_hints = typing.get_type_hints(_typecheckingstub__7e2d1a75b2e491fa226b7065a64e24f522ac7be048073da54600cfd720b1240f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maintenanceWindowStartTime", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceShareArns")
+    def resource_share_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARNs of the resource shares to be associated with the broker.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "resourceShareArns"))
+
+    @resource_share_arns.setter
+    def resource_share_arns(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4fb441530888b175b9f570c128957515418482cfc70b74f98682c74e4dc66c4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceShareArns", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="securityGroups")
@@ -1534,6 +1554,7 @@ class CfnBroker(
         "ldap_server_metadata": "ldapServerMetadata",
         "logs": "logs",
         "maintenance_window_start_time": "maintenanceWindowStartTime",
+        "resource_share_arns": "resourceShareArns",
         "security_groups": "securityGroups",
         "storage_type": "storageType",
         "subnet_ids": "subnetIds",
@@ -1560,6 +1581,7 @@ class CfnBrokerProps:
         ldap_server_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.LdapServerMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         logs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.LogListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         maintenance_window_start_time: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBroker.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_share_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
         storage_type: typing.Optional[builtins.str] = None,
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1583,6 +1605,7 @@ class CfnBrokerProps:
         :param ldap_server_metadata: Optional. The metadata of the LDAP server used to authenticate and authorize connections to the broker. Does not apply to RabbitMQ brokers.
         :param logs: Enables Amazon CloudWatch logging for brokers.
         :param maintenance_window_start_time: The parameters that determine the WeeklyStartTime.
+        :param resource_share_arns: The ARNs of the resource shares to be associated with the broker.
         :param security_groups: The list of rules (1 minimum, 125 maximum) that authorize connections to brokers.
         :param storage_type: The broker's storage type.
         :param subnet_ids: The list of groups that define which subnets and IP ranges the broker can use from different Availability Zones. If you specify more than one subnet, the subnets must be in different Availability Zones. Amazon MQ will not be able to create VPC endpoints for your broker with multiple subnets in the same Availability Zone. A SINGLE_INSTANCE deployment requires one subnet (for example, the default subnet). An ACTIVE_STANDBY_MULTI_AZ Amazon MQ for ActiveMQ deployment requires two subnets. A CLUSTER_MULTI_AZ Amazon MQ for RabbitMQ deployment has no subnet requirements when deployed with public accessibility. Deployment without public accessibility requires at least one subnet. .. epigraph:: If you specify subnets in a `shared VPC <https://docs.aws.amazon.com/vpc/latest/userguide/vpc-sharing.html>`_ for a RabbitMQ broker, the associated VPC to which the specified subnets belong must be owned by your AWS account . Amazon MQ will not be able to create VPC endpoints in VPCs that are not owned by your AWS account .
@@ -1645,6 +1668,7 @@ class CfnBrokerProps:
                     time_of_day="timeOfDay",
                     time_zone="timeZone"
                 ),
+                resource_share_arns=["resourceShareArns"],
                 security_groups=["securityGroups"],
                 storage_type="storageType",
                 subnet_ids=["subnetIds"],
@@ -1680,6 +1704,7 @@ class CfnBrokerProps:
             check_type(argname="argument ldap_server_metadata", value=ldap_server_metadata, expected_type=type_hints["ldap_server_metadata"])
             check_type(argname="argument logs", value=logs, expected_type=type_hints["logs"])
             check_type(argname="argument maintenance_window_start_time", value=maintenance_window_start_time, expected_type=type_hints["maintenance_window_start_time"])
+            check_type(argname="argument resource_share_arns", value=resource_share_arns, expected_type=type_hints["resource_share_arns"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
             check_type(argname="argument storage_type", value=storage_type, expected_type=type_hints["storage_type"])
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
@@ -1712,6 +1737,8 @@ class CfnBrokerProps:
             self._values["logs"] = logs
         if maintenance_window_start_time is not None:
             self._values["maintenance_window_start_time"] = maintenance_window_start_time
+        if resource_share_arns is not None:
+            self._values["resource_share_arns"] = resource_share_arns
         if security_groups is not None:
             self._values["security_groups"] = security_groups
         if storage_type is not None:
@@ -1902,6 +1929,15 @@ class CfnBrokerProps:
         '''
         result = self._values.get("maintenance_window_start_time")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBroker.MaintenanceWindowProperty"]], result)
+
+    @builtins.property
+    def resource_share_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARNs of the resource shares to be associated with the broker.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-resourcesharearns
+        '''
+        result = self._values.get("resource_share_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2862,6 +2898,7 @@ def _typecheckingstub__d16f84aeefdd69c636acf0c8b4d958b93ded39c1da5d5eecb39ce8753
     ldap_server_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.LdapServerMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.LogListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maintenance_window_start_time: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_share_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     storage_type: typing.Optional[builtins.str] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2985,6 +3022,12 @@ def _typecheckingstub__7e2d1a75b2e491fa226b7065a64e24f522ac7be048073da54600cfd72
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d4fb441530888b175b9f570c128957515418482cfc70b74f98682c74e4dc66c4(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e87ea78ee8e3d556f9e322090479023fa17920888ca10cd4413f4e00c942ffec(
     value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
@@ -3101,6 +3144,7 @@ def _typecheckingstub__d255f8718bac4d1453cb7e2ae3f8fb5a5ac0ed5b3551f73d52e4123fa
     ldap_server_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.LdapServerMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.LogListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maintenance_window_start_time: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_share_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     storage_type: typing.Optional[builtins.str] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,

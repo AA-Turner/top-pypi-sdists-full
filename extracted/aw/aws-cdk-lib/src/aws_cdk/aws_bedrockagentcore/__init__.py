@@ -9335,6 +9335,7 @@ class CfnConfigurationBundle(
                 arn="arn"
             ),
             description="description",
+            kms_key_arn="kmsKeyArn",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -9353,6 +9354,7 @@ class CfnConfigurationBundle(
         commit_message: typing.Optional[builtins.str] = None,
         created_by: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationBundle.VersionCreatedBySourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::BedrockAgentCore::ConfigurationBundle``.
@@ -9365,6 +9367,7 @@ class CfnConfigurationBundle(
         :param commit_message: A commit message describing the version of the configuration bundle.
         :param created_by: The source that created a configuration bundle version.
         :param description: The description for the configuration bundle.
+        :param kms_key_arn: The ARN of the KMS key used to encrypt component configurations.
         :param tags: Tags to assign to the configuration bundle.
         '''
         if __debug__:
@@ -9378,6 +9381,7 @@ class CfnConfigurationBundle(
             commit_message=commit_message,
             created_by=created_by,
             description=description,
+            kms_key_arn=kms_key_arn,
             tags=tags,
         )
 
@@ -9588,6 +9592,19 @@ class CfnConfigurationBundle(
             type_hints = typing.get_type_hints(_typecheckingstub__9b45abb7e28833faaf441e807d87b41e96ff2d5ecf4a946a5cd4f18e0453373c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyArn")
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key used to encrypt component configurations.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyArn"))
+
+    @kms_key_arn.setter
+    def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4f2458bfa25939aaaf06e7f4cc0fe06cbd5a42e2f22a5c42b749bd9952589c5b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -9852,6 +9869,7 @@ class CfnConfigurationBundle(
         "commit_message": "commitMessage",
         "created_by": "createdBy",
         "description": "description",
+        "kms_key_arn": "kmsKeyArn",
         "tags": "tags",
     },
 )
@@ -9865,6 +9883,7 @@ class CfnConfigurationBundleProps:
         commit_message: typing.Optional[builtins.str] = None,
         created_by: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationBundle.VersionCreatedBySourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnConfigurationBundle``.
@@ -9875,6 +9894,7 @@ class CfnConfigurationBundleProps:
         :param commit_message: A commit message describing the version of the configuration bundle.
         :param created_by: The source that created a configuration bundle version.
         :param description: The description for the configuration bundle.
+        :param kms_key_arn: The ARN of the KMS key used to encrypt component configurations.
         :param tags: Tags to assign to the configuration bundle.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-configurationbundle.html
@@ -9907,6 +9927,7 @@ class CfnConfigurationBundleProps:
                     arn="arn"
                 ),
                 description="description",
+                kms_key_arn="kmsKeyArn",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -9921,6 +9942,7 @@ class CfnConfigurationBundleProps:
             check_type(argname="argument commit_message", value=commit_message, expected_type=type_hints["commit_message"])
             check_type(argname="argument created_by", value=created_by, expected_type=type_hints["created_by"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "bundle_name": bundle_name,
@@ -9934,6 +9956,8 @@ class CfnConfigurationBundleProps:
             self._values["created_by"] = created_by
         if description is not None:
             self._values["description"] = description
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
         if tags is not None:
             self._values["tags"] = tags
 
@@ -9997,6 +10021,15 @@ class CfnConfigurationBundleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-configurationbundle.html#cfn-bedrockagentcore-configurationbundle-description
         '''
         result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key used to encrypt component configurations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-configurationbundle.html#cfn-bedrockagentcore-configurationbundle-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -13912,17 +13945,47 @@ class CfnGatewayTarget(
         # The values are placeholders you should change.
         from aws_cdk import aws_bedrockagentcore as bedrockagentcore
         
+        # parameter_values: Any
         # schema_definition_property_: bedrockagentcore.CfnGatewayTarget.SchemaDefinitionProperty
         
         cfn_gateway_target = bedrockagentcore.CfnGatewayTarget(self, "MyCfnGatewayTarget",
-            name="name",
             target_configuration=bedrockagentcore.CfnGatewayTarget.TargetConfigurationProperty(
                 http=bedrockagentcore.CfnGatewayTarget.HttpTargetConfigurationProperty(
                     agentcore_runtime=bedrockagentcore.CfnGatewayTarget.RuntimeTargetConfigurationProperty(
                         arn="arn",
         
                         # the properties below are optional
-                        qualifier="qualifier"
+                        qualifier="qualifier",
+                        schema=bedrockagentcore.CfnGatewayTarget.HttpApiSchemaConfigurationProperty(
+                            source=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
+                                inline_payload="inlinePayload",
+                                s3=bedrockagentcore.CfnGatewayTarget.S3ConfigurationProperty(
+                                    bucket_owner_account_id="bucketOwnerAccountId",
+                                    uri="uri"
+                                )
+                            )
+                        )
+                    ),
+                    passthrough=bedrockagentcore.CfnGatewayTarget.PassthroughTargetConfigurationProperty(
+                        endpoint="endpoint",
+                        protocol_type="protocolType",
+        
+                        # the properties below are optional
+                        schema=bedrockagentcore.CfnGatewayTarget.HttpApiSchemaConfigurationProperty(
+                            source=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
+                                inline_payload="inlinePayload",
+                                s3=bedrockagentcore.CfnGatewayTarget.S3ConfigurationProperty(
+                                    bucket_owner_account_id="bucketOwnerAccountId",
+                                    uri="uri"
+                                )
+                            )
+                        ),
+                        stickiness_configuration=bedrockagentcore.CfnGatewayTarget.StickinessConfigurationProperty(
+                            identifier="identifier",
+        
+                            # the properties below are optional
+                            timeout=123
+                        )
                     )
                 ),
                 mcp=bedrockagentcore.CfnGatewayTarget.McpTargetConfigurationProperty(
@@ -13945,6 +14008,28 @@ class CfnGatewayTarget(
                         ),
                         rest_api_id="restApiId",
                         stage="stage"
+                    ),
+                    connector=bedrockagentcore.CfnGatewayTarget.ConnectorTargetConfigurationProperty(
+                        source=bedrockagentcore.CfnGatewayTarget.ConnectorSourceProperty(
+                            connector_id="connectorId"
+                        ),
+        
+                        # the properties below are optional
+                        configurations=[bedrockagentcore.CfnGatewayTarget.ConnectorConfigurationProperty(
+                            name="name",
+        
+                            # the properties below are optional
+                            description="description",
+                            parameter_overrides=[bedrockagentcore.CfnGatewayTarget.ConnectorParameterOverrideProperty(
+                                path="path",
+        
+                                # the properties below are optional
+                                description="description",
+                                visible=False
+                            )],
+                            parameter_values=parameter_values
+                        )],
+                        enabled=["enabled"]
                     ),
                     lambda_=bedrockagentcore.CfnGatewayTarget.McpLambdaTargetConfigurationProperty(
                         lambda_arn="lambdaArn",
@@ -14054,6 +14139,7 @@ class CfnGatewayTarget(
                 allowed_request_headers=["allowedRequestHeaders"],
                 allowed_response_headers=["allowedResponseHeaders"]
             ),
+            name="name",
             private_endpoint=bedrockagentcore.CfnGatewayTarget.PrivateEndpointProperty(
                 managed_vpc_resource=bedrockagentcore.CfnGatewayTarget.ManagedVpcResourceProperty(
                     endpoint_ip_address_type="endpointIpAddressType",
@@ -14076,24 +14162,24 @@ class CfnGatewayTarget(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        name: builtins.str,
         target_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.TargetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         credential_provider_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.CredentialProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         gateway_identifier: typing.Optional[builtins.str] = None,
         metadata_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.MetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
         private_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.PrivateEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::BedrockAgentCore::GatewayTarget``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param name: The name for the gateway target.
         :param target_configuration: The target configuration for the Smithy model target.
         :param credential_provider_configurations: The OAuth credential provider configuration.
         :param description: The description for the gateway target.
         :param gateway_identifier: The gateway ID for the gateway target.
         :param metadata_configuration: 
+        :param name: The name for the gateway target.
         :param private_endpoint: 
         '''
         if __debug__:
@@ -14101,12 +14187,12 @@ class CfnGatewayTarget(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGatewayTargetProps(
-            name=name,
             target_configuration=target_configuration,
             credential_provider_configurations=credential_provider_configurations,
             description=description,
             gateway_identifier=gateway_identifier,
             metadata_configuration=metadata_configuration,
+            name=name,
             private_endpoint=private_endpoint,
         )
 
@@ -14256,19 +14342,6 @@ class CfnGatewayTarget(
         return typing.cast("_GatewayTargetReference_8759ec47", jsii.get(self, "gatewayTargetRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name for the gateway target.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac4fb979142cd31fef07a02c2a4b5e3d0eb49bf962781821346eac630d16fcc8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="targetConfiguration")
     def target_configuration(
         self,
@@ -14346,6 +14419,19 @@ class CfnGatewayTarget(
             type_hints = typing.get_type_hints(_typecheckingstub__00f16ea27eb83e4b32e092f110d089664b10c9e879d89f80aef450f9dc884a25)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metadataConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name for the gateway target.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ac4fb979142cd31fef07a02c2a4b5e3d0eb49bf962781821346eac630d16fcc8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="privateEndpoint")
@@ -14970,6 +15056,368 @@ class CfnGatewayTarget(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.ConnectorConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "name": "name",
+            "description": "description",
+            "parameter_overrides": "parameterOverrides",
+            "parameter_values": "parameterValues",
+        },
+    )
+    class ConnectorConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            description: typing.Optional[builtins.str] = None,
+            parameter_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.ConnectorParameterOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            parameter_values: typing.Any = None,
+        ) -> None:
+            '''
+            :param name: 
+            :param description: 
+            :param parameter_overrides: 
+            :param parameter_values: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-connectorconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                # parameter_values: Any
+                
+                connector_configuration_property = bedrockagentcore.CfnGatewayTarget.ConnectorConfigurationProperty(
+                    name="name",
+                
+                    # the properties below are optional
+                    description="description",
+                    parameter_overrides=[bedrockagentcore.CfnGatewayTarget.ConnectorParameterOverrideProperty(
+                        path="path",
+                
+                        # the properties below are optional
+                        description="description",
+                        visible=False
+                    )],
+                    parameter_values=parameter_values
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__eaec6c4b161c81f39007451494977000e9e2a9cd868b3b9f2315cf1321ce1e33)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument parameter_overrides", value=parameter_overrides, expected_type=type_hints["parameter_overrides"])
+                check_type(argname="argument parameter_values", value=parameter_values, expected_type=type_hints["parameter_values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+            }
+            if description is not None:
+                self._values["description"] = description
+            if parameter_overrides is not None:
+                self._values["parameter_overrides"] = parameter_overrides
+            if parameter_values is not None:
+                self._values["parameter_values"] = parameter_values
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-connectorconfiguration.html#cfn-bedrockagentcore-gatewaytarget-connectorconfiguration-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-connectorconfiguration.html#cfn-bedrockagentcore-gatewaytarget-connectorconfiguration-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def parameter_overrides(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.ConnectorParameterOverrideProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-connectorconfiguration.html#cfn-bedrockagentcore-gatewaytarget-connectorconfiguration-parameteroverrides
+            '''
+            result = self._values.get("parameter_overrides")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.ConnectorParameterOverrideProperty"]]]], result)
+
+        @builtins.property
+        def parameter_values(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-connectorconfiguration.html#cfn-bedrockagentcore-gatewaytarget-connectorconfiguration-parametervalues
+            '''
+            result = self._values.get("parameter_values")
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectorConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.ConnectorParameterOverrideProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "path": "path",
+            "description": "description",
+            "visible": "visible",
+        },
+    )
+    class ConnectorParameterOverrideProperty:
+        def __init__(
+            self,
+            *,
+            path: builtins.str,
+            description: typing.Optional[builtins.str] = None,
+            visible: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''
+            :param path: 
+            :param description: 
+            :param visible: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-connectorparameteroverride.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                connector_parameter_override_property = bedrockagentcore.CfnGatewayTarget.ConnectorParameterOverrideProperty(
+                    path="path",
+                
+                    # the properties below are optional
+                    description="description",
+                    visible=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__11a51b2e54afcf90e72f89a0240e223d09d0e0fe37b6336b52b79bf9c41b4769)
+                check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument visible", value=visible, expected_type=type_hints["visible"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "path": path,
+            }
+            if description is not None:
+                self._values["description"] = description
+            if visible is not None:
+                self._values["visible"] = visible
+
+        @builtins.property
+        def path(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-connectorparameteroverride.html#cfn-bedrockagentcore-gatewaytarget-connectorparameteroverride-path
+            '''
+            result = self._values.get("path")
+            assert result is not None, "Required property 'path' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-connectorparameteroverride.html#cfn-bedrockagentcore-gatewaytarget-connectorparameteroverride-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def visible(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-connectorparameteroverride.html#cfn-bedrockagentcore-gatewaytarget-connectorparameteroverride-visible
+            '''
+            result = self._values.get("visible")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectorParameterOverrideProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.ConnectorSourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"connector_id": "connectorId"},
+    )
+    class ConnectorSourceProperty:
+        def __init__(self, *, connector_id: builtins.str) -> None:
+            '''
+            :param connector_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-connectorsource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                connector_source_property = bedrockagentcore.CfnGatewayTarget.ConnectorSourceProperty(
+                    connector_id="connectorId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__49b282bddfb96fedb7ee20bdbd0156eb3c24958b71cfd5214661daeb125486b5)
+                check_type(argname="argument connector_id", value=connector_id, expected_type=type_hints["connector_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "connector_id": connector_id,
+            }
+
+        @builtins.property
+        def connector_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-connectorsource.html#cfn-bedrockagentcore-gatewaytarget-connectorsource-connectorid
+            '''
+            result = self._values.get("connector_id")
+            assert result is not None, "Required property 'connector_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectorSourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.ConnectorTargetConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "source": "source",
+            "configurations": "configurations",
+            "enabled": "enabled",
+        },
+    )
+    class ConnectorTargetConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            source: typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.ConnectorSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+            configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.ConnectorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            enabled: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param source: 
+            :param configurations: 
+            :param enabled: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-connectortargetconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                # parameter_values: Any
+                
+                connector_target_configuration_property = bedrockagentcore.CfnGatewayTarget.ConnectorTargetConfigurationProperty(
+                    source=bedrockagentcore.CfnGatewayTarget.ConnectorSourceProperty(
+                        connector_id="connectorId"
+                    ),
+                
+                    # the properties below are optional
+                    configurations=[bedrockagentcore.CfnGatewayTarget.ConnectorConfigurationProperty(
+                        name="name",
+                
+                        # the properties below are optional
+                        description="description",
+                        parameter_overrides=[bedrockagentcore.CfnGatewayTarget.ConnectorParameterOverrideProperty(
+                            path="path",
+                
+                            # the properties below are optional
+                            description="description",
+                            visible=False
+                        )],
+                        parameter_values=parameter_values
+                    )],
+                    enabled=["enabled"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cc3b218dd5c55ccd4dfb9755105e71c6c6d06faaf8a9606d77eecbdd8877a7e1)
+                check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+                check_type(argname="argument configurations", value=configurations, expected_type=type_hints["configurations"])
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source": source,
+            }
+            if configurations is not None:
+                self._values["configurations"] = configurations
+            if enabled is not None:
+                self._values["enabled"] = enabled
+
+        @builtins.property
+        def source(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.ConnectorSourceProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-connectortargetconfiguration.html#cfn-bedrockagentcore-gatewaytarget-connectortargetconfiguration-source
+            '''
+            result = self._values.get("source")
+            assert result is not None, "Required property 'source' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.ConnectorSourceProperty"], result)
+
+        @builtins.property
+        def configurations(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.ConnectorConfigurationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-connectortargetconfiguration.html#cfn-bedrockagentcore-gatewaytarget-connectortargetconfiguration-configurations
+            '''
+            result = self._values.get("configurations")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.ConnectorConfigurationProperty"]]]], result)
+
+        @builtins.property
+        def enabled(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-connectortargetconfiguration.html#cfn-bedrockagentcore-gatewaytarget-connectortargetconfiguration-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectorTargetConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.CredentialProviderConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -15189,18 +15637,85 @@ class CfnGatewayTarget(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.HttpApiSchemaConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"source": "source"},
+    )
+    class HttpApiSchemaConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            source: typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.ApiSchemaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param source: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-httpapischemaconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                http_api_schema_configuration_property = bedrockagentcore.CfnGatewayTarget.HttpApiSchemaConfigurationProperty(
+                    source=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
+                        inline_payload="inlinePayload",
+                        s3=bedrockagentcore.CfnGatewayTarget.S3ConfigurationProperty(
+                            bucket_owner_account_id="bucketOwnerAccountId",
+                            uri="uri"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c0c35a4aefbce42cc1e82a38be2b6b7c76e2875545d7d0c31f9112ccdaedd9ee)
+                check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source": source,
+            }
+
+        @builtins.property
+        def source(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.ApiSchemaConfigurationProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-httpapischemaconfiguration.html#cfn-bedrockagentcore-gatewaytarget-httpapischemaconfiguration-source
+            '''
+            result = self._values.get("source")
+            assert result is not None, "Required property 'source' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.ApiSchemaConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HttpApiSchemaConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.HttpTargetConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"agentcore_runtime": "agentcoreRuntime"},
+        name_mapping={
+            "agentcore_runtime": "agentcoreRuntime",
+            "passthrough": "passthrough",
+        },
     )
     class HttpTargetConfigurationProperty:
         def __init__(
             self,
             *,
-            agentcore_runtime: typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.RuntimeTargetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            agentcore_runtime: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.RuntimeTargetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            passthrough: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.PassthroughTargetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param agentcore_runtime: 
+            :param passthrough: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-httptargetconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -15216,27 +15731,69 @@ class CfnGatewayTarget(
                         arn="arn",
                 
                         # the properties below are optional
-                        qualifier="qualifier"
+                        qualifier="qualifier",
+                        schema=bedrockagentcore.CfnGatewayTarget.HttpApiSchemaConfigurationProperty(
+                            source=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
+                                inline_payload="inlinePayload",
+                                s3=bedrockagentcore.CfnGatewayTarget.S3ConfigurationProperty(
+                                    bucket_owner_account_id="bucketOwnerAccountId",
+                                    uri="uri"
+                                )
+                            )
+                        )
+                    ),
+                    passthrough=bedrockagentcore.CfnGatewayTarget.PassthroughTargetConfigurationProperty(
+                        endpoint="endpoint",
+                        protocol_type="protocolType",
+                
+                        # the properties below are optional
+                        schema=bedrockagentcore.CfnGatewayTarget.HttpApiSchemaConfigurationProperty(
+                            source=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
+                                inline_payload="inlinePayload",
+                                s3=bedrockagentcore.CfnGatewayTarget.S3ConfigurationProperty(
+                                    bucket_owner_account_id="bucketOwnerAccountId",
+                                    uri="uri"
+                                )
+                            )
+                        ),
+                        stickiness_configuration=bedrockagentcore.CfnGatewayTarget.StickinessConfigurationProperty(
+                            identifier="identifier",
+                
+                            # the properties below are optional
+                            timeout=123
+                        )
                     )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__890b8895e5075ded184d41ad20f9705475fe04beee71a09c4a0b4b8de2163ec2)
                 check_type(argname="argument agentcore_runtime", value=agentcore_runtime, expected_type=type_hints["agentcore_runtime"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "agentcore_runtime": agentcore_runtime,
-            }
+                check_type(argname="argument passthrough", value=passthrough, expected_type=type_hints["passthrough"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if agentcore_runtime is not None:
+                self._values["agentcore_runtime"] = agentcore_runtime
+            if passthrough is not None:
+                self._values["passthrough"] = passthrough
 
         @builtins.property
         def agentcore_runtime(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.RuntimeTargetConfigurationProperty"]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.RuntimeTargetConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-httptargetconfiguration.html#cfn-bedrockagentcore-gatewaytarget-httptargetconfiguration-agentcoreruntime
             '''
             result = self._values.get("agentcore_runtime")
-            assert result is not None, "Required property 'agentcore_runtime' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.RuntimeTargetConfigurationProperty"], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.RuntimeTargetConfigurationProperty"]], result)
+
+        @builtins.property
+        def passthrough(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.PassthroughTargetConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-httptargetconfiguration.html#cfn-bedrockagentcore-gatewaytarget-httptargetconfiguration-passthrough
+            '''
+            result = self._values.get("passthrough")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.PassthroughTargetConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15746,6 +16303,7 @@ class CfnGatewayTarget(
         jsii_struct_bases=[],
         name_mapping={
             "api_gateway": "apiGateway",
+            "connector": "connector",
             "lambda_": "lambda",
             "mcp_server": "mcpServer",
             "open_api_schema": "openApiSchema",
@@ -15757,6 +16315,7 @@ class CfnGatewayTarget(
             self,
             *,
             api_gateway: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.ApiGatewayTargetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            connector: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.ConnectorTargetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             lambda_: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.McpLambdaTargetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.McpServerTargetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             open_api_schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.ApiSchemaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -15765,6 +16324,7 @@ class CfnGatewayTarget(
             '''The MCP target configuration for the gateway target.
 
             :param api_gateway: 
+            :param connector: 
             :param lambda_: The Lambda MCP configuration for the gateway target.
             :param mcp_server: 
             :param open_api_schema: The OpenApi schema for the gateway target MCP configuration.
@@ -15779,6 +16339,7 @@ class CfnGatewayTarget(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrockagentcore as bedrockagentcore
                 
+                # parameter_values: Any
                 # schema_definition_property_: bedrockagentcore.CfnGatewayTarget.SchemaDefinitionProperty
                 
                 mcp_target_configuration_property = bedrockagentcore.CfnGatewayTarget.McpTargetConfigurationProperty(
@@ -15801,6 +16362,28 @@ class CfnGatewayTarget(
                         ),
                         rest_api_id="restApiId",
                         stage="stage"
+                    ),
+                    connector=bedrockagentcore.CfnGatewayTarget.ConnectorTargetConfigurationProperty(
+                        source=bedrockagentcore.CfnGatewayTarget.ConnectorSourceProperty(
+                            connector_id="connectorId"
+                        ),
+                
+                        # the properties below are optional
+                        configurations=[bedrockagentcore.CfnGatewayTarget.ConnectorConfigurationProperty(
+                            name="name",
+                
+                            # the properties below are optional
+                            description="description",
+                            parameter_overrides=[bedrockagentcore.CfnGatewayTarget.ConnectorParameterOverrideProperty(
+                                path="path",
+                
+                                # the properties below are optional
+                                description="description",
+                                visible=False
+                            )],
+                            parameter_values=parameter_values
+                        )],
+                        enabled=["enabled"]
                     ),
                     lambda_=bedrockagentcore.CfnGatewayTarget.McpLambdaTargetConfigurationProperty(
                         lambda_arn="lambdaArn",
@@ -15872,6 +16455,7 @@ class CfnGatewayTarget(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__0b1d88210caa384ede03a06bee42d13165c8bf4cc4206a236d795c44da216e3c)
                 check_type(argname="argument api_gateway", value=api_gateway, expected_type=type_hints["api_gateway"])
+                check_type(argname="argument connector", value=connector, expected_type=type_hints["connector"])
                 check_type(argname="argument lambda_", value=lambda_, expected_type=type_hints["lambda_"])
                 check_type(argname="argument mcp_server", value=mcp_server, expected_type=type_hints["mcp_server"])
                 check_type(argname="argument open_api_schema", value=open_api_schema, expected_type=type_hints["open_api_schema"])
@@ -15879,6 +16463,8 @@ class CfnGatewayTarget(
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if api_gateway is not None:
                 self._values["api_gateway"] = api_gateway
+            if connector is not None:
+                self._values["connector"] = connector
             if lambda_ is not None:
                 self._values["lambda_"] = lambda_
             if mcp_server is not None:
@@ -15897,6 +16483,16 @@ class CfnGatewayTarget(
             '''
             result = self._values.get("api_gateway")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.ApiGatewayTargetConfigurationProperty"]], result)
+
+        @builtins.property
+        def connector(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.ConnectorTargetConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-mcptargetconfiguration.html#cfn-bedrockagentcore-gatewaytarget-mcptargetconfiguration-connector
+            '''
+            result = self._values.get("connector")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.ConnectorTargetConfigurationProperty"]], result)
 
         @builtins.property
         def lambda_(
@@ -16311,6 +16907,126 @@ class CfnGatewayTarget(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.PassthroughTargetConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "endpoint": "endpoint",
+            "protocol_type": "protocolType",
+            "schema": "schema",
+            "stickiness_configuration": "stickinessConfiguration",
+        },
+    )
+    class PassthroughTargetConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            endpoint: builtins.str,
+            protocol_type: builtins.str,
+            schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.HttpApiSchemaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            stickiness_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.StickinessConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param endpoint: 
+            :param protocol_type: 
+            :param schema: 
+            :param stickiness_configuration: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-passthroughtargetconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                passthrough_target_configuration_property = bedrockagentcore.CfnGatewayTarget.PassthroughTargetConfigurationProperty(
+                    endpoint="endpoint",
+                    protocol_type="protocolType",
+                
+                    # the properties below are optional
+                    schema=bedrockagentcore.CfnGatewayTarget.HttpApiSchemaConfigurationProperty(
+                        source=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
+                            inline_payload="inlinePayload",
+                            s3=bedrockagentcore.CfnGatewayTarget.S3ConfigurationProperty(
+                                bucket_owner_account_id="bucketOwnerAccountId",
+                                uri="uri"
+                            )
+                        )
+                    ),
+                    stickiness_configuration=bedrockagentcore.CfnGatewayTarget.StickinessConfigurationProperty(
+                        identifier="identifier",
+                
+                        # the properties below are optional
+                        timeout=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__27a4954a4b9abad5da731a1874984dbf18980fa568a680aea46e9ca689d2799c)
+                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument protocol_type", value=protocol_type, expected_type=type_hints["protocol_type"])
+                check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
+                check_type(argname="argument stickiness_configuration", value=stickiness_configuration, expected_type=type_hints["stickiness_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "endpoint": endpoint,
+                "protocol_type": protocol_type,
+            }
+            if schema is not None:
+                self._values["schema"] = schema
+            if stickiness_configuration is not None:
+                self._values["stickiness_configuration"] = stickiness_configuration
+
+        @builtins.property
+        def endpoint(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-passthroughtargetconfiguration.html#cfn-bedrockagentcore-gatewaytarget-passthroughtargetconfiguration-endpoint
+            '''
+            result = self._values.get("endpoint")
+            assert result is not None, "Required property 'endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def protocol_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-passthroughtargetconfiguration.html#cfn-bedrockagentcore-gatewaytarget-passthroughtargetconfiguration-protocoltype
+            '''
+            result = self._values.get("protocol_type")
+            assert result is not None, "Required property 'protocol_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def schema(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.HttpApiSchemaConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-passthroughtargetconfiguration.html#cfn-bedrockagentcore-gatewaytarget-passthroughtargetconfiguration-schema
+            '''
+            result = self._values.get("schema")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.HttpApiSchemaConfigurationProperty"]], result)
+
+        @builtins.property
+        def stickiness_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.StickinessConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-passthroughtargetconfiguration.html#cfn-bedrockagentcore-gatewaytarget-passthroughtargetconfiguration-stickinessconfiguration
+            '''
+            result = self._values.get("stickiness_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.StickinessConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PassthroughTargetConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.PrivateEndpointProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -16397,7 +17113,7 @@ class CfnGatewayTarget(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.RuntimeTargetConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"arn": "arn", "qualifier": "qualifier"},
+        name_mapping={"arn": "arn", "qualifier": "qualifier", "schema": "schema"},
     )
     class RuntimeTargetConfigurationProperty:
         def __init__(
@@ -16405,10 +17121,12 @@ class CfnGatewayTarget(
             *,
             arn: builtins.str,
             qualifier: typing.Optional[builtins.str] = None,
+            schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.HttpApiSchemaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param arn: 
             :param qualifier: 
+            :param schema: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-runtimetargetconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -16423,18 +17141,30 @@ class CfnGatewayTarget(
                     arn="arn",
                 
                     # the properties below are optional
-                    qualifier="qualifier"
+                    qualifier="qualifier",
+                    schema=bedrockagentcore.CfnGatewayTarget.HttpApiSchemaConfigurationProperty(
+                        source=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
+                            inline_payload="inlinePayload",
+                            s3=bedrockagentcore.CfnGatewayTarget.S3ConfigurationProperty(
+                                bucket_owner_account_id="bucketOwnerAccountId",
+                                uri="uri"
+                            )
+                        )
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__88f93fcf4f2ef4d2e1332015672733eabc6d4f218a94d2bfa469afb7f4429609)
                 check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
                 check_type(argname="argument qualifier", value=qualifier, expected_type=type_hints["qualifier"])
+                check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "arn": arn,
             }
             if qualifier is not None:
                 self._values["qualifier"] = qualifier
+            if schema is not None:
+                self._values["schema"] = schema
 
         @builtins.property
         def arn(self) -> builtins.str:
@@ -16452,6 +17182,16 @@ class CfnGatewayTarget(
             '''
             result = self._values.get("qualifier")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def schema(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.HttpApiSchemaConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-runtimetargetconfiguration.html#cfn-bedrockagentcore-gatewaytarget-runtimetargetconfiguration-schema
+            '''
+            result = self._values.get("schema")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.HttpApiSchemaConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -16718,6 +17458,76 @@ class CfnGatewayTarget(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.StickinessConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"identifier": "identifier", "timeout": "timeout"},
+    )
+    class StickinessConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            identifier: builtins.str,
+            timeout: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param identifier: 
+            :param timeout: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-stickinessconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                stickiness_configuration_property = bedrockagentcore.CfnGatewayTarget.StickinessConfigurationProperty(
+                    identifier="identifier",
+                
+                    # the properties below are optional
+                    timeout=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f4accb02a133ed7d8de69c66b5cbdd1bc9f787a9b951a058f3ecf0b96c2d540a)
+                check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
+                check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "identifier": identifier,
+            }
+            if timeout is not None:
+                self._values["timeout"] = timeout
+
+        @builtins.property
+        def identifier(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-stickinessconfiguration.html#cfn-bedrockagentcore-gatewaytarget-stickinessconfiguration-identifier
+            '''
+            result = self._values.get("identifier")
+            assert result is not None, "Required property 'identifier' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def timeout(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-stickinessconfiguration.html#cfn-bedrockagentcore-gatewaytarget-stickinessconfiguration-timeout
+            '''
+            result = self._values.get("timeout")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StickinessConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.TargetConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"http": "http", "mcp": "mcp"},
@@ -16743,6 +17553,7 @@ class CfnGatewayTarget(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrockagentcore as bedrockagentcore
                 
+                # parameter_values: Any
                 # schema_definition_property_: bedrockagentcore.CfnGatewayTarget.SchemaDefinitionProperty
                 
                 target_configuration_property = bedrockagentcore.CfnGatewayTarget.TargetConfigurationProperty(
@@ -16751,7 +17562,37 @@ class CfnGatewayTarget(
                             arn="arn",
                 
                             # the properties below are optional
-                            qualifier="qualifier"
+                            qualifier="qualifier",
+                            schema=bedrockagentcore.CfnGatewayTarget.HttpApiSchemaConfigurationProperty(
+                                source=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
+                                    inline_payload="inlinePayload",
+                                    s3=bedrockagentcore.CfnGatewayTarget.S3ConfigurationProperty(
+                                        bucket_owner_account_id="bucketOwnerAccountId",
+                                        uri="uri"
+                                    )
+                                )
+                            )
+                        ),
+                        passthrough=bedrockagentcore.CfnGatewayTarget.PassthroughTargetConfigurationProperty(
+                            endpoint="endpoint",
+                            protocol_type="protocolType",
+                
+                            # the properties below are optional
+                            schema=bedrockagentcore.CfnGatewayTarget.HttpApiSchemaConfigurationProperty(
+                                source=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
+                                    inline_payload="inlinePayload",
+                                    s3=bedrockagentcore.CfnGatewayTarget.S3ConfigurationProperty(
+                                        bucket_owner_account_id="bucketOwnerAccountId",
+                                        uri="uri"
+                                    )
+                                )
+                            ),
+                            stickiness_configuration=bedrockagentcore.CfnGatewayTarget.StickinessConfigurationProperty(
+                                identifier="identifier",
+                
+                                # the properties below are optional
+                                timeout=123
+                            )
                         )
                     ),
                     mcp=bedrockagentcore.CfnGatewayTarget.McpTargetConfigurationProperty(
@@ -16774,6 +17615,28 @@ class CfnGatewayTarget(
                             ),
                             rest_api_id="restApiId",
                             stage="stage"
+                        ),
+                        connector=bedrockagentcore.CfnGatewayTarget.ConnectorTargetConfigurationProperty(
+                            source=bedrockagentcore.CfnGatewayTarget.ConnectorSourceProperty(
+                                connector_id="connectorId"
+                            ),
+                
+                            # the properties below are optional
+                            configurations=[bedrockagentcore.CfnGatewayTarget.ConnectorConfigurationProperty(
+                                name="name",
+                
+                                # the properties below are optional
+                                description="description",
+                                parameter_overrides=[bedrockagentcore.CfnGatewayTarget.ConnectorParameterOverrideProperty(
+                                    path="path",
+                
+                                    # the properties below are optional
+                                    description="description",
+                                    visible=False
+                                )],
+                                parameter_values=parameter_values
+                            )],
+                            enabled=["enabled"]
                         ),
                         lambda_=bedrockagentcore.CfnGatewayTarget.McpLambdaTargetConfigurationProperty(
                             lambda_arn="lambdaArn",
@@ -17129,12 +17992,12 @@ class CfnGatewayTarget(
     jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTargetProps",
     jsii_struct_bases=[],
     name_mapping={
-        "name": "name",
         "target_configuration": "targetConfiguration",
         "credential_provider_configurations": "credentialProviderConfigurations",
         "description": "description",
         "gateway_identifier": "gatewayIdentifier",
         "metadata_configuration": "metadataConfiguration",
+        "name": "name",
         "private_endpoint": "privateEndpoint",
     },
 )
@@ -17142,22 +18005,22 @@ class CfnGatewayTargetProps:
     def __init__(
         self,
         *,
-        name: builtins.str,
         target_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.TargetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         credential_provider_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.CredentialProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         gateway_identifier: typing.Optional[builtins.str] = None,
         metadata_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.MetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
         private_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.PrivateEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGatewayTarget``.
 
-        :param name: The name for the gateway target.
         :param target_configuration: The target configuration for the Smithy model target.
         :param credential_provider_configurations: The OAuth credential provider configuration.
         :param description: The description for the gateway target.
         :param gateway_identifier: The gateway ID for the gateway target.
         :param metadata_configuration: 
+        :param name: The name for the gateway target.
         :param private_endpoint: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-gatewaytarget.html
@@ -17169,17 +18032,47 @@ class CfnGatewayTargetProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_bedrockagentcore as bedrockagentcore
             
+            # parameter_values: Any
             # schema_definition_property_: bedrockagentcore.CfnGatewayTarget.SchemaDefinitionProperty
             
             cfn_gateway_target_props = bedrockagentcore.CfnGatewayTargetProps(
-                name="name",
                 target_configuration=bedrockagentcore.CfnGatewayTarget.TargetConfigurationProperty(
                     http=bedrockagentcore.CfnGatewayTarget.HttpTargetConfigurationProperty(
                         agentcore_runtime=bedrockagentcore.CfnGatewayTarget.RuntimeTargetConfigurationProperty(
                             arn="arn",
             
                             # the properties below are optional
-                            qualifier="qualifier"
+                            qualifier="qualifier",
+                            schema=bedrockagentcore.CfnGatewayTarget.HttpApiSchemaConfigurationProperty(
+                                source=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
+                                    inline_payload="inlinePayload",
+                                    s3=bedrockagentcore.CfnGatewayTarget.S3ConfigurationProperty(
+                                        bucket_owner_account_id="bucketOwnerAccountId",
+                                        uri="uri"
+                                    )
+                                )
+                            )
+                        ),
+                        passthrough=bedrockagentcore.CfnGatewayTarget.PassthroughTargetConfigurationProperty(
+                            endpoint="endpoint",
+                            protocol_type="protocolType",
+            
+                            # the properties below are optional
+                            schema=bedrockagentcore.CfnGatewayTarget.HttpApiSchemaConfigurationProperty(
+                                source=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
+                                    inline_payload="inlinePayload",
+                                    s3=bedrockagentcore.CfnGatewayTarget.S3ConfigurationProperty(
+                                        bucket_owner_account_id="bucketOwnerAccountId",
+                                        uri="uri"
+                                    )
+                                )
+                            ),
+                            stickiness_configuration=bedrockagentcore.CfnGatewayTarget.StickinessConfigurationProperty(
+                                identifier="identifier",
+            
+                                # the properties below are optional
+                                timeout=123
+                            )
                         )
                     ),
                     mcp=bedrockagentcore.CfnGatewayTarget.McpTargetConfigurationProperty(
@@ -17202,6 +18095,28 @@ class CfnGatewayTargetProps:
                             ),
                             rest_api_id="restApiId",
                             stage="stage"
+                        ),
+                        connector=bedrockagentcore.CfnGatewayTarget.ConnectorTargetConfigurationProperty(
+                            source=bedrockagentcore.CfnGatewayTarget.ConnectorSourceProperty(
+                                connector_id="connectorId"
+                            ),
+            
+                            # the properties below are optional
+                            configurations=[bedrockagentcore.CfnGatewayTarget.ConnectorConfigurationProperty(
+                                name="name",
+            
+                                # the properties below are optional
+                                description="description",
+                                parameter_overrides=[bedrockagentcore.CfnGatewayTarget.ConnectorParameterOverrideProperty(
+                                    path="path",
+            
+                                    # the properties below are optional
+                                    description="description",
+                                    visible=False
+                                )],
+                                parameter_values=parameter_values
+                            )],
+                            enabled=["enabled"]
                         ),
                         lambda_=bedrockagentcore.CfnGatewayTarget.McpLambdaTargetConfigurationProperty(
                             lambda_arn="lambdaArn",
@@ -17311,6 +18226,7 @@ class CfnGatewayTargetProps:
                     allowed_request_headers=["allowedRequestHeaders"],
                     allowed_response_headers=["allowedResponseHeaders"]
                 ),
+                name="name",
                 private_endpoint=bedrockagentcore.CfnGatewayTarget.PrivateEndpointProperty(
                     managed_vpc_resource=bedrockagentcore.CfnGatewayTarget.ManagedVpcResourceProperty(
                         endpoint_ip_address_type="endpointIpAddressType",
@@ -17329,15 +18245,14 @@ class CfnGatewayTargetProps:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__367178269f9a78c89b5ba5e07b10a309050b4b3eaefd55c5ee6f30ddad20209f)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument target_configuration", value=target_configuration, expected_type=type_hints["target_configuration"])
             check_type(argname="argument credential_provider_configurations", value=credential_provider_configurations, expected_type=type_hints["credential_provider_configurations"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument gateway_identifier", value=gateway_identifier, expected_type=type_hints["gateway_identifier"])
             check_type(argname="argument metadata_configuration", value=metadata_configuration, expected_type=type_hints["metadata_configuration"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument private_endpoint", value=private_endpoint, expected_type=type_hints["private_endpoint"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
             "target_configuration": target_configuration,
         }
         if credential_provider_configurations is not None:
@@ -17348,18 +18263,10 @@ class CfnGatewayTargetProps:
             self._values["gateway_identifier"] = gateway_identifier
         if metadata_configuration is not None:
             self._values["metadata_configuration"] = metadata_configuration
+        if name is not None:
+            self._values["name"] = name
         if private_endpoint is not None:
             self._values["private_endpoint"] = private_endpoint
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name for the gateway target.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-gatewaytarget.html#cfn-bedrockagentcore-gatewaytarget-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_configuration(
@@ -17413,6 +18320,15 @@ class CfnGatewayTargetProps:
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.MetadataConfigurationProperty"]], result)
 
     @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name for the gateway target.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-gatewaytarget.html#cfn-bedrockagentcore-gatewaytarget-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def private_endpoint(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.PrivateEndpointProperty"]]:
@@ -17440,7 +18356,7 @@ class CfnHarness(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness",
 ):
-    '''Definition of AWS::BedrockAgentCore::Harness resource type - a managed agentic loop service that provides a turnkey solution for running stateful, tool-equipped AI agents.
+    '''Resource Type definition for AWS::BedrockAgentCore::Harness - a managed agentic loop service that provides a turnkey solution for running stateful, tool-equipped AI agents.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-harness.html
     :cloudformationResource: AWS::BedrockAgentCore::Harness
@@ -17454,6 +18370,7 @@ class CfnHarness(
         from aws_cdk import aws_bedrockagentcore as bedrockagentcore
         
         # aws_iam: Any
+        # disabled: Any
         # input_schema: Any
         # none: Any
         
@@ -17465,6 +18382,7 @@ class CfnHarness(
                     model_id="modelId",
         
                     # the properties below are optional
+                    api_format="apiFormat",
                     max_tokens=123,
                     temperature=123,
                     top_p=123
@@ -17479,11 +18397,22 @@ class CfnHarness(
                     top_k=123,
                     top_p=123
                 ),
+                lite_llm_model_config=bedrockagentcore.CfnHarness.HarnessLiteLlmModelConfigProperty(
+                    model_id="modelId",
+        
+                    # the properties below are optional
+                    api_base="apiBase",
+                    api_key_arn="apiKeyArn",
+                    max_tokens=123,
+                    temperature=123,
+                    top_p=123
+                ),
                 open_ai_model_config=bedrockagentcore.CfnHarness.HarnessOpenAiModelConfigProperty(
                     api_key_arn="apiKeyArn",
                     model_id="modelId",
         
                     # the properties below are optional
+                    api_format="apiFormat",
                     max_tokens=123,
                     temperature=123,
                     top_p=123
@@ -17510,6 +18439,43 @@ class CfnHarness(
                         ),
                         inbound_token_claim_name="inboundTokenClaimName",
                         inbound_token_claim_value_type="inboundTokenClaimValueType"
+                    )],
+                    private_endpoint=bedrockagentcore.CfnHarness.PrivateEndpointProperty(
+                        managed_vpc_resource=bedrockagentcore.CfnHarness.ManagedVpcResourceProperty(
+                            endpoint_ip_address_type="endpointIpAddressType",
+                            subnet_ids=["subnetIds"],
+                            vpc_identifier="vpcIdentifier",
+        
+                            # the properties below are optional
+                            routing_domain="routingDomain",
+                            security_group_ids=["securityGroupIds"],
+                            tags={
+                                "tags_key": "tags"
+                            }
+                        ),
+                        self_managed_lattice_resource=bedrockagentcore.CfnHarness.SelfManagedLatticeResourceProperty(
+                            resource_configuration_identifier="resourceConfigurationIdentifier"
+                        )
+                    ),
+                    private_endpoint_overrides=[bedrockagentcore.CfnHarness.PrivateEndpointOverrideProperty(
+                        domain="domain",
+                        private_endpoint=bedrockagentcore.CfnHarness.PrivateEndpointProperty(
+                            managed_vpc_resource=bedrockagentcore.CfnHarness.ManagedVpcResourceProperty(
+                                endpoint_ip_address_type="endpointIpAddressType",
+                                subnet_ids=["subnetIds"],
+                                vpc_identifier="vpcIdentifier",
+        
+                                # the properties below are optional
+                                routing_domain="routingDomain",
+                                security_group_ids=["securityGroupIds"],
+                                tags={
+                                    "tags_key": "tags"
+                                }
+                            ),
+                            self_managed_lattice_resource=bedrockagentcore.CfnHarness.SelfManagedLatticeResourceProperty(
+                                resource_configuration_identifier="resourceConfigurationIdentifier"
+                            )
+                        )
                     )]
                 )
             ),
@@ -17519,6 +18485,14 @@ class CfnHarness(
                     agent_runtime_id="agentRuntimeId",
                     agent_runtime_name="agentRuntimeName",
                     filesystem_configurations=[bedrockagentcore.CfnHarness.FilesystemConfigurationProperty(
+                        efs_access_point=bedrockagentcore.CfnHarness.EfsAccessPointConfigurationProperty(
+                            access_point_arn="accessPointArn",
+                            mount_path="mountPath"
+                        ),
+                        s3_files_access_point=bedrockagentcore.CfnHarness.S3FilesAccessPointConfigurationProperty(
+                            access_point_arn="accessPointArn",
+                            mount_path="mountPath"
+                        ),
                         session_storage=bedrockagentcore.CfnHarness.SessionStorageConfigurationProperty(
                             mount_path="mountPath"
                         )
@@ -17557,15 +18531,40 @@ class CfnHarness(
                     messages_count=123,
                     retrieval_config={
                         "retrieval_config_key": bedrockagentcore.CfnHarness.HarnessAgentCoreMemoryRetrievalConfigProperty(
-                            relevance_score=123,
+                            relevance_score="relevanceScore",
                             strategy_id="strategyId",
-                            top_k=123
+                            top_k="topK"
                         )
                     }
+                ),
+                disabled=disabled,
+                managed_memory_configuration=bedrockagentcore.CfnHarness.HarnessManagedMemoryConfigurationProperty(
+                    arn="arn",
+                    encryption_key_arn="encryptionKeyArn",
+                    event_expiry_duration=123,
+                    strategies=["strategies"]
                 )
             ),
             skills=[bedrockagentcore.CfnHarness.HarnessSkillProperty(
-                path="path"
+                aws_skills=bedrockagentcore.CfnHarness.HarnessSkillAwsSkillsSourceProperty(
+                    paths=["paths"]
+                ),
+                git=bedrockagentcore.CfnHarness.HarnessSkillGitSourceProperty(
+                    url="url",
+        
+                    # the properties below are optional
+                    auth=bedrockagentcore.CfnHarness.HarnessSkillGitAuthProperty(
+                        credential_arn="credentialArn",
+        
+                        # the properties below are optional
+                        username="username"
+                    ),
+                    path="path"
+                ),
+                path="path",
+                s3=bedrockagentcore.CfnHarness.HarnessSkillS3SourceProperty(
+                    uri="uri"
+                )
             )],
             system_prompt=[bedrockagentcore.CfnHarness.HarnessSystemContentBlockProperty(
                 text="text"
@@ -17824,6 +18823,17 @@ class CfnHarness(
         return typing.cast(builtins.str, jsii.get(self, "attrHarnessId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrMemoryManagedMemoryConfigurationArn")
+    def attr_memory_managed_memory_configuration_arn(self) -> builtins.str:
+        '''The ARN of the managed memory resource.
+
+        Read-only, populated by the service.
+
+        :cloudformationAttribute: Memory.ManagedMemoryConfiguration.Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMemoryManagedMemoryConfigurationArn"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrStatus")
     def attr_status(self) -> builtins.str:
         '''
@@ -17839,6 +18849,17 @@ class CfnHarness(
         :cloudformationAttribute: UpdatedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVersion")
+    def attr_version(self) -> builtins.str:
+        '''The version of the harness.
+
+        Incremented on every successful update.
+
+        :cloudformationAttribute: Version
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVersion"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
@@ -18168,6 +19189,43 @@ class CfnHarness(
                             ),
                             inbound_token_claim_name="inboundTokenClaimName",
                             inbound_token_claim_value_type="inboundTokenClaimValueType"
+                        )],
+                        private_endpoint=bedrockagentcore.CfnHarness.PrivateEndpointProperty(
+                            managed_vpc_resource=bedrockagentcore.CfnHarness.ManagedVpcResourceProperty(
+                                endpoint_ip_address_type="endpointIpAddressType",
+                                subnet_ids=["subnetIds"],
+                                vpc_identifier="vpcIdentifier",
+                
+                                # the properties below are optional
+                                routing_domain="routingDomain",
+                                security_group_ids=["securityGroupIds"],
+                                tags={
+                                    "tags_key": "tags"
+                                }
+                            ),
+                            self_managed_lattice_resource=bedrockagentcore.CfnHarness.SelfManagedLatticeResourceProperty(
+                                resource_configuration_identifier="resourceConfigurationIdentifier"
+                            )
+                        ),
+                        private_endpoint_overrides=[bedrockagentcore.CfnHarness.PrivateEndpointOverrideProperty(
+                            domain="domain",
+                            private_endpoint=bedrockagentcore.CfnHarness.PrivateEndpointProperty(
+                                managed_vpc_resource=bedrockagentcore.CfnHarness.ManagedVpcResourceProperty(
+                                    endpoint_ip_address_type="endpointIpAddressType",
+                                    subnet_ids=["subnetIds"],
+                                    vpc_identifier="vpcIdentifier",
+                
+                                    # the properties below are optional
+                                    routing_domain="routingDomain",
+                                    security_group_ids=["securityGroupIds"],
+                                    tags={
+                                        "tags_key": "tags"
+                                    }
+                                ),
+                                self_managed_lattice_resource=bedrockagentcore.CfnHarness.SelfManagedLatticeResourceProperty(
+                                    resource_configuration_identifier="resourceConfigurationIdentifier"
+                                )
+                            )
                         )]
                     )
                 )
@@ -18500,6 +19558,8 @@ class CfnHarness(
             "allowed_clients": "allowedClients",
             "allowed_scopes": "allowedScopes",
             "custom_claims": "customClaims",
+            "private_endpoint": "privateEndpoint",
+            "private_endpoint_overrides": "privateEndpointOverrides",
         },
     )
     class CustomJWTAuthorizerConfigurationProperty:
@@ -18511,6 +19571,8 @@ class CfnHarness(
             allowed_clients: typing.Optional[typing.Sequence[builtins.str]] = None,
             allowed_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
             custom_claims: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.CustomClaimValidationTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            private_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.PrivateEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            private_endpoint_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.PrivateEndpointOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''
             :param discovery_url: 
@@ -18518,6 +19580,8 @@ class CfnHarness(
             :param allowed_clients: 
             :param allowed_scopes: 
             :param custom_claims: 
+            :param private_endpoint: Private endpoint configuration for connecting to the OpenID Connect discovery endpoint over a private network.
+            :param private_endpoint_overrides: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-customjwtauthorizerconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -18545,6 +19609,43 @@ class CfnHarness(
                         ),
                         inbound_token_claim_name="inboundTokenClaimName",
                         inbound_token_claim_value_type="inboundTokenClaimValueType"
+                    )],
+                    private_endpoint=bedrockagentcore.CfnHarness.PrivateEndpointProperty(
+                        managed_vpc_resource=bedrockagentcore.CfnHarness.ManagedVpcResourceProperty(
+                            endpoint_ip_address_type="endpointIpAddressType",
+                            subnet_ids=["subnetIds"],
+                            vpc_identifier="vpcIdentifier",
+                
+                            # the properties below are optional
+                            routing_domain="routingDomain",
+                            security_group_ids=["securityGroupIds"],
+                            tags={
+                                "tags_key": "tags"
+                            }
+                        ),
+                        self_managed_lattice_resource=bedrockagentcore.CfnHarness.SelfManagedLatticeResourceProperty(
+                            resource_configuration_identifier="resourceConfigurationIdentifier"
+                        )
+                    ),
+                    private_endpoint_overrides=[bedrockagentcore.CfnHarness.PrivateEndpointOverrideProperty(
+                        domain="domain",
+                        private_endpoint=bedrockagentcore.CfnHarness.PrivateEndpointProperty(
+                            managed_vpc_resource=bedrockagentcore.CfnHarness.ManagedVpcResourceProperty(
+                                endpoint_ip_address_type="endpointIpAddressType",
+                                subnet_ids=["subnetIds"],
+                                vpc_identifier="vpcIdentifier",
+                
+                                # the properties below are optional
+                                routing_domain="routingDomain",
+                                security_group_ids=["securityGroupIds"],
+                                tags={
+                                    "tags_key": "tags"
+                                }
+                            ),
+                            self_managed_lattice_resource=bedrockagentcore.CfnHarness.SelfManagedLatticeResourceProperty(
+                                resource_configuration_identifier="resourceConfigurationIdentifier"
+                            )
+                        )
                     )]
                 )
             '''
@@ -18555,6 +19656,8 @@ class CfnHarness(
                 check_type(argname="argument allowed_clients", value=allowed_clients, expected_type=type_hints["allowed_clients"])
                 check_type(argname="argument allowed_scopes", value=allowed_scopes, expected_type=type_hints["allowed_scopes"])
                 check_type(argname="argument custom_claims", value=custom_claims, expected_type=type_hints["custom_claims"])
+                check_type(argname="argument private_endpoint", value=private_endpoint, expected_type=type_hints["private_endpoint"])
+                check_type(argname="argument private_endpoint_overrides", value=private_endpoint_overrides, expected_type=type_hints["private_endpoint_overrides"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "discovery_url": discovery_url,
             }
@@ -18566,6 +19669,10 @@ class CfnHarness(
                 self._values["allowed_scopes"] = allowed_scopes
             if custom_claims is not None:
                 self._values["custom_claims"] = custom_claims
+            if private_endpoint is not None:
+                self._values["private_endpoint"] = private_endpoint
+            if private_endpoint_overrides is not None:
+                self._values["private_endpoint_overrides"] = private_endpoint_overrides
 
         @builtins.property
         def discovery_url(self) -> builtins.str:
@@ -18610,6 +19717,27 @@ class CfnHarness(
             result = self._values.get("custom_claims")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnHarness.CustomClaimValidationTypeProperty"]]]], result)
 
+        @builtins.property
+        def private_endpoint(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.PrivateEndpointProperty"]]:
+            '''Private endpoint configuration for connecting to the OpenID Connect discovery endpoint over a private network.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-customjwtauthorizerconfiguration.html#cfn-bedrockagentcore-harness-customjwtauthorizerconfiguration-privateendpoint
+            '''
+            result = self._values.get("private_endpoint")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.PrivateEndpointProperty"]], result)
+
+        @builtins.property
+        def private_endpoint_overrides(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnHarness.PrivateEndpointOverrideProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-customjwtauthorizerconfiguration.html#cfn-bedrockagentcore-harness-customjwtauthorizerconfiguration-privateendpointoverrides
+            '''
+            result = self._values.get("private_endpoint_overrides")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnHarness.PrivateEndpointOverrideProperty"]]]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -18622,17 +19750,94 @@ class CfnHarness(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.EfsAccessPointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"access_point_arn": "accessPointArn", "mount_path": "mountPath"},
+    )
+    class EfsAccessPointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            access_point_arn: builtins.str,
+            mount_path: builtins.str,
+        ) -> None:
+            '''Configuration for an Amazon EFS access point to mount into the AgentCore Runtime.
+
+            :param access_point_arn: 
+            :param mount_path: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-efsaccesspointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                efs_access_point_configuration_property = bedrockagentcore.CfnHarness.EfsAccessPointConfigurationProperty(
+                    access_point_arn="accessPointArn",
+                    mount_path="mountPath"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__aa426b593bdb5394207be08f289e8be786f8a0f1949d027746e6d14d89d08f7d)
+                check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
+                check_type(argname="argument mount_path", value=mount_path, expected_type=type_hints["mount_path"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "access_point_arn": access_point_arn,
+                "mount_path": mount_path,
+            }
+
+        @builtins.property
+        def access_point_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-efsaccesspointconfiguration.html#cfn-bedrockagentcore-harness-efsaccesspointconfiguration-accesspointarn
+            '''
+            result = self._values.get("access_point_arn")
+            assert result is not None, "Required property 'access_point_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def mount_path(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-efsaccesspointconfiguration.html#cfn-bedrockagentcore-harness-efsaccesspointconfiguration-mountpath
+            '''
+            result = self._values.get("mount_path")
+            assert result is not None, "Required property 'mount_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EfsAccessPointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.FilesystemConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"session_storage": "sessionStorage"},
+        name_mapping={
+            "efs_access_point": "efsAccessPoint",
+            "s3_files_access_point": "s3FilesAccessPoint",
+            "session_storage": "sessionStorage",
+        },
     )
     class FilesystemConfigurationProperty:
         def __init__(
             self,
             *,
-            session_storage: typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.SessionStorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            efs_access_point: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.EfsAccessPointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_files_access_point: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.S3FilesAccessPointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            session_storage: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.SessionStorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
+            :param efs_access_point: Configuration for an Amazon EFS access point to mount into the AgentCore Runtime.
+            :param s3_files_access_point: Configuration for an Amazon S3 Files access point to mount into the AgentCore Runtime.
             :param session_storage: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-filesystemconfiguration.html
@@ -18645,6 +19850,14 @@ class CfnHarness(
                 from aws_cdk import aws_bedrockagentcore as bedrockagentcore
                 
                 filesystem_configuration_property = bedrockagentcore.CfnHarness.FilesystemConfigurationProperty(
+                    efs_access_point=bedrockagentcore.CfnHarness.EfsAccessPointConfigurationProperty(
+                        access_point_arn="accessPointArn",
+                        mount_path="mountPath"
+                    ),
+                    s3_files_access_point=bedrockagentcore.CfnHarness.S3FilesAccessPointConfigurationProperty(
+                        access_point_arn="accessPointArn",
+                        mount_path="mountPath"
+                    ),
                     session_storage=bedrockagentcore.CfnHarness.SessionStorageConfigurationProperty(
                         mount_path="mountPath"
                     )
@@ -18652,21 +19865,48 @@ class CfnHarness(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__9d0afc9cbc0616bf1c2a3483e088e50ad36abac05c7832bae880e80e7d5bb935)
+                check_type(argname="argument efs_access_point", value=efs_access_point, expected_type=type_hints["efs_access_point"])
+                check_type(argname="argument s3_files_access_point", value=s3_files_access_point, expected_type=type_hints["s3_files_access_point"])
                 check_type(argname="argument session_storage", value=session_storage, expected_type=type_hints["session_storage"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "session_storage": session_storage,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if efs_access_point is not None:
+                self._values["efs_access_point"] = efs_access_point
+            if s3_files_access_point is not None:
+                self._values["s3_files_access_point"] = s3_files_access_point
+            if session_storage is not None:
+                self._values["session_storage"] = session_storage
+
+        @builtins.property
+        def efs_access_point(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.EfsAccessPointConfigurationProperty"]]:
+            '''Configuration for an Amazon EFS access point to mount into the AgentCore Runtime.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-filesystemconfiguration.html#cfn-bedrockagentcore-harness-filesystemconfiguration-efsaccesspoint
+            '''
+            result = self._values.get("efs_access_point")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.EfsAccessPointConfigurationProperty"]], result)
+
+        @builtins.property
+        def s3_files_access_point(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.S3FilesAccessPointConfigurationProperty"]]:
+            '''Configuration for an Amazon S3 Files access point to mount into the AgentCore Runtime.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-filesystemconfiguration.html#cfn-bedrockagentcore-harness-filesystemconfiguration-s3filesaccesspoint
+            '''
+            result = self._values.get("s3_files_access_point")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.S3FilesAccessPointConfigurationProperty"]], result)
 
         @builtins.property
         def session_storage(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnHarness.SessionStorageConfigurationProperty"]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.SessionStorageConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-filesystemconfiguration.html#cfn-bedrockagentcore-harness-filesystemconfiguration-sessionstorage
             '''
             result = self._values.get("session_storage")
-            assert result is not None, "Required property 'session_storage' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnHarness.SessionStorageConfigurationProperty"], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.SessionStorageConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18916,9 +20156,9 @@ class CfnHarness(
                     messages_count=123,
                     retrieval_config={
                         "retrieval_config_key": bedrockagentcore.CfnHarness.HarnessAgentCoreMemoryRetrievalConfigProperty(
-                            relevance_score=123,
+                            relevance_score="relevanceScore",
                             strategy_id="strategyId",
-                            top_k=123
+                            top_k="topK"
                         )
                     }
                 )
@@ -18998,9 +20238,9 @@ class CfnHarness(
         def __init__(
             self,
             *,
-            relevance_score: typing.Optional[jsii.Number] = None,
+            relevance_score: typing.Optional[typing.Union[builtins.str, jsii.Number, "_IResolvable_da3f097b"]] = None,
             strategy_id: typing.Optional[builtins.str] = None,
-            top_k: typing.Optional[jsii.Number] = None,
+            top_k: typing.Optional[typing.Union[builtins.str, jsii.Number, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''
             :param relevance_score: 
@@ -19017,9 +20257,9 @@ class CfnHarness(
                 from aws_cdk import aws_bedrockagentcore as bedrockagentcore
                 
                 harness_agent_core_memory_retrieval_config_property = bedrockagentcore.CfnHarness.HarnessAgentCoreMemoryRetrievalConfigProperty(
-                    relevance_score=123,
+                    relevance_score="relevanceScore",
                     strategy_id="strategyId",
-                    top_k=123
+                    top_k="topK"
                 )
             '''
             if __debug__:
@@ -19036,12 +20276,14 @@ class CfnHarness(
                 self._values["top_k"] = top_k
 
         @builtins.property
-        def relevance_score(self) -> typing.Optional[jsii.Number]:
+        def relevance_score(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, "_IResolvable_da3f097b"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessagentcorememoryretrievalconfig.html#cfn-bedrockagentcore-harness-harnessagentcorememoryretrievalconfig-relevancescore
             '''
             result = self._values.get("relevance_score")
-            return typing.cast(typing.Optional[jsii.Number], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def strategy_id(self) -> typing.Optional[builtins.str]:
@@ -19052,12 +20294,14 @@ class CfnHarness(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
-        def top_k(self) -> typing.Optional[jsii.Number]:
+        def top_k(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, "_IResolvable_da3f097b"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessagentcorememoryretrievalconfig.html#cfn-bedrockagentcore-harness-harnessagentcorememoryretrievalconfig-topk
             '''
             result = self._values.get("top_k")
-            return typing.cast(typing.Optional[jsii.Number], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19115,6 +20359,14 @@ class CfnHarness(
                     agent_runtime_id="agentRuntimeId",
                     agent_runtime_name="agentRuntimeName",
                     filesystem_configurations=[bedrockagentcore.CfnHarness.FilesystemConfigurationProperty(
+                        efs_access_point=bedrockagentcore.CfnHarness.EfsAccessPointConfigurationProperty(
+                            access_point_arn="accessPointArn",
+                            mount_path="mountPath"
+                        ),
+                        s3_files_access_point=bedrockagentcore.CfnHarness.S3FilesAccessPointConfigurationProperty(
+                            access_point_arn="accessPointArn",
+                            mount_path="mountPath"
+                        ),
                         session_storage=bedrockagentcore.CfnHarness.SessionStorageConfigurationProperty(
                             mount_path="mountPath"
                         )
@@ -19229,6 +20481,7 @@ class CfnHarness(
         jsii_struct_bases=[],
         name_mapping={
             "model_id": "modelId",
+            "api_format": "apiFormat",
             "max_tokens": "maxTokens",
             "temperature": "temperature",
             "top_p": "topP",
@@ -19239,12 +20492,14 @@ class CfnHarness(
             self,
             *,
             model_id: builtins.str,
+            api_format: typing.Optional[builtins.str] = None,
             max_tokens: typing.Optional[jsii.Number] = None,
             temperature: typing.Optional[jsii.Number] = None,
             top_p: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''
             :param model_id: 
+            :param api_format: 
             :param max_tokens: 
             :param temperature: 
             :param top_p: 
@@ -19262,6 +20517,7 @@ class CfnHarness(
                     model_id="modelId",
                 
                     # the properties below are optional
+                    api_format="apiFormat",
                     max_tokens=123,
                     temperature=123,
                     top_p=123
@@ -19270,12 +20526,15 @@ class CfnHarness(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__981ca26815c7ec1c79e4cc75113f0efdcf418844bb0ad32e51297ee85082c11c)
                 check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
+                check_type(argname="argument api_format", value=api_format, expected_type=type_hints["api_format"])
                 check_type(argname="argument max_tokens", value=max_tokens, expected_type=type_hints["max_tokens"])
                 check_type(argname="argument temperature", value=temperature, expected_type=type_hints["temperature"])
                 check_type(argname="argument top_p", value=top_p, expected_type=type_hints["top_p"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "model_id": model_id,
             }
+            if api_format is not None:
+                self._values["api_format"] = api_format
             if max_tokens is not None:
                 self._values["max_tokens"] = max_tokens
             if temperature is not None:
@@ -19291,6 +20550,14 @@ class CfnHarness(
             result = self._values.get("model_id")
             assert result is not None, "Required property 'model_id' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def api_format(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessbedrockmodelconfig.html#cfn-bedrockagentcore-harness-harnessbedrockmodelconfig-apiformat
+            '''
+            result = self._values.get("api_format")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def max_tokens(self) -> typing.Optional[jsii.Number]:
@@ -19413,6 +20680,14 @@ class CfnHarness(
                         agent_runtime_id="agentRuntimeId",
                         agent_runtime_name="agentRuntimeName",
                         filesystem_configurations=[bedrockagentcore.CfnHarness.FilesystemConfigurationProperty(
+                            efs_access_point=bedrockagentcore.CfnHarness.EfsAccessPointConfigurationProperty(
+                                access_point_arn="accessPointArn",
+                                mount_path="mountPath"
+                            ),
+                            s3_files_access_point=bedrockagentcore.CfnHarness.S3FilesAccessPointConfigurationProperty(
+                                access_point_arn="accessPointArn",
+                                mount_path="mountPath"
+                            ),
                             session_storage=bedrockagentcore.CfnHarness.SessionStorageConfigurationProperty(
                                 mount_path="mountPath"
                             )
@@ -19762,10 +21037,260 @@ class CfnHarness(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.HarnessLiteLlmModelConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "model_id": "modelId",
+            "api_base": "apiBase",
+            "api_key_arn": "apiKeyArn",
+            "max_tokens": "maxTokens",
+            "temperature": "temperature",
+            "top_p": "topP",
+        },
+    )
+    class HarnessLiteLlmModelConfigProperty:
+        def __init__(
+            self,
+            *,
+            model_id: builtins.str,
+            api_base: typing.Optional[builtins.str] = None,
+            api_key_arn: typing.Optional[builtins.str] = None,
+            max_tokens: typing.Optional[jsii.Number] = None,
+            temperature: typing.Optional[jsii.Number] = None,
+            top_p: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param model_id: 
+            :param api_base: 
+            :param api_key_arn: 
+            :param max_tokens: 
+            :param temperature: 
+            :param top_p: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnesslitellmmodelconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                harness_lite_llm_model_config_property = bedrockagentcore.CfnHarness.HarnessLiteLlmModelConfigProperty(
+                    model_id="modelId",
+                
+                    # the properties below are optional
+                    api_base="apiBase",
+                    api_key_arn="apiKeyArn",
+                    max_tokens=123,
+                    temperature=123,
+                    top_p=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__12a2ab2735b20c12d2d4d7daa2d2122b339d6059506d08d60209ccb060847ebf)
+                check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
+                check_type(argname="argument api_base", value=api_base, expected_type=type_hints["api_base"])
+                check_type(argname="argument api_key_arn", value=api_key_arn, expected_type=type_hints["api_key_arn"])
+                check_type(argname="argument max_tokens", value=max_tokens, expected_type=type_hints["max_tokens"])
+                check_type(argname="argument temperature", value=temperature, expected_type=type_hints["temperature"])
+                check_type(argname="argument top_p", value=top_p, expected_type=type_hints["top_p"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "model_id": model_id,
+            }
+            if api_base is not None:
+                self._values["api_base"] = api_base
+            if api_key_arn is not None:
+                self._values["api_key_arn"] = api_key_arn
+            if max_tokens is not None:
+                self._values["max_tokens"] = max_tokens
+            if temperature is not None:
+                self._values["temperature"] = temperature
+            if top_p is not None:
+                self._values["top_p"] = top_p
+
+        @builtins.property
+        def model_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnesslitellmmodelconfig.html#cfn-bedrockagentcore-harness-harnesslitellmmodelconfig-modelid
+            '''
+            result = self._values.get("model_id")
+            assert result is not None, "Required property 'model_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def api_base(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnesslitellmmodelconfig.html#cfn-bedrockagentcore-harness-harnesslitellmmodelconfig-apibase
+            '''
+            result = self._values.get("api_base")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def api_key_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnesslitellmmodelconfig.html#cfn-bedrockagentcore-harness-harnesslitellmmodelconfig-apikeyarn
+            '''
+            result = self._values.get("api_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def max_tokens(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnesslitellmmodelconfig.html#cfn-bedrockagentcore-harness-harnesslitellmmodelconfig-maxtokens
+            '''
+            result = self._values.get("max_tokens")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def temperature(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnesslitellmmodelconfig.html#cfn-bedrockagentcore-harness-harnesslitellmmodelconfig-temperature
+            '''
+            result = self._values.get("temperature")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def top_p(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnesslitellmmodelconfig.html#cfn-bedrockagentcore-harness-harnesslitellmmodelconfig-topp
+            '''
+            result = self._values.get("top_p")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HarnessLiteLlmModelConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.HarnessManagedMemoryConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "arn": "arn",
+            "encryption_key_arn": "encryptionKeyArn",
+            "event_expiry_duration": "eventExpiryDuration",
+            "strategies": "strategies",
+        },
+    )
+    class HarnessManagedMemoryConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            arn: typing.Optional[builtins.str] = None,
+            encryption_key_arn: typing.Optional[builtins.str] = None,
+            event_expiry_duration: typing.Optional[jsii.Number] = None,
+            strategies: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Configuration for managed memory.
+
+            The harness creates and manages a memory resource in the customer's account.
+
+            :param arn: The ARN of the managed memory resource. Read-only, populated by the service.
+            :param encryption_key_arn: Customer-managed KMS key ARN. Defaults to AWS-owned key. Not updatable after creation.
+            :param event_expiry_duration: Event retention in days. Defaults to 30.
+            :param strategies: Strategy types to enable. Defaults to [SEMANTIC, SUMMARIZATION].
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessmanagedmemoryconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                harness_managed_memory_configuration_property = bedrockagentcore.CfnHarness.HarnessManagedMemoryConfigurationProperty(
+                    arn="arn",
+                    encryption_key_arn="encryptionKeyArn",
+                    event_expiry_duration=123,
+                    strategies=["strategies"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e5117a0b9c26dcdb129640f8128d4bd9af8d7185bb2e232927b7ca063bd08372)
+                check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+                check_type(argname="argument encryption_key_arn", value=encryption_key_arn, expected_type=type_hints["encryption_key_arn"])
+                check_type(argname="argument event_expiry_duration", value=event_expiry_duration, expected_type=type_hints["event_expiry_duration"])
+                check_type(argname="argument strategies", value=strategies, expected_type=type_hints["strategies"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if arn is not None:
+                self._values["arn"] = arn
+            if encryption_key_arn is not None:
+                self._values["encryption_key_arn"] = encryption_key_arn
+            if event_expiry_duration is not None:
+                self._values["event_expiry_duration"] = event_expiry_duration
+            if strategies is not None:
+                self._values["strategies"] = strategies
+
+        @builtins.property
+        def arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the managed memory resource.
+
+            Read-only, populated by the service.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessmanagedmemoryconfiguration.html#cfn-bedrockagentcore-harness-harnessmanagedmemoryconfiguration-arn
+            '''
+            result = self._values.get("arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def encryption_key_arn(self) -> typing.Optional[builtins.str]:
+            '''Customer-managed KMS key ARN.
+
+            Defaults to AWS-owned key. Not updatable after creation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessmanagedmemoryconfiguration.html#cfn-bedrockagentcore-harness-harnessmanagedmemoryconfiguration-encryptionkeyarn
+            '''
+            result = self._values.get("encryption_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def event_expiry_duration(self) -> typing.Optional[jsii.Number]:
+            '''Event retention in days.
+
+            Defaults to 30.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessmanagedmemoryconfiguration.html#cfn-bedrockagentcore-harness-harnessmanagedmemoryconfiguration-eventexpiryduration
+            '''
+            result = self._values.get("event_expiry_duration")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def strategies(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Strategy types to enable.
+
+            Defaults to [SEMANTIC, SUMMARIZATION].
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessmanagedmemoryconfiguration.html#cfn-bedrockagentcore-harness-harnessmanagedmemoryconfiguration-strategies
+            '''
+            result = self._values.get("strategies")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HarnessManagedMemoryConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.HarnessMemoryConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
             "agent_core_memory_configuration": "agentCoreMemoryConfiguration",
+            "disabled": "disabled",
+            "managed_memory_configuration": "managedMemoryConfiguration",
         },
     )
     class HarnessMemoryConfigurationProperty:
@@ -19773,9 +21298,13 @@ class CfnHarness(
             self,
             *,
             agent_core_memory_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.HarnessAgentCoreMemoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            disabled: typing.Any = None,
+            managed_memory_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.HarnessManagedMemoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param agent_core_memory_configuration: 
+            :param disabled: Explicitly opt out of memory.
+            :param managed_memory_configuration: Configuration for managed memory. The harness creates and manages a memory resource in the customer's account.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessmemoryconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -19786,6 +21315,8 @@ class CfnHarness(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrockagentcore as bedrockagentcore
                 
+                # disabled: Any
+                
                 harness_memory_configuration_property = bedrockagentcore.CfnHarness.HarnessMemoryConfigurationProperty(
                     agent_core_memory_configuration=bedrockagentcore.CfnHarness.HarnessAgentCoreMemoryConfigurationProperty(
                         arn="arn",
@@ -19795,20 +21326,33 @@ class CfnHarness(
                         messages_count=123,
                         retrieval_config={
                             "retrieval_config_key": bedrockagentcore.CfnHarness.HarnessAgentCoreMemoryRetrievalConfigProperty(
-                                relevance_score=123,
+                                relevance_score="relevanceScore",
                                 strategy_id="strategyId",
-                                top_k=123
+                                top_k="topK"
                             )
                         }
+                    ),
+                    disabled=disabled,
+                    managed_memory_configuration=bedrockagentcore.CfnHarness.HarnessManagedMemoryConfigurationProperty(
+                        arn="arn",
+                        encryption_key_arn="encryptionKeyArn",
+                        event_expiry_duration=123,
+                        strategies=["strategies"]
                     )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__7f037ab4e9838f541fee6ba8c95c991ea1e2adbaab07fc60f58db77cddaf0be7)
                 check_type(argname="argument agent_core_memory_configuration", value=agent_core_memory_configuration, expected_type=type_hints["agent_core_memory_configuration"])
+                check_type(argname="argument disabled", value=disabled, expected_type=type_hints["disabled"])
+                check_type(argname="argument managed_memory_configuration", value=managed_memory_configuration, expected_type=type_hints["managed_memory_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if agent_core_memory_configuration is not None:
                 self._values["agent_core_memory_configuration"] = agent_core_memory_configuration
+            if disabled is not None:
+                self._values["disabled"] = disabled
+            if managed_memory_configuration is not None:
+                self._values["managed_memory_configuration"] = managed_memory_configuration
 
         @builtins.property
         def agent_core_memory_configuration(
@@ -19819,6 +21363,28 @@ class CfnHarness(
             '''
             result = self._values.get("agent_core_memory_configuration")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.HarnessAgentCoreMemoryConfigurationProperty"]], result)
+
+        @builtins.property
+        def disabled(self) -> typing.Any:
+            '''Explicitly opt out of memory.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessmemoryconfiguration.html#cfn-bedrockagentcore-harness-harnessmemoryconfiguration-disabled
+            '''
+            result = self._values.get("disabled")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def managed_memory_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.HarnessManagedMemoryConfigurationProperty"]]:
+            '''Configuration for managed memory.
+
+            The harness creates and manages a memory resource in the customer's account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessmemoryconfiguration.html#cfn-bedrockagentcore-harness-harnessmemoryconfiguration-managedmemoryconfiguration
+            '''
+            result = self._values.get("managed_memory_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.HarnessManagedMemoryConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19837,6 +21403,7 @@ class CfnHarness(
         name_mapping={
             "bedrock_model_config": "bedrockModelConfig",
             "gemini_model_config": "geminiModelConfig",
+            "lite_llm_model_config": "liteLlmModelConfig",
             "open_ai_model_config": "openAiModelConfig",
         },
     )
@@ -19846,11 +21413,13 @@ class CfnHarness(
             *,
             bedrock_model_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.HarnessBedrockModelConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             gemini_model_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.HarnessGeminiModelConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lite_llm_model_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.HarnessLiteLlmModelConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             open_ai_model_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.HarnessOpenAiModelConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param bedrock_model_config: 
             :param gemini_model_config: 
+            :param lite_llm_model_config: 
             :param open_ai_model_config: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessmodelconfiguration.html
@@ -19867,6 +21436,7 @@ class CfnHarness(
                         model_id="modelId",
                 
                         # the properties below are optional
+                        api_format="apiFormat",
                         max_tokens=123,
                         temperature=123,
                         top_p=123
@@ -19881,11 +21451,22 @@ class CfnHarness(
                         top_k=123,
                         top_p=123
                     ),
+                    lite_llm_model_config=bedrockagentcore.CfnHarness.HarnessLiteLlmModelConfigProperty(
+                        model_id="modelId",
+                
+                        # the properties below are optional
+                        api_base="apiBase",
+                        api_key_arn="apiKeyArn",
+                        max_tokens=123,
+                        temperature=123,
+                        top_p=123
+                    ),
                     open_ai_model_config=bedrockagentcore.CfnHarness.HarnessOpenAiModelConfigProperty(
                         api_key_arn="apiKeyArn",
                         model_id="modelId",
                 
                         # the properties below are optional
+                        api_format="apiFormat",
                         max_tokens=123,
                         temperature=123,
                         top_p=123
@@ -19896,12 +21477,15 @@ class CfnHarness(
                 type_hints = typing.get_type_hints(_typecheckingstub__f48b117dbbf874643d66e12ab8739b0b98dbc043e9116fd99eea5f54d3a90a2b)
                 check_type(argname="argument bedrock_model_config", value=bedrock_model_config, expected_type=type_hints["bedrock_model_config"])
                 check_type(argname="argument gemini_model_config", value=gemini_model_config, expected_type=type_hints["gemini_model_config"])
+                check_type(argname="argument lite_llm_model_config", value=lite_llm_model_config, expected_type=type_hints["lite_llm_model_config"])
                 check_type(argname="argument open_ai_model_config", value=open_ai_model_config, expected_type=type_hints["open_ai_model_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if bedrock_model_config is not None:
                 self._values["bedrock_model_config"] = bedrock_model_config
             if gemini_model_config is not None:
                 self._values["gemini_model_config"] = gemini_model_config
+            if lite_llm_model_config is not None:
+                self._values["lite_llm_model_config"] = lite_llm_model_config
             if open_ai_model_config is not None:
                 self._values["open_ai_model_config"] = open_ai_model_config
 
@@ -19924,6 +21508,16 @@ class CfnHarness(
             '''
             result = self._values.get("gemini_model_config")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.HarnessGeminiModelConfigProperty"]], result)
+
+        @builtins.property
+        def lite_llm_model_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.HarnessLiteLlmModelConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessmodelconfiguration.html#cfn-bedrockagentcore-harness-harnessmodelconfiguration-litellmmodelconfig
+            '''
+            result = self._values.get("lite_llm_model_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.HarnessLiteLlmModelConfigProperty"]], result)
 
         @builtins.property
         def open_ai_model_config(
@@ -19952,6 +21546,7 @@ class CfnHarness(
         name_mapping={
             "api_key_arn": "apiKeyArn",
             "model_id": "modelId",
+            "api_format": "apiFormat",
             "max_tokens": "maxTokens",
             "temperature": "temperature",
             "top_p": "topP",
@@ -19963,6 +21558,7 @@ class CfnHarness(
             *,
             api_key_arn: builtins.str,
             model_id: builtins.str,
+            api_format: typing.Optional[builtins.str] = None,
             max_tokens: typing.Optional[jsii.Number] = None,
             temperature: typing.Optional[jsii.Number] = None,
             top_p: typing.Optional[jsii.Number] = None,
@@ -19970,6 +21566,7 @@ class CfnHarness(
             '''
             :param api_key_arn: 
             :param model_id: 
+            :param api_format: 
             :param max_tokens: 
             :param temperature: 
             :param top_p: 
@@ -19988,6 +21585,7 @@ class CfnHarness(
                     model_id="modelId",
                 
                     # the properties below are optional
+                    api_format="apiFormat",
                     max_tokens=123,
                     temperature=123,
                     top_p=123
@@ -19997,6 +21595,7 @@ class CfnHarness(
                 type_hints = typing.get_type_hints(_typecheckingstub__b4d45188c34030c8c33f84211ca46741ec6199271bd48b99a12f923771b5d6a6)
                 check_type(argname="argument api_key_arn", value=api_key_arn, expected_type=type_hints["api_key_arn"])
                 check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
+                check_type(argname="argument api_format", value=api_format, expected_type=type_hints["api_format"])
                 check_type(argname="argument max_tokens", value=max_tokens, expected_type=type_hints["max_tokens"])
                 check_type(argname="argument temperature", value=temperature, expected_type=type_hints["temperature"])
                 check_type(argname="argument top_p", value=top_p, expected_type=type_hints["top_p"])
@@ -20004,6 +21603,8 @@ class CfnHarness(
                 "api_key_arn": api_key_arn,
                 "model_id": model_id,
             }
+            if api_format is not None:
+                self._values["api_format"] = api_format
             if max_tokens is not None:
                 self._values["max_tokens"] = max_tokens
             if temperature is not None:
@@ -20028,6 +21629,14 @@ class CfnHarness(
             result = self._values.get("model_id")
             assert result is not None, "Required property 'model_id' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def api_format(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessopenaimodelconfig.html#cfn-bedrockagentcore-harness-harnessopenaimodelconfig-apiformat
+            '''
+            result = self._values.get("api_format")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def max_tokens(self) -> typing.Optional[jsii.Number]:
@@ -20139,14 +21748,254 @@ class CfnHarness(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.HarnessSkillAwsSkillsSourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"paths": "paths"},
+    )
+    class HarnessSkillAwsSkillsSourceProperty:
+        def __init__(
+            self,
+            *,
+            paths: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''AWS Skills baked into the Harness's underlying Runtime.
+
+            :param paths: Optionally filter allowed skills with glob syntax, e.g., ['core-skills/*'].
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskillawsskillssource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                harness_skill_aws_skills_source_property = bedrockagentcore.CfnHarness.HarnessSkillAwsSkillsSourceProperty(
+                    paths=["paths"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c4b16b1b7cbe074c2826e1cb7c4829c3a3b5e3e8a1110125ee411a4c59ff4fe4)
+                check_type(argname="argument paths", value=paths, expected_type=type_hints["paths"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if paths is not None:
+                self._values["paths"] = paths
+
+        @builtins.property
+        def paths(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Optionally filter allowed skills with glob syntax, e.g., ['core-skills/*'].
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskillawsskillssource.html#cfn-bedrockagentcore-harness-harnessskillawsskillssource-paths
+            '''
+            result = self._values.get("paths")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HarnessSkillAwsSkillsSourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.HarnessSkillGitAuthProperty",
+        jsii_struct_bases=[],
+        name_mapping={"credential_arn": "credentialArn", "username": "username"},
+    )
+    class HarnessSkillGitAuthProperty:
+        def __init__(
+            self,
+            *,
+            credential_arn: builtins.str,
+            username: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Authentication configuration for accessing a private git repository.
+
+            :param credential_arn: The ARN of the credential in AgentCore Identity containing the password or personal access token.
+            :param username: Username for authentication. Defaults to 'oauth2' if not specified.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskillgitauth.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                harness_skill_git_auth_property = bedrockagentcore.CfnHarness.HarnessSkillGitAuthProperty(
+                    credential_arn="credentialArn",
+                
+                    # the properties below are optional
+                    username="username"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__008d28e52a343d4a8d718a65c07280654c22bdf7eecd88ccf05b80ba0ce4382a)
+                check_type(argname="argument credential_arn", value=credential_arn, expected_type=type_hints["credential_arn"])
+                check_type(argname="argument username", value=username, expected_type=type_hints["username"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "credential_arn": credential_arn,
+            }
+            if username is not None:
+                self._values["username"] = username
+
+        @builtins.property
+        def credential_arn(self) -> builtins.str:
+            '''The ARN of the credential in AgentCore Identity containing the password or personal access token.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskillgitauth.html#cfn-bedrockagentcore-harness-harnessskillgitauth-credentialarn
+            '''
+            result = self._values.get("credential_arn")
+            assert result is not None, "Required property 'credential_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def username(self) -> typing.Optional[builtins.str]:
+            '''Username for authentication.
+
+            Defaults to 'oauth2' if not specified.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskillgitauth.html#cfn-bedrockagentcore-harness-harnessskillgitauth-username
+            '''
+            result = self._values.get("username")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HarnessSkillGitAuthProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.HarnessSkillGitSourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"url": "url", "auth": "auth", "path": "path"},
+    )
+    class HarnessSkillGitSourceProperty:
+        def __init__(
+            self,
+            *,
+            url: builtins.str,
+            auth: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.HarnessSkillGitAuthProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            path: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A git repository containing the skill, cloned over HTTPS.
+
+            :param url: The HTTPS URL of the git repository.
+            :param auth: Authentication configuration for accessing a private git repository.
+            :param path: Subdirectory within the repository containing the skill.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskillgitsource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                harness_skill_git_source_property = bedrockagentcore.CfnHarness.HarnessSkillGitSourceProperty(
+                    url="url",
+                
+                    # the properties below are optional
+                    auth=bedrockagentcore.CfnHarness.HarnessSkillGitAuthProperty(
+                        credential_arn="credentialArn",
+                
+                        # the properties below are optional
+                        username="username"
+                    ),
+                    path="path"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d712ed5162d6fb6b160381f481c4cb4c0d0c5626c3048f41d007c8c9374ed855)
+                check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+                check_type(argname="argument auth", value=auth, expected_type=type_hints["auth"])
+                check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "url": url,
+            }
+            if auth is not None:
+                self._values["auth"] = auth
+            if path is not None:
+                self._values["path"] = path
+
+        @builtins.property
+        def url(self) -> builtins.str:
+            '''The HTTPS URL of the git repository.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskillgitsource.html#cfn-bedrockagentcore-harness-harnessskillgitsource-url
+            '''
+            result = self._values.get("url")
+            assert result is not None, "Required property 'url' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def auth(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.HarnessSkillGitAuthProperty"]]:
+            '''Authentication configuration for accessing a private git repository.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskillgitsource.html#cfn-bedrockagentcore-harness-harnessskillgitsource-auth
+            '''
+            result = self._values.get("auth")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.HarnessSkillGitAuthProperty"]], result)
+
+        @builtins.property
+        def path(self) -> typing.Optional[builtins.str]:
+            '''Subdirectory within the repository containing the skill.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskillgitsource.html#cfn-bedrockagentcore-harness-harnessskillgitsource-path
+            '''
+            result = self._values.get("path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HarnessSkillGitSourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.HarnessSkillProperty",
         jsii_struct_bases=[],
-        name_mapping={"path": "path"},
+        name_mapping={
+            "aws_skills": "awsSkills",
+            "git": "git",
+            "path": "path",
+            "s3": "s3",
+        },
     )
     class HarnessSkillProperty:
-        def __init__(self, *, path: builtins.str) -> None:
+        def __init__(
+            self,
+            *,
+            aws_skills: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.HarnessSkillAwsSkillsSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            git: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.HarnessSkillGitSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            path: typing.Optional[builtins.str] = None,
+            s3: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.HarnessSkillS3SourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
             '''
+            :param aws_skills: AWS Skills baked into the Harness's underlying Runtime.
+            :param git: A git repository containing the skill, cloned over HTTPS.
             :param path: The filesystem path to the skill definition.
+            :param s3: An S3 source containing the skill.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskill.html
             :exampleMetadata: fixture=_generated
@@ -20158,25 +22007,84 @@ class CfnHarness(
                 from aws_cdk import aws_bedrockagentcore as bedrockagentcore
                 
                 harness_skill_property = bedrockagentcore.CfnHarness.HarnessSkillProperty(
-                    path="path"
+                    aws_skills=bedrockagentcore.CfnHarness.HarnessSkillAwsSkillsSourceProperty(
+                        paths=["paths"]
+                    ),
+                    git=bedrockagentcore.CfnHarness.HarnessSkillGitSourceProperty(
+                        url="url",
+                
+                        # the properties below are optional
+                        auth=bedrockagentcore.CfnHarness.HarnessSkillGitAuthProperty(
+                            credential_arn="credentialArn",
+                
+                            # the properties below are optional
+                            username="username"
+                        ),
+                        path="path"
+                    ),
+                    path="path",
+                    s3=bedrockagentcore.CfnHarness.HarnessSkillS3SourceProperty(
+                        uri="uri"
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__8ddac0e079bd67cd6af90b1d166d2ff7325b1ee6e80f9179014aa60573308c42)
+                check_type(argname="argument aws_skills", value=aws_skills, expected_type=type_hints["aws_skills"])
+                check_type(argname="argument git", value=git, expected_type=type_hints["git"])
                 check_type(argname="argument path", value=path, expected_type=type_hints["path"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "path": path,
-            }
+                check_type(argname="argument s3", value=s3, expected_type=type_hints["s3"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if aws_skills is not None:
+                self._values["aws_skills"] = aws_skills
+            if git is not None:
+                self._values["git"] = git
+            if path is not None:
+                self._values["path"] = path
+            if s3 is not None:
+                self._values["s3"] = s3
 
         @builtins.property
-        def path(self) -> builtins.str:
+        def aws_skills(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.HarnessSkillAwsSkillsSourceProperty"]]:
+            '''AWS Skills baked into the Harness's underlying Runtime.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskill.html#cfn-bedrockagentcore-harness-harnessskill-awsskills
+            '''
+            result = self._values.get("aws_skills")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.HarnessSkillAwsSkillsSourceProperty"]], result)
+
+        @builtins.property
+        def git(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.HarnessSkillGitSourceProperty"]]:
+            '''A git repository containing the skill, cloned over HTTPS.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskill.html#cfn-bedrockagentcore-harness-harnessskill-git
+            '''
+            result = self._values.get("git")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.HarnessSkillGitSourceProperty"]], result)
+
+        @builtins.property
+        def path(self) -> typing.Optional[builtins.str]:
             '''The filesystem path to the skill definition.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskill.html#cfn-bedrockagentcore-harness-harnessskill-path
             '''
             result = self._values.get("path")
-            assert result is not None, "Required property 'path' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.HarnessSkillS3SourceProperty"]]:
+            '''An S3 source containing the skill.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskill.html#cfn-bedrockagentcore-harness-harnessskill-s3
+            '''
+            result = self._values.get("s3")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.HarnessSkillS3SourceProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20186,6 +22094,58 @@ class CfnHarness(
 
         def __repr__(self) -> str:
             return "HarnessSkillProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.HarnessSkillS3SourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"uri": "uri"},
+    )
+    class HarnessSkillS3SourceProperty:
+        def __init__(self, *, uri: builtins.str) -> None:
+            '''An S3 source containing the skill.
+
+            :param uri: The S3 URI pointing to the skill directory (e.g., s3://bucket/skills/my-skill/).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskills3source.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                harness_skill_s3_source_property = bedrockagentcore.CfnHarness.HarnessSkillS3SourceProperty(
+                    uri="uri"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8e7322e167f78497e450a815b87622e6f07a3ea1afbdb0b081b43ae075fa0791)
+                check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "uri": uri,
+            }
+
+        @builtins.property
+        def uri(self) -> builtins.str:
+            '''The S3 URI pointing to the skill directory (e.g., s3://bucket/skills/my-skill/).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessskills3source.html#cfn-bedrockagentcore-harness-harnessskills3source-uri
+            '''
+            result = self._values.get("uri")
+            assert result is not None, "Required property 'uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HarnessSkillS3SourceProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -20901,6 +22861,142 @@ class CfnHarness(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.ManagedVpcResourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "endpoint_ip_address_type": "endpointIpAddressType",
+            "subnet_ids": "subnetIds",
+            "vpc_identifier": "vpcIdentifier",
+            "routing_domain": "routingDomain",
+            "security_group_ids": "securityGroupIds",
+            "tags": "tags",
+        },
+    )
+    class ManagedVpcResourceProperty:
+        def __init__(
+            self,
+            *,
+            endpoint_ip_address_type: builtins.str,
+            subnet_ids: typing.Sequence[builtins.str],
+            vpc_identifier: builtins.str,
+            routing_domain: typing.Optional[builtins.str] = None,
+            security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        ) -> None:
+            '''Configuration for a service-managed VPC endpoint.
+
+            :param endpoint_ip_address_type: 
+            :param subnet_ids: 
+            :param vpc_identifier: 
+            :param routing_domain: 
+            :param security_group_ids: 
+            :param tags: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-managedvpcresource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                managed_vpc_resource_property = bedrockagentcore.CfnHarness.ManagedVpcResourceProperty(
+                    endpoint_ip_address_type="endpointIpAddressType",
+                    subnet_ids=["subnetIds"],
+                    vpc_identifier="vpcIdentifier",
+                
+                    # the properties below are optional
+                    routing_domain="routingDomain",
+                    security_group_ids=["securityGroupIds"],
+                    tags={
+                        "tags_key": "tags"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__093e03e81c56838ba8d14a3d194b4ec6d03726b7cd475c65fe89d8767f0c4380)
+                check_type(argname="argument endpoint_ip_address_type", value=endpoint_ip_address_type, expected_type=type_hints["endpoint_ip_address_type"])
+                check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+                check_type(argname="argument vpc_identifier", value=vpc_identifier, expected_type=type_hints["vpc_identifier"])
+                check_type(argname="argument routing_domain", value=routing_domain, expected_type=type_hints["routing_domain"])
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+                check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "endpoint_ip_address_type": endpoint_ip_address_type,
+                "subnet_ids": subnet_ids,
+                "vpc_identifier": vpc_identifier,
+            }
+            if routing_domain is not None:
+                self._values["routing_domain"] = routing_domain
+            if security_group_ids is not None:
+                self._values["security_group_ids"] = security_group_ids
+            if tags is not None:
+                self._values["tags"] = tags
+
+        @builtins.property
+        def endpoint_ip_address_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-managedvpcresource.html#cfn-bedrockagentcore-harness-managedvpcresource-endpointipaddresstype
+            '''
+            result = self._values.get("endpoint_ip_address_type")
+            assert result is not None, "Required property 'endpoint_ip_address_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def subnet_ids(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-managedvpcresource.html#cfn-bedrockagentcore-harness-managedvpcresource-subnetids
+            '''
+            result = self._values.get("subnet_ids")
+            assert result is not None, "Required property 'subnet_ids' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def vpc_identifier(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-managedvpcresource.html#cfn-bedrockagentcore-harness-managedvpcresource-vpcidentifier
+            '''
+            result = self._values.get("vpc_identifier")
+            assert result is not None, "Required property 'vpc_identifier' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def routing_domain(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-managedvpcresource.html#cfn-bedrockagentcore-harness-managedvpcresource-routingdomain
+            '''
+            result = self._values.get("routing_domain")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-managedvpcresource.html#cfn-bedrockagentcore-harness-managedvpcresource-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-managedvpcresource.html#cfn-bedrockagentcore-harness-managedvpcresource-tags
+            '''
+            result = self._values.get("tags")
+            return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedVpcResourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.NetworkConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -21101,6 +23197,306 @@ class CfnHarness(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.PrivateEndpointOverrideProperty",
+        jsii_struct_bases=[],
+        name_mapping={"domain": "domain", "private_endpoint": "privateEndpoint"},
+    )
+    class PrivateEndpointOverrideProperty:
+        def __init__(
+            self,
+            *,
+            domain: builtins.str,
+            private_endpoint: typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.PrivateEndpointProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Maps a domain to a private endpoint for resolving that domain over a private network.
+
+            :param domain: 
+            :param private_endpoint: Private endpoint configuration for connecting to the OpenID Connect discovery endpoint over a private network.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-privateendpointoverride.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                private_endpoint_override_property = bedrockagentcore.CfnHarness.PrivateEndpointOverrideProperty(
+                    domain="domain",
+                    private_endpoint=bedrockagentcore.CfnHarness.PrivateEndpointProperty(
+                        managed_vpc_resource=bedrockagentcore.CfnHarness.ManagedVpcResourceProperty(
+                            endpoint_ip_address_type="endpointIpAddressType",
+                            subnet_ids=["subnetIds"],
+                            vpc_identifier="vpcIdentifier",
+                
+                            # the properties below are optional
+                            routing_domain="routingDomain",
+                            security_group_ids=["securityGroupIds"],
+                            tags={
+                                "tags_key": "tags"
+                            }
+                        ),
+                        self_managed_lattice_resource=bedrockagentcore.CfnHarness.SelfManagedLatticeResourceProperty(
+                            resource_configuration_identifier="resourceConfigurationIdentifier"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__17583c68d9929dabbfdc234e94c11bc70d4be56abcbda45bb3c832fbc62c5101)
+                check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+                check_type(argname="argument private_endpoint", value=private_endpoint, expected_type=type_hints["private_endpoint"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "domain": domain,
+                "private_endpoint": private_endpoint,
+            }
+
+        @builtins.property
+        def domain(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-privateendpointoverride.html#cfn-bedrockagentcore-harness-privateendpointoverride-domain
+            '''
+            result = self._values.get("domain")
+            assert result is not None, "Required property 'domain' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def private_endpoint(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnHarness.PrivateEndpointProperty"]:
+            '''Private endpoint configuration for connecting to the OpenID Connect discovery endpoint over a private network.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-privateendpointoverride.html#cfn-bedrockagentcore-harness-privateendpointoverride-privateendpoint
+            '''
+            result = self._values.get("private_endpoint")
+            assert result is not None, "Required property 'private_endpoint' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnHarness.PrivateEndpointProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PrivateEndpointOverrideProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.PrivateEndpointProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "managed_vpc_resource": "managedVpcResource",
+            "self_managed_lattice_resource": "selfManagedLatticeResource",
+        },
+    )
+    class PrivateEndpointProperty:
+        def __init__(
+            self,
+            *,
+            managed_vpc_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.ManagedVpcResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            self_managed_lattice_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnHarness.SelfManagedLatticeResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Private endpoint configuration for connecting to the OpenID Connect discovery endpoint over a private network.
+
+            :param managed_vpc_resource: Configuration for a service-managed VPC endpoint.
+            :param self_managed_lattice_resource: Configuration for connecting to a private resource using a self-managed VPC Lattice resource configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-privateendpoint.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                private_endpoint_property = bedrockagentcore.CfnHarness.PrivateEndpointProperty(
+                    managed_vpc_resource=bedrockagentcore.CfnHarness.ManagedVpcResourceProperty(
+                        endpoint_ip_address_type="endpointIpAddressType",
+                        subnet_ids=["subnetIds"],
+                        vpc_identifier="vpcIdentifier",
+                
+                        # the properties below are optional
+                        routing_domain="routingDomain",
+                        security_group_ids=["securityGroupIds"],
+                        tags={
+                            "tags_key": "tags"
+                        }
+                    ),
+                    self_managed_lattice_resource=bedrockagentcore.CfnHarness.SelfManagedLatticeResourceProperty(
+                        resource_configuration_identifier="resourceConfigurationIdentifier"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__027618384d31bf5ebe6a82bed9e344cf9ed93b7bf153af976a283ae3d679ebd3)
+                check_type(argname="argument managed_vpc_resource", value=managed_vpc_resource, expected_type=type_hints["managed_vpc_resource"])
+                check_type(argname="argument self_managed_lattice_resource", value=self_managed_lattice_resource, expected_type=type_hints["self_managed_lattice_resource"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if managed_vpc_resource is not None:
+                self._values["managed_vpc_resource"] = managed_vpc_resource
+            if self_managed_lattice_resource is not None:
+                self._values["self_managed_lattice_resource"] = self_managed_lattice_resource
+
+        @builtins.property
+        def managed_vpc_resource(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.ManagedVpcResourceProperty"]]:
+            '''Configuration for a service-managed VPC endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-privateendpoint.html#cfn-bedrockagentcore-harness-privateendpoint-managedvpcresource
+            '''
+            result = self._values.get("managed_vpc_resource")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.ManagedVpcResourceProperty"]], result)
+
+        @builtins.property
+        def self_managed_lattice_resource(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.SelfManagedLatticeResourceProperty"]]:
+            '''Configuration for connecting to a private resource using a self-managed VPC Lattice resource configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-privateendpoint.html#cfn-bedrockagentcore-harness-privateendpoint-selfmanagedlatticeresource
+            '''
+            result = self._values.get("self_managed_lattice_resource")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnHarness.SelfManagedLatticeResourceProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PrivateEndpointProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.S3FilesAccessPointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"access_point_arn": "accessPointArn", "mount_path": "mountPath"},
+    )
+    class S3FilesAccessPointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            access_point_arn: builtins.str,
+            mount_path: builtins.str,
+        ) -> None:
+            '''Configuration for an Amazon S3 Files access point to mount into the AgentCore Runtime.
+
+            :param access_point_arn: 
+            :param mount_path: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-s3filesaccesspointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                s3_files_access_point_configuration_property = bedrockagentcore.CfnHarness.S3FilesAccessPointConfigurationProperty(
+                    access_point_arn="accessPointArn",
+                    mount_path="mountPath"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a10013d8af35df379318bc413579072676443f7179914d4a22a0da2dff69b9bb)
+                check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
+                check_type(argname="argument mount_path", value=mount_path, expected_type=type_hints["mount_path"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "access_point_arn": access_point_arn,
+                "mount_path": mount_path,
+            }
+
+        @builtins.property
+        def access_point_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-s3filesaccesspointconfiguration.html#cfn-bedrockagentcore-harness-s3filesaccesspointconfiguration-accesspointarn
+            '''
+            result = self._values.get("access_point_arn")
+            assert result is not None, "Required property 'access_point_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def mount_path(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-s3filesaccesspointconfiguration.html#cfn-bedrockagentcore-harness-s3filesaccesspointconfiguration-mountpath
+            '''
+            result = self._values.get("mount_path")
+            assert result is not None, "Required property 'mount_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3FilesAccessPointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.SelfManagedLatticeResourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "resource_configuration_identifier": "resourceConfigurationIdentifier",
+        },
+    )
+    class SelfManagedLatticeResourceProperty:
+        def __init__(self, *, resource_configuration_identifier: builtins.str) -> None:
+            '''Configuration for connecting to a private resource using a self-managed VPC Lattice resource configuration.
+
+            :param resource_configuration_identifier: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-selfmanagedlatticeresource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                self_managed_lattice_resource_property = bedrockagentcore.CfnHarness.SelfManagedLatticeResourceProperty(
+                    resource_configuration_identifier="resourceConfigurationIdentifier"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__07594d4a0af1fdb9c936521916801e4ce7816796e63f998c48d6cd18c37bc3f8)
+                check_type(argname="argument resource_configuration_identifier", value=resource_configuration_identifier, expected_type=type_hints["resource_configuration_identifier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "resource_configuration_identifier": resource_configuration_identifier,
+            }
+
+        @builtins.property
+        def resource_configuration_identifier(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-selfmanagedlatticeresource.html#cfn-bedrockagentcore-harness-selfmanagedlatticeresource-resourceconfigurationidentifier
+            '''
+            result = self._values.get("resource_configuration_identifier")
+            assert result is not None, "Required property 'resource_configuration_identifier' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SelfManagedLatticeResourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnHarness.SessionStorageConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"mount_path": "mountPath"},
@@ -21295,6 +23691,7 @@ class CfnHarnessProps:
             from aws_cdk import aws_bedrockagentcore as bedrockagentcore
             
             # aws_iam: Any
+            # disabled: Any
             # input_schema: Any
             # none: Any
             
@@ -21306,6 +23703,7 @@ class CfnHarnessProps:
                         model_id="modelId",
             
                         # the properties below are optional
+                        api_format="apiFormat",
                         max_tokens=123,
                         temperature=123,
                         top_p=123
@@ -21320,11 +23718,22 @@ class CfnHarnessProps:
                         top_k=123,
                         top_p=123
                     ),
+                    lite_llm_model_config=bedrockagentcore.CfnHarness.HarnessLiteLlmModelConfigProperty(
+                        model_id="modelId",
+            
+                        # the properties below are optional
+                        api_base="apiBase",
+                        api_key_arn="apiKeyArn",
+                        max_tokens=123,
+                        temperature=123,
+                        top_p=123
+                    ),
                     open_ai_model_config=bedrockagentcore.CfnHarness.HarnessOpenAiModelConfigProperty(
                         api_key_arn="apiKeyArn",
                         model_id="modelId",
             
                         # the properties below are optional
+                        api_format="apiFormat",
                         max_tokens=123,
                         temperature=123,
                         top_p=123
@@ -21351,6 +23760,43 @@ class CfnHarnessProps:
                             ),
                             inbound_token_claim_name="inboundTokenClaimName",
                             inbound_token_claim_value_type="inboundTokenClaimValueType"
+                        )],
+                        private_endpoint=bedrockagentcore.CfnHarness.PrivateEndpointProperty(
+                            managed_vpc_resource=bedrockagentcore.CfnHarness.ManagedVpcResourceProperty(
+                                endpoint_ip_address_type="endpointIpAddressType",
+                                subnet_ids=["subnetIds"],
+                                vpc_identifier="vpcIdentifier",
+            
+                                # the properties below are optional
+                                routing_domain="routingDomain",
+                                security_group_ids=["securityGroupIds"],
+                                tags={
+                                    "tags_key": "tags"
+                                }
+                            ),
+                            self_managed_lattice_resource=bedrockagentcore.CfnHarness.SelfManagedLatticeResourceProperty(
+                                resource_configuration_identifier="resourceConfigurationIdentifier"
+                            )
+                        ),
+                        private_endpoint_overrides=[bedrockagentcore.CfnHarness.PrivateEndpointOverrideProperty(
+                            domain="domain",
+                            private_endpoint=bedrockagentcore.CfnHarness.PrivateEndpointProperty(
+                                managed_vpc_resource=bedrockagentcore.CfnHarness.ManagedVpcResourceProperty(
+                                    endpoint_ip_address_type="endpointIpAddressType",
+                                    subnet_ids=["subnetIds"],
+                                    vpc_identifier="vpcIdentifier",
+            
+                                    # the properties below are optional
+                                    routing_domain="routingDomain",
+                                    security_group_ids=["securityGroupIds"],
+                                    tags={
+                                        "tags_key": "tags"
+                                    }
+                                ),
+                                self_managed_lattice_resource=bedrockagentcore.CfnHarness.SelfManagedLatticeResourceProperty(
+                                    resource_configuration_identifier="resourceConfigurationIdentifier"
+                                )
+                            )
                         )]
                     )
                 ),
@@ -21360,6 +23806,14 @@ class CfnHarnessProps:
                         agent_runtime_id="agentRuntimeId",
                         agent_runtime_name="agentRuntimeName",
                         filesystem_configurations=[bedrockagentcore.CfnHarness.FilesystemConfigurationProperty(
+                            efs_access_point=bedrockagentcore.CfnHarness.EfsAccessPointConfigurationProperty(
+                                access_point_arn="accessPointArn",
+                                mount_path="mountPath"
+                            ),
+                            s3_files_access_point=bedrockagentcore.CfnHarness.S3FilesAccessPointConfigurationProperty(
+                                access_point_arn="accessPointArn",
+                                mount_path="mountPath"
+                            ),
                             session_storage=bedrockagentcore.CfnHarness.SessionStorageConfigurationProperty(
                                 mount_path="mountPath"
                             )
@@ -21398,15 +23852,40 @@ class CfnHarnessProps:
                         messages_count=123,
                         retrieval_config={
                             "retrieval_config_key": bedrockagentcore.CfnHarness.HarnessAgentCoreMemoryRetrievalConfigProperty(
-                                relevance_score=123,
+                                relevance_score="relevanceScore",
                                 strategy_id="strategyId",
-                                top_k=123
+                                top_k="topK"
                             )
                         }
+                    ),
+                    disabled=disabled,
+                    managed_memory_configuration=bedrockagentcore.CfnHarness.HarnessManagedMemoryConfigurationProperty(
+                        arn="arn",
+                        encryption_key_arn="encryptionKeyArn",
+                        event_expiry_duration=123,
+                        strategies=["strategies"]
                     )
                 ),
                 skills=[bedrockagentcore.CfnHarness.HarnessSkillProperty(
-                    path="path"
+                    aws_skills=bedrockagentcore.CfnHarness.HarnessSkillAwsSkillsSourceProperty(
+                        paths=["paths"]
+                    ),
+                    git=bedrockagentcore.CfnHarness.HarnessSkillGitSourceProperty(
+                        url="url",
+            
+                        # the properties below are optional
+                        auth=bedrockagentcore.CfnHarness.HarnessSkillGitAuthProperty(
+                            credential_arn="credentialArn",
+            
+                            # the properties below are optional
+                            username="username"
+                        ),
+                        path="path"
+                    ),
+                    path="path",
+                    s3=bedrockagentcore.CfnHarness.HarnessSkillS3SourceProperty(
+                        uri="uri"
+                    )
                 )],
                 system_prompt=[bedrockagentcore.CfnHarness.HarnessSystemContentBlockProperty(
                     text="text"
@@ -34600,6 +37079,9 @@ class CfnPolicy(
             definition=bedrockagentcore.CfnPolicy.PolicyDefinitionProperty(
                 cedar=bedrockagentcore.CfnPolicy.CedarPolicyProperty(
                     statement="statement"
+                ),
+                policy=bedrockagentcore.CfnPolicy.PolicyStatementProperty(
+                    statement="statement"
                 )
             ),
             name="name",
@@ -34607,6 +37089,7 @@ class CfnPolicy(
         
             # the properties below are optional
             description="description",
+            enforcement_mode="enforcementMode",
             validation_mode="validationMode"
         )
     '''
@@ -34620,6 +37103,7 @@ class CfnPolicy(
         name: builtins.str,
         policy_engine_id: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        enforcement_mode: typing.Optional[builtins.str] = None,
         validation_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::BedrockAgentCore::Policy``.
@@ -34630,6 +37114,7 @@ class CfnPolicy(
         :param name: The customer-assigned immutable name for the policy. Must be unique within the policy engine.
         :param policy_engine_id: The identifier of the policy engine which contains this policy.
         :param description: A human-readable description of the policy's purpose and functionality.
+        :param enforcement_mode: Whether the policy contributes to the enforce decision returned to Gateway. LOG_ONLY policies are still evaluated but their decisions are observed only, allowing customers to validate a policy against real traffic before promoting it. Default: - "ACTIVE"
         :param validation_mode: The validation mode for the policy. Determines how Cedar analyzer validation results are handled.
         '''
         if __debug__:
@@ -34641,6 +37126,7 @@ class CfnPolicy(
             name=name,
             policy_engine_id=policy_engine_id,
             description=description,
+            enforcement_mode=enforcement_mode,
             validation_mode=validation_mode,
         )
 
@@ -34826,6 +37312,19 @@ class CfnPolicy(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="enforcementMode")
+    def enforcement_mode(self) -> typing.Optional[builtins.str]:
+        '''Whether the policy contributes to the enforce decision returned to Gateway.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "enforcementMode"))
+
+    @enforcement_mode.setter
+    def enforcement_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__50671295cc575da61a2338b0767dac3fdac191d09d27b6498e7588494399ac19)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enforcementMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="validationMode")
     def validation_mode(self) -> typing.Optional[builtins.str]:
         '''The validation mode for the policy.'''
@@ -34893,19 +37392,21 @@ class CfnPolicy(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPolicy.PolicyDefinitionProperty",
         jsii_struct_bases=[],
-        name_mapping={"cedar": "cedar"},
+        name_mapping={"cedar": "cedar", "policy": "policy"},
     )
     class PolicyDefinitionProperty:
         def __init__(
             self,
             *,
-            cedar: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicy.CedarPolicyProperty", typing.Dict[builtins.str, typing.Any]]],
+            cedar: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicy.CedarPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicy.PolicyStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The definition structure for policies.
 
             Encapsulates different policy formats.
 
             :param cedar: A Cedar policy statement within the AgentCore Policy system.
+            :param policy: A policy statement within the AgentCore Policy system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-policy-policydefinition.html
             :exampleMetadata: fixture=_generated
@@ -34919,27 +37420,43 @@ class CfnPolicy(
                 policy_definition_property = bedrockagentcore.CfnPolicy.PolicyDefinitionProperty(
                     cedar=bedrockagentcore.CfnPolicy.CedarPolicyProperty(
                         statement="statement"
+                    ),
+                    policy=bedrockagentcore.CfnPolicy.PolicyStatementProperty(
+                        statement="statement"
                     )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__f6794e02be8a07b494523ce530bdb5da6ec840b4e6342043fc96304f1d964632)
                 check_type(argname="argument cedar", value=cedar, expected_type=type_hints["cedar"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "cedar": cedar,
-            }
+                check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if cedar is not None:
+                self._values["cedar"] = cedar
+            if policy is not None:
+                self._values["policy"] = policy
 
         @builtins.property
         def cedar(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnPolicy.CedarPolicyProperty"]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPolicy.CedarPolicyProperty"]]:
             '''A Cedar policy statement within the AgentCore Policy system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-policy-policydefinition.html#cfn-bedrockagentcore-policy-policydefinition-cedar
             '''
             result = self._values.get("cedar")
-            assert result is not None, "Required property 'cedar' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPolicy.CedarPolicyProperty"], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPolicy.CedarPolicyProperty"]], result)
+
+        @builtins.property
+        def policy(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPolicy.PolicyStatementProperty"]]:
+            '''A policy statement within the AgentCore Policy system.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-policy-policydefinition.html#cfn-bedrockagentcore-policy-policydefinition-policy
+            '''
+            result = self._values.get("policy")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPolicy.PolicyStatementProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -34949,6 +37466,58 @@ class CfnPolicy(
 
         def __repr__(self) -> str:
             return "PolicyDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPolicy.PolicyStatementProperty",
+        jsii_struct_bases=[],
+        name_mapping={"statement": "statement"},
+    )
+    class PolicyStatementProperty:
+        def __init__(self, *, statement: builtins.str) -> None:
+            '''A policy statement within the AgentCore Policy system.
+
+            :param statement: The policy statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-policy-policystatement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                policy_statement_property = bedrockagentcore.CfnPolicy.PolicyStatementProperty(
+                    statement="statement"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f828716449f5c5dd7dfe2a6cad0d64a44b0fdb2d415dee6f4044380ecf18cfff)
+                check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "statement": statement,
+            }
+
+        @builtins.property
+        def statement(self) -> builtins.str:
+            '''The policy statement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-policy-policystatement.html#cfn-bedrockagentcore-policy-policystatement-statement
+            '''
+            result = self._values.get("statement")
+            assert result is not None, "Required property 'statement' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PolicyStatementProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -35322,6 +37891,7 @@ class CfnPolicyEngineProps:
         "name": "name",
         "policy_engine_id": "policyEngineId",
         "description": "description",
+        "enforcement_mode": "enforcementMode",
         "validation_mode": "validationMode",
     },
 )
@@ -35333,6 +37903,7 @@ class CfnPolicyProps:
         name: builtins.str,
         policy_engine_id: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        enforcement_mode: typing.Optional[builtins.str] = None,
         validation_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnPolicy``.
@@ -35341,6 +37912,7 @@ class CfnPolicyProps:
         :param name: The customer-assigned immutable name for the policy. Must be unique within the policy engine.
         :param policy_engine_id: The identifier of the policy engine which contains this policy.
         :param description: A human-readable description of the policy's purpose and functionality.
+        :param enforcement_mode: Whether the policy contributes to the enforce decision returned to Gateway. LOG_ONLY policies are still evaluated but their decisions are observed only, allowing customers to validate a policy against real traffic before promoting it. Default: - "ACTIVE"
         :param validation_mode: The validation mode for the policy. Determines how Cedar analyzer validation results are handled.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policy.html
@@ -35356,6 +37928,9 @@ class CfnPolicyProps:
                 definition=bedrockagentcore.CfnPolicy.PolicyDefinitionProperty(
                     cedar=bedrockagentcore.CfnPolicy.CedarPolicyProperty(
                         statement="statement"
+                    ),
+                    policy=bedrockagentcore.CfnPolicy.PolicyStatementProperty(
+                        statement="statement"
                     )
                 ),
                 name="name",
@@ -35363,6 +37938,7 @@ class CfnPolicyProps:
             
                 # the properties below are optional
                 description="description",
+                enforcement_mode="enforcementMode",
                 validation_mode="validationMode"
             )
         '''
@@ -35372,6 +37948,7 @@ class CfnPolicyProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument policy_engine_id", value=policy_engine_id, expected_type=type_hints["policy_engine_id"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument enforcement_mode", value=enforcement_mode, expected_type=type_hints["enforcement_mode"])
             check_type(argname="argument validation_mode", value=validation_mode, expected_type=type_hints["validation_mode"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "definition": definition,
@@ -35380,6 +37957,8 @@ class CfnPolicyProps:
         }
         if description is not None:
             self._values["description"] = description
+        if enforcement_mode is not None:
+            self._values["enforcement_mode"] = enforcement_mode
         if validation_mode is not None:
             self._values["validation_mode"] = validation_mode
 
@@ -35426,6 +38005,19 @@ class CfnPolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policy.html#cfn-bedrockagentcore-policy-description
         '''
         result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enforcement_mode(self) -> typing.Optional[builtins.str]:
+        '''Whether the policy contributes to the enforce decision returned to Gateway.
+
+        LOG_ONLY policies are still evaluated but their decisions are observed only, allowing customers to validate a policy against real traffic before promoting it.
+
+        :default: - "ACTIVE"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policy.html#cfn-bedrockagentcore-policy-enforcementmode
+        '''
+        result = self._values.get("enforcement_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -71141,6 +73733,7 @@ def _typecheckingstub__690fbd2a5279f2a026814864e854a5a5b99ddff0c9a63e206f48f8810
     commit_message: typing.Optional[builtins.str] = None,
     created_by: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationBundle.VersionCreatedBySourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -71200,6 +73793,12 @@ def _typecheckingstub__9b45abb7e28833faaf441e807d87b41e96ff2d5ecf4a946a5cd4f18e0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4f2458bfa25939aaaf06e7f4cc0fe06cbd5a42e2f22a5c42b749bd9952589c5b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5d0186c37ef720b05cee219f0615242ab93066b95d55c4f98835859ce102976e(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -71239,6 +73838,7 @@ def _typecheckingstub__957d37275cfaa1643001071524a08066b4e5870d532f696009c5aeee9
     commit_message: typing.Optional[builtins.str] = None,
     created_by: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationBundle.VersionCreatedBySourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -71778,12 +74378,12 @@ def _typecheckingstub__2ca4172cb2708dfeb7420a18b960df15915d2da8589b9495c034bd700
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    name: builtins.str,
     target_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.TargetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     credential_provider_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.CredentialProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     gateway_identifier: typing.Optional[builtins.str] = None,
     metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
     private_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.PrivateEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -71803,12 +74403,6 @@ def _typecheckingstub__facd54b7bb4cca942a82b0859b83ffbee83d2b5964da7507bd01ce76b
 
 def _typecheckingstub__0f55ddaf00701b9be96b4083ffcf99e108df2b912a7fa6a0930aacc493dc19b3(
     props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ac4fb979142cd31fef07a02c2a4b5e3d0eb49bf962781821346eac630d16fcc8(
-    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -71839,6 +74433,12 @@ def _typecheckingstub__e4c9f5798e9b6c54f5080d4aef35f1a5d286541a90ad283e95cae82b7
 
 def _typecheckingstub__00f16ea27eb83e4b32e092f110d089664b10c9e879d89f80aef450f9dc884a25(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGatewayTarget.MetadataConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac4fb979142cd31fef07a02c2a4b5e3d0eb49bf962781821346eac630d16fcc8(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -71909,6 +74509,41 @@ def _typecheckingstub__9263c8a7694d95d935a5a27f974329eee2a98f489d0437d59c5848493
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__eaec6c4b161c81f39007451494977000e9e2a9cd868b3b9f2315cf1321ce1e33(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    parameter_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.ConnectorParameterOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    parameter_values: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11a51b2e54afcf90e72f89a0240e223d09d0e0fe37b6336b52b79bf9c41b4769(
+    *,
+    path: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    visible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49b282bddfb96fedb7ee20bdbd0156eb3c24958b71cfd5214661daeb125486b5(
+    *,
+    connector_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc3b218dd5c55ccd4dfb9755105e71c6c6d06faaf8a9606d77eecbdd8877a7e1(
+    *,
+    source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.ConnectorSourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.ConnectorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    enabled: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__149dd633d64001d8edf5b8db5417ed0fc1bfaecff9240452d6911051ec05238e(
     *,
     credential_provider_type: builtins.str,
@@ -71926,9 +74561,17 @@ def _typecheckingstub__db13937427760cb24e319f55daf7a1b38d00d0bb009b7b145665b608c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c0c35a4aefbce42cc1e82a38be2b6b7c76e2875545d7d0c31f9112ccdaedd9ee(
+    *,
+    source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.ApiSchemaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__890b8895e5075ded184d41ad20f9705475fe04beee71a09c4a0b4b8de2163ec2(
     *,
-    agentcore_runtime: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.RuntimeTargetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    agentcore_runtime: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.RuntimeTargetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    passthrough: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.PassthroughTargetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -71982,6 +74625,7 @@ def _typecheckingstub__d73da9473e37697d875f5f3c74a1ab3e3ace8090917b37837b0019969
 def _typecheckingstub__0b1d88210caa384ede03a06bee42d13165c8bf4cc4206a236d795c44da216e3c(
     *,
     api_gateway: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.ApiGatewayTargetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.ConnectorTargetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     lambda_: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.McpLambdaTargetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.McpServerTargetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     open_api_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.ApiSchemaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -72026,6 +74670,16 @@ def _typecheckingstub__3c602c1e6012421bcbacb23364333a8030b673b0a8e3ebad72fba42b2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__27a4954a4b9abad5da731a1874984dbf18980fa568a680aea46e9ca689d2799c(
+    *,
+    endpoint: builtins.str,
+    protocol_type: builtins.str,
+    schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.HttpApiSchemaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stickiness_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.StickinessConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6ace62b0ec7a1134d8f17c1e1c17816e902aef6b54964c60086c47a3940aad74(
     *,
     managed_vpc_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.ManagedVpcResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -72038,6 +74692,7 @@ def _typecheckingstub__88f93fcf4f2ef4d2e1332015672733eabc6d4f218a94d2bfa469afb7f
     *,
     arn: builtins.str,
     qualifier: typing.Optional[builtins.str] = None,
+    schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.HttpApiSchemaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -72064,6 +74719,14 @@ def _typecheckingstub__bc512741cd348cf43b33e4ea0df31aae8766e6990dc0675d9111d9a7e
 def _typecheckingstub__7d3003577b392adcd0a4eebd0035f9092d8ed3994ca34a3506530ac0aa973d4f(
     *,
     resource_configuration_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4accb02a133ed7d8de69c66b5cbdd1bc9f787a9b951a058f3ecf0b96c2d540a(
+    *,
+    identifier: builtins.str,
+    timeout: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -72096,12 +74759,12 @@ def _typecheckingstub__3ff8fed96fdad56eb717513408b41cd94cf1c34461313bbb4de520c38
 
 def _typecheckingstub__367178269f9a78c89b5ba5e07b10a309050b4b3eaefd55c5ee6f30ddad20209f(
     *,
-    name: builtins.str,
     target_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.TargetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     credential_provider_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.CredentialProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     gateway_identifier: typing.Optional[builtins.str] = None,
     metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
     private_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.PrivateEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -72304,13 +74967,25 @@ def _typecheckingstub__58123b3ce336fe1d5a7362c406da680b9db3a43bc266b8256fef59492
     allowed_clients: typing.Optional[typing.Sequence[builtins.str]] = None,
     allowed_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     custom_claims: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.CustomClaimValidationTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    private_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.PrivateEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    private_endpoint_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.PrivateEndpointOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa426b593bdb5394207be08f289e8be786f8a0f1949d027746e6d14d89d08f7d(
+    *,
+    access_point_arn: builtins.str,
+    mount_path: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9d0afc9cbc0616bf1c2a3483e088e50ad36abac05c7832bae880e80e7d5bb935(
     *,
-    session_storage: typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.SessionStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    efs_access_point: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.EfsAccessPointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_files_access_point: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.S3FilesAccessPointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    session_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.SessionStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -72349,9 +75024,9 @@ def _typecheckingstub__24ffd8969705668e9b08cefd72c4f70c75cce825c578721f3d8d44496
 
 def _typecheckingstub__cc1d3ae407bb85411a209d1ee6ae6a5e5d351dc7c5e3c7578b973b6f2fb48f2f(
     *,
-    relevance_score: typing.Optional[jsii.Number] = None,
+    relevance_score: typing.Optional[typing.Union[builtins.str, jsii.Number, _IResolvable_da3f097b]] = None,
     strategy_id: typing.Optional[builtins.str] = None,
-    top_k: typing.Optional[jsii.Number] = None,
+    top_k: typing.Optional[typing.Union[builtins.str, jsii.Number, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -72371,6 +75046,7 @@ def _typecheckingstub__3c0561527817243a7111c6d61c13863de53d7ed620d6a8e9bea1557a5
 def _typecheckingstub__981ca26815c7ec1c79e4cc75113f0efdcf418844bb0ad32e51297ee85082c11c(
     *,
     model_id: builtins.str,
+    api_format: typing.Optional[builtins.str] = None,
     max_tokens: typing.Optional[jsii.Number] = None,
     temperature: typing.Optional[jsii.Number] = None,
     top_p: typing.Optional[jsii.Number] = None,
@@ -72421,9 +75097,33 @@ def _typecheckingstub__e870f90c56cf11fddb6ad29ec197011308cd06d1e24f4e5d3eb8e1aeb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__12a2ab2735b20c12d2d4d7daa2d2122b339d6059506d08d60209ccb060847ebf(
+    *,
+    model_id: builtins.str,
+    api_base: typing.Optional[builtins.str] = None,
+    api_key_arn: typing.Optional[builtins.str] = None,
+    max_tokens: typing.Optional[jsii.Number] = None,
+    temperature: typing.Optional[jsii.Number] = None,
+    top_p: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5117a0b9c26dcdb129640f8128d4bd9af8d7185bb2e232927b7ca063bd08372(
+    *,
+    arn: typing.Optional[builtins.str] = None,
+    encryption_key_arn: typing.Optional[builtins.str] = None,
+    event_expiry_duration: typing.Optional[jsii.Number] = None,
+    strategies: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7f037ab4e9838f541fee6ba8c95c991ea1e2adbaab07fc60f58db77cddaf0be7(
     *,
     agent_core_memory_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.HarnessAgentCoreMemoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    disabled: typing.Any = None,
+    managed_memory_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.HarnessManagedMemoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -72432,6 +75132,7 @@ def _typecheckingstub__f48b117dbbf874643d66e12ab8739b0b98dbc043e9116fd99eea5f54d
     *,
     bedrock_model_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.HarnessBedrockModelConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     gemini_model_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.HarnessGeminiModelConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lite_llm_model_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.HarnessLiteLlmModelConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     open_ai_model_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.HarnessOpenAiModelConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -72441,6 +75142,7 @@ def _typecheckingstub__b4d45188c34030c8c33f84211ca46741ec6199271bd48b99a12f92377
     *,
     api_key_arn: builtins.str,
     model_id: builtins.str,
+    api_format: typing.Optional[builtins.str] = None,
     max_tokens: typing.Optional[jsii.Number] = None,
     temperature: typing.Optional[jsii.Number] = None,
     top_p: typing.Optional[jsii.Number] = None,
@@ -72456,9 +75158,43 @@ def _typecheckingstub__71024376aac42705dec5e56738c9a8af3cd503c2d246f20a4d6dcdd36
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c4b16b1b7cbe074c2826e1cb7c4829c3a3b5e3e8a1110125ee411a4c59ff4fe4(
+    *,
+    paths: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__008d28e52a343d4a8d718a65c07280654c22bdf7eecd88ccf05b80ba0ce4382a(
+    *,
+    credential_arn: builtins.str,
+    username: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d712ed5162d6fb6b160381f481c4cb4c0d0c5626c3048f41d007c8c9374ed855(
+    *,
+    url: builtins.str,
+    auth: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.HarnessSkillGitAuthProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    path: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8ddac0e079bd67cd6af90b1d166d2ff7325b1ee6e80f9179014aa60573308c42(
     *,
-    path: builtins.str,
+    aws_skills: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.HarnessSkillAwsSkillsSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    git: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.HarnessSkillGitSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    path: typing.Optional[builtins.str] = None,
+    s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.HarnessSkillS3SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e7322e167f78497e450a815b87622e6f07a3ea1afbdb0b081b43ae075fa0791(
+    *,
+    uri: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -72530,6 +75266,18 @@ def _typecheckingstub__f8a28fc098aaa1f1af180ef733aad91c6ec4e5bd741c6f3325c2775ac
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__093e03e81c56838ba8d14a3d194b4ec6d03726b7cd475c65fe89d8767f0c4380(
+    *,
+    endpoint_ip_address_type: builtins.str,
+    subnet_ids: typing.Sequence[builtins.str],
+    vpc_identifier: builtins.str,
+    routing_domain: typing.Optional[builtins.str] = None,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d704f14f4e19ee320274dab9284b43c974dd61946264cba7360a60c5b379d420(
     *,
     network_mode: builtins.str,
@@ -72545,6 +75293,37 @@ def _typecheckingstub__d42bd67e0a13cf4914c7eba571cc884afd69107765def3daf53e7adf9
     custom_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     default_return_url: typing.Optional[builtins.str] = None,
     grant_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17583c68d9929dabbfdc234e94c11bc70d4be56abcbda45bb3c832fbc62c5101(
+    *,
+    domain: builtins.str,
+    private_endpoint: typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.PrivateEndpointProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__027618384d31bf5ebe6a82bed9e344cf9ed93b7bf153af976a283ae3d679ebd3(
+    *,
+    managed_vpc_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.ManagedVpcResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    self_managed_lattice_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHarness.SelfManagedLatticeResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a10013d8af35df379318bc413579072676443f7179914d4a22a0da2dff69b9bb(
+    *,
+    access_point_arn: builtins.str,
+    mount_path: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07594d4a0af1fdb9c936521916801e4ce7816796e63f998c48d6cd18c37bc3f8(
+    *,
+    resource_configuration_identifier: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -73888,6 +76667,7 @@ def _typecheckingstub__a0df0ec34c1700a2fd80d71aa113459b1f257b8a6040e2dac1057827a
     name: builtins.str,
     policy_engine_id: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    enforcement_mode: typing.Optional[builtins.str] = None,
     validation_mode: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -73941,6 +76721,12 @@ def _typecheckingstub__76a62df0bf0572336e2f28e5a6426bde1f261612e5e0c84a7839f62c6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__50671295cc575da61a2338b0767dac3fdac191d09d27b6498e7588494399ac19(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e182f5e6fcaeb9a8106b8902eb058d4494505efd524ef30250a9e7b351ecbca9(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -73956,7 +76742,15 @@ def _typecheckingstub__dd4c98edc5615559914b5f68ccb2078c51b044946e201c8db3860329b
 
 def _typecheckingstub__f6794e02be8a07b494523ce530bdb5da6ec840b4e6342043fc96304f1d964632(
     *,
-    cedar: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicy.CedarPolicyProperty, typing.Dict[builtins.str, typing.Any]]],
+    cedar: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicy.CedarPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicy.PolicyStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f828716449f5c5dd7dfe2a6cad0d64a44b0fdb2d415dee6f4044380ecf18cfff(
+    *,
+    statement: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -74037,6 +76831,7 @@ def _typecheckingstub__95094990d09b6f6bc15ab83744a973bf7541ebc86b713d23c0165d623
     name: builtins.str,
     policy_engine_id: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    enforcement_mode: typing.Optional[builtins.str] = None,
     validation_mode: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

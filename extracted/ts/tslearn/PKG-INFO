@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tslearn
-Version: 0.8.1
+Version: 0.9.0
 Summary: A machine learning toolkit dedicated to time-series data
 Author-email: Romain Tavenard <romain.tavenard@univ-rennes2.fr>
 License-Expression: BSD-2-Clause
@@ -22,6 +22,7 @@ Requires-Dist: numpy>=1.24.3
 Requires-Dist: scipy>=1.10.1
 Requires-Dist: numba>=0.61
 Requires-Dist: joblib>=1.2
+Requires-Dist: statsmodels>=0.14
 Provides-Extra: pytorch
 Requires-Dist: torch; extra == "pytorch"
 Provides-Extra: tests
@@ -57,7 +58,7 @@ Dynamic: license-file
     <a href="https://badge.fury.io/py/tslearn">
         <img alt="PyPI" src="https://badge.fury.io/py/tslearn.svg?cache-control=no-cache">
     </a>
-    <a href="https://www.python.org/downloads/releases">
+    <a href="https://www.python.org/downloads/">
         <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10+-blue.svg">
     </a>
     <a href="http://tslearn.readthedocs.io/en/stable/?badge=stable">

@@ -956,6 +956,7 @@ from .. import (
     IResolvable as _IResolvable_da3f097b,
     IResource as _IResource_c80c4260,
     ITaggable as _ITaggable_36806126,
+    ITaggableV2 as _ITaggableV2_4e6798f8,
     Resource as _Resource_45bc6135,
     Stack as _Stack_2866e57f,
     TagManager as _TagManager_0a598cb3,
@@ -6507,7 +6508,7 @@ class CfnPipelineProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IWebhookRef_f412ea52)
+@jsii.implements(_IInspectable_c2943556, _IWebhookRef_f412ea52, _ITaggableV2_4e6798f8)
 class CfnWebhook(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6528,6 +6529,7 @@ class CfnWebhook(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_codepipeline as codepipeline
@@ -6550,6 +6552,10 @@ class CfnWebhook(
             # the properties below are optional
             name="name",
             register_with_third_party=False,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
             target_pipeline_version=123
         )
     '''
@@ -6566,6 +6572,7 @@ class CfnWebhook(
         target_pipeline: builtins.str,
         name: typing.Optional[builtins.str] = None,
         register_with_third_party: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_pipeline_version: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Create a new ``AWS::CodePipeline::Webhook``.
@@ -6579,6 +6586,7 @@ class CfnWebhook(
         :param target_pipeline: The name of the pipeline you want to connect to the webhook.
         :param name: The name of the webhook.
         :param register_with_third_party: Configures a connection between the webhook that was created and the external tool with events to be detected.
+        :param tags: An array of key-value pairs to apply to this resource.
         :param target_pipeline_version: The version number of the pipeline to be connected to the trigger request. Required: Yes Type: Integer Update requires: `No interruption <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt>`_
         '''
         if __debug__:
@@ -6593,6 +6601,7 @@ class CfnWebhook(
             target_pipeline=target_pipeline,
             name=name,
             register_with_third_party=register_with_third_party,
+            tags=tags,
             target_pipeline_version=target_pipeline_version,
         )
 
@@ -6689,6 +6698,12 @@ class CfnWebhook(
         :cloudformationAttribute: Url
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6811,6 +6826,19 @@ class CfnWebhook(
             type_hints = typing.get_type_hints(_typecheckingstub__bece180dca3b968274dbd53d569afb60e6d46b7d744e84c8607ca6bebd23d1be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "registerWithThirdParty", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ddd9c93a26d5b4be32315f52ae6f9d5b9ef7fcb60f631abfd481f7906f5b534c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="targetPipelineVersion")
@@ -6993,6 +7021,7 @@ class CfnWebhook(
         "target_pipeline": "targetPipeline",
         "name": "name",
         "register_with_third_party": "registerWithThirdParty",
+        "tags": "tags",
         "target_pipeline_version": "targetPipelineVersion",
     },
 )
@@ -7007,6 +7036,7 @@ class CfnWebhookProps:
         target_pipeline: builtins.str,
         name: typing.Optional[builtins.str] = None,
         register_with_third_party: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_pipeline_version: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Properties for defining a ``CfnWebhook``.
@@ -7018,6 +7048,7 @@ class CfnWebhookProps:
         :param target_pipeline: The name of the pipeline you want to connect to the webhook.
         :param name: The name of the webhook.
         :param register_with_third_party: Configures a connection between the webhook that was created and the external tool with events to be detected.
+        :param tags: An array of key-value pairs to apply to this resource.
         :param target_pipeline_version: The version number of the pipeline to be connected to the trigger request. Required: Yes Type: Integer Update requires: `No interruption <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt>`_
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-webhook.html
@@ -7025,6 +7056,7 @@ class CfnWebhookProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_codepipeline as codepipeline
@@ -7047,6 +7079,10 @@ class CfnWebhookProps:
                 # the properties below are optional
                 name="name",
                 register_with_third_party=False,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 target_pipeline_version=123
             )
         '''
@@ -7059,6 +7095,7 @@ class CfnWebhookProps:
             check_type(argname="argument target_pipeline", value=target_pipeline, expected_type=type_hints["target_pipeline"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument register_with_third_party", value=register_with_third_party, expected_type=type_hints["register_with_third_party"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument target_pipeline_version", value=target_pipeline_version, expected_type=type_hints["target_pipeline_version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "authentication": authentication,
@@ -7071,6 +7108,8 @@ class CfnWebhookProps:
             self._values["name"] = name
         if register_with_third_party is not None:
             self._values["register_with_third_party"] = register_with_third_party
+        if tags is not None:
+            self._values["tags"] = tags
         if target_pipeline_version is not None:
             self._values["target_pipeline_version"] = target_pipeline_version
 
@@ -7161,6 +7200,15 @@ class CfnWebhookProps:
         '''
         result = self._values.get("register_with_third_party")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-webhook.html#cfn-codepipeline-webhook-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     @builtins.property
     def target_pipeline_version(self) -> typing.Optional[jsii.Number]:
@@ -12726,6 +12774,7 @@ def _typecheckingstub__bf02f564438140d92570cd41d3abeeb991e242929571b6de0035b8a8b
     target_pipeline: builtins.str,
     name: typing.Optional[builtins.str] = None,
     register_with_third_party: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_pipeline_version: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12805,6 +12854,12 @@ def _typecheckingstub__bece180dca3b968274dbd53d569afb60e6d46b7d744e84c8607ca6beb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ddd9c93a26d5b4be32315f52ae6f9d5b9ef7fcb60f631abfd481f7906f5b534c(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1b5cd8d4c4d8034c3ab1dd1b987c191aa6f08532707cff99ad05b96198aff585(
     value: typing.Optional[jsii.Number],
 ) -> None:
@@ -12836,6 +12891,7 @@ def _typecheckingstub__f28117e3c74b6a7a1058236385a59385f8137a16e17eeab89a327270a
     target_pipeline: builtins.str,
     name: typing.Optional[builtins.str] = None,
     register_with_third_party: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_pipeline_version: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""

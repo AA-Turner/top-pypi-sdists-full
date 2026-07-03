@@ -6,30 +6,33 @@
 
 import re
 import tempfile
-import unittest
+from unittest import TestCase
 
 import pymarc
-from pymarc import exceptions
+from pymarc import Field, Record, exceptions
+
+# TODO: these tests are overly complicated and should be converted over to using
+# pytest functions possibly in separate modules instead of getting fancy with inheritence
 
 
 class MARCReaderBaseTest:
     def test_iterator(self):
         count = 0
-        for _ in self.reader:
+        for _ in self.reader:  # type: ignore
             count += 1
-        self.assertEqual(count, 10, "found expected number of MARC21 records")
+        self.assertEqual(count, 10, "found expected number of MARC21 records")  # type: ignore
 
     def test_string(self):
         # basic test of stringification
         starts_with_leader = re.compile("^=LDR")
         has_numeric_tag = re.compile(r"\n=\d\d\d ")
-        for record in self.reader:
+        for record in self.reader:  # type: ignore
             text = str(record)
-            self.assertTrue(starts_with_leader.search(text), "got leader")
-            self.assertTrue(has_numeric_tag.search(text), "got a tag")
+            self.assertTrue(starts_with_leader.search(text), "got leader")  # type: ignore
+            self.assertTrue(has_numeric_tag.search(text), "got a tag")  # type: ignore
 
 
-class MARCReaderFileTest(unittest.TestCase, MARCReaderBaseTest):
+class MARCReaderFileTest(TestCase, MARCReaderBaseTest):
     """Tests MARCReader which provides iterator based access to a MARC file."""
 
     def setUp(self):
@@ -59,24 +62,18 @@ class MARCReaderFileTest(unittest.TestCase, MARCReaderBaseTest):
             pymarc.map_records(f, fh1, fh2)
             self.assertEqual(self.count, 20, "map_records appears to work")
 
-    def disabled_test_codecs(self):
-        import codecs
-
-        with codecs.open("test/test.dat", encoding="utf-8") as fh:
-            reader = pymarc.MARCReader(fh)
-            record = next(reader)
-            self.assertEqual(record["245"]["a"], "ActivePerl with ASP and ADO /")
-
     def test_bad_subfield(self):
         with open("test/bad_subfield_code.dat", "rb") as fh:
             reader = pymarc.MARCReader(fh)
             record = next(reader)
+            assert isinstance(record, Record)
             self.assertEqual(record["245"]["a"], "ActivePerl with ASP and ADO /")
 
     def test_bad_indicator(self):
         with open("test/bad_indicator.dat", "rb") as fh:
             reader = pymarc.MARCReader(fh)
             record = next(reader)
+            assert isinstance(record, Record)
             self.assertEqual(record["245"]["a"], "Aristocrats of color :")
 
     def test_regression_45(self):
@@ -84,6 +81,7 @@ class MARCReaderFileTest(unittest.TestCase, MARCReaderBaseTest):
         with open("test/regression45.dat", "rb") as fh:
             reader = pymarc.MARCReader(fh)
             record = next(reader)
+            assert isinstance(record, Record)
             self.assertEqual(record["752"]["a"], "Russian Federation")
             self.assertEqual(record["752"]["b"], "Kostroma Oblast")
             self.assertEqual(record["752"]["d"], "Kostroma")
@@ -91,7 +89,7 @@ class MARCReaderFileTest(unittest.TestCase, MARCReaderBaseTest):
     # inherit same tests from MARCReaderBaseTest
 
 
-class MARCReaderStringTest(unittest.TestCase, MARCReaderBaseTest):
+class MARCReaderStringTest(TestCase, MARCReaderBaseTest):
     def setUp(self):
         with open("test/test.dat", "rb") as fh:
             raw = fh.read()
@@ -102,7 +100,7 @@ class MARCReaderStringTest(unittest.TestCase, MARCReaderBaseTest):
     # inherit same tests from MARCReaderBaseTest
 
 
-class MARCReaderFilePermissiveTest(unittest.TestCase):
+class MARCReaderFilePermissiveTest(TestCase):
     """Tests MARCReader which provides iterator based access in a permissive way."""
 
     def setUp(self):
@@ -140,7 +138,7 @@ class MARCReaderFilePermissiveTest(unittest.TestCase):
             record = next(self.reader)
             self.assertIsNotNone(self.reader.current_chunk)
             if exception_type is None:
-                self.assertIsNotNone(record)
+                assert record is not None
                 self.assertIsNone(self.reader.current_exception)
                 self.assertEqual(record["245"]["a"], "The pragmatic programmer : ")
                 self.assertEqual(record["245"]["b"], "from journeyman to master /")
@@ -158,7 +156,7 @@ class MARCReaderFilePermissiveTest(unittest.TestCase):
                 )
 
 
-class TestTruncatedData(unittest.TestCase):
+class TestTruncatedData(TestCase):
     def test_empty_data(self):
         count = 0
         for record in pymarc.MARCReader(b""):
@@ -233,7 +231,7 @@ class TestTruncatedData(unittest.TestCase):
         )
 
 
-class MARCMakerReaderTest(unittest.TestCase, MARCReaderBaseTest):
+class MARCMakerReaderTest(TestCase, MARCReaderBaseTest):
     """Tests MARCMakerReader which provides iterator based access to a text file."""
 
     @classmethod
@@ -256,11 +254,13 @@ class MARCMakerReaderTest(unittest.TestCase, MARCReaderBaseTest):
 
     def test_parse_line_control_field(self):
         field = self.reader._parse_line("=008  010314s1999fr||||||||||||||||fre")
+        assert isinstance(field, Field)
         self.assertEqual(field.tag, "008")
         self.assertEqual(field.data, "010314s1999fr||||||||||||||||fre")
 
     def test_parse_line_data_field(self):
         field = self.reader._parse_line("=028  01$aSTMA 8007$bTamla Motown Records")
+        assert isinstance(field, Field)
         self.assertEqual(field.tag, "028")
         self.assertEqual(field.indicator1, "0")
         self.assertEqual(field.indicator2, "1")
@@ -306,7 +306,3 @@ class MARCMakerReaderTest(unittest.TestCase, MARCReaderBaseTest):
                 self.assertEqual(
                     str(record), self.records[0], "records should be identical"
                 )
-
-
-if __name__ == "__main__":
-    unittest.main()

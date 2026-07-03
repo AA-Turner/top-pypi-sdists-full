@@ -27,6 +27,10 @@ RT = TypeVar("RT")
 logger = logging.getLogger(__name__)
 log_raw_traffic = partial(base_log_raw_traffic, "TCP")
 
+# Maximum value of the MBAP length field: unit id (1 byte) plus a 253-byte PDU,
+# which is the largest a Modbus TCP frame is allowed to be.
+MODBUS_TCP_MAX_LENGTH = 254
+
 
 class AsyncTcpTransport(AsyncBaseTransport):
     """Async Modbus TCP Transport Layer Implementation.
@@ -48,6 +52,7 @@ class AsyncTcpTransport(AsyncBaseTransport):
         *,
         timeout: float = 10.0,
         connect_timeout: float = 10.0,
+        on_connection_lost: Callable[[Exception | None], None] | None = None,
         **connection_kwargs: Any,
     ) -> None:
         """Initialize async TCP transport layer.
@@ -57,6 +62,8 @@ class AsyncTcpTransport(AsyncBaseTransport):
             port: Target port, default 502 (Modbus TCP standard port)
             timeout: Timeout in seconds, default 10.0s
             connect_timeout: Timeout for establishing connection, default 10.0s
+            on_connection_lost: Optional callback invoked the moment the connection is lost.
+                                Receives the causing exception, or None on a clean close.
             connection_kwargs: Additional connection parameters passed to `asyncio.create_connection`
                                (e.g., SSL context)
 
@@ -79,6 +86,7 @@ class AsyncTcpTransport(AsyncBaseTransport):
         self.port = port
         self.timeout = timeout
         self.connect_timeout = connect_timeout
+        self.on_connection_lost = on_connection_lost
         self.connection_kwargs = connection_kwargs
 
     async def open(self) -> None:
@@ -89,11 +97,14 @@ class AsyncTcpTransport(AsyncBaseTransport):
             return
 
         try:
-            self._transport, self._protocol = await loop.create_connection(
-                lambda: ModbusTcpProtocol(on_connection_lost=self._on_connection_lost, timeout=self.timeout),
-                host=self.host,
-                port=self.port,
-                **self.connection_kwargs,
+            self._transport, self._protocol = await asyncio.wait_for(
+                loop.create_connection(
+                    lambda: ModbusTcpProtocol(on_connection_lost=self._on_connection_lost, timeout=self.timeout),
+                    host=self.host,
+                    port=self.port,
+                    **self.connection_kwargs,
+                ),
+                timeout=self.connect_timeout,
             )
 
             logger.info("Async TCP connection established: %s:%d", self.host, self.port)
@@ -128,6 +139,8 @@ class AsyncTcpTransport(AsyncBaseTransport):
 
         self._transport = None
         self._protocol = None
+
+        self._notify_connection_lost(exc)
 
     async def send_and_receive(self, unit_id: int, pdu: BaseClientPDU[RT]) -> RT:
         """Async send PDU and receive response.
@@ -171,7 +184,6 @@ class ModbusTcpProtocol(asyncio.Protocol):
 
     _buffer: bytearray
     _next_transaction_id: int
-    _transaction_id_lock: asyncio.Lock
     _last_request_finished_at: float = 0.0
     _pending_requests: dict[int, asyncio.Future[_ModbusMessage]]
 
@@ -189,14 +201,14 @@ class ModbusTcpProtocol(asyncio.Protocol):
 
         self._buffer = bytearray()
         self._next_transaction_id = 1
-        self._transaction_id_lock = asyncio.Lock()
         self._pending_requests = {}
 
-    async def _get_next_transaction_id(self) -> int:
-        async with self._transaction_id_lock:
-            current_id = self._next_transaction_id
-            self._next_transaction_id = (self._next_transaction_id + 1) % 0x10000  # 16-bit wraparound
-            return current_id
+    def _get_next_transaction_id(self) -> int:
+        # No lock needed: this runs to completion without an await, so concurrent
+        # callers on the single-threaded event loop cannot interleave here.
+        current_id = self._next_transaction_id
+        self._next_transaction_id = (self._next_transaction_id + 1) % 0x10000  # 16-bit wraparound
+        return current_id
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """Handle connection made event."""
@@ -223,7 +235,7 @@ class ModbusTcpProtocol(asyncio.Protocol):
             raise ModbusConnectionError(msg)
 
         # 1. Generate transaction ID and build MBAP header
-        current_transaction_id = await self._get_next_transaction_id()
+        current_transaction_id = self._get_next_transaction_id()
 
         request_pdu_bytes = pdu.encode_request()  # Convert PDU to bytes
 
@@ -294,20 +306,24 @@ class ModbusTcpProtocol(asyncio.Protocol):
             # Unpack MBAP header
             transaction_id, protocol_id, length, unit_id = struct.unpack_from(">HHHB", self._buffer)
 
-            # Do some sanity checks on the contents of the header: can it be the start of a valid message?
-            if protocol_id != 0x0000:
-                # Unexpected contents: let's try to discard as much as needed to find a valid header
-                # We look for the next occurrence of 0x0000 in the buffer
-                next_protocol_id_pos = self._buffer.find(b"\x00\x00", 2)  # start searching after the first 2 bytes
+            # Do some sanity checks on the header: can it be the start of a valid message?
+            # A valid MBAP header has protocol id 0x0000 and a length within the Modbus TCP
+            # bounds. An out-of-range length is just as much a sign of a misaligned buffer as
+            # a bad protocol id, and trusting it would stall the parser forever waiting for
+            # bytes that never come, so resync in that case too.
+            if protocol_id != 0x0000 or not (1 <= length <= MODBUS_TCP_MAX_LENGTH):
+                # Look for the next occurrence of 0x0000 (a candidate protocol id), starting
+                # past the current position so a bogus length cannot loop on the same bytes.
+                next_protocol_id_pos = self._buffer.find(b"\x00\x00", 3)
                 if next_protocol_id_pos == -1:
                     # No occurrence found: discard everything except the last byte (in case it's part of a valid header)
                     logger.debug("Discarding garbage bytes: %s", self._buffer[:-1].hex(" ").upper())
                     del self._buffer[:-1]
                     return  # buffer is exhausted, wait for more data
 
-                # Discard bytes up to the potential start of the next message
-                logger.debug("Discarding garbage bytes: %s", self._buffer[:next_protocol_id_pos].hex(" ").upper())
-                # keep the 2 bytes before the found occurrence, as it contains the transaction ID
+                # Discard bytes up to the potential start of the next message,
+                # keeping the 2 bytes before the found occurrence as the transaction ID.
+                logger.debug("Discarding garbage bytes: %s", self._buffer[: next_protocol_id_pos - 2].hex(" ").upper())
                 del self._buffer[: next_protocol_id_pos - 2]
                 continue  # Re-evaluate the buffer from the start
 

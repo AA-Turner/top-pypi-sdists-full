@@ -1,6 +1,6 @@
 [package]
 name = "temporalio-common"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 authors = ["Temporal Technologies Inc. <sdk@temporal.io>"]
 license-file = "LICENSE.txt"
@@ -13,7 +13,17 @@ categories = ["development-tools"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-otel = ["dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp"]
+otel = ["dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp", "dep:reqwest"]
+tls-ring = [
+  "opentelemetry-otlp?/tls-ring",
+  "opentelemetry-otlp?/reqwest-rustls",
+  "tonic/tls-native-roots",
+]
+tls-aws-lc = [
+  "opentelemetry-otlp?/tls-aws-lc",
+  "tonic/tls-native-roots",
+  "reqwest?/rustls-tls-native-roots-no-provider",
+]
 prometheus = [
   "dep:prometheus",
   "dep:hyper",
@@ -47,21 +57,20 @@ hyper-util = { version = "0.1", features = [
   "tokio",
 ], optional = true }
 opentelemetry = { workspace = true, features = ["metrics"], optional = true }
-opentelemetry_sdk = { version = "0.31", default-features = false, features = [
+opentelemetry_sdk = { version = "0.32", default-features = false, features = [
   "rt-tokio",
   "metrics",
   "spec_unstable_metrics_views",
 ], optional = true }
-opentelemetry-otlp = { version = "0.31", default-features = false, features = [
+opentelemetry-otlp = { version = "0.32", default-features = false, features = [
   "tokio",
   "metrics",
-  "tls-roots",
   "http-proto",
   "grpc-tonic",
   "reqwest-blocking-client",
-  "reqwest-rustls",
 ], optional = true }
 parking_lot = { version = "0.12" }
+reqwest = { version = "0.12", default-features = false, optional = true }
 prometheus = { version = "0.14", optional = true, default-features = false }
 ringbuf = { version = "0.5", optional = true }
 serde = { version = "1.0", features = ["derive"] }
@@ -77,6 +86,7 @@ tonic = { workspace = true, default-features = false, features = [
   "transport",
   "codegen",
 ] }
+prost = { workspace = true }
 tracing = "0.1"
 # TODO [rust-sdk-branch]: Is it reasonable to make this optional?
 tracing-subscriber = { version = "0.3", default-features = false, features = [
@@ -91,12 +101,12 @@ uuid = { version = "1.18", default-features = false, features = ["v4"] }
 
 [dependencies.temporalio-protos]
 path = "../protos"
-version = "0.4"
+version = "0.5"
 features = ["grpc-clients"]
 
 [dependencies.temporalio-common-wasm]
 path = "../common-wasm"
-version = "0.4"
+version = "0.5"
 
 [build-dependencies]
 prost = { workspace = true }

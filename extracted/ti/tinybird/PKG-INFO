@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.6.5
+Version: 4.6.6
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,13 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.6.6
+*******
+
+- `Fixed` `tb local` now starts the Tinybird Local container using the host's native architecture (``linux/arm64`` on Apple Silicon, ``linux/amd64`` elsewhere) instead of always forcing ``linux/amd64``, so it no longer runs under emulation on arm64 machines.
+- `Added` ``TB_LOCAL_IMAGE_PLATFORM`` environment variable to override the auto-detected image platform (e.g. ``linux/amd64`` to run the amd64 image emulated on an arm64 host, or to run a locally built single-arch image that does not match the host).
+- `Fixed` `tb local start` new-version detection now normalizes Docker Hub image digests and no longer pulls when the registry is unreachable.
 
 4.6.5
 *******

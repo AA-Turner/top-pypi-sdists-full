@@ -14,7 +14,6 @@ include = [
     "README.md",
     "src",
     "tests/*.py",
-    "requirements/*.txt",
 ]
 
 [lib]
@@ -25,19 +24,18 @@ crate-type = ["cdylib", "rlib"]
 lto = "fat"
 codegen-units = 1
 strip = true
-# FUTURE: consider `opt-level = "s"`.
-# It reduces binary size by about 10%, at about 10% slower performance
+opt-level = 3
 
 [dependencies]
 ahash = "^0.8.12"
 
 [dependencies.pyo3-ffi]
-version = "^0.28.2"
+version = "^0.29.0"
 default-features = false
 features = ["extension-module", "generate-import-lib"]
 
 [build-dependencies]
-pyo3-build-config = { version = "^0.28.2" }
+pyo3-build-config = { version = "^0.29.0" }
 
 [dev-dependencies]
 criterion = "^0.8.1"
@@ -49,4 +47,4 @@ harness = false
 path = "benchmarks/rust/main.rs"
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = [ "cfg(Py_3_9)", "cfg(Py_3_10)", "cfg(Py_3_11)", "cfg(Py_3_12)", "cfg(Py_3_13)", "cfg(Py_GIL_DISABLED)"] }
+unexpected_cfgs = { level = "warn", check-cfg = [ "cfg(Py_3_9)", "cfg(Py_3_10)", "cfg(Py_3_11)", "cfg(Py_3_12)", "cfg(Py_3_13)", "cfg(Py_GIL_DISABLED)", "cfg(PyPy)"] }

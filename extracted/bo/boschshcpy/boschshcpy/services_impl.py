@@ -340,6 +340,15 @@ class ShutterContactService(SHCDeviceService):
 
 
 class BypassService(SHCDeviceService):
+    """Door/window contact alarm bypass (SWD2/SWD2_PLUS/SWD2_DUAL).
+
+    Alongside the top-level `state` (BYPASS_ACTIVE/BYPASS_INACTIVE), Bosch's
+    bypassState carries a nested `configuration` block (`enabled`, `timeout`
+    seconds, `infinite`) that lets the bypass auto-expire after N seconds
+    instead of staying active forever. See knowledge-base/rawscan-database.md
+    (SWD2/SWD2_PLUS rawscans) for the confirmed shape.
+    """
+
     class State(Enum):
         BYPASS_INACTIVE = "BYPASS_INACTIVE"
         BYPASS_ACTIVE = "BYPASS_ACTIVE"
@@ -352,9 +361,96 @@ class BypassService(SHCDeviceService):
         except (KeyError, ValueError):
             return self.State.UNKNOWN
 
+    @property
+    def _config(self) -> dict[str, Any]:
+        return self.state.get("configuration", {}) or {}
+
+    @property
+    def configuration_enabled(self) -> bool:
+        return bool(self._config.get("enabled", False))
+
+    @property
+    def timeout(self) -> int:
+        return int(self._config.get("timeout", 0))
+
+    @property
+    def infinite(self) -> bool:
+        return bool(self._config.get("infinite", False))
+
+    def _merged_configuration(self, **overrides: Any) -> dict[str, Any]:
+        # Mirrors OutdoorSirenService: the PUT requires the whole
+        # configuration block, so unchanged fields are filled from the
+        # current state.
+        cfg: dict[str, Any] = {
+            "enabled": self.configuration_enabled,
+            "timeout": self.timeout,
+            "infinite": self.infinite,
+        }
+        cfg.update(overrides)
+        return cfg
+
+    def set_bypass_configuration(
+        self,
+        *,
+        enabled: bool | None = None,
+        timeout: int | None = None,
+        infinite: bool | None = None,
+    ) -> None:
+        """Write: update one or more configuration fields."""
+        if not self._config:
+            logger.warning(
+                "Bypass %s: configuration not yet known, skipping write to "
+                "avoid resetting bypass settings",
+                self.device_id,
+            )
+            return
+        overrides: dict[str, Any] = {}
+        if enabled is not None:
+            overrides["enabled"] = enabled
+        if timeout is not None:
+            overrides["timeout"] = timeout
+        if infinite is not None:
+            overrides["infinite"] = infinite
+        self.put_state_element("configuration", self._merged_configuration(**overrides))
+
+    async def async_set_bypass_configuration(
+        self,
+        *,
+        enabled: bool | None = None,
+        timeout: int | None = None,
+        infinite: bool | None = None,
+    ) -> None:
+        """Async write: update one or more configuration fields.
+
+        Bosch requires the whole configuration block on every PUT, so
+        unchanged fields are filled from the current state. If the current
+        state has no configuration block yet, skip the write rather than PUT
+        a block of zeros that would wipe the user's settings.
+        """
+        if not self._config:
+            logger.warning(
+                "Bypass %s: configuration not yet known, skipping write to "
+                "avoid resetting bypass settings",
+                self.device_id,
+            )
+            return
+        overrides: dict[str, Any] = {}
+        if enabled is not None:
+            overrides["enabled"] = enabled
+        if timeout is not None:
+            overrides["timeout"] = timeout
+        if infinite is not None:
+            overrides["infinite"] = infinite
+        await self.async_put_state_element(
+            "configuration", self._merged_configuration(**overrides)
+        )
+
     def summary(self) -> None:
         super().summary()
         print(f"    State                    : {self.value}")
+        print(f"    configuration.enabled    : {self.configuration_enabled}")
+        print(f"    configuration.timeout    : {self.timeout}")
+        print(f"    configuration.infinite   : {self.infinite}")
 
 
 class VibrationSensorService(SHCDeviceService):
@@ -417,10 +513,16 @@ class ValveTappetService(SHCDeviceService):
         UNKNOWN = "UNKNOWN"
 
     @property
-    def position(self) -> float:
-        # Thermostat II reports the valve tappet position as a JSON number
-        # (OpenAPI Thermostat-II position = number); int() truncated it.
-        return float(self.state.get("position", 0.0))
+    def position(self) -> int:
+        # NOTE: OpenAPI (Thermostat-II-local-openapi-v3.yml) types this field
+        # as generic "number", which previously motivated switching this to
+        # float (0.8.3). However, the Bosch APK's own ValveTappetState client
+        # model declares this field as Integer (unlike sibling
+        # TemperatureOffsetState/TemperatureLevelState, which use Double for
+        # their numeric fields) — i.e. the app's ground-truth model never
+        # expects a fractional valve position. Reverted to int() to match the
+        # APK; re-verify against a live rawscan before floating this again.
+        return int(self.state.get("position", 0))
 
     @property
     def value(self) -> State:
@@ -593,10 +695,19 @@ class SmokeDetectorCheckService(SHCDeviceService):
         SMOKE_TEST_OK = "SMOKE_TEST_OK"
         SMOKE_TEST_REQUESTED = "SMOKE_TEST_REQUESTED"
         SMOKE_TEST_FAILED = "SMOKE_TEST_FAILED"
+        # SmokeDetectorCheckState$1.java (APK switch-map) treats these
+        # COMMUNICATION_TEST_* values as live transition states on the same
+        # tier as the SMOKE_TEST_* values above, not dead/legacy states.
+        COMMUNICATION_TEST_SENT = "COMMUNICATION_TEST_SENT"
+        COMMUNICATION_TEST_OK = "COMMUNICATION_TEST_OK"
+        COMMUNICATION_TEST_REQUESTED = "COMMUNICATION_TEST_REQUESTED"
 
     @property
     def value(self) -> State:
-        return self.State(self.state["value"])
+        try:
+            return self.State(self.state["value"])
+        except (KeyError, ValueError):
+            return self.State.NONE
 
     def summary(self) -> None:
         super().summary()
@@ -903,6 +1014,24 @@ class DetectionTestService(SHCDeviceService):
         except ValueError:
             return self.DetectionState.DETECTION_TEST_UNKNOWN
 
+    @property
+    def motion_sensitivity(self) -> PirSensorConfigurationService.MotionSensitivity:
+        # APK's DetectionTestState model also carries a motionSensitivity field
+        # (getMotionSensorSensitivity(), enum HIGH/MIDDLE/LOW/UNKNOWN) alongside
+        # detectionState/detectionStateRequest. Distinct from — and observed
+        # separately from — PirSensorConfigurationService's own motionSensitivity
+        # field (which is the one actually wired to SHCMotionDetector2 today);
+        # reuse its enum vocabulary here since both fields share the same values.
+        # NOTE: no real-device rawscan has ever shown this key inside the
+        # DetectionTest state (only detectionState observed so far); treat as
+        # documented-but-unconfirmed-live until a fresh capture proves it out.
+        try:
+            return PirSensorConfigurationService.MotionSensitivity(
+                self.state["motionSensitivity"]
+            )
+        except (KeyError, ValueError):
+            return PirSensorConfigurationService.MotionSensitivity.UNKNOWN
+
     def set_detection_state_request(
         self, value: DetectionTestService.DetectionStateRequest
     ) -> None:
@@ -922,6 +1051,7 @@ class DetectionTestService(SHCDeviceService):
     def summary(self) -> None:
         super().summary()
         print(f"    detectionState           : {self.detection_state}")
+        print(f"    motionSensitivity        : {self.motion_sensitivity}")
 
 
 class LatestTamperService(SHCDeviceService):
@@ -1441,9 +1571,16 @@ class AirQualityLevelService(SHCDeviceService):
             return self.RatingState.UNKNOWN
 
     @property
-    def purity(self) -> float:
-        # OpenAPI AirQualityLevelServiceStates.purity = number; int() truncated it.
-        return float(self.state["purity"])
+    def purity(self) -> int:
+        # OpenAPI AirQualityLevelServiceStates.purity = number (like
+        # temperature/humidity), but the decompiled Android app's
+        # AirQualityLevelState model class declares temperature/humidity as
+        # java.lang.Float and purity as java.lang.Integer specifically -- a
+        # deliberate per-field distinction the generic OpenAPI "number" type
+        # doesn't capture. The 0.8.3 follow-up (#352) over-generalized the
+        # temperature float-fix to purity too; reverted back to int() here.
+        # Do NOT re-float this without new APK/API evidence.
+        return int(self.state["purity"])
 
     @property
     def purityRating(self) -> RatingState:
@@ -1540,10 +1677,22 @@ class CommunicationQualityService(SHCDeviceService):
     class State(Enum):
         BAD = "BAD"
         GOOD = "GOOD"
-        MEDIUM = "MEDIUM"
+        NOT_SUPPORTED = "NOT_SUPPORTED"
         NORMAL = "NORMAL"
         UNKNOWN = "UNKNOWN"
         FETCHING = "FETCHING"
+
+    # PUT request value (requestState accepted by the controller). Write-only
+    # trigger field, separate from the read-only "quality" state — same
+    # read-field/write-field split as DetectionTest.detectionState/
+    # detectionStateRequest and WalkTest.walkState/walkStateRequest. APK
+    # capability dump: CommunicationQualityState.requestState is a
+    # RequestState enum with the single value REQUEST, used by
+    # ConfiguredMultiswitchNavigation.openCommunicationQualityTest to kick
+    # off a fresh communication-quality measurement via the
+    # MultiswitchCommunicationTestStartPage wizard.
+    class RequestState(Enum):
+        REQUEST = "REQUEST"
 
     @property
     def value(self) -> State:
@@ -1551,6 +1700,18 @@ class CommunicationQualityService(SHCDeviceService):
             return self.State(self.state["quality"])
         except (KeyError, ValueError):
             return self.State.UNKNOWN
+
+    def request_quality_test(self) -> None:
+        """Trigger a fresh communication-quality measurement (write-only)."""
+        self.put_state_element(
+            "requestState", self.RequestState.REQUEST.value
+        )
+
+    async def async_request_quality_test(self) -> None:
+        """Async counterpart to request_quality_test."""
+        await self.async_put_state_element(
+            "requestState", self.RequestState.REQUEST.value
+        )
 
     def summary(self) -> None:
         super().summary()
@@ -1820,6 +1981,7 @@ class WallThermostatConfiguration(SHCDeviceService):
         RADIATOR = "RADIATOR"
         CONVECTOR_PASSIVE = "CONVECTOR_PASSIVE"
         CONVECTOR_ACTIVE = "CONVECTOR_ACTIVE"
+        VOLT_FREE_HEATING = "VOLT_FREE_HEATING"
         UNKNOWN = "UNKNOWN"
 
     @property
@@ -1860,10 +2022,31 @@ class WallThermostatConfiguration(SHCDeviceService):
     ) -> None:
         await self.async_put_state_element("heaterType", value.value)
 
+    @property
+    def supported_heater_types(self) -> list[Any]:
+        # Per-device capability list (analogous to
+        # ThermostatSupportedControlModeService.supported_control_modes) —
+        # e.g. RTH2_230 = [VOLT_FREE_HEATING, FLOOR_HEATING], BWTH gen1/gen2
+        # advertise a wider set incl. CONVECTOR_ACTIVE/CONVECTOR_PASSIVE.
+        # Confirmed via rawscans (hass#274, hass#330).
+        return list(self.state.get("supportedHeaterTypes", []))
+
+    @property
+    def decalcification_protection_enabled(self) -> bool | None:
+        # Only present on newer firmware (confirmed hass#330 rawscan on
+        # RTH2_230). Absent on older firmware, hence Optional.
+        raw = self.state.get("decalcificationProtectionEnabled")
+        return bool(raw) if raw is not None else None
+
     def summary(self) -> None:
         super().summary()
         print(f"    valveType                : {self.valve_type}")
         print(f"    heaterType               : {self.heater_type}")
+        print(f"    supportedHeaterTypes     : {self.supported_heater_types}")
+        print(
+            "    decalcificationProtEnabled: "
+            f"{self.decalcification_protection_enabled}"
+        )
 
 
 class SwitchConfiguration(SHCDeviceService):

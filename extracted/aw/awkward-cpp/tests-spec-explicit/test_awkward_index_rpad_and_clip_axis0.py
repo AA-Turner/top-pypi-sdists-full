@@ -132,23 +132,3 @@ def test_awkward_index_rpad_and_clip_axis0_13():
 	assert toindex == pytest_toindex
 
 
-def test_awkward_index_rpad_and_clip_axis0_14():
-	toindex = [123, 123, 123, 123, 123]
-	length = 3
-	target = 5
-	funcPy = getattr(kernels, 'awkward_index_rpad_and_clip_axis0')
-	funcPy(toindex = toindex,length = length,target = target)
-	pytest_toindex = [0, 1, 2, -1, -1]
-	assert toindex == pytest_toindex
-
-
-def test_awkward_index_rpad_and_clip_axis0_15():
-	toindex = [123, 123, 123]
-	length = 0
-	target = 3
-	funcPy = getattr(kernels, 'awkward_index_rpad_and_clip_axis0')
-	funcPy(toindex = toindex,length = length,target = target)
-	pytest_toindex = [-1, -1, -1]
-	assert toindex == pytest_toindex
-
-

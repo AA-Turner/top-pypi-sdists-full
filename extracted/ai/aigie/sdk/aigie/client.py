@@ -5,6 +5,7 @@ Aigie Client - Main SDK class for integrating Aigie monitoring.
 import asyncio
 import logging
 import os
+import signal
 import time
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -28,6 +29,7 @@ from aigie.diagnostics import (
     format_diagnostic,
 )
 from aigie.ingest import span_to_proto as _span_to_proto
+from aigie.rewind.coordinator import RewindCoordinator
 from aigie.trace import TraceContext
 from aigie.tracing.trace_state import drain_open_spans_as_interrupted
 from aigie.tracing.types import JUDGE_SKIP_STATUSES
@@ -148,6 +150,7 @@ class Aigie:
             decorators_v3.set_debug_mode(True)
             logger.debug("Aigie client initialized in debug mode")
 
+        self._rewind_coordinator = RewindCoordinator()
         self.client: httpx.AsyncClient | None = None
         self._initialized: bool = False
         self._init_status: str = "pending"  # "pending", "ok", "partial", "failed"
@@ -194,9 +197,7 @@ class Aigie:
         aigie_modules = [
             "aigie",
             "aigie.auto_instrument",
-            "aigie.autonomous",  # v2: reflex hits, directives, outcomes (ADR 0001)
             "aigie.integrations",
-            "aigie.gateway",
             "aigie.client",
             "claude_agent_sdk",
             "langchain",
@@ -501,8 +502,8 @@ class Aigie:
         if not self.client:
             raise RuntimeError("httpx client not initialized")
 
-        # Try /v1/health (no auth required)
-        health_url = f"{self._aigie_url}/v1/health"
+        # Try /health (no auth required)
+        health_url = f"{self._aigie_url}/health"
         response = await self.client.get(health_url, timeout=3.0)
         response.raise_for_status()
 
@@ -656,8 +657,6 @@ class Aigie:
         # If name is provided and it's a string, use as context manager
         if name is not None and isinstance(name, str):
             ctx = TraceContext(
-                client=self.client,
-                api_url=self._aigie_url,
                 buffer=self._buffer,
                 name=name,
                 metadata=enriched_metadata,
@@ -782,30 +781,6 @@ class Aigie:
         if parent_context:
             return parent_context.create_child()
         return TraceContext()
-
-    async def remediate(self, trace_id: str, error: Exception) -> dict[str, Any]:
-        """
-        Trigger autonomous remediation for an error.
-
-        Args:
-            trace_id: Trace ID with the error
-            error: The exception that occurred
-
-        Returns:
-            Remediation result
-        """
-        if not self._initialized:
-            await self.initialize()
-
-        response = await self.client.post(
-            f"{self._aigie_url}/v1/remediation/autonomous/fix",
-            json={
-                "trace_id": trace_id,
-                "error": {"type": type(error).__name__, "message": str(error)},
-            },
-        )
-        response.raise_for_status()
-        return response.json()
 
     async def intercept_before_tool(
         self,
@@ -974,48 +949,6 @@ class Aigie:
         except Exception as e:
             logger.debug(f"Post-tool interception error (fail-open): {e}")
             return noop_result
-
-    async def detect_precursors(self, context: dict[str, Any]) -> list[dict[str, Any]]:
-        """
-        Detect error precursors in the given context.
-
-        Args:
-            context: Context data to analyze
-
-        Returns:
-            List of detected precursors
-        """
-        if not self._initialized:
-            await self.initialize()
-
-        response = await self.client.post(
-            f"{self._aigie_url}/v1/prevention/detect-precursors", json={"context": context}
-        )
-        response.raise_for_status()
-        return response.json().get("precursors", [])
-
-    async def apply_preventive_fix(
-        self, trace_id: str, precursors: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        """
-        Apply preventive fixes based on detected precursors.
-
-        Args:
-            trace_id: Trace ID
-            precursors: List of detected precursors
-
-        Returns:
-            Fix application result
-        """
-        if not self._initialized:
-            await self.initialize()
-
-        response = await self.client.post(
-            f"{self._aigie_url}/v1/prevention/apply-preventive-fix",
-            json={"trace_id": trace_id, "precursors": precursors},
-        )
-        response.raise_for_status()
-        return response.json()
 
     async def _dispatch_v2_spans(self, events: list[BufferedEvent]) -> None:
         """Send finalized spans to the gRPC Ingest Gateway.
@@ -1891,139 +1824,6 @@ class Aigie:
             "usage": usage,
         }
 
-    # ========== Drift Detection API ==========
-
-    async def detect_drift(
-        self,
-        trace_id: str,
-        force: bool = False,
-    ) -> dict[str, Any]:
-        """
-        Detect context drift in a trace.
-
-        Analyzes a trace for various types of drift:
-        - goal_drift: Agent deviating from original goal
-        - plan_deviation: Agent not following expected execution plan
-        - instruction_violation: Agent violating system prompt guidelines
-        - topic_drift: Conversation veering off topic
-        - hallucination: Inconsistent or fabricated outputs
-        - tool_loop: Repeated tool calls in a loop
-        - token_exhaustion: Running out of context window
-
-        Args:
-            trace_id: The trace ID to analyze
-            force: Force re-detection even if cached
-
-        Returns:
-            Dict with drift analysis results:
-            - trace_id: str
-            - has_drift: bool
-            - drift_type: str (e.g., "goal_drift", "tool_loop")
-            - severity: str ("low", "medium", "high", "critical")
-            - confidence: float (0.0-1.0)
-            - signals: List of detected drift signals
-            - recommendation: str (suggested action)
-            - analyzed_at: str (ISO timestamp)
-
-        Example:
-            result = await aigie.detect_drift("trace-123")
-            if result["has_drift"]:
-                print(f"Drift detected: {result['drift_type']}")
-                print(f"Recommendation: {result['recommendation']}")
-        """
-        if not self._initialized:
-            await self.initialize()
-
-        params = {}
-        if force:
-            params["force"] = "true"
-
-        response = await self.client.post(
-            f"{self._aigie_url}/v1/analytics/drift/detect",
-            json={"trace_id": trace_id},
-            params=params,
-        )
-        response.raise_for_status()
-        return response.json()
-
-    async def get_drift_history(
-        self,
-        trace_id: str,
-    ) -> dict[str, Any]:
-        """
-        Get historical drift detections for a trace.
-
-        Returns all drift detection results for a trace,
-        useful for tracking drift over time during long-running agents.
-
-        Args:
-            trace_id: The trace ID to get history for
-
-        Returns:
-            Dict with:
-            - trace_id: str
-            - detections: List of drift detection results
-            - total_detections: int
-
-        Example:
-            history = await aigie.get_drift_history("trace-123")
-            for detection in history["detections"]:
-                print(f"{detection['detected_at']}: {detection['drift_type']}")
-        """
-        if not self._initialized:
-            await self.initialize()
-
-        response = await self.client.get(
-            f"{self._aigie_url}/v1/analytics/drift/history/{trace_id}",
-        )
-        response.raise_for_status()
-        return response.json()
-
-    async def get_drift_metrics(
-        self,
-        time_range: str = "24h",
-        environment: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Get aggregate drift metrics across traces.
-
-        Provides overview statistics about drift patterns,
-        useful for monitoring overall agent health.
-
-        Args:
-            time_range: Time range to analyze ("1h", "24h", "7d", "30d")
-            environment: Optional environment filter (e.g., "production")
-
-        Returns:
-            Dict with:
-            - time_range: str
-            - total_traces: int
-            - traces_with_drift: int
-            - drift_rate: float (percentage)
-            - drift_by_type: Dict[str, int] (counts per drift type)
-            - drift_by_severity: Dict[str, int]
-            - avg_confidence: float
-            - top_recommendations: List[str]
-
-        Example:
-            metrics = await aigie.get_drift_metrics("24h")
-            print(f"Drift rate: {metrics['drift_rate']}%")
-            print(f"Most common: {metrics['drift_by_type']}")
-        """
-        if not self._initialized:
-            await self.initialize()
-
-        params = {"time_range": time_range}
-        if environment:
-            params["environment"] = environment
-
-        response = await self.client.get(
-            f"{self._aigie_url}/v1/analytics/drift/metrics",
-            params=params,
-        )
-        response.raise_for_status()
-        return response.json()
-
     # ========== Self-Hosted Health Checks ==========
 
     async def check_connection(self, timeout: float = 5.0) -> dict[str, Any]:
@@ -2057,7 +1857,7 @@ class Aigie:
             async with httpx.AsyncClient(timeout=timeout) as client:
                 start = time.monotonic()
                 response = await client.get(
-                    f"{self._aigie_url}/v1/health",
+                    f"{self._aigie_url}/health",
                     headers={"X-API-Key": self._auth_token} if self._auth_token else {},
                 )
                 latency = (time.monotonic() - start) * 1000
@@ -2335,7 +2135,49 @@ def init(
 
     atexit.register(lambda: shutdown(timeout=5.0))
 
+    # SIGTERM (k8s pod stop) skips atexit; wire it to shutdown() too.
+    _install_termination_flush()
+
     return _global_aigie
+
+
+_termination_handlers_installed = False
+_prev_signal_handlers: dict[int, Any] = {}
+
+
+def _termination_handler(sig, frame):  # type: ignore[no-untyped-def]
+    """Flush, then chain to the handler we replaced."""
+    try:
+        shutdown(timeout=5.0)
+    except Exception:
+        pass
+    previous = _prev_signal_handlers.get(sig)
+    if callable(previous):
+        previous(sig, frame)
+    else:
+        # No prior handler: re-raise with the default disposition.
+        signal.signal(sig, signal.SIG_DFL)
+        os.kill(os.getpid(), sig)
+
+
+def _install_termination_flush() -> None:
+    """Run shutdown() on SIGTERM/SIGINT, then chain to the prior handler.
+
+    SIGTERM's default disposition skips atexit, so the root span never ships.
+    Best-effort, main-thread-only (signal.signal() raises elsewhere).
+    """
+    global _termination_handlers_installed
+    if _termination_handlers_installed:
+        return
+    installed = False
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        try:
+            _prev_signal_handlers[signum] = signal.getsignal(signum)
+            signal.signal(signum, _termination_handler)
+            installed = True
+        except (ValueError, OSError):
+            pass  # off main thread / unsupported
+    _termination_handlers_installed = installed
 
 
 def shutdown(timeout: float = 10.0) -> None:

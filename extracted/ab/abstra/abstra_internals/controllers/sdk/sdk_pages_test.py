@@ -416,6 +416,21 @@ class TestJsStubGeneration(unittest.TestCase):
         js = sdk._build_js_functions()
         self.assertNotIn("__render__", js)
 
+    def test_handle_render_output_unchanged(self):
+        sdk, client = _make_sdk()
+
+        @sdk.register_function
+        def __render__():
+            return "<h1>My Page</h1>"
+
+        sdk.handle_request()
+
+        body = client.response.body
+        self.assertNotIn("window.abstra", body)
+        self.assertNotIn("abstra-auth-token", body)
+        self.assertNotIn("abstra-page-endpoint", body)
+        self.assertNotIn("abstra-execution-id", body)
+
 
 class TestJsCacheGeneration(unittest.TestCase):
     """JS generation when a function carries `_abstra_cache_ttl`. The public

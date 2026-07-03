@@ -16,7 +16,9 @@ Public API:
   predicates through to the column metadata.
 - ``build_entity_columns(entity_spec)`` — fallback column derivation
   from the entity's full field list when a surface doesn't pin its
-  own projection. Hard-caps at 8 columns to avoid runaway tables.
+  own projection. Applies the 2d field-economy default-flip (#1491):
+  keeps the top-6 most salient columns (``resolve_column_economy``) and
+  sheds the low-signal tail, which the default row drill/peek recovers.
 """
 
 from __future__ import annotations
@@ -24,6 +26,8 @@ from __future__ import annotations
 from typing import Any
 
 from dazzle.core.strings import to_api_plural
+from dazzle.page.runtime.column_economy_resolver import resolve_column_economy
+from dazzle.render.filters import status_tone_map
 
 
 def field_kind_to_col_type(field: Any, entity: Any = None) -> str:
@@ -52,11 +56,18 @@ def field_kind_to_col_type(field: Any, entity: Any = None) -> str:
     return "text"
 
 
-def build_surface_columns(entity_spec: Any, surface_spec: Any) -> list[dict[str, Any]]:
+def build_surface_columns(
+    entity_spec: Any, surface_spec: Any, enums: Any = None
+) -> list[dict[str, Any]]:
     """Build column metadata from a list surface's field projection.
 
     Uses the surface's section elements to determine which entity fields to
     show and in what order, rather than dumping all entity fields.
+
+    ``enums`` (the app's shared `enum` blocks) lets a badge column carry its
+    declared `semantic:` value→tone map (#1493 slice 2); pass the appspec's
+    ``enums`` so shared-enum bindings resolve (inline `enum[...]` bindings
+    resolve without it).
     """
     if not entity_spec or not hasattr(entity_spec, "fields"):
         return []
@@ -82,7 +93,7 @@ def build_surface_columns(entity_spec: Any, surface_spec: Any) -> list[dict[str,
                 field_formats[fn] = getattr(element, "format", None)
 
     if not surface_fields:
-        return build_entity_columns(entity_spec)
+        return build_entity_columns(entity_spec, enums)
 
     # Build a lookup from entity fields
     field_map: dict[str, Any] = {f.name: f for f in entity_spec.fields}
@@ -135,6 +146,10 @@ def build_surface_columns(entity_spec: Any, surface_spec: Any) -> list[dict[str,
         if kind_val == "money":
             col["currency_code"] = getattr(ft, "currency_code", None) or "GBP"
         if col_type == "badge":
+            # #1493 slice 2: declared `semantic:` binding + SM-terminal inference.
+            _sem = status_tone_map(ft, enums, entity_spec.state_machine)
+            if _sem:
+                col["semantic_map"] = _sem
             if kind_val == "enum":
                 ev = getattr(ft, "enum_values", None)
                 if ev:
@@ -154,12 +169,16 @@ def build_surface_columns(entity_spec: Any, surface_spec: Any) -> list[dict[str,
     return columns
 
 
-def build_entity_columns(entity_spec: Any) -> list[dict[str, Any]]:
-    """Pre-compute column metadata from an entity spec (constant-folded at startup).
+def build_entity_columns_full(entity_spec: Any, enums: Any = None) -> list[dict[str, Any]]:
+    """Pre-compute the **full** (untruncated) auto-derived column list from an entity.
 
-    This replaces per-request column derivation with a one-time computation.
-    All data comes from IR (field types, enum values, state machines) and
-    never changes during the lifetime of the server.
+    Same one-time IR-derived computation as ``build_entity_columns`` but WITHOUT the
+    2d column-economy truncation — every eligible field becomes a column, in
+    declaration order. The caller applies economy: ``build_entity_columns`` truncates
+    by declared salience (the build-time default), while the request-time path
+    (ADR-0050 2d) applies ``resolve_column_economy_by_usage`` so a heavily-engaged
+    field can survive. ``enums`` carries the shared `enum` blocks for badge
+    `semantic:` maps (#1493 slice 2).
     """
     columns: list[dict[str, Any]] = []
     if not entity_spec or not hasattr(entity_spec, "fields"):
@@ -204,6 +223,10 @@ def build_entity_columns(entity_spec: Any) -> list[dict[str, Any]]:
         if kind_val == "money":
             col["currency_code"] = getattr(ft, "currency_code", None) or "GBP"
         if col_type == "badge":
+            # #1493 slice 2: declared `semantic:` binding + SM-terminal inference.
+            _sem = status_tone_map(ft, enums, entity_spec.state_machine)
+            if _sem:
+                col["semantic_map"] = _sem
             if kind_val == "enum":
                 ev = getattr(ft, "enum_values", None)
                 if ev:
@@ -220,6 +243,16 @@ def build_entity_columns(entity_spec: Any) -> list[dict[str, Any]]:
             col["filterable"] = True
             col["filter_options"] = ["true", "false"]
         columns.append(col)
-        if len(columns) >= 8:
-            break
     return columns
+
+
+def build_entity_columns(entity_spec: Any, enums: Any = None) -> list[dict[str, Any]]:
+    """Auto-derived columns with the **build-time** 2d economy applied (the default).
+
+    Keeps the top-6 most salient auto-columns (``resolve_column_economy``) and sheds
+    the low-signal tail (timestamps, long text), recovered via the default row
+    drill/peek. A ≤6-column entity is byte-identical. The request-time usage path
+    (ADR-0050 2d → L4) instead calls ``build_entity_columns_full`` + the usage-boosted
+    resolver; this remains the cold-start / no-DB default.
+    """
+    return resolve_column_economy(build_entity_columns_full(entity_spec, enums))

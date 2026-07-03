@@ -55,8 +55,9 @@ if TYPE_CHECKING:
 
     from mindroom.attachments import AttachmentRecord
     from mindroom.config.main import Config
-    from mindroom.history import CompactionLifecycle, CompactionOutcome
+    from mindroom.history import CompactionLifecycle
     from mindroom.matrix.client_visible_messages import ResolvedVisibleMessage
+    from mindroom.response_turn import ResponseTurnContext
     from mindroom.timing import DispatchPipelineTiming
 
 logger = get_logger(__name__)
@@ -640,12 +641,11 @@ def _finalize_prepared_history(
 
 
 async def _prepare_execution_context_common(
+    ctx: ResponseTurnContext,
     *,
     scope_context: ScopeSessionContext | None,
     prompt: str,
     thread_history: Sequence[ResolvedVisibleMessage] | None,
-    reply_to_event_id: str | None,
-    active_event_ids: Collection[str],
     response_sender_id: str | None,
     current_sender_id: str | None,
     current_timestamp_ms: float | None = None,
@@ -660,6 +660,8 @@ async def _prepare_execution_context_common(
     pipeline_timing: DispatchPipelineTiming | None = None,
 ) -> _PreparedExecutionContext:
     """Prepare one request-scoped prompt/replay plan after unseen-thread handling."""
+    reply_to_event_id = ctx.reply_to_event_id
+    active_event_ids = ctx.active_event_ids
     seen_event_ids = _scope_seen_event_ids(scope_context)
 
     provisional_messages = _messages_with_current_prompt(
@@ -764,19 +766,14 @@ async def _prepare_execution_context_common(
 
 @timed("system_prompt_assembly.history_prepare")
 async def prepare_agent_execution_context(
+    ctx: ResponseTurnContext,
     *,
     scope_context: ScopeSessionContext | None,
     agent: Agent,
-    agent_name: str,
     prompt: str,
     thread_history: Sequence[ResolvedVisibleMessage] | None,
     runtime_paths: RuntimePaths,
     config: Config,
-    room_id: str | None,
-    thread_id: str | None,
-    reply_to_event_id: str | None,
-    active_event_ids: Collection[str],
-    compaction_outcomes_collector: list[CompactionOutcome] | None,
     compaction_lifecycle: CompactionLifecycle | None = None,
     current_sender_id: str | None = None,
     current_timestamp_ms: float | None = None,
@@ -785,14 +782,15 @@ async def prepare_agent_execution_context(
     pipeline_timing: DispatchPipelineTiming | None = None,
 ) -> _PreparedExecutionContext:
     """Prepare one agent's final prompt and replay plan for the current call."""
+    agent_name = ctx.entity_label
     response_sender = None
     if not include_openai_compat_guidance:
         response_sender_id = entity_identity_registry(config, runtime_paths).current_ids.get(agent_name)
         response_sender = response_sender_id.full_id if response_sender_id is not None else None
     runtime_model = config.resolve_runtime_model(
         entity_name=agent_name,
-        room_id=room_id,
-        thread_id=thread_id,
+        room_id=ctx.room_id,
+        thread_id=ctx.thread_id,
         runtime_paths=runtime_paths,
     )
     static_token_estimator = agent_static_token_estimator(agent)
@@ -815,7 +813,6 @@ async def prepare_agent_execution_context(
             resolved_inputs=resolved_inputs,
             runtime_paths=runtime_paths,
             config=config,
-            compaction_outcomes_collector=compaction_outcomes_collector,
             scope_context=scope_context,
             compaction_lifecycle=compaction_lifecycle,
             pipeline_timing=pipeline_timing,
@@ -827,11 +824,10 @@ async def prepare_agent_execution_context(
         return static_token_estimator.estimate(prepared_prompt)
 
     return await _prepare_execution_context_common(
+        ctx,
         scope_context=scope_context,
         prompt=prompt,
         thread_history=thread_history,
-        reply_to_event_id=reply_to_event_id,
-        active_event_ids=active_event_ids,
         response_sender_id=response_sender,
         current_sender_id=current_sender_id,
         current_timestamp_ms=current_timestamp_ms,
@@ -847,13 +843,14 @@ async def prepare_agent_execution_context(
         ),
         attachment_context=_ThreadAttachmentContext(
             storage_path=runtime_paths.storage_root,
-            room_id=room_id,
+            room_id=ctx.room_id,
         ),
         pipeline_timing=pipeline_timing,
     )
 
 
 async def _prepare_bound_team_execution_context(
+    ctx: ResponseTurnContext,
     *,
     scope_context: ScopeSessionContext | None,
     agents: list[Agent],
@@ -865,14 +862,10 @@ async def _prepare_bound_team_execution_context(
     team_name: str | None,
     active_model_name: str | None,
     active_context_window: int | None,
-    room_id: str | None = None,
-    reply_to_event_id: str | None = None,
-    active_event_ids: Collection[str] = frozenset(),
     response_sender_id: str | None = None,
     current_sender_id: str | None = None,
     current_timestamp_ms: float | None = None,
     current_prompt_is_structured: bool = False,
-    compaction_outcomes_collector: list[CompactionOutcome] | None = None,
     compaction_lifecycle: CompactionLifecycle | None = None,
     thread_history_render_limits: ThreadHistoryRenderLimits | None = None,
     pipeline_timing: DispatchPipelineTiming | None = None,
@@ -889,7 +882,6 @@ async def _prepare_bound_team_execution_context(
             full_prompt=prepared_prompt,
             runtime_paths=runtime_paths,
             config=config,
-            compaction_outcomes_collector=compaction_outcomes_collector,
             scope_context=scope_context,
             team_name=team_name,
             active_model_name=active_model_name,
@@ -905,11 +897,10 @@ async def _prepare_bound_team_execution_context(
         return static_token_estimator.estimate(prepared_prompt)
 
     return await _prepare_execution_context_common(
+        ctx,
         scope_context=scope_context,
         prompt=prompt,
         thread_history=thread_history,
-        reply_to_event_id=reply_to_event_id,
-        active_event_ids=active_event_ids,
         response_sender_id=response_sender_id,
         current_sender_id=current_sender_id,
         current_timestamp_ms=current_timestamp_ms,
@@ -921,7 +912,7 @@ async def _prepare_bound_team_execution_context(
         thread_history_render_limits=thread_history_render_limits,
         attachment_context=_ThreadAttachmentContext(
             storage_path=runtime_paths.storage_root,
-            room_id=room_id,
+            room_id=ctx.room_id,
         ),
         fallback_static_token_budget=_fallback_static_token_budget(
             context_window=active_context_window,
@@ -947,6 +938,7 @@ def _scrub_bound_team_scope_context(
 
 
 async def prepare_bound_team_run_context(
+    ctx: ResponseTurnContext,
     *,
     scope_context: ScopeSessionContext | None,
     agents: list[Agent],
@@ -958,14 +950,10 @@ async def prepare_bound_team_run_context(
     entity_name: str | None,
     active_model_name: str | None,
     active_context_window: int | None,
-    room_id: str | None = None,
-    reply_to_event_id: str | None = None,
-    active_event_ids: Collection[str] = frozenset(),
     response_sender_id: str | None = None,
     current_sender_id: str | None = None,
     current_timestamp_ms: float | None = None,
     current_prompt_is_structured: bool = False,
-    compaction_outcomes_collector: list[CompactionOutcome] | None = None,
     compaction_lifecycle: CompactionLifecycle | None = None,
     thread_history_render_limits: ThreadHistoryRenderLimits | None = None,
     pipeline_timing: DispatchPipelineTiming | None = None,
@@ -977,6 +965,7 @@ async def prepare_bound_team_run_context(
         entity_name=entity_name,
     )
     prepared_execution = await _prepare_bound_team_execution_context(
+        ctx,
         scope_context=scope_context,
         agents=agents,
         team=team,
@@ -987,14 +976,10 @@ async def prepare_bound_team_run_context(
         team_name=entity_name,
         active_model_name=active_model_name,
         active_context_window=active_context_window,
-        room_id=room_id,
-        reply_to_event_id=reply_to_event_id,
-        active_event_ids=active_event_ids,
         response_sender_id=response_sender_id,
         current_sender_id=current_sender_id,
         current_timestamp_ms=current_timestamp_ms,
         current_prompt_is_structured=current_prompt_is_structured,
-        compaction_outcomes_collector=compaction_outcomes_collector,
         compaction_lifecycle=compaction_lifecycle,
         thread_history_render_limits=thread_history_render_limits,
         pipeline_timing=pipeline_timing,

@@ -120,6 +120,27 @@ async def test_open_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
         await t.open()
 
 
+async def test_open_timeout_waiting_for_connection_made(monkeypatch: pytest.MonkeyPatch) -> None:
+    """If connection_made never fires, open() times out and leaves no half-open transport."""
+    mock_transport = MagicMock(spec=asyncio.WriteTransport)
+    mock_transport.is_closing.return_value = False
+
+    async def fake_create_serial_connection(
+        _loop: Any, protocol_factory: Callable[[], ModbusRtuProtocol], **_kwargs: Any
+    ) -> tuple[asyncio.Transport, asyncio.Protocol]:
+        # Return a transport/protocol but never call connection_made.
+        return mock_transport, protocol_factory()
+
+    monkeypatch.setattr(serialx, "create_serial_connection", fake_create_serial_connection)
+
+    t = AsyncRtuTransport("/dev/ttyUSB0", baudrate=9600, timeout=0.05)
+    with pytest.raises(TimeoutError):
+        await t.open()
+
+    assert not t.is_open()
+    mock_transport.close.assert_called_once()
+
+
 @pytest.mark.usefixtures("mock_serial_connection")
 async def test_open_close_is_open() -> None:
     """Test open, close, and is_open functionality."""
@@ -176,6 +197,78 @@ async def test_send_and_receive_success(
     assert result[0] == "decoded"
 
 
+async def test_send_and_receive_fifo_queue_framing(
+    mock_transport: MagicMock,
+) -> None:
+    """Regression: FIFO responses use a two-byte byte count for RTU framing.
+
+    The FIFO response (function code 0x18) does not carry its length in a single
+    byte, so the transport must use the PDU's own length logic. With the wrong
+    length the frame would be cut short and fail its CRC check.
+    """
+    from tmodbus.pdu import ReadFifoQueuePDU  # noqa: PLC0415
+
+    protocol = ModbusRtuProtocol(on_connection_lost=lambda _: None)
+    protocol.connection_made(mock_transport)
+
+    pdu = ReadFifoQueuePDU(address=0x04DE)
+    unit_id = 1
+    # Spec V1.1b3 example response: byte count 0x0006, FIFO count 0x0002, values 0x01B8, 0x1234.
+    response_pdu = bytes.fromhex("1800060002 01B8 1234".replace(" ", ""))
+    payload = bytes([unit_id]) + response_pdu
+    response_adu = payload + calculate_crc16(payload)
+
+    protocol._last_frame_ended_at = time.monotonic() - 10
+
+    async def simulate_response() -> None:
+        await asyncio.sleep(0.01)
+        protocol.data_received(response_adu)
+
+    result_task = asyncio.create_task(protocol.send_and_receive(unit_id, pdu))
+    response_task = asyncio.create_task(simulate_response())
+
+    result = await result_task
+    await response_task
+
+    assert result == [0x01B8, 0x1234]
+
+
+async def test_send_and_receive_exception_status_framing(
+    mock_transport: MagicMock,
+) -> None:
+    """Regression: Read Exception Status frames as one status byte over RTU.
+
+    The status byte is not a byte count, so a nonzero status (0xFF) must not be
+    read as a length, which would otherwise frame the response far too long.
+    """
+    from tmodbus.pdu import ReadExceptionStatusPDU  # noqa: PLC0415
+
+    protocol = ModbusRtuProtocol(on_connection_lost=lambda _: None)
+    protocol.connection_made(mock_transport)
+
+    pdu = ReadExceptionStatusPDU()
+    unit_id = 1
+    # Response PDU: function code 0x07 followed by status 0xFF (the value that
+    # previously made framing wait for 256 extra bytes).
+    response_pdu = bytes([0x07, 0xFF])
+    payload = bytes([unit_id]) + response_pdu
+    response_adu = payload + calculate_crc16(payload)
+
+    protocol._last_frame_ended_at = time.monotonic() - 10
+
+    async def simulate_response() -> None:
+        await asyncio.sleep(0.01)
+        protocol.data_received(response_adu)
+
+    result_task = asyncio.create_task(protocol.send_and_receive(unit_id, pdu))
+    response_task = asyncio.create_task(simulate_response())
+
+    result = await result_task
+    await response_task
+
+    assert result == 0xFF
+
+
 async def test_send_and_receive_not_connected() -> None:
     """Test that send_and_receive raises ModbusConnectionError when not connected."""
     t = AsyncRtuTransport("/dev/ttyUSB0", baudrate=9600)
@@ -223,6 +316,39 @@ async def test_send_and_receive_crc_error(
     response_task = asyncio.create_task(simulate_response())
 
     with pytest.raises(CRCError):
+        await result_task
+    await response_task
+
+
+async def test_send_and_receive_unsupported_function_code(
+    mock_transport: MagicMock,
+) -> None:
+    """An unknown function code in a response must not crash the parser.
+
+    A bit flip on the line can turn the function code into one this library does
+    not know. The frame length cannot be determined, so the request should fail
+    with an RTUFrameError instead of letting a ValueError escape data_received.
+    """
+    protocol = ModbusRtuProtocol(on_connection_lost=lambda _: None)
+    protocol.connection_made(mock_transport)
+
+    pdu = _DummyPDU()  # function code 0x03
+    unit_id = 1
+    # Response carries an unsupported function code (0x65) for the pending unit.
+    payload = bytes([unit_id, 0x65, 0x00, 0x00])
+    response_adu = payload + calculate_crc16(payload)
+
+    protocol._last_frame_ended_at = time.monotonic() - 10
+
+    async def simulate_response() -> None:
+        await asyncio.sleep(0.01)
+        # This must not raise out of data_received.
+        protocol.data_received(response_adu)
+
+    result_task = asyncio.create_task(protocol.send_and_receive(unit_id, pdu))
+    response_task = asyncio.create_task(simulate_response())
+
+    with pytest.raises(RTUFrameError):
         await result_task
     await response_task
 

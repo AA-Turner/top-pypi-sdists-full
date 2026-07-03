@@ -81,13 +81,6 @@ class TimesFM_2p5_200M_torch_module(nn.Module):
     tensors = load_file(path)
     self.load_state_dict(tensors, strict=True)
     self.to(self.device)
-    torch_compile = True
-    if "torch_compile" in kwargs:
-      torch_compile = kwargs["torch_compile"]
-    if torch_compile:
-      logging.info("Compiling model...")
-      self = torch.compile(self)
-
     self.eval()
 
   def forward(
@@ -278,6 +271,7 @@ class TimesFM_2p5_200M_torch(
 
   DEFAULT_REPO_ID = "google/timesfm-2.5-200m-pytorch"
   WEIGHTS_FILENAME = "model.safetensors"
+  CONFIG_FILENAME = "config.json"
 
   def __init__(
     self,
@@ -301,7 +295,11 @@ class TimesFM_2p5_200M_torch(
     else:
       model_file_path = path
 
+    torch_compile = kwargs.pop("torch_compile", self.torch_compile)
     self.model.load_checkpoint(model_file_path, **kwargs)
+    if torch_compile:
+      logging.info("Compiling model...")
+      self.model.forward = torch.compile(self.model.forward)
 
   @classmethod
   def _from_pretrained(
@@ -322,6 +320,19 @@ class TimesFM_2p5_200M_torch(
     method provided by `PyTorchModelHubMixin`.
     """
     # Determine the path to the model weights.
+    try:
+      hf_hub_download(
+          repo_id=model_id,
+          filename=cls.CONFIG_FILENAME,
+          revision=revision,
+          cache_dir=cache_dir,
+          force_download=force_download,
+          local_files_only=local_files_only,
+          token=token,
+      )
+    except Exception:
+      pass
+    
     model_file_path = ""
     if os.path.isdir(model_id):
       logging.info("Loading checkpoint from local directory: %s", model_id)

@@ -30108,7 +30108,7 @@ class StepFunctionsRestApiProps(RestApiProps):
         :param clone_from: The ID of the API Gateway RestApi resource that you want to clone. Default: - None.
         :param min_compression_size: A Size(in bytes, kibibytes, mebibytes etc) that is used to enable compression (with non-negative between 0 and 10485760 (10M) bytes, inclusive) or disable compression (when undefined) on an API. When compression is enabled, compression or decompression is not applied on the payload if the payload size is smaller than this value. Setting it to zero allows compression for any payload size. Default: - Compression is disabled.
         :param minimum_compression_size: (deprecated) A nullable integer that is used to enable compression (with non-negative between 0 and 10485760 (10M) bytes, inclusive) or disable compression (when undefined) on an API. When compression is enabled, compression or decompression is not applied on the payload if the payload size is smaller than this value. Setting it to zero allows compression for any payload size. Default: - Compression is disabled.
-        :param state_machine: The default State Machine that handles all requests from this API. This stateMachine will be used as a the default integration for all methods in this API, unless specified otherwise in ``addMethod``.
+        :param state_machine: The default State Machine that handles all requests from this API. This stateMachine will be used as the default integration for all methods in this API, unless specified otherwise in ``addMethod``.
         :param authorizer: If the whole authorizer object, including custom context values should be in the execution input. The execution input will include a new key ``authorizer``: { "body": {}, "authorizer": { "key": "value" } } Default: false
         :param headers: Check if header is to be included inside the execution input. The execution input will include a new key ``headers``: { "body": {}, "headers": { "header1": "value", "header2": "value" } } Default: false
         :param path: Check if path is to be included inside the execution input. The execution input will include a new key ``path``: { "body": {}, "path": { "resourceName": "resourceValue" } } Default: true
@@ -30503,7 +30503,7 @@ class StepFunctionsRestApiProps(RestApiProps):
     def state_machine(self) -> "_IStateMachine_73e8d2b0":
         '''The default State Machine that handles all requests from this API.
 
-        This stateMachine will be used as a the default integration for all methods in
+        This stateMachine will be used as the default integration for all methods in
         this API, unless specified otherwise in ``addMethod``.
         '''
         result = self._values.get("state_machine")
@@ -32893,7 +32893,7 @@ class LambdaRestApiProps(RestApiProps):
         :param clone_from: The ID of the API Gateway RestApi resource that you want to clone. Default: - None.
         :param min_compression_size: A Size(in bytes, kibibytes, mebibytes etc) that is used to enable compression (with non-negative between 0 and 10485760 (10M) bytes, inclusive) or disable compression (when undefined) on an API. When compression is enabled, compression or decompression is not applied on the payload if the payload size is smaller than this value. Setting it to zero allows compression for any payload size. Default: - Compression is disabled.
         :param minimum_compression_size: (deprecated) A nullable integer that is used to enable compression (with non-negative between 0 and 10485760 (10M) bytes, inclusive) or disable compression (when undefined) on an API. When compression is enabled, compression or decompression is not applied on the payload if the payload size is smaller than this value. Setting it to zero allows compression for any payload size. Default: - Compression is disabled.
-        :param handler: The default Lambda function that handles all requests from this API. This handler will be used as a the default integration for all methods in this API, unless specified otherwise in ``addMethod``.
+        :param handler: The default Lambda function that handles all requests from this API. This handler will be used as the default integration for all methods in this API, unless specified otherwise in ``addMethod``.
         :param integration_options: Specific Lambda integration options. Default: see defaults defined in ``LambdaIntegrationOptions``.
         :param proxy: If true, route all requests to the Lambda Function. If set to false, you will need to explicitly define the API model using ``addResource`` and ``addMethod`` (or ``addProxy``). Default: true
 
@@ -33277,7 +33277,7 @@ class LambdaRestApiProps(RestApiProps):
     def handler(self) -> "_IFunction_6adb0ab8":
         '''The default Lambda function that handles all requests from this API.
 
-        This handler will be used as a the default integration for all methods in
+        This handler will be used as the default integration for all methods in
         this API, unless specified otherwise in ``addMethod``.
         '''
         result = self._values.get("handler")
@@ -34767,7 +34767,7 @@ class StepFunctionsRestApi(
         '''
         :param scope: -
         :param id: -
-        :param state_machine: The default State Machine that handles all requests from this API. This stateMachine will be used as a the default integration for all methods in this API, unless specified otherwise in ``addMethod``.
+        :param state_machine: The default State Machine that handles all requests from this API. This stateMachine will be used as the default integration for all methods in this API, unless specified otherwise in ``addMethod``.
         :param authorizer: If the whole authorizer object, including custom context values should be in the execution input. The execution input will include a new key ``authorizer``: { "body": {}, "authorizer": { "key": "value" } } Default: false
         :param headers: Check if header is to be included inside the execution input. The execution input will include a new key ``headers``: { "body": {}, "headers": { "header1": "value", "header2": "value" } } Default: false
         :param path: Check if path is to be included inside the execution input. The execution input will include a new key ``path``: { "body": {}, "path": { "resourceName": "resourceValue" } } Default: true
@@ -35040,7 +35040,7 @@ class LambdaRestApi(
         '''
         :param scope: -
         :param id: -
-        :param handler: The default Lambda function that handles all requests from this API. This handler will be used as a the default integration for all methods in this API, unless specified otherwise in ``addMethod``.
+        :param handler: The default Lambda function that handles all requests from this API. This handler will be used as the default integration for all methods in this API, unless specified otherwise in ``addMethod``.
         :param integration_options: Specific Lambda integration options. Default: see defaults defined in ``LambdaIntegrationOptions``.
         :param proxy: If true, route all requests to the Lambda Function. If set to false, you will need to explicitly define the API model using ``addResource`` and ``addMethod`` (or ``addProxy``). Default: true
         :param api_key_source_type: The source of the API key for metering requests according to a usage plan. Default: - Metering is disabled.

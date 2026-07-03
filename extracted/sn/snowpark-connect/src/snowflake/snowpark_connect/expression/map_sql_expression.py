@@ -19,7 +19,10 @@ import snowflake.snowpark_connect.proto.snowflake_expression_ext_pb2 as snowflak
 from snowflake.snowpark._internal.analyzer.analyzer_utils import unquote_if_quoted
 from snowflake.snowpark.types import DayTimeIntervalType, YearMonthIntervalType
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
-from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark_connect.config import (
+    global_config,
+    is_iceberg_sql_extensions_enabled,
+)
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.typed_column import TypedColumn
@@ -30,9 +33,6 @@ from snowflake.snowpark_connect.utils.context import (
     get_sql_pos_arg,
     push_evaluating_sql_scope,
     push_sql_scope,
-)
-from snowflake.snowpark_connect.utils.jvm_classpath import (
-    is_iceberg_sql_extensions_config,
 )
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
@@ -120,7 +120,7 @@ def sql_parser():
             str(allow_star_with_single_table),
         )
 
-    if is_iceberg_sql_extensions_config(global_config.get("spark.sql.extensions")):
+    if is_iceberg_sql_extensions_enabled():
         return _get_iceberg_sql_parser()
     return _get_sql_parser()
 

@@ -20,16 +20,119 @@ from ansible.module_utils.facts.utils import get_file_content
 
 
 def _findstr(text, match):
+    """Find first line in text containing match string.
+
+    Args:
+        text: Multi-line text to search
+        match: String to search for
+
+    Returns:
+        First line containing match, or None if not found
+    """
     for line in text.splitlines():
         if match in line:
-            found = line
-    return found
+            return line
+    return None
+
+
+def remove_duplicates(items):
+    """Remove duplicates from a list while preserving order.
+
+    Args:
+        items: List that may contain duplicates
+
+    Returns:
+        List with duplicates removed, order preserved
+    """
+    return list(dict.fromkeys(items))
+
+
+def get_error_message(response, default="Unknown error"):
+    """Safely extract error message from API response.
+
+    Safely retrieves the first error message from a FlashBlade API response
+    object, avoiding IndexError if the errors list is empty or missing.
+
+    Args:
+        response: API response object with potential errors attribute
+        default: Default message to return if no error found (default: 'Unknown error')
+
+    Returns:
+        str: Error message from response.errors[0].message, or default if unavailable
+
+    Examples:
+        >>> # Safe - handles empty errors list
+        >>> res = blade.get_file_systems(names=['nonexistent'])
+        >>> error_msg = get_error_message(res)
+        >>> module.fail_json(msg=f"Failed to get filesystem: {error_msg}")
+        >>>
+        >>> # With custom default message
+        >>> error_msg = get_error_message(res, "Operation failed")
+
+    Note:
+        This function prevents IndexError crashes that occur when accessing
+        res.errors[0].message directly without checking if errors exist.
+    """
+    if hasattr(response, "errors") and response.errors:
+        errors = list(response.errors)
+        if errors:
+            return errors[0].message
+    return default
+
+
+def get_filesystem(module, blade):
+    """Get filesystem from FlashBlade.
+
+    Retrieves a filesystem by name, with optional context support for
+    multi-tenancy (API version 2.17+).
+
+    Args:
+        module: Ansible module object with params['name'] and optional params['context']
+        blade: FlashBlade client object
+
+    Returns:
+        Filesystem object if found, None otherwise
+
+    Example:
+        >>> fs = get_filesystem(module, blade)
+        >>> if fs:
+        >>>     print(fs.name)
+    """
+    CONTEXT_API_VERSION = "2.17"
+
+    api_version = list(blade.get_versions().items)
+    if CONTEXT_API_VERSION in api_version and module.params.get("context"):
+        res = blade.get_file_systems(
+            names=[module.params["name"]], context_names=[module.params["context"]]
+        )
+    else:
+        res = blade.get_file_systems(names=[module.params["name"]])
+
+    if res.status_code == 200:
+        items = list(res.items)
+        if items:
+            return items[0]
+    return None
 
 
 def human_to_bytes(size):
-    """Given a human-readable byte string (e.g. 2G, 30M),
-    return the number of bytes.  Will return 0 if the argument has
-    unexpected form.
+    """Convert human-readable byte string to bytes.
+
+    Converts strings with size suffixes (K, M, G, T, P, B) to integer bytes.
+
+    Args:
+        size: Human-readable size string (e.g., '2G', '30M', '512K')
+
+    Returns:
+        int: Number of bytes, or 0 if format is invalid
+
+    Examples:
+        >>> human_to_bytes('2G')
+        2147483648
+        >>> human_to_bytes('512M')
+        536870912
+        >>> human_to_bytes('1K')
+        1024
     """
     bytes = size[:-1]
     unit = size[-1].upper()
@@ -55,9 +158,23 @@ def human_to_bytes(size):
 
 
 def human_to_real(iops):
-    """Given a human-readable string (e.g. 2K, 30M IOPs),
-    return the real number.  Will return 0 if the argument has
-    unexpected form.
+    """Convert human-readable IOPS string to real number.
+
+    Converts strings with K (thousands) or M (millions) suffixes to integers.
+
+    Args:
+        iops: Human-readable IOPS string (e.g., '2K', '30M', '5000')
+
+    Returns:
+        int: Real number of IOPS, or 0 if format is invalid
+
+    Examples:
+        >>> human_to_real('2K')
+        2000
+        >>> human_to_real('30M')
+        30000000
+        >>> human_to_real('5000')
+        5000
     """
     digit = iops[:-1]
     unit = iops[-1].upper()
@@ -76,46 +193,30 @@ def human_to_real(iops):
     return digit
 
 
-def convert_to_millisecs(hour):
-    """Convert a 12-hour clock to milliseconds from
-    midnight"""
-    if hour[-2:].upper() == "AM" and hour[:2] == "12":
-        return 0
-    elif hour[-2:].upper() == "AM":
-        return int(hour[:-2]) * 3600000
-    elif hour[-2:].upper() == "PM" and hour[:2] == "12":
-        return 43200000
-    return (int(hour[:-2]) + 12) * 3600000
-
-
-def convert_time_to_millisecs(time):
-    """Convert a time period in milliseconds"""
-    if time[-1:].lower() not in ["w", "d", "h", "m", "s"]:
-        return 0
-    try:
-        if time[-1:].lower() == "w":
-            return int(time[:-1]) * 7 * 86400000
-        elif time[-1:].lower() == "d":
-            return int(time[:-1]) * 86400000
-        elif time[-1:].lower() == "h":
-            return int(time[:-1]) * 3600000
-        elif time[-1:].lower() == "m":
-            return int(time[:-1]) * 60000
-        elif time[-1:].lower() == "s":
-            return int(time[:-1]) * 1000
-    except Exception:
-        return 0
-
-
 def get_local_tz(module, timezone="UTC"):
-    """
-    We will attempt to get the local timezone of the server running the module and use that.
-    If we can't get the timezone then we will set the default to be UTC
+    """Get local timezone of the server running the module.
 
-    Linnux has been tested and other opersting systems should be OK.
-    Failures cause assumption of UTC
+    Attempts to detect the system timezone using platform-specific methods.
+    Falls back to UTC if detection fails or platform is unsupported.
 
-    Windows is not supported and will assume UTC
+    Supported platforms:
+        - Linux (via timedatectl or /etc/timezone)
+        - SunOS (via /etc/default/init)
+        - Darwin/macOS (via systemsetup)
+        - BSD variants (via /etc/timezone)
+        - AIX 6.1+ (via /etc/environment)
+
+    Args:
+        module: Ansible module object for running commands and warnings
+        timezone: Default timezone if detection fails (default: 'UTC')
+
+    Returns:
+        str: Timezone string (e.g., 'America/New_York', 'UTC')
+
+    Note:
+        Windows is not supported and will always return UTC.
+        Linux has been tested; other operating systems should work but may
+        fall back to UTC on failure.
     """
     if platform.system() == "Linux":
         timedatectl = get_bin_path("timedatectl")

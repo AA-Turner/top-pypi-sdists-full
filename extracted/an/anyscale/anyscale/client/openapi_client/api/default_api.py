@@ -31294,7 +31294,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: WorkspacedataplaneproxiedartifactsResponse
+        :return: WorkspacedataplaneproxiedartifactsWithMetadataResponse
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -31321,7 +31321,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(WorkspacedataplaneproxiedartifactsResponse, status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(WorkspacedataplaneproxiedartifactsWithMetadataResponse, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -31382,7 +31382,7 @@ class DefaultApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='WorkspacedataplaneproxiedartifactsResponse',  # noqa: E501
+            response_type='WorkspacedataplaneproxiedartifactsWithMetadataResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -37902,7 +37902,7 @@ class DefaultApi(object):
         :param list[str] flavor_name: Return events matching any of the specified flavor_names
         :param str project_id: Filter by project_id
         :param str cloud_resource_id: Filter by cloud_resource_id
-        :param str text_search: Case-insensitive substring filter on scheduler_request_id
+        :param str search_id: Exact id lookup. The id type is inferred from its prefix: cluster, cloud resource, job, service, or workspace id.
         :param list[EventLevel] level: Return events matching any of the specified levels
         :param list[SchedulerEventType] event_type: Return events matching any of the specified event types
         :param datetime start_time: Inclusive lower bound on emission time; beginning of time if unset
@@ -37940,7 +37940,7 @@ class DefaultApi(object):
         :param list[str] flavor_name: Return events matching any of the specified flavor_names
         :param str project_id: Filter by project_id
         :param str cloud_resource_id: Filter by cloud_resource_id
-        :param str text_search: Case-insensitive substring filter on scheduler_request_id
+        :param str search_id: Exact id lookup. The id type is inferred from its prefix: cluster, cloud resource, job, service, or workspace id.
         :param list[EventLevel] level: Return events matching any of the specified levels
         :param list[SchedulerEventType] event_type: Return events matching any of the specified event types
         :param datetime start_time: Inclusive lower bound on emission time; beginning of time if unset
@@ -37971,7 +37971,7 @@ class DefaultApi(object):
             'flavor_name',
             'project_id',
             'cloud_resource_id',
-            'text_search',
+            'search_id',
             'level',
             'event_type',
             'start_time',
@@ -38021,8 +38021,8 @@ class DefaultApi(object):
             query_params.append(('project_id', local_var_params['project_id']))  # noqa: E501
         if 'cloud_resource_id' in local_var_params and local_var_params['cloud_resource_id'] is not None:  # noqa: E501
             query_params.append(('cloud_resource_id', local_var_params['cloud_resource_id']))  # noqa: E501
-        if 'text_search' in local_var_params and local_var_params['text_search'] is not None:  # noqa: E501
-            query_params.append(('text_search', local_var_params['text_search']))  # noqa: E501
+        if 'search_id' in local_var_params and local_var_params['search_id'] is not None:  # noqa: E501
+            query_params.append(('search_id', local_var_params['search_id']))  # noqa: E501
         if 'level' in local_var_params and local_var_params['level'] is not None:  # noqa: E501
             query_params.append(('level', local_var_params['level']))  # noqa: E501
             collection_formats['level'] = 'multi'  # noqa: E501

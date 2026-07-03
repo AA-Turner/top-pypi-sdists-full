@@ -105,7 +105,13 @@ async def main():
     try:
         logger.debug("Attempting to connect to websocket...")
         async with websockets.connect(
-            ws_url, additional_headers=additional_headers
+            ws_url,
+            additional_headers=additional_headers,
+            # An SSH-tunnel upgrade legitimately exceeds the 10s default under load.
+            open_timeout=None,
+            # The server sends keepalive pings; rely on those for liveness. Safe
+            # only because the server keepalive detects a dead peer.
+            ping_interval=None,
         ) as ws:
             logger.debug("Connected to websocket successfully")
             pump_task = asyncio.create_task(pump(reader, ws.send))

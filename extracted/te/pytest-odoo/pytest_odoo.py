@@ -6,19 +6,24 @@
 
 import ast
 import os
+import socket
 import signal
 import subprocess
 import threading
 from contextlib import contextmanager
-from unittest import mock
 from pathlib import Path
 from typing import Optional
+from unittest import TestCase as UnitTestTestCase, case as UnitTestCase
+from unittest import mock
 
 import _pytest
 import _pytest.python
 import pytest
 
 import odoo
+from odoo import release
+if release.version_info >= (19,0):
+    import odoo.api, odoo.http, odoo.modules, odoo.release,odoo.tools, odoo.service, odoo.sql_db, odoo.tests
 
 
 def pytest_addoption(parser):
@@ -44,6 +49,9 @@ def pytest_addoption(parser):
                      default=[],
                      help="Extra options to pass to odoo "
                      "(e.g. --odoo-extra workers=0 --odoo-extra db-filter=odoo_test)")
+    parser.addoption("--odoo-skip-at-install",
+                     action="store_true",
+                     help="If pytest should skip tests marked with at_install.")
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -88,13 +96,9 @@ def pytest_cmdline_main(config):
             raise Exception(
                 "please provide a database name in the Odoo configuration file"
             )
+        support_subtest()
         disable_odoo_test_retry()
         monkey_patch_resolve_pkg_root_and_module_name()
-        odoo.service.server.start(preload=[], stop=True)
-        # odoo.service.server.start() modifies the SIGINT signal by its own
-        # one which in fact prevents us to stop anthem with Ctrl-c.
-        # Restore the default one.
-        signal.signal(signal.SIGINT, signal.default_int_handler)
 
         if odoo.release.version_info < (15,):
             # Refactor in Odoo 15, not needed anymore
@@ -105,12 +109,30 @@ def pytest_cmdline_main(config):
     else:
         yield
 
+def _get_available_random_port():
+    """Get an available random port."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
 
-@pytest.fixture(scope="module", autouse=True)
-def load_http(request):
+@pytest.fixture(scope="session" if release.version_info >= (15,0) else "module", autouse=True)
+def load_http(request, load_registry):
     if request.config.getoption("--odoo-http"):
-        odoo.service.server.start(stop=True)
-        signal.signal(signal.SIGINT, signal.default_int_handler)
+        odoo.tools.config['http_port'] = _get_available_random_port()
+        if odoo.release.version_info >= (15,):
+            from odoo import http
+            from odoo.service import server
+            server.load_server_wide_modules()
+            server.server = server.ThreadedServer(http.root)
+            server.server.start(stop=False)
+            signal.signal(signal.SIGINT, signal.default_int_handler)
+            yield
+            server.server.stop()
+        else:
+            odoo.service.server.start(stop=True)
+            yield
+    else:
+        yield
 
 @contextmanager
 def _shared_filestore(original_db_name, db_name):
@@ -152,7 +174,7 @@ def _worker_db_name():
             odoo.tools.config["db_name"] = original_db_name
             odoo.tools.config["dbfilter"] = f"^{original_db_name}$"
 
-    
+
 @pytest.fixture(scope='session', autouse=True)
 def load_registry():
     # Initialize the registry before running tests.
@@ -201,6 +223,36 @@ def monkey_patch_resolve_pkg_root_and_module_name():
 
     _pytest.pathlib.resolve_pkg_root_and_module_name= resolve_pkg_root_and_module_name
 
+def support_subtest():
+    """Odoo from version 16.0 re-define its own TestCase.subTest context manager
+
+    Odoo assume the usage of OdooTestResult which is not our case
+    using with pytest-odoo. So this fallback to the unitest.TestCase.subTest
+    Context manager
+    """
+    try:
+        from odoo.tests.case import TestCase
+        TestCase.subTest = UnitTestTestCase.subTest
+        TestCase.run = UnitTestTestCase.run
+        if odoo.release.version_info >= (18, 0) and odoo.release.version_info < (19, 0):
+            # only version 18
+            monkey_path_unitest_outcome_test_part_executor()
+    except ImportError:
+        # Odoo <= 15.0
+        pass
+
+def monkey_path_unitest_outcome_test_part_executor():
+    """Has we restore unitest.TestCase to avoid Odoo's test runner we 
+    need to patch the testPartExecutor method of the outcome because Odoo == 18.0
+    change the signature of the method"""
+
+    original_test_part_executor = UnitTestCase._Outcome.testPartExecutor    
+    
+    def testPartExecutor(self, test_case, subTest=False, isTest=None):
+        # Ignore isTest param
+        return original_test_part_executor(self, test_case, subTest=subTest)
+
+    UnitTestCase._Outcome.testPartExecutor = testPartExecutor
 
 def disable_odoo_test_retry():
     """Odoo BaseCase.run method overload TestCase.run and manage
@@ -210,11 +262,10 @@ def disable_odoo_test_retry():
     """
     try:
         from odoo.tests import BaseCase
-        if hasattr(BaseCase, "run"):
-            del BaseCase.run
-    except ImportError:
+        del BaseCase.run
+    except (ImportError, AttributeError):
+        # Odoo <= 15.0
         pass
-
 
 def _find_manifest_path(collection_path: Path) -> Path:
     """Try to locate an Odoo manifest file in the collection path."""
@@ -239,3 +290,17 @@ def pytest_ignore_collect(collection_path: Path) -> Optional[bool]:
         # installable = False, do not collect this
         return True
     return None
+
+
+def pytest_runtest_setup(item):
+    if hasattr(item, "instance"):
+        tags = getattr(item.instance, "test_tags", set())
+        if "at_install" in tags and item.config.getoption("--odoo-skip-at-install"):
+            pytest.skip(f"Test {item.name} skipped because at_install test using --odoo-skip-at-install")
+        from odoo.tests.common import HttpCase
+        if isinstance(item.instance, HttpCase) and not item.config.getoption("--odoo-http"):
+            pytest.skip(f"Test {item.name} skipped because it is an HttpCase and --odoo-http is not set")
+
+        if release.version_info >= (19,0):
+            test_instance = item.instance
+            odoo.modules.module.current_test = test_instance

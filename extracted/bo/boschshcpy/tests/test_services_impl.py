@@ -442,6 +442,29 @@ def test_bypass_unknown():
     assert svc.value == BypassService.State.UNKNOWN
 
 
+def test_bypass_configuration_read_props():
+    """rawscan-database.md SWD2/SWD2_PLUS: bypassState carries a nested
+    configuration{enabled, timeout, infinite} block, not just top-level
+    state — this was previously never read at all."""
+    svc = _make_svc(
+        BypassService,
+        {
+            "state": "BYPASS_INACTIVE",
+            "configuration": {"enabled": True, "timeout": 5, "infinite": False},
+        },
+    )
+    assert svc.configuration_enabled is True
+    assert svc.timeout == 5
+    assert svc.infinite is False
+
+
+def test_bypass_configuration_missing_defaults():
+    svc = _make_svc(BypassService, {"state": "BYPASS_INACTIVE"})
+    assert svc.configuration_enabled is False
+    assert svc.timeout == 0
+    assert svc.infinite is False
+
+
 # ===========================================================================
 # ShutterControlService
 # ===========================================================================
@@ -677,14 +700,18 @@ def test_vibration_sensitivity_very_low():
 def test_valve_position():
     svc = _make_svc(ValveTappetService, {"position": 42, "value": "VALVE_ADAPTION_SUCCESSFUL"})
     assert svc.position == 42
-    assert isinstance(svc.position, float)
+    assert isinstance(svc.position, int)
 
 
-def test_valve_position_keeps_decimals():
-    # Thermostat II types position as number; int() previously truncated it.
-    svc = _make_svc(ValveTappetService, {"position": 42.5, "value": "VALVE_ADAPTION_SUCCESSFUL"})
-    assert svc.position == 42.5
-    assert isinstance(svc.position, float)
+def test_valve_position_is_int_per_apk_model():
+    # OpenAPI types Thermostat-II position as generic "number", but the
+    # Bosch APK's own ValveTappetState client model declares this field as
+    # Integer (unlike sibling TemperatureOffsetState/TemperatureLevelState,
+    # which use Double) — so position must stay int, matching the app's
+    # ground-truth model rather than the loose OpenAPI typing.
+    svc = _make_svc(ValveTappetService, {"position": 42, "value": "VALVE_ADAPTION_SUCCESSFUL"})
+    assert svc.position == 42
+    assert isinstance(svc.position, int)
 
 
 def test_valve_state_successful():
@@ -944,6 +971,35 @@ def test_smoke_failed():
     assert svc.value == SmokeDetectorCheckService.State.SMOKE_TEST_FAILED
 
 
+def test_smoke_communication_test_sent():
+    svc = _make_svc(SmokeDetectorCheckService, {"value": "COMMUNICATION_TEST_SENT"})
+    assert svc.value == SmokeDetectorCheckService.State.COMMUNICATION_TEST_SENT
+
+
+def test_smoke_communication_test_ok():
+    svc = _make_svc(SmokeDetectorCheckService, {"value": "COMMUNICATION_TEST_OK"})
+    assert svc.value == SmokeDetectorCheckService.State.COMMUNICATION_TEST_OK
+
+
+def test_smoke_communication_test_requested():
+    svc = _make_svc(
+        SmokeDetectorCheckService, {"value": "COMMUNICATION_TEST_REQUESTED"}
+    )
+    assert svc.value == SmokeDetectorCheckService.State.COMMUNICATION_TEST_REQUESTED
+
+
+def test_smoke_unknown_value_falls_back_to_none():
+    # Defense-in-depth: any future unmodeled value must not raise, mirroring
+    # the AlarmService.value try/except pattern.
+    svc = _make_svc(SmokeDetectorCheckService, {"value": "SOME_FUTURE_VALUE"})
+    assert svc.value == SmokeDetectorCheckService.State.NONE
+
+
+def test_smoke_missing_value_falls_back_to_none():
+    svc = _make_svc(SmokeDetectorCheckService, {})
+    assert svc.value == SmokeDetectorCheckService.State.NONE
+
+
 # ===========================================================================
 # 13. AlarmService
 # ===========================================================================
@@ -1043,9 +1099,29 @@ def test_comm_quality_good():
     assert svc.value == CommunicationQualityService.State.GOOD
 
 
-def test_comm_quality_medium():
-    svc = _make_svc(CommunicationQualityService, {"quality": "MEDIUM"})
-    assert svc.value == CommunicationQualityService.State.MEDIUM
+def test_comm_quality_not_supported():
+    svc = _make_svc(CommunicationQualityService, {"quality": "NOT_SUPPORTED"})
+    assert svc.value == CommunicationQualityService.State.NOT_SUPPORTED
+
+
+def test_comm_quality_state_matches_apk_enum():
+    # CommunicationQualityState$Quality (APK) has exactly these 6 values;
+    # regression guard for the invented "MEDIUM" / missing "NOT_SUPPORTED" bug.
+    assert {m.value for m in CommunicationQualityService.State} == {
+        "BAD",
+        "FETCHING",
+        "GOOD",
+        "NORMAL",
+        "NOT_SUPPORTED",
+        "UNKNOWN",
+    }
+
+
+def test_comm_quality_genuinely_unrecognized_value_falls_back_to_unknown():
+    # A truly unmapped value (not in the APK enum at all) should still
+    # degrade gracefully to UNKNOWN instead of raising.
+    svc = _make_svc(CommunicationQualityService, {"quality": "SOMETHING_NEW"})
+    assert svc.value == CommunicationQualityService.State.UNKNOWN
 
 
 def test_comm_quality_normal():
@@ -1061,6 +1137,33 @@ def test_comm_quality_unknown():
 def test_comm_quality_fetching():
     svc = _make_svc(CommunicationQualityService, {"quality": "FETCHING"})
     assert svc.value == CommunicationQualityService.State.FETCHING
+
+
+def test_comm_quality_request_quality_test_writes_request_state():
+    # APK: CommunicationQualityState.requestState (RequestState enum, only
+    # value REQUEST) is a write-only trigger field, separate from the
+    # read-only "quality" state — same split as DetectionTest/WalkTest.
+    svc = _make_svc(CommunicationQualityService, {"quality": "BAD"})
+    svc.request_quality_test()
+    svc._api.put_device_service_state.assert_called_once_with(
+        "test-device",
+        "CommunicationQualityService",
+        {"@type": "testType", "requestState": "REQUEST"},
+    )
+
+
+def test_comm_quality_async_request_quality_test_writes_request_state():
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    svc = _make_svc(CommunicationQualityService, {"quality": "BAD"})
+    svc._api.put_device_service_state = AsyncMock()
+    asyncio.run(svc.async_request_quality_test())
+    svc._api.put_device_service_state.assert_called_once_with(
+        "test-device",
+        "CommunicationQualityService",
+        {"@type": "testType", "requestState": "REQUEST"},
+    )
 
 
 # ===========================================================================
@@ -1520,13 +1623,18 @@ def test_air_quality_humidity_rating():
 def test_air_quality_purity():
     svc = _make_svc(AirQualityLevelService, {**_AQ_BASE, "purity": 1200})
     assert svc.purity == 1200
-    assert isinstance(svc.purity, float)
+    assert isinstance(svc.purity, int)
 
 
-def test_air_quality_purity_keeps_decimals():
-    svc = _make_svc(AirQualityLevelService, {**_AQ_BASE, "purity": 812.5})
-    assert svc.purity == 812.5
-    assert isinstance(svc.purity, float)
+def test_air_quality_purity_stays_int():
+    # Unlike temperature/humidity, the decompiled Android app's
+    # AirQualityLevelState model declares purity as java.lang.Integer, not
+    # Float -- the OpenAPI schema's generic "number" type for all three
+    # fields over-generalizes this. A 0.8.3 follow-up (#352) mistakenly
+    # floated purity too; this asserts it stays int()-truncated.
+    svc = _make_svc(AirQualityLevelService, {**_AQ_BASE, "purity": 812.7})
+    assert svc.purity == 812
+    assert isinstance(svc.purity, int)
 
 
 def test_air_quality_purity_rating():

@@ -79,7 +79,6 @@ def unregister_snowflake_temp_view(
 
     created_in_snowflake = matched_key[2]
     _temp_views.remove(matched_key)
-
     if created_in_snowflake:
         if_exists_expr = "IF EXISTS " if if_exists else ""
         result = session.sql(f"DROP VIEW {if_exists_expr}{snowflake_name}").collect()
@@ -121,6 +120,17 @@ def get_temp_view_normalized_names(
 
 def _normalize(name: str) -> str:
     return name if global_config.spark_sql_caseSensitive else name.lower()
+
+
+def _is_temp_view_created_in_snowflake(name: str) -> bool:
+    normalized_name = _normalize(name)
+    current_session_id = get_spark_session_id()
+    return any(
+        _normalize(key[0]) == normalized_name
+        and key[1] == current_session_id
+        and key[2]
+        for key in _temp_views.keys()
+    )
 
 
 def assert_snowflake_view_does_not_exist_in_cache(name: str, replace: bool):
@@ -375,7 +385,7 @@ def store_temporary_view_as_dataframe(
         input_df_container = input_container
 
     if replace:
-        if is_temp_view_in_snowflake(snowflake_view_name[-1]):
+        if _is_temp_view_created_in_snowflake(view_name):
             try:
                 Session.get_active_session().sql(
                     "DROP VIEW IF EXISTS " + ".".join(snowflake_view_name)

@@ -289,6 +289,10 @@ class EventBuffer:
         # leads to "<...> is bound to a different event loop" when callers (e.g.
         # framework auto-instrumentation) invoke add() from their own loop.
         self._owner_loop: asyncio.AbstractEventLoop | None = None
+        # Flush tasks scheduled from add_sync() (sync callback contexts). Tracked
+        # so shutdown can await an in-flight send before the caller closes the
+        # transport — otherwise the final span batch is cancelled mid-send.
+        self._inflight_flushes: set[asyncio.Task] = set()
 
         self._init_resilience_state(
             enable_offline_mode,
@@ -593,8 +597,11 @@ class EventBuffer:
 
         try:
             if current is owner:
-                # Same loop — cheap path, no thread-hop required.
-                owner.create_task(self._flush_locked())
+                # Same loop — cheap path, no thread-hop required. Track the task
+                # so shutdown awaits it before the transport closes.
+                task = owner.create_task(self._flush_locked())
+                self._inflight_flushes.add(task)
+                task.add_done_callback(self._inflight_flushes.discard)
             else:
                 # Different loop. Cross-loop dispatch. Attach a done-callback
                 # so flush failures aren't silently swallowed — the future is
@@ -648,6 +655,11 @@ class EventBuffer:
                 pass
             except Exception:
                 logger.debug("background flush task failed during stop", exc_info=True)
+
+        # Await flushes scheduled from add_sync() so an in-flight gRPC send isn't
+        # cancelled when the caller closes the transport right after this returns.
+        if self._inflight_flushes:
+            await asyncio.gather(*list(self._inflight_flushes), return_exceptions=True)
 
         # Final flush of any remaining events
         await self.flush()

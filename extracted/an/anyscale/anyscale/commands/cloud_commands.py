@@ -449,7 +449,10 @@ def setup_cloud(  # noqa: PLR0913
         provider = click.prompt(
             "Provider", type=click.Choice(["aws", "gcp", "azure"], case_sensitive=False)
         )
-    if not region:
+    # Treat an unset or "default" sentinel region as "needs prompting": Click can
+    # surface default_region()'s "default" fallback as a literal region when --provider
+    # is unset (notably on Click >= 8.2), which would otherwise reach the cloud SDK.
+    if not region or region == "default":
         region = click.prompt("Region", default=default_region(provider))
 
     # Handle Kubernetes stack
@@ -476,6 +479,14 @@ def setup_cloud(  # noqa: PLR0913
         return
 
     # Handle VM stack
+    # VM clouds need a real region; an unresolved/sentinel region would reach the
+    # cloud SDK and fail with a cryptic endpoint error (e.g. ec2.default.amazonaws.com).
+    if not region or region == "default":
+        raise click.ClickException(
+            "Could not determine a region for the cloud. Re-run with an explicit region, "
+            "e.g. `anyscale cloud setup --provider aws --region us-west-2 --name <name>`."
+        )
+
     # Convert string to enum for type safety
     shared_storage_type = SharedStorageType(shared_storage)
     if provider == "aws":
@@ -1929,6 +1940,9 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
     default=False,
     help="Strict Verify. Treat warnings as failures.",
 )
+@click.option(
+    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
+)
 def cloud_verify(
     cloud_name: Optional[str],
     name: Optional[str],
@@ -1936,6 +1950,7 @@ def cloud_verify(
     functional_verify: Optional[str],
     cloud_resource_name: Optional[str],
     strict: bool = False,
+    yes: bool = False,
 ) -> bool:
     if cloud_name and name and cloud_name != name:
         raise click.ClickException(
@@ -1949,6 +1964,7 @@ def cloud_verify(
         functional_verify=functional_verify,
         cloud_resource_name=cloud_resource_name,
         strict=strict,
+        yes=yes,
     )
 
 

@@ -256,6 +256,7 @@ class PrivateScheduleSDK(BaseSDK):
                 project=project,
                 connections=connections,
                 tags=model.job_tags,
+                priority=prod_job_config.priority if prod_job_config else None,
             )
         else:
             # Fallback to existing behavior (makes API calls for build_id and compute_config_id)

@@ -21,12 +21,12 @@ use crate::gate_metrics::rotation_trace_and_dim;
 use crate::target::Target;
 use qiskit_circuit::PhysicalQubit;
 use qiskit_circuit::dag_circuit::{DAGCircuit, NodeType};
-use qiskit_circuit::getenv_use_multiple_threads;
 use qiskit_circuit::imports;
 use qiskit_circuit::operations::Param;
 use qiskit_circuit::operations::StandardGate;
 use qiskit_circuit::operations::{Operation, OperationRef};
 use qiskit_circuit::packed_instruction::PackedInstruction;
+use qiskit_util::getenv_use_multiple_threads;
 
 // The point at which to start running the analysis in parallel.
 // This value was found experimentally during the development of
@@ -34,7 +34,7 @@ use qiskit_circuit::packed_instruction::PackedInstruction;
 // if the performance of this pass changes over time.
 const PARALLEL_THRESHOLD: usize = 50_000;
 
-const MINIMUM_TOL: f64 = 1e-12;
+pub const MINIMUM_TOL: f64 = 1e-12;
 
 /// Fidelity-based computation to check whether an operation `G` is equivalent
 /// to identity up to a global phase.
@@ -179,13 +179,27 @@ where
         ));
     }
 
-    // Special handling for large pauli rotation gates.
+    // Special handling for pauli product rotation gates.
+    if let OperationRef::PauliProductRotation(ppr) = view {
+        if let Some((tr_over_dim, dim)) = ppr.rotation_trace_and_dim() {
+            return Ok(average_gate_fidelity_below_tol(
+                tr_over_dim,
+                dim,
+                error_cutoff_fn(inst),
+            ));
+        } else {
+            // Parameterized rotation
+            return Ok(None);
+        }
+    }
+
+    // Special handling for pauli evolution gates.
     if view.name() == "PauliEvolution" {
-        if let OperationRef::Gate(py_gate) = view {
+        if let OperationRef::PyCustom(py_gate) = view {
             let result = Python::attach(|py| -> PyResult<Option<(Complex64, usize)>> {
                 let result = imports::PAULI_ROTATION_TRACE_AND_DIM
                     .get_bound(py)
-                    .call1((py_gate.instruction.clone_ref(py),))?
+                    .call1((py_gate.ob.clone_ref(py),))?
                     .extract()?;
                 Ok(result)
             })?;
@@ -236,8 +250,7 @@ pub fn py_remove_identity_equiv(
     //
     // This doesn't account for control-flow blocks which _also_ might have set global phases, byt
     // `run_remove_identity_equiv` as of Qiskit 2.4 doesn't recurse, so the hack should hold.
-    let old_phase = dag.global_phase().clone();
-    dag.set_global_phase_f64(0.0);
+    let old_phase = dag.set_global_phase_f64(0.0);
 
     // Explicitly release GIL because threads may call Python to get
     // the matrix for a PyGate

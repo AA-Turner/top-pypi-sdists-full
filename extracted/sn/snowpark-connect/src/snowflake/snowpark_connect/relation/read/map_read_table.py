@@ -12,7 +12,10 @@ from snowflake.snowpark._internal.analyzer.analyzer_utils import (
     quote_name_without_upper_casing,
     unquote_if_quoted,
 )
-from snowflake.snowpark.exceptions import SnowparkSQLException
+from snowflake.snowpark.exceptions import (
+    SnowparkInvalidObjectNameException,
+    SnowparkSQLException,
+)
 from snowflake.snowpark.types import StructField, StructType
 from snowflake.snowpark_connect.column_name_handler import (
     ColumnNameMap,
@@ -106,9 +109,163 @@ def _read_iceberg_metadata_table(
         for part, flag in zip(base_table_parts, backtick_flags)
     )
     query = ICEBERG_METADATA_TABLE_QUERIES[metadata_table_name]
-    return post_process_df(
-        session.sql(query, params=[base_table_name]), plan_id, table_name
+    df = session.sql(query, params=[base_table_name])
+    try:
+        # Force evaluation here. ``post_process_df`` rewrites Snowflake 2003 into a
+        # generic TABLE_OR_VIEW_NOT_FOUND ``AnalysisException``, which would
+        # bypass the CLD-specific translation below.
+        _ = df.schema.fields
+    except SnowparkInvalidObjectNameException as e:
+        # SNOW-3471788 (Unity / Glue CLD client-side guard): before
+        # Snowpark hands the call to Snowflake it validates the
+        # ``params=[base_table_name]`` value as a Snowflake object name.
+        # On Unity Iceberg REST tables the three-part name (and on some
+        # current Glue rollouts too) fails this client-side check with
+        # ``1500: The object name '<db>.<schema>.<table>' is invalid``,
+        # so the SnowparkSQLException 2003 branch below never gets a
+        # chance to fire. The root cause is identical (the
+        # ``INFORMATION_SCHEMA.ICEBERG_TABLE_*`` functions don't accept
+        # CLD-qualified names), so surface the same actionable error
+        # whether the rejection happens client-side or server-side.
+        if base_table_parts and _looks_like_cld_qualified_name(
+            base_table_parts, session
+        ):
+            raise _iceberg_metadata_cld_unsupported(
+                metadata_table_name, base_table_name
+            ) from e
+        raise
+    except SnowparkSQLException as e:
+        # SNOW-3471788: Snowflake's INFORMATION_SCHEMA.ICEBERG_TABLE_* table
+        # functions only resolve managed-Iceberg tables — they return a hard
+        # "object does not exist" (2003) on tables in catalog-linked
+        # databases (Glue / Unity Iceberg REST) even though the table
+        # itself is fully visible to `SELECT`. Surface this as an
+        # actionable AnalysisException rather than letting the customer
+        # think their table was deleted.
+        if (
+            getattr(e, "sql_error_code", None) == 2003
+            and base_table_parts
+            and _looks_like_cld_qualified_name(base_table_parts, session)
+        ):
+            raise _iceberg_metadata_cld_unsupported(
+                metadata_table_name, base_table_name
+            ) from e
+        # SNOW-3471788 (Managed path): On Managed Iceberg tables the
+        # `INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA` table function backing
+        # `<table>.snapshots` is not yet generally available in every
+        # Snowflake region/edition, so the SELECT fails with
+        # 002004 (42601) "Invalid identifier
+        # INFORMATION_SCHEMA.<func>" rather than the friendlier 2003 path.
+        # The customer's `<base>.snapshots` reference looked perfectly
+        # valid on the Spark side, so translate the cryptic compiler
+        # error into something they can act on.
+        if getattr(
+            e, "sql_error_code", None
+        ) == 2004 and _looks_like_missing_iceberg_metadata_function(
+            e, metadata_table_name
+        ):
+            exception = AnalysisException(
+                f"Iceberg metadata subtable '.{metadata_table_name}' "
+                "requires the Snowflake "
+                "`INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA` table "
+                "function, which is not yet available in this Snowflake "
+                "region/edition. Track availability with your Snowflake "
+                "account team; in the meantime you can read the Iceberg "
+                "metadata directly from the table's metadata.json file "
+                f"on object storage. Base table: `{base_table_name}`."
+            )
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception from e
+        raise
+    return post_process_df(df, plan_id, table_name)
+
+
+def _iceberg_metadata_cld_unsupported(
+    metadata_table_name: str, base_table_name: str
+) -> AnalysisException:
+    """Build the shared SNOW-3471788 AnalysisException for Iceberg
+    metadata-table queries against CLD tables.
+
+    Two call sites use the same message:
+
+    1. ``SnowparkSQLException`` with sql_error_code 2003 — Snowflake
+       server-side "object does not exist" coming out of
+       ``INFORMATION_SCHEMA.ICEBERG_TABLE_*`` against a CLD table.
+    2. ``SnowparkInvalidObjectNameException`` (code 1500) — Snowpark's
+       client-side object-name validator rejects the CLD-qualified
+       parameter before the request even leaves the process. Observed
+       primarily on Unity Iceberg REST today.
+    """
+    exception = AnalysisException(
+        f"Iceberg metadata table '.{metadata_table_name}' is not "
+        "supported on Snowflake catalog-linked Iceberg tables "
+        f"(`{base_table_name}`). Snowflake's "
+        "`INFORMATION_SCHEMA.ICEBERG_TABLE_*` functions only "
+        "resolve managed-Iceberg tables (this applies to both "
+        "Glue and Unity Iceberg REST catalogs). Workarounds: "
+        "(a) query the metadata file directly from the external "
+        "catalog (e.g. AWS Glue's GetTable API or the Iceberg "
+        "REST endpoint + manifest parsing), or (b) re-create the "
+        "table as a Managed Iceberg table — Snowflake then "
+        f"exposes `.{metadata_table_name}` via INFORMATION_SCHEMA."
     )
+    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+    return exception
+
+
+def _looks_like_missing_iceberg_metadata_function(
+    e: SnowparkSQLException,
+    metadata_table_name: str,
+) -> bool:
+    """Best-effort match: is the Snowflake 2004 'Invalid identifier' error
+    pointing at one of our `INFORMATION_SCHEMA.ICEBERG_TABLE_*` calls?
+
+    Snowflake error text for the missing-function case looks like
+    `Invalid identifier 'INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA'`.
+    We deliberately match on the family token (`ICEBERG_TABLE_`) rather
+    than the exact function name so that a future rename
+    (e.g. `ICEBERG_TABLE_SNAPSHOTS`) still gets the friendlier message.
+    Returns False on any unexpected shape so the original
+    `SnowparkSQLException` propagates intact.
+    """
+    if not metadata_table_name:
+        return False
+    msg = (getattr(e, "message", None) or str(e) or "").upper()
+    return "ICEBERG_TABLE_" in msg and "INVALID IDENTIFIER" in msg
+
+
+def _looks_like_cld_qualified_name(
+    base_table_parts: list[str],
+    session: snowpark.Session,
+) -> bool:
+    """Best-effort check: is the first part of the fully-qualified name a
+    catalog-linked database? Avoids a Snowflake round-trip when SCOS's
+    own CLD context flag is set; falls back to the per-database catalog
+    cache otherwise. Returns False on any lookup error so the original
+    SnowparkSQLException still propagates cleanly.
+    """
+    try:
+        from snowflake.snowpark_connect.utils.cld_context import is_in_cld_context
+
+        if is_in_cld_context():
+            return True
+    except Exception:
+        pass
+
+    if not base_table_parts:
+        return False
+    db_name = base_table_parts[0].strip('"').upper()
+    if not db_name:
+        return False
+    try:
+        rows = session.sql(
+            "SELECT CATALOG_NAME FROM SNOWFLAKE.INFORMATION_SCHEMA.DATABASES "
+            "WHERE DATABASE_NAME = ? AND CATALOG_NAME IS NOT NULL",
+            params=[db_name],
+        ).collect()
+        return len(rows) > 0
+    except Exception:
+        return False
 
 
 def post_process_df(

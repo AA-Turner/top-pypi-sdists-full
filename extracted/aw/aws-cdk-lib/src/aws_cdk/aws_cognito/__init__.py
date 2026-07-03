@@ -10312,7 +10312,13 @@ class CfnUserPoolDomain(
             custom_domain_config=cognito.CfnUserPoolDomain.CustomDomainConfigTypeProperty(
                 certificate_arn="certificateArn"
             ),
-            managed_login_version=123
+            managed_login_version=123,
+            routing=cognito.CfnUserPoolDomain.RoutingTypeProperty(
+                failover=cognito.CfnUserPoolDomain.FailoverTypeProperty(
+                    primary_route53_health_check_id="primaryRoute53HealthCheckId",
+                    secondary_region="secondaryRegion"
+                )
+            )
         )
     '''
 
@@ -10325,6 +10331,7 @@ class CfnUserPoolDomain(
         user_pool_id: builtins.str,
         custom_domain_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolDomain.CustomDomainConfigTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         managed_login_version: typing.Optional[jsii.Number] = None,
+        routing: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolDomain.RoutingTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Cognito::UserPoolDomain``.
 
@@ -10334,6 +10341,7 @@ class CfnUserPoolDomain(
         :param user_pool_id: The ID of the user pool that is associated with the domain you're updating.
         :param custom_domain_config: The configuration for a custom domain that hosts the sign-up and sign-in pages for your application. Use this object to specify an SSL certificate that is managed by ACM. When you create a custom domain, the passkey RP ID defaults to the custom domain. If you had a prefix domain active, this will cause passkey integration for your prefix domain to stop working due to a mismatch in RP ID. To keep the prefix domain passkey integration working, you can explicitly set RP ID to the prefix domain.
         :param managed_login_version: A version number that indicates the state of managed login for your domain. Version ``1`` is hosted UI (classic). Version ``2`` is the newer managed login with the branding editor. For more information, see `Managed login <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html>`_ .
+        :param routing: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e0b36c4d155cfdfa9801e3f221c4fe6c5403bf24a64d17bd90fb5386301d675)
@@ -10344,6 +10352,7 @@ class CfnUserPoolDomain(
             user_pool_id=user_pool_id,
             custom_domain_config=custom_domain_config,
             managed_login_version=managed_login_version,
+            routing=routing,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -10472,6 +10481,23 @@ class CfnUserPoolDomain(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "managedLoginVersion", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="routing")
+    def routing(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.RoutingTypeProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.RoutingTypeProperty"]], jsii.get(self, "routing"))
+
+    @routing.setter
+    def routing(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.RoutingTypeProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6c33f81862d280c36447fed98b3e55fa6a44d50cc6a91594df213fdb81d3b094)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "routing", value) # pyright: ignore[reportArgumentType]
+
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolDomain.CustomDomainConfigTypeProperty",
         jsii_struct_bases=[],
@@ -10529,6 +10555,135 @@ class CfnUserPoolDomain(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolDomain.FailoverTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "primary_route53_health_check_id": "primaryRoute53HealthCheckId",
+            "secondary_region": "secondaryRegion",
+        },
+    )
+    class FailoverTypeProperty:
+        def __init__(
+            self,
+            *,
+            primary_route53_health_check_id: builtins.str,
+            secondary_region: builtins.str,
+        ) -> None:
+            '''
+            :param primary_route53_health_check_id: 
+            :param secondary_region: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpooldomain-failovertype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                failover_type_property = cognito.CfnUserPoolDomain.FailoverTypeProperty(
+                    primary_route53_health_check_id="primaryRoute53HealthCheckId",
+                    secondary_region="secondaryRegion"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__39af035b5a6ac4b1e532284da93372078c797c46d318cb837f007951b218755c)
+                check_type(argname="argument primary_route53_health_check_id", value=primary_route53_health_check_id, expected_type=type_hints["primary_route53_health_check_id"])
+                check_type(argname="argument secondary_region", value=secondary_region, expected_type=type_hints["secondary_region"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "primary_route53_health_check_id": primary_route53_health_check_id,
+                "secondary_region": secondary_region,
+            }
+
+        @builtins.property
+        def primary_route53_health_check_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpooldomain-failovertype.html#cfn-cognito-userpooldomain-failovertype-primaryroute53healthcheckid
+            '''
+            result = self._values.get("primary_route53_health_check_id")
+            assert result is not None, "Required property 'primary_route53_health_check_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def secondary_region(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpooldomain-failovertype.html#cfn-cognito-userpooldomain-failovertype-secondaryregion
+            '''
+            result = self._values.get("secondary_region")
+            assert result is not None, "Required property 'secondary_region' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FailoverTypeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolDomain.RoutingTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"failover": "failover"},
+    )
+    class RoutingTypeProperty:
+        def __init__(
+            self,
+            *,
+            failover: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolDomain.FailoverTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param failover: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpooldomain-routingtype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                routing_type_property = cognito.CfnUserPoolDomain.RoutingTypeProperty(
+                    failover=cognito.CfnUserPoolDomain.FailoverTypeProperty(
+                        primary_route53_health_check_id="primaryRoute53HealthCheckId",
+                        secondary_region="secondaryRegion"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__788c35d2518c6bd07dbb5583f09c117a31b0340e999cd4ef9f2d9d2e42b9674b)
+                check_type(argname="argument failover", value=failover, expected_type=type_hints["failover"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if failover is not None:
+                self._values["failover"] = failover
+
+        @builtins.property
+        def failover(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.FailoverTypeProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpooldomain-routingtype.html#cfn-cognito-userpooldomain-routingtype-failover
+            '''
+            result = self._values.get("failover")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.FailoverTypeProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RoutingTypeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolDomainProps",
@@ -10538,6 +10693,7 @@ class CfnUserPoolDomain(
         "user_pool_id": "userPoolId",
         "custom_domain_config": "customDomainConfig",
         "managed_login_version": "managedLoginVersion",
+        "routing": "routing",
     },
 )
 class CfnUserPoolDomainProps:
@@ -10548,6 +10704,7 @@ class CfnUserPoolDomainProps:
         user_pool_id: builtins.str,
         custom_domain_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolDomain.CustomDomainConfigTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         managed_login_version: typing.Optional[jsii.Number] = None,
+        routing: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolDomain.RoutingTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnUserPoolDomain``.
 
@@ -10555,6 +10712,7 @@ class CfnUserPoolDomainProps:
         :param user_pool_id: The ID of the user pool that is associated with the domain you're updating.
         :param custom_domain_config: The configuration for a custom domain that hosts the sign-up and sign-in pages for your application. Use this object to specify an SSL certificate that is managed by ACM. When you create a custom domain, the passkey RP ID defaults to the custom domain. If you had a prefix domain active, this will cause passkey integration for your prefix domain to stop working due to a mismatch in RP ID. To keep the prefix domain passkey integration working, you can explicitly set RP ID to the prefix domain.
         :param managed_login_version: A version number that indicates the state of managed login for your domain. Version ``1`` is hosted UI (classic). Version ``2`` is the newer managed login with the branding editor. For more information, see `Managed login <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html>`_ .
+        :param routing: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpooldomain.html
         :exampleMetadata: fixture=_generated
@@ -10573,7 +10731,13 @@ class CfnUserPoolDomainProps:
                 custom_domain_config=cognito.CfnUserPoolDomain.CustomDomainConfigTypeProperty(
                     certificate_arn="certificateArn"
                 ),
-                managed_login_version=123
+                managed_login_version=123,
+                routing=cognito.CfnUserPoolDomain.RoutingTypeProperty(
+                    failover=cognito.CfnUserPoolDomain.FailoverTypeProperty(
+                        primary_route53_health_check_id="primaryRoute53HealthCheckId",
+                        secondary_region="secondaryRegion"
+                    )
+                )
             )
         '''
         if __debug__:
@@ -10582,6 +10746,7 @@ class CfnUserPoolDomainProps:
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
             check_type(argname="argument custom_domain_config", value=custom_domain_config, expected_type=type_hints["custom_domain_config"])
             check_type(argname="argument managed_login_version", value=managed_login_version, expected_type=type_hints["managed_login_version"])
+            check_type(argname="argument routing", value=routing, expected_type=type_hints["routing"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "domain": domain,
             "user_pool_id": user_pool_id,
@@ -10590,6 +10755,8 @@ class CfnUserPoolDomainProps:
             self._values["custom_domain_config"] = custom_domain_config
         if managed_login_version is not None:
             self._values["managed_login_version"] = managed_login_version
+        if routing is not None:
+            self._values["routing"] = routing
 
     @builtins.property
     def domain(self) -> builtins.str:
@@ -10638,6 +10805,16 @@ class CfnUserPoolDomainProps:
         '''
         result = self._values.get("managed_login_version")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def routing(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.RoutingTypeProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpooldomain.html#cfn-cognito-userpooldomain-routing
+        '''
+        result = self._values.get("routing")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.RoutingTypeProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15506,7 +15683,7 @@ class IUserPool(
         '''Add a new app client to this user pool.
 
         :param id: -
-        :param access_token_validity: Validity of the access token. Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity. Default: Duration.minutes(60)
+        :param access_token_validity: Validity of the access token. Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity. Default: Duration.minutes(60)
         :param analytics: The analytics configuration for this client. Default: - no analytics configuration
         :param auth_flows: The set of OAuth authentication flows to enable on the client. Default: - If you don't specify a value, your user client supports ALLOW_REFRESH_TOKEN_AUTH, ALLOW_USER_SRP_AUTH, and ALLOW_CUSTOM_AUTH.
         :param auth_session_validity: Cognito creates a session token for each API request in an authentication flow. AuthSessionValidity is the duration, in minutes, of that session token. see defaults in ``AuthSessionValidity``. Valid duration is from 3 to 15 minutes. Default: - Duration.minutes(3)
@@ -15514,7 +15691,7 @@ class IUserPool(
         :param enable_propagate_additional_user_context_data: Enable the propagation of additional user context data. You can only activate enablePropagateAdditionalUserContextData in an app client that has a client secret. Default: false for new user pool clients
         :param enable_token_revocation: Enable token revocation for this client. Default: true for new user pool clients
         :param generate_secret: Whether to generate a client secret. Default: false
-        :param id_token_validity: Validity of the ID token. Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity. Default: Duration.minutes(60)
+        :param id_token_validity: Validity of the ID token. Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity. Default: Duration.minutes(60)
         :param o_auth: OAuth settings for this client to interact with the app. An error is thrown when this is specified and ``disableOAuth`` is set. Default: - see defaults in ``OAuthSettings``. meaningless if ``disableOAuth`` is set.
         :param prevent_user_existence_errors: Whether Cognito returns a UserNotFoundException exception when the user does not exist in the user pool (false), or whether it returns another type of error that doesn't reveal the user's absence. Default: false
         :param read_attributes: The set of attributes this client will be able to read. Default: - all standard and custom attributes
@@ -15682,7 +15859,7 @@ class _IUserPoolProxy(
         '''Add a new app client to this user pool.
 
         :param id: -
-        :param access_token_validity: Validity of the access token. Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity. Default: Duration.minutes(60)
+        :param access_token_validity: Validity of the access token. Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity. Default: Duration.minutes(60)
         :param analytics: The analytics configuration for this client. Default: - no analytics configuration
         :param auth_flows: The set of OAuth authentication flows to enable on the client. Default: - If you don't specify a value, your user client supports ALLOW_REFRESH_TOKEN_AUTH, ALLOW_USER_SRP_AUTH, and ALLOW_CUSTOM_AUTH.
         :param auth_session_validity: Cognito creates a session token for each API request in an authentication flow. AuthSessionValidity is the duration, in minutes, of that session token. see defaults in ``AuthSessionValidity``. Valid duration is from 3 to 15 minutes. Default: - Duration.minutes(3)
@@ -15690,7 +15867,7 @@ class _IUserPoolProxy(
         :param enable_propagate_additional_user_context_data: Enable the propagation of additional user context data. You can only activate enablePropagateAdditionalUserContextData in an app client that has a client secret. Default: false for new user pool clients
         :param enable_token_revocation: Enable token revocation for this client. Default: true for new user pool clients
         :param generate_secret: Whether to generate a client secret. Default: false
-        :param id_token_validity: Validity of the ID token. Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity. Default: Duration.minutes(60)
+        :param id_token_validity: Validity of the ID token. Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity. Default: Duration.minutes(60)
         :param o_auth: OAuth settings for this client to interact with the app. An error is thrown when this is specified and ``disableOAuth`` is set. Default: - see defaults in ``OAuthSettings``. meaningless if ``disableOAuth`` is set.
         :param prevent_user_existence_errors: Whether Cognito returns a UserNotFoundException exception when the user does not exist in the user pool (false), or whether it returns another type of error that doesn't reveal the user's absence. Default: false
         :param read_attributes: The set of attributes this client will be able to read. Default: - all standard and custom attributes
@@ -17080,7 +17257,7 @@ class PasswordPolicy:
         '''Password policy for User Pools.
 
         :param min_length: Minimum length required for a user's password. Default: 8
-        :param password_history_size: The number of previous passwords that you want Amazon Cognito to restrict each user from reusing. ``passwordHistorySize`` can not be set when ``featurePlan`` is ``FeaturePlan.LITE``. Default: undefined - Cognito default setting is no restriction
+        :param password_history_size: The number of previous passwords that you want Amazon Cognito to restrict each user from reusing. ``passwordHistorySize`` cannot be set when ``featurePlan`` is ``FeaturePlan.LITE``. Default: undefined - Cognito default setting is no restriction
         :param require_digits: Whether the user is required to have digits in their password. Default: true
         :param require_lowercase: Whether the user is required to have lowercase characters in their password. Default: true
         :param require_symbols: Whether the user is required to have symbols in their password. Default: true
@@ -17141,7 +17318,7 @@ class PasswordPolicy:
     def password_history_size(self) -> typing.Optional[jsii.Number]:
         '''The number of previous passwords that you want Amazon Cognito to restrict each user from reusing.
 
-        ``passwordHistorySize`` can not be set when ``featurePlan`` is ``FeaturePlan.LITE``.
+        ``passwordHistorySize`` cannot be set when ``featurePlan`` is ``FeaturePlan.LITE``.
 
         :default: undefined - Cognito default setting is no restriction
         '''
@@ -19157,7 +19334,7 @@ class UserPool(
         '''Add a new app client to this user pool.
 
         :param id: -
-        :param access_token_validity: Validity of the access token. Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity. Default: Duration.minutes(60)
+        :param access_token_validity: Validity of the access token. Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity. Default: Duration.minutes(60)
         :param analytics: The analytics configuration for this client. Default: - no analytics configuration
         :param auth_flows: The set of OAuth authentication flows to enable on the client. Default: - If you don't specify a value, your user client supports ALLOW_REFRESH_TOKEN_AUTH, ALLOW_USER_SRP_AUTH, and ALLOW_CUSTOM_AUTH.
         :param auth_session_validity: Cognito creates a session token for each API request in an authentication flow. AuthSessionValidity is the duration, in minutes, of that session token. see defaults in ``AuthSessionValidity``. Valid duration is from 3 to 15 minutes. Default: - Duration.minutes(3)
@@ -19165,7 +19342,7 @@ class UserPool(
         :param enable_propagate_additional_user_context_data: Enable the propagation of additional user context data. You can only activate enablePropagateAdditionalUserContextData in an app client that has a client secret. Default: false for new user pool clients
         :param enable_token_revocation: Enable token revocation for this client. Default: true for new user pool clients
         :param generate_secret: Whether to generate a client secret. Default: false
-        :param id_token_validity: Validity of the ID token. Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity. Default: Duration.minutes(60)
+        :param id_token_validity: Validity of the ID token. Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity. Default: Duration.minutes(60)
         :param o_auth: OAuth settings for this client to interact with the app. An error is thrown when this is specified and ``disableOAuth`` is set. Default: - see defaults in ``OAuthSettings``. meaningless if ``disableOAuth`` is set.
         :param prevent_user_existence_errors: Whether Cognito returns a UserNotFoundException exception when the user does not exist in the user pool (false), or whether it returns another type of error that doesn't reveal the user's absence. Default: false
         :param read_attributes: The set of attributes this client will be able to read. Default: - all standard and custom attributes
@@ -19442,7 +19619,7 @@ class UserPoolClient(
         :param scope: -
         :param id: -
         :param user_pool: The UserPool resource this client will have access to.
-        :param access_token_validity: Validity of the access token. Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity. Default: Duration.minutes(60)
+        :param access_token_validity: Validity of the access token. Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity. Default: Duration.minutes(60)
         :param analytics: The analytics configuration for this client. Default: - no analytics configuration
         :param auth_flows: The set of OAuth authentication flows to enable on the client. Default: - If you don't specify a value, your user client supports ALLOW_REFRESH_TOKEN_AUTH, ALLOW_USER_SRP_AUTH, and ALLOW_CUSTOM_AUTH.
         :param auth_session_validity: Cognito creates a session token for each API request in an authentication flow. AuthSessionValidity is the duration, in minutes, of that session token. see defaults in ``AuthSessionValidity``. Valid duration is from 3 to 15 minutes. Default: - Duration.minutes(3)
@@ -19450,7 +19627,7 @@ class UserPoolClient(
         :param enable_propagate_additional_user_context_data: Enable the propagation of additional user context data. You can only activate enablePropagateAdditionalUserContextData in an app client that has a client secret. Default: false for new user pool clients
         :param enable_token_revocation: Enable token revocation for this client. Default: true for new user pool clients
         :param generate_secret: Whether to generate a client secret. Default: false
-        :param id_token_validity: Validity of the ID token. Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity. Default: Duration.minutes(60)
+        :param id_token_validity: Validity of the ID token. Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity. Default: Duration.minutes(60)
         :param o_auth: OAuth settings for this client to interact with the app. An error is thrown when this is specified and ``disableOAuth`` is set. Default: - see defaults in ``OAuthSettings``. meaningless if ``disableOAuth`` is set.
         :param prevent_user_existence_errors: Whether Cognito returns a UserNotFoundException exception when the user does not exist in the user pool (false), or whether it returns another type of error that doesn't reveal the user's absence. Default: false
         :param read_attributes: The set of attributes this client will be able to read. Default: - all standard and custom attributes
@@ -19674,7 +19851,7 @@ class UserPoolClientOptions:
     ) -> None:
         '''Options to create a UserPoolClient.
 
-        :param access_token_validity: Validity of the access token. Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity. Default: Duration.minutes(60)
+        :param access_token_validity: Validity of the access token. Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity. Default: Duration.minutes(60)
         :param analytics: The analytics configuration for this client. Default: - no analytics configuration
         :param auth_flows: The set of OAuth authentication flows to enable on the client. Default: - If you don't specify a value, your user client supports ALLOW_REFRESH_TOKEN_AUTH, ALLOW_USER_SRP_AUTH, and ALLOW_CUSTOM_AUTH.
         :param auth_session_validity: Cognito creates a session token for each API request in an authentication flow. AuthSessionValidity is the duration, in minutes, of that session token. see defaults in ``AuthSessionValidity``. Valid duration is from 3 to 15 minutes. Default: - Duration.minutes(3)
@@ -19682,7 +19859,7 @@ class UserPoolClientOptions:
         :param enable_propagate_additional_user_context_data: Enable the propagation of additional user context data. You can only activate enablePropagateAdditionalUserContextData in an app client that has a client secret. Default: false for new user pool clients
         :param enable_token_revocation: Enable token revocation for this client. Default: true for new user pool clients
         :param generate_secret: Whether to generate a client secret. Default: false
-        :param id_token_validity: Validity of the ID token. Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity. Default: Duration.minutes(60)
+        :param id_token_validity: Validity of the ID token. Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity. Default: Duration.minutes(60)
         :param o_auth: OAuth settings for this client to interact with the app. An error is thrown when this is specified and ``disableOAuth`` is set. Default: - see defaults in ``OAuthSettings``. meaningless if ``disableOAuth`` is set.
         :param prevent_user_existence_errors: Whether Cognito returns a UserNotFoundException exception when the user does not exist in the user pool (false), or whether it returns another type of error that doesn't reveal the user's absence. Default: false
         :param read_attributes: The set of attributes this client will be able to read. Default: - all standard and custom attributes
@@ -19773,7 +19950,7 @@ class UserPoolClientOptions:
     def access_token_validity(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''Validity of the access token.
 
-        Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity.
+        Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity.
 
         :default: Duration.minutes(60)
 
@@ -19864,7 +20041,7 @@ class UserPoolClientOptions:
     def id_token_validity(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''Validity of the ID token.
 
-        Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity.
+        Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity.
 
         :default: Duration.minutes(60)
 
@@ -20030,7 +20207,7 @@ class UserPoolClientProps(UserPoolClientOptions):
     ) -> None:
         '''Properties for the UserPoolClient construct.
 
-        :param access_token_validity: Validity of the access token. Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity. Default: Duration.minutes(60)
+        :param access_token_validity: Validity of the access token. Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity. Default: Duration.minutes(60)
         :param analytics: The analytics configuration for this client. Default: - no analytics configuration
         :param auth_flows: The set of OAuth authentication flows to enable on the client. Default: - If you don't specify a value, your user client supports ALLOW_REFRESH_TOKEN_AUTH, ALLOW_USER_SRP_AUTH, and ALLOW_CUSTOM_AUTH.
         :param auth_session_validity: Cognito creates a session token for each API request in an authentication flow. AuthSessionValidity is the duration, in minutes, of that session token. see defaults in ``AuthSessionValidity``. Valid duration is from 3 to 15 minutes. Default: - Duration.minutes(3)
@@ -20038,7 +20215,7 @@ class UserPoolClientProps(UserPoolClientOptions):
         :param enable_propagate_additional_user_context_data: Enable the propagation of additional user context data. You can only activate enablePropagateAdditionalUserContextData in an app client that has a client secret. Default: false for new user pool clients
         :param enable_token_revocation: Enable token revocation for this client. Default: true for new user pool clients
         :param generate_secret: Whether to generate a client secret. Default: false
-        :param id_token_validity: Validity of the ID token. Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity. Default: Duration.minutes(60)
+        :param id_token_validity: Validity of the ID token. Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity. Default: Duration.minutes(60)
         :param o_auth: OAuth settings for this client to interact with the app. An error is thrown when this is specified and ``disableOAuth`` is set. Default: - see defaults in ``OAuthSettings``. meaningless if ``disableOAuth`` is set.
         :param prevent_user_existence_errors: Whether Cognito returns a UserNotFoundException exception when the user does not exist in the user pool (false), or whether it returns another type of error that doesn't reveal the user's absence. Default: false
         :param read_attributes: The set of attributes this client will be able to read. Default: - all standard and custom attributes
@@ -20145,7 +20322,7 @@ class UserPoolClientProps(UserPoolClientOptions):
     def access_token_validity(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''Validity of the access token.
 
-        Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity.
+        Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity.
 
         :default: Duration.minutes(60)
 
@@ -20236,7 +20413,7 @@ class UserPoolClientProps(UserPoolClientOptions):
     def id_token_validity(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''Validity of the ID token.
 
-        Values between 5 minutes and 1 day are valid. The duration can not be longer than the refresh token validity.
+        Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity.
 
         :default: Duration.minutes(60)
 
@@ -26513,6 +26690,7 @@ def _typecheckingstub__6e0b36c4d155cfdfa9801e3f221c4fe6c5403bf24a64d17bd90fb5386
     user_pool_id: builtins.str,
     custom_domain_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolDomain.CustomDomainConfigTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     managed_login_version: typing.Optional[jsii.Number] = None,
+    routing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolDomain.RoutingTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26559,9 +26737,30 @@ def _typecheckingstub__b1d6e8e96816f3572291ff67691b98d76a166cf058320e0e73e58062b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6c33f81862d280c36447fed98b3e55fa6a44d50cc6a91594df213fdb81d3b094(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPoolDomain.RoutingTypeProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__dde97995e450b3b0c5468a27b415565086c00f64bdc255f297a8471e77b85243(
     *,
     certificate_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__39af035b5a6ac4b1e532284da93372078c797c46d318cb837f007951b218755c(
+    *,
+    primary_route53_health_check_id: builtins.str,
+    secondary_region: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__788c35d2518c6bd07dbb5583f09c117a31b0340e999cd4ef9f2d9d2e42b9674b(
+    *,
+    failover: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolDomain.FailoverTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26572,6 +26771,7 @@ def _typecheckingstub__fe5ef2b7c4347565bc988b8d9120bbd5feadcfadd061512019de1519e
     user_pool_id: builtins.str,
     custom_domain_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolDomain.CustomDomainConfigTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     managed_login_version: typing.Optional[jsii.Number] = None,
+    routing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolDomain.RoutingTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

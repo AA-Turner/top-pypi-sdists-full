@@ -828,9 +828,49 @@ def _execute_llm_call_sync(
         raise
 
 
-# Import asyncio at module level
 import asyncio
 import contextlib
+
+# (module, class, canonical provider). Imported lazily; missing packages are skipped.
+_LANGCHAIN_LLM_TARGETS = [
+    # --- Tier 1: Most common providers ---
+    ("langchain_openai", "ChatOpenAI", "openai"),
+    ("langchain_anthropic", "ChatAnthropic", "anthropic"),
+    ("langchain_google_genai", "ChatGoogleGenerativeAI", "gemini"),
+    # --- AWS Bedrock ---
+    ("langchain_aws", "ChatBedrock", "bedrock"),
+    ("langchain_aws", "ChatBedrockConverse", "bedrock"),
+    # --- Groq ---
+    ("langchain_groq", "ChatGroq", "groq"),
+    # --- Mistral ---
+    ("langchain_mistralai", "ChatMistralAI", "mistral"),
+    # --- Cohere ---
+    ("langchain_cohere", "ChatCohere", "cohere"),
+    # --- Fireworks ---
+    ("langchain_fireworks", "ChatFireworks", "fireworks"),
+    # --- Together AI ---
+    ("langchain_together", "ChatTogether", "together"),
+    # --- NVIDIA NIM ---
+    ("langchain_nvidia_ai_endpoints", "ChatNVIDIA", "nvidia"),
+    # --- AI21 ---
+    ("langchain_ai21", "ChatAI21", "ai21"),
+    # --- DeepSeek (via openai-compatible or dedicated package) ---
+    ("langchain_deepseek", "ChatDeepSeek", "deepseek"),
+    # --- Ollama (local models) ---
+    ("langchain_ollama", "ChatOllama", "ollama"),
+    # --- Azure OpenAI ---
+    ("langchain_openai", "AzureChatOpenAI", "azure_openai"),
+    # --- Google Vertex AI ---
+    ("langchain_google_vertexai", "ChatVertexAI", "vertex_ai"),
+    # --- Hugging Face ---
+    ("langchain_huggingface", "ChatHuggingFace", "huggingface"),
+    # --- xAI (Grok) ---
+    ("langchain_xai", "ChatXAI", "xai"),
+    # --- Cerebras ---
+    ("langchain_cerebras", "ChatCerebras", "cerebras"),
+    # --- Sambanova ---
+    ("langchain_sambanova", "ChatSambaNovaCloud", "sambanova"),
+]
 
 
 def _patch_langchain_llms() -> None:
@@ -840,48 +880,6 @@ def _patch_langchain_llms() -> None:
     work regardless of which provider the customer uses — including
     fallback chains (e.g. Bedrock → Groq).
     """
-    # Each entry: (import_path, class_name, provider_label)
-    # Uses lazy imports so missing packages are silently skipped.
-    _LANGCHAIN_LLM_TARGETS = [
-        # --- Tier 1: Most common providers ---
-        ("langchain_openai", "ChatOpenAI", "openai"),
-        ("langchain_anthropic", "ChatAnthropic", "anthropic"),
-        ("langchain_google_genai", "ChatGoogleGenerativeAI", "gemini"),
-        # --- AWS Bedrock ---
-        ("langchain_aws", "ChatBedrock", "bedrock"),
-        ("langchain_aws", "ChatBedrockConverse", "bedrock"),
-        # --- Groq ---
-        ("langchain_groq", "ChatGroq", "groq"),
-        # --- Mistral ---
-        ("langchain_mistralai", "ChatMistralAI", "mistral"),
-        # --- Cohere ---
-        ("langchain_cohere", "ChatCohere", "cohere"),
-        # --- Fireworks ---
-        ("langchain_fireworks", "ChatFireworks", "fireworks"),
-        # --- Together AI ---
-        ("langchain_together", "ChatTogether", "together"),
-        # --- NVIDIA NIM ---
-        ("langchain_nvidia_ai_endpoints", "ChatNVIDIA", "nvidia"),
-        # --- AI21 ---
-        ("langchain_ai21", "ChatAI21", "ai21"),
-        # --- DeepSeek (via openai-compatible or dedicated package) ---
-        ("langchain_deepseek", "ChatDeepSeek", "deepseek"),
-        # --- Ollama (local models) ---
-        ("langchain_ollama", "ChatOllama", "ollama"),
-        # --- Azure OpenAI ---
-        ("langchain_openai", "AzureChatOpenAI", "azure_openai"),
-        # --- Google Vertex AI ---
-        ("langchain_google_vertexai", "ChatVertexAI", "vertex_ai"),
-        # --- Hugging Face ---
-        ("langchain_huggingface", "ChatHuggingFace", "huggingface"),
-        # --- xAI (Grok) ---
-        ("langchain_xai", "ChatXAI", "xai"),
-        # --- Cerebras ---
-        ("langchain_cerebras", "ChatCerebras", "cerebras"),
-        # --- Sambanova ---
-        ("langchain_sambanova", "ChatSambaNovaCloud", "sambanova"),
-    ]
-
     patched_count = 0
     for module_path, class_name, provider in _LANGCHAIN_LLM_TARGETS:
         try:
@@ -916,6 +914,13 @@ def _patch_langchain_llm_class(llm_class: Any, provider: str) -> None:
 
     def _convert_messages_to_dict(messages) -> list:
         """Convert LangChain messages to dict format for interception."""
+        if isinstance(messages, str):
+            return [{"role": "user", "content": messages}]
+        if hasattr(messages, "to_messages"):
+            messages = messages.to_messages()
+        elif not isinstance(messages, (list, tuple)):
+            messages = [messages]
+
         messages_dict = []
         for msg in messages:
             if hasattr(msg, "type"):
@@ -956,9 +961,6 @@ def _patch_langchain_llm_class(llm_class: Any, provider: str) -> None:
 
                 # Convert messages for interception
                 messages_dict = _convert_messages_to_dict(messages)
-
-                # Pre-call interception was gated on the removed autonomous mode; ctx stays None.
-                interception_ctx = None
 
                 # Tracing: check if AigieCallbackHandler is present in config.
                 # If callbacks handle tracing, we skip span creation here to avoid duplicates.
@@ -1010,16 +1012,8 @@ def _patch_langchain_llm_class(llm_class: Any, provider: str) -> None:
                     except Exception as e:
                         logger.debug(f"Fallback span creation error (continuing): {e}")
 
-                # Make the actual LLM call. Errors route through the autonomous
-                # chain (a no-op passthrough unless a chain hook is wired); the
-                # post-call quality-retry loop was gated on the removed autonomous mode.
-                from aigie.autonomous.inline_call import acall_with_autonomous
-
-                last_response = await acall_with_autonomous(
-                    lambda: original_ainvoke(self, messages, config=config, **kwargs),
-                    interception_ctx,
-                    aigie,
-                )
+                # Make the actual LLM call.
+                last_response = await original_ainvoke(self, messages, config=config, **kwargs)
 
                 # Close fallback span on success
                 if _fallback_span:
@@ -1090,9 +1084,6 @@ def _patch_langchain_llm_class(llm_class: Any, provider: str) -> None:
                 # Convert messages for interception
                 messages_dict = _convert_messages_to_dict(messages)
 
-                # Pre-call interception was gated on the removed autonomous mode; ctx stays None.
-                interception_ctx = None
-
                 # Tracing: check if AigieCallbackHandler is present in config.
                 _has_aigie_callback = False
                 _fallback_span = None
@@ -1140,15 +1131,8 @@ def _patch_langchain_llm_class(llm_class: Any, provider: str) -> None:
                     except Exception as e:
                         logger.debug(f"Fallback span creation error (continuing): {e}")
 
-                # Make the actual LLM call, routing errors through the autonomous
-                # chain so hooks like RetryIntervention can fire on e.g. 429.
-                from aigie.autonomous.inline_call import call_sync_with_autonomous
-
-                response = call_sync_with_autonomous(
-                    lambda: original_invoke(self, messages, config=config, **kwargs),
-                    interception_ctx,
-                    aigie,
-                )
+                # Make the actual LLM call.
+                response = original_invoke(self, messages, config=config, **kwargs)
 
                 # Close fallback span on success
                 if _fallback_span:

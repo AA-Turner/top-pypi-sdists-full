@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: firebase_admin
-Version: 7.4.0
+Version: 7.5.0
 Summary: Firebase Admin Python SDK
 Home-page: https://firebase.google.com/docs/admin/setup/
 Author: Firebase
@@ -25,6 +25,7 @@ Requires-Dist: google-api-core[grpc]<3.0.0dev,>=2.25.1; platform_python_implemen
 Requires-Dist: google-cloud-firestore>=2.21.0; platform_python_implementation != "PyPy"
 Requires-Dist: google-cloud-storage>=3.1.1
 Requires-Dist: pyjwt[crypto]>=2.10.1
+Requires-Dist: cryptography<44.0.0; platform_python_implementation == "PyPy" and python_version < "3.11"
 Requires-Dist: httpx[http2]==0.28.1
 Dynamic: author
 Dynamic: classifier

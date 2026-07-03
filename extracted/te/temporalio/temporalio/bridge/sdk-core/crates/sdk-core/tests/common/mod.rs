@@ -365,10 +365,14 @@ impl CoreWfStarter {
 
     pub(crate) async fn worker(&mut self) -> TestWorker {
         let worker = self.get_worker().await;
+        worker
+            .validate()
+            .await
+            .expect("Worker validation should succeed");
         let client = self.get_client().await;
         let sdk = Worker::new_from_core_options(
             worker,
-            client.data_converter().clone(),
+            client.options().clone(),
             self.sdk_config.clone(),
         )
         .expect("SDK worker should initialize from core worker and options");
@@ -1106,6 +1110,8 @@ pub(crate) fn integ_dev_server_config(
             "frontend.ListWorkersEnabled=true".to_owned(),
             "--dynamic-config-value".to_owned(),
             "frontend.enableCancelWorkerPollsOnShutdown=true".to_owned(),
+            "--dynamic-config-value".to_owned(),
+            "frontend.workerCommandsEnabled=true".to_owned(),
             "--dynamic-config-value".to_owned(),
             "matching.rps=12000".to_owned(),
             "--search-attribute".to_string(),

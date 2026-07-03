@@ -14,9 +14,11 @@ from knack.util import CLIError
 
 from azdev.utilities import (
     pip_cmd, display, heading, COMMAND_MODULE_PREFIX, EXTENSION_PREFIX, get_cli_repo_path, get_ext_repo_paths,
-    find_files)
+    find_files, quote_arg)
 
 logger = get_logger(__name__)
+
+_PIP_EDITABLE_OPTS = "--config-settings editable_mode=compat --no-build-isolation"
 
 _MODULE_ROOT_PATH = os.path.join('src', 'azure-cli', 'azure', 'cli', 'command_modules')
 
@@ -297,6 +299,9 @@ def _create_package(prefix, repo_path, is_ext, name='test', display_name=None, d
     _generate_files(env, kwargs, test_files, dest_path)
 
     if is_ext:
-        result = pip_cmd('install -e {}'.format(new_package_path), "Installing `{}{}`...".format(prefix, name))
+        result = pip_cmd(
+            'install -e {} {}'.format(quote_arg(new_package_path), _PIP_EDITABLE_OPTS),
+            "Installing `{}{}`...".format(prefix, name),
+        )
         if result.error:
             raise result.error  # pylint: disable=raising-bad-type

@@ -23,10 +23,12 @@ from urllib.parse import quote, unquote, urlparse, urlunparse
 from .config import (
     DEFAULT_VIEWPORT,
     IGNORE_DEFAULT_ARGS,
+    binary_supports_headless_no_viewport,
     get_default_stealth_args,
     normalize_requested_version,
 )
 from .download import ensure_binary
+from .license import build_launch_env
 from .human.config import HumanConfigOverrides, HumanPreset
 from .widevine import seed_widevine_hint
 
@@ -84,16 +86,21 @@ def _default_no_viewport_async(browser: Any) -> None:
     browser.new_page = _patched_new_page
 
 
-def _resolve_context_viewport(viewport: Any, headless: bool) -> dict[str, Any]:
+def _resolve_context_viewport(
+    viewport: Any, headless: bool, headless_no_viewport: bool = False
+) -> dict[str, Any]:
     """Return the viewport kwarg for a context.
 
-    Headed: no emulated viewport so the page tracks the real window (CDP viewport
-    emulation forces outerWidth < innerWidth = a physically impossible window =
-    bot tell). Headless: a fixed ``DEFAULT_VIEWPORT`` stays coherent (outer == inner)
-    and keeps dimensions deterministic. Explicit ``viewport`` / ``None`` honored.
+    Headed: no emulated viewport so the page tracks the real window. Headless on a
+    newer binary (``headless_no_viewport``): also ``no_viewport``, since it reports
+    coherent dimensions without emulation. Headless on an older binary: a fixed
+    ``DEFAULT_VIEWPORT`` keeps dimensions coherent and deterministic. Explicit
+    ``viewport`` / ``None`` honored.
     """
     if viewport is _VIEWPORT_UNSET:
-        return {"viewport": DEFAULT_VIEWPORT} if headless else {"no_viewport": True}
+        if headless and not headless_no_viewport:
+            return {"viewport": DEFAULT_VIEWPORT}
+        return {"no_viewport": True}
     if viewport is None:
         return {"no_viewport": True}
     return {"viewport": viewport}
@@ -208,12 +215,16 @@ def launch(
 
     logger.debug("Launching stealth Chromium (headless=%s, args=%d)", headless, len(chrome_args))
 
+    launch_env = build_launch_env(license_key, user_env=kwargs.pop("env", None))
+    env_kwargs = {} if launch_env is None else {"env": launch_env}
+
     pw = sync_playwright().start()
     browser = pw.chromium.launch(
         executable_path=binary_path,
         headless=headless,
         args=chrome_args,
         ignore_default_args=IGNORE_DEFAULT_ARGS,
+        **env_kwargs,
         **proxy_kwargs,
         **kwargs,
     )
@@ -229,10 +240,11 @@ def launch(
 
     browser.close = _close_with_cleanup
 
-    # Headed: default new_page()/new_context() to no_viewport so the page tracks the
-    # real window (avoids the impossible-window tell). Headless keeps Playwright's
-    # default viewport (coherent there). Apply before humanize so the wraps compose.
-    if not headless:
+    # Default new_page()/new_context() to no_viewport for headed (page tracks the
+    # real window) and for headless on binaries that report coherent dimensions
+    # natively; older headless binaries keep Playwright's default viewport. Apply
+    # before humanize so the wraps compose.
+    if not headless or binary_supports_headless_no_viewport(license_key, browser_version):
         _default_no_viewport(browser)
 
     # Human-like behavioral patching
@@ -309,12 +321,16 @@ async def launch_async(  # noqa: C901
 
     logger.debug("Launching stealth Chromium async (headless=%s, args=%d)", headless, len(chrome_args))
 
+    launch_env = build_launch_env(license_key, user_env=kwargs.pop("env", None))
+    env_kwargs = {} if launch_env is None else {"env": launch_env}
+
     pw = await async_playwright().start()
     browser = await pw.chromium.launch(
         executable_path=binary_path,
         headless=headless,
         args=chrome_args,
         ignore_default_args=IGNORE_DEFAULT_ARGS,
+        **env_kwargs,
         **proxy_kwargs,
         **kwargs,
     )
@@ -330,8 +346,9 @@ async def launch_async(  # noqa: C901
 
     browser.close = _close_with_cleanup
 
-    # Headed: default new_page()/new_context() to no_viewport (see launch()).
-    if not headless:
+    # Default new_page()/new_context() to no_viewport for headed and qualifying
+    # headless binaries (see launch()).
+    if not headless or binary_supports_headless_no_viewport(license_key, browser_version):
         _default_no_viewport_async(browser)
 
     # Human-like behavioral patching (async variant)
@@ -431,11 +448,21 @@ def launch_persistent_context(
     context_kwargs: dict[str, Any] = {}
     if user_agent:
         context_kwargs["user_agent"] = user_agent
-    context_kwargs.update(_resolve_context_viewport(viewport, headless))
+    context_kwargs.update(
+        _resolve_context_viewport(
+            viewport, headless, binary_supports_headless_no_viewport(license_key, browser_version)
+        )
+    )
     if color_scheme:
         context_kwargs["color_scheme"] = color_scheme
     context_kwargs.update(kwargs)
     _drop_conflicting_viewport(context_kwargs, kwargs)
+
+    # Resolve env for the browser process (license key injection, if needed)
+    user_env = context_kwargs.pop("env", None)
+    launch_env = build_launch_env(license_key, user_env=user_env)
+    if launch_env is not None:
+        context_kwargs["env"] = launch_env
 
     seed_widevine_hint(user_data_dir, binary_path)
 
@@ -560,11 +587,21 @@ async def launch_persistent_context_async(
     context_kwargs: dict[str, Any] = {}
     if user_agent:
         context_kwargs["user_agent"] = user_agent
-    context_kwargs.update(_resolve_context_viewport(viewport, headless))
+    context_kwargs.update(
+        _resolve_context_viewport(
+            viewport, headless, binary_supports_headless_no_viewport(license_key, browser_version)
+        )
+    )
     if color_scheme:
         context_kwargs["color_scheme"] = color_scheme
     context_kwargs.update(kwargs)
     _drop_conflicting_viewport(context_kwargs, kwargs)
+
+    # Resolve env for the browser process (license key injection, if needed)
+    user_env = context_kwargs.pop("env", None)
+    launch_env = build_launch_env(license_key, user_env=user_env)
+    if launch_env is not None:
+        context_kwargs["env"] = launch_env
 
     seed_widevine_hint(user_data_dir, binary_path)
 
@@ -667,7 +704,11 @@ def launch_context(
     context_kwargs: dict[str, Any] = {}
     if user_agent:
         context_kwargs["user_agent"] = user_agent
-    context_kwargs.update(_resolve_context_viewport(viewport, headless))
+    context_kwargs.update(
+        _resolve_context_viewport(
+            viewport, headless, binary_supports_headless_no_viewport(license_key, browser_version)
+        )
+    )
     if color_scheme:
         context_kwargs["color_scheme"] = color_scheme
     context_kwargs.update(kwargs)
@@ -786,7 +827,11 @@ async def launch_context_async(
     context_kwargs: dict[str, Any] = {}
     if user_agent:
         context_kwargs["user_agent"] = user_agent
-    context_kwargs.update(_resolve_context_viewport(viewport, headless))
+    context_kwargs.update(
+        _resolve_context_viewport(
+            viewport, headless, binary_supports_headless_no_viewport(license_key, browser_version)
+        )
+    )
     if color_scheme:
         context_kwargs["color_scheme"] = color_scheme
     context_kwargs.update(kwargs)
@@ -1331,10 +1376,9 @@ def _resolve_proxy_config(
         # passwords at '=' and other special chars (#157).
         return {}, [f"--proxy-server={_normalize_socks_string_url(proxy)}"]
 
-    # HTTP/HTTPS with credentials on supported platforms: bypass Playwright's
-    # CDP auth interceptor, pass directly to Chrome via --proxy-server with
-    # inline creds. Chrome sends Proxy-Authorization preemptively, avoiding
-    # the 407 round-trip that breaks on some proxies (#182).
+    # HTTP/HTTPS with credentials on supported platforms: use Chrome's native
+    # proxy authentication path instead of Playwright's CDP auth interceptor
+    # (#182).
     requested_version = normalize_requested_version(browser_version)
     if _has_credentials(proxy) and _supports_http_proxy_inline_auth(requested_version):
         if isinstance(proxy, dict):

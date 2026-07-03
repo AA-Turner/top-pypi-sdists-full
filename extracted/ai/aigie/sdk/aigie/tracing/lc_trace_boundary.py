@@ -47,27 +47,40 @@ class LangChainTraceBoundary:
         _trace_id: str | None
         _ambient_token: Any
 
-    def _note_start(self, run_id: UUID, parent_run_id: UUID | None, name: str, input: Any) -> bool:
+    def _note_start(
+        self,
+        run_id: UUID,
+        parent_run_id: UUID | None,
+        name: str,
+        input: Any,
+        *,
+        set_workflow_name: bool = True,
+    ) -> bool:
         """Top of every *_start handler; True skips this event's span."""
         if not self.callback_driven:
             return False
         if self._suppressed:
             return True
         if self._root_run_id is None:
-            return self._open_callback_root(run_id, name, input)
+            return self._open_callback_root(
+                run_id, name, input, set_workflow_name=set_workflow_name
+            )
         # async dispatches each sync callback in its own copied context, so
         # re-assert the ambient trace_id here for open_span's _require_trace_id().
         if current_trace_id() != self._trace_id:
             open_ambient(trace_id=self._trace_id)  # type: ignore[arg-type]
         return False
 
-    def _open_callback_root(self, run_id: UUID, name: str, input: Any) -> bool:
+    def _open_callback_root(
+        self, run_id: UUID, name: str, input: Any, *, set_workflow_name: bool = True
+    ) -> bool:
         # LangGraph runs on langchain_core, so the configure hook fires for it
         # too; stand down when its bridge already owns the ambient trace.
         if is_inside_traced_run():
             self._suppressed = True
             return True
-        self._workflow_name = name or self._workflow_name
+        if set_workflow_name:
+            self._workflow_name = name or self._workflow_name
         # In-function import breaks the tracing → auto_instrument → client cycle.
         from aigie.auto_instrument.trace import get_or_create_trace_sync
 

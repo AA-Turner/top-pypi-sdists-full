@@ -20,6 +20,7 @@ from abstra_internals.contracts_generated import (
     CloudApiCliAiV2PromptPostRequestMessagesItemContentItemText,
     CloudApiCliAiV2PromptPostRequestTools,
     CloudApiCliAiV2PromptPostRequestToolsItem,
+    CloudApiCliCaptchaSolvePostRequestBody,
 )
 from abstra_internals.entities.forms.widgets.response_types import AbstractFileResponse
 from abstra_internals.interface.sdk.forms.deprecated.widgets.response_abc import (
@@ -315,6 +316,11 @@ class AiSDKController:
             response = self.ai_client.run_agent(body=response_body)
 
         return response
+
+    def solve_captcha(self, image_base64: str) -> str:
+        body = CloudApiCliCaptchaSolvePostRequestBody(image_base64=image_base64)
+        response = self.ai_client.solve_captcha(body=body)
+        return str(response.get("text", ""))
 
     def parse_document(self, document_path: pathlib.Path | str, model: str) -> dict:
         if isinstance(document_path, str):

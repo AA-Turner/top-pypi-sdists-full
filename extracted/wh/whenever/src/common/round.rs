@@ -12,17 +12,17 @@ use crate::{
     pymodule::State,
 };
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub(crate) struct ModeStrs {
-    pub(crate) str_floor: PyObj,
-    pub(crate) str_ceil: PyObj,
-    pub(crate) str_trunc: PyObj,
-    pub(crate) str_expand: PyObj,
-    pub(crate) str_half_floor: PyObj,
-    pub(crate) str_half_ceil: PyObj,
-    pub(crate) str_half_even: PyObj,
-    pub(crate) str_half_trunc: PyObj,
-    pub(crate) str_half_expand: PyObj,
+    pub(crate) str_floor: Owned<PyObj>,
+    pub(crate) str_ceil: Owned<PyObj>,
+    pub(crate) str_trunc: Owned<PyObj>,
+    pub(crate) str_expand: Owned<PyObj>,
+    pub(crate) str_half_floor: Owned<PyObj>,
+    pub(crate) str_half_ceil: Owned<PyObj>,
+    pub(crate) str_half_even: Owned<PyObj>,
+    pub(crate) str_half_trunc: Owned<PyObj>,
+    pub(crate) str_half_expand: Owned<PyObj>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -100,40 +100,29 @@ impl Mode {
 }
 
 impl Mode {
-    pub(crate) fn from_py(s: PyObj, strs: ModeStrs) -> PyResult<Mode> {
+    pub(crate) fn from_py(s: PyObj, strs: &ModeStrs) -> PyResult<Mode> {
         Self::from_py_named("mode", s, strs)
     }
 
-    pub(crate) fn from_py_named(name: &str, s: PyObj, strs: ModeStrs) -> PyResult<Mode> {
-        let ModeStrs {
-            str_floor,
-            str_ceil,
-            str_trunc,
-            str_expand,
-            str_half_floor,
-            str_half_ceil,
-            str_half_even,
-            str_half_trunc,
-            str_half_expand,
-        } = strs;
+    pub(crate) fn from_py_named(name: &str, s: PyObj, strs: &ModeStrs) -> PyResult<Mode> {
         match_interned_str(name, s, |v, eq| {
-            if eq(v, str_floor) {
+            if eq(v, *strs.str_floor) {
                 Mode::Floor
-            } else if eq(v, str_ceil) {
+            } else if eq(v, *strs.str_ceil) {
                 Mode::Ceil
-            } else if eq(v, str_trunc) {
+            } else if eq(v, *strs.str_trunc) {
                 Mode::Trunc
-            } else if eq(v, str_expand) {
+            } else if eq(v, *strs.str_expand) {
                 Mode::Expand
-            } else if eq(v, str_half_floor) {
+            } else if eq(v, *strs.str_half_floor) {
                 Mode::HalfFloor
-            } else if eq(v, str_half_ceil) {
+            } else if eq(v, *strs.str_half_ceil) {
                 Mode::HalfCeil
-            } else if eq(v, str_half_even) {
+            } else if eq(v, *strs.str_half_even) {
                 Mode::HalfEven
-            } else if eq(v, str_half_trunc) {
+            } else if eq(v, *strs.str_half_trunc) {
                 Mode::HalfTrunc
-            } else if eq(v, str_half_expand) {
+            } else if eq(v, *strs.str_half_expand) {
                 Mode::HalfExpand
             } else {
                 None?
@@ -156,36 +145,24 @@ pub(crate) enum Unit {
 }
 
 impl Unit {
-    #[allow(clippy::too_many_arguments)]
-    fn from_py(
-        s: PyObj,
-        str_nanosecond: PyObj,
-        str_microsecond: PyObj,
-        str_millisecond: PyObj,
-        str_second: PyObj,
-        str_minute: PyObj,
-        str_hour: PyObj,
-        str_day: PyObj,
-        str_week: PyObj,
-        for_delta: bool,
-    ) -> PyResult<Unit> {
+    fn from_py(s: PyObj, state: &State, for_delta: bool) -> PyResult<Unit> {
         // OPTIMIZE: run the comparisons in order if likelihood
         match_interned_str("unit", s, |v, eq| {
-            Some(if eq(v, str_nanosecond) {
+            Some(if eq(v, *state.str_nanosecond) {
                 Unit::Nanosecond
-            } else if eq(v, str_microsecond) {
+            } else if eq(v, *state.str_microsecond) {
                 Unit::Microsecond
-            } else if eq(v, str_millisecond) {
+            } else if eq(v, *state.str_millisecond) {
                 Unit::Millisecond
-            } else if eq(v, str_second) {
+            } else if eq(v, *state.str_second) {
                 Unit::Second
-            } else if eq(v, str_minute) {
+            } else if eq(v, *state.str_minute) {
                 Unit::Minute
-            } else if eq(v, str_hour) {
+            } else if eq(v, *state.str_hour) {
                 Unit::Hour
-            } else if eq(v, str_day) {
+            } else if eq(v, *state.str_day) {
                 Unit::Day
-            } else if for_delta && eq(v, str_week) {
+            } else if for_delta && eq(v, *state.str_week) {
                 Unit::Week
             } else {
                 None?
@@ -235,24 +212,6 @@ impl Args {
         kwargs: &mut IterKwargs,
         ignore_dst_kwarg: bool,
     ) -> PyResult<Self> {
-        let &State {
-            str_nanosecond,
-            str_microsecond,
-            str_millisecond,
-            str_second,
-            str_minute,
-            str_hour,
-            str_day,
-            str_week,
-            str_mode,
-            str_increment,
-            round_mode_strs,
-            str_ignore_dst,
-            str_stale_offset_ok,
-            time_delta_type,
-            ..
-        } = state;
-
         let opt_arg = handle_opt_arg("round", args)?;
 
         let mut mode = Mode::HalfEven;
@@ -260,9 +219,9 @@ impl Args {
         let mut suppress_stale = false;
         let mut increment_kwarg = None;
         handle_kwargs("round", kwargs, |key, value, eq| {
-            if eq(key, str_mode) {
-                mode = Mode::from_py(value, round_mode_strs)?;
-            } else if eq(key, str_increment) {
+            if eq(key, *state.str_mode) {
+                mode = Mode::from_py(value, &state.round_mode_strs)?;
+            } else if eq(key, *state.str_increment) {
                 let raw_increment = value
                     .cast_allow_subclass::<PyInt>()
                     .ok_or_value_err("increment must be an integer")?
@@ -272,9 +231,9 @@ impl Args {
                 }
                 // SAFETY: we just checked that it's >0
                 increment_kwarg = Some(unsafe { NonZeroU64::new_unchecked(raw_increment as _) });
-            } else if ignore_dst_kwarg && eq(key, str_ignore_dst) {
+            } else if ignore_dst_kwarg && eq(key, *state.str_ignore_dst) {
                 got_ignore_dst = true;
-            } else if ignore_dst_kwarg && eq(key, str_stale_offset_ok) {
+            } else if ignore_dst_kwarg && eq(key, *state.str_stale_offset_ok) {
                 suppress_stale = value.is_truthy();
             } else {
                 return Ok(false);
@@ -285,7 +244,7 @@ impl Args {
         let increment = match opt_arg {
             None => RoundIncrement::Exact(unsafe { NonZeroU64::new_unchecked(1_000_000_000) }),
             Some(arg) => {
-                if let Some(delta) = arg.extract(time_delta_type) {
+                if let Some(delta) = arg.extract(*state.time_delta_type) {
                     let nanos = delta
                         .total_nanos()
                         .try_into()
@@ -298,18 +257,7 @@ impl Args {
                     }
                     RoundIncrement::Exact(nanos)
                 } else {
-                    let unit = Unit::from_py(
-                        arg,
-                        str_nanosecond,
-                        str_microsecond,
-                        str_millisecond,
-                        str_second,
-                        str_minute,
-                        str_hour,
-                        str_day,
-                        str_week,
-                        false,
-                    )?;
+                    let unit = Unit::from_py(arg, state, false)?;
                     let increment_int = increment_kwarg.unwrap_or(NonZeroU64::MIN);
                     debug_assert!(unit != Unit::Week);
                     if unit == Unit::Day {
@@ -349,32 +297,14 @@ pub(crate) struct DeltaArgs {
 
 impl DeltaArgs {
     pub(crate) fn parse(state: &State, args: &[PyObj], kwargs: &mut IterKwargs) -> PyResult<Self> {
-        let &State {
-            str_nanosecond,
-            str_microsecond,
-            str_millisecond,
-            str_second,
-            str_minute,
-            str_hour,
-            str_day,
-            str_week,
-            str_mode,
-            str_increment,
-            round_mode_strs,
-            str_days_assumed_24h_ok,
-            time_delta_type,
-            ..
-        } = state;
-
         let opt_arg = handle_opt_arg("round", args)?;
-
         let mut mode = Mode::HalfEven;
         let mut increment_kwarg = None;
         let mut suppress_24h_warning = false;
         handle_kwargs("round", kwargs, |key, value, eq| {
-            if eq(key, str_mode) {
-                mode = Mode::from_py(value, round_mode_strs)?;
-            } else if eq(key, str_increment) {
+            if eq(key, *state.str_mode) {
+                mode = Mode::from_py(value, &state.round_mode_strs)?;
+            } else if eq(key, *state.str_increment) {
                 let raw_increment = value
                     .cast_allow_subclass::<PyInt>()
                     .ok_or_value_err("increment must be an integer")?
@@ -384,7 +314,7 @@ impl DeltaArgs {
                 }
                 // SAFETY: we just checked that it's >0
                 increment_kwarg = Some(unsafe { NonZeroU128::new_unchecked(raw_increment as _) });
-            } else if eq(key, str_days_assumed_24h_ok) {
+            } else if eq(key, *state.str_days_assumed_24h_ok) {
                 suppress_24h_warning = value.is_truthy();
             } else {
                 return Ok(false);
@@ -397,7 +327,7 @@ impl DeltaArgs {
                 subsec: SubSecNanos::MIN,
             },
             Some(arg) => {
-                if let Some(delta) = arg.extract(time_delta_type) {
+                if let Some(delta) = arg.extract(*state.time_delta_type) {
                     if increment_kwarg.is_some() {
                         raise_type_err("cannot specify an increment with a TimeDelta argument")?;
                     }
@@ -409,21 +339,10 @@ impl DeltaArgs {
                         subsec: delta.subsec,
                     }
                 } else {
-                    let unit = Unit::from_py(
-                        arg,
-                        str_nanosecond,
-                        str_microsecond,
-                        str_millisecond,
-                        str_second,
-                        str_minute,
-                        str_hour,
-                        str_day,
-                        str_week,
-                        true,
-                    )?;
+                    let unit = Unit::from_py(arg, state, true)?;
                     if matches!(unit, Unit::Day | Unit::Week) && !suppress_24h_warning {
                         warn_with_class(
-                            state.warn_days_not_always_24h,
+                            *state.warn_days_not_always_24h,
                             doc::DAYS_NOT_ALWAYS_24H_MSG,
                             1,
                         )?;

@@ -755,6 +755,96 @@ class _ILayerVersionRefProxy(
 typing.cast(typing.Any, ILayerVersionRef).__jsii_proxy_class__ = lambda : _ILayerVersionRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lambda.IMicrovmImageRef")
+class IMicrovmImageRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MicrovmImage.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="microvmImageRef")
+    def microvm_image_ref(self) -> "MicrovmImageReference":
+        '''(experimental) A reference to a MicrovmImage resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMicrovmImageRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MicrovmImage.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_lambda.IMicrovmImageRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="microvmImageRef")
+    def microvm_image_ref(self) -> "MicrovmImageReference":
+        '''(experimental) A reference to a MicrovmImage resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MicrovmImageReference", jsii.get(self, "microvmImageRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMicrovmImageRef).__jsii_proxy_class__ = lambda : _IMicrovmImageRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lambda.INetworkConnectorRef")
+class INetworkConnectorRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a NetworkConnector.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="networkConnectorRef")
+    def network_connector_ref(self) -> "NetworkConnectorReference":
+        '''(experimental) A reference to a NetworkConnector resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _INetworkConnectorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a NetworkConnector.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_lambda.INetworkConnectorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="networkConnectorRef")
+    def network_connector_ref(self) -> "NetworkConnectorReference":
+        '''(experimental) A reference to a NetworkConnector resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("NetworkConnectorReference", jsii.get(self, "networkConnectorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, INetworkConnectorRef).__jsii_proxy_class__ = lambda : _INetworkConnectorRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lambda.IPermissionRef")
 class IPermissionRef(
     _constructs_77d1e7e8.IConstruct,
@@ -989,6 +1079,104 @@ class LayerVersionReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_lambda.MicrovmImageReference",
+    jsii_struct_bases=[],
+    name_mapping={"image_arn": "imageArn"},
+)
+class MicrovmImageReference:
+    def __init__(self, *, image_arn: builtins.str) -> None:
+        '''A reference to a MicrovmImage resource.
+
+        :param image_arn: The ImageArn of the MicrovmImage resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_lambda as interfaces_lambda
+            
+            microvm_image_reference = interfaces_lambda.MicrovmImageReference(
+                image_arn="imageArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ea7b5a6e3425c9648d7326067ea9a076b574aebf2581f2fbba38961af0ddf91)
+            check_type(argname="argument image_arn", value=image_arn, expected_type=type_hints["image_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "image_arn": image_arn,
+        }
+
+    @builtins.property
+    def image_arn(self) -> builtins.str:
+        '''The ImageArn of the MicrovmImage resource.'''
+        result = self._values.get("image_arn")
+        assert result is not None, "Required property 'image_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MicrovmImageReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_lambda.NetworkConnectorReference",
+    jsii_struct_bases=[],
+    name_mapping={"network_connector_arn": "networkConnectorArn"},
+)
+class NetworkConnectorReference:
+    def __init__(self, *, network_connector_arn: builtins.str) -> None:
+        '''A reference to a NetworkConnector resource.
+
+        :param network_connector_arn: The Arn of the NetworkConnector resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_lambda as interfaces_lambda
+            
+            network_connector_reference = interfaces_lambda.NetworkConnectorReference(
+                network_connector_arn="networkConnectorArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__72f6b972b6b0447a70c7d62d970e9d0ffd6dab395ef8d0e99c363b99fed42c0e)
+            check_type(argname="argument network_connector_arn", value=network_connector_arn, expected_type=type_hints["network_connector_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "network_connector_arn": network_connector_arn,
+        }
+
+    @builtins.property
+    def network_connector_arn(self) -> builtins.str:
+        '''The Arn of the NetworkConnector resource.'''
+        result = self._values.get("network_connector_arn")
+        assert result is not None, "Required property 'network_connector_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NetworkConnectorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_lambda.PermissionReference",
     jsii_struct_bases=[],
     name_mapping={"function_name": "functionName", "permission_id": "permissionId"},
@@ -1166,11 +1354,15 @@ __all__ = [
     "IFunctionRef",
     "ILayerVersionPermissionRef",
     "ILayerVersionRef",
+    "IMicrovmImageRef",
+    "INetworkConnectorRef",
     "IPermissionRef",
     "IUrlRef",
     "IVersionRef",
     "LayerVersionPermissionReference",
     "LayerVersionReference",
+    "MicrovmImageReference",
+    "NetworkConnectorReference",
     "PermissionReference",
     "UrlReference",
     "VersionReference",
@@ -1238,6 +1430,20 @@ def _typecheckingstub__f7abcb136f4f2b538a6636e1bb18d321c62bd48d1cecd42d19f1ba521
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1ea7b5a6e3425c9648d7326067ea9a076b574aebf2581f2fbba38961af0ddf91(
+    *,
+    image_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__72f6b972b6b0447a70c7d62d970e9d0ffd6dab395ef8d0e99c363b99fed42c0e(
+    *,
+    network_connector_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4ae650600646cc849a26dcaf279873a6f95a9ec8ad73f8dc4af5d9055c6d7ba8(
     *,
     function_name: builtins.str,
@@ -1260,5 +1466,5 @@ def _typecheckingstub__4eef012bdf282178fc15f29261bb73aca6423bb74d9618d940489c8c8
     """Type checking stubs"""
     pass
 
-for cls in [IAliasRef, ICapacityProviderRef, ICodeSigningConfigRef, IEventInvokeConfigRef, IEventSourceMappingRef, IFunctionRef, ILayerVersionPermissionRef, ILayerVersionRef, IPermissionRef, IUrlRef, IVersionRef]:
+for cls in [IAliasRef, ICapacityProviderRef, ICodeSigningConfigRef, IEventInvokeConfigRef, IEventSourceMappingRef, IFunctionRef, ILayerVersionPermissionRef, ILayerVersionRef, IMicrovmImageRef, INetworkConnectorRef, IPermissionRef, IUrlRef, IVersionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

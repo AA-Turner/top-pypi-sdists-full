@@ -7310,7 +7310,6 @@ class CfnLogAlarm(
             scheduled_query_configuration=cloudwatch.CfnLogAlarm.ScheduledQueryConfigurationProperty(
                 aggregation_expression="aggregationExpression",
                 log_group_identifiers=["logGroupIdentifiers"],
-                query_language="queryLanguage",
                 query_string="queryString",
                 schedule_configuration=cloudwatch.CfnLogAlarm.ScheduleConfigurationProperty(
                     schedule_expression="scheduleExpression",
@@ -7795,7 +7794,6 @@ class CfnLogAlarm(
         name_mapping={
             "aggregation_expression": "aggregationExpression",
             "log_group_identifiers": "logGroupIdentifiers",
-            "query_language": "queryLanguage",
             "query_string": "queryString",
             "schedule_configuration": "scheduleConfiguration",
             "scheduled_query_role_arn": "scheduledQueryRoleArn",
@@ -7807,7 +7805,6 @@ class CfnLogAlarm(
             *,
             aggregation_expression: builtins.str,
             log_group_identifiers: typing.Sequence[builtins.str],
-            query_language: builtins.str,
             query_string: builtins.str,
             schedule_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogAlarm.ScheduleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             scheduled_query_role_arn: builtins.str,
@@ -7816,7 +7813,6 @@ class CfnLogAlarm(
 
             :param aggregation_expression: The aggregation expression for the scheduled query, e.g. count(*) or avg(latency) by host.
             :param log_group_identifiers: The log groups to query.
-            :param query_language: The query language to use for the scheduled query (CWLI or SQL).
             :param query_string: The query string to execute against the specified log groups.
             :param schedule_configuration: The schedule configuration for the scheduled query.
             :param scheduled_query_role_arn: The ARN of the IAM role that grants permissions to execute the scheduled query.
@@ -7833,7 +7829,6 @@ class CfnLogAlarm(
                 scheduled_query_configuration_property = cloudwatch.CfnLogAlarm.ScheduledQueryConfigurationProperty(
                     aggregation_expression="aggregationExpression",
                     log_group_identifiers=["logGroupIdentifiers"],
-                    query_language="queryLanguage",
                     query_string="queryString",
                     schedule_configuration=cloudwatch.CfnLogAlarm.ScheduleConfigurationProperty(
                         schedule_expression="scheduleExpression",
@@ -7849,14 +7844,12 @@ class CfnLogAlarm(
                 type_hints = typing.get_type_hints(_typecheckingstub__8402428f8b2868e4cbb2f43635f42d8e2e2090c5674b0e512c490d0c6c351b1a)
                 check_type(argname="argument aggregation_expression", value=aggregation_expression, expected_type=type_hints["aggregation_expression"])
                 check_type(argname="argument log_group_identifiers", value=log_group_identifiers, expected_type=type_hints["log_group_identifiers"])
-                check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
                 check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
                 check_type(argname="argument schedule_configuration", value=schedule_configuration, expected_type=type_hints["schedule_configuration"])
                 check_type(argname="argument scheduled_query_role_arn", value=scheduled_query_role_arn, expected_type=type_hints["scheduled_query_role_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "aggregation_expression": aggregation_expression,
                 "log_group_identifiers": log_group_identifiers,
-                "query_language": query_language,
                 "query_string": query_string,
                 "schedule_configuration": schedule_configuration,
                 "scheduled_query_role_arn": scheduled_query_role_arn,
@@ -7881,16 +7874,6 @@ class CfnLogAlarm(
             result = self._values.get("log_group_identifiers")
             assert result is not None, "Required property 'log_group_identifiers' is missing"
             return typing.cast(typing.List[builtins.str], result)
-
-        @builtins.property
-        def query_language(self) -> builtins.str:
-            '''The query language to use for the scheduled query (CWLI or SQL).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduledqueryconfiguration.html#cfn-cloudwatch-logalarm-scheduledqueryconfiguration-querylanguage
-            '''
-            result = self._values.get("query_language")
-            assert result is not None, "Required property 'query_language' is missing"
-            return typing.cast(builtins.str, result)
 
         @builtins.property
         def query_string(self) -> builtins.str:
@@ -8012,7 +7995,6 @@ class CfnLogAlarmProps:
                 scheduled_query_configuration=cloudwatch.CfnLogAlarm.ScheduledQueryConfigurationProperty(
                     aggregation_expression="aggregationExpression",
                     log_group_identifiers=["logGroupIdentifiers"],
-                    query_language="queryLanguage",
                     query_string="queryString",
                     schedule_configuration=cloudwatch.CfnLogAlarm.ScheduleConfigurationProperty(
                         schedule_expression="scheduleExpression",
@@ -20887,7 +20869,6 @@ def _typecheckingstub__8402428f8b2868e4cbb2f43635f42d8e2e2090c5674b0e512c490d0c6
     *,
     aggregation_expression: builtins.str,
     log_group_identifiers: typing.Sequence[builtins.str],
-    query_language: builtins.str,
     query_string: builtins.str,
     schedule_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogAlarm.ScheduleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     scheduled_query_role_arn: builtins.str,

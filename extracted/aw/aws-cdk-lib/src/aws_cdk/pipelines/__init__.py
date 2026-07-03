@@ -6303,7 +6303,7 @@ class CodeBuildStepProps(ShellStepProps):
         :param partial_build_spec: Additional configuration that can only be configured via BuildSpec. You should not use this to specify output artifacts; those should be supplied via the other properties of this class, otherwise CDK Pipelines won't be able to inspect the artifacts. Set the ``commands`` to an empty array if you want to fully specify the BuildSpec using this field. The BuildSpec must be available inline--it cannot reference a file on disk. Default: - BuildSpec completely derived from other properties
         :param project_name: Name for the generated CodeBuild project. Default: - Automatically generated
         :param role: Custom execution role to be used for the CodeBuild project. Default: - A role is automatically created
-        :param role_policy_statements: Policy statements to add to role used during the synth. Can be used to add acces to a CodeArtifact repository etc. Default: - No policy statements added to CodeBuild Project Role
+        :param role_policy_statements: Policy statements to add to role used during the synth. Can be used to add access to a CodeArtifact repository etc. Default: - No policy statements added to CodeBuild Project Role
         :param security_groups: Which security group to associate with the script's project network interfaces. If no security group is identified, one will be created automatically. Only used if 'vpc' is supplied. Default: - Security group will be automatically created.
         :param subnet_selection: Which subnets to use. Only used if 'vpc' is supplied. Default: - All private subnets.
         :param timeout: The number of minutes after which AWS CodeBuild stops the build if it's not complete. For valid values, see the timeoutInMinutes field in the AWS CodeBuild User Guide. Default: Duration.hours(1)
@@ -6604,7 +6604,7 @@ class CodeBuildStepProps(ShellStepProps):
     ) -> typing.Optional[typing.List["_PolicyStatement_0fe33853"]]:
         '''Policy statements to add to role used during the synth.
 
-        Can be used to add acces to a CodeArtifact repository etc.
+        Can be used to add access to a CodeArtifact repository etc.
 
         :default: - No policy statements added to CodeBuild Project Role
         '''
@@ -7761,7 +7761,7 @@ class CodeBuildStep(
         :param partial_build_spec: Additional configuration that can only be configured via BuildSpec. You should not use this to specify output artifacts; those should be supplied via the other properties of this class, otherwise CDK Pipelines won't be able to inspect the artifacts. Set the ``commands`` to an empty array if you want to fully specify the BuildSpec using this field. The BuildSpec must be available inline--it cannot reference a file on disk. Default: - BuildSpec completely derived from other properties
         :param project_name: Name for the generated CodeBuild project. Default: - Automatically generated
         :param role: Custom execution role to be used for the CodeBuild project. Default: - A role is automatically created
-        :param role_policy_statements: Policy statements to add to role used during the synth. Can be used to add acces to a CodeArtifact repository etc. Default: - No policy statements added to CodeBuild Project Role
+        :param role_policy_statements: Policy statements to add to role used during the synth. Can be used to add access to a CodeArtifact repository etc. Default: - No policy statements added to CodeBuild Project Role
         :param security_groups: Which security group to associate with the script's project network interfaces. If no security group is identified, one will be created automatically. Only used if 'vpc' is supplied. Default: - Security group will be automatically created.
         :param subnet_selection: Which subnets to use. Only used if 'vpc' is supplied. Default: - All private subnets.
         :param timeout: The number of minutes after which AWS CodeBuild stops the build if it's not complete. For valid values, see the timeoutInMinutes field in the AWS CodeBuild User Guide. Default: Duration.hours(1)

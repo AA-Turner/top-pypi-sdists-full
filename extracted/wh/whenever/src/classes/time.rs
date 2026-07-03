@@ -1,5 +1,5 @@
 use crate::{
-    classes::plain_datetime::DateTime,
+    classes::{date::Date, plain_datetime::DateTime},
     common::{
         fmt::{self, Sink, format_2_digits},
         parse::Scan,
@@ -26,7 +26,30 @@ pub struct Time {
 }
 
 impl Time {
-    pub(crate) const fn pyhash(&self) -> Py_hash_t {
+    pub(crate) const MIN: Time = Time {
+        hour: 0,
+        minute: 0,
+        second: 0,
+        subsec: SubSecNanos::MIN,
+    };
+
+    pub(crate) const MAX: Self = Self {
+        hour: 23,
+        minute: 59,
+        second: 59,
+        subsec: SubSecNanos::MAX,
+    };
+
+    pub(crate) fn new(hour: u8, minute: u8, second: u8, subsec: SubSecNanos) -> Option<Self> {
+        (hour < 24 && minute < 60 && second < 60).then_some(Self {
+            hour,
+            minute,
+            second,
+            subsec,
+        })
+    }
+
+    pub(crate) const fn pyhash(self) -> Py_hash_t {
         #[cfg(target_pointer_width = "64")]
         {
             ((self.hour as Py_hash_t) << 48)
@@ -45,7 +68,7 @@ impl Time {
         }
     }
 
-    pub(crate) const fn total_seconds(&self) -> u32 {
+    pub(crate) const fn total_seconds(self) -> u32 {
         self.hour as u32 * 3600 + self.minute as u32 * 60 + self.second as u32
     }
 
@@ -58,8 +81,15 @@ impl Time {
         }
     }
 
-    pub(crate) const fn total_nanos(&self) -> u64 {
+    pub(crate) const fn total_nanos(self) -> u64 {
         self.subsec.get() as u64 + self.total_seconds() as u64 * 1_000_000_000
+    }
+
+    pub(crate) const fn on(self, d: Date) -> DateTime {
+        DateTime {
+            date: d,
+            time: self,
+        }
     }
 
     pub(crate) fn from_total_nanos_unchecked(nanos: u64) -> Self {
@@ -206,12 +236,89 @@ impl Time {
         }
     }
 
-    pub(crate) const MIDNIGHT: Time = Time {
-        hour: 0,
-        minute: 0,
-        second: 0,
-        subsec: SubSecNanos::MIN,
-    };
+    pub(crate) fn start_of(self, u: BoundUnit) -> Self {
+        match u {
+            BoundUnit::Hour => Time {
+                hour: self.hour,
+                ..Time::MIN
+            },
+            BoundUnit::Minute => Time {
+                second: 0,
+                subsec: SubSecNanos::MIN,
+                ..self
+            },
+            BoundUnit::Second => Time {
+                subsec: SubSecNanos::MIN,
+                ..self
+            },
+        }
+    }
+
+    pub(crate) fn end_of(self, u: BoundUnit) -> Self {
+        match u {
+            BoundUnit::Hour => Time {
+                hour: self.hour,
+                ..Time::MAX
+            },
+            BoundUnit::Minute => Time {
+                second: 59,
+                subsec: SubSecNanos::MAX,
+                ..self
+            },
+            BoundUnit::Second => Time {
+                subsec: SubSecNanos::MAX,
+                ..self
+            },
+        }
+    }
+
+    /// Start of the next unit of time, returning the new time and
+    /// whether it has rolled over to the next day
+    pub(crate) fn next_start_of(self, u: BoundUnit) -> (Self, bool) {
+        match u {
+            BoundUnit::Hour => (
+                Time {
+                    hour: (self.hour + 1) % 24,
+                    ..Time::MIN
+                },
+                self.hour == 23,
+            ),
+            BoundUnit::Minute => (
+                Time {
+                    hour: (self.hour + (self.minute == 59) as u8) % 24,
+                    minute: (self.minute + 1) % 60,
+                    ..Time::MIN
+                },
+                self.minute == 59 && self.hour == 23,
+            ),
+            BoundUnit::Second => (
+                Time {
+                    hour: (self.hour + (self.minute == 59 && self.second == 59) as u8) % 24,
+                    minute: (self.minute + (self.second == 59) as u8) % 60,
+                    second: (self.second + 1) % 60,
+                    ..Time::MIN
+                },
+                self.second == 59 && self.minute == 59 && self.hour == 23,
+            ),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BoundUnit {
+    Hour,
+    Minute,
+    Second,
+}
+
+impl BoundUnit {
+    pub(crate) fn in_secs(self) -> i32 {
+        match self {
+            BoundUnit::Hour => 3600,
+            BoundUnit::Minute => 60,
+            BoundUnit::Second => 1,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -285,7 +392,7 @@ impl fmt::Chunk for IsoFormat {
     }
 }
 
-impl PySimpleAlloc for Time {}
+impl PyWrapped for Time {}
 
 // FUTURE: a trait for faster formatting since timestamp are small and
 // limited in length?
@@ -300,8 +407,8 @@ impl Display for Time {
 }
 
 pub(crate) const SINGLETONS: &[(&CStr, Time); 4] = &[
-    (c"MIN", Time::MIDNIGHT),
-    (c"MIDNIGHT", Time::MIDNIGHT),
+    (c"MIN", Time::MIN),
+    (c"MIDNIGHT", Time::MIN),
     (
         c"NOON",
         Time {
@@ -311,25 +418,17 @@ pub(crate) const SINGLETONS: &[(&CStr, Time); 4] = &[
             subsec: SubSecNanos::MIN,
         },
     ),
-    (
-        c"MAX",
-        Time {
-            hour: 23,
-            minute: 59,
-            second: 59,
-            subsec: SubSecNanos::MAX,
-        },
-    ),
+    (c"MAX", Time::MAX),
 ];
 
 fn __new__(cls: HeapType<Time>, args: PyTuple, kwargs: Option<PyDict>) -> PyReturn {
     if args.len() == 1 && kwargs.map_or(0, |d| d.len()) == 0 {
         let obj = args.iter().next().unwrap();
-        if let Some(t) = obj.cast_allow_subclass::<PyTime>() {
-            return Time::from_py(t).to_obj(cls);
-        }
         if PyStr::isinstance(obj) {
             return parse_iso(cls, obj);
+        }
+        if let Some(t) = obj.cast_allow_subclass::<PyTime>() {
+            return Time::from_py(t).to_obj(cls);
         }
     }
     let mut hour: c_long = 0;
@@ -424,7 +523,7 @@ fn to_stdlib(cls: HeapType<Time>, slf: Time) -> PyReturn {
         Time_FromTime,
         TimeType,
         ..
-    } = cls.state().py_api;
+    } = cls.state().py_api()?;
     // SAFETY: calling C API with valid arguments
     unsafe {
         Time_FromTime(
@@ -436,15 +535,12 @@ fn to_stdlib(cls: HeapType<Time>, slf: Time) -> PyReturn {
             TimeType,
         )
     }
-    .rust_owned()
+    .own()
 }
 
 fn py_time(cls: HeapType<Time>, slf: Time) -> PyReturn {
-    let &State {
-        warn_deprecation, ..
-    } = cls.state();
     warn_with_class(
-        warn_deprecation,
+        *cls.state().warn_deprecation,
         c"py_time() is deprecated. Use to_stdlib() instead.",
         1,
     )?;
@@ -452,11 +548,8 @@ fn py_time(cls: HeapType<Time>, slf: Time) -> PyReturn {
 }
 
 fn from_py_time(cls: HeapType<Time>, arg: PyObj) -> PyReturn {
-    let &State {
-        warn_deprecation, ..
-    } = cls.state();
     warn_with_class(
-        warn_deprecation,
+        *cls.state().warn_deprecation,
         c"from_py_time() is deprecated. Use Time() constructor instead.",
         1,
     )?;
@@ -475,31 +568,11 @@ fn format_iso(cls: HeapType<Time>, slf: Time, args: &[PyObj], kwargs: &mut IterK
     // As-efficient-as-possible assignment of keyword arguments
     let mut unit = fmt::Unit::Auto;
     let mut basic = false;
-    let &State {
-        str_unit,
-        str_basic,
-        str_hour,
-        str_minute,
-        str_second,
-        str_millisecond,
-        str_microsecond,
-        str_nanosecond,
-        str_auto,
-        ..
-    } = cls.state();
+    let state = cls.state();
     handle_kwargs("format_iso", kwargs, |key, value, eq| {
-        if eq(key, str_unit) {
-            unit = fmt::Unit::from_py(
-                value,
-                str_hour,
-                str_minute,
-                str_second,
-                str_millisecond,
-                str_microsecond,
-                str_nanosecond,
-                str_auto,
-            )?;
-        } else if eq(key, str_basic) {
+        if eq(key, *state.str_unit) {
+            unit = fmt::Unit::from_py(value, state)?;
+        } else if eq(key, *state.str_basic) {
             if value.is_true() {
                 basic = true;
             } else if value.is_false() {
@@ -528,7 +601,7 @@ fn parse_iso(cls: HeapType<Time>, s: PyObj) -> PyReturn {
     .to_obj(cls)
 }
 
-fn __reduce__(cls: HeapType<Time>, slf: Time) -> PyResult<Owned<PyTuple>> {
+fn __reduce__(cls: HeapType<Time>, slf: Time) -> PyReturn {
     let Time {
         hour,
         minute,
@@ -536,34 +609,25 @@ fn __reduce__(cls: HeapType<Time>, slf: Time) -> PyResult<Owned<PyTuple>> {
         subsec: nanos,
     } = slf;
     let data = pack![hour, minute, second, nanos.get()];
-    (
+    [
         cls.state().unpickle_time.newref(),
-        (data.to_py()?,).into_pytuple()?,
-    )
-        .into_pytuple()
+        [data.to_py()?].into_pytuple()?,
+    ]
+    .into_pytuple()
 }
-fn on(cls: HeapType<Time>, slf: Time, arg: PyObj) -> PyReturn {
-    let &State {
-        plain_datetime_type,
-        date_type,
-        ..
-    } = cls.state();
 
-    if let Some(date) = arg.extract(date_type) {
-        DateTime { date, time: slf }.to_obj(plain_datetime_type)
+fn on(cls: HeapType<Time>, slf: Time, arg: PyObj) -> PyReturn {
+    let state = cls.state();
+
+    if let Some(date) = arg.extract(*state.date_type) {
+        DateTime { date, time: slf }.to_obj(*state.plain_datetime_type)
     } else {
         raise_type_err("argument must be a date")
     }
 }
 
 fn replace(cls: HeapType<Time>, slf: Time, args: &[PyObj], kwargs: &mut IterKwargs) -> PyReturn {
-    let &State {
-        str_hour,
-        str_minute,
-        str_second,
-        str_nanosecond,
-        ..
-    } = cls.state();
+    let state = cls.state();
     if !args.is_empty() {
         raise_type_err("replace() takes no positional arguments")
     } else {
@@ -572,22 +636,22 @@ fn replace(cls: HeapType<Time>, slf: Time, args: &[PyObj], kwargs: &mut IterKwar
         let mut second = slf.second.into();
         let mut nanos = slf.subsec.get() as _;
         handle_kwargs("replace", kwargs, |key, value, eq| {
-            if eq(key, str_hour) {
+            if eq(key, *state.str_hour) {
                 hour = value
                     .cast_allow_subclass::<PyInt>()
                     .ok_or_type_err("hour must be an integer")?
                     .to_long()?;
-            } else if eq(key, str_minute) {
+            } else if eq(key, *state.str_minute) {
                 minute = value
                     .cast_allow_subclass::<PyInt>()
                     .ok_or_type_err("minute must be an integer")?
                     .to_long()?;
-            } else if eq(key, str_second) {
+            } else if eq(key, *state.str_second) {
                 second = value
                     .cast_allow_subclass::<PyInt>()
                     .ok_or_type_err("second must be an integer")?
                     .to_long()?;
-            } else if eq(key, str_nanosecond) {
+            } else if eq(key, *state.str_nanosecond) {
                 nanos = value
                     .cast_allow_subclass::<PyInt>()
                     .ok_or_type_err("nanosecond must be an integer")?
@@ -623,8 +687,7 @@ fn format(_cls: HeapType<Time>, slf: Time, pattern_obj: PyObj) -> PyReturn {
     pattern::validate_fields(&elements, pattern::CategorySet::TIME, "Time")?;
     if pattern::has_12h_without_ampm(&elements) {
         warn_with_class(
-            // SAFETY: PyExc_UserWarning is always valid
-            unsafe { PyObj::from_ptr_unchecked(PyExc_UserWarning) },
+            exc_user_warning(),
             c"12-hour format (ii) without AM/PM designator (a/aa) may be ambiguous",
             1,
         )?;
@@ -665,7 +728,7 @@ fn parse(cls: HeapType<Time>, args: &[PyObj], kwargs: &mut IterKwargs) -> PyRetu
         .ok_or_type_err("parse() argument must be str")?;
     let s = s_pystr.as_utf8()?;
 
-    let fmt_obj = handle_one_kwarg("parse", cls.state().str_format, kwargs)?.ok_or_else(|| {
+    let fmt_obj = handle_one_kwarg("parse", *cls.state().str_format, kwargs)?.ok_or_else(|| {
         raise_type_err::<(), _>("parse() requires 'format' keyword argument").unwrap_err()
     })?;
     let fmt_pystr = fmt_obj
@@ -696,8 +759,8 @@ fn parse(cls: HeapType<Time>, args: &[PyObj], kwargs: &mut IterKwargs) -> PyRetu
 }
 
 static mut METHODS: &[PyMethodDef] = &[
-    method0!(Time, __copy__, c""),
-    method1!(Time, __deepcopy__, c""),
+    COPY_METHOD,
+    DEEPCOPY_METHOD,
     method0!(Time, __reduce__, c""),
     method0!(Time, to_stdlib, doc::TIME_TO_STDLIB),
     method0!(Time, py_time, doc::TIME_PY_TIME),
@@ -719,7 +782,7 @@ pub(crate) fn unpickle(state: &State, arg: PyObj) -> PyReturn {
         .cast_exact::<PyBytes>()
         .ok_or_type_err("invalid pickle data")?;
 
-    let mut data = py_bytes.as_bytes()?;
+    let mut data = py_bytes.as_bytes();
     if data.len() != 7 {
         raise_type_err("invalid pickle data")?
     }
@@ -729,7 +792,7 @@ pub(crate) fn unpickle(state: &State, arg: PyObj) -> PyReturn {
         second: unpack_one!(data, u8),
         subsec: SubSecNanos::new_unchecked(unpack_one!(data, i32)),
     }
-    .to_obj(state.time_type)
+    .to_obj(*state.time_type)
 }
 
 fn hour(_: PyType, slf: Time) -> PyReturn {

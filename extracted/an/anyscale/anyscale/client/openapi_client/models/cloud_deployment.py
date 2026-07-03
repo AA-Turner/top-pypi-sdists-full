@@ -45,7 +45,8 @@ class CloudDeployment(object):
         'aws_config': 'AWSConfig',
         'gcp_config': 'GCPConfig',
         'azure_config': 'AzureConfig',
-        'kubernetes_config': 'KubernetesConfig'
+        'kubernetes_config': 'KubernetesConfig',
+        'connector_config': 'ConnectorConfig'
     }
 
     attribute_map = {
@@ -61,10 +62,11 @@ class CloudDeployment(object):
         'aws_config': 'aws_config',
         'gcp_config': 'gcp_config',
         'azure_config': 'azure_config',
-        'kubernetes_config': 'kubernetes_config'
+        'kubernetes_config': 'kubernetes_config',
+        'connector_config': 'connector_config'
     }
 
-    def __init__(self, cloud_resource_id=None, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, azure_config=None, kubernetes_config=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cloud_resource_id=None, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, azure_config=None, kubernetes_config=None, connector_config=None, local_vars_configuration=None):  # noqa: E501
         """CloudDeployment - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -83,6 +85,7 @@ class CloudDeployment(object):
         self._gcp_config = None
         self._azure_config = None
         self._kubernetes_config = None
+        self._connector_config = None
         self.discriminator = None
 
         if cloud_resource_id is not None:
@@ -104,6 +107,7 @@ class CloudDeployment(object):
         self.gcp_config = gcp_config
         self.azure_config = azure_config
         self.kubernetes_config = kubernetes_config
+        self.connector_config = connector_config
 
     @property
     def cloud_resource_id(self):
@@ -405,6 +409,29 @@ class CloudDeployment(object):
         """
 
         self._kubernetes_config = kubernetes_config
+
+    @property
+    def connector_config(self):
+        """Gets the connector_config of this CloudDeployment.  # noqa: E501
+
+        Anyscale Connector configuration.  # noqa: E501
+
+        :return: The connector_config of this CloudDeployment.  # noqa: E501
+        :rtype: ConnectorConfig
+        """
+        return self._connector_config
+
+    @connector_config.setter
+    def connector_config(self, connector_config):
+        """Sets the connector_config of this CloudDeployment.
+
+        Anyscale Connector configuration.  # noqa: E501
+
+        :param connector_config: The connector_config of this CloudDeployment.  # noqa: E501
+        :type: ConnectorConfig
+        """
+
+        self._connector_config = connector_config
 
     def to_dict(self):
         """Returns the model properties as a dict"""

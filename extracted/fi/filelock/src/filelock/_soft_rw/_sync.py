@@ -33,6 +33,11 @@ _BREAK_SUFFIX = ".break"
 _MAX_MARKER_SIZE = 1024
 _O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
 _O_NONBLOCK = getattr(os, "O_NONBLOCK", 0)
+# Retargeting os.utime to an open fd lets the heartbeat refresh the exact inode it just verified instead of
+# re-resolving the path; Windows read-only handles cannot set times that way, so keep it Unix-only.
+_SUPPORTS_UTIME_FD = sys.platform != "win32" and os.utime in os.supports_fd
+# os.utime follows symlinks unless told not to; not every platform can refuse the follow, so probe support.
+_SUPPORTS_UTIME_NOFOLLOW = os.utime in os.supports_follow_symlinks
 # dirfd-relative I/O is a Unix-only optimization; Windows cannot ``os.open()`` a directory at all, and
 # its ``os`` module skips dir_fd support entirely. When disabled, callers fall back to full-path ops.
 _SUPPORTS_DIR_FD = sys.platform != "win32" and os.open in os.supports_dir_fd
@@ -374,7 +379,57 @@ class SoftReadWriteLock(metaclass=_SoftRWMeta):
         if hold.is_reader:
             _unlink(hold.marker_name, dir_fd=self._readers_dir_fd)
         else:
-            _unlink(hold.marker_name)
+            self._unlink_writer_marker_if_ours(hold.token)
+
+    def _unlink_writer_marker_if_ours(self, token: str) -> None:
+        # Remove the writer marker only while it still carries our token. If this holder was paused long
+        # enough (a stop-the-world GC pause, SIGSTOP, a suspended VM) for a peer to evict the marker as
+        # stale and claim the writer slot itself, the file now at <path>.write is the peer's live marker;
+        # unlinking it by path would let a second writer through and break mutual exclusion. The state lock
+        # serializes this against a concurrent break/claim, and the heartbeat is already stopped, so the
+        # token we read is authoritative. Mirrors the token re-check the stale-break path already does.
+        with self._locks.state:
+            read = _read_marker(self._paths.write)
+            if read is None:
+                return
+            info, _ = read
+            if info is None or not hmac.compare_digest(info.token, token):
+                return
+            _unlink(self._paths.write)
+
+    def _claim_writer_marker(self, token: str) -> bool:
+        # Claim the writer slot for ``token``. Must be called holding ``self._locks.state``. Evicts a
+        # stale marker first, then refuses to claim while a live ``.write`` exists so a peer holding the
+        # slot is waited out instead of overwritten.
+        _break_stale_marker(self._paths.write, stale_threshold=self.stale_threshold, now=time.time())
+        if _file_exists(self._paths.write):
+            return False
+        try:
+            _atomic_create_marker(self._paths.write, token)
+        except FileExistsError:
+            return False
+        return True
+
+    def _touch_writer_marker_if_ours(self, token: str) -> bool:
+        # Refresh the writer marker through a single O_NOFOLLOW fd, but only while it still carries our
+        # token. Returns False when the marker is gone or now belongs to a peer that reclaimed the slot,
+        # so the caller can re-claim rather than keep a stranger's marker alive. Mirrors _refresh_marker.
+        fd = _open_marker(self._paths.write)
+        if fd is None:
+            return False
+        try:
+            try:
+                data = os.read(fd, _MAX_MARKER_SIZE + 1)
+            except OSError:  # pragma: no cover - e.g. EAGAIN from a hostile FIFO that has a writer attached
+                return False
+            info = _parse_marker_bytes(data)
+            if info is None or not hmac.compare_digest(info.token, token):
+                return False
+            with suppress(OSError):
+                _touch(self._paths.write, fd=fd)
+            return True
+        finally:
+            os.close(fd)
 
     @classmethod
     def get_lock(
@@ -503,21 +558,21 @@ class SoftReadWriteLock(metaclass=_SoftRWMeta):
 
         def try_claim_writer() -> bool:
             with self._locks.state:
-                _break_stale_marker(self._paths.write, stale_threshold=self.stale_threshold, now=time.time())
-                if _file_exists(self._paths.write):
-                    return False
-                try:
-                    _atomic_create_marker(self._paths.write, token)
-                except FileExistsError:
-                    return False
-            return True
+                return self._claim_writer_marker(token)
 
         def readers_drained_touching() -> bool:
             with self._locks.state:
-                # Refresh our writer marker on every scan iteration. Otherwise phase 2 can exceed
-                # ``stale_threshold`` under contention and a peer would treat us as stale and evict us.
-                with suppress(OSError):
-                    _touch(self._paths.write)
+                # Refresh our writer marker every scan iteration so phase 2 does not exceed
+                # ``stale_threshold`` under contention and get evicted. The refresh only happens while
+                # the marker is still ours: if we were paused past ``stale_threshold`` a peer can evict
+                # the stale marker and reclaim ``.write`` with its own token, and touching that path
+                # blindly would keep the peer's live marker alive and let this acquire finish as though
+                # we still held the slot, admitting a second writer. When the claim is no longer ours we
+                # re-claim the slot here (waiting behind the peer if it currently holds it) rather than
+                # trusting the foreign marker, mirroring the token re-check the stale-break and release
+                # paths already rely on.
+                if not self._touch_writer_marker_if_ours(token) and not self._claim_writer_marker(token):
+                    return False
                 self._break_stale_readers(time.time())
                 return not self._any_readers()
 
@@ -525,8 +580,9 @@ class SoftReadWriteLock(metaclass=_SoftRWMeta):
         try:
             self._wait_for(readers_drained_touching, deadline=deadline, blocking=blocking)
         except Timeout:
-            # Give up our writer claim so readers can make progress again.
-            _unlink(self._paths.write)
+            # Give up our writer claim so readers can make progress again, but only while the marker is
+            # still ours: a peer may have evicted it as stale and claimed the slot while phase 2 waited.
+            self._unlink_writer_marker_if_ours(token)
             raise
         return self._paths.write, False
 
@@ -633,26 +689,32 @@ class SoftReadWriteLock(metaclass=_SoftRWMeta):
             token = hold.token
             dir_fd = self._readers_dir_fd if hold.is_reader else None
 
-        read_result = _read_marker(marker_name, dir_fd=dir_fd)
-        if read_result is None:
+        # Open once with O_NOFOLLOW and touch that exact descriptor. Doing the refresh through the verified fd
+        # (instead of re-opening by name) closes the window where a peer unlinks our marker and drops a symlink
+        # or a different file at the path between the read and the touch: utime then lands on the inode we
+        # verified, or nowhere. A failed open means the marker is gone or was swapped out -- a peer evicted us
+        # -- so stop the heartbeat at once instead of waiting a tick.
+        fd = _open_marker(marker_name, dir_fd=dir_fd)
+        if fd is None:
             return False
-        info, _mtime = read_result
-        # Token mismatch means another process already evicted our marker and created its own; stop the
-        # thread so it does not touch a stranger's file.
-        if info is None or not hmac.compare_digest(info.token, token):
-            return False
-        # A transient touch failure (ESTALE / EIO on the NFS-style filesystems this lock targets) must not
-        # kill the heartbeat thread: the read above just confirmed the marker is still ours, so swallow the
-        # error and retry on the next tick rather than letting the lease lapse while we still believe we
-        # hold the lock. FileNotFoundError is different in kind -- the marker we just read has since been
-        # unlinked, i.e. a peer evicted us -- so stop the heartbeat at once instead of waiting a tick.
         try:
-            _touch(marker_name, dir_fd=dir_fd)
-        except FileNotFoundError:
-            return False
-        except OSError:
-            pass
-        return True
+            try:
+                data = os.read(fd, _MAX_MARKER_SIZE + 1)
+            except OSError:  # pragma: no cover - e.g. EAGAIN from a hostile FIFO that has a writer attached
+                return False
+            info = _parse_marker_bytes(data)
+            # Token mismatch means another process already evicted our marker and created its own; stop the
+            # thread so it does not keep a stranger's file alive.
+            if info is None or not hmac.compare_digest(info.token, token):
+                return False
+            # A transient touch failure (ESTALE / EIO on the NFS-style filesystems this lock targets) must not
+            # kill the heartbeat thread: the read above just confirmed the marker is still ours, so swallow the
+            # error and retry on the next tick rather than letting the lease lapse while we still hold the lock.
+            with suppress(OSError):
+                _touch(marker_name, fd=fd)
+            return True
+        finally:
+            os.close(fd)
 
     def _reset_after_fork_in_child(self) -> None:  # pragma: no cover - fork child not tracked
         # Replace every lock this instance owns with a fresh one; the inherited locks may still be held
@@ -703,14 +765,20 @@ def _atomic_create_marker(name: str, token: str, *, dir_fd: int | None = None) -
         os.close(fd)
 
 
-def _read_marker(name: str, *, dir_fd: int | None = None) -> tuple[_MarkerInfo | None, float] | None:
+def _open_marker(name: str, *, dir_fd: int | None = None) -> int | None:
     # The file is ours; these guard a hostile mid-flight swap. O_NOFOLLOW rejects a symlink; O_NONBLOCK keeps
     # a real FIFO from blocking the open forever, so it reads as a malformed marker instead of wedging a peer
     # that holds the state lock.
     flags = os.O_RDONLY | _O_NOFOLLOW | _O_NONBLOCK
     try:
-        fd = os.open(name, flags, dir_fd=dir_fd) if _SUPPORTS_DIR_FD and dir_fd is not None else os.open(name, flags)
+        return os.open(name, flags, dir_fd=dir_fd) if _SUPPORTS_DIR_FD and dir_fd is not None else os.open(name, flags)
     except OSError:
+        return None
+
+
+def _read_marker(name: str, *, dir_fd: int | None = None) -> tuple[_MarkerInfo | None, float] | None:
+    fd = _open_marker(name, dir_fd=dir_fd)
+    if fd is None:
         return None
     try:
         try:
@@ -807,11 +875,15 @@ def _unlink(name: str, *, dir_fd: int | None = None) -> None:
             Path(name).unlink()
 
 
-def _touch(name: str, *, dir_fd: int | None = None) -> None:
-    if _SUPPORTS_DIR_FD and dir_fd is not None:
-        os.utime(name, None, dir_fd=dir_fd)
-    else:
-        os.utime(name, None)
+def _touch(name: str, *, fd: int | None = None) -> None:
+    # Prefer the already-open, already-verified fd so a peer that swaps a symlink or a different file in at the
+    # path after our O_NOFOLLOW read cannot redirect the touch: utime then targets the inode behind the fd.
+    # Where the platform cannot utime an fd, fall back to a path-based touch that still refuses to follow a
+    # symlink where supported -- matching the O_NOFOLLOW reads used everywhere else here.
+    if fd is not None and _SUPPORTS_UTIME_FD:
+        os.utime(fd, None)
+        return
+    os.utime(name, None, follow_symlinks=not _SUPPORTS_UTIME_NOFOLLOW)
 
 
 def _file_exists(path: str) -> bool:

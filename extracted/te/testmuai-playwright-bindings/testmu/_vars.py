@@ -38,6 +38,10 @@ _MUSTACHE_RE = re.compile(r"\{\{(.+?)\}\}")
 _DOLLAR_RE = re.compile(r"\$\{(.+?)\}")
 _BRACKET_RE = re.compile(r"(\w+)\[(\d+)\]")
 
+# Backslash-escaped placeholder span: \{{...}} or \${...}.
+# group(1) is the literal placeholder (braces kept, backslash dropped).
+_ESCAPED_RE = re.compile(r"\\(\{\{.+?\}\}|\$\{.+?\})")
+
 
 def _reset_store():
     """Reset variable store (for testing)."""
@@ -97,10 +101,30 @@ def var(template, path=None, transform=None):
         _log.info("    [var] template=None → ''")
         return ""
 
-    # If input has no variable patterns, return original value unchanged (type-preserving)
     template_str = str(template)
+
+    # --- escape handling (v4 only): \{{x}} / \${x} are literal placeholders ---
+    # Mask escaped spans BEFORE any resolution so nothing substitutes them, then
+    # restore them (without the backslash) at every string return. Masking only
+    # touches template spans, never resolved variable values.
+    from testmu import _configure as _cfg
+    _masks: list[str] = []
+    if _cfg.get("kane_version", "v4") != "v3":
+        def _mask(m: "re.Match[str]") -> str:
+            _masks.append(m.group(1))
+            return f"\x00ESC{len(_masks) - 1}\x00"
+        template_str = _ESCAPED_RE.sub(_mask, template_str)
+
+    def _unmask(value):
+        if not _masks or not isinstance(value, str):
+            return value
+        for _i, _lit in enumerate(_masks):
+            value = value.replace(f"\x00ESC{_i}\x00", _lit)
+        return value
+
+    # If input has no (remaining) variable patterns, return literal-or-original.
     if not _MUSTACHE_RE.search(template_str) and not _DOLLAR_RE.search(template_str):
-        return template  # no {{...}} or ${...} — return as-is
+        return _unmask(template_str) if _masks else template
 
     sensitive = _is_sensitive_template(template_str)
 
@@ -145,7 +169,7 @@ def var(template, path=None, transform=None):
         f" path={path}" if path is not None else "",
         f" transform={transform}" if transform is not None else "",
     )
-    return resolved
+    return _unmask(resolved)
 
 
 def get_variable_value(template, variables=None, *args, **kwargs):

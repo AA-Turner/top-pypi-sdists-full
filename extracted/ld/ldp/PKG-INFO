@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ldp
-Version: 0.46.1
+Version: 0.46.2
 Summary: Agent framework for constructing language model agents and training on constructive tasks.
 Author-email: FutureHouse technical staff <hello@futurehouse.org>
 License:                                  Apache License

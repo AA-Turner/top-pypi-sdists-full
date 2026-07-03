@@ -20,12 +20,13 @@ _scoped_pre_read, scope: create:/update: enforcement) moved to
 scope_filters.py (#1361 slice 1); the names are re-imported above for
 back-compat.
 
-Inline HTMX/HTML response rendering (_render_table_row,
-_render_table_pagination, _render_inline_edit, _render_cell_display,
+Inline HTMX/HTML response rendering (_render_table_pagination,
 _render_table_empty, _render_table_sentinel, _build_table_url_params,
-_with_htmx_triggers, _render_detail_html — 500+ lines of inline HTML;
-no Jinja2) moved to htmx_render.py (#1361 slice 2); the names are
-re-imported above for back-compat.
+_with_htmx_triggers, _render_detail_html — inline HTML, no Jinja2) moved
+to htmx_render.py (#1361 slice 2); the names are re-imported above for
+back-compat. The rich data-table *row* renderer (_render_table_row + its
+cell/inline-edit helpers) moved on to the render/ substrate
+(render_data_row / render_data_table_rows) and was deleted here (#1505 P2).
 
 Audit context + access logging + auth wrapping (_build_access_context,
 _record_to_dict, _compute_field_changes, _log_audit_decision,
@@ -126,12 +127,9 @@ from dazzle.http.runtime.handlers.write_handlers import (  # noqa: F401  (re-exp
 # resolving here.
 from dazzle.http.runtime.htmx_render import (  # noqa: F401  (re-exported for back-compat importers)
     _build_table_url_params,
-    _render_cell_display,
     _render_detail_html,
-    _render_inline_edit,
     _render_table_empty,
     _render_table_pagination,
-    _render_table_row,
     _render_table_sentinel,
     _with_htmx_triggers,
 )
@@ -179,6 +177,7 @@ APIRouter = _APIRouter
 # leaf instead of back UP into this module — breaking the import cycle that forced
 # ~18 in-function imports. Re-exported here so `route_generator.<name>` keeps resolving
 # for back-compat importers and patch points.
+from dazzle.http.runtime.htmx import is_peek_request  # noqa: E402
 from dazzle.http.runtime.route_support import (  # noqa: E402, F401  (re-exported for back-compat importers + patch points; route_support declares __all__)
     HandlerConfig,
     RouteSpec,
@@ -510,7 +509,10 @@ class RouteGenerator:
                 select_fields=projection,
                 json_projection=projection,
                 htmx_columns=_htmx.get("columns"),
+                htmx_columns_full=_htmx.get("columns_full"),  # ADR-0050 2d (untruncated)
                 htmx_detail_url=_htmx.get("detail_url"),
+                htmx_peek_mode=_htmx.get("peek_mode"),
+                htmx_peek_by_table_id=_htmx.get("peek_by_table_id"),
                 htmx_entity_name=_htmx.get("entity_name", entity_name or "Item"),
                 htmx_empty_message=_htmx.get("empty_message", "No items found."),
                 search_fields=_search_fields,
@@ -848,8 +850,14 @@ def generate_crud_routes(
     async def update_item(id: UUID, request: Request, data: update_schema) -> Any:
         result = await service.execute(operation="update", id=id, data=data)
         result = require_found(result)
+        # #1494 (2c, Slice 2 — inline save-and-stay): a peek-panel save
+        # (`?peek=1`) must NOT redirect the whole page — the form re-fetches the
+        # read-only view back into the panel cell itself. Suppress HX-Redirect so
+        # only the HX-Trigger toast/refresh headers ride along; otherwise settle
+        # to the current page as before.
+        redirect_url = None if is_peek_request(request) else _htmx_current_url(request)
         return _with_htmx_triggers(
-            request, result, entity_name, "updated", redirect_url=_htmx_current_url(request)
+            request, result, entity_name, "updated", redirect_url=redirect_url
         )
 
     # Delete

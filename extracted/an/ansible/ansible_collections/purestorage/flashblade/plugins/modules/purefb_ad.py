@@ -24,7 +24,7 @@ description:
 - FlashBlade allows the creation of one AD computer account, or joining of an
   existing AD computer account.
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -66,7 +66,7 @@ options:
     - The encryption types that will be supported for use by clients for Kerberos authentication
     type: list
     elements: str
-    choices: [ aes256-sha1, aes128-sha1, aes256-cts-hmac-sha1-96, aes128-cts-hmac-sha1-96, arcfour-hma ]
+    choices: [ aes256-sha1, aes128-sha1, aes256-cts-hmac-sha1-96, aes128-cts-hmac-sha1-96, arcfour-hmac ]
     default: aes256-sha1
   join_ou:
     description:
@@ -223,7 +223,7 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PURESTORAGE = True
+HAS_PYPURECLIENT = True
 try:
     from pypureclient.flashblade import (
         ActiveDirectoryPost,
@@ -232,12 +232,15 @@ try:
         KeytabPost,
     )
 except ImportError:
-    HAS_PURESTORAGE = False
+    HAS_PYPURECLIENT = False
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
+)
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
 )
 
 GC_SERVERS_API_VERSION = "2.12"
@@ -295,7 +298,7 @@ def create_account(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to add Active Directory Account {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     else:
@@ -329,7 +332,7 @@ def create_account(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to add Active Directory Account {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -401,7 +404,7 @@ def update_account(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to update Active Directory Account {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -413,24 +416,24 @@ def test_account(module, blade):
     response = list(
         blade.get_active_directory_test(names=[module.params["name"]]).items
     )
-    for component in range(len(response)):
-        if response[component].enabled:
+    for component in response:
+        if component.enabled:
             enabled = "true"
         else:
             enabled = "false"
-        if response[component].success:
+        if component.success:
             success = "true"
         else:
             success = "false"
         test_response.append(
             {
-                "component_name": response[component].component_name,
-                "description": response[component].description,
-                "destination": response[component].destination,
+                "component_name": component.component_name,
+                "description": component.description,
+                "destination": component.destination,
                 "enabled": enabled,
                 "success": success,
-                "test_type": response[component].test_type,
-                "resource_name": response[component].resource.name,
+                "test_type": component.test_type,
+                "resource_name": component.resource.name,
             }
         )
     module.exit_json(changed=False, test_response=test_response)
@@ -445,7 +448,7 @@ def rotate_account(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Keytab rotation failed for account {0}. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
     module.exit_json(changed=True)
@@ -487,7 +490,7 @@ def main():
                     "aes128-sha1",
                     "aes256-cts-hmac-sha1-96",
                     "aes128-cts-hmac-sha1-96",
-                    "arcfour-hma",
+                    "arcfour-hmac",
                 ],
                 default=["aes256-sha1"],
             ),
@@ -496,7 +499,7 @@ def main():
 
     module = AnsibleModule(argument_spec, supports_check_mode=True)
 
-    if not HAS_PURESTORAGE:
+    if not HAS_PYPURECLIENT:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     blade = get_system(module)

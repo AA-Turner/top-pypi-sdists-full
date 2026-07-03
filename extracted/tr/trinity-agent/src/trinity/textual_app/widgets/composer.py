@@ -11,7 +11,7 @@ from textual.widgets import Static, TextArea
 
 from trinity.tui.prompt import TRINITY_COMMANDS
 from trinity.textual_app.i18n import (
-    command_description,
+    command_palette_option_label,
     command_palette_text,
     localize_bindings,
 )
@@ -170,7 +170,7 @@ class PromptComposer(Vertical):
         id: str | None = None,
         lang: str = "en",
     ) -> None:
-        super().__init__(id=id)
+        super().__init__(id=id, classes="prompt-composer")
         self.placeholder = placeholder
         self.initial_text = initial_text
         self._command_matches: list[str] = []
@@ -338,8 +338,7 @@ class PromptComposer(Vertical):
                     continue
                 command_index = self._command_window_start + index
                 command = visible_matches[index]
-                description = command_description(command, self.lang)
-                label = f"{command:<12} {description}" if description else command
+                label = command_palette_option_label(command, self.lang)
                 option_states.append(
                     (
                         label,

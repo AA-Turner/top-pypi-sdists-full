@@ -30,6 +30,7 @@ See issue #1064 for the full decomposition plan.
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from dazzle.render.fragment.context import RenderContext
@@ -37,6 +38,7 @@ from dazzle.render.fragment.primitives import (
     Badge,
     Card,
     Drawer,
+    DzTableMount,
     EmptyState,
     Grid,
     Heading,
@@ -156,8 +158,48 @@ class _RenderLayoutMixin:
     def _emit_region(self, r: Region, ctx: RenderContext) -> str:
         cls = f"dz-region dz-region--kind-{r.kind}"
         data_attr = f' data-dazzle-table="{ctx.escape_attr(r.data_table)}"' if r.data_table else ""
+        # Phase 2: detail regions carry the entity anchor tier2 e2e gestures +
+        # dz-analytics.js scope by.
+        if r.data_entity:
+            ent = ctx.escape_attr(r.data_entity)
+            data_attr += f' data-dazzle-entity="{ent}" data-dz-entity="{ent}"'
+            if r.data_entity_id:
+                data_attr += f' data-dz-entity-id="{ctx.escape_attr(r.data_entity_id)}"'
+        # ADR-0049 D3: when the region carries a dzTable mount, the root gets
+        # the `x-data="dzTable(id, endpoint, config)"` controller wrapper —
+        # the same one the legacy `render_filterable_table` mounted — so the
+        # hydrated rows' sort/bulk/inline/column-visibility bindings resolve.
+        mount_attr = self._dztable_mount_attrs(r.mount, ctx) if r.mount is not None else ""
         body_html = self._emit(r.body, ctx)  # type: ignore[arg-type]
-        return f'<section class="{cls}"{data_attr}>{body_html}</section>'
+        # Task 4e: a controlled list region carries the polite ARIA live region
+        # the dzTable controller announces sort/loading state into
+        # (`getElementById("dz-live-region")`). One per list region.
+        live_region = (
+            '<div id="dz-live-region" aria-live="polite" aria-atomic="true" '
+            'class="visually-hidden"></div>'
+            if r.mount is not None
+            else ""
+        )
+        return f'<section class="{cls}"{mount_attr}{data_attr}>{body_html}{live_region}</section>'
+
+    @staticmethod
+    def _dztable_mount_attrs(m: DzTableMount, ctx: RenderContext) -> str:
+        config = {
+            "sortField": m.sort_field,
+            "sortDir": m.sort_dir,
+            "inlineEditable": list(m.inline_editable),
+            "bulkActions": m.bulk_actions,
+            "entityName": m.entity_name,
+        }
+        config_json = json.dumps(config)
+        table_id = ctx.escape_attr(m.table_id)
+        endpoint = ctx.escape_attr(m.endpoint)
+        return (
+            f' id="{table_id}"'
+            f' x-data=\'dzTable("{table_id}", "{endpoint}", {config_json})\''
+            ' :aria-busy="loading"'
+            ' data-dz-bulk-count="0"'
+        )
 
     def _emit_drawer(self, d: Drawer, ctx: RenderContext) -> str:
         cls = f"dz-drawer dz-drawer--side-{d.side}"

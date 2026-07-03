@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-06-08 AT 11:28:09
+# AUTO GENERATED ON 2026-07-02 AT 19:33:43
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -19,14 +19,11 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_1():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = []
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 0
     outlength = 0
-    parents = []
-    parents = (ctypes.c_int64*len(parents))(*parents)
-    offsets = []
+    offsets = [0]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
     pytest_toptr = []
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -36,15 +33,12 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_2():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 0, 1, 0, 1, 0, 0, 1, 1]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 9
     outlength = 8
-    parents = [0, 0, 0, 6, 6, 1, 1, 7, 2]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 5, 6, 6, 6, 6, 8, 9]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
-    pytest_toptr = [0, 0, 1, 1, 1, 1, 0, 1]
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
+    pytest_toptr = [False, False, False, 1, 1, 1, False, 1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -53,15 +47,12 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_3():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [0, 0, 0, 1, 1, 1]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 6
     outlength = 2
-    parents = [0, 0, 0, 1, 1, 1]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 6]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
-    pytest_toptr = [0, 1]
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
+    pytest_toptr = [False, 1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -70,15 +61,12 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_4():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 0, 1, 0, 0, 1, 0, 1, 1]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 9
     outlength = 6
-    parents = [0, 0, 0, 2, 2, 3, 4, 4, 5]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 3, 5, 6, 8, 9]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
-    pytest_toptr = [0, 1, 0, 1, 0, 1]
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
+    pytest_toptr = [False, 1, False, 1, False, 1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -87,15 +75,12 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_5():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 0, 0, 1, 1, 1, 1, 0, 0, 1]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 10
     outlength = 4
-    parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 6, 9, 10]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
-    pytest_toptr = [0, 1, 0, 1]
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
+    pytest_toptr = [False, 1, False, 1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -104,15 +89,12 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_6():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 0, 0, 2, 2, 2, 3, 0, 0, 4]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 10
     outlength = 4
-    parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 6, 9, 10]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
-    pytest_toptr = [0, 1, 0, 1]
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
+    pytest_toptr = [False, 1, False, 1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -121,15 +103,12 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_7():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [0, 0, 0, 1, 1, 1, 1, 1, 1, 1]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 10
     outlength = 3
-    parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 6, 10]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
-    pytest_toptr = [0, 1, 1]
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
+    pytest_toptr = [False, 1, 1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -138,15 +117,12 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_8():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 25
     outlength = 6
-    parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 6, 10, 15, 21, 25]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
-    pytest_toptr = [0, 1, 1, 0, 1, 1]
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
+    pytest_toptr = [False, 1, 1, False, 1, 1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -155,15 +131,12 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_9():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 15
     outlength = 5
-    parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 6, 9, 12, 15]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
-    pytest_toptr = [0, 1, 1, 1, 0]
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
+    pytest_toptr = [False, 1, 1, 1, False]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -172,15 +145,12 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_10():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 22
     outlength = 6
-    parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 6, 11, 15, 19, 22]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
-    pytest_toptr = [1, 0, 0, 1, 1, 0]
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
+    pytest_toptr = [1, False, False, 1, 1, False]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -189,15 +159,12 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_11():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 1, 1, 0, 1, 0, 0, 1, 0, 1]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 10
     outlength = 3
-    parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 6, 10]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
-    pytest_toptr = [1, 0, 0]
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
+    pytest_toptr = [1, False, False]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -206,15 +173,12 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_12():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 19
     outlength = 5
-    parents = [0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 5, 8, 11, 14, 19]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
-    pytest_toptr = [1, 0, 0, 1, 1]
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
+    pytest_toptr = [1, False, False, 1, 1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -223,15 +187,12 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_13():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 2, 3, 0, 2, 0, 0, 2, 0, 4]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 10
     outlength = 3
-    parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 6, 10]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
-    pytest_toptr = [1, 0, 0]
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
+    pytest_toptr = [1, False, False]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -240,15 +201,12 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_14():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 1, 1, 0, 0, 0]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 6
     outlength = 2
-    parents = [0, 0, 0, 1, 1, 1]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 6]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
-    pytest_toptr = [1, 0]
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
+    pytest_toptr = [1, False]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -257,15 +215,12 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_15():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 1, 1, 1, 1, 1, 0, 0, 0]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 9
     outlength = 3
-    parents = [0, 0, 0, 1, 1, 1, 2, 2, 2]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 6, 9]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
-    pytest_toptr = [1, 1, 0]
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
+    pytest_toptr = [1, 1, False]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -274,15 +229,12 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_16():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 15
     outlength = 5
-    parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 6, 9, 12, 15]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
-    pytest_toptr = [1, 1, 0, 1, 1]
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
+    pytest_toptr = [1, 1, False, 1, 1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -291,14 +243,11 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_17():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 11
     outlength = 3
-    parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 6, 11]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
     pytest_toptr = [1, 1, 1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -308,14 +257,11 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_18():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 17
     outlength = 5
-    parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 6, 10, 14, 17]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
     pytest_toptr = [1, 1, 1, 1, 1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -325,14 +271,11 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_19():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 19
     outlength = 5
-    parents = [0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 8, 12, 16, 19]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
     pytest_toptr = [1, 1, 1, 1, 1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -342,14 +285,11 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_20():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 22
     outlength = 6
-    parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3, 6, 11, 15, 19, 22]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
     pytest_toptr = [1, 1, 1, 1, 1, 1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -359,14 +299,11 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_21():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 2, 3]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 3
     outlength = 1
-    parents = [0, 0, 0]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 3]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
     pytest_toptr = [1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -376,14 +313,11 @@ def test_unit_cpuawkward_reduce_prod_bool_uint32_64_22():
     toptr = (ctypes.c_bool*len(toptr))(*toptr)
     fromptr = [1, 2, 3, 4, 5, 6]
     fromptr = (ctypes.c_uint32*len(fromptr))(*fromptr)
-    lenparents = 6
     outlength = 1
-    parents = [0, 0, 0, 0, 0, 0]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 6]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_prod_bool_uint32_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, offsets, outlength)
     pytest_toptr = [1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str

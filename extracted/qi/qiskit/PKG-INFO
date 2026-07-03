@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qiskit
-Version: 2.4.2
+Version: 2.5.0
 Summary: An open-source SDK for working with quantum computers at the level of extended quantum circuits, operators, and primitives.
 Author-email: Qiskit Development Team <qiskit@us.ibm.com>
 License-Expression: Apache-2.0
@@ -27,9 +27,9 @@ Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Requires-Dist: numpy<3,>=2.0
+Requires-Dist: scipy>=1.14
 Requires-Dist: rustworkx>=0.15.0
-Requires-Dist: numpy<3,>=1.21
-Requires-Dist: scipy>=1.5
 Requires-Dist: dill>=0.3
 Requires-Dist: stevedore>=3.0.0
 Requires-Dist: typing-extensions
@@ -61,7 +61,7 @@ Dynamic: license-file
 [![Downloads](https://img.shields.io/pypi/dm/qiskit.svg)](https://pypi.org/project/qiskit/)
 [![Coverage Status](https://coveralls.io/repos/github/Qiskit/qiskit/badge.svg?branch=main)](https://coveralls.io/github/Qiskit/qiskit?branch=main)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/qiskit)
-[![Minimum rustc 1.85](https://img.shields.io/badge/rustc-1.85+-blue.svg)](https://rust-lang.github.io/rfcs/2495-min-rust-version.html)
+[![Minimum rustc 1.87](https://img.shields.io/badge/rustc-1.87+-blue.svg)](https://rust-lang.github.io/rfcs/2495-min-rust-version.html)
 [![Downloads](https://static.pepy.tech/badge/qiskit)](https://pepy.tech/project/qiskit)<!--- long-description-skip-end -->
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2583252.svg)](https://doi.org/10.5281/zenodo.2583252)
 

@@ -8,7 +8,6 @@ from zoneinfo import ZoneInfo
 import pytest
 from hypothesis import given
 from hypothesis.strategies import floats, integers, text
-
 from whenever import (
     Date,
     Instant,
@@ -547,7 +546,6 @@ class TestEquality:
 
 
 class TestTimestamp:
-
     def test_default_seconds(self):
         assert OffsetDateTime(1970, 1, 1, 3, offset=3).timestamp() == 0
         assert (
@@ -577,7 +575,6 @@ class TestTimestamp:
 
 
 class TestFromTimestamp:
-
     @pytest.mark.parametrize(
         "method, factor",
         [
@@ -837,7 +834,6 @@ class _MyDatetime(py_datetime):
 
 
 class TestInitFromPy:
-
     @pytest.mark.parametrize(
         "d, expect",
         [
@@ -974,7 +970,6 @@ def test_components():
 
 
 class TestNow:
-
     @suppress(StaleOffsetWarning)
     def test_timedelta(self):
         now = OffsetDateTime.now(hours(5))
@@ -1062,7 +1057,6 @@ def test_replace():
 
 
 class TestAddSubtractOperators:
-
     @suppress(StaleOffsetWarning)
     def test_same_as_method(self):
         d = OffsetDateTime(
@@ -1097,7 +1091,6 @@ class TestAddSubtractOperators:
 
 
 class TestShiftMethods:
-
     def test_warnings(self):
         d = OffsetDateTime(
             2020, 8, 15, 23, 12, 9, nanosecond=987_654, offset=5
@@ -1111,7 +1104,6 @@ class TestShiftMethods:
         assert len(w) == 1
 
         with suppress(StaleOffsetWarning):
-
             with pytest.warns(WheneverDeprecationWarning, match="ignore_dst"):
                 d.add(hours=4, ignore_dst=True)
 
@@ -1301,7 +1293,8 @@ class TestAssumeTz:
 
         with pytest.raises(ValueError, match="foo"):
             OffsetDateTime("2020-08-15 23:12:09+02:00").assume_tz(
-                "Europe/Paris", offset_mismatch="foo"  # type: ignore[arg-type]
+                "Europe/Paris",
+                offset_mismatch="foo",  # type: ignore[arg-type]
             )
 
         with pytest.raises(TimeZoneNotFoundError, match="Foo"):
@@ -1309,7 +1302,6 @@ class TestAssumeTz:
 
 
 class TestDifference:
-
     def test_offset(self):
         d = OffsetDateTime(2020, 8, 15, 23, 12, 9, nanosecond=3, offset=5)
         other = OffsetDateTime(2020, 8, 14, 23, 12, 4, nanosecond=4, offset=-3)
@@ -1475,7 +1467,6 @@ def test_to_plain():
 
 
 class TestParseStrptime:
-
     @pytest.mark.parametrize(
         "string, fmt, expected",
         [
@@ -1526,7 +1517,8 @@ class TestParseStrptime:
         # format is keyword-only
         with pytest.raises(TypeError, match="format|argument"):
             OffsetDateTime.parse_strptime(
-                "2020-08-15 23:12:09 +0400", "%Y-%m-%d %H:%M:%S %z"  # type: ignore[misc]
+                "2020-08-15 23:12:09 +0400",
+                "%Y-%m-%d %H:%M:%S %z",  # type: ignore[misc]
             )
 
         # out of range
@@ -1846,7 +1838,6 @@ INVALID_RFC2822 = [
 
 
 class TestParseRFC2822:
-
     @pytest.mark.parametrize("s, expected", VALID_RFC2822)
     def test_valid(self, s, expected):
         assert OffsetDateTime.parse_rfc2822(s) == expected
@@ -1869,7 +1860,6 @@ class TestParseRFC2822:
 
 
 class TestRound:
-
     @pytest.mark.parametrize(
         "d, increment, unit, floor, ceil, half_floor, half_ceil, half_even",
         [
@@ -2312,7 +2302,6 @@ def test_cannot_subclass():
 
 
 class TestDayOfYear:
-
     def test_basic(self):
         odt = OffsetDateTime(2024, 2, 29, 12, offset=hours(5))
         assert odt.day_of_year() == 60
@@ -2331,7 +2320,6 @@ class TestDayOfYear:
 
 
 class TestDaysInMonth:
-
     def test_feb_leap(self):
         odt = OffsetDateTime(2024, 2, 29, 12, offset=hours(5))
         assert odt.days_in_month() == 29
@@ -2354,7 +2342,6 @@ class TestDaysInMonth:
 
 
 class TestDaysInYear:
-
     def test_leap(self):
         odt = OffsetDateTime(2024, 2, 29, 12, offset=hours(5))
         assert odt.days_in_year() == 366
@@ -2373,7 +2360,6 @@ class TestDaysInYear:
 
 
 class TestInLeapYear:
-
     def test_leap(self):
         odt = OffsetDateTime(2024, 2, 29, 12, offset=hours(5))
         assert odt.in_leap_year() is True
@@ -2392,7 +2378,6 @@ class TestInLeapYear:
 
 
 class TestStartOf:
-
     @suppress(StaleOffsetWarning)
     def test_year(self):
         odt = OffsetDateTime(
@@ -2400,7 +2385,6 @@ class TestStartOf:
         )
         result = odt.start_of("year")
         assert result.exact_eq(OffsetDateTime(2024, 1, 1, offset=hours(5)))
-        assert result.nanosecond == 0
 
     @suppress(StaleOffsetWarning)
     def test_month(self):
@@ -2409,7 +2393,6 @@ class TestStartOf:
         )
         result = odt.start_of("month")
         assert result.exact_eq(OffsetDateTime(2024, 8, 1, offset=hours(5)))
-        assert result.nanosecond == 0
 
     @suppress(StaleOffsetWarning)
     def test_day(self):
@@ -2418,7 +2401,6 @@ class TestStartOf:
         )
         result = odt.start_of("day")
         assert result.exact_eq(OffsetDateTime(2024, 8, 15, offset=hours(5)))
-        assert result.nanosecond == 0
 
     @suppress(StaleOffsetWarning)
     def test_hour(self):
@@ -2429,7 +2411,6 @@ class TestStartOf:
         assert result.exact_eq(
             OffsetDateTime(2024, 8, 15, 14, offset=hours(5))
         )
-        assert result.nanosecond == 0
 
     @suppress(StaleOffsetWarning)
     def test_minute(self):
@@ -2440,7 +2421,6 @@ class TestStartOf:
         assert result.exact_eq(
             OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5))
         )
-        assert result.nanosecond == 0
 
     @suppress(StaleOffsetWarning)
     def test_second(self):
@@ -2451,7 +2431,6 @@ class TestStartOf:
         assert result.exact_eq(
             OffsetDateTime(2024, 8, 15, 14, 30, 45, offset=hours(5))
         )
-        assert result.nanosecond == 0
 
     @suppress(StaleOffsetWarning)
     def test_offset_preserved(self):
@@ -2463,8 +2442,47 @@ class TestStartOf:
     def test_invalid_unit(self):
         with pytest.raises(ValueError, match="Invalid (unit|value for unit)"):
             OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5)).start_of(
+                "invalid"  # type: ignore[arg-type]
+            )
+
+    @suppress(StaleOffsetWarning)
+    def test_week_value_error(self):
+        with pytest.raises(ValueError, match="ambiguous"):
+            OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5)).start_of(
                 "week"  # type: ignore[arg-type]
             )
+
+    @suppress(StaleOffsetWarning)
+    def test_week_mon(self):
+        # Thursday Aug 15 -> Monday Aug 12 at midnight
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        result = odt.start_of("week_mon")
+        assert result.exact_eq(OffsetDateTime(2024, 8, 12, offset=hours(5)))
+
+    @suppress(StaleOffsetWarning)
+    def test_week_sun(self):
+        # Thursday Aug 15 -> Sunday Aug 11 at midnight
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        result = odt.start_of("week_sun")
+        assert result.exact_eq(OffsetDateTime(2024, 8, 11, offset=hours(5)))
+
+    @suppress(StaleOffsetWarning)
+    @pytest.mark.parametrize("unit", ["week_mon", "week_sun"])
+    def test_min_max_no_crash(self, unit):
+        try:
+            OffsetDateTime(1, 1, 1, offset=hours(0)).start_of(unit)
+        except (ValueError, OverflowError):
+            pass
+        try:
+            OffsetDateTime(9999, 12, 31, 23, 59, 59, offset=hours(0)).start_of(
+                unit
+            )
+        except (ValueError, OverflowError):
+            pass
 
     def test_emits_stale_offset_warning(self):
         odt = OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5))
@@ -2479,6 +2497,31 @@ class TestStartOf:
 
 
 class TestEndOf:
+    @pytest.mark.parametrize(
+        ("unit", "next_start"),
+        [
+            ("year", OffsetDateTime(2025, 1, 1, offset=hours(5))),
+            ("month", OffsetDateTime(2024, 9, 1, offset=hours(5))),
+            ("week_mon", OffsetDateTime(2024, 8, 19, offset=hours(5))),
+            ("week_sun", OffsetDateTime(2024, 8, 18, offset=hours(5))),
+            ("day", OffsetDateTime(2024, 8, 16, offset=hours(5))),
+            ("hour", OffsetDateTime(2024, 8, 15, 15, offset=hours(5))),
+            ("minute", OffsetDateTime(2024, 8, 15, 14, 31, offset=hours(5))),
+            (
+                "second",
+                OffsetDateTime(2024, 8, 15, 14, 30, 46, offset=hours(5)),
+            ),
+        ],
+    )
+    def test_adjacent_to_next_start(self, unit, next_start):
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        assert (
+            odt.end_of(unit, stale_offset_ok=True)
+            .add(nanoseconds=1, stale_offset_ok=True)
+            .exact_eq(next_start)
+        )
 
     @suppress(StaleOffsetWarning)
     def test_year(self):
@@ -2635,7 +2678,68 @@ class TestEndOf:
     @suppress(StaleOffsetWarning)
     def test_invalid_unit(self):
         with pytest.raises(ValueError, match="Invalid (unit|value for unit)"):
+            OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5)).end_of(
+                "invalid"  # type: ignore[arg-type]
+            )
+
+    @suppress(StaleOffsetWarning)
+    def test_week_value_error(self):
+        with pytest.raises(ValueError, match="ambiguous"):
             OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5)).end_of("week")  # type: ignore[arg-type]
+
+    @suppress(StaleOffsetWarning)
+    def test_week_mon(self):
+        # Thursday Aug 15 -> Sunday Aug 18 end of day
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        result = odt.end_of("week_mon")
+        assert result.exact_eq(
+            OffsetDateTime(
+                2024,
+                8,
+                18,
+                23,
+                59,
+                59,
+                nanosecond=999_999_999,
+                offset=hours(5),
+            )
+        )
+
+    @suppress(StaleOffsetWarning)
+    def test_week_sun(self):
+        # Thursday Aug 15 -> Saturday Aug 17 end of day
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        result = odt.end_of("week_sun")
+        assert result.exact_eq(
+            OffsetDateTime(
+                2024,
+                8,
+                17,
+                23,
+                59,
+                59,
+                nanosecond=999_999_999,
+                offset=hours(5),
+            )
+        )
+
+    @suppress(StaleOffsetWarning)
+    @pytest.mark.parametrize("unit", ["week_mon", "week_sun"])
+    def test_min_max_no_crash(self, unit):
+        try:
+            OffsetDateTime(1, 1, 1, offset=hours(0)).end_of(unit)
+        except (ValueError, OverflowError):
+            pass
+        try:
+            OffsetDateTime(9999, 12, 31, 23, 59, 59, offset=hours(0)).end_of(
+                unit
+            )
+        except (ValueError, OverflowError):
+            pass
 
     def test_emits_stale_offset_warning(self):
         odt = OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5))

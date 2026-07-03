@@ -197,9 +197,6 @@ class CLIConfig:
         netloc: str = url_info.netloc.decode() if isinstance(url_info.netloc, bytes) else url_info.netloc
         self["host"] = f"{scheme}://{netloc}"
 
-    def set_cwd(self, cwd: str) -> None:
-        self["cwd"] = cwd
-
     def get_host(self, use_defaults_if_needed: bool = False) -> Optional[str]:
         result: Optional[str] = self.get("host", None)
         if result:

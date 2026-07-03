@@ -4416,6 +4416,14 @@ if __name__ == "__main__":
     _adapter_env_default = os.environ.get("BERNSTEIN_ADAPTER", "").strip() or "claude"
     parser.add_argument("--adapter", type=str, default=_adapter_env_default)
     parser.add_argument("--cells", type=int, default=1, help="Number of parallel cells (1=single-cell)")
+    # Run-level model override (from ``bernstein run --model``), threaded through
+    # by the CLI's spawner launcher. Falls back to BERNSTEIN_MODEL env var so
+    # any nested resolve_adapter()-style callers can also honour it. This is
+    # the value AgentSpawner uses to coerce Claude tier names (opus/sonnet/
+    # haiku) emitted by the heuristic model selector into a model the active
+    # non-Claude adapter understands - see _coerce_model_for_non_claude_adapter.
+    _model_env_default = os.environ.get("BERNSTEIN_MODEL", "").strip() or None
+    parser.add_argument("--model", type=str, default=_model_env_default)
     args = parser.parse_args()
 
     workdir = Path.cwd()
@@ -4501,6 +4509,14 @@ if __name__ == "__main__":
                 adapter_name = getattr(seed, "cli", adapter_name)
             except Exception as exc:
                 logger.warning("Failed to parse seed for adapter config: %s", exc)
+
+        # Run-level model: ``--model`` flag (threaded from ``bernstein run
+        # --model``) wins, falling back to the seed's resolved model (also
+        # set from the same CLI flag when the seed is parsed in-process).
+        # This is the value that reaches AgentSpawner as ``default_model``
+        # so child-task spawns can coerce Claude tier names for non-Claude
+        # adapters instead of passing them through literally.
+        run_model: str | None = args.model or (getattr(seed, "model", None) if seed else None)
 
         if adapter_name == "auto":
             # Auto mode: default to Claude Code (primary), others used via routing
@@ -4688,6 +4704,80 @@ if __name__ == "__main__":
 
             ensure_agent_image(_container_iso.runtime, _container_iso.image)
 
+        # ``--sandbox docker`` (BERNSTEIN_SANDBOX_RUNTIME=docker) previously
+        # provisioned one run-level SandboxSession shared by every agent,
+        # so a single exec timeout killed the container for all of them
+        # and concurrent agents shared one /workspace clone. Attach the
+        # DockerSandboxBackend plus a manifest factory instead: the
+        # spawner provisions ONE session per spawn and destroys it when
+        # the exec future resolves (issue #2162). Fully
+        # backward-compatible: without ``--sandbox docker`` this block
+        # never runs, and any wiring failure falls back to the existing
+        # legacy container path unchanged.
+        _docker_sandbox_backend = None
+        _docker_manifest_factory = None
+        if _sandbox_runtime == "docker":
+            try:
+                import subprocess as _subprocess
+
+                from bernstein.core.sandbox.backends.docker import (
+                    DockerSandboxBackend,
+                    DockerUnavailableError,
+                )
+                from bernstein.core.sandbox.manifest import GitRepoEntry, WorkspaceManifest
+
+                _branch_result = _subprocess.run(
+                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                    cwd=workdir,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    check=False,
+                )
+                _current_branch = _branch_result.stdout.strip() or "HEAD"
+
+                def _make_docker_manifest(
+                    _src: str = str(workdir), _branch: str = _current_branch
+                ) -> WorkspaceManifest:
+                    return WorkspaceManifest(
+                        root="/workspace",
+                        repo=GitRepoEntry(src_path=_src, branch=_branch),
+                    )
+
+                _docker_backend = DockerSandboxBackend()
+                # Fail fast at wiring time so a dead daemon still falls
+                # back to legacy isolation instead of failing per spawn.
+                _docker_backend.ensure_available()
+                _docker_sandbox_backend = _docker_backend
+                _docker_manifest_factory = _make_docker_manifest
+                logger.info(
+                    "Docker sandbox backend attached; one session per agent spawn (branch=%s)",
+                    _current_branch,
+                )
+            except DockerUnavailableError as exc:
+                logger.warning("Docker sandbox unavailable (%s); falling back to legacy container isolation", exc)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to attach Docker sandbox backend, falling back to legacy container isolation: %s",
+                    exc,
+                )
+
+        def _teardown_docker_sandbox() -> None:
+            """Destroy any Docker sandbox sessions the backend still tracks.
+
+            Per-agent sessions are normally destroyed when their exec
+            future resolves; this backend-level sweep catches anything
+            left behind so no ``sleep infinity`` container outlives the
+            orchestrator.
+            """
+            if _docker_sandbox_backend is None:
+                return
+            try:
+                _asyncio.run(_docker_sandbox_backend.destroy_all())
+                logger.info("Docker sandbox backend cleanup complete")
+            except Exception:
+                logger.warning("Failed to clean up Docker sandbox sessions", exc_info=True)
+
         runtime_bridge = None
         openclaw_cfg = seed.bridges.openclaw if seed is not None and seed.bridges is not None else None
         if openclaw_cfg is not None and openclaw_cfg.enabled:
@@ -4737,7 +4827,7 @@ if __name__ == "__main__":
 
         spawner = AgentSpawner(
             adapter=adapter_inst,
-            templates_dir=get_templates_dir(workdir),
+            templates_dir=get_templates_dir(workdir) / "roles",
             workdir=workdir,
             router=router,
             mcp_config=mcp_config,
@@ -4754,6 +4844,11 @@ if __name__ == "__main__":
             runtime_bridge=runtime_bridge,
             resource_limits=agent_rlimits,
             warm_pool=warm_pool,
+            sandbox_backend=_docker_sandbox_backend,
+            sandbox_manifest_factory=_docker_manifest_factory,
+            sandbox_options={"image": _container_image} if _docker_sandbox_backend is not None else None,
+            sandbox_server_port=args.port,
+            default_model=run_model,
         )
         run_config_budget_usd: float | None = None
         dry_run = False
@@ -4879,6 +4974,7 @@ if __name__ == "__main__":
             try:
                 multi_orchestrator.run()
             finally:
+                _teardown_docker_sandbox()
                 if mcp_manager is not None:
                     mcp_manager.stop_all()
         else:
@@ -4925,6 +5021,7 @@ if __name__ == "__main__":
                 else:
                     orchestrator.run()
             finally:
+                _teardown_docker_sandbox()
                 if mcp_manager is not None:
                     mcp_manager.stop_all()
     except Exception:

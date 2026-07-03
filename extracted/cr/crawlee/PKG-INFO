@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crawlee
-Version: 1.7.3
+Version: 1.8.0
 Summary: Crawlee for Python
 Project-URL: Apify Homepage, https://apify.com
 Project-URL: Changelog, https://crawlee.dev/python/docs/changelog
@@ -261,6 +261,7 @@ Requires-Dist: html5lib>=1.0; extra == 'all'
 Requires-Dist: httpx[brotli,http2,zstd]>=0.27.0; extra == 'all'
 Requires-Dist: inquirer>=3.3.0; extra == 'all'
 Requires-Dist: jaro-winkler>=2.0.3; extra == 'all'
+Requires-Dist: lxml[html-clean]>=5.2.0; extra == 'all'
 Requires-Dist: opentelemetry-api>=1.34.1; extra == 'all'
 Requires-Dist: opentelemetry-distro[otlp]>=0.54; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-httpx>=0.54; extra == 'all'
@@ -269,6 +270,7 @@ Requires-Dist: opentelemetry-sdk>=1.34.1; extra == 'all'
 Requires-Dist: opentelemetry-semantic-conventions>=0.54; extra == 'all'
 Requires-Dist: parsel>=1.10.0; extra == 'all'
 Requires-Dist: playwright>=1.27.0; extra == 'all'
+Requires-Dist: pydantic-ai-slim[openai]>=2.1.0; extra == 'all'
 Requires-Dist: redis[hiredis]>=7.0.0; extra == 'all'
 Requires-Dist: rich>=13.9.0; extra == 'all'
 Requires-Dist: scikit-learn>=1.6.0; extra == 'all'
@@ -304,6 +306,10 @@ Provides-Extra: playwright
 Requires-Dist: apify-fingerprint-datapoints>=0.0.2; extra == 'playwright'
 Requires-Dist: browserforge>=1.2.3; extra == 'playwright'
 Requires-Dist: playwright>=1.27.0; extra == 'playwright'
+Provides-Extra: pydantic-ai
+Requires-Dist: lxml[html-clean]>=5.2.0; extra == 'pydantic-ai'
+Requires-Dist: parsel>=1.10.0; extra == 'pydantic-ai'
+Requires-Dist: pydantic-ai-slim[openai]>=2.1.0; extra == 'pydantic-ai'
 Provides-Extra: redis
 Requires-Dist: redis[hiredis]>=7.0.0; extra == 'redis'
 Provides-Extra: sql-mysql

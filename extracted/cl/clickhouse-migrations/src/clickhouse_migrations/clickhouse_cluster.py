@@ -1,59 +1,107 @@
 from pathlib import Path
 from typing import List, Optional, Union
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from clickhouse_driver import Client
 
-from clickhouse_migrations.defaults import DB_HOST, DB_PASSWORD, DB_PORT, DB_USER
+from clickhouse_migrations.connection import (
+    CLICKHOUSE_CONNECT,
+    CLICKHOUSE_DRIVER,
+    DEFAULT_PORT,
+    ClickhouseConnectConnection,
+    ClickhouseDriverConnection,
+    Connection,
+    import_clickhouse_connect,
+)
+from clickhouse_migrations.defaults import DB_HOST, DB_PASSWORD, DB_USER
+from clickhouse_migrations.exceptions import MigrationException
 from clickhouse_migrations.migration import Migration, MigrationStorage
-from clickhouse_migrations.migrator import Migrator
+from clickhouse_migrations.migrator import STATUS_PENDING, Migrator, StatusRow
+from clickhouse_migrations.util import quote_identifier, quote_string
 
 
-class ClickhouseCluster:
+class ClickhouseCluster:  # pylint: disable=too-many-instance-attributes
     def __init__(
         self,
         db_host: str = DB_HOST,
         db_user: str = DB_USER,
         db_password: str = DB_PASSWORD,
-        db_port: str = DB_PORT,
+        db_port: Optional[str] = None,
         db_url: Optional[str] = None,
         db_name: Optional[str] = None,
+        secure: bool = False,
+        driver: str = CLICKHOUSE_DRIVER,
         **kwargs,
     ):
-        self.db_url: Optional[str] = db_url
+        self.db_url: Optional[str] = None
         self.default_db_name: Optional[str] = db_name
+        self.secure: bool = secure
+        self.driver: str = driver
+        self.connection_kwargs = kwargs
+        self._parsed_url = None
 
         if db_url:
-            parts = self.db_url.split("/")
-            if len(parts) == 4:
-                self.default_db_name = parts[-1]
-                parts = parts[0:-1]
+            if driver != CLICKHOUSE_DRIVER:
+                raise MigrationException(
+                    "db_url is only supported with the clickhouse-driver driver; "
+                    "use db_host/db_port with clickhouse-connect"
+                )
+            parsed = urlparse(db_url)
+            path_db = parsed.path.lstrip("/")
+            if path_db:
+                self.default_db_name = path_db
 
-            self.db_url = "/".join(parts)
+            query = dict(parse_qsl(parsed.query))
+            if secure:
+                query.setdefault("secure", "true")
+
+            # Keep the base URL without a database in the path; connection()
+            # re-adds the database as a proper path segment so it never lands
+            # after the query string.
+            self._parsed_url = parsed._replace(path="", query=urlencode(query))
+            self.db_url = urlunparse(self._parsed_url)
         else:
             self.db_host = db_host
             self.db_port = db_port
             self.db_user = db_user
             self.db_password = db_password
-            self.connection_kwargs = kwargs
 
-    def connection(self, db_name: Optional[str] = None) -> Client:
+    def _resolved_port(self):
+        if self.db_port is not None:
+            return self.db_port
+        return DEFAULT_PORT[self.driver]
+
+    def connection(self, db_name: Optional[str] = None) -> Connection:
         db_name = db_name if db_name is not None else self.default_db_name
 
-        if self.db_url:
-            db_url = self.db_url
+        if self.driver == CLICKHOUSE_CONNECT:
+            clickhouse_connect = import_clickhouse_connect()
+            client = clickhouse_connect.get_client(
+                host=self.db_host,
+                port=int(self._resolved_port()),
+                username=self.db_user,
+                password=self.db_password,
+                database=db_name or None,
+                secure=self.secure,
+            )
+            return ClickhouseConnectConnection(client)
+
+        if self._parsed_url is not None:
+            parsed = self._parsed_url
             if db_name:
-                db_url = db_url + "/" + db_name
-            ch_client = Client.from_url(db_url)
+                parsed = parsed._replace(path="/" + db_name)
+            ch_client = Client.from_url(urlunparse(parsed))
         else:
             ch_client = Client(
                 self.db_host,
-                port=self.db_port,
+                port=self._resolved_port(),
                 user=self.db_user,
                 password=self.db_password,
                 database=db_name,
+                secure=self.secure,
                 **self.connection_kwargs,
             )
-        return ch_client
+        return ClickhouseDriverConnection(ch_client)
 
     def create_db(
         self, db_name: Optional[str] = None, cluster_name: Optional[str] = None
@@ -62,10 +110,13 @@ class ClickhouseCluster:
 
         with self.connection("") as conn:
             if cluster_name is None:
-                conn.execute(f'CREATE DATABASE IF NOT EXISTS "{db_name}"')
+                conn.command(
+                    f"CREATE DATABASE IF NOT EXISTS {quote_identifier(db_name)}"
+                )
             else:
-                conn.execute(
-                    f'CREATE DATABASE IF NOT EXISTS "{db_name}" ON CLUSTER "{cluster_name}"'
+                conn.command(
+                    f"CREATE DATABASE IF NOT EXISTS {quote_identifier(db_name)} "
+                    f"ON CLUSTER {quote_identifier(cluster_name)}"
                 )
 
     def init_schema(
@@ -81,8 +132,7 @@ class ClickhouseCluster:
         db_name = db_name if db_name is not None else self.default_db_name
 
         with self.connection(db_name) as conn:
-            result = conn.execute("show tables")
-            return [t[0] for t in result]
+            return [row["name"] for row in conn.query("SHOW TABLES")]
 
     def migrate(
         self,
@@ -111,6 +161,31 @@ class ClickhouseCluster:
             fake=fake,
             migration_log_format=migration_log_format,
         )
+
+    def status(
+        self,
+        db_name: Optional[str],
+        migration_path: Union[Path, str],
+        explicit_migrations: Optional[List[str]] = None,
+    ) -> List[StatusRow]:
+        db_name = db_name if db_name is not None else self.default_db_name
+
+        storage = MigrationStorage(migration_path)
+        incoming = storage.migrations(explicit_migrations)
+
+        # Read-only: never create the database or the schema table. If the
+        # schema table is missing, nothing has been applied yet.
+        with self.connection("") as conn:
+            initialized = conn.query(
+                "SELECT count() AS n FROM system.tables "
+                f"WHERE database = {quote_string(db_name)} AND name = 'schema_versions'"
+            )[0]["n"]
+
+        if not initialized:
+            return [StatusRow(m.version, STATUS_PENDING, m.md5, None) for m in incoming]
+
+        with self.connection(db_name) as conn:
+            return Migrator(conn).migration_status(incoming)
 
     def apply_migrations(
         self,

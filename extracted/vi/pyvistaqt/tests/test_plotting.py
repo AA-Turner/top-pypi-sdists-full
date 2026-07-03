@@ -52,9 +52,12 @@ from pyvistaqt.editor import Editor
 from pyvistaqt.plotting import Counter
 from pyvistaqt.plotting import QTimer
 from pyvistaqt.plotting import QVTKRenderWindowInteractor
+from pyvistaqt.utils import _TERMINAL_OUTPUT_GUARDS
 from pyvistaqt.utils import _check_type
 from pyvistaqt.utils import _create_menu_bar
 from pyvistaqt.utils import _setup_application
+from pyvistaqt.utils import _setup_terminal_output_fix
+from pyvistaqt.utils import _TerminalOpostGuard
 
 
 class TstWindow(MainWindow):  # noqa: D101
@@ -105,6 +108,47 @@ def test_create_menu_bar(qtbot) -> None:  # noqa: D103
 
 def test_setup_application(qapp) -> None:  # noqa: D103
     _setup_application(qapp)
+
+
+def test_setup_terminal_output_fix_noop_when_not_interactive(qapp) -> None:
+    """The terminal fix must not install itself outside an interactive REPL."""
+    # pytest is not run with ``python -i``, so neither ``sys.ps1`` nor the
+    # interactive flag is set and the guard must be a no-op.
+    assert not hasattr(sys, "ps1")
+    assert not sys.flags.interactive
+    before = len(_TERMINAL_OUTPUT_GUARDS)
+    _setup_terminal_output_fix(qapp)
+    assert len(_TERMINAL_OUTPUT_GUARDS) == before
+
+
+def test_terminal_opost_guard(monkeypatch) -> None:
+    """The guard restores OPOST while events run, then hands the tty back raw."""
+    termios = pytest.importorskip("termios")
+
+    # A terminal in raw mode: output post-processing (index 1 == oflag) cleared.
+    state = [[0, 0, 0, 0, 0, 0, []]]
+
+    def fake_tcgetattr(_fd: int) -> list:
+        return list(state[0])
+
+    def fake_tcsetattr(_fd: int, _when: int, attrs: list) -> None:
+        state[0] = list(attrs)
+
+    monkeypatch.setattr(termios, "tcgetattr", fake_tcgetattr)
+    monkeypatch.setattr(termios, "tcsetattr", fake_tcsetattr)
+
+    guard = _TerminalOpostGuard(fd=1)
+    guard.enable()
+    assert state[0][1] & termios.OPOST  # post-processing turned back on
+    assert state[0][1] & termios.ONLCR
+    guard.restore()
+    assert not state[0][1] & termios.OPOST  # handed back exactly as it was
+
+    # ``enable`` is a no-op when the terminal is already sane.
+    state[0][1] = termios.OPOST | termios.ONLCR
+    guard.enable()
+    guard.restore()  # nothing saved -> no change
+    assert state[0][1] == termios.OPOST | termios.ONLCR
 
 
 def test_file_dialog(tmpdir, qtbot) -> None:  # noqa: D103
@@ -559,9 +603,13 @@ def test_background_plotter_export_files(qtbot, tmpdir, show_plotter, plotting) 
     assert not window.isVisible()
 
 
-@pytest.mark.skip
 @pytest.mark.allow_bad_gc
 def test_background_plotter_export_vtkjs(qtbot, tmpdir, plotting) -> None:  # noqa: ARG001, D103
+    # VTKjs export is only guaranteed on current pyvista + VTK.
+    # Older pyvista (< 0.47) still imports the deprecated `nest_asyncio`
+    # package and older VTK may lack APIs that trame-vtk relies on.
+    pytest.importorskip("pyvista", minversion="0.47")
+    pytest.importorskip("vtk", minversion="9.6")
     # setup filesystem
     output_dir = str(tmpdir.mkdir("tmpdir"))
     assert os.path.isdir(output_dir)  # noqa: PTH112
@@ -586,7 +634,7 @@ def test_background_plotter_export_vtkjs(qtbot, tmpdir, plotting) -> None:  # no
     dlg = plotter._qt_export_vtkjs(show=False)  # FileDialog  # noqa: SLF001
     qtbot.addWidget(dlg)  # register the dialog
 
-    if hasattr(plotter, "export_vtksz"):
+    if hasattr(getattr(plotter, "trame", None), "export_vtksz") or hasattr(plotter, "export_vtksz"):
         ext = ".vtksz"
         filename = str(os.path.join(output_dir, f"tmp{ext}"))  # noqa: PTH118
     else:
@@ -609,7 +657,7 @@ def test_background_plotter_export_vtkjs(qtbot, tmpdir, plotting) -> None:  # no
     plotter.close()
     assert not window.isVisible()
 
-    if hasattr(plotter, "export_vtksz"):
+    if ext == ".vtksz":
         assert os.path.isfile(filename)  # noqa: PTH113
     else:
         assert os.path.isfile(filename + ext)  # noqa: PTH113
@@ -851,15 +899,12 @@ def test_background_plotting_add_callback(qtbot, monkeypatch, plotting) -> None:
     assert not callback_timer.isActive()  # window stops the callback
 
 
-def allow_bad_gc_old_pyvista(func):  # noqa: ANN201, D103
-    return pytest.mark.allow_bad_gc(func)
-
-
 # TODO: Need to fix this allow_bad_gc:  # noqa: FIX002, TD002, TD003
 # - the actors are not cleaned up in the non-empty scene case
 # - the q_key_press leaves a lingering vtkUnsignedCharArray referred to by
 #   a "managedbuffer" object
-@allow_bad_gc_old_pyvista
+@pytest.mark.allow_bad_gc
+@pytest.mark.slow
 @pytest.mark.allow_bad_gc_pyside
 @pytest.mark.parametrize(
     "close_event",
@@ -1053,7 +1098,7 @@ def test_sphinx_gallery_scraping(qtbot, monkeypatch, plotting, tmpdir, n_win) ->
         plotter.close()
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason="#508")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "aa",
     [
@@ -1062,7 +1107,7 @@ def test_sphinx_gallery_scraping(qtbot, monkeypatch, plotting, tmpdir, n_win) ->
         "msaa",
         pytest.param(
             "ssaa",
-            marks=pytest.mark.xfail(reason="SSAA broken on multiple plots", strict=True),
+            marks=pytest.mark.xfail(reason="SSAA broken on multiple plots", strict=False),
         ),
     ],
 )

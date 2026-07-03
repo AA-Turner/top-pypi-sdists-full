@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 import sys
 from inspect import signature
 from itertools import chain
@@ -8,7 +9,6 @@ from typing import no_type_check
 from unittest.mock import patch
 
 import pytest
-
 from whenever import (
     _EXTENSION_LOADED,
     Date,
@@ -53,6 +53,7 @@ def test_multiple_interpreters():
 
 
 def test_type_aliases():
+    from whenever import AnyDelta  # noqa
     from whenever import DateDeltaUnitStr  # noqa
     from whenever import DeltaUnitStr  # noqa
     from whenever import DisambiguateStr  # noqa
@@ -72,9 +73,101 @@ def test_version():
     assert isinstance(__version__, str)
 
 
+def test_dir_includes_public_names():
+    import whenever
+
+    expected = {
+        *whenever.__all__,
+        "TZPATH",
+        "__version__",
+        "_EXTENSION_LOADED",
+        "RoundModeStr",
+    }
+    assert expected <= set(dir(whenever))
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; import whenever; "
+            f"expected = {expected!r}; "
+            "assert expected <= set(dir(whenever)); "
+            "assert 'whenever._core' not in sys.modules; "
+            "assert 'whenever._utils' not in sys.modules; "
+            "assert 'whenever._typing' not in sys.modules",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_star_import_includes_utilities():
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "namespace = {}; exec('from whenever import *', namespace); "
+            "expected = {'patch_current_time', 'reset_tzpath', "
+            "'clear_tzcache', 'available_timezones'}; "
+            "assert expected <= namespace.keys()",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+
 def test_no_attr_on_module():
     with pytest.raises((AttributeError, ImportError), match="DoesntExist"):
         from whenever import DoesntExist  # type: ignore[attr-defined] # noqa
+
+
+@pytest.mark.skipif(
+    not _EXTENSION_LOADED, reason="only relevant when extension is active"
+)
+def test_extension_doesnt_import_tz_modules():
+    # When the Rust extension is active, the Python timezone subsystem
+    # (_tz, calendar, platform) and _shared must not be imported just by doing
+    # `import whenever`. Violations here mean slow startup for all users.
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import whenever, json, sys; "
+            "print(json.dumps([k for k in sys.modules "
+            "if k == 'whenever._tz' or k.startswith('whenever._tz.')  "
+            "or k == 'whenever._shared' "
+            "or k == 'whenever._typing' "
+            "or k == 'whenever._utils' "
+            "or k in ('calendar', 'platform')]))",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    imported = json.loads(result.stdout)
+    assert imported == [], (
+        f"unexpected modules imported on 'import whenever': {imported}"
+    )
+
+
+@pytest.mark.skipif(
+    not _EXTENSION_LOADED, reason="only relevant when extension is active"
+)
+def test_module_cleanup_runs():
+    # Verify module_free is called on interpreter shutdown (debug builds only).
+    # This ensures Python objects held by module state are properly released.
+    result = subprocess.run(
+        [sys.executable, "-c", "import whenever"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    if "[whenever] module_exec (debug)" not in result.stderr:
+        pytest.skip("extension not built with debug_assertions")
+    # In debug builds, module_free MUST be called during shutdown
+    assert "[whenever] module_free called" in result.stderr
 
 
 @pytest.mark.skipif(
@@ -82,9 +175,9 @@ def test_no_attr_on_module():
     reason="time-machine doesn't support PyPy",
 )
 def test_time_machine():
-    import time_machine
+    time_machine = pytest.importorskip("time_machine")
 
-    with time_machine.travel("1980-03-02 02:00 UTC"):
+    with time_machine.travel("1980-03-02T02:00+00:00"):
         assert Instant.now() == Instant.from_utc(1980, 3, 2, hour=2)
 
 
@@ -155,9 +248,9 @@ def test_text_signature():
         if m.__name__.startswith("_") or m.__name__ in deprecated:
             continue
         sig = m.__text_signature__
-        assert (
-            sig is not None
-        ), f"{m} missing __text_signature__. Hint: try running `python scripts/generate_docstrings.py > src/docstrings.py`"
+        assert sig is not None, (
+            f"{m} missing __text_signature__. Hint: try running `python scripts/generate_docstrings.py > src/docstrings.py`"
+        )
         signature(m)  # raises ValueError if invalid
 
 

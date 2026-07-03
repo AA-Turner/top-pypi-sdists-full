@@ -5,12 +5,17 @@
 
 import type { Browser, BrowserContext, BrowserContextOptions, LaunchOptions as PlaywrightLaunchOptions } from "playwright-core";
 import type { LaunchOptions, LaunchContextOptions, LaunchPersistentContextOptions } from "./types.js";
-import { DEFAULT_VIEWPORT, IGNORE_DEFAULT_ARGS } from "./config.js";
+import {
+  DEFAULT_VIEWPORT,
+  IGNORE_DEFAULT_ARGS,
+  binarySupportsHeadlessNoViewport,
+} from "./config.js";
 import { buildArgs } from "./args.js";
 import { maybeWarnWindowsFonts } from "./fonts.js";
 import { ensureBinary } from "./download.js";
 import { resolveProxyConfig } from "./proxy.js";
 import { maybeResolveGeoip, resolveWebrtcArgs } from "./geoip.js";
+import { buildLaunchEnv } from "./license.js";
 import { seedWidevineHint } from "./widevine.js";
 
 /** @internal Accept both timezone and timezoneId — either works, no warning. Exported for testing. */
@@ -73,15 +78,17 @@ export function buildContextOptions(
   options: LaunchContextOptions = {}
 ): BrowserContextOptions {
   // Headed: viewport=null (no emulation) so the page tracks the real window and
-  // outerWidth >= innerWidth stays coherent — CDP viewport emulation forces
-  // inner > outer = a physically impossible window = bot tell. Headless has no
-  // window chrome (outer == inner), so a fixed viewport stays coherent and keeps
-  // dimensions deterministic. Explicit viewport (incl. null) is always honored.
+  // outerWidth >= innerWidth stays coherent. Headless on a newer binary: also
+  // null, since it reports coherent dimensions without emulation. Headless on an
+  // older binary: a fixed DEFAULT_VIEWPORT keeps dimensions coherent and
+  // deterministic. Explicit viewport (incl. null) is always honored.
   const headless = effectiveHeadless(options);
+  const headlessNoViewport =
+    headless && binarySupportsHeadlessNoViewport(options.licenseKey, options.browserVersion);
   const viewport =
     options.viewport !== undefined
       ? options.viewport
-      : headless
+      : headless && !headlessNoViewport
         ? DEFAULT_VIEWPORT
         : null;
   return {
@@ -115,13 +122,22 @@ export async function buildLaunchOptions(
   const args = buildArgs({ ...options, ...resolved, args: [...(resolvedArgs ?? []), ...proxyArgs] });
   maybeWarnWindowsFonts(args);
 
+  // Resolve env for the browser process (license key injection, if needed).
+  const { env: userEnv, ...restLaunchOptions } = options.launchOptions ?? {};
+  const launchEnv = buildLaunchEnv(
+    options.licenseKey,
+    userEnv as Record<string, string | undefined> | undefined,
+  );
+  const envResult = launchEnv !== undefined ? { env: launchEnv } : {};
+
   return {
     executablePath: binaryPath,
     headless: options.headless ?? true,
     args,
     ignoreDefaultArgs: IGNORE_DEFAULT_ARGS,
     ...(proxyOption ? { proxy: proxyOption } : {}),
-    ...options.launchOptions,
+    ...restLaunchOptions,
+    ...envResult,
   } as PlaywrightLaunchOptions;
 }
 
@@ -162,8 +178,12 @@ export async function launch(options: LaunchOptions = {}): Promise<Browser> {
   // Headed: a bare browser.newPage() would inherit Playwright's emulated 1280x720
   // viewport -> outerWidth < innerWidth (impossible window = bot tell). Default
   // newPage()/newContext() to viewport:null so the page tracks the real window.
-  // Headless keeps Playwright's default viewport (coherent there).
-  if (!effectiveHeadless(options)) {
+  // Headless on a newer binary also qualifies (coherent dimensions natively);
+  // older headless keeps Playwright's default viewport. Mirrors Python launch().
+  if (
+    !effectiveHeadless(options) ||
+    binarySupportsHeadlessNoViewport(options.licenseKey, options.browserVersion)
+  ) {
     applyDefaultNoViewport(browser);
   }
   await humanizeBrowser(browser, options);
@@ -290,6 +310,14 @@ export async function launchPersistentContext(
 
   seedWidevineHint(options.userDataDir, binaryPath);
 
+  // Resolve env for the browser process (license key injection, if needed).
+  const { env: userEnv, ...restLaunchOptions } = options.launchOptions ?? {};
+  const launchEnv = buildLaunchEnv(
+    options.licenseKey,
+    userEnv as Record<string, string | undefined> | undefined,
+  );
+  const envResult = launchEnv !== undefined ? { env: launchEnv } : {};
+
   // locale and timezone are set via binary flags (--lang, --fingerprint-timezone)
   // — NOT via Playwright context kwargs which use detectable CDP emulation.
   const context = await chromium.launchPersistentContext(options.userDataDir, {
@@ -299,7 +327,8 @@ export async function launchPersistentContext(
     ignoreDefaultArgs: IGNORE_DEFAULT_ARGS,
     ...(proxyOption ? { proxy: proxyOption } : {}),
     ...buildContextOptions(options),
-    ...options.launchOptions,
+    ...restLaunchOptions,
+    ...envResult,
   });
 
   // Human-like behavioral patching

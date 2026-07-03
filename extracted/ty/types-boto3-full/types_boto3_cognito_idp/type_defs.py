@@ -243,6 +243,8 @@ __all__ = (
     "GetIdentityProviderByIdentifierResponseTypeDef",
     "GetLogDeliveryConfigurationRequestTypeDef",
     "GetLogDeliveryConfigurationResponseTypeDef",
+    "GetProvisionedLimitRequestTypeDef",
+    "GetProvisionedLimitResponseTypeDef",
     "GetSigningCertificateRequestTypeDef",
     "GetSigningCertificateResponseTypeDef",
     "GetTokensFromRefreshTokenRequestTypeDef",
@@ -267,6 +269,10 @@ __all__ = (
     "IssuerConfigurationTypeTypeDef",
     "KeyConfigurationTypeTypeDef",
     "LambdaConfigTypeTypeDef",
+    "LimitDefinitionTypeOutputTypeDef",
+    "LimitDefinitionTypeTypeDef",
+    "LimitDefinitionTypeUnionTypeDef",
+    "LimitTypeTypeDef",
     "ListDevicesRequestTypeDef",
     "ListDevicesResponseTypeDef",
     "ListGroupsRequestPaginateTypeDef",
@@ -373,6 +379,8 @@ __all__ = (
     "UpdateIdentityProviderResponseTypeDef",
     "UpdateManagedLoginBrandingRequestTypeDef",
     "UpdateManagedLoginBrandingResponseTypeDef",
+    "UpdateProvisionedLimitRequestTypeDef",
+    "UpdateProvisionedLimitResponseTypeDef",
     "UpdateResourceServerRequestTypeDef",
     "UpdateResourceServerResponseTypeDef",
     "UpdateTermsRequestTypeDef",
@@ -1103,6 +1111,16 @@ class InboundFederationLambdaTypeTypeDef(TypedDict):
 class PreTokenGenerationVersionConfigTypeTypeDef(TypedDict):
     LambdaVersion: PreTokenGenerationLambdaVersionTypeType
     LambdaArn: str
+
+
+class LimitDefinitionTypeOutputTypeDef(TypedDict):
+    LimitClass: Literal["API_CATEGORY"]
+    Attributes: dict[str, str]
+
+
+class LimitDefinitionTypeTypeDef(TypedDict):
+    LimitClass: Literal["API_CATEGORY"]
+    Attributes: Mapping[str, str]
 
 
 class ListDevicesRequestTypeDef(TypedDict):
@@ -2030,6 +2048,17 @@ class LambdaConfigTypeTypeDef(TypedDict):
     InboundFederation: NotRequired[InboundFederationLambdaTypeTypeDef]
 
 
+class LimitTypeTypeDef(TypedDict):
+    LimitDefinition: LimitDefinitionTypeOutputTypeDef
+    ProvisionedLimitValue: int
+    FreeLimitValue: int
+
+
+LimitDefinitionTypeUnionTypeDef = Union[
+    LimitDefinitionTypeTypeDef, LimitDefinitionTypeOutputTypeDef
+]
+
+
 class ListIdentityProvidersResponseTypeDef(TypedDict):
     Providers: list[ProviderDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2355,6 +2384,25 @@ class UserPoolDescriptionTypeTypeDef(TypedDict):
     LastModifiedDate: NotRequired[datetime]
     CreationDate: NotRequired[datetime]
     ReplicaRegions: NotRequired[list[str]]
+
+
+class GetProvisionedLimitResponseTypeDef(TypedDict):
+    Limit: LimitTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateProvisionedLimitResponseTypeDef(TypedDict):
+    Limit: LimitTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetProvisionedLimitRequestTypeDef(TypedDict):
+    LimitDefinition: LimitDefinitionTypeUnionTypeDef
+
+
+class UpdateProvisionedLimitRequestTypeDef(TypedDict):
+    LimitDefinition: LimitDefinitionTypeUnionTypeDef
+    RequestedLimitValue: int
 
 
 class LogDeliveryConfigurationTypeTypeDef(TypedDict):

@@ -135,27 +135,10 @@ def _require_func(src, path, func):
         _die("%s: no function %r (found: %s)" % (path, func, ", ".join(names)))
 
 
-def _resolve_target(src, path, func):
-    """The function to verify, named explicitly so the verdict is unambiguous. A given --func is validated;
-    with --func omitted the sole function is used, but a module defining several is an explicit usage error
-    demanding a choice -- never a silent pick that produces an authoritative verdict about the wrong code."""
-    names = _functions(src, path)
-    if not names:
-        _die("%s: no function definition found" % path)
-    if func is not None:
-        if func not in names:
-            _die("%s: no function %r (found: %s)" % (path, func, ", ".join(names)))
-        return func
-    if len(names) == 1:
-        return names[0]
-    _die("%s: defines %d functions (%s); name one with --func -- it is verified by name, never picked "
-         "silently" % (path, len(names), ", ".join(names)))
-
-
 def _isolate(src, func):
     """The named function's source alone (module globals inlined) when the file defines several functions, so
     the source-only verbs (leak / lock / termination / cost / overflow) analyze `func` rather than the first
-    definition; the source unchanged for a single-function file. _resolve_target has already validated `func`,
+    definition; the source unchanged for a single-function file. _narrow_target has already validated `func`,
     so this only narrows what the engine sees -- the same target isolation prove / check do internally."""
     try:
         fns = [n for n in ast.parse(src).body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
@@ -164,6 +147,52 @@ def _isolate(src, func):
         return t.load_module(src)[func]
     except Exception:
         return src
+
+
+def _narrow_target(src, path, func):
+    """Resolve `func` -- a top-level function, a qualified Class.method, or a bare method name that is
+    unique across the file's classes -- to the (source, name) pair the engine sees. A top-level target
+    passes the module through unchanged (the same interprocedural context as always); a method is
+    extracted standalone via ast.unparse, its `self` becoming an ordinary opaque parameter -- exactly
+    the over-approximation the engines already apply to an unmodeled argument, so verdicts stay sound.
+    This is what lets the single-file verbs reach the methods that repo / scan already triage."""
+    try:
+        mod = ast.parse(src)
+    except SyntaxError as e:
+        _die("%s: invalid Python syntax: line %s: %s" % (path, e.lineno, e.msg))
+    names = [n.name for n in mod.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    methods = {}
+
+    def walk(body, prefix):
+        for n in body:
+            if isinstance(n, ast.ClassDef):
+                for m in n.body:
+                    if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        methods["%s%s.%s" % (prefix, n.name, m.name)] = m
+                walk(n.body, "%s%s." % (prefix, n.name))
+    walk(mod.body, "")
+    if func is None:
+        if len(names) == 1:
+            return src, names[0]
+        if not names and len(methods) == 1:
+            node = next(iter(methods.values()))
+            return ast.unparse(node), node.name
+        pool = names + sorted(methods)
+        if not pool:
+            _die("%s: no function definition found" % path)
+        _die("%s: defines %d functions (%s); name one with --func -- it is verified by name, never "
+             "picked silently" % (path, len(pool), ", ".join(pool)))
+    if func in names:
+        return src, func
+    if func in methods:
+        return ast.unparse(methods[func]), methods[func].name
+    bare = sorted(q for q in methods if q.rsplit(".", 1)[1] == func)
+    if len(bare) == 1:
+        return ast.unparse(methods[bare[0]]), func
+    if len(bare) > 1:
+        _die("%s: method %r is ambiguous (%s) -- qualify it as Class.method" % (path, func, ", ".join(bare)))
+    _die("%s: no function %r (found: %s)"
+         % (path, func, ", ".join(names + sorted(methods)) or "none"))
 
 
 _CONTRACT_DECOS = frozenset({"require", "requires", "ensure", "ensures"})
@@ -256,8 +285,11 @@ def _report(v, src=None, repo=None, json_out=False, quiet=False, repro=None):
                 print("  hint: %s" % hint)
             if cat in ("approximation", "unmodeled"):        # raising --budget cannot change an abstraction limit
                 print("  --budget: a no-op here (an abstraction / unmodeled limit, not a resource bound)")
-        elif v.status == "PROVED" and v.certificate:
-            print("  %s" % v.certificate)
+        elif v.status == "PROVED":
+            if v.reason:                                     # the substance of a PROVED often lives here: a cost
+                print("  %s" % v.reason)                     # bound, a ranking function, a machine-width caveat
+            if v.certificate:
+                print("  %s" % v.certificate)
     if repro is not None:
         print("\n# --- reproducing test (run it: it fails on the counterexample) ---")
         print(repro, end="")
@@ -266,7 +298,7 @@ def _report(v, src=None, repo=None, json_out=False, quiet=False, repro=None):
 
 def _cmd_check(a):
     src = _read(a.file)
-    func = _resolve_target(src, _label(a.file), a.func)
+    src, func = _narrow_target(src, _label(a.file), a.func)
     _check_spec(a.requires, "requires")
     v = t.check(src, requires=a.requires, total=a.total, target=func, best_effort=a.best_effort)
     repro = t.repro_test(v, src, requires=a.requires, func=func) if a.repro else None
@@ -275,7 +307,7 @@ def _cmd_check(a):
 
 def _cmd_verify(a):
     src = _read(a.file)
-    func = _resolve_target(src, _label(a.file), a.func)
+    src, func = _narrow_target(src, _label(a.file), a.func)
     v = t.verify_contracts(src, target=func)
     if v.status == "UNKNOWN" and v.reason and "no @ensure" in v.reason:
         # diagnose contracts across the whole module: distinguish "this function has none" from "the module
@@ -321,7 +353,7 @@ def _cmd_verify_all(a):
 
 def _cmd_prove(a):
     src = _read(a.file)
-    func = _resolve_target(src, _label(a.file), a.func)
+    src, func = _narrow_target(src, _label(a.file), a.func)
     _check_spec(a.ensures, "ensures")
     _check_spec(a.requires, "requires")
     v = t.prove(src, a.ensures, requires=a.requires, target=func, best_effort=a.best_effort)
@@ -331,7 +363,7 @@ def _cmd_prove(a):
 
 def _cmd_explain(a):
     src = _read(a.file)
-    func = _resolve_target(src, _label(a.file), a.func)
+    src, func = _narrow_target(src, _label(a.file), a.func)
     _check_spec(a.requires, "requires")
     if a.ensures is not None:
         _check_spec(a.ensures, "ensures")
@@ -348,7 +380,8 @@ def _cmd_repair(a):
     before = _read(a.before) if a.before else None
 
     def generate(feedback):                                  # the external generator: feedback in, candidate source out
-        return subprocess.run(a.generator, shell=True, input=feedback or "",
+        fb = json.dumps(feedback) if feedback else ""        # the repair signal is a dict; the pipe carries JSON
+        return subprocess.run(a.generator, shell=True, input=fb,
                               capture_output=True, text=True).stdout
 
     res = t.repair_loop(generate, ensures=a.ensures, requires=a.requires, before=before,
@@ -779,7 +812,12 @@ def _cmd_infer(a):
             facts = [f for f in facts if f.get("function") == a.func]
         print(json.dumps(facts))
         return 0
-    result = t.infer_types(src, target=a.func)
+    func = a.func
+    if func is None:                                             # like the verdict verbs: a sole function is the
+        names = _functions(src, _label(a.file))                  # default target (target=None means the module's
+        if len(names) == 1:                                      # globals, which for a one-function file is nothing)
+            func = names[0]
+    result = t.infer_types(src, target=func)
 
     def lst(x):
         return sorted(x) if isinstance(x, (set, frozenset)) else x
@@ -811,7 +849,7 @@ def _cmd_infer(a):
 
 def _cmd_metamorphic(a):
     src = _read(a.file)
-    func = _resolve_target(src, _label(a.file), a.func)
+    src, func = _narrow_target(src, _label(a.file), a.func)
     v = t.verify_metamorphic(src, relation=a.relation, target=func)
     return _report(v, json_out=a.json, quiet=a.quiet)
 
@@ -846,21 +884,21 @@ def _cmd_doctest(a):
 
 def _cmd_returns(a):
     src = _read(a.file)
-    func = _resolve_target(src, _label(a.file), a.func)
+    src, func = _narrow_target(src, _label(a.file), a.func)
     v = t.check_return_annotation(src, target=func)
     return _report(v, json_out=a.json, quiet=a.quiet)
 
 
 def _cmd_leak(a):
     src = _read(a.file)
-    func = _resolve_target(src, _label(a.file), a.func)
+    src, func = _narrow_target(src, _label(a.file), a.func)
     v = t.verify_no_leak("resource safety", func, _isolate(src, func))
     return _report(v, json_out=a.json, quiet=a.quiet)
 
 
 def _cmd_lock(a):
     src = _read(a.file)
-    func = _resolve_target(src, _label(a.file), a.func)
+    src, func = _narrow_target(src, _label(a.file), a.func)
     guarded = tuple(g for g in a.guarded.split(",") if g) if a.guarded else ("db.write",)
     v = t.verify_lock("lock safety", func, _isolate(src, func), {}, guarded=guarded)
     return _report(v, json_out=a.json, quiet=a.quiet)
@@ -868,7 +906,7 @@ def _cmd_lock(a):
 
 def _cmd_termination(a):
     src = _read(a.file)
-    func = _resolve_target(src, _label(a.file), a.func)
+    src, func = _narrow_target(src, _label(a.file), a.func)
     fsrc = _isolate(src, func)
     v = t.verify_termination("termination", func, fsrc)                    # a loop / for-container ranking function
     if v.status == "UNKNOWN":
@@ -884,14 +922,14 @@ def _cmd_termination(a):
 
 def _cmd_cost(a):
     src = _read(a.file)
-    func = _resolve_target(src, _label(a.file), a.func)
+    src, func = _narrow_target(src, _label(a.file), a.func)
     v = t.verify_iteration_bound("cost", func, _isolate(src, func))
     return _report(v, json_out=a.json, quiet=a.quiet)
 
 
 def _cmd_overflow(a):
     src = _read(a.file)
-    func = _resolve_target(src, _label(a.file), a.func)
+    src, func = _narrow_target(src, _label(a.file), a.func)
     v = t.verify_no_overflow("no-overflow", func, _isolate(src, func), width=a.width)
     return _report(v, json_out=a.json, quiet=a.quiet)
 
@@ -988,7 +1026,8 @@ def build_parser():
     c = sub.add_parser("check", parents=[verdict],
                        help="prove a function is trap-free (and any asserts hold) for all inputs")
     c.add_argument("file")
-    c.add_argument("--func", default=None, help="function to check (default: the one in the file)")
+    c.add_argument("--func", default=None,
+                   help="function to check -- a top-level name or a Class.method (default: the one in the file)")
     c.add_argument("--requires", default="True",
                    help="an optional precondition (a Python expression over the parameters); trap freedom "
                         "need only hold for inputs meeting it (default: True)")
@@ -998,7 +1037,8 @@ def build_parser():
     v = sub.add_parser("verify", parents=[verdict],
                        help="verify the @require / @ensure contracts written in the file")
     v.add_argument("file")
-    v.add_argument("--func", default=None, help="function to verify (default: the first)")
+    v.add_argument("--func", default=None,
+                   help="function to verify -- a top-level name or a Class.method (default: the first)")
     v.set_defaults(fn=_cmd_verify)
 
     va = sub.add_parser("verify-all", parents=[verdict],
@@ -1011,7 +1051,8 @@ def build_parser():
     pr.add_argument("file")
     pr.add_argument("--ensures", required=True, help="the postcondition, a Python expression")
     pr.add_argument("--requires", default="True", help="the precondition (default: True)")
-    pr.add_argument("--func", default=None, help="function to prove about (default: the first)")
+    pr.add_argument("--func", default=None,
+                    help="function to prove about -- a top-level name or a Class.method (default: the first)")
     pr.set_defaults(fn=_cmd_prove)
 
     eq = sub.add_parser("equiv", parents=[verdict], help="prove two implementations agree on every input")
@@ -1138,7 +1179,8 @@ def build_parser():
     ex.add_argument("file")
     ex.add_argument("--ensures", default=None, help="a postcondition to prove (default: check trap freedom)")
     ex.add_argument("--requires", default="True", help="an optional precondition (default: True)")
-    ex.add_argument("--func", default=None, help="function to explain (default: the one in the file)")
+    ex.add_argument("--func", default=None,
+                    help="function to explain -- a top-level name or a Class.method (default: the one in the file)")
     ex.add_argument("--total", action="store_true", help="require totality (with no --ensures)")
     ex.set_defaults(fn=_cmd_explain)
 
@@ -1159,7 +1201,8 @@ def build_parser():
     mm.add_argument("file")
     mm.add_argument("--relation", choices=("idempotent", "involution"), default="idempotent",
                     help="idempotent: f(f(x)) == f(x); involution: f(f(x)) == x (default: idempotent)")
-    mm.add_argument("--func", default=None, help="function to check (default: the one in the file)")
+    mm.add_argument("--func", default=None,
+                    help="function to check -- a top-level name or a Class.method (default: the one in the file)")
     mm.set_defaults(fn=_cmd_metamorphic)
 
     dt = sub.add_parser("doctest", parents=[verdict],
@@ -1171,13 +1214,15 @@ def build_parser():
     rt = sub.add_parser("returns", parents=[verdict],
                         help="check a function's declared return annotation against what its body can return")
     rt.add_argument("file")
-    rt.add_argument("--func", default=None, help="function to check (default: the one in the file)")
+    rt.add_argument("--func", default=None,
+                    help="function to check -- a top-level name or a Class.method (default: the one in the file)")
     rt.set_defaults(fn=_cmd_returns)
 
     lk = sub.add_parser("leak", parents=[verdict],
                         help="prove every opened resource (open(...)) is closed on every path")
     lk.add_argument("file")
-    lk.add_argument("--func", default=None, help="function to check (default: the one in the file)")
+    lk.add_argument("--func", default=None,
+                    help="function to check -- a top-level name or a Class.method (default: the one in the file)")
     lk.set_defaults(fn=_cmd_leak)
 
     lc = sub.add_parser("lock", parents=[verdict],
@@ -1185,19 +1230,22 @@ def build_parser():
     lc.add_argument("file")
     lc.add_argument("--guarded", default=None, metavar="OPS",
                     help="comma-separated operations that require a lock held (default: db.write)")
-    lc.add_argument("--func", default=None, help="function to check (default: the one in the file)")
+    lc.add_argument("--func", default=None,
+                    help="function to check -- a top-level name or a Class.method (default: the one in the file)")
     lc.set_defaults(fn=_cmd_lock)
 
     tm = sub.add_parser("termination", parents=[verdict],
                         help="prove a loop or recursion halts on every input (or exhibit a diverging one)")
     tm.add_argument("file")
-    tm.add_argument("--func", default=None, help="function to check (default: the one in the file)")
+    tm.add_argument("--func", default=None,
+                    help="function to check -- a top-level name or a Class.method (default: the one in the file)")
     tm.set_defaults(fn=_cmd_termination)
 
     co = sub.add_parser("cost", parents=[verdict],
                         help="prove a symbolic iteration bound for a counted loop")
     co.add_argument("file")
-    co.add_argument("--func", default=None, help="function to bound (default: the one in the file)")
+    co.add_argument("--func", default=None,
+                    help="function to bound -- a top-level name or a Class.method (default: the one in the file)")
     co.set_defaults(fn=_cmd_cost)
 
     ov = sub.add_parser("overflow", parents=[verdict],
@@ -1205,7 +1253,8 @@ def build_parser():
     ov.add_argument("file")
     ov.add_argument("--width", type=int, default=None, metavar="N",
                     help="signed machine-integer width in bits (default: the module width, 64)")
-    ov.add_argument("--func", default=None, help="function to check (default: the one in the file)")
+    ov.add_argument("--func", default=None,
+                    help="function to check -- a top-level name or a Class.method (default: the one in the file)")
     ov.set_defaults(fn=_cmd_overflow)
 
     rc = sub.add_parser("recheck",

@@ -6,22 +6,31 @@
 
 """Pymarc Reader."""
 
-import json
+import json  # noqa: I001
 import os
 import sys
 from collections.abc import Iterator
-from io import BytesIO, IOBase, StringIO
-from typing import IO, BinaryIO, Callable, Union
+from io import BytesIO, IOBase, StringIO, BufferedReader
+from typing import IO, BinaryIO
+from collections.abc import Callable
 
-from pymarc import Field, Indicators, Leader, Record, Subfield, exceptions
+from pymarc.field import Field, Indicators, Subfield
+from pymarc.leader import Leader
+from pymarc.record import Record
+from pymarc.exceptions import (
+    RecordLengthInvalid,
+    TruncatedRecord,
+    EndOfRecordNotFound,
+    FatalReaderError,
+    PymarcException,
+)
 from pymarc.constants import END_OF_RECORD
 
 
 class Reader:
     """A base class for all iterating readers in the pymarc package."""
 
-    def __iter__(self):
-        return self
+    pass
 
 
 class MARCReader(Reader):
@@ -113,7 +122,7 @@ class MARCReader(Reader):
 
     def __init__(
         self,
-        marc_target: Union[BinaryIO, bytes],
+        marc_target: BinaryIO | bytes,
         to_unicode: bool = True,
         force_utf8: bool = False,
         hide_utf8_warnings: bool = False,
@@ -142,10 +151,13 @@ class MARCReader(Reader):
         """Close the handle."""
         self.file_handle.close()
 
+    def __iter__(self):
+        return self
+
     def __next__(self):
         """Read and parse the next record."""
         if self._current_exception and isinstance(
-            self._current_exception, exceptions.FatalReaderError
+            self._current_exception, FatalReaderError
         ):
             raise StopIteration
 
@@ -157,13 +169,13 @@ class MARCReader(Reader):
             raise StopIteration
 
         if len(first5) < 5:
-            self._current_exception = exceptions.TruncatedRecord()
+            self._current_exception = TruncatedRecord()
             return None
 
         try:
             length = int(first5)
         except ValueError:
-            self._current_exception = exceptions.RecordLengthInvalid()
+            self._current_exception = RecordLengthInvalid()
             return None
 
         chunk = self.file_handle.read(length - 5)
@@ -171,11 +183,11 @@ class MARCReader(Reader):
         self._current_chunk = chunk
 
         if len(self._current_chunk) < length:
-            self._current_exception = exceptions.TruncatedRecord()
+            self._current_exception = TruncatedRecord()
             return None
 
         if self._current_chunk[-1] != ord(END_OF_RECORD):
-            self._current_exception = exceptions.EndOfRecordNotFound()
+            self._current_exception = EndOfRecordNotFound()
             return None
 
         try:
@@ -191,7 +203,7 @@ class MARCReader(Reader):
             self._current_exception = ex
 
 
-def map_records(f: Callable, *files: BytesIO) -> None:
+def map_records(f: Callable, *files: BytesIO | BufferedReader) -> None:
     """Applies a given function to each record in a batch.
 
     You can pass in multiple batches.
@@ -213,7 +225,7 @@ class JSONReader(Reader):
 
     def __init__(
         self,
-        marc_target: Union[bytes, str],
+        marc_target: bytes | str,
         encoding: str = "utf-8",
         stream: bool = False,
     ) -> None:
@@ -236,14 +248,14 @@ class JSONReader(Reader):
             )
         self.records = json.load(self.file_handle, strict=False)
 
-    def __iter__(self) -> Iterator:
+    def __iter__(self) -> Iterator[Record]:
         if hasattr(self.records, "__iter__") and not isinstance(self.records, dict):
             self.iter = iter(self.records)
         else:
             self.iter = iter([self.records])
         return self
 
-    def __next__(self) -> Iterator:
+    def __next__(self) -> Record:
         jobj = next(self.iter)
         rec = Record()
         rec.leader = Leader(jobj["leader"])
@@ -289,7 +301,7 @@ class MARCMakerReader(Reader):
             ...
     """
 
-    def __init__(self, target: Union[bytes, str], encoding: str = "utf-8") -> None:
+    def __init__(self, target: bytes | str, encoding: str = "utf-8") -> None:
         """The constructor to which you can pass either a str or a file-like object."""
         if isinstance(target, IOBase):
             file_handle = target
@@ -303,7 +315,7 @@ class MARCMakerReader(Reader):
         self.records = list(file_content.split("\n\n"))
         self.iter = iter(self.records)
 
-    def _parse_line(self, line: str) -> Union[Leader, Field]:
+    def _parse_line(self, line: str) -> Leader | Field:
         """Parse a MARCMaker line.
 
         A line looks like
@@ -332,6 +344,9 @@ class MARCMakerReader(Reader):
         ]
         return Field(tag, indicators=indicators, subfields=subfields)
 
+    def __iter__(self):
+        return self
+
     def __next__(self) -> Iterator:
         """Iterate over a record's line to parse its fields."""
         record_txt = next(self.iter)
@@ -340,9 +355,7 @@ class MARCMakerReader(Reader):
             try:
                 field = self._parse_line(line)
             except Exception as exc:
-                raise exceptions.PymarcException(
-                    f'Unable to parse line "{line}"'
-                ) from exc
+                raise PymarcException(f'Unable to parse line "{line}"') from exc
             if isinstance(field, Leader):
                 record.leader = field
             else:

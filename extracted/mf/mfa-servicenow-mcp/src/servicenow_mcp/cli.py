@@ -58,6 +58,8 @@ from .utils.instances import (  # noqa: E402
     INSTANCE_CONFIG_ENV,
     build_instance_definition,
     load_instance_config_env,
+    resolve_auth_type,
+    resolve_env_reference,
     select_active_alias,
 )
 from .version import __version__  # noqa: E402
@@ -150,24 +152,9 @@ logger = logging.getLogger(__name__)
 _PACKAGE_NAME = "mfa-servicenow-mcp"
 _PYPI_URL = f"https://pypi.org/pypi/{_PACKAGE_NAME}/json"
 
-_ENV_REF_PATTERN = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$")
-
-
-def _resolve_env_reference(value: str | None) -> str | None:
-    """Resolve ${ENV_NAME} style values to the actual environment value."""
-    if not value:
-        return value
-    stripped = value.strip()
-    match = _ENV_REF_PATTERN.match(stripped)
-    if not match:
-        return value
-    env_name = match.group(1)
-    resolved = os.getenv(env_name)
-    # Guard against self-referential placeholder values like:
-    # SERVICENOW_USERNAME="${SERVICENOW_USERNAME}"
-    if not resolved or resolved.strip() == stripped:
-        return None
-    return resolved
+# ${ENV_NAME} indirection — canonical implementation lives in utils.instances
+# so the server's named-instance contexts resolve the same way.
+_resolve_env_reference = resolve_env_reference
 
 
 def _pick_first_resolved(*values: str | None) -> str | None:
@@ -278,6 +265,14 @@ def parse_args():
         help="Disable HTTP DNS rebinding protection. Use only behind trusted network controls.",
         default=_env_bool("SERVICENOW_MCP_HTTP_DISABLE_DNS_REBINDING_PROTECTION", False),
     )
+    transport_group.add_argument(
+        "--http-auth-token",
+        help=(
+            "Bearer token required on every HTTP MCP request. Mandatory for a "
+            "non-loopback --http-host; optional (but enforced when set) on loopback."
+        ),
+        default=os.environ.get("SERVICENOW_MCP_HTTP_AUTH_TOKEN"),
+    )
 
     # Authentication
     auth_group = parser.add_argument_group("Authentication")
@@ -385,13 +380,6 @@ def parse_args():
     )
 
     # Script execution API resource path
-    script_execution_group = parser.add_argument_group("Script Execution API")
-    script_execution_group.add_argument(
-        "--script-execution-api-resource-path",
-        help="Script execution API resource path",
-        default=os.environ.get("SCRIPT_EXECUTION_API_RESOURCE_PATH"),
-    )
-
     return parser.parse_args()
 
 
@@ -435,16 +423,25 @@ def create_config(args) -> ServerConfig:
                 "ServiceNow instance URL is required (--instance-url or SERVICENOW_INSTANCE_URL env var)"
             )
 
-    # Create authentication configuration based on args
-    auth_type_value = (
-        str(active_entry.raw.get("auth_type"))  # type: ignore[union-attr]
-        if active_entry and active_entry.raw and active_entry.raw.get("auth_type")
-        else args.auth_type
-    )
+    # Create authentication configuration based on args.
+    # Browser (headless) is the default; but an active instance that brings its
+    # own username+password opts out of browser → basic (no need to also set
+    # auth_type). Explicit auth_type on the entry always wins. Mirrors
+    # server._auth_for_instance_entry so active and named instances behave alike.
+    active_raw = active_entry.raw if active_entry and active_entry.raw else {}
+    auth_type_value = resolve_auth_type(active_raw, args.auth_type)
     auth_type = AuthType(auth_type_value.lower())
     # This will hold the final AuthConfig instance for ServerConfig
     final_auth_config: AuthConfig
-    active_raw = active_entry.raw if active_entry and active_entry.raw else {}
+    if (
+        not active_raw.get("auth_type")
+        and auth_type == AuthType.BASIC
+        and str(args.auth_type).lower() == "browser"
+    ):
+        logger.info(
+            "Active instance auth: username+password present with no auth_type — using basic "
+            "(browser default overridden). Set auth_type='browser' to force browser login."
+        )
 
     if auth_type == AuthType.BASIC:
         username = _pick_first_resolved(
@@ -633,15 +630,6 @@ def create_config(args) -> ServerConfig:
         # Should not happen if choices are enforced by argparse
         raise ValueError(f"Unsupported authentication type: {args.auth_type}")
 
-    # Script execution path
-    script_execution_api_resource_path = args.script_execution_api_resource_path or os.getenv(
-        "SCRIPT_EXECUTION_API_RESOURCE_PATH"
-    )
-    if not script_execution_api_resource_path:
-        logger.warning(
-            "Script execution API resource path not set (--script-execution-api-resource-path or SCRIPT_EXECUTION_API_RESOURCE_PATH). ExecuteScriptInclude tool may fail."
-        )
-
     # Create the final ServerConfig
     # Ensure ServerConfig model expects 'auth' as a nested object
     return ServerConfig(
@@ -650,7 +638,6 @@ def create_config(args) -> ServerConfig:
         # Include other server config fields if they exist on ServerConfig model
         debug=args.debug,
         timeout=args.timeout,
-        script_execution_api_resource_path=script_execution_api_resource_path,
     )
 
 
@@ -717,7 +704,11 @@ async def arun_http_server(server_instance, args):
     from starlette.responses import JSONResponse
     from starlette.routing import Mount, Route
 
+    from servicenow_mcp.utils.http_auth import is_authorized, resolve_http_auth_token
+
     path = args.http_path if str(args.http_path).startswith("/") else f"/{args.http_path}"
+    # Fail closed BEFORE binding: a non-loopback host with no token is refused.
+    auth_token = resolve_http_auth_token(args.http_host, getattr(args, "http_auth_token", None))
     allowed_hosts = _split_csv(args.http_allowed_hosts) or _default_http_allowed_hosts(
         args.http_host, args.http_port
     )
@@ -735,6 +726,18 @@ async def arun_http_server(server_instance, args):
 
     class StreamableHTTPApp:
         async def __call__(self, scope, receive, send):
+            # Bearer gate on the MCP surface only (never on /health). Constant-time
+            # compared. Non-HTTP scopes (lifespan) pass straight through.
+            if auth_token is not None and scope.get("type") == "http":
+                header_map = {k.decode("latin-1").lower(): v for k, v in scope.get("headers", [])}
+                auth_header = header_map.get("authorization", b"").decode("latin-1")
+                if not is_authorized(auth_header, auth_token):
+                    await JSONResponse(
+                        {"error": "unauthorized", "detail": "Bearer token required or invalid."},
+                        status_code=401,
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )(scope, receive, send)
+                    return
             await session_manager.handle_request(scope, receive, send)
 
     async def health(_request):

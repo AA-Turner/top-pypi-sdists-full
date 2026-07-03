@@ -101,18 +101,22 @@ class BaseClient:
             if response.status_code == 404:
                 raise NotFound(response)
             if response.status_code == 429:
-                if self.wait_on_rate_limit:
+                reset_time = None
+                if "x-rate-limit-reset" in response.headers:
                     reset_time = int(response.headers["x-rate-limit-reset"])
-                    sleep_time = reset_time - int(time.time()) + 1
-                    if sleep_time > 0:
-                        log.warning(
-                            "Rate limit exceeded. "
-                            f"Sleeping for {sleep_time} seconds."
-                        )
-                        time.sleep(sleep_time)
+                
+                if self.wait_on_rate_limit:
+                    if reset_time is not None:
+                        sleep_time = reset_time - int(time.time()) + 1
+                        if sleep_time > 0:
+                            log.warning(
+                                "Rate limit exceeded. "
+                                f"Sleeping for {sleep_time} seconds."
+                            )
+                            time.sleep(sleep_time)
                     return self.request(method, route, params, json, user_auth)
                 else:
-                    raise TooManyRequests(response)
+                    raise TooManyRequests(response, reset_time=reset_time)
             if response.status_code >= 500:
                 raise TwitterServerError(response)
             if not 200 <= response.status_code < 300:
@@ -803,7 +807,7 @@ class Client(BaseClient):
 
         if community_id is not None:
             json["community_id"] = community_id
-            
+
         if for_super_followers_only is not None:
             json["for_super_followers_only"] = for_super_followers_only
 
@@ -2722,7 +2726,7 @@ class Client(BaseClient):
         from the previous 30 days.
 
         .. note::
-        
+
             There is an alias for this method named ``get_dm_events``.
 
         .. versionadded:: 4.12
@@ -2733,7 +2737,7 @@ class Client(BaseClient):
             The ``id`` of the Direct Message conversation for which events are
             being retrieved.
         participant_id : int | str | None
-            The ``participant_id`` of the user that the authenicating user is
+            The ``participant_id`` of the user that the authenticating user is
             having a 1-1 conversation with.
         dm_event_fields : list[str] | str | None
             Extra fields to include in the event payload. ``id`` and
@@ -2811,7 +2815,7 @@ class Client(BaseClient):
         adds the Direct Message to it.
 
         .. note::
-        
+
             There is an alias for this method named ``create_dm``.
 
         .. versionadded:: 4.12
@@ -2878,7 +2882,7 @@ class Client(BaseClient):
         behalf of the authenticated user.
 
         .. note::
-        
+
             There is an alias for this method named ``create_dm_conversation``.
 
         .. versionadded:: 4.12

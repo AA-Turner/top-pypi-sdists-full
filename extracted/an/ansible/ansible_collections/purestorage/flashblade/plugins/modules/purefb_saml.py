@@ -22,7 +22,7 @@ short_description: Manage FlashBlade SAML2 service and identity providers
 description:
 - Enable or disable FlashBlade SAML2 providers
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -112,22 +112,25 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PURESTORAGE = True
+HAS_PYPURECLIENT = True
 try:
     from pypureclient.flashblade import (
         Saml2Sso,
         Saml2SsoPost,
         Saml2SsoSp,
         Saml2SsoIdp,
-        ReferenceWriteable,
+        ReferenceWritable,
     )
 except ImportError:
-    HAS_PURESTORAGE = False
+    HAS_PYPURECLIENT = False
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
+)
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
 )
 
 MIN_REQUIRED_API_VERSION = "2.15"
@@ -138,26 +141,26 @@ def test_saml(module, blade):
     """Test SAML2 IdP configuration"""
     test_response = []
     response = list(blade.get_sso_saml2_idps_test(names=[module.params["name"]]).items)
-    for component in range(len(response)):
-        if response[component].enabled:
+    for component in response:
+        if component.enabled:
             enabled = "true"
         else:
             enabled = "false"
-        if response[component].success:
+        if component.success:
             success = "true"
         else:
             success = "false"
         test_response.append(
             {
-                "component_address": response[component].component_address,
-                "component_name": response[component].component_name,
-                "description": response[component].description,
-                "destination": response[component].destination,
+                "component_address": component.component_address,
+                "component_name": component.component_name,
+                "description": component.description,
+                "destination": component.destination,
                 "enabled": enabled,
-                "result_details": getattr(response[component], "result_details", ""),
+                "result_details": getattr(component, "result_details", ""),
                 "success": success,
-                "test_type": response[component].test_type,
-                "resource_name": response[component].resource.name,
+                "test_type": component.test_type,
+                "resource_name": component.resource.name,
             }
         )
     module.exit_json(changed=True, test_response=test_response)
@@ -171,7 +174,7 @@ def delete_saml(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to delete SAML2 IdP {0}. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -251,9 +254,9 @@ def update_saml(module, blade):
         signing = None
         if not module.check_mode:
             if new_idp["sp_decrypt_cred"]:
-                decrypt = ReferenceWriteable(name=new_idp["sp_decrypt_cred"])
+                decrypt = ReferenceWritable(name=new_idp["sp_decrypt_cred"])
             if new_idp["sp_sign_cred"]:
-                decrypt = ReferenceWriteable(name=new_idp["sp_sign_cred"])
+                decrypt = ReferenceWritable(name=new_idp["sp_sign_cred"])
             sp = Saml2SsoSp(
                 decryption_credential=decrypt,
                 signing_credential=signing,
@@ -278,7 +281,7 @@ def update_saml(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to update SAML2 IdP {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -291,9 +294,9 @@ def create_saml(module, blade):
     signing = None
     if not module.check_mode:
         if module.params["decryption_credential"]:
-            decrypt = ReferenceWriteable(name=module.params["decryption_credential"])
+            decrypt = ReferenceWritable(name=module.params["decryption_credential"])
         if module.params["signing_credential"]:
-            signing = ReferenceWriteable(name=module.params["signing_credential"])
+            signing = ReferenceWritable(name=module.params["signing_credential"])
         sp = Saml2SsoSp(
             decryption_credential=decrypt,
             signing_credential=signing,
@@ -314,7 +317,7 @@ def create_saml(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to create SAML2 Identity Provider {0}. Error message: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
             if module.params["enabled"]:
@@ -326,7 +329,7 @@ def create_saml(module, blade):
                     blade.delete_sso_saml2_idps(names=[module.params["name"]])
                     module.fail_json(
                         msg="Failed to create SAML2 Identity Provider {0}. Error message: {1}".format(
-                            module.params["name"], res.errors[0].message
+                            module.params["name"], get_error_message(res)
                         )
                     )
 
@@ -363,7 +366,7 @@ def main():
         argument_spec, supports_check_mode=True, required_if=required_if
     )
 
-    if not HAS_PURESTORAGE:
+    if not HAS_PYPURECLIENT:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     blade = get_system(module)

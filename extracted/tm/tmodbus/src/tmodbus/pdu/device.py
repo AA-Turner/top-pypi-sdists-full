@@ -74,7 +74,7 @@ class ReadDeviceIdentificationPDU(BaseSubFunctionClientPDU[ReadDeviceIdentificat
 
     def __post_init__(self) -> None:
         """Validate ReadDeviceIdentificationPDU."""
-        if not (0x00 <= self.object_id < 0xFF):
+        if not (0x00 <= self.object_id <= 0xFF):
             msg = "Object ID must be between 0x00 and 0xFF."
             raise ValueError(msg)
 
@@ -91,34 +91,48 @@ class ReadDeviceIdentificationPDU(BaseSubFunctionClientPDU[ReadDeviceIdentificat
     def decode_response(self, response: bytes) -> ReadDeviceIdentificationResponse:
         """Decode Device Identifier PDU response."""
         response_header_struct = struct.Struct(">BBBBBBB")
-        (
-            function_code,
-            sub_function_code,
-            device_id_code,
-            conformity_level,
-            more,
-            next_object_id,
-            number_of_objects,
-        ) = response_header_struct.unpack_from(response, 0)
+        try:
+            (
+                function_code,
+                sub_function_code,
+                device_id_code,
+                conformity_level,
+                more,
+                next_object_id,
+                number_of_objects,
+            ) = response_header_struct.unpack_from(response, 0)
+        except struct.error as e:
+            msg = "Response too short for a Read Device Identification header"
+            raise InvalidResponseError(msg, response_bytes=response) from e
 
         if function_code != self.function_code:
             msg = f"Invalid function code: expected {self.function_code:#04x}, received {function_code:#04x}"
-            raise ValueError(msg)
+            raise InvalidResponseError(msg, response_bytes=response)
 
         if sub_function_code != self.sub_function_code:
             msg = (
                 f"Invalid sub function code: expected {self.sub_function_code:#04x}, received {sub_function_code:#04x}"
             )
-            raise ValueError(msg)
+            raise InvalidResponseError(msg, response_bytes=response)
 
         if more not in (0x00, 0xFF):
             msg = f"Invalid 'more' value: {more:#04x}"
-            raise ValueError(msg)
+            raise InvalidResponseError(msg, response_bytes=response)
+
+        try:
+            conformity = ConformityLevel(conformity_level)
+        except ValueError as e:
+            msg = f"Invalid conformity level: {conformity_level:#04x}"
+            raise InvalidResponseError(msg, response_bytes=response) from e
 
         objects: dict[int, bytes] = {}
         offset = response_header_struct.size
         while offset < len(response):
-            obj_id, obj_length = struct.unpack_from(">BB", response, offset)
+            try:
+                obj_id, obj_length = struct.unpack_from(">BB", response, offset)
+            except struct.error as e:
+                msg = "Truncated object header in Read Device Identification response"
+                raise InvalidResponseError(msg, response_bytes=response) from e
             offset += 2
             objects[obj_id] = response[offset : offset + obj_length]
             offset += obj_length
@@ -128,7 +142,7 @@ class ReadDeviceIdentificationPDU(BaseSubFunctionClientPDU[ReadDeviceIdentificat
 
         return ReadDeviceIdentificationResponse(
             device_id_code=device_id_code,
-            conformity_level=ConformityLevel(conformity_level),
+            conformity_level=conformity,
             more=bool(more),
             next_object_id=next_object_id,
             number_of_objects=number_of_objects,

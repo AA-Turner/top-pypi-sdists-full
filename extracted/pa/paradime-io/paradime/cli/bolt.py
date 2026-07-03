@@ -175,6 +175,11 @@ schedule.add_command(schedule_retry)
 @click.option(
     "--pr-number", default=None, type=int, help="Pull request number to associate with the run."
 )
+@click.option(
+    "--reason",
+    default=None,
+    help="Freeform reason/label describing why or from where the run was triggered.",
+)
 @click.option("--wait", help="Wait for the run to finish", is_flag=True)
 @click.option("--json", help="JSON formatted response", is_flag=True)
 @click.argument("slug")
@@ -182,6 +187,7 @@ def run(
     branch: str,
     command: List[str],
     pr_number: Optional[int],
+    reason: Optional[str],
     wait: bool,
     json: bool,
     slug: str,
@@ -202,6 +208,7 @@ def run(
             branch=branch,
             commands=list(command) if command else None,
             pr_number=pr_number,
+            reason=reason,
         )
     except ParadimeAPIException as e:
         print_error_table(f"Failed to trigger run: {e}", is_json=json)
@@ -396,7 +403,7 @@ def migrate(path: str) -> None:
     for s in all_schedules.schedules:
         db_schedules[s.name] = {
             "slug": s.slug,
-            "display_name": s.display_name,
+            "display_name": s.name,
         }
 
     root = schedule_path.parent if schedule_path.is_file() else schedule_path

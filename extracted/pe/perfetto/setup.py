@@ -1,7 +1,7 @@
 import os
 import re
 
-from distutils.core import setup
+from setuptools import setup
 
 
 def _version_from_changelog():
@@ -37,6 +37,8 @@ setup(
         'perfetto',
         'perfetto.batch_trace_processor',
         'perfetto.common',
+        'perfetto.prebuilts',
+        'perfetto.prebuilts.manifests',
         'perfetto.protos.perfetto.trace',
         'perfetto.trace_builder',
         'perfetto.trace_processor',
@@ -52,7 +54,7 @@ setup(
     author='Perfetto',
     author_email='perfetto-pypi@google.com',
     url='https://perfetto.dev/',
-    download_url='https://github.com/google/perfetto/archive/a760e3fc2f84d84225bfb4928d281c4b7c51d193.zip',
+    download_url='https://github.com/google/perfetto/archive/refs/tags/v57.1.zip',
     keywords=['trace processor', 'tracing', 'perfetto'],
     install_requires=[
         'protobuf',

@@ -47,6 +47,7 @@ from dazzle.render.fragment.primitives import (
     InlineEdit,
     Interactive,
     Link,
+    ListFilterBar,
     Pagination,
     SearchBox,
     SortHeader,
@@ -120,12 +121,35 @@ class _RenderInteractiveMixin:
         )
         attr_str = f" {attrs}" if attrs else ""
         disabled = ' disabled="disabled"' if b.visibility == "disabled" else ""
+        action_attr = self._action_attrs(b.data_action, ctx)
         label = ctx.escape(b.label)
-        return f'<button type="button" class="{cls}"{attr_str}{disabled}>{label}</button>'
+        return (
+            f'<button type="button" class="{cls}"{action_attr}{attr_str}{disabled}>{label}</button>'
+        )
+
+    @staticmethod
+    def _action_attrs(data_action: str, ctx: RenderContext) -> str:
+        """Build the action anchors from `data_action` (`"{entity}.{verb}"`):
+        `data-dazzle-action` + the `data-dz-action` (verb) / `data-dz-entity`
+        pair that `dz-analytics.js` delegates on (ADR-0049 Phase 2)."""
+        if not data_action:
+            return ""
+        entity, sep, verb = data_action.partition(".")
+        out = f' data-dazzle-action="{ctx.escape_attr(data_action)}"'
+        if sep:
+            out += (
+                f' data-dz-action="{ctx.escape_attr(verb)}"'
+                f' data-dz-entity="{ctx.escape_attr(entity)}"'
+            )
+        return out
 
     def _emit_link(self, link: Link, ctx: RenderContext) -> str:
         href = ctx.escape_attr(str(link.href))
-        return f'<a class="dz-link" href="{href}">{ctx.escape(link.label)}</a>'
+        action_attr = self._action_attrs(link.data_action, ctx)
+        tab_attr = ' target="_blank" rel="noopener noreferrer"' if link.new_tab else ""
+        return (
+            f'<a class="dz-link" href="{href}"{action_attr}{tab_attr}>{ctx.escape(link.label)}</a>'
+        )
 
     def _emit_interactive(self, iw: Interactive, ctx: RenderContext) -> str:
         attrs = _hx_attrs(
@@ -435,6 +459,67 @@ class _RenderInteractiveMixin:
 
         selects_html = "".join(_render_column(col) for col in f.columns)
         return f'<div class="dz-queue-filters filter-bar">{selects_html}</div>'
+
+    def _emit_list_filter_bar(self, f: ListFilterBar, ctx: RenderContext) -> str:
+        """Task 4d: list filter row that actually filters the list tbody.
+
+        Targets `#{tbody_id}` with `filter[{key}]` param names (what the
+        /api list handler parses), `innerMorph` swap, and
+        `hx-include="closest [data-dazzle-table]"` so all active filters ride
+        along — mirroring the legacy `render_filterable_table` filter bar."""
+        endpoint = ctx.escape_attr(str(f.endpoint))
+        target = ctx.escape_attr(f"#{f.tbody_id}")
+        indicator_attr = (
+            f' hx-indicator="{ctx.escape_attr(f.loading_indicator)}"' if f.loading_indicator else ""
+        )
+        common = (
+            f'hx-get="{endpoint}" hx-target="{target}" hx-swap="innerMorph" '
+            'hx-include="closest [data-dazzle-table]" '
+            'hx-headers=\'{"Accept": "text/html"}\''
+            f"{indicator_attr}"
+        )
+
+        def _control(col: FilterColumn) -> str:
+            name = f"filter[{ctx.escape_attr(col.key)}]"
+            sel = ctx.escape_attr(col.selected)
+            if col.filter_type == "text":
+                placeholder = ctx.escape_attr(f"Filter {col.label.lower()}…")
+                return (
+                    f'<input type="text" name="{name}" class="dz-filter-input" '
+                    f'placeholder="{placeholder}" value="{sel}" '
+                    f'hx-trigger="keyup changed delay:300ms" {common}>'
+                )
+            if col.filter_type == "ref":
+                return (
+                    f'<select name="{name}" class="dz-filter-select" '
+                    f'data-ref-api="{ctx.escape_attr(col.ref_api)}" '
+                    f'data-selected-value="{sel}" '
+                    f'hx-trigger="change changed" {common} '
+                    'x-init="dzFilterRefSelect($el)">'
+                    '<option value="">All</option></select>'
+                )
+            options_html = '<option value="">All</option>'
+            for value, display in col.options:
+                selected_attr = " selected" if value == col.selected else ""
+                options_html += (
+                    f'<option value="{ctx.escape_attr(value)}"{selected_attr}>'
+                    f"{ctx.escape(display)}</option>"
+                )
+            return (
+                f'<select name="{name}" class="dz-filter-select" '
+                f'hx-trigger="change changed" {common}>'
+                f"{options_html}</select>"
+            )
+
+        cells = "".join(
+            f'<div class="dz-filter-cell">'
+            f'<label class="dz-filter-label">{ctx.escape(col.label)}</label>'
+            f"{_control(col)}</div>"
+            for col in f.columns
+        )
+        return (
+            f'<div class="dz-table-toolbar-filters"><div class="dz-filter-bar">{cells}</div></div>'
+        )
 
     def _emit_sort_header(self, s: SortHeader, ctx: RenderContext) -> str:
         """Render a SortHeader as an HTMX-driven column-header link.

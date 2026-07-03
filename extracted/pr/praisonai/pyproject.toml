@@ -12,8 +12,8 @@ dependencies = [
     "rich>=13.7",
     "markdown>=3.5",
     "pyparsing>=3.0.0",
-    "praisonaiagents>=1.6.104",
-    "praisonai-code",
+    "praisonaiagents>=1.6.111",
+    "praisonai-code>=0.0.9",
     "python-dotenv>=0.19.0",
     "litellm>=1.83.14,<2",
     "PyYAML>=6.0",
@@ -46,6 +46,16 @@ os = [
     "uvicorn>=0.34.0",
     "PyJWT>=2.8.0",
     "sse-starlette>=1.6.0"
+]
+gateway = [
+    # Gateway runtime with event-driven config hot-reload (Issue #2533).
+    # `watchdog` enables inotify/FSEvents-based watching of gateway.yaml;
+    # without it the gateway gracefully falls back to mtime polling.
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
+    "sse-starlette>=1.6.0",
+    "websockets>=12.0",
+    "watchdog>=3.0.0",
 ]
 agentops = ["agentops>=0.3.12"]
 langfuse = ["langfuse>=3.0.0"]
@@ -155,6 +165,7 @@ all = [
     "uvicorn>=0.34.0",
     "sse-starlette>=1.6.0",
     "websockets>=12.0",
+    "watchdog>=3.0.0",  # Event-driven gateway.yaml hot-reload (falls back to polling)
     # Browser + search tools (agent defaults)
     "tavily-python==0.5.0",
     "crawl4ai>=0.7.0",

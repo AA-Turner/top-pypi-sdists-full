@@ -53,7 +53,7 @@ SUP = r'(\^)(?!\s){}(?<!\s)\1'.format(CONTENT)
 # `^sup ^^sup,ins^^^`
 SUP_INS2 = r'(?<!\^)(\^)(?![\^\s]){}\^{{2}}{}\^{{3}}'.format(CONTENT, CONTENT)
 # Prioritize ^value^ when ^^value^^ is nested within
-SUP2 = r'(?<!\^)(\^)(?![\^\s])((?:[^\^\s]|\^{2,})+?)(?<![\^\s])(\^)(?!\^)'
+SUP2 = r'(?<!\^)(\^)(?![\^\s])((?:[^\^\s]|\^{2,}(?!\^))+?)(?<![\^\s])(\^)(?!\^)'
 
 # Smart rules for when "smart caret" is enabled
 # SMART: `^^^ins,sup^^^`

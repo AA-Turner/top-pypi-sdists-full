@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: humming-kernels
-Version: 0.1.9
+Version: 0.1.10
 Summary: Quantization GEMM Kernel
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown

@@ -7398,7 +7398,44 @@ def run_self_tests(fast=False):
         except Exception:                                             # the reachable trap fires on the input
             _trapped = True
         assert _trapped, "the trap repro did not raise on the counterexample"
+    # a postcondition that NAMES the parameters: the test binds the counterexample as locals (x = 0) before
+    # the call, so the assert evaluates instead of raising NameError -- and it fails for the right reason.
+    _pxv = prove(_psrc, "result == x + 1")                             # REFUTED everywhere (x != x + 1)
+    assert _pxv.status == REFUTED and _pxv.counterexample_inputs, _pxv
+    _pxt = repro_test(_pxv, _psrc, ensures="result == x + 1")
+    _pxns = {}; exec(compile(_pxt, "<repro>", "exec"), _pxns)
+    _xfired = False
+    try:
+        _pxns["test_touchstone_repro"]()
+    except AssertionError:
+        _xfired = True
+    assert _xfired, "the parameter-referencing repro did not reproduce the refutation"
     assert repro_test(prove(_psrc, "result == x"), _psrc, ensures="result == x") is None  # PROVED: nothing to show
+    # the repair VERB round-trips through the CLI: the round-2 repair signal is piped to the generator
+    # command as JSON (a raw dict would crash subprocess), so a generator that emits the fix on feedback
+    # converges through the full CLI path -- buggy candidate, REFUTED signal, fixed candidate, PROVED.
+    import contextlib as _ctl
+    import io as _io
+    import os as _os
+    import shutil as _sh
+    import sys as _sys
+    import tempfile as _tf
+    _gd = _tf.mkdtemp(prefix="ts_repair_")
+    try:
+        _gp = _os.path.join(_gd, "gen.py")
+        with open(_gp, "w", encoding="utf-8") as _fh:
+            _fh.write("import sys\nfb = sys.stdin.read().strip()\n"
+                      "print('def f(x):\\n    if x < 0:\\n        return -x\\n    return x' if fb\n"
+                      "      else 'def f(x):\\n    return x')\n")
+        from . import cli as _cli
+        _buf = _io.StringIO()
+        with _ctl.redirect_stdout(_buf):
+            _rrc = _cli.main(["repair", "--generator", '"%s" "%s"' % (_sys.executable, _gp),
+                              "--ensures", "result >= 0 and (result == x or result == 0 - x)",
+                              "--func", "f", "--json"])
+        assert _rrc == 0 and '"rounds": 2' in _buf.getvalue(), (_rrc, _buf.getvalue())
+    finally:
+        _sh.rmtree(_gd, ignore_errors=True)
     # an UNKNOWN's reason is classified into the world it is in (budget / approximation / unmodeled) so the
     # next step is obvious, and an unmodeled construct names its line.
     from .diagnostics import classify_unknown, advice, budget_helps, capabilities
@@ -8187,10 +8224,21 @@ def run_self_tests(fast=False):
     assert check_return_annotation("def f() -> int:\n    return None\n").status == REFUTED
     assert check_return_annotation("def f() -> int:\n    return 5\n").status == PROVED
 
-    # oracle-free metamorphic properties -- idempotence and involution -- decided on real code.
-    assert verify_metamorphic("def f(x):\n    if x < 0:\n        return 0\n    return x\n", "idempotent").status == PROVED
+    # oracle-free metamorphic properties -- idempotence and involution -- decided on real code. The verdict
+    # names the user's function, not the composed __mm_lhs wrapper the equivalence runs on.
+    _mmv = verify_metamorphic("def f(x):\n    if x < 0:\n        return 0\n    return x\n", "idempotent")
+    assert _mmv.status == PROVED and _mmv.target == "f", _mmv
     assert verify_metamorphic("def f(x):\n    return x + 1\n", "idempotent").status == REFUTED
     assert verify_metamorphic("def f(x):\n    return -x\n", "involution").status == PROVED
+
+    # a bare math name resolves as math.* only where its `from math import ...` is visible: an unimported
+    # log() is somebody's logger (an unmodeled call, best-effort eligible), not math.log borrowing a domain
+    # trap; with the import present the math semantics stay decided.
+    _blv = check("def f(x):\n    return log(x)\n")
+    assert _blv.status == UNKNOWN and "unmodeled call" in (_blv.reason or ""), _blv
+    assert check("from math import log\ndef f(x: float):\n    return log(x)\n").status == REFUTED
+    assert check("from math import gcd\ndef f(a, b):\n    return gcd(a, b)\n").status == PROVED
+    assert check("def f(a, b):\n    return gcd(a, b)\n").status == UNKNOWN
 
     # fixed-width overflow is a default-on companion -- a function PROVED over Python's unbounded
     # integers carries the wraparound witness, without its (sound) Python verdict being flipped.
@@ -8297,6 +8345,53 @@ def run_self_tests(fast=False):
     assert check("def f(o):\n    a = o.compute()\n    return 5 // a[1:]\n", target="f").status == UNKNOWN
     assert check("import numpy as np\ndef f(n):\n    att = np.arange(0, n) / (n - 1)\n    att = np.concatenate(([1], att))\n    return att[1:] / att[:-1]\n", target="f").status != REFUTED
     assert check("def f(o):\n    a = o.compute()\n    return a[1:]\n", target="f").status == PROVED   # the slice itself is still trap free
+
+    # A constant tuple-of-tuples for-loop destructures exactly (the element is evaluated before any
+    # target name binds, so `for a, b in ((b, a),)` keeps Python's swap order), and an unmodelable
+    # for-target in one function abstains on that loop alone instead of poisoning its siblings.
+    _rows = ("def f():\n"
+             "    s = 0\n"
+             "    for a, b in ((1, 2), (3, 4)):\n"
+             "        s += a * b\n"
+             "    return s\n")
+    assert prove(_rows, "result == 14", target="f").status == PROVED
+    _swap = ("def f():\n"
+             "    a = 5\n"
+             "    b = 7\n"
+             "    for a, b in ((b, a),):\n"
+             "        pass\n"
+             "    return a * 10 + b\n")
+    assert prove(_swap, "result == 75", target="f").status == PROVED
+    _mixed = ("def bad():\n"
+              "    t = 0\n"
+              "    for a, *b in ((1, 2, 3),):\n"
+              "        t += a\n"
+              "    return t\n"
+              "def good(x):\n"
+              "    return x + 1\n")
+    assert check(_mixed, target="good").status == PROVED
+    # The CLI single-file verbs reach methods: a qualified Class.method (or a bare method name unique
+    # across the file's classes) narrows to the extracted definition with `self` an ordinary opaque
+    # parameter; an ambiguous bare name and a typo still die with the usual clean usage error.
+    from touchstone import cli as _cli
+    _clsrc = ("class A:\n"
+              "    def m(self, x):\n"
+              "        return x + 1\n"
+              "class B:\n"
+              "    def m(self, x):\n"
+              "        return x - 1\n"
+              "    def only(self, x):\n"
+              "        return x * 2\n")
+    _ms, _mn = _cli._narrow_target(_clsrc, "<test>", "A.m")
+    assert _mn == "m" and "x + 1" in _ms and "class" not in _ms
+    _os, _on = _cli._narrow_target(_clsrc, "<test>", "only")
+    assert _on == "only" and "x * 2" in _os
+    try:
+        _cli._narrow_target(_clsrc, "<test>", "m")
+        raise AssertionError("an ambiguous bare method name must die, not pick one")
+    except SystemExit:
+        pass
+    assert check(_ms, target="m").status == PROVED
 
     # Count the asserts by parsing the whole file and walking the run_self_tests definition. inspect.getsource's
     # tokenize-based block detection can under-read the function on some platforms (undercounting the suite), so

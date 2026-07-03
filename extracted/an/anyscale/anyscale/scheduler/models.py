@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field, fields
 from datetime import datetime
 from decimal import Decimal
+import math
 from typing import Any, ClassVar, Dict, List, Optional
 
 from anyscale._private.models import ModelBase, ModelEnum
@@ -8,6 +9,9 @@ from anyscale._private.models import ModelBase, ModelEnum
 
 # Quota values are fractional but capped at this many decimal places.
 _MAX_QUOTA_DECIMAL_PLACES = 3
+
+# Resource axes the scheduler understands; covered_resources must use these.
+_ALLOWED_RESOURCE_NAMES = frozenset({"cpu", "memory_gb", "gpu", "tpu"})
 
 
 # --- Enum helpers ---
@@ -148,6 +152,8 @@ def _validate_non_negative_quota(name: str, value: Optional[float]):
         return
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         raise TypeError(f"'{name}' must be a number.")
+    if not math.isfinite(value):
+        raise ValueError(f"'{name}' must be a finite number.")
     if value < 0:
         raise ValueError(f"'{name}' must be >= 0.")
     # For finite values .exponent is an int (= -decimal_places).
@@ -319,14 +325,15 @@ quota = ResourceQuotaSpec(name="gpu", nominal_quota=64)
         if not isinstance(name, str) or not name.strip():
             raise ValueError("'name' must be a non-empty string.")
 
-    nominal_quota: float = field(
+    nominal_quota: Optional[float] = field(
+        default=None,
         metadata={
-            "docstring": "Guaranteed capacity for this queue+flavor+resource. "
-            "Fractional values are allowed (up to 3 decimal places)."
-        }
+            "docstring": "Guaranteed capacity for this queue+flavor+resource "
+            "(up to 3 decimal places). Omit for unlimited quota; an explicit 0 blocks it."
+        },
     )
 
-    def _validate_nominal_quota(self, nominal_quota: float):
+    def _validate_nominal_quota(self, nominal_quota: Optional[float]):
         _validate_non_negative_quota("nominal_quota", nominal_quota)
 
     @classmethod
@@ -358,7 +365,8 @@ flavor_quota = FlavorQuota(
     resources: Optional[List[ResourceQuotaSpec]] = field(
         default=None,
         metadata={
-            "docstring": "Per-resource quotas (e.g. one entry for 'gpu', one for 'cpu')."
+            "docstring": "Per-resource quotas (e.g. one entry per covered resource). "
+            "A covered resource omitted here (or an empty list) gets unlimited quota."
         },
     )
 
@@ -399,19 +407,27 @@ group = ResourceGroup(
 
     covered_resources: List[str] = field(
         metadata={
-            "docstring": "Resources covered by this group (e.g. ['gpu'] or ['cpu', 'memory'])."
+            "docstring": "Resources covered by this group (e.g. ['gpu'] or ['cpu', 'memory_gb'])."
         }
     )
 
-    def _validate_covered_resources(self, covered_resources: List[str]):
+    def _validate_covered_resources(self, covered_resources: List[str]) -> List[str]:
         if (
             not isinstance(covered_resources, list)
             or not covered_resources
             or not all(isinstance(x, str) and x.strip() for x in covered_resources)
         ):
             raise ValueError("'covered_resources' must be a non-empty list of strings.")
-        if len(covered_resources) != len(set(covered_resources)):
+        normalized = [x.strip() for x in covered_resources]
+        if len(normalized) != len(set(normalized)):
             raise ValueError("'covered_resources' must not contain duplicates.")
+        invalid = sorted(set(normalized) - _ALLOWED_RESOURCE_NAMES)
+        if invalid:
+            raise ValueError(
+                f"'covered_resources' contains unsupported resource name(s) {invalid}; "
+                f"allowed: {sorted(_ALLOWED_RESOURCE_NAMES)}."
+            )
+        return normalized
 
     flavors: List[FlavorQuota] = field(
         metadata={

@@ -3413,6 +3413,9 @@ class CfnContainerGroupDefinition(
                     name="name",
                     value="value"
                 )],
+                linux_capabilities=gamelift.CfnContainerGroupDefinition.LinuxCapabilitiesProperty(
+                    include=["include"]
+                ),
                 mount_points=[gamelift.CfnContainerGroupDefinition.ContainerMountPointProperty(
                     instance_path="instancePath",
         
@@ -3452,6 +3455,9 @@ class CfnContainerGroupDefinition(
                     retries=123,
                     start_period=123,
                     timeout=123
+                ),
+                linux_capabilities=gamelift.CfnContainerGroupDefinition.LinuxCapabilitiesProperty(
+                    include=["include"]
                 ),
                 memory_hard_limit_mebibytes=123,
                 mount_points=[gamelift.CfnContainerGroupDefinition.ContainerMountPointProperty(
@@ -4291,6 +4297,7 @@ class CfnContainerGroupDefinition(
             "server_sdk_version": "serverSdkVersion",
             "depends_on": "dependsOn",
             "environment_override": "environmentOverride",
+            "linux_capabilities": "linuxCapabilities",
             "mount_points": "mountPoints",
             "port_configuration": "portConfiguration",
             "resolved_image_digest": "resolvedImageDigest",
@@ -4305,6 +4312,7 @@ class CfnContainerGroupDefinition(
             server_sdk_version: builtins.str,
             depends_on: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainerGroupDefinition.ContainerDependencyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             environment_override: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainerGroupDefinition.ContainerEnvironmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            linux_capabilities: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainerGroupDefinition.LinuxCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mount_points: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainerGroupDefinition.ContainerMountPointProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             port_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainerGroupDefinition.PortConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             resolved_image_digest: typing.Optional[builtins.str] = None,
@@ -4324,6 +4332,7 @@ class CfnContainerGroupDefinition(
             :param server_sdk_version: The Amazon GameLift Servers server SDK version that the game server is integrated with. Only game servers using 5.2.0 or higher are compatible with container fleets.
             :param depends_on: Indicates that the container relies on the status of other containers in the same container group during startup and shutdown sequences. A container might have dependencies on multiple containers.
             :param environment_override: A set of environment variables that's passed to the container on startup. See the `ContainerDefinition::environment <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html#ECS-Type-ContainerDefinition-environment>`_ parameter in the *Amazon Elastic Container Service API Reference* .
+            :param linux_capabilities: A set of Linux capabilities that are added to a container's default Docker configuration. For more detailed information, see the capabilities(7) Linux manual page.
             :param mount_points: A mount point that binds a path inside the container to a file or directory on the host system and lets it access the file or directory.
             :param port_configuration: The set of ports that are available to bind to processes in the container. For example, a game server process requires a container port to allow game clients to connect to it. Container ports aren't directly accessed by inbound traffic. Amazon GameLift Servers maps these container ports to externally accessible connection ports, which are assigned as needed from the container fleet's ``ConnectionPortRange`` .
             :param resolved_image_digest: A unique and immutable identifier for the container image. The digest is a SHA 256 hash of the container image manifest.
@@ -4351,6 +4360,9 @@ class CfnContainerGroupDefinition(
                         name="name",
                         value="value"
                     )],
+                    linux_capabilities=gamelift.CfnContainerGroupDefinition.LinuxCapabilitiesProperty(
+                        include=["include"]
+                    ),
                     mount_points=[gamelift.CfnContainerGroupDefinition.ContainerMountPointProperty(
                         instance_path="instancePath",
                 
@@ -4375,6 +4387,7 @@ class CfnContainerGroupDefinition(
                 check_type(argname="argument server_sdk_version", value=server_sdk_version, expected_type=type_hints["server_sdk_version"])
                 check_type(argname="argument depends_on", value=depends_on, expected_type=type_hints["depends_on"])
                 check_type(argname="argument environment_override", value=environment_override, expected_type=type_hints["environment_override"])
+                check_type(argname="argument linux_capabilities", value=linux_capabilities, expected_type=type_hints["linux_capabilities"])
                 check_type(argname="argument mount_points", value=mount_points, expected_type=type_hints["mount_points"])
                 check_type(argname="argument port_configuration", value=port_configuration, expected_type=type_hints["port_configuration"])
                 check_type(argname="argument resolved_image_digest", value=resolved_image_digest, expected_type=type_hints["resolved_image_digest"])
@@ -4387,6 +4400,8 @@ class CfnContainerGroupDefinition(
                 self._values["depends_on"] = depends_on
             if environment_override is not None:
                 self._values["environment_override"] = environment_override
+            if linux_capabilities is not None:
+                self._values["linux_capabilities"] = linux_capabilities
             if mount_points is not None:
                 self._values["mount_points"] = mount_points
             if port_configuration is not None:
@@ -4457,6 +4472,19 @@ class CfnContainerGroupDefinition(
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContainerGroupDefinition.ContainerEnvironmentProperty"]]]], result)
 
         @builtins.property
+        def linux_capabilities(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContainerGroupDefinition.LinuxCapabilitiesProperty"]]:
+            '''A set of Linux capabilities that are added to a container's default Docker configuration.
+
+            For more detailed information, see the capabilities(7) Linux manual page.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containergroupdefinition-gameservercontainerdefinition.html#cfn-gamelift-containergroupdefinition-gameservercontainerdefinition-linuxcapabilities
+            '''
+            result = self._values.get("linux_capabilities")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContainerGroupDefinition.LinuxCapabilitiesProperty"]], result)
+
+        @builtins.property
         def mount_points(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContainerGroupDefinition.ContainerMountPointProperty"]]]]:
@@ -4499,6 +4527,63 @@ class CfnContainerGroupDefinition(
 
         def __repr__(self) -> str:
             return "GameServerContainerDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_gamelift.CfnContainerGroupDefinition.LinuxCapabilitiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"include": "include"},
+    )
+    class LinuxCapabilitiesProperty:
+        def __init__(
+            self,
+            *,
+            include: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''A set of Linux capabilities that are added to a container's default Docker configuration.
+
+            For more detailed information, see the capabilities(7) Linux manual page.
+
+            :param include: The list of Linux capabilities to add to the container's default configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containergroupdefinition-linuxcapabilities.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_gamelift as gamelift
+                
+                linux_capabilities_property = gamelift.CfnContainerGroupDefinition.LinuxCapabilitiesProperty(
+                    include=["include"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fb1be698620e9f212b42b034d6dae2caf3813e753ebf5fc0f939a88a0510b8b3)
+                check_type(argname="argument include", value=include, expected_type=type_hints["include"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if include is not None:
+                self._values["include"] = include
+
+        @builtins.property
+        def include(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The list of Linux capabilities to add to the container's default configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containergroupdefinition-linuxcapabilities.html#cfn-gamelift-containergroupdefinition-linuxcapabilities-include
+            '''
+            result = self._values.get("include")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LinuxCapabilitiesProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4574,6 +4659,7 @@ class CfnContainerGroupDefinition(
             "environment_override": "environmentOverride",
             "essential": "essential",
             "health_check": "healthCheck",
+            "linux_capabilities": "linuxCapabilities",
             "memory_hard_limit_mebibytes": "memoryHardLimitMebibytes",
             "mount_points": "mountPoints",
             "port_configuration": "portConfiguration",
@@ -4591,6 +4677,7 @@ class CfnContainerGroupDefinition(
             environment_override: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainerGroupDefinition.ContainerEnvironmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             essential: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             health_check: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainerGroupDefinition.ContainerHealthCheckProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            linux_capabilities: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainerGroupDefinition.LinuxCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             memory_hard_limit_mebibytes: typing.Optional[jsii.Number] = None,
             mount_points: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainerGroupDefinition.ContainerMountPointProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             port_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainerGroupDefinition.PortConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4613,6 +4700,7 @@ class CfnContainerGroupDefinition(
             :param environment_override: A set of environment variables that's passed to the container on startup. See the `ContainerDefinition::environment <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html#ECS-Type-ContainerDefinition-environment>`_ parameter in the *Amazon Elastic Container Service API Reference* .
             :param essential: Indicates whether the container is vital to the container group. If an essential container fails, the entire container group restarts.
             :param health_check: A configuration for a non-terminal health check. A support container automatically restarts if it stops functioning or if it fails this health check.
+            :param linux_capabilities: A set of Linux capabilities that are added to a container's default Docker configuration. For more detailed information, see the capabilities(7) Linux manual page.
             :param memory_hard_limit_mebibytes: The amount of memory that Amazon GameLift Servers makes available to the container. If memory limits aren't set for an individual container, the container shares the container group's total memory allocation. *Related data type:* `ContainerGroupDefinition TotalMemoryLimitMebibytes <https://docs.aws.amazon.com/gamelift/latest/apireference/API_ContainerGroupDefinition.html>`_
             :param mount_points: A mount point that binds a path inside the container to a file or directory on the host system and lets it access the file or directory.
             :param port_configuration: A set of ports that allow access to the container from external users. Processes running in the container can bind to a one of these ports. Container ports aren't directly accessed by inbound traffic. Amazon GameLift Servers maps these container ports to externally accessible connection ports, which are assigned as needed from the container fleet's ``ConnectionPortRange`` .
@@ -4651,6 +4739,9 @@ class CfnContainerGroupDefinition(
                         start_period=123,
                         timeout=123
                     ),
+                    linux_capabilities=gamelift.CfnContainerGroupDefinition.LinuxCapabilitiesProperty(
+                        include=["include"]
+                    ),
                     memory_hard_limit_mebibytes=123,
                     mount_points=[gamelift.CfnContainerGroupDefinition.ContainerMountPointProperty(
                         instance_path="instancePath",
@@ -4678,6 +4769,7 @@ class CfnContainerGroupDefinition(
                 check_type(argname="argument environment_override", value=environment_override, expected_type=type_hints["environment_override"])
                 check_type(argname="argument essential", value=essential, expected_type=type_hints["essential"])
                 check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
+                check_type(argname="argument linux_capabilities", value=linux_capabilities, expected_type=type_hints["linux_capabilities"])
                 check_type(argname="argument memory_hard_limit_mebibytes", value=memory_hard_limit_mebibytes, expected_type=type_hints["memory_hard_limit_mebibytes"])
                 check_type(argname="argument mount_points", value=mount_points, expected_type=type_hints["mount_points"])
                 check_type(argname="argument port_configuration", value=port_configuration, expected_type=type_hints["port_configuration"])
@@ -4695,6 +4787,8 @@ class CfnContainerGroupDefinition(
                 self._values["essential"] = essential
             if health_check is not None:
                 self._values["health_check"] = health_check
+            if linux_capabilities is not None:
+                self._values["linux_capabilities"] = linux_capabilities
             if memory_hard_limit_mebibytes is not None:
                 self._values["memory_hard_limit_mebibytes"] = memory_hard_limit_mebibytes
             if mount_points is not None:
@@ -4781,6 +4875,19 @@ class CfnContainerGroupDefinition(
             '''
             result = self._values.get("health_check")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContainerGroupDefinition.ContainerHealthCheckProperty"]], result)
+
+        @builtins.property
+        def linux_capabilities(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContainerGroupDefinition.LinuxCapabilitiesProperty"]]:
+            '''A set of Linux capabilities that are added to a container's default Docker configuration.
+
+            For more detailed information, see the capabilities(7) Linux manual page.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containergroupdefinition-supportcontainerdefinition.html#cfn-gamelift-containergroupdefinition-supportcontainerdefinition-linuxcapabilities
+            '''
+            result = self._values.get("linux_capabilities")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContainerGroupDefinition.LinuxCapabilitiesProperty"]], result)
 
         @builtins.property
         def memory_hard_limit_mebibytes(self) -> typing.Optional[jsii.Number]:
@@ -4931,6 +5038,9 @@ class CfnContainerGroupDefinitionProps:
                         name="name",
                         value="value"
                     )],
+                    linux_capabilities=gamelift.CfnContainerGroupDefinition.LinuxCapabilitiesProperty(
+                        include=["include"]
+                    ),
                     mount_points=[gamelift.CfnContainerGroupDefinition.ContainerMountPointProperty(
                         instance_path="instancePath",
             
@@ -4970,6 +5080,9 @@ class CfnContainerGroupDefinitionProps:
                         retries=123,
                         start_period=123,
                         timeout=123
+                    ),
+                    linux_capabilities=gamelift.CfnContainerGroupDefinition.LinuxCapabilitiesProperty(
+                        include=["include"]
                     ),
                     memory_hard_limit_mebibytes=123,
                     mount_points=[gamelift.CfnContainerGroupDefinition.ContainerMountPointProperty(
@@ -12629,9 +12742,17 @@ def _typecheckingstub__996969233fd34d51e9d9534744b87b0efc6e35f90fac9e44bd0cb26d5
     server_sdk_version: builtins.str,
     depends_on: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.ContainerDependencyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     environment_override: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.ContainerEnvironmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    linux_capabilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.LinuxCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mount_points: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.ContainerMountPointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     port_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.PortConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resolved_image_digest: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb1be698620e9f212b42b034d6dae2caf3813e753ebf5fc0f939a88a0510b8b3(
+    *,
+    include: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12651,6 +12772,7 @@ def _typecheckingstub__6565c3caf0bf39eea0bc662ef87427d6cf77017b05483384a736fa1c2
     environment_override: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.ContainerEnvironmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     essential: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     health_check: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.ContainerHealthCheckProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    linux_capabilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.LinuxCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     memory_hard_limit_mebibytes: typing.Optional[jsii.Number] = None,
     mount_points: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.ContainerMountPointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     port_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.PortConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

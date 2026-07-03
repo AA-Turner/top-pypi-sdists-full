@@ -19,6 +19,14 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '86139647':{'en': 'Weifang, Shandong', 'zh': u('\u5c71\u4e1c\u7701\u6f4d\u574a\u5e02')},
+ '86139648':{'en': 'Qingdao, Shandong', 'zh': u('\u5c71\u4e1c\u7701\u9752\u5c9b\u5e02')},
+ '86139649':{'en': 'Jining, Shandong', 'zh': u('\u5c71\u4e1c\u7701\u6d4e\u5b81\u5e02')},
+ '86139650':{'en': 'Hefei, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u5408\u80a5\u5e02')},
+ '861396510':{'en': 'Hefei, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u5408\u80a5\u5e02')},
+ '861396511':{'en': 'Hefei, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u5408\u80a5\u5e02')},
+ '861396512':{'en': 'Hefei, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u5408\u80a5\u5e02')},
+ '861396513':{'en': 'Hefei, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u5408\u80a5\u5e02')},
  '861396514':{'en': 'Hefei, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u5408\u80a5\u5e02')},
  '861396515':{'en': 'Wuhu, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u829c\u6e56\u5e02')},
  '861396516':{'en': 'Wuhu, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u829c\u6e56\u5e02')},
@@ -10011,12 +10019,4 @@ data = {
  '86150796':{'en': 'JiAn, Jiangxi', 'zh': u('\u6c5f\u897f\u7701\u5409\u5b89\u5e02')},
  '86150797':{'en': 'Ganzhou, Jiangxi', 'zh': u('\u6c5f\u897f\u7701\u8d63\u5dde\u5e02')},
  '86150798':{'en': 'Jingdezhen, Jiangxi', 'zh': u('\u6c5f\u897f\u7701\u666f\u5fb7\u9547\u5e02')},
- '86150799':{'en': 'Pingxiang, Jiangxi', 'zh': u('\u6c5f\u897f\u7701\u840d\u4e61\u5e02')},
- '86150800':{'en': 'Fuzhou, Fujian', 'zh': u('\u798f\u5efa\u7701\u798f\u5dde\u5e02')},
- '86150801':{'en': 'Putian, Fujian', 'zh': u('\u798f\u5efa\u7701\u8386\u7530\u5e02')},
- '86150802':{'en': 'Longyan, Fujian', 'zh': u('\u798f\u5efa\u7701\u9f99\u5ca9\u5e02')},
- '861508030':{'en': 'Xiamen, Fujian', 'zh': u('\u798f\u5efa\u7701\u53a6\u95e8\u5e02')},
- '861508031':{'en': 'Xiamen, Fujian', 'zh': u('\u798f\u5efa\u7701\u53a6\u95e8\u5e02')},
- '861508032':{'en': 'Xiamen, Fujian', 'zh': u('\u798f\u5efa\u7701\u53a6\u95e8\u5e02')},
- '861508033':{'en': 'Xiamen, Fujian', 'zh': u('\u798f\u5efa\u7701\u53a6\u95e8\u5e02')},
 }

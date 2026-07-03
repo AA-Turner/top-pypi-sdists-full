@@ -47,10 +47,11 @@ public static class Humanize
     /// Wrap a raw Playwright <see cref="IBrowser"/> so every context/page it produces
     /// is humanized.
     /// </summary>
-    public static IBrowser Browser(IBrowser browser, HumanConfig? config = null, bool headless = true)
+    public static IBrowser Browser(
+        IBrowser browser, HumanConfig? config = null, bool headless = true, bool headlessNoViewport = false)
     {
         if (browser is HumanizedBrowser) return browser;
-        return new HumanizedBrowser(browser, config ?? new HumanConfig(), headless);
+        return new HumanizedBrowser(browser, config ?? new HumanConfig(), headless, headlessNoViewport);
     }
 
     // -----------------------------------------------------------------------

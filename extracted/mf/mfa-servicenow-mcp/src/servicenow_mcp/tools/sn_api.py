@@ -6,7 +6,7 @@ import threading
 import time
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional
 from urllib.parse import parse_qs, parse_qsl, unquote, urlparse
 
 import requests
@@ -653,17 +653,27 @@ def sn_query_all_with_retry(
     max_records: int = 100,
     display_value: "bool | str" = False,
     max_attempts: int = _RETRY_MAX_ATTEMPTS + 1,
+    parallel: bool = True,
+    query_all_fn: Optional[Callable[..., List[Dict[str, Any]]]] = None,
 ) -> List[Dict[str, Any]]:
     """sn_query_all with explicit retry for bulk download operations.
 
     Unlike sn_query_page's fail_silently, this function retries visibly at
     the call-site level so callers see retry logs and control the attempt count.
     Raises the last exception when all attempts are exhausted.
+
+    ``parallel`` passes through to sn_query_all — bulk downloaders that already
+    fan out per-type MUST keep inner paging serial (deliberate backend-load
+    restraint; don't stack parallelism).
+    ``query_all_fn`` lets a caller inject its own module-local ``sn_query_all``
+    reference so test patches on that module keep working; defaults to this
+    module's sn_query_all.
     """
+    fn = query_all_fn or sn_query_all
     last_exc: Exception = RuntimeError("no attempts made")
     for attempt in range(max_attempts):
         try:
-            return sn_query_all(
+            return fn(
                 config,
                 auth_manager,
                 table=table,
@@ -673,6 +683,7 @@ def sn_query_all_with_retry(
                 max_records=max_records,
                 display_value=display_value,
                 fail_silently=False,
+                parallel=parallel,
             )
         except Exception as exc:
             last_exc = exc
@@ -985,6 +996,73 @@ def _auth_identity_fields(config: ServerConfig, auth_manager: AuthManager) -> Di
     return fields
 
 
+# Live current-user, cached per instance with a TTL. TTL matters: without it a
+# user switch (re-login as a different SSO user on the same instance) would
+# serve the old name for the whole process lifetime. Single implementation —
+# both sn_health identity and push attribution call this.
+_LIVE_USER_CACHE: "OrderedDict[str, tuple[str, float]]" = OrderedDict()
+_LIVE_USER_TTL_SECONDS = 300.0
+_LIVE_USER_CACHE_MAX = 64
+
+
+def resolve_live_username(config: ServerConfig, auth_manager: AuthManager) -> str:
+    """Ask the live session who it is: GET /api/now/ui/user/current_user.
+
+    A valid session always knows its user (it's how the UI greets you), so an
+    SSO/browser login with no configured username is still identifiable. Cheap,
+    TTL-cached per instance. '' on any failure — the caller hedges, never falsely
+    accuses. Best-effort: never raises. Browser-session endpoint; callers gate
+    non-browser auth themselves (basic/oauth already know their username).
+    """
+    base = config.instance_url.rstrip("/")
+    now = time.monotonic()
+    hit = _LIVE_USER_CACHE.get(base)
+    if hit and (now - hit[1]) < _LIVE_USER_TTL_SECONDS:
+        _LIVE_USER_CACHE.move_to_end(base)
+        return hit[0]
+    name = ""
+    try:
+        response = auth_manager.make_request(
+            "GET", f"{base}/api/now/ui/user/current_user", timeout=config.timeout
+        )
+        payload = response.json() if hasattr(response, "json") else {}
+        result = payload.get("result", payload) if isinstance(payload, dict) else {}
+        if isinstance(result, dict):
+            name = str(result.get("user_name") or result.get("name") or "").strip()
+    except Exception as exc:  # noqa: BLE001 — identity is best-effort
+        logger.debug("current_user lookup failed: %s", exc)
+    if name:
+        _LIVE_USER_CACHE[base] = (name, now)
+        _LIVE_USER_CACHE.move_to_end(base)
+        while len(_LIVE_USER_CACHE) > _LIVE_USER_CACHE_MAX:
+            _LIVE_USER_CACHE.popitem(last=False)
+    return name
+
+
+def _authenticated_user(
+    config: ServerConfig, auth_manager: AuthManager, *, allow_live: bool
+) -> Optional[str]:
+    """Who this session is actually logged in as.
+
+    - basic / oauth: the configured username IS the identity (no network).
+    - browser: the SSO user isn't in config, so ask the live session via the
+      browser-only ``/api/now/ui/user/current_user`` — but ONLY when ``allow_live``
+      (the health probe already confirmed a good session), so a health check never
+      triggers a re-login / browser window on a dead session.
+    - api_key: no user identity → None.
+    Best-effort: any failure returns None rather than raising.
+    """
+    auth = config.auth
+    auth_type = auth.type.value
+    if auth_type == "basic" and auth.basic:
+        return auth.basic.username or None
+    if auth_type == "oauth" and auth.oauth:
+        return auth.oauth.username or None
+    if auth_type == "browser" and allow_live:
+        return resolve_live_username(config, auth_manager) or None
+    return None
+
+
 @register_tool(
     name="sn_health",
     params=HealthCheckParams,
@@ -998,6 +1076,12 @@ def sn_health(
     result = _sn_health_impl(config, auth_manager, params)
     result.update(_chromium_health_fields(config))
     result.update(_auth_identity_fields(config, auth_manager))
+    # WHO the session is logged in as. Live browser lookup only when the probe
+    # already confirmed a good session — never re-login from a health check.
+    session_ok = bool(result.get("ok") or result.get("browser_session_authenticated"))
+    user = _authenticated_user(config, auth_manager, allow_live=session_ok)
+    if user:
+        result["authenticated_user"] = user
     return result
 
 

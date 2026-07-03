@@ -144,6 +144,44 @@ def apply_integral_overflow_with_ansi_check(
     ).otherwise(col.cast(to_type))
 
 
+def apply_interval_to_integral_overflow(
+    col: Column,
+    to_type: DataType,
+    source_type_name: str,
+    target_type_name: str,
+    value_repr: Column,
+) -> Column:
+    """Cast a (BIGINT-widened) ANSI interval value to an integral type.
+
+    Unlike numeric narrowing, Spark raises CAST_OVERFLOW for interval -> integral
+    overflow in BOTH ANSI-enabled and ANSI-disabled modes (it never wraps or
+    returns NULL), so this path always raises when the value is out of range.
+
+    ``source_type_name`` is the interval's SQL type (e.g. ``INTERVAL HOUR TO
+    SECOND``), ``target_type_name`` is the integral target's SQL type (e.g.
+    ``INT``), and ``value_repr`` renders the interval value (e.g. ``INTERVAL
+    '23:59:59' HOUR TO SECOND``) so the message matches Spark.
+    """
+    if not global_config.snowpark_connect_handleIntegralOverflow:
+        return col.cast(to_type)
+
+    raise_error = raise_error_helper(to_type, ArithmeticException)
+
+    return snowpark_fn.when(
+        _is_integral_overflow(col, to_type),
+        raise_error(
+            snowpark_fn.lit("[CAST_OVERFLOW] The value "),
+            value_repr,
+            snowpark_fn.lit(
+                f' of the type "{source_type_name}" cannot be cast to '
+                f'"{target_type_name}" due to an overflow. Use `try_cast` to '
+                "tolerate overflow and return NULL instead. If necessary set "
+                '"spark.sql.ansi.enabled" to "false" to bypass this error.'
+            ),
+        ),
+    ).otherwise(col.cast(to_type))
+
+
 def apply_fractional_to_integral_cast_with_ansi_check(
     col: Column, to_type: DataType, ansi_enabled: bool
 ) -> Column:

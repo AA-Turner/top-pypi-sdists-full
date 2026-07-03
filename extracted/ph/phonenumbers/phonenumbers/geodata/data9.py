@@ -19,6 +19,14 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '61263490':{'en': 'Cowra'},
+ '61263491':{'en': 'Grenfell'},
+ '61263492':{'en': 'Grenfell'},
+ '61263493':{'en': 'Caragabal'},
+ '61263494':{'en': 'Greenethorpe'},
+ '61263495':{'en': 'Ooma'},
+ '61263496':{'en': 'Quandialla'},
+ '61263497':{'en': 'Tyagong'},
  '61263498':{'en': 'Cowra'},
  '61263499':{'en': 'Cowra'},
  '612635':{'en': 'Lithgow'},
@@ -10011,12 +10019,4 @@ data = {
  '61350161':{'en': 'Wentworth'},
  '61350162':{'en': 'Wentworth'},
  '61350163':{'en': 'Werrimull'},
- '61350164':{'en': 'Werrimull'},
- '61350165':{'en': 'Werrimull'},
- '61350166':{'en': 'Willandra Lakes'},
- '61350167':{'en': 'Willandra Lakes'},
- '61350168':{'en': 'Willandra Lakes'},
- '61350169':{'en': 'Murrayville'},
- '61350170':{'en': 'Woomelang'},
- '61350171':{'en': 'Woomelang'},
 }

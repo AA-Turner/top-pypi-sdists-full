@@ -33,6 +33,7 @@ from xonsh.shell import Shell
 from xonsh.timings import setup_timings
 from xonsh.tools import (
     display_error_message,
+    on_main_thread,
     print_color,
     print_exception,
     to_bool_or_int,
@@ -50,6 +51,16 @@ on_post_init() -> None
 Fired after all initialization is finished and we're ready to do work.
 
 NOTE: This is fired before the wizard is automatically started.
+
+Example:
+
+.. code-block:: xonsh
+
+    @events.on_post_init
+    def _event_greet(**kw):
+        from xonsh.built_ins import XSH
+        name = XSH.env.get("USER", "user")
+        print(f"Welcome back, {name}!")
 """,
 )
 
@@ -62,6 +73,20 @@ on_exit(exit_code : int) -> None
 Fired after all commands have been executed, before tear-down occurs.
 
 NOTE: All the caveats of the ``atexit`` module also apply to this event.
+
+Parameters:
+
+* ``exit_code``: The shell's exit code (``0`` for success).
+
+Example:
+
+.. code-block:: xonsh
+
+    @events.on_exit
+    def _event_save_session_log(exit_code, **kw):
+        import datetime
+        with open("/tmp/xonsh_sessions.log", "a") as f:
+            f.write(f"{datetime.datetime.now()}: exited with code {exit_code}\\n")
 """,
 )
 
@@ -73,6 +98,16 @@ events.doc(
 on_pre_cmdloop() -> None
 
 Fired just before the command loop is started, if it is.
+
+Example:
+
+.. code-block:: xonsh
+
+    @events.on_pre_cmdloop
+    def _event_show_tip(**kw):
+        import random
+        tips = ["Use Tab for completion", "Try 'xonfig' to configure xonsh"]
+        print("Tip:", random.choice(tips))
 """,
 )
 
@@ -85,6 +120,14 @@ on_post_cmdloop() -> None
 Fired just after the command loop finishes, if it is.
 
 NOTE: All the caveats of the ``atexit`` module also apply to this event.
+
+Example:
+
+.. code-block:: xonsh
+
+    @events.on_post_cmdloop
+    def _event_session_summary(**kw):
+        print(f"Session ended after {len(@.history)} commands.")
 """,
 )
 
@@ -95,6 +138,16 @@ events.doc(
 on_xontribs_loaded() -> None
 
 Fired after external xontribs with ``entrypoints defined`` are loaded.
+
+Example:
+
+.. code-block:: xonsh
+
+    @events.on_xontribs_loaded
+    def _event_check_xontribs(**kw):
+        from xonsh.xontribs import xontribs_loaded
+        if "coreutils" not in xontribs_loaded():
+            print("Hint: 'xontrib load coreutils' adds cross-platform cp, mv, rm, ...")
 """,
 )
 
@@ -105,6 +158,14 @@ events.doc(
 on_pre_rc() -> None
 
 Fired just before rc files are loaded, if they are.
+
+Example:
+
+.. code-block:: xonsh
+
+    @events.on_pre_rc
+    def _event_announce_rc(**kw):
+        print("Loading rc files...")
 """,
 )
 
@@ -115,6 +176,14 @@ events.doc(
 on_post_rc() -> None
 
 Fired just after rc files are loaded, if they are.
+
+Example:
+
+.. code-block:: xonsh
+
+    @events.on_post_rc
+    def _event_rc_loaded(**kw):
+        print("RC files loaded successfully.")
 """,
 )
 
@@ -559,6 +628,37 @@ def _release_controlling_terminal():
         _fg_tty_state["old_fg"] = -1
 
 
+def _setup_ctrl_break():
+    """Windows: make Ctrl+Break interrupt the foreground job, not kill xonsh.
+
+    The Windows console delivers ``CTRL_BREAK_EVENT`` to *every* process
+    attached to the console — xonsh and the subprocess it is waiting on
+    alike. Python maps that event to ``SIGBREAK``, whose default disposition
+    terminates the process, so with no handler installed xonsh itself is torn
+    down the moment the user presses Ctrl+Break while a child is running
+    (issue #4852).
+
+    Install :func:`signal.default_int_handler` for ``SIGBREAK`` so the event
+    surfaces as a catchable ``KeyboardInterrupt``, exactly like ``SIGINT``
+    (Ctrl+C) already does. The foreground child still receives the console
+    event directly and exits on its own; xonsh's wait then unblocks, the
+    ``KeyboardInterrupt`` is handled by the shell loop, and we return to the
+    prompt instead of dying. Threaded/captured subprocesses additionally
+    install their own ``SIGBREAK`` handler while running (see
+    ``xonsh/procs/posix.py`` and ``xonsh/procs/proxies.py``).
+
+    ``signal.signal`` only works on the main thread, so skip otherwise
+    (embedded hosts that call :func:`setup` off-main), matching the guard in
+    :func:`xonsh.built_ins.resetting_signal_handle`.
+    """
+    if not on_main_thread():
+        return
+    if not hasattr(signal, "SIGBREAK"):
+        # SIGBREAK is a Windows-only signal; nothing to do elsewhere.
+        return
+    signal.signal(signal.SIGBREAK, signal.default_int_handler)
+
+
 def _setup_controlling_terminal():
     """Run the TTY startup handshake and install matching signal handlers.
 
@@ -638,6 +738,8 @@ def _setup_controlling_terminal():
     if _tty_setup_done:
         return
     if ON_WINDOWS:
+        _setup_ctrl_break()
+        _tty_setup_done = True
         return
     _tty_setup_done = True
 
@@ -700,6 +802,10 @@ def parser():
             "subcommands:\n"
             "  format          Format xonsh source files. "
             "Run `xonsh format --help` for options.\n"
+            "  check           Check xonsh source files for syntax errors "
+            "without running them. Run `xonsh check --help` for options.\n"
+            "  lint            Lint xonsh source files for likely mistakes. "
+            "Run `xonsh lint --help` for options.\n"
         ),
     )
     p.add_argument(
@@ -723,6 +829,16 @@ def parser():
         dest="command",
         required=False,
         default=None,
+    )
+    p.add_argument(
+        "-n",
+        "--no-execute",
+        help="Parse and compile the code but do not execute it. Exit non-zero on "
+        "errors. Use the `xonsh check` subcommand for more options "
+        "e.g. to check several files.",
+        dest="no_execute",
+        action="store_true",
+        default=False,
     )
     p.add_argument(
         "-i",
@@ -853,12 +969,17 @@ def _pprint_displayhook(value):
     if not isinstance(printed_val, str):
         # pretty may fail (i.e for unittest.mock.Mock)
         printed_val = repr(value)
-    if HAS_PYGMENTS and env.get("COLOR_RESULTS"):
+    # A repr that already carries its own terminal escapes (e.g. a __repr__
+    # that emits ANSI colors) must not be re-highlighted: the lexer would
+    # split the escapes into separate tokens and the raw ESC bytes would be
+    # mangled when re-colored, so pass it through raw like CPython's default
+    # displayhook does. See https://github.com/xonsh/xonsh/issues/6503.
+    if HAS_PYGMENTS and env.get("COLOR_RESULTS") and "\x1b" not in printed_val:
         tokens = list(pygments.lex(printed_val, lexer=pyghooks.XonshLexer()))
         end = "" if env.get("SHELL_TYPE") == "prompt_toolkit" else "\n"
         print_color(tokens, end=end)
     else:
-        print(printed_val)  # black & white case
+        print(printed_val)  # black & white case, or an already-colored repr
     builtins._ = value
 
 
@@ -977,6 +1098,10 @@ def premain(argv=None):
     if args.help:
         parser.print_help()
         parser.exit()
+    if args.no_execute:
+        from xonsh.checker.cli import check_no_execute
+
+        sys.exit(check_no_execute(args))
     shell_kwargs = {
         "shell_type": args.shell_type,
         "completer": False,
@@ -1114,6 +1239,16 @@ def main(argv=None):
         from xonsh.formatter.cli import main as format_main
 
         sys.exit(format_main(argv[1:]))
+
+    if argv and argv[0] == "check":
+        from xonsh.checker.cli import main as check_main
+
+        sys.exit(check_main(argv[1:]))
+
+    if argv and argv[0] == "lint":
+        from xonsh.linter.cli import main as lint_main
+
+        sys.exit(lint_main(argv[1:]))
 
     # Run the TTY startup handshake *before* premain so that xontrib
     # loading and xonshrc execution happen with xonsh already as the

@@ -39,48 +39,45 @@ def _render_typed_body(context: PageContext) -> str:
 def _render_body_inner(context: PageContext) -> str:
     """Typed-body dispatch (no guide overlay)."""
     if context.form is not None:
-        from html import escape
-
-        from dazzle.page.runtime.form_renderer import render_form_field
-
-        form = context.form
-        fields_html = "".join(render_form_field(f) for f in form.fields)
-        # Wrap in a real <form> matching the Fragment FormStack shape so
-        # downstream consumers (notably the fidelity scorer, #1103) see
-        # the same structural markers users do at runtime.
-        method = "put" if form.mode == "edit" else "post"
-        action = escape(form.action_url, quote=True)
-        entity = escape(form.entity_name, quote=True)
-        # Submit button. The default (non-Fragment) render path historically
-        # omitted this, so every create/edit form was unsubmittable unless the
-        # surface declared `render: fragment` (#1291). Mirror the Fragment
-        # path's canonical markup (`_render_forms._emit_submit`) and label
-        # convention (`fragment_adapter`: "Save" on edit, "Create" otherwise).
-        submit_label = "Save" if form.mode == "edit" else "Create"
-        submit_html = (
-            '<button type="submit" class="dz-submit dz-submit--variant-primary">'
-            f"{escape(submit_label)}</button>"
-        )
-        return (
-            f'<form class="dz-form-stack" hx-{method}="{action}" '
-            f'hx-target="body" hx-swap="innerHTML" '
-            f'data-dazzle-form="{entity}" data-dazzle-form-mode="{escape(form.mode, quote=True)}">'
-            f"{fields_html}"
-            f"{submit_html}"
-            f"</form>"
+        # ADR-0049 Phase 3b (D4): create/edit (mode: create/edit) surfaces render
+        # exclusively via the typed substrate now — the legacy form_renderer is
+        # deleted. Reaching here means the substrate dispatch was skipped (no
+        # RuntimeServices on the request, so `_maybe_dispatch_inner_html`
+        # returned None) — a real misconfiguration, not a blank page. Fail loudly.
+        raise RuntimeError(
+            "form surface reached the legacy body renderer, but mode: create/edit "
+            "renders via the typed substrate now (ADR-0049). Attach RuntimeServices "
+            "to the request (app.state.services) so the form dispatches to the "
+            f"substrate. (page_title={context.page_title!r})"
         )
     if context.pdf_viewer is not None:
         from dazzle.page.runtime.pdf_viewer_renderer import render_pdf_viewer
 
         return render_pdf_viewer(context.detail, context.pdf_viewer)
     if context.detail is not None:
-        from dazzle.page.runtime.detail_renderer import render_detail_view
-
-        return render_detail_view(context.detail)
+        # ADR-0049 Phase 2 (D4): detail (mode: view) surfaces render exclusively
+        # via the typed substrate now — the legacy render_detail_view is deleted.
+        # Reaching here means the substrate dispatch was skipped (no
+        # RuntimeServices on the request) — fail loudly, not a blank page.
+        raise RuntimeError(
+            "detail surface reached the legacy body renderer, but mode: view "
+            "renders via the typed substrate now (ADR-0049). Attach "
+            "RuntimeServices to the request (app.state.services) so the detail "
+            f"dispatches to the substrate. (page_title={context.page_title!r})"
+        )
     if context.table is not None:
-        from dazzle.page.runtime.table_renderer import render_filterable_table
-
-        return render_filterable_table(context.table, page_title=context.page_title)
+        # ADR-0049 Task 6 (D4): list surfaces render exclusively via the typed
+        # substrate now — the legacy `render_filterable_table` is deleted.
+        # Reaching here means the substrate dispatch was skipped (no
+        # RuntimeServices on the request, so `_maybe_dispatch_inner_html`
+        # returned None) — a real misconfiguration, not a blank page. Fail
+        # loudly rather than render an empty 200.
+        raise RuntimeError(
+            "list surface reached the legacy body renderer, but lists render via "
+            "the typed substrate now (ADR-0049). Attach RuntimeServices to the "
+            "request (app.state.services) so the list dispatches to the substrate. "
+            f"(page_title={context.page_title!r})"
+        )
     return ""
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: harbor
-Version: 0.16.1
+Version: 0.17.0
 Summary: A framework for evaluating and optimizing agents and models using sandboxed environments.
 Author: Alex Shaw
 Author-email: Alex Shaw <alexgshaw64@gmail.com>
@@ -33,6 +33,8 @@ Requires-Dist: harbor[tinker] ; extra == 'all'
 Requires-Dist: harbor[computer-1] ; extra == 'all'
 Requires-Dist: harbor[dspy] ; extra == 'all'
 Requires-Dist: harbor[adapter] ; extra == 'all'
+Requires-Dist: beam-client>=0.2.197 ; extra == 'beam'
+Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'beam'
 Requires-Dist: blaxel>=0.2.52 ; extra == 'blaxel'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'blaxel'
 Requires-Dist: harbor[cwsandbox] ; extra == 'cloud'
@@ -50,12 +52,14 @@ Requires-Dist: harbor[novita] ; extra == 'cloud'
 Requires-Dist: harbor[use-computer] ; extra == 'cloud'
 Requires-Dist: harbor[blaxel] ; extra == 'cloud'
 Requires-Dist: harbor[cua] ; extra == 'cloud'
+Requires-Dist: harbor[opensandbox] ; extra == 'cloud'
+Requires-Dist: harbor[beam] ; extra == 'cloud'
 Requires-Dist: openai>=2.0 ; extra == 'computer-1'
 Requires-Dist: anthropic[bedrock]>=0.102.0 ; extra == 'computer-1'
 Requires-Dist: google-genai>=2.3.0 ; extra == 'computer-1'
 Requires-Dist: cua-train>=0.1.0 ; extra == 'cua'
 Requires-Dist: cwsandbox>=0.23.3 ; extra == 'cwsandbox'
-Requires-Dist: daytona>=0.184.0 ; extra == 'daytona'
+Requires-Dist: daytona>=0.192.0 ; extra == 'daytona'
 Requires-Dist: dspy>=2.6.0 ; extra == 'dspy'
 Requires-Dist: e2b>=2.25.0 ; extra == 'e2b'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'e2b'
@@ -68,6 +72,7 @@ Requires-Dist: langsmith[sandbox]>=0.8.8 ; extra == 'langsmith'
 Requires-Dist: modal>=1.5.1 ; extra == 'modal'
 Requires-Dist: novita-sandbox>=2.0.0a3 ; extra == 'novita'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'novita'
+Requires-Dist: opensandbox>=0.1.7 ; extra == 'opensandbox'
 Requires-Dist: runloop-api-client>=1.23.2 ; extra == 'runloop'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'runloop'
 Requires-Dist: tensorlake>=0.5.46 ; extra == 'tensorlake'
@@ -80,6 +85,7 @@ Requires-Dist: cwsandbox>=0.23.3 ; extra == 'wandb'
 Requires-Python: >=3.12
 Provides-Extra: adapter
 Provides-Extra: all
+Provides-Extra: beam
 Provides-Extra: blaxel
 Provides-Extra: cloud
 Provides-Extra: computer-1
@@ -94,6 +100,7 @@ Provides-Extra: islo
 Provides-Extra: langsmith
 Provides-Extra: modal
 Provides-Extra: novita
+Provides-Extra: opensandbox
 Provides-Extra: runloop
 Provides-Extra: tensorlake
 Provides-Extra: tinker
@@ -106,6 +113,7 @@ Description-Content-Type: text/markdown
  [![](https://dcbadge.limes.pink/api/server/https://discord.gg/6xWPKhGDbA)](https://discord.gg/6xWPKhGDbA)
 [![Docs](https://img.shields.io/badge/Docs-000000?style=for-the-badge&logo=mdbook&color=105864)](https://harborframework.com/docs)
 [![Cookbook](https://img.shields.io/badge/Cookbook-000000?style=for-the-badge&logo=mdbook&color=105864)](https://github.com/harbor-framework/harbor-cookbook)
+[![DOI](https://zenodo.org/badge/1032170083.svg)](https://doi.org/10.5281/zenodo.20953922)
 
 
 
@@ -178,9 +186,12 @@ If you use **Harbor** in academic work, please cite it using the “Cite this re
 ```bibtex
 @software{Harbor_Framework,
 author = {{Harbor Framework Team}},
-month = jan,
 title = {{Harbor: A framework for evaluating and optimizing agents and models in container environments}},
-url = {https://github.com/harbor-framework/harbor},
-year = {2026}
+year = {2026},
+version = {v0.16.1},
+doi = {10.5281/zenodo.20953922},
+url = {https://doi.org/10.5281/zenodo.20953922}
 }
 ```
+
+The DOI above is the **concept DOI**, which always resolves to the latest release and aggregates citations across all versions. To cite a specific version instead, use that version's DOI from the [Zenodo record](https://doi.org/10.5281/zenodo.20953922).

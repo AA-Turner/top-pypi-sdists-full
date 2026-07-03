@@ -92,9 +92,10 @@ impl Saga {
         let cmp_input: Compensation::Input = out.clone().into();
         let ctx = self.ctx.clone();
         let opts = self.opts.clone();
+        let compensation_name = compensate.name().to_owned();
         self.compensations.push(Box::pin(async move {
             if let Err(e) = ctx.start_activity(compensate, cmp_input, opts).await {
-                eprintln!("Compensation {} failed: {e}", Compensation::name());
+                eprintln!("Compensation {compensation_name} failed: {e}");
             }
         }));
         Ok(out)
@@ -131,9 +132,7 @@ impl BookingActivities {
     pub async fn book_car(_ctx: ActivityContext, trip_id: String) -> Result<String, ActivityError> {
         if trip_id.contains("fail") {
             return Err(ActivityError::application(
-                ApplicationFailure::non_retryable(anyhow::anyhow!(
-                    "Car booking failed for trip {trip_id}"
-                )),
+                ApplicationFailure::non_retryable("Car booking failed for trip {trip_id}"),
             ));
         }
         Ok(format!("car-{trip_id}"))

@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from aigie.integrations.claude_agent_sdk._patches._shared import _get_batch_parent
 from aigie.tracing.monkey_patch_lifecycle import PatchTarget
 
 logger = logging.getLogger(__name__)
@@ -20,9 +21,7 @@ def client_receive_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
         from claude_agent_sdk import ClaudeSDKClient
 
         if not hasattr(ClaudeSDKClient, "receive_response"):
-            raise ImportError(
-                "ClaudeSDKClient.receive_response not available in this SDK version"
-            )
+            raise ImportError("ClaudeSDKClient.receive_response not available in this SDK version")
         return ClaudeSDKClient, "receive_response"
 
     def make_wrapper(original_receive: Any) -> Any:  # noqa: C901, PLR0915
@@ -97,10 +96,9 @@ def client_receive_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                                 if block_class == "ToolUseBlock":
                                     tool_name = getattr(block, "name", "unknown")
                                     tool_input = getattr(block, "input", {}) or {}
-                                    is_subagent_call = (
-                                        tool_name in ("Task", "Agent")
-                                        or (isinstance(tool_input, dict)
-                                            and "subagent_type" in tool_input)
+                                    is_subagent_call = tool_name in ("Task", "Agent") or (
+                                        isinstance(tool_input, dict)
+                                        and "subagent_type" in tool_input
                                     )
                                     if is_subagent_call:
                                         task_tools.append(block)
@@ -119,9 +117,7 @@ def client_receive_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                                 )
                                 handler.set_parent_context(parent_tool_use_id)
 
-                            # NOW get batch_parent (which will be correct subagent span if inside one)
-                            # All parallel subagents in this message should have this same parent
-                            batch_parent = handler._get_current_parent()
+                            batch_parent = _get_batch_parent(handler, parent_tool_use_id)
                             logger.debug(
                                 f"[AIGIE] Batch parent for {len(task_tools)} Task tools: {batch_parent}"
                             )
@@ -271,5 +267,3 @@ def client_receive_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
         get_target=get_target,
         make_wrapper=make_wrapper,
     )
-
-

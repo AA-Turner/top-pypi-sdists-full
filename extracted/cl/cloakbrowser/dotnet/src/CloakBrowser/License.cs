@@ -11,6 +11,24 @@ namespace CloakBrowser;
 public sealed record LicenseInfo(bool Valid, string Plan, string? Expires);
 
 /// <summary>
+/// Source of a resolved license key.  Determines whether env injection
+/// into the child browser process is needed.
+/// </summary>
+internal enum LicenseKeySource
+{
+    /// <summary>Explicit <c>licenseKey</c> param.</summary>
+    Param,
+    /// <summary><c>CLOAKBROWSER_LICENSE_KEY</c> env var.</summary>
+    Env,
+    /// <summary>Default <c>~/.cloakbrowser/license.key</c> (binary reads it directly).</summary>
+    DefaultFile,
+    /// <summary>Custom cache dir <c>license.key</c> (binary can't see it).</summary>
+    CustomFile,
+    /// <summary>No key resolved.</summary>
+    None,
+}
+
+/// <summary>
 /// License validation and caching for CloakBrowser Pro.
 ///
 /// Handles license-key resolution (param -> env -> file), server validation with a
@@ -49,30 +67,122 @@ public static class License
     /// <summary>Overrides the Pro latest-version lookup for tests. Null -> real HTTP.</summary>
     internal static Func<string?>? ProLatestVersionOverride;
 
+    /// <summary>
+    /// Resolves the user home directory used to detect the default
+    /// <c>~/.cloakbrowser</c> cache path. A test seam mirroring the Python
+    /// <c>Path.home</c> / JS <c>os.homedir</c> mocks. Null -> real UserProfile.
+    /// </summary>
+    internal static Func<string>? HomeDirOverride;
+
     // -----------------------------------------------------------------------
 
-    /// <summary>Resolve the license key: explicit param &gt; env var &gt; file &gt; null.</summary>
-    public static string? ResolveLicenseKey(string? licenseKey = null)
+    // -----------------------------------------------------------------------
+    // Key source tracking — determines whether env injection is needed.
+    // (The binary reads the default file path directly, so env injection
+    //  is only required for explicit params or custom cache-dir files.)
+    // -----------------------------------------------------------------------
+
+    /// <summary>Resolve license key with source tracking for env-injection decisions.</summary>
+    internal static (string? Key, LicenseKeySource Source) ResolveLicenseKeyWithSource(
+        string? licenseKey = null)
     {
+        // 1. Explicit param
         var trimmed = licenseKey?.Trim();
         if (!string.IsNullOrEmpty(trimmed))
-            return trimmed;
+            return (trimmed, LicenseKeySource.Param);
 
+        // 2. Environment variable
         var envKey = (Environment.GetEnvironmentVariable("CLOAKBROWSER_LICENSE_KEY") ?? "").Trim();
         if (!string.IsNullOrEmpty(envKey))
-            return envKey;
+            return (envKey, LicenseKeySource.Env);
 
+        // 3. File in the wrapper cache dir
         try
         {
-            var keyFile = Path.Combine(Config.GetCacheDir(), "license.key");
+            var cacheDir = Config.GetCacheDir();
+            var keyFile = Path.Combine(cacheDir, "license.key");
             var content = File.ReadAllText(keyFile).Trim();
             if (!string.IsNullOrEmpty(content))
-                return content;
+            {
+                var homeDir = HomeDirOverride?.Invoke()
+                    ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                var defaultCache = Path.Combine(homeDir, ".cloakbrowser");
+                var source = string.Equals(
+                    Path.GetFullPath(cacheDir),
+                    Path.GetFullPath(defaultCache),
+                    StringComparison.OrdinalIgnoreCase)
+                    ? LicenseKeySource.DefaultFile
+                    : LicenseKeySource.CustomFile;
+                return (content, source);
+            }
         }
         catch (IOException) { /* file missing/unreadable */ }
         catch (UnauthorizedAccessException) { }
 
-        return null;
+        return (null, LicenseKeySource.None);
+    }
+
+    /// <summary>Resolve the license key: explicit param &gt; env var &gt; file &gt; null.</summary>
+    public static string? ResolveLicenseKey(string? licenseKey = null)
+    {
+        return ResolveLicenseKeyWithSource(licenseKey).Key;
+    }
+
+    /// <summary>
+    /// Build a child-process env dict with any needed license key injection.
+    ///
+    /// The Pro binary reads <c>CLOAKBROWSER_LICENSE_KEY</c> from its own process
+    /// environment at startup.  This helper merges the resolved key into the
+    /// child process env dict <b>only</b> when injection is necessary:
+    ///
+    /// <list type="bullet">
+    ///   <item><description><c>Param</c> / <c>CustomFile</c> — inject into child env.</description></item>
+    ///   <item><description><c>Env</c> — child inherits from parent (no injection).</description></item>
+    ///   <item><description><c>DefaultFile</c> — binary reads the file directly (no injection), unless a custom userEnv is passed (Playwright replaces the child env and can drop HOME) — then inject.</description></item>
+    /// </list>
+    ///
+    /// When <paramref name="userEnv"/> is provided it is used as the base
+    /// (Playwright replaces the child env entirely when <c>env</c> is set),
+    /// with the key injected only when needed.
+    ///
+    /// Returns <c>null</c> when no injection is needed and no custom userEnv
+    /// was given — Playwright treats <c>env=null</c> as "inherit parent env".
+    /// </summary>
+    public static Dictionary<string, string>? BuildLaunchEnv(
+        string? licenseKey = null,
+        Dictionary<string, string>? userEnv = null)
+    {
+        var (key, source) = ResolveLicenseKeyWithSource(licenseKey);
+
+        // Default file: binary reads it directly — no env injection needed,
+        // UNLESS the caller passes a custom env. Playwright replaces (not
+        // merges) the child env, which can drop HOME and hide the file from
+        // the binary, so inject the key too then (fall through to the merge).
+        if (source == LicenseKeySource.DefaultFile && userEnv == null)
+            return null;
+
+        // No key at all: pass through user env or null.
+        if (source == LicenseKeySource.None || key == null)
+            return userEnv;
+
+        // Env source, no custom user env: child inherits parent env, which
+        // already has CLOAKBROWSER_LICENSE_KEY.
+        if (source == LicenseKeySource.Env && userEnv == null)
+            return null;
+
+        // Build the merged env dict.
+        var merged = userEnv != null
+            ? new Dictionary<string, string>(userEnv)
+            : Environment.GetEnvironmentVariables()
+                .Cast<System.Collections.DictionaryEntry>()
+                .ToDictionary(e => (string)e.Key, e => (string)e.Value!);
+
+        // For Param/CustomFile this is THE injection into the child env.
+        // For Env source with a custom userEnv this ensures the key persists
+        // through the user's env override (Playwright replaces, not merges).
+        merged["CLOAKBROWSER_LICENSE_KEY"] = key;
+
+        return merged;
     }
 
     /// <summary>

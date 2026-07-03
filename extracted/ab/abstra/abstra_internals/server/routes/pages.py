@@ -10,6 +10,7 @@ from abstra_internals.entities.execution_context import (
 )
 from abstra_internals.environment import CLOUD_API_PROD_SHARED_TOKEN
 from abstra_internals.repositories.project.project import PageStage
+from abstra_internals.server.routes.page_preview import build_standalone_preview_html
 from abstra_internals.settings import Settings
 from abstra_internals.usage import editor_usage
 from abstra_internals.utils import is_it_true
@@ -117,9 +118,20 @@ def get_editor_bp(controller: MainController):
             page_execution_id=page_execution_id,
         )
 
+        body = result["body"]
+        content_type = (result["headers"] or {}).get("Content-Type", "") or ""
+        if "text/html" in content_type:
+            endpoint = flask.request.full_path.rstrip("?")
+            body = build_standalone_preview_html(
+                body,
+                auth_token=user_jwt,
+                endpoint=endpoint,
+                execution_id=result.get("executionId"),
+            )
+
         resp = flask.Response(
             status=result["status"],
-            response=result["body"],
+            response=body,
             headers=result["headers"],
         )
         if result.get("executionId"):

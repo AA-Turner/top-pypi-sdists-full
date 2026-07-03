@@ -5,17 +5,26 @@ This module provides tools for viewing and managing workflows in ServiceNow.
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, ClassVar, Dict, List, Literal, Optional, Type, TypeVar
 
 from pydantic import BaseModel, Field, model_validator
 
 from servicenow_mcp.auth.auth_manager import AuthManager
-from servicenow_mcp.tools._preview import build_delete_preview, build_update_preview
+from servicenow_mcp.tools._preview import (
+    build_create_preview,
+    build_delete_preview,
+    build_update_preview,
+)
 from servicenow_mcp.tools.sn_api import invalidate_query_cache, sn_count, sn_query_page
 from servicenow_mcp.utils.config import ServerConfig
 from servicenow_mcp.utils.registry import register_tool
 
 logger = logging.getLogger(__name__)
+
+# Concurrent activity-order PATCHes per reorder — capped to stay within SN rate
+# limits (mirrors sn_api._MAX_PARALLEL_PAGES).
+_REORDER_MAX_PARALLEL = 4
 
 # Type variable for Pydantic models
 T = TypeVar("T", bound=BaseModel)
@@ -63,6 +72,10 @@ class CreateWorkflowParams(BaseModel):
     attributes: Optional[Dict[str, Any]] = Field(
         default=None, description="Additional attributes for the workflow"
     )
+    dry_run: bool = Field(
+        default=False,
+        description="Preview the record that would be created without executing.",
+    )
 
 
 class UpdateWorkflowParams(BaseModel):
@@ -86,12 +99,20 @@ class ActivateWorkflowParams(BaseModel):
     """Parameters for activating a workflow."""
 
     workflow_id: str = Field(..., description="Workflow ID or sys_id")
+    dry_run: bool = Field(
+        default=False,
+        description="Preview the active-flag change without executing.",
+    )
 
 
 class DeactivateWorkflowParams(BaseModel):
     """Parameters for deactivating a workflow."""
 
     workflow_id: str = Field(..., description="Workflow ID or sys_id")
+    dry_run: bool = Field(
+        default=False,
+        description="Preview the active-flag change without executing.",
+    )
 
 
 class AddWorkflowActivityParams(BaseModel):
@@ -105,6 +126,10 @@ class AddWorkflowActivityParams(BaseModel):
     )
     attributes: Optional[Dict[str, Any]] = Field(
         default=None, description="Additional attributes for the activity"
+    )
+    dry_run: bool = Field(
+        default=False,
+        description="Preview the activity that would be created without executing.",
     )
 
 
@@ -138,6 +163,10 @@ class ReorderWorkflowActivitiesParams(BaseModel):
 
     workflow_id: str = Field(..., description="Workflow ID or sys_id")
     activity_ids: List[str] = Field(..., description="List of activity IDs in the desired order")
+    dry_run: bool = Field(
+        default=False,
+        description="Preview planned order changes without executing.",
+    )
 
 
 class ListWorkflowVersionsParams(BaseModel):
@@ -173,6 +202,10 @@ class DeleteWorkflowParams(BaseModel):
     dry_run: bool = Field(
         default=False,
         description="Preview deletion scope without executing.",
+    )
+    force: bool = Field(
+        default=False,
+        description="Delete even if running workflow contexts reference this workflow.",
     )
 
 
@@ -244,7 +277,7 @@ def list_workflows(
         }
     except Exception as e:
         logger.error(f"Error listing workflows: {e}")
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
 
 
 def get_workflow_details(
@@ -257,7 +290,7 @@ def get_workflow_details(
 
     workflow_id = params.get("workflow_id")
     if not workflow_id:
-        return {"error": "Workflow ID is required"}
+        return {"success": False, "error": "Workflow ID is required"}
 
     try:
         rows, _ = sn_query_page(
@@ -272,7 +305,7 @@ def get_workflow_details(
             fail_silently=False,
         )
         if not rows:
-            return {"error": f"Workflow {workflow_id} not found"}
+            return {"success": False, "error": f"Workflow {workflow_id} not found"}
 
         result: Dict[str, Any] = {"workflow": rows[0]}
 
@@ -288,7 +321,7 @@ def get_workflow_details(
         return result
     except Exception as e:
         logger.error(f"Error getting workflow details: {e}")
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
 
 
 def _fetch_workflow_versions(
@@ -381,7 +414,7 @@ def create_workflow(
 
     # Validate required parameters
     if not params.get("name"):
-        return {"error": "Workflow name is required"}
+        return {"success": False, "error": "Workflow name is required"}
 
     # Prepare data for the API request
     data = {
@@ -401,6 +434,9 @@ def create_workflow(
         # Add any additional attributes
         data.update(params["attributes"])
 
+    if params.get("dry_run"):
+        return build_create_preview(table="wf_workflow", proposed=data)
+
     # Make the API request
     try:
         headers = auth_manager.get_headers()
@@ -417,7 +453,7 @@ def create_workflow(
         }
     except Exception as e:
         logger.error(f"Error creating workflow: {e}")
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
 
 
 def update_workflow(
@@ -441,7 +477,7 @@ def update_workflow(
 
     workflow_id = params.get("workflow_id")
     if not workflow_id:
-        return {"error": "Workflow ID is required"}
+        return {"success": False, "error": "Workflow ID is required"}
 
     # Prepare data for the API request
     data = {}
@@ -463,7 +499,7 @@ def update_workflow(
         data.update(params["attributes"])
 
     if not data:
-        return {"error": "No update parameters provided"}
+        return {"success": False, "error": "No update parameters provided"}
 
     if params.get("dry_run"):
         return build_update_preview(
@@ -491,7 +527,7 @@ def update_workflow(
         }
     except Exception as e:
         logger.error(f"Error updating workflow: {e}")
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
 
 
 def activate_workflow(
@@ -515,12 +551,22 @@ def activate_workflow(
 
     workflow_id = params.get("workflow_id")
     if not workflow_id:
-        return {"error": "Workflow ID is required"}
+        return {"success": False, "error": "Workflow ID is required"}
 
     # Prepare data for the API request
     data = {
         "active": "true",
     }
+
+    if params.get("dry_run"):
+        return build_update_preview(
+            server_config,
+            auth_manager,
+            table="wf_workflow",
+            sys_id=workflow_id,
+            proposed=data,
+            identifier_fields=["name", "active"],
+        )
 
     # Make the API request
     try:
@@ -538,7 +584,7 @@ def activate_workflow(
         }
     except Exception as e:
         logger.error(f"Error activating workflow: {e}")
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
 
 
 def deactivate_workflow(
@@ -562,12 +608,22 @@ def deactivate_workflow(
 
     workflow_id = params.get("workflow_id")
     if not workflow_id:
-        return {"error": "Workflow ID is required"}
+        return {"success": False, "error": "Workflow ID is required"}
 
     # Prepare data for the API request
     data = {
         "active": "false",
     }
+
+    if params.get("dry_run"):
+        return build_update_preview(
+            server_config,
+            auth_manager,
+            table="wf_workflow",
+            sys_id=workflow_id,
+            proposed=data,
+            identifier_fields=["name", "active"],
+        )
 
     # Make the API request
     try:
@@ -585,7 +641,7 @@ def deactivate_workflow(
         }
     except Exception as e:
         logger.error(f"Error deactivating workflow: {e}")
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
 
 
 def add_workflow_activity(
@@ -610,11 +666,11 @@ def add_workflow_activity(
     # Validate required parameters
     workflow_version_id = params.get("workflow_version_id")
     if not workflow_version_id:
-        return {"error": "Workflow version ID is required"}
+        return {"success": False, "error": "Workflow version ID is required"}
 
     activity_name = params.get("name")
     if not activity_name:
-        return {"error": "Activity name is required"}
+        return {"success": False, "error": "Activity name is required"}
 
     # Prepare data for the API request
     data = {
@@ -632,6 +688,9 @@ def add_workflow_activity(
         # Add any additional attributes
         data.update(params["attributes"])
 
+    if params.get("dry_run"):
+        return build_create_preview(table="wf_activity", proposed=data)
+
     # Make the API request
     try:
         headers = auth_manager.get_headers()
@@ -648,7 +707,7 @@ def add_workflow_activity(
         }
     except Exception as e:
         logger.error(f"Error adding workflow activity: {e}")
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
 
 
 def update_workflow_activity(
@@ -672,7 +731,7 @@ def update_workflow_activity(
 
     activity_id = params.get("activity_id")
     if not activity_id:
-        return {"error": "Activity ID is required"}
+        return {"success": False, "error": "Activity ID is required"}
 
     # Prepare data for the API request
     data = {}
@@ -688,7 +747,7 @@ def update_workflow_activity(
         data.update(params["attributes"])
 
     if not data:
-        return {"error": "No update parameters provided"}
+        return {"success": False, "error": "No update parameters provided"}
 
     if params.get("dry_run"):
         return build_update_preview(
@@ -716,7 +775,7 @@ def update_workflow_activity(
         }
     except Exception as e:
         logger.error(f"Error updating workflow activity: {e}")
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
 
 
 def delete_workflow_activity(
@@ -740,7 +799,7 @@ def delete_workflow_activity(
 
     activity_id = params.get("activity_id")
     if not activity_id:
-        return {"error": "Activity ID is required"}
+        return {"success": False, "error": "Activity ID is required"}
 
     if params.get("dry_run"):
         return build_delete_preview(
@@ -766,7 +825,55 @@ def delete_workflow_activity(
         }
     except Exception as e:
         logger.error(f"Error deleting workflow activity: {e}")
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
+
+
+def _build_reorder_preview(
+    server_config: ServerConfig,
+    auth_manager: AuthManager,
+    workflow_id: str,
+    activity_ids: List[str],
+) -> Dict[str, Any]:
+    """Dry-run preview for reorder_activities: the exact order PATCHes planned,
+    diffed against the current order of each activity."""
+    preview: Dict[str, Any] = {
+        "dry_run": True,
+        "operation": "reorder_activities",
+        "target": {"table": "wf_activity", "workflow_id": workflow_id},
+        "planned_updates": [],
+        "warnings": [],
+        "precision_notes": {
+            "count_source": "table_api",
+            "dependency_check": False,
+            "acl_checked": False,
+        },
+    }
+    current: Dict[str, Dict[str, Any]] = {}
+    try:
+        rows, _ = sn_query_page(
+            server_config,
+            auth_manager,
+            table="wf_activity",
+            query="sys_idIN" + ",".join(activity_ids),
+            fields="sys_id,name,order",
+            limit=len(activity_ids),
+            offset=0,
+            display_value=False,
+            no_count=True,
+        )
+        current = {str(row["sys_id"]): row for row in rows if row.get("sys_id")}
+    except Exception as exc:  # noqa: BLE001 — preview stays useful without the diff
+        preview["warnings"].append(f"current-order lookup failed: {exc}")
+    for i, activity_id in enumerate(activity_ids):
+        row = current.get(activity_id)
+        entry: Dict[str, Any] = {"activity_id": activity_id, "new_order": (i + 1) * 100}
+        if row:
+            entry["name"] = row.get("name")
+            entry["current_order"] = row.get("order")
+        elif current:
+            preview["warnings"].append(f"activity not found: {activity_id}")
+        preview["planned_updates"].append(entry)
+    return preview
 
 
 def reorder_workflow_activities(
@@ -790,54 +897,57 @@ def reorder_workflow_activities(
 
     workflow_id = params.get("workflow_id")
     if not workflow_id:
-        return {"error": "Workflow ID is required"}
+        return {"success": False, "error": "Workflow ID is required"}
 
     activity_ids = params.get("activity_ids")
     if not activity_ids:
-        return {"error": "Activity IDs are required"}
+        return {"success": False, "error": "Activity IDs are required"}
 
-    # Make the API requests to update the order of each activity
+    if params.get("dry_run"):
+        return _build_reorder_preview(server_config, auth_manager, workflow_id, activity_ids)
+
+    # Each activity's order is an independent PATCH — run them concurrently so a
+    # 12-step reorder is ~1 round-trip of wall-clock, not 12 sequential ones.
+    # Order is independent per record, so parallel writes are safe.
     try:
         headers = auth_manager.get_headers()
-        results = []
 
-        for i, activity_id in enumerate(activity_ids):
-            # Calculate the new order value (100, 200, 300, etc.)
-            new_order = (i + 1) * 100
-
+        def _patch_one(i: int, activity_id: str) -> Dict[str, Any]:
+            new_order = (i + 1) * 100  # 100, 200, 300, …
             url = f"{server_config.instance_url}/api/now/table/wf_activity/{activity_id}"
-            data = {"order": new_order}
-
             try:
-                response = auth_manager.make_request("PATCH", url, headers=headers, json=data)
-                response.raise_for_status()
-
-                results.append(
-                    {
-                        "activity_id": activity_id,
-                        "new_order": new_order,
-                        "success": True,
-                    }
+                response = auth_manager.make_request(
+                    "PATCH", url, headers=headers, json={"order": new_order}
                 )
+                response.raise_for_status()
+                return {"activity_id": activity_id, "new_order": new_order, "success": True}
             except Exception as e:
                 logger.error(f"Error updating activity order: {e}")
-                results.append(
-                    {
-                        "activity_id": activity_id,
-                        "error": str(e),
-                        "success": False,
-                    }
-                )
+                return {"activity_id": activity_id, "error": str(e), "success": False}
+
+        max_workers = min(_REORDER_MAX_PARALLEL, len(activity_ids))
+        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="wf-reorder") as ex:
+            # executor.map preserves input order, so results stay aligned to
+            # activity_ids for the per-item report.
+            results = list(ex.map(lambda p: _patch_one(*p), enumerate(activity_ids)))
 
         invalidate_query_cache(table="wf_activity")
+        failed = [r for r in results if not r.get("success")]
         return {
-            "message": "Activities reordered",
+            "success": not failed,
+            "message": (
+                "Activities reordered"
+                if not failed
+                else f"Reorder INCOMPLETE — {len(failed)} of {len(results)} activity "
+                "updates failed; order values are now inconsistent. Inspect results "
+                "and re-run reorder_activities to repair."
+            ),
             "workflow_id": workflow_id,
             "results": results,
         }
     except Exception as e:
         logger.error(f"Unexpected error reordering workflow activities: {e}")
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
 
 
 def delete_workflow(
@@ -861,7 +971,7 @@ def delete_workflow(
 
     workflow_id = params.get("workflow_id")
     if not workflow_id:
-        return {"error": "Workflow ID is required"}
+        return {"success": False, "error": "Workflow ID is required"}
 
     if params.get("dry_run"):
         return build_delete_preview(
@@ -881,6 +991,28 @@ def delete_workflow(
             ],
         )
 
+    # The dry-run preview surfaces running contexts; enforce it on the live
+    # delete too — deleting a workflow out from under active contexts orphans
+    # them. Fail-open when the count can't run (no read access, transient error).
+    if not params.get("force"):
+        try:
+            active_contexts = sn_count(
+                server_config,
+                auth_manager,
+                table="wf_context",
+                query=f"workflow={workflow_id}^active=true",
+            )
+        except Exception:  # noqa: BLE001
+            active_contexts = None
+        if active_contexts:
+            return {
+                "error": f"{active_contexts} active workflow context(s) are still running "
+                "against this workflow — delete blocked, nothing was deleted.",
+                "active_contexts": active_contexts,
+                "hint": "Run with dry_run=true to see the full dependency scope; "
+                "pass force=true to delete anyway.",
+            }
+
     # Make the API request
     try:
         headers = auth_manager.get_headers()
@@ -896,7 +1028,7 @@ def delete_workflow(
         }
     except Exception as e:
         logger.error(f"Error deleting workflow: {e}")
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
 
 
 def list_workflow_versions(
@@ -909,7 +1041,7 @@ def list_workflow_versions(
 
     workflow_id = params.get("workflow_id")
     if not workflow_id:
-        return {"error": "Workflow ID is required"}
+        return {"success": False, "error": "Workflow ID is required"}
 
     query = f"workflow={workflow_id}"
     if params.get("published_only"):
@@ -936,7 +1068,7 @@ def list_workflow_versions(
         }
     except Exception as e:
         logger.error(f"Error listing workflow versions: {e}")
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
 
 
 def get_workflow_activities(
@@ -949,7 +1081,7 @@ def get_workflow_activities(
 
     workflow_id = params.get("workflow_id")
     if not workflow_id:
-        return {"error": "Workflow ID is required"}
+        return {"success": False, "error": "Workflow ID is required"}
 
     try:
         result = _fetch_workflow_activities(
@@ -959,7 +1091,7 @@ def get_workflow_activities(
         return result
     except Exception as e:
         logger.error(f"Error getting workflow activities: {e}")
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
 
 
 # ---------------------------------------------------------------------------
@@ -1034,6 +1166,10 @@ class ManageWorkflowParams(BaseModel):
     activity_ids: Optional[List[str]] = Field(default=None)
 
     dry_run: bool = Field(default=False)
+    force: bool = Field(
+        default=False,
+        description="delete: proceed even with running workflow contexts",
+    )
 
     _FIELDS_BY_ACTION: ClassVar[Dict[str, frozenset]] = {
         "list": frozenset({"limit", "offset", "query", "count_only", "active"}),
@@ -1046,7 +1182,7 @@ class ManageWorkflowParams(BaseModel):
         ),
         "activate": frozenset({"workflow_id", "dry_run"}),
         "deactivate": frozenset({"workflow_id", "dry_run"}),
-        "delete": frozenset({"workflow_id", "dry_run"}),
+        "delete": frozenset({"workflow_id", "dry_run", "force"}),
         "add_activity": frozenset(
             {
                 "workflow_version_id",
@@ -1167,7 +1303,7 @@ def manage_workflow(
         )
     if a == "create":
         assert params.name is not None
-        create_kwargs: Dict[str, Any] = {"name": params.name}
+        create_kwargs: Dict[str, Any] = {"name": params.name, "dry_run": params.dry_run}
         for f in ("description", "table", "active", "attributes"):
             v = getattr(params, f)
             if v is not None:
@@ -1186,16 +1322,28 @@ def manage_workflow(
         return update_workflow(config, auth_manager, update_kwargs)
     if a == "activate":
         assert params.workflow_id is not None
-        return activate_workflow(config, auth_manager, {"workflow_id": params.workflow_id})
+        return activate_workflow(
+            config,
+            auth_manager,
+            {"workflow_id": params.workflow_id, "dry_run": params.dry_run},
+        )
     if a == "deactivate":
         assert params.workflow_id is not None
-        return deactivate_workflow(config, auth_manager, {"workflow_id": params.workflow_id})
+        return deactivate_workflow(
+            config,
+            auth_manager,
+            {"workflow_id": params.workflow_id, "dry_run": params.dry_run},
+        )
     if a == "delete":
         assert params.workflow_id is not None
         return delete_workflow(
             config,
             auth_manager,
-            {"workflow_id": params.workflow_id, "dry_run": params.dry_run},
+            {
+                "workflow_id": params.workflow_id,
+                "dry_run": params.dry_run,
+                "force": params.force,
+            },
         )
     if a == "add_activity":
         assert params.workflow_version_id is not None
@@ -1205,6 +1353,7 @@ def manage_workflow(
             "workflow_version_id": params.workflow_version_id,
             "name": params.activity_name,
             "activity_type": params.activity_type,
+            "dry_run": params.dry_run,
         }
         if params.activity_description is not None:
             add_kwargs["description"] = params.activity_description
@@ -1237,5 +1386,9 @@ def manage_workflow(
     return reorder_workflow_activities(
         config,
         auth_manager,
-        {"workflow_id": params.workflow_id, "activity_ids": params.activity_ids},
+        {
+            "workflow_id": params.workflow_id,
+            "activity_ids": params.activity_ids,
+            "dry_run": params.dry_run,
+        },
     )

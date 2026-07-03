@@ -1,6 +1,5 @@
 //! Functionality related to patching the current time
 use crate::{classes::instant::Instant, common::scalar::*, py::*, pymodule::State};
-use pyo3_ffi::*;
 use std::time::SystemTime;
 
 pub(crate) fn _patch_time_frozen(state: &mut State, arg: PyObj) -> PyReturn {
@@ -12,7 +11,7 @@ pub(crate) fn _patch_time_keep_ticking(state: &mut State, arg: PyObj) -> PyRetur
 }
 
 pub(crate) fn _patch_time(state: &mut State, arg: PyObj, freeze: bool) -> PyReturn {
-    let Some(inst) = arg.extract(state.instant_type) else {
+    let Some(inst) = arg.extract(*state.instant_type) else {
         return raise_type_err("expected an Instant")?;
     };
 
@@ -66,7 +65,7 @@ fn time_machine_installed() -> PyResult<bool> {
     // because that would be slower. We only need to check its existence.
     Ok(!import(c"importlib.util")?
         .getattr(c"find_spec")?
-        .call1("time_machine".to_py()?.borrow())?
+        .call1(*"time_machine".to_py()?)?
         .is_none())
 }
 
@@ -98,7 +97,7 @@ impl Instant {
 }
 
 impl State {
-    pub(crate) fn time_ns(&self) -> PyResult<Instant> {
+    pub(crate) fn now(&self) -> PyResult<Instant> {
         let Patch {
             state: status,
             time_machine_installed,
@@ -117,26 +116,22 @@ impl State {
                     + SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)
                         .ok()
-                        .ok_or_raise(unsafe { PyExc_OSError }, "System time out of range")?
+                        .ok_or_raise(exc_os_error(), "System time out of range")?
                     - at;
                 Instant::from_duration_since_epoch(dur)
-                    .ok_or_raise(unsafe { PyExc_OSError }, "System time out of range")
+                    .ok_or_raise(exc_os_error(), "System time out of range")
             }
         }
     }
 
     fn time_ns_py(&self) -> PyResult<Instant> {
-        let ts = self.time_ns.call0()?;
+        let ts = self.time_ns.get()?.call0()?;
         let ns = ts
             .cast_exact::<PyInt>()
-            .ok_or_raise(
-                unsafe { PyExc_RuntimeError },
-                "time_ns() returned a non-integer",
-            )?
+            .ok_or_raise(exc_runtime_error(), "time_ns() returned a non-integer")?
             // FUTURE: this will break in the year 2262. Fix it before then.
             .to_i64()?;
-        Instant::from_nanos_i64(ns)
-            .ok_or_raise(unsafe { PyExc_OSError }, "System time out of range")
+        Instant::from_nanos_i64(ns).ok_or_raise(exc_os_error(), "System time out of range")
     }
 
     fn time_ns_rust(&self) -> PyResult<Instant> {
@@ -144,6 +139,6 @@ impl State {
             .duration_since(SystemTime::UNIX_EPOCH)
             .ok()
             .and_then(Instant::from_duration_since_epoch)
-            .ok_or_raise(unsafe { PyExc_OSError }, "System time out of range")
+            .ok_or_raise(exc_os_error(), "System time out of range")
     }
 }

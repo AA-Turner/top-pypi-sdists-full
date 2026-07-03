@@ -7,6 +7,7 @@ import concurrent.futures
 import json
 import logging
 import shutil
+import threading
 import time
 import uuid
 from contextlib import suppress
@@ -14,6 +15,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from bernstein.adapters.base import RateLimitError, SpawnError, SpawnResult
+from bernstein.adapters.plugin_sdk import (
+    SAMPLING_PARAM_KEYS,
+    SamplingParamsRefusal,
+    ensure_sampling_params_supported,
+)
 from bernstein.adapters.registry import get_adapter
 from bernstein.adapters.skills_injector import inject_skills
 from bernstein.agents.registry import AgentRegistry, get_registry
@@ -49,6 +55,7 @@ from bernstein.core.agents.spawner_sandbox_session import (
     write_prompt_to_session,
 )
 from bernstein.core.agents.spawner_warm_pool import (
+    _CLAUDE_TIER_MODELS,
     _coerce_model_for_non_claude_adapter,
     _select_batch_config,
     _should_use_router,
@@ -94,7 +101,7 @@ from bernstein.templates.renderer import TemplateError, render_role_prompt
 
 if TYPE_CHECKING:
     import subprocess
-    import threading
+    from collections.abc import Callable
 
     from bernstein.adapters.base import CLIAdapter
     from bernstein.agents.catalog import CatalogAgent, CatalogRegistry
@@ -106,7 +113,8 @@ if TYPE_CHECKING:
     from bernstein.core.mcp_manager import MCPManager
     from bernstein.core.mcp_registry import MCPRegistry
     from bernstein.core.resource_limits import ResourceLimits
-    from bernstein.core.sandbox.backend import SandboxSession
+    from bernstein.core.sandbox.backend import SandboxBackend, SandboxSession
+    from bernstein.core.sandbox.manifest import WorkspaceManifest
     from bernstein.core.workspace import Workspace
 
 # ---------------------------------------------------------------------------
@@ -114,6 +122,18 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 _FILE_CACHE: dict[str, tuple[float, str]] = {}
 _DIR_CACHE: dict[str, tuple[float, list[str]]] = {}
+
+# Serializes every sandbox lifecycle audit append across threads.
+#
+# AuditLog has no internal locking: each instance recovers the chain tail
+# from disk in __init__ and appends with that prev_hmac. Sandbox events are
+# emitted concurrently - session_create/exec_start on the spawn thread,
+# exec_end/session_destroy on per-agent exec-done callback threads - so
+# unserialized appends let two writers recover the same tail and write
+# sibling records, forking the HMAC chain and breaking verify() for the
+# whole daily log. Module-level (not per-spawner) so multiple spawner
+# instances in one process share the same critical section.
+_SANDBOX_AUDIT_LOCK = threading.Lock()
 
 
 def _read_cached(path: Path) -> str:
@@ -672,13 +692,25 @@ def _render_prompt(
 
     # Use catalog system prompt when available (Agency specialist prompt),
     # otherwise fall back to role template or built-in default.
-    if catalog_system_prompt:
+    #
+    # The manager role is exempt from this substitution even if a catalog
+    # system prompt is set: templates/roles/manager.md carries the
+    # task-server task-creation instructions (POST /tasks schema, decomposition
+    # steps) that no catalog persona defines. Letting a catalog prompt replace
+    # the manager template silently breaks decomposition - the manager agent
+    # would have a persona but no idea how to create child tasks.
+    if catalog_system_prompt and role != "manager":
         role_prompt = catalog_system_prompt
     else:
         try:
             role_prompt = render_role_prompt(role, context, templates_dir=templates_dir)
         except (FileNotFoundError, TemplateError) as exc:
-            logger.debug("Template render failed for role %s, using fallback: %s", role, exc)
+            logger.warning(
+                "Template render failed for role %s (templates_dir=%s), using fallback: %s",
+                role,
+                templates_dir,
+                exc,
+            )
             role_prompt = _render_fallback(role, templates_dir, agency_catalog)
 
     sdd_dir = workdir / ".sdd"
@@ -857,8 +889,19 @@ class AgentSpawner:
         warm_pool: WarmPool | None = None,
         spawn_rate_limiter: SpawnRateLimiter | None = None,
         sandbox_session: SandboxSession | None = None,
+        sandbox_backend: SandboxBackend | None = None,
+        sandbox_manifest_factory: Callable[[], WorkspaceManifest] | None = None,
+        sandbox_options: dict[str, Any] | None = None,
+        sandbox_server_port: int | None = None,
+        default_model: str | None = None,
     ) -> None:
         self._enable_caching = enable_caching
+        # Run-level model (e.g. from ``bernstein run --model``), threaded in by
+        # the orchestrator from the CLI flag / seed config. Used to coerce
+        # Claude tier names (opus/sonnet/haiku) emitted by the heuristic
+        # selector into a model the active non-Claude adapter actually
+        # understands - see ``_coerce_model_for_non_claude_adapter``.
+        self._default_model = default_model
         self._resource_limits = resource_limits
         self._adapter_cache: dict[str, CLIAdapter] = {}
         if enable_caching:
@@ -930,6 +973,25 @@ class AgentSpawner:
         self._sandbox_session: SandboxSession | None = sandbox_session
         if sandbox_session is not None:
             sandbox_session_created_total.labels(backend=getattr(sandbox_session, "backend_name", "unknown")).inc()
+        # Issue #2162: per-agent sandbox sessions. When a backend plus a
+        # manifest factory are attached (instead of a single pre-built
+        # session), _spawn_via_sandbox_session provisions ONE session per
+        # spawn and destroys it when the exec future resolves, so an exec
+        # timeout that kills a container only kills that agent and
+        # concurrent agents never share a single workspace clone. The
+        # sandbox_session parameter above keeps working unchanged for
+        # callers that pass a shared session (tests, back-compat).
+        self._sandbox_backend = sandbox_backend
+        self._sandbox_manifest_factory = sandbox_manifest_factory
+        self._sandbox_options: dict[str, Any] = dict(sandbox_options or {})
+        self._sandbox_server_port = sandbox_server_port
+        # session_id -> per-spawn SandboxSession owned (and destroyed)
+        # by this spawner.  Popped exactly once by _destroy_sandbox_session
+        # so the exec-done callback and kill() cannot double-destroy.
+        self._sandbox_owned_sessions: dict[str, SandboxSession] = {}
+        # One reachability probe per spawner instance is enough - the
+        # answer is a property of the Docker daemon, not of the session.
+        self._sandbox_reachability_checked = False
         # session_id -> SandboxExecHandle for agents whose exec went
         # through SandboxSession.exec.  Consulted by check_alive / kill
         # so the orchestrator's lifecycle paths keep working without a
@@ -1077,6 +1139,21 @@ class AgentSpawner:
         routes adapter exec through ``sandbox_session.exec``.
         """
         return self._sandbox_session
+
+    def _sandbox_session_routing_active(self) -> bool:
+        """Return True when spawns must route through a sandbox session.
+
+        Two wiring shapes activate the routing seam:
+
+        1. A shared non-worktree :class:`SandboxSession` attached at
+           construction (oai-002 phase 2 back-compat).
+        2. A :class:`SandboxBackend` plus manifest factory attached at
+           construction, which makes ``_spawn_via_sandbox_session``
+           provision one session per spawn (issue #2162).
+        """
+        if self._sandbox_session is not None:
+            return getattr(self._sandbox_session, "backend_name", "worktree") != "worktree"
+        return self._sandbox_backend is not None and self._sandbox_manifest_factory is not None
 
     def cleanup_worktree(self, session_id: str) -> None:
         """Remove the worktree and branch for a dead agent session."""
@@ -1535,6 +1612,146 @@ class AgentSpawner:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             return pool.submit(asyncio.run, awaitable).result()
 
+    def _mcp_config_for_adapter(
+        self,
+        adapter: CLIAdapter,
+        mcp_config: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        """Attach adapter-specific extras to the per-spawn MCP config.
+
+        Adapters that opt in via a truthy ``consumes_heartbeat_dir``
+        attribute (currently ``openai_agents``) receive the orchestrator
+        root's heartbeat directory as a ``heartbeat_dir`` key.  Their
+        runner processes write heartbeats themselves, but they execute
+        inside a per-session worktree and cannot derive the project root
+        the ``HeartbeatMonitor`` polls - without this injection the
+        heartbeat would land in the worktree and never be observed.
+
+        Adapters without the attribute get ``mcp_config`` back unchanged
+        so their MCP config files stay byte-identical.
+        """
+        if not getattr(adapter, "consumes_heartbeat_dir", False):
+            return mcp_config
+        heartbeat_dir = str(self._workdir / ".sdd" / "runtime" / "heartbeats")
+        return {**(mcp_config or {}), "heartbeat_dir": heartbeat_dir}
+
+    def _primary_adapter_supports_sampling(self, model_config: ModelConfig) -> bool:
+        """Best-effort probe: does the adapter for this spawn honour sampling?
+
+        Used to decide whether mode-profile sampling params may be folded
+        into the per-spawn config. Only adapters that declare
+        :attr:`AdapterCapability.SUPPORTS_SAMPLING_PARAMS` accept them; for
+        any other adapter the spawn path's
+        :func:`ensure_sampling_params_supported` gate would refuse the
+        spawn, so injecting profile defaults there would break otherwise
+        valid runs.
+
+        The probe only inspects adapters that are already known - the
+        default adapter and any already-cached instance - and never calls
+        :meth:`_get_adapter_by_name`. Building or caching a new adapter here
+        would perturb the failover loop's own adapter resolution (and its
+        side effects), so the probe stays read-only. An adapter that is not
+        yet known is treated as not supporting sampling, the conservative
+        choice that preserves today's behavior.
+        """
+
+        def _supports(adapter: object) -> bool:
+            from bernstein.adapters.plugin_sdk import AdapterCapability, PluginAdapter
+
+            if not isinstance(adapter, PluginAdapter):
+                return False
+            try:
+                return AdapterCapability.SUPPORTS_SAMPLING_PARAMS in adapter.plugin_info().capabilities
+            except Exception:  # pragma: no cover - defensive against bad plugins
+                return False
+
+        adapter_name = self._infer_adapter_name_for_provider(None, model_config.model)
+        cached = self._adapter_cache.get(adapter_name)
+        if cached is not None and _supports(cached):
+            return True
+        return _supports(self._adapter)
+
+    def _apply_sampling_overrides(
+        self,
+        mcp_config: dict[str, Any] | None,
+        *,
+        role_policy: dict[str, Any],
+        model_config: ModelConfig,
+        tasks: list[Task],
+    ) -> dict[str, Any] | None:
+        """Fold per-role endpoint and mode-profile sampling params into config.
+
+        Two opt-in sources feed the per-spawn ``mcp_config`` slots the
+        adapter manifest reads (see :data:`SAMPLING_PARAM_KEYS`):
+
+        1. ``role_model_policy[role].base_url`` / ``.api_key_env`` - the
+           per-role OpenAI-compatible endpoint override parsed from
+           ``bernstein.yaml``. ``api_key_env`` was already validated at
+           parse time against the fail-closed credential allowlist. These
+           are explicit operator config, so they forward unconditionally;
+           the spawn path's capability gate still guards the target adapter.
+        2. The resolved :class:`ModeProfile`'s deterministic sampling params
+           (``temperature``, ``top_p``, ``top_k``, ``max_tokens``) via
+           :func:`apply_mode_to_spawn`. These are implicit defaults, so they
+           are folded in only when the target adapter declares
+           ``SUPPORTS_SAMPLING_PARAMS`` - otherwise the capability gate
+           would refuse an otherwise valid spawn.
+
+        Precedence is: an explicit value already present in ``mcp_config``
+        (operator-set) wins over a role-policy value, which wins over a
+        mode-profile value. Absent config leaves ``mcp_config`` unchanged,
+        so a run without any of these keys is byte-identical to before.
+
+        The merge is deterministic: it reads only the parsed config, the
+        selected model id, and the task metadata - no wall-clock or random
+        input - so two operators with identical state build identical
+        manifests.
+        """
+        derived: dict[str, Any] = {}
+
+        # Mode-profile sampling params (lowest precedence). Wiring these here
+        # is what makes a ModeProfile's sampling params actually reach the
+        # adapter manifest; the profile object defined them but nothing
+        # forwarded them before. Guarded by the target adapter's capability
+        # so a default profile temperature never breaks a spawn on an
+        # adapter that cannot honour sampling params.
+        if self._primary_adapter_supports_sampling(model_config):
+            from bernstein.core.agents.spawner_prompt import apply_mode_to_spawn
+
+            bundle = apply_mode_to_spawn(
+                model_id=model_config.model,
+                prompt="",
+                tools=None,
+                task=tasks[0] if tasks else None,
+                workdir=self._workdir,
+            )
+            profile = bundle.profile
+            if profile.temperature is not None:
+                derived["temperature"] = profile.temperature
+            if profile.top_p is not None:
+                derived["top_p"] = profile.top_p
+            if profile.top_k is not None:
+                derived["top_k"] = profile.top_k
+            if profile.max_tokens is not None:
+                derived["max_tokens"] = profile.max_tokens
+
+        # Per-role endpoint override (higher precedence than the profile).
+        for key in ("base_url", "api_key_env"):
+            value = role_policy.get(key)
+            if isinstance(value, str) and value:
+                derived[key] = value
+
+        if not derived:
+            return mcp_config
+
+        # Operator-set values in ``mcp_config`` always win: only fill slots
+        # the caller did not already set.
+        merged = dict(mcp_config or {})
+        for key, value in derived.items():
+            if merged.get(key) is None:
+                merged[key] = value
+        return merged
+
     def _spawn_via_runtime_bridge(
         self,
         *,
@@ -1804,20 +2021,49 @@ class AgentSpawner:
         # the model recorded here matches what the adapter actually runs (e.g.
         # Codex gets gpt-5.4, not `codex exec -m opus`). Claude-compatible
         # adapters are returned unchanged.
-        if provider_name is None and not tasks[0].model and not role_policy.get("model"):
+        #
+        # ``tasks[0].model`` is normally an operator pin and must be left
+        # alone. But retry escalation (see defaults.py's escalation map) and
+        # manager-created child tasks both stamp internal Claude tier names
+        # ("opus"/"sonnet"/"haiku") onto ``task.model`` - those are not
+        # operator pins, they're meaningless tier labels for a non-Claude
+        # adapter. Treat a tier-named ``tasks[0].model`` as coercible too;
+        # any other value (e.g. "MiniMax-M3") is a genuine pin and is left
+        # untouched.
+        #
+        # Exception: callers that explicitly pin a tier name as a genuine
+        # comparison point (e.g. ``bernstein ab-test --model-a opus
+        # --model-b sonnet``) stamp ``metadata["pinned_model"] = True`` on
+        # the task. Coercing both sides of an A/B test to the same adapter
+        # default would silently collapse the comparison into A-vs-A, so
+        # honor the pin and skip coercion. ``metadata`` may be ``None`` on
+        # older/partial Task constructions.
+        task_metadata = tasks[0].metadata or {}
+        task_model_is_pinned = bool(task_metadata.get("pinned_model"))
+        task_model_is_tier_name = tasks[0].model in _CLAUDE_TIER_MODELS
+        if (
+            provider_name is None
+            and not role_policy.get("model")
+            and (not tasks[0].model or task_model_is_tier_name)
+            and not task_model_is_pinned
+        ):
             model_config = _coerce_model_for_non_claude_adapter(
                 model_config,
                 adapter_name=self._adapter.name(),
-                adapter_default_model=getattr(self._adapter, "default_model", None),
+                adapter_default_model=self._default_model or getattr(self._adapter, "default_model", None),
             )
 
         logger.info(
-            "Model selection for role=%s: model=%s effort=%s provider=%s source=%s",
+            "Model selection for role=%s: model=%s effort=%s provider=%s source=%s "
+            "role_policy_model=%s task_model=%s base_config_model=%s",
             tasks[0].role,
             model_config.model,
             model_config.effort,
             provider_name or self._adapter.name(),
             routing_source,
+            role_policy.get("model"),
+            tasks[0].model,
+            base_config.model,
         )
 
         provider_for_rate_limit = provider_name or self._adapter.name()
@@ -2042,6 +2288,19 @@ class AgentSpawner:
             except Exception:
                 logger.warning("MCP readiness probe raised unexpectedly (non-fatal)", exc_info=True)
 
+        # Layer per-role endpoint overrides and mode-profile sampling params
+        # onto the per-spawn config. Both feed the same ``SAMPLING_PARAM_KEYS``
+        # slots the adapter manifest reads, and both are opt-in: absent config
+        # leaves ``effective_mcp`` byte-identical to today. An explicit value
+        # already present in ``mcp_config`` always wins over these derived
+        # defaults, so operator-set overrides are never silently replaced.
+        effective_mcp = self._apply_sampling_overrides(
+            effective_mcp,
+            role_policy=role_policy,
+            model_config=model_config,
+            tasks=tasks,
+        )
+
         log_dir = spawn_cwd / ".sdd" / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         preferred_log_path = log_dir / f"{session_id}.log"
@@ -2088,6 +2347,16 @@ class AgentSpawner:
 
         remote_spawned = False
         if self._runtime_bridge is not None:
+            # Same capability gate as the local adapter loop below: the
+            # bridge spawn request has no way to carry sampling/endpoint
+            # overrides, so requesting them alongside a configured bridge
+            # must fail loudly instead of running the task remotely with
+            # provider defaults.
+            _bridge_sampling_keys = tuple(
+                key for key in SAMPLING_PARAM_KEYS if effective_mcp is not None and effective_mcp.get(key) is not None
+            )
+            if _bridge_sampling_keys:
+                raise SamplingParamsRefusal(self._runtime_bridge.name(), _bridge_sampling_keys)
             try:
                 remote_spawned = self._spawn_via_runtime_bridge(
                     session=session,
@@ -2157,6 +2426,18 @@ class AgentSpawner:
                         attempt_errors.append(f"{adapter_name}: {exc}")
                         break
 
+                    # Fail loudly when sampling/endpoint overrides are
+                    # requested for an adapter that does not declare the
+                    # SUPPORTS_SAMPLING_PARAMS capability.  Silently
+                    # dropping them would run the task with parameters the
+                    # operator did not ask for, so this raises instead of
+                    # falling through to provider failover.
+                    ensure_sampling_params_supported(target_adapter, effective_mcp)
+
+                    # Per-attempt config so a failover to a different
+                    # adapter never inherits another adapter's extras.
+                    attempt_mcp = self._mcp_config_for_adapter(target_adapter, effective_mcp)
+
                     try:
                         # Apply OS-level resource limits to non-sandboxed spawns.
                         target_adapter.set_resource_limits(self._resource_limits)
@@ -2169,16 +2450,16 @@ class AgentSpawner:
                                 workdir=spawn_cwd,
                                 model_config=model_config,
                                 session_id=session_id,
-                                mcp_config=effective_mcp,
+                                mcp_config=attempt_mcp,
                             )
                             result = SpawnResult(pid=fake_pid, log_path=actual_log_path)
-                        elif (
-                            self._sandbox_session is not None
-                            and getattr(self._sandbox_session, "backend_name", "worktree") != "worktree"
-                        ):
-                            # oai-002 phase 2: route exec through the
-                            # attached SandboxSession (Docker, E2B,
-                            # Modal, plugin).  The local-worktree
+                        elif self._sandbox_session_routing_active():
+                            # oai-002 phase 2: route exec through a
+                            # SandboxSession (Docker, E2B, Modal,
+                            # plugin) - either the shared session
+                            # attached at construction or a per-spawn
+                            # session provisioned from the attached
+                            # backend (issue #2162).  The local-worktree
                             # backend is intentionally excluded so the
                             # existing direct-subprocess path keeps
                             # worker-wrapper / PID semantics intact.
@@ -2187,7 +2468,7 @@ class AgentSpawner:
                                 prompt=prompt,
                                 spawn_cwd=spawn_cwd,
                                 model_config=model_config,
-                                mcp_config=effective_mcp,
+                                mcp_config=attempt_mcp,
                                 session=session,
                                 adapter=target_adapter,
                             )
@@ -2197,7 +2478,7 @@ class AgentSpawner:
                                 prompt=prompt,
                                 spawn_cwd=spawn_cwd,
                                 model_config=model_config,
-                                mcp_config=effective_mcp,
+                                mcp_config=attempt_mcp,
                                 session=session,
                                 adapter=target_adapter,
                                 task_scope=max_scope,
@@ -2208,7 +2489,7 @@ class AgentSpawner:
                                 prompt=prompt,
                                 spawn_cwd=spawn_cwd,
                                 model_config=model_config,
-                                mcp_config=effective_mcp,
+                                mcp_config=attempt_mcp,
                                 session=session,
                                 adapter=target_adapter,
                                 task_scope=max_scope,
@@ -2224,7 +2505,7 @@ class AgentSpawner:
                                 workdir=spawn_cwd,
                                 model_config=model_config,
                                 session_id=session_id,
-                                mcp_config=effective_mcp,
+                                mcp_config=attempt_mcp,
                                 task_scope=max_scope,
                                 budget_multiplier=_budget_mult,
                                 system_addendum="",
@@ -2724,14 +3005,18 @@ class AgentSpawner:
         session: AgentSession,
         adapter: CLIAdapter,
     ) -> SpawnResult:
-        """Route adapter exec through the attached :class:`SandboxSession`.
+        """Route adapter exec through a :class:`SandboxSession`.
 
         Phase 2 of ``oai-002``. When the spawner has been wired with a
         non-worktree :class:`SandboxBackend` (Docker, E2B, Modal,
         custom plugin), the adapter command is run via
         :meth:`SandboxSession.exec` and the prompt is injected via
         :meth:`SandboxSession.write` instead of mutating the host
-        worktree directly. The local-worktree backend is intentionally
+        worktree directly. Issue #2162: when a backend plus manifest
+        factory are attached (production wiring), a dedicated session
+        is provisioned for this spawn and destroyed when the exec
+        future resolves; a shared session attached at construction is
+        used as-is for back-compat. The local-worktree backend is intentionally
         excluded: keeping it on the legacy direct-subprocess path
         preserves the worker-wrapper, process-group, and timeout-watchdog
         bookkeeping that production tooling depends on, and matches the
@@ -2755,8 +3040,34 @@ class AgentSpawner:
             the :class:`SandboxExecHandle` stored in
             ``_sandbox_exec_handles``.
         """
-        assert self._sandbox_session is not None
-        sbx_session = self._sandbox_session
+        sbx_session: SandboxSession
+        owned = False
+        if self._sandbox_session is not None:
+            # Back-compat: a single shared session attached at
+            # construction. Its lifecycle belongs to whoever built it.
+            sbx_session = self._sandbox_session
+        else:
+            # Issue #2162: one session per spawn. Provisioning failure
+            # falls back to the direct adapter spawn, mirroring the
+            # ContainerError fallback in _spawn_in_sandbox.
+            try:
+                sbx_session = self._provision_sandbox_session(session_id)
+            except Exception as exc:
+                logger.warning(
+                    "Sandbox session provisioning failed for %s, falling back to direct spawn: %s",
+                    session_id,
+                    exc,
+                )
+                session.isolation = IsolationMode.WORKTREE.value if self._use_worktrees else IsolationMode.NONE.value
+                return adapter.spawn(
+                    prompt=prompt,
+                    workdir=spawn_cwd,
+                    model_config=model_config,
+                    session_id=session_id,
+                    mcp_config=mcp_config,
+                )
+            owned = True
+            self._sandbox_owned_sessions[session_id] = sbx_session
 
         log_dir = spawn_cwd / ".sdd" / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -2781,6 +3092,44 @@ class AgentSpawner:
             adapter=adapter,
         )
 
+        # 2b) Forward API keys to the sandbox so adapters can authenticate.
+        #     IMPORTANT: do NOT use build_filtered_env() here -- it copies
+        #     PATH and other host-specific vars that OVERRIDE the container's
+        #     own env when passed to Docker exec_run(environment=...).
+        #     Only forward the specific API keys the adapter needs.
+        import os as _os
+
+        adapter_name_lc = adapter.name().lower()
+        _env_keys: list[str] = []
+        if "claude" in adapter_name_lc:
+            _env_keys.append("ANTHROPIC_API_KEY")
+        elif "gemini" in adapter_name_lc:
+            _env_keys.extend(["GOOGLE_API_KEY", "GEMINI_API_KEY"])
+        else:
+            # OpenAI-compatible adapters (codex, qwen, generic) only.
+            # Claude/Gemini sandboxes must not receive OpenAI credentials
+            # they never use (least-privilege, same per-adapter gating as
+            # the legacy container env allowlists).
+            _env_keys.extend(["OPENAI_API_KEY", "OPENAI_BASE_URL"])
+        sandbox_env = {k: v for k in _env_keys if (v := _os.environ.get(k)) is not None}
+
+        # 2c) Audit the exec submission (issue #2162). The argv embeds
+        #     prompt paths and model names, so only its hash is chained.
+        import hashlib as _hashlib
+
+        from bernstein.core.security.audit import SANDBOX_EXEC_START
+
+        self._emit_sandbox_audit(
+            SANDBOX_EXEC_START,
+            resource_id=sbx_session.session_id,
+            details={
+                "session_id": sbx_session.session_id,
+                "adapter": adapter.name(),
+                "cmd_hash": _hashlib.sha256(" ".join(cmd).encode("utf-8")).hexdigest(),
+                "agent_session_id": session_id,
+            },
+        )
+
         # 3) Submit the exec on a dedicated thread; the future drives
         #    liveness checks via SandboxSession-aware paths.
         handle = submit_session_exec(
@@ -2788,13 +3137,16 @@ class AgentSpawner:
             cmd=cmd,
             session_id=session_id,
             log_path=log_path,
+            env=sandbox_env,
+            workdir=self._workdir,
         )
         self._sandbox_exec_handles[session_id] = handle
 
         # When the future resolves we increment the per-exit-code
-        # counter so operators can see how often agents inside a given
-        # backend exit cleanly.
-        def _record_exit(_h: SandboxExecHandle = handle) -> None:
+        # counter, chain the exec_end audit event, sync committed work
+        # back to the host, and (for per-spawn sessions) destroy the
+        # session so no container outlives its agent (issue #2162).
+        def _record_exit(_h: SandboxExecHandle = handle, _owned: bool = owned) -> None:
             try:
                 if _h.future.cancelled():
                     code = "cancelled"
@@ -2805,12 +3157,254 @@ class AgentSpawner:
             except Exception:  # pragma: no cover - defensive
                 code = "error"
             sandbox_exec_count_total.labels(backend=_h.backend_name, exit_code=code).inc()
+            from bernstein.core.security.audit import SANDBOX_EXEC_END
+
+            self._emit_sandbox_audit(
+                SANDBOX_EXEC_END,
+                resource_id=sbx_session.session_id,
+                details={
+                    "session_id": sbx_session.session_id,
+                    "exit_code": code,
+                    "agent_session_id": session_id,
+                },
+            )
+            # Retrieve committed work from the sandbox-local clone
+            # before the session goes away. Skipped for cancelled or
+            # crashed execs where the container state is undefined.
+            if code not in ("cancelled", "error"):
+                self._sync_back_sandbox_work(sbx_session, session_id)
+            if _owned:
+                self._destroy_sandbox_session(session_id)
 
         handle.future.add_done_callback(lambda _f: _record_exit())
 
         session.isolation = IsolationMode.CONTAINER.value
         session.runtime_backend = handle.backend_name
         return SpawnResult(pid=0, log_path=log_path)
+
+    def _provision_sandbox_session(self, session_id: str) -> SandboxSession:
+        """Provision a dedicated sandbox session for one spawn (issue #2162).
+
+        One session per agent means one container per agent: an exec
+        timeout that kills a container only kills that agent, and
+        concurrent agents no longer share a single workspace clone.
+
+        Args:
+            session_id: Agent session identifier, recorded in the audit
+                event for correlation. The backend allocates its own
+                sandbox session id.
+
+        Returns:
+            The freshly created :class:`SandboxSession`.
+
+        Raises:
+            Exception: Whatever the backend raised; the caller falls
+                back to a direct adapter spawn.
+        """
+        assert self._sandbox_backend is not None
+        assert self._sandbox_manifest_factory is not None
+        manifest = self._sandbox_manifest_factory()
+        sbx_session = asyncio.run(self._sandbox_backend.create(manifest, options=self._sandbox_options.copy()))
+        backend_name = getattr(sbx_session, "backend_name", "unknown")
+        sandbox_session_created_total.labels(backend=backend_name).inc()
+        logger.info(
+            "Provisioned sandbox session %s for agent %s (backend=%s)",
+            sbx_session.session_id,
+            session_id,
+            backend_name,
+        )
+        from bernstein.core.security.audit import SANDBOX_SESSION_CREATE
+
+        self._emit_sandbox_audit(
+            SANDBOX_SESSION_CREATE,
+            resource_id=sbx_session.session_id,
+            details={
+                "session_id": sbx_session.session_id,
+                "image": self._sandbox_options.get("image"),
+                "backend": backend_name,
+                "agent_session_id": session_id,
+            },
+        )
+        self._check_task_server_reachability(sbx_session)
+        return sbx_session
+
+    def _destroy_sandbox_session(self, session_id: str) -> None:
+        """Destroy the per-spawn sandbox session owned by *session_id*.
+
+        Idempotent and race-safe: the owned-session map is popped
+        first, so a :meth:`kill` racing the exec-done callback destroys
+        the session exactly once. Failures log a warning, never raise.
+
+        Args:
+            session_id: Agent session whose sandbox session should go.
+        """
+        sbx_session = self._sandbox_owned_sessions.pop(session_id, None)
+        if sbx_session is None:
+            return
+        try:
+            if self._sandbox_backend is not None:
+                asyncio.run(self._sandbox_backend.destroy(sbx_session))
+            else:  # pragma: no cover - owned sessions always have a backend
+                asyncio.run(sbx_session.shutdown())
+        except Exception as exc:
+            logger.warning(
+                "Failed to destroy sandbox session %s for agent %s: %s",
+                sbx_session.session_id,
+                session_id,
+                exc,
+            )
+            return
+        logger.info("Destroyed sandbox session %s for agent %s", sbx_session.session_id, session_id)
+        from bernstein.core.security.audit import SANDBOX_SESSION_DESTROY
+
+        self._emit_sandbox_audit(
+            SANDBOX_SESSION_DESTROY,
+            resource_id=sbx_session.session_id,
+            details={"session_id": sbx_session.session_id, "agent_session_id": session_id},
+        )
+
+    def _sync_back_sandbox_work(self, sbx_session: SandboxSession, session_id: str) -> None:
+        """Best-effort sync of sandbox-local commits back to the host.
+
+        Agent commits land in the sandbox's own clone (e.g.
+        ``/workspace`` inside a Docker container) and would vanish with
+        the session. Bundle every ref inside the sandbox, copy the
+        bundle to ``.sdd/runtime/sandbox/<session_id>.bundle`` on the
+        host, then fetch it into ``refs/remotes/sandbox/<session_id>/*``
+        so the work stays inspectable after the run (issue #2162).
+
+        Failures log a warning and never crash the run.
+
+        Args:
+            sbx_session: The session holding the agent's clone.
+            session_id: Agent session identifier; used as the bundle
+                basename and the remote-ref namespace.
+        """
+        import subprocess as _subprocess
+
+        bundle_in_sandbox = f"/tmp/{session_id}.bundle"
+        try:
+            bundle_result = asyncio.run(
+                sbx_session.exec(["git", "bundle", "create", bundle_in_sandbox, "--all"], timeout=120)
+            )
+            if bundle_result.exit_code != 0:
+                logger.warning(
+                    "Sandbox sync-back for %s: git bundle create failed (exit %d): %s",
+                    session_id,
+                    bundle_result.exit_code,
+                    bundle_result.stderr[:500].decode("utf-8", errors="replace"),
+                )
+                return
+            bundle_bytes = asyncio.run(sbx_session.read(bundle_in_sandbox))
+            bundle_dir = self._workdir / ".sdd" / "runtime" / "sandbox"
+            bundle_dir.mkdir(parents=True, exist_ok=True)
+            bundle_path = bundle_dir / f"{session_id}.bundle"
+            bundle_path.write_bytes(bundle_bytes)
+
+            refspec = f"refs/heads/*:refs/remotes/sandbox/{session_id}/*"
+            fetch = _subprocess.run(
+                ["git", "fetch", str(bundle_path), refspec],
+                cwd=self._workdir,
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
+            )
+            if fetch.returncode != 0:
+                logger.warning(
+                    "Sandbox sync-back for %s: git fetch from bundle failed: %s",
+                    session_id,
+                    fetch.stderr.strip()[:500],
+                )
+                return
+            refs_result = _subprocess.run(
+                ["git", "for-each-ref", "--format=%(refname)", f"refs/remotes/sandbox/{session_id}/"],
+                cwd=self._workdir,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            fetched_refs = [line for line in refs_result.stdout.splitlines() if line]
+            logger.info(
+                "Synced sandbox work for %s: bundle at %s, fetched refs: %s",
+                session_id,
+                bundle_path,
+                ", ".join(fetched_refs) or "(none)",
+            )
+        except Exception as exc:
+            logger.warning("Sandbox sync-back for %s failed: %s", session_id, exc)
+
+    def _check_task_server_reachability(self, sbx_session: SandboxSession) -> None:
+        """Warn once when the sandbox cannot reach the host task server.
+
+        Some Docker Desktop configurations do not support host
+        networking, so agents inside the container cannot POST to the
+        task server on 127.0.0.1. This probe surfaces the condition as
+        an explicit warning instead of a silent run stall; the run
+        proceeds and relies on the legacy path behavior (issue #2162).
+        Never fails the run.
+
+        Args:
+            sbx_session: A freshly provisioned session to probe from.
+        """
+        port = self._sandbox_server_port
+        if port is None or self._sandbox_reachability_checked:
+            return
+        self._sandbox_reachability_checked = True
+        probe = f'import socket; socket.create_connection(("127.0.0.1", {int(port)}), timeout=3).close()'
+        try:
+            result = asyncio.run(sbx_session.exec(["python3", "-c", probe], timeout=15))
+        except Exception as exc:
+            logger.warning(
+                "Could not probe task server reachability from sandbox session %s: %s",
+                sbx_session.session_id,
+                exc,
+            )
+            return
+        if result.exit_code != 0:
+            logger.warning(
+                "Sandbox session %s cannot reach the task server on 127.0.0.1:%d; "
+                "agents inside containers on this Docker daemon will not reach the "
+                "task server (some Docker Desktop configurations do not support "
+                "host networking). The run will rely on the legacy path behavior.",
+                sbx_session.session_id,
+                port,
+            )
+
+    def _emit_sandbox_audit(self, event_type: str, *, resource_id: str, details: dict[str, Any]) -> None:
+        """Append a sandbox lifecycle event to the HMAC-chained audit log.
+
+        Best-effort by design (issue #2162): audit failures (key
+        permission, disk full) are logged at warning level and never
+        block the spawn or teardown paths that emit them.
+
+        All emissions are serialized through ``_SANDBOX_AUDIT_LOCK``:
+        exec_end/session_destroy fire from exec-done callback threads
+        while the spawn thread emits session_create/exec_start for other
+        agents, and AuditLog's tail-recover-then-append sequence is not
+        concurrency-safe (overlapping writers fork the HMAC chain).
+
+        Args:
+            event_type: One of the ``sandbox.*`` event-type constants
+                from :mod:`bernstein.core.security.audit`.
+            resource_id: Audit resource identifier (sandbox session id).
+            details: Structured event payload.
+        """
+        try:
+            from bernstein.core.security.audit import AuditLog
+
+            with _SANDBOX_AUDIT_LOCK:
+                audit = AuditLog(audit_dir=self._workdir / ".sdd" / "audit")
+                audit.log(
+                    event_type=event_type,
+                    actor="spawner",
+                    resource_type="sandbox_session",
+                    resource_id=resource_id,
+                    details=details,
+                )
+        except Exception as exc:  # audit must never block execution
+            logger.warning("Could not emit %s audit event for %s: %s", event_type, resource_id, exc)
 
     def _adapter_cmd_for_container(
         self,
@@ -2836,6 +3430,8 @@ class AgentSpawner:
         Returns:
             Command argument list.
         """
+        import shlex
+
         _ = prompt_file  # Part of interface; container path is reconstructed from session_id
         _ = mcp_config  # Part of interface; not used in container command
         # Map container path: host workspace is mounted at /workspace
@@ -2844,23 +3440,55 @@ class AgentSpawner:
         # Build a generic shell command that reads the prompt and pipes it
         # to the adapter CLI. This works across all adapters.
         adapter_name = adapter.name().lower()
+
+        # Resolve the actual CLI binary name. adapter.name() may return a
+        # display name like "Qwen CLI" which is not a valid command. Map
+        # known adapters to their binary names.
+        _ADAPTER_BINARY_MAP: dict[str, str] = {
+            "qwen cli": "qwen",
+            "claude code": "claude",
+            "codex cli": "codex",
+            "gemini cli": "gemini",
+            "aider": "aider",
+        }
+        cli_binary = _ADAPTER_BINARY_MAP.get(adapter_name, adapter_name.split()[0])
+
+        # Shell-quote every interpolated value. ``model`` and the role
+        # segment of ``session_id`` originate from task-server payloads
+        # (length-checked only), so unquoted interpolation into ``sh -c``
+        # would let a crafted task run arbitrary commands at container
+        # startup, outside the adapter's own tool-approval gate.
+        q_prompt = shlex.quote(container_prompt)
+        q_model = shlex.quote(str(model_config.model))
+        q_effort = shlex.quote(str(model_config.effort))
+        q_binary = shlex.quote(cli_binary)
+
         if "claude" in adapter_name:
             cmd = [
                 "sh",
                 "-c",
-                f"claude --model {model_config.model} "
-                f"--effort {model_config.effort} "
+                f"claude --model {q_model} "
+                f"--effort {q_effort} "
                 f"--max-turns 50 "
                 f"--dangerously-skip-permissions "
                 f"--output-format stream-json "
-                f'-p "$(cat {container_prompt})"',
+                f'-p "$(cat {q_prompt})"',
+            ]
+        elif "qwen" in adapter_name:
+            # Qwen CLI uses positional arg for prompt, -y for auto-approve.
+            # Inside containers, --auth-type openai is required because the
+            # default qwen auth config is not present.
+            cmd = [
+                "sh",
+                "-c",
+                f'{q_binary} -y --auth-type openai --model {q_model} "$(cat {q_prompt})"',
             ]
         else:
             # Generic: assume the adapter CLI reads from stdin or -p flag
             cmd = [
                 "sh",
                 "-c",
-                f'cat {container_prompt} | {adapter_name} -p "$(cat {container_prompt})"',
+                f'cat {q_prompt} | {q_binary} -p "$(cat {q_prompt})"',
             ]
         return cmd
 
@@ -2995,6 +3623,10 @@ class AgentSpawner:
         if sbx_handle is not None:
             cancel_session_exec(sbx_handle)
             self._sandbox_exec_handles.pop(session.id, None)
+            # Issue #2162: per-spawn sessions are destroyed on kill so a
+            # cancelled agent never leaves its container behind. No-op
+            # when the exec-done callback already destroyed it.
+            self._destroy_sandbox_session(session.id)
             self._transition_to_dead(
                 session,
                 "kill requested",

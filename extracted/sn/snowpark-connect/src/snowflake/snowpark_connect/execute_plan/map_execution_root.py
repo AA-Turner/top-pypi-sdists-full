@@ -17,6 +17,7 @@ from snowflake.snowpark._internal.analyzer.snowflake_plan import PlanQueryType
 from snowflake.snowpark._internal.utils import (
     create_or_update_statement_params_with_query_tag,
 )
+from snowflake.snowpark.types import DayTimeIntervalType
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.execute_plan.utils import (
     _is_agg_function_with_single_row_result,
@@ -55,6 +56,44 @@ def _build_execute_plan_response(
 SKIP_LEVELS_TWO = (
     2  # limit traceback to return up to 2 stack trace entries from traceback object tb
 )
+
+
+def _widen_second_only_interval_columns(
+    result_df: snowpark.DataFrame,
+    snowpark_schema: snowpark.types.StructType,
+) -> snowpark.DataFrame:
+    """Work around a Snowflake/snowpark arrow-fetch limitation for SECOND-only
+    day-time intervals.
+
+    Fetching a top-level ``INTERVAL SECOND`` column (``DayTimeIntervalType(SECOND,
+    SECOND)``, Snowflake scale 12) via ``to_arrow`` collapses the value to 0 — it
+    affects interval literals, string casts, and numeric casts alike. Casting the
+    column to ``DAY TO SECOND`` preserves the exact value (a day-time interval's
+    value is independent of its field range; the range only governs display, which
+    the client renders from the proto schema). The caller keeps the reported
+    schema from the original DataFrame, so widening only affects the fetched Arrow
+    data and is invisible to the client.
+
+    The already-resolved ``snowpark_schema`` is passed in so this adds no extra
+    ``DESCRIBE`` round-trip, and ``result_df`` is returned unchanged (no extra
+    projection) when no SECOND-only interval column is present.
+    """
+    needs_widening = [
+        isinstance(f.datatype, DayTimeIntervalType)
+        and f.datatype.start_field == DayTimeIntervalType.SECOND
+        for f in snowpark_schema.fields
+    ]
+    if not any(needs_widening):
+        return result_df
+
+    day_to_second = DayTimeIntervalType(
+        DayTimeIntervalType.DAY, DayTimeIntervalType.SECOND
+    )
+    projection = []
+    for name, widen in zip(snowpark_schema.names, needs_widening):
+        col = result_df.col(name)
+        projection.append(col.cast(day_to_second).alias(name) if widen else col)
+    return result_df.select(projection)
 
 
 # TODO: SNOW-2039432 use to_arrow_batches once it is fixed in sproc-python-connector
@@ -125,6 +164,14 @@ def map_execution_root(
         )
         spark_columns = filtered_result.column_map.get_spark_columns()
 
+        # SNOW-3595418: SECOND-only day-time interval columns fetch as 0 via
+        # to_arrow. Widen them for the fetch only; the reported schema above is
+        # kept from the original (3,3) type, so this is invisible to the client.
+        # No-op (returns the same DataFrame) when no such column is present.
+        fetch_df = _widen_second_only_interval_columns(
+            filtered_result_df, snowpark_schema
+        )
+
         # SNOW-3242008: Performance optimization for DDL sql_command results.
         # When a DDL statement (USE DATABASE, ALTER SESSION SET, etc.) is executed,
         # the result ("Statement executed successfully.") round-trips through the
@@ -157,24 +204,22 @@ def map_execution_root(
             is_large_result = False
             second_batch = False
             first_arrow_table = None
-            with filtered_result_df.session.query_history() as qh:
-                for arrow_table in to_arrow_batch_iter(
-                    filtered_result_df, to_iter=to_iter
-                ):
+            with fetch_df.session.query_history() as qh:
+                for arrow_table in to_arrow_batch_iter(fetch_df, to_iter=to_iter):
                     if second_batch:
                         is_large_result = True
                         break
                     first_arrow_table = arrow_table
                     second_batch = True
                 queries_cnt = len(
-                    filtered_result_df._plan.execution_queries[PlanQueryType.QUERIES]
+                    fetch_df._plan.execution_queries[PlanQueryType.QUERIES]
                 )
                 # get query uuid from the last query; this may not be the last queries in query history because snowpark
                 # may run some post action queries, e.g., drop temp table.
                 query_id = qh.queries[queries_cnt - 1].query_id
             if first_arrow_table is None:
                 # empty arrow batch iterator
-                pandas_df = filtered_result_df.to_pandas()
+                pandas_df = fetch_df.to_pandas()
                 data_bytes = pandas_empty_table_to_arrow_bytes(
                     pandas_df, snowpark_schema, spark_columns
                 )
@@ -207,7 +252,7 @@ def map_execution_root(
             # data being retrieved exceeds SNOWFLAKE_GRPC_MAX_MESSAGE_SIZE, which
             # we configure to be 128MB by default. This is not checked in CI due to
             # the potential for slowdowns and flakiness.
-            arrow_table_iter = to_arrow_batch_iter(filtered_result_df, to_iter=to_iter)
+            arrow_table_iter = to_arrow_batch_iter(fetch_df, to_iter=to_iter)
             batch_count = 0
             for arrow_table in arrow_table_iter:
                 if arrow_table.num_rows > 0:
@@ -223,7 +268,7 @@ def map_execution_root(
 
             # Empty result needs special processing
             if batch_count == 0:
-                pandas_df = filtered_result_df.to_pandas()
+                pandas_df = fetch_df.to_pandas()
                 data_bytes = pandas_empty_table_to_arrow_bytes(
                     pandas_df, snowpark_schema, spark_columns
                 )

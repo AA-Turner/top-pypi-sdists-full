@@ -292,3 +292,47 @@ def get_local_binary_override() -> str | None:
     Set CLOAKBROWSER_BINARY_PATH to use a locally built Chromium instead of downloading.
     """
     return os.environ.get("CLOAKBROWSER_BINARY_PATH")
+
+
+# ---------------------------------------------------------------------------
+# Headless viewport handling by binary version
+# ---------------------------------------------------------------------------
+# First Chromium build that reports coherent headless dimensions without an
+# emulated viewport. On these binaries the wrapper launches headless with
+# no_viewport; older binaries need a fixed DEFAULT_VIEWPORT to stay coherent.
+# None => not shipped yet; feature off, behavior byte-identical to today.
+# TODO: set to the chromium version string that first ships it.
+HEADLESS_NO_VIEWPORT_MIN_VERSION: str | None = "148.0.7778.215.4"
+
+
+def binary_supports_headless_no_viewport(
+    license_key: str | None = None, browser_version: str | None = None
+) -> bool:
+    """Whether headless can launch with ``no_viewport`` on the resolved binary.
+
+    Only binaries at or above ``HEADLESS_NO_VIEWPORT_MIN_VERSION`` qualify; older
+    ones keep ``DEFAULT_VIEWPORT``. A local override binary
+    (``CLOAKBROWSER_BINARY_PATH``) is unknown-version, so stay on the safe path.
+    """
+    if HEADLESS_NO_VIEWPORT_MIN_VERSION is None:
+        return False
+    # A declared version (browser_version arg OR CLOAKBROWSER_VERSION env) wins even
+    # under a local override — the caller is asserting the version (also how internal
+    # builds opt in). Only an override with no declared version stays on the safe path.
+    try:
+        declared = normalize_requested_version(browser_version)
+    except ValueError:
+        declared = None
+    if declared:
+        version = declared
+    elif get_local_binary_override():
+        return False
+    else:
+        from .license import resolve_license_key
+
+        pro = bool(resolve_license_key(license_key))
+        version = get_effective_version(pro=pro)
+    try:
+        return not _version_newer(HEADLESS_NO_VIEWPORT_MIN_VERSION, version)
+    except (ValueError, AttributeError):
+        return False

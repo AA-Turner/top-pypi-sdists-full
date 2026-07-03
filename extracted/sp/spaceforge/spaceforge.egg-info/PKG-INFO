@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spaceforge
-Version: 1.7.1
+Version: 1.8.0
 Summary: A Python framework for building Spacelift plugins
 Author-email: Spacelift <support@spacelift.io>
 Maintainer-email: Spacelift <support@spacelift.io>
@@ -30,13 +30,10 @@ Requires-Dist: mergedeep>=1.3.4
 Provides-Extra: dev
 Requires-Dist: pytest>=6.0; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: black>=26.1.0; extra == "dev"
-Requires-Dist: isort; extra == "dev"
+Requires-Dist: ruff>=0.15.0; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
-Requires-Dist: pylint==4.0.4; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
 Requires-Dist: setuptools-scm[toml]>=6.2; extra == "dev"
-Requires-Dist: autoflake; extra == "dev"
 Dynamic: license-file
 
 # Spaceforge - Build Spacelift Plugins in Python

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Self
 
 from tmodbus.const import FunctionCode
+from tmodbus.exceptions import InvalidRequestError, InvalidResponseError
 from tmodbus.pdu.base import BasePDU
 
 
@@ -37,6 +38,26 @@ class ReadFifoQueuePDU(BasePDU[list[int]]):
         return struct.pack(">BH", self.function_code, self.address)
 
     @classmethod
+    def get_expected_response_data_length(cls, data: bytes) -> int | None:
+        """Determine the response data length (after the function code) for RTU framing.
+
+        Unlike most PDUs, the FIFO response starts with a two-byte byte count that
+        covers the FIFO count field and the register values that follow it, so the
+        default single-byte length logic does not apply here.
+
+        Args:
+            data: Response PDU data following the function code.
+
+        Returns:
+            Expected length of the data part, or None if it cannot be determined yet.
+
+        """
+        if len(data) < 2:
+            return None  # need the full byte count field first
+        byte_count = int.from_bytes(data[:2], "big")
+        return 2 + byte_count
+
+    @classmethod
     def decode_request(cls, data: bytes) -> Self:
         """Decode Read FIFO Queue request PDU.
 
@@ -47,18 +68,18 @@ class ReadFifoQueuePDU(BasePDU[list[int]]):
             Decoded ReadFifoQueuePDU instance
 
         Raises:
-            ValueError: If data length is incorrect
+            InvalidRequestError: If data length or function code is incorrect
 
         """
         if len(data) != 3:
             msg = f"Invalid Read FIFO Queue request length: {len(data)}. Expected 3."
-            raise ValueError(msg)
+            raise InvalidRequestError(msg, request_bytes=data)
 
         function_code, address = struct.unpack(">BH", data)
 
         if function_code != cls.function_code:
             msg = f"Invalid function code: {function_code:#04x}. Expected {cls.function_code:#04x}."
-            raise ValueError(msg)
+            raise InvalidRequestError(msg, request_bytes=data)
 
         return cls(address=address)
 
@@ -98,12 +119,12 @@ class ReadFifoQueuePDU(BasePDU[list[int]]):
             List of values from the FIFO queue
 
         Raises:
-            ValueError: If data length is incorrect or count doesn't match values
+            InvalidResponseError: If data length is incorrect or count doesn't match values
 
         """
         if len(data) < 5:
             msg = f"Invalid Read FIFO Queue response length: {len(data)}. Minimum expected is 5."
-            raise ValueError(msg)
+            raise InvalidResponseError(msg, response_bytes=data)
 
         response_header_struct = struct.Struct(">BHH")
 
@@ -111,11 +132,11 @@ class ReadFifoQueuePDU(BasePDU[list[int]]):
 
         if function_code != self.function_code:
             msg = f"Invalid function code: {function_code:#04x}. Expected {self.function_code:#04x}."
-            raise ValueError(msg)
+            raise InvalidResponseError(msg, response_bytes=data)
 
         if byte_count != len(data) - 3:
             msg = f"Byte count {byte_count} does not match actual data length {len(data) - 3}."
-            raise ValueError(msg)
+            raise InvalidResponseError(msg, response_bytes=data)
 
         values_count = (byte_count // 2) - 1
         values = list(struct.unpack(f">{values_count}H", data[response_header_struct.size :]))
@@ -123,6 +144,6 @@ class ReadFifoQueuePDU(BasePDU[list[int]]):
         # Validate that the FIFO count matches the number of values
         if fifo_count != len(values):
             msg = f"FIFO count {fifo_count} does not match number of values {len(values)}."
-            raise ValueError(msg)
+            raise InvalidResponseError(msg, response_bytes=data)
 
         return values

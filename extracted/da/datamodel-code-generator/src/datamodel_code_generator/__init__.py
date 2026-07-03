@@ -1089,7 +1089,7 @@ def _build_parser(  # noqa: PLR0911, PLR0913
                 **additional_options,
             }
             parser_config = _create_parser_config(config, openapi_additional_options)
-            return OpenAPIParser(source=source, config=parser_config)  # ty: ignore
+            return OpenAPIParser(source=source, config=parser_config)
         case InputFileType.AsyncAPI:
             from datamodel_code_generator.parser.asyncapi import AsyncAPIParser  # noqa: PLC0415
 
@@ -1099,7 +1099,7 @@ def _build_parser(  # noqa: PLR0911, PLR0913
                 **additional_options,
             }
             parser_config = _create_parser_config(config, asyncapi_additional_options)
-            return AsyncAPIParser(source=source, config=parser_config)  # ty: ignore
+            return AsyncAPIParser(source=source, config=parser_config)
         case InputFileType.XMLSchema:
             from datamodel_code_generator.parser.xmlschema import XMLSchemaParser  # noqa: PLC0415
 
@@ -1108,7 +1108,7 @@ def _build_parser(  # noqa: PLR0911, PLR0913
                 **additional_options,
             }
             parser_config = _create_parser_config(config, xmlschema_additional_options)
-            return XMLSchemaParser(source=source, config=parser_config)  # ty: ignore
+            return XMLSchemaParser(source=source, config=parser_config)
         case InputFileType.Protobuf:
             from datamodel_code_generator.parser.protobuf import ProtobufParser  # noqa: PLC0415
 
@@ -1118,13 +1118,13 @@ def _build_parser(  # noqa: PLR0911, PLR0913
                 "skip_root_model": True,
             }
             parser_config = _create_parser_config(config, protobuf_additional_options)
-            return ProtobufParser(source=source, config=parser_config)  # ty: ignore
+            return ProtobufParser(source=source, config=parser_config)
         case InputFileType.Avro:
             from datamodel_code_generator.parser.avro import AvroParser  # noqa: PLC0415
 
             avro_additional_options: AvroParserConfigDict = {**additional_options}
             parser_config = _create_parser_config(config, avro_additional_options)
-            return AvroParser(source=source, config=parser_config)  # ty: ignore
+            return AvroParser(source=source, config=parser_config)
         case InputFileType.GraphQL:
             from datamodel_code_generator.parser.graphql import GraphQLParser  # noqa: PLC0415
 
@@ -1134,7 +1134,7 @@ def _build_parser(  # noqa: PLR0911, PLR0913
                 **additional_options,
             }
             parser_config = _create_parser_config(config, graphql_additional_options)
-            return GraphQLParser(source=source, config=parser_config)  # ty: ignore
+            return GraphQLParser(source=source, config=parser_config)
         case _:
             from datamodel_code_generator.parser.jsonschema import JsonSchemaParser  # noqa: PLC0415
 
@@ -1143,7 +1143,7 @@ def _build_parser(  # noqa: PLR0911, PLR0913
                 **additional_options,
             }
             parser_config = _create_parser_config(config, jsonschema_additional_options)
-            return JsonSchemaParser(source=source, config=parser_config)  # ty: ignore
+            return JsonSchemaParser(source=source, config=parser_config)
     msg = f"Unsupported input file type: {input_file_type}"
     raise Error(msg)
 
@@ -1524,8 +1524,11 @@ def infer_input_type(text: str) -> InputFileType:  # noqa: PLR0911, PLR0912
 
     try:
         data = load_yaml(text)
-    except get_yaml_parse_errors():
-        return InputFileType.CSV
+    except get_yaml_parse_errors() as exc:
+        if not _is_json_text(text) and _looks_like_csv_text(text):
+            return InputFileType.CSV
+        msg = _infer_input_type_error_message(parse_error=exc)
+        raise Error(msg) from exc
     if isinstance(data, dict):
         if is_asyncapi(data):
             return InputFileType.AsyncAPI
@@ -1546,15 +1549,42 @@ def infer_input_type(text: str) -> InputFileType:  # noqa: PLR0911, PLR0912
         if is_avro_schema_data(data):
             return InputFileType.Avro
     if isinstance(data, str):
+        if _looks_like_csv_text(text):
+            return InputFileType.CSV
         from datamodel_code_generator.parser._avro_detection import is_avro_schema_data  # noqa: PLC0415
 
         if is_avro_schema_data(data):
             return InputFileType.Avro
-    msg = (
-        "Can't infer input file type from the input data. "
-        "Please specify the input file type explicitly with --input-file-type option."
-    )
+    msg = _infer_input_type_error_message()
     raise Error(msg)
+
+
+def _infer_input_type_error_message(*, parse_error: Exception | None = None) -> str:
+    message = "Can't infer input file type from the input data."
+    hint = "Please specify the input file type explicitly with --input-file-type option."
+    if parse_error is None:
+        return f"{message} {hint}"
+    return f"{message} YAML parser error: {type(parse_error).__name__}: {parse_error}. {hint}"
+
+
+_MIN_CSV_NON_EMPTY_LINES = 2
+
+
+def _looks_like_csv_text(text: str) -> bool:
+    comma_count: int | None = None
+    matched_lines = 0
+    for raw_line in text.splitlines():
+        if not (line := raw_line.strip()):
+            continue
+        if (current_comma_count := line.count(",")) == 0:
+            return False
+        match comma_count:
+            case None:
+                comma_count = current_comma_count
+            case _ if current_comma_count != comma_count:
+                return False
+        matched_lines += 1
+    return matched_lines >= _MIN_CSV_NON_EMPTY_LINES
 
 
 inferred_message = (

@@ -47,6 +47,7 @@ _watcher_manager: Optional["WatcherManager"] = None
 _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
     # Indexing
     "index_repo", "index_folder", "summarize_repo", "index_file",
+    "index_dependency",
     # Discovery
     "list_repos", "resolve_repo", "suggest_queries",
     "get_repo_outline", "get_file_tree", "get_file_outline",
@@ -105,7 +106,8 @@ _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
 # meta-test fails listing the gap. Keeps a new tool from drifting across the
 # registration surfaces (the recurring "added the tool in 4 of 5 places" trap).
 _SNIPPET_TOOL_CATEGORIES: list[tuple[str, list[str]]] = [
-    ("Indexing", ["index_repo", "index_folder", "summarize_repo", "index_file"]),
+    ("Indexing", ["index_repo", "index_folder", "summarize_repo", "index_file",
+                  "index_dependency"]),
     ("Discovery", ["list_repos", "resolve_repo", "suggest_queries",
                    "get_repo_outline", "get_file_tree", "get_file_outline"]),
     ("Search & Retrieval", ["search_symbols", "get_symbol_source", "get_context_bundle",
@@ -167,7 +169,7 @@ _TOOL_TIER_CORE: frozenset[str] = frozenset({
 
 _TOOL_TIER_STANDARD: frozenset[str] = _TOOL_TIER_CORE | frozenset({
     # Indexing extras
-    "summarize_repo", "embed_repo",
+    "summarize_repo", "embed_repo", "index_dependency",
     "import_runtime_signal", "get_runtime_coverage", "find_hot_paths", "find_unused_paths",
     "get_redaction_log",
     # Discovery extras
@@ -576,6 +578,7 @@ _COMPACT_STRIP_PARAMS: dict[str, set[str]] = {
     "get_ranked_context": {"detail_level"},
     "get_blast_radius": {"cross_repo", "max_depth"},
     "get_endpoint_impact": {"include_infra"},
+    "index_dependency": {"ecosystem", "max_files"},
     "find_importers": {"cross_repo"},
     "get_dependency_graph": {"cross_repo"},
     "index_repo": {"extra_ignore_patterns", "incremental"},
@@ -1067,6 +1070,51 @@ def _build_tools_list() -> list[Tool]:
                 },
                 "required": ["path"]
             }
+        ),
+        Tool(
+            name="index_dependency",
+            description=(
+                "Resolve and index an INSTALLED third-party dependency of an "
+                "already-indexed local repo — the version actually in "
+                "node_modules or the repo's virtualenv site-packages, read "
+                "from package metadata (no registry lookup, fully local). "
+                "Copies a filtered snapshot into the index store and indexes "
+                "it as its own queryable repo (version visible in the repo "
+                "id), then reports what docs the package ships. Use when the "
+                "agent needs ground truth for a library API instead of "
+                "guessing from training data."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": "Host repository identifier (must be locally indexed).",
+                    },
+                    "package": {
+                        "type": "string",
+                        "description": (
+                            "npm package (supports @scope/name) or PyPI "
+                            "distribution/import name, as installed."
+                        ),
+                    },
+                    "ecosystem": {
+                        "type": "string",
+                        "enum": ["auto", "npm", "pypi"],
+                        "description": (
+                            "Where to resolve: 'auto' tries node_modules then "
+                            "repo-local virtualenvs (.venv/venv/env)."
+                        ),
+                        "default": "auto",
+                    },
+                    "max_files": {
+                        "type": "integer",
+                        "description": "Cap on code files copied into the snapshot (truncation is reported).",
+                        "default": 2000,
+                    },
+                },
+                "required": ["repo", "package"],
+            },
         ),
         Tool(
             name="import_runtime_signal",
@@ -3490,7 +3538,7 @@ def _build_tools_list() -> list[Tool]:
                     },
                     "include_infra": {
                         "type": "boolean",
-                        "description": "Attach per-impact infra links: env vars / compose services / Dockerfiles / CI jobs / scripts whose project-intel cross-references land in the endpoint's blast-radius files. File-granular evidence.",
+                        "description": "Attach per-impact infra links: env vars / compose services / Dockerfiles / CI jobs / scripts whose project-intel cross-references land in the endpoint's blast-radius files (downstream), plus what exposes the app (compose ports, K8s Service/Ingress; precision host_port unless an Ingress path rule names the route). File-granular evidence.",
                         "default": False,
                     },
                 },
@@ -4196,6 +4244,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent] | CallToolR
 
     _t0_call = time.perf_counter()
     _call_ok = True
+    _reporter_ref = None  # progress reporter; drained in finally (#359)
     try:   # main handler try starts here, before coerce
         # Extract cross-cutting args that are not part of any tool's schema.
         # `format` controls compact-output encoding (see .encoding package).
@@ -4272,7 +4321,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent] | CallToolR
                               "index_file": "Index", "embed_repo": "Embed"}[name]
                     _reporter = ProgressReporter(_progress_notify, _label)
                     _progress_cb = _reporter.update
-                    _reporter_ref = _reporter  # prevent GC
+                    _reporter_ref = _reporter  # drained in finally (#359)
             except Exception:
                 logger.debug("Progress setup failed", exc_info=True)
 
@@ -4326,6 +4375,19 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent] | CallToolR
                     storage_path=storage_path,
                     context_providers=arguments.get("context_providers", True),
                     progress_cb=_progress_cb,
+                )
+            )
+            _result_cache_invalidate()
+        elif name == "index_dependency":
+            from .tools.index_dependency import index_dependency
+            result = await asyncio.to_thread(
+                functools.partial(
+                    index_dependency,
+                    repo=arguments["repo"],
+                    package=arguments["package"],
+                    ecosystem=arguments.get("ecosystem", "auto"),
+                    max_files=arguments.get("max_files", 2000),
+                    storage_path=storage_path,
                 )
             )
             _result_cache_invalidate()
@@ -5559,6 +5621,17 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent] | CallToolR
         }
         return _error_call_result(json.dumps(payload, separators=(',', ':')))
     finally:
+        # Flush in-flight progress notifications BEFORE the response is
+        # written (the SDK writes only after call_tool returns, and finally
+        # runs before that). A progress notification trailing its response
+        # is a protocol error to strict clients — Claude Code drops the
+        # stdio connection / loses the tool result (#359).
+        if _reporter_ref is not None:
+            try:
+                from .progress import drain_reporter
+                await drain_reporter(_reporter_ref)
+            except Exception:
+                logger.debug("Progress drain failed for %s", name, exc_info=True)
         try:
             from .storage.token_tracker import record_tool_latency
             duration_ms = (time.perf_counter() - _t0_call) * 1000.0

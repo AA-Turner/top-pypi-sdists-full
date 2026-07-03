@@ -31,6 +31,7 @@ See issue #1064 for the full decomposition plan.
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from dazzle.render.fragment.context import RenderContext
@@ -448,6 +449,43 @@ class _RenderShellMixin:
         checkmark respectively)."""
         return _WORKSPACE_TOOLBAR_HTML
 
+    def _usage_action_attr(self, workspace_name: str, route: str, ctx: RenderContext) -> str:
+        """`hx-headers` attribute tagging a heading action with its identity (ADR-0050 3a).
+
+        Emits ``hx-headers="{"X-Dz-Usage-Action": "<workspace>|<route>"}"`` so the
+        boosted click carries ``(surface, action)`` to the server, where a request
+        hook records it into ``_dazzle_usage_events``. Pure declarative htmx — no
+        JS. ``json.dumps`` handles JSON escaping of the value; ``escape_attr`` the
+        HTML-attribute escaping (the browser reverses it, so htmx sees valid JSON)."""
+        payload = json.dumps({"X-Dz-Usage-Action": f"{workspace_name}|{route}"})
+        return f' hx-headers="{ctx.escape_attr(payload)}"'
+
+    def _emit_workspace_overflow(self, w: WorkspaceShell, ctx: RenderContext) -> str:
+        """Render the 3a `More ⋯` overflow menu (#1491) — a native `<details>`
+        dropdown holding the actions demoted past the prominence budget. JS-free
+        (uses the browser's `<details>` open/close); empty when nothing overflowed
+        (the common ≤budget heading), so the output stays byte-identical there."""
+        if not w.overflow_actions:
+            return ""
+        items = "".join(
+            f'<a href="{ctx.escape_attr(a.route)}" hx-boost="true" '
+            f'class="dz-workspace-more__item" role="menuitem"'
+            f"{self._usage_action_attr(w.workspace_name, a.route, ctx)}>"
+            f"{ctx.escape(a.label)}</a>"
+            for a in w.overflow_actions
+        )
+        return (
+            f'<details class="dz-workspace-more" data-test-id="dz-workspace-more">'
+            f'<summary class="dz-workspace-more__trigger" aria-label="More actions">'
+            f'<svg width="16" height="16" fill="none" stroke="currentColor" '
+            f'viewBox="0 0 24 24" aria-hidden="true">'
+            f'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" '
+            f'd="M12 5h.01M12 12h.01M12 19h.01"/></svg>'
+            f"<span>More</span></summary>"
+            f'<div class="dz-workspace-more__menu" role="menu">{items}</div>'
+            f"</details>"
+        )
+
     def _emit_workspace_shell(self, w: WorkspaceShell, ctx: RenderContext) -> str:
         """Render a WorkspaceShell matching legacy `workspace/_content.html`
         outer wrapper + heading section byte-for-byte (Phase 4B.5.b.1).
@@ -472,7 +510,8 @@ class _RenderShellMixin:
         if w.primary_actions:
             actions_inner = "".join(
                 f'<a href="{ctx.escape_attr(a.route)}" hx-boost="true" '
-                f'class="dz-workspace-action">'
+                f'class="dz-workspace-action"'
+                f"{self._usage_action_attr(w.workspace_name, a.route, ctx)}>"
                 f'<svg width="14" height="14" fill="none" stroke="currentColor" '
                 f'viewBox="0 0 24 24" aria-hidden="true">'
                 f'<path stroke-linecap="round" stroke-linejoin="round" '
@@ -486,6 +525,7 @@ class _RenderShellMixin:
                 f'<div class="dz-workspace-primary-actions" '
                 f'data-test-id="dz-workspace-primary-actions">'
                 f"{actions_inner}"
+                f"{self._emit_workspace_overflow(w, ctx)}"
                 f"</div>"
             )
 

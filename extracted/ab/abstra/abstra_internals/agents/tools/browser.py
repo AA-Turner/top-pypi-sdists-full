@@ -1450,6 +1450,44 @@ class BrowserTools(AgentTools):
                 self._handle_page_crash(page_id)
             raise
 
+    def solve_captcha(
+        self,
+        page_id: str,
+        image_selector: str,
+        answer_selector: Optional[str] = None,
+    ) -> str:
+        """Solve an image CAPTCHA (distorted text that must be typed) using Abstra's managed CAPTCHA service. Provide image_selector, the CSS selector of the CAPTCHA <img> element. Optionally provide answer_selector, the CSS selector of the input field where the answer goes; when given, this tool fills it automatically. Returns the solved text. The image is captured directly from the live page (so it matches exactly what is displayed) and never passes through the language model. Do NOT try to read the CAPTCHA yourself from a screenshot and never guess the text — always use this tool. If the solution is rejected by the site, reload/refresh the CAPTCHA and call this tool again (up to a few attempts)."""
+        from abstra_internals.controllers.sdk.sdk_context import SDKContextStore
+
+        if self.debug_mode:
+            print(
+                f"[DEBUG][BrowserTools.solve_captcha] page_id={page_id}, image_selector={image_selector}, answer_selector={answer_selector}"
+            )
+
+        page = self._get_page(page_id)
+        try:
+            element = page.query_selector(image_selector)
+            if element is None:
+                available = self._get_available_selectors_hint(page_id)
+                raise ValueError(
+                    f"CAPTCHA image not found with selector '{image_selector}'. {available}"
+                )
+            # Screenshot the element = exactly the image shown in this session. Works for
+            # both data-URI and URL-served CAPTCHAs and keeps the base64 out of the LLM loop.
+            image_base64 = base64.b64encode(element.screenshot()).decode("utf-8")
+        except ValueError:
+            raise
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
+
+        text = SDKContextStore.get_by_thread().ai_sdk.solve_captcha(image_base64)
+
+        if answer_selector:
+            self.fill(page_id, answer_selector, text)
+        return text
+
     def download_url(
         self,
         page_id: str,
@@ -1955,6 +1993,7 @@ class BrowserTools(AgentTools):
             self.execute_javascript.__name__,
             self.wait.__name__,
             self.screenshot.__name__,
+            self.solve_captcha.__name__,
         ]
 
         if self.allow_close_page:

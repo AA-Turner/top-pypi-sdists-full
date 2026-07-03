@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-06-08 AT 11:28:09
+# AUTO GENERATED ON 2026-07-02 AT 19:33:43
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -17,102 +17,126 @@ from awkward_cpp.cpu_kernels import lib
 def test_unit_cpuawkward_RegularArray_reduce_nonlocal_preparenext_64_1():
     nextcarry = []
     nextcarry = (ctypes.c_int64*len(nextcarry))(*nextcarry)
-    nextparents = []
-    nextparents = (ctypes.c_int64*len(nextparents))(*nextparents)
-    parents = []
-    parents = (ctypes.c_int64*len(parents))(*parents)
+    nextoffsets = [123]
+    nextoffsets = (ctypes.c_int64*len(nextoffsets))(*nextoffsets)
+    offsets = [0]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     size = 3
     length = 0
+    outlength = 0
     funcC = getattr(lib, 'awkward_RegularArray_reduce_nonlocal_preparenext_64')
-    ret_pass = funcC(nextcarry, nextparents, parents, size, length)
+    ret_pass = funcC(nextcarry, nextoffsets, offsets, size, length, outlength)
     pytest_nextcarry = []
     assert nextcarry[:len(pytest_nextcarry)] == pytest.approx(pytest_nextcarry)
-    pytest_nextparents = []
-    assert nextparents[:len(pytest_nextparents)] == pytest.approx(pytest_nextparents)
+    pytest_nextoffsets = [0]
+    assert nextoffsets[:len(pytest_nextoffsets)] == pytest.approx(pytest_nextoffsets)
     assert not ret_pass.str
 
 def test_unit_cpuawkward_RegularArray_reduce_nonlocal_preparenext_64_2():
     nextcarry = []
     nextcarry = (ctypes.c_int64*len(nextcarry))(*nextcarry)
-    nextparents = []
-    nextparents = (ctypes.c_int64*len(nextparents))(*nextparents)
-    parents = []
-    parents = (ctypes.c_int64*len(parents))(*parents)
+    nextoffsets = [123]
+    nextoffsets = (ctypes.c_int64*len(nextoffsets))(*nextoffsets)
+    offsets = [0, 1, 2]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     size = 0
-    length = 0
+    length = 2
+    outlength = 2
     funcC = getattr(lib, 'awkward_RegularArray_reduce_nonlocal_preparenext_64')
-    ret_pass = funcC(nextcarry, nextparents, parents, size, length)
+    ret_pass = funcC(nextcarry, nextoffsets, offsets, size, length, outlength)
     pytest_nextcarry = []
     assert nextcarry[:len(pytest_nextcarry)] == pytest.approx(pytest_nextcarry)
-    pytest_nextparents = []
-    assert nextparents[:len(pytest_nextparents)] == pytest.approx(pytest_nextparents)
+    pytest_nextoffsets = [0]
+    assert nextoffsets[:len(pytest_nextoffsets)] == pytest.approx(pytest_nextoffsets)
     assert not ret_pass.str
 
 def test_unit_cpuawkward_RegularArray_reduce_nonlocal_preparenext_64_3():
-    nextcarry = []
+    nextcarry = [123, 123, 123, 123]
     nextcarry = (ctypes.c_int64*len(nextcarry))(*nextcarry)
-    nextparents = []
-    nextparents = (ctypes.c_int64*len(nextparents))(*nextparents)
-    parents = [0, 1]
-    parents = (ctypes.c_int64*len(parents))(*parents)
-    size = 0
+    nextoffsets = [123, 123, 123, 123, 123]
+    nextoffsets = (ctypes.c_int64*len(nextoffsets))(*nextoffsets)
+    offsets = [0, 1, 2]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
+    size = 2
     length = 2
+    outlength = 2
     funcC = getattr(lib, 'awkward_RegularArray_reduce_nonlocal_preparenext_64')
-    ret_pass = funcC(nextcarry, nextparents, parents, size, length)
-    pytest_nextcarry = []
+    ret_pass = funcC(nextcarry, nextoffsets, offsets, size, length, outlength)
+    pytest_nextcarry = [0, 1, 2, 3]
     assert nextcarry[:len(pytest_nextcarry)] == pytest.approx(pytest_nextcarry)
-    pytest_nextparents = []
-    assert nextparents[:len(pytest_nextparents)] == pytest.approx(pytest_nextparents)
+    pytest_nextoffsets = [0, 1, 2, 3, 4]
+    assert nextoffsets[:len(pytest_nextoffsets)] == pytest.approx(pytest_nextoffsets)
     assert not ret_pass.str
 
 def test_unit_cpuawkward_RegularArray_reduce_nonlocal_preparenext_64_4():
     nextcarry = [123, 123, 123, 123, 123, 123]
     nextcarry = (ctypes.c_int64*len(nextcarry))(*nextcarry)
-    nextparents = [123, 123, 123, 123, 123, 123]
-    nextparents = (ctypes.c_int64*len(nextparents))(*nextparents)
-    parents = [0, 1]
-    parents = (ctypes.c_int64*len(parents))(*parents)
+    nextoffsets = [123, 123, 123, 123]
+    nextoffsets = (ctypes.c_int64*len(nextoffsets))(*nextoffsets)
+    offsets = [0, 2]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     size = 3
     length = 2
+    outlength = 1
     funcC = getattr(lib, 'awkward_RegularArray_reduce_nonlocal_preparenext_64')
-    ret_pass = funcC(nextcarry, nextparents, parents, size, length)
+    ret_pass = funcC(nextcarry, nextoffsets, offsets, size, length, outlength)
     pytest_nextcarry = [0, 3, 1, 4, 2, 5]
     assert nextcarry[:len(pytest_nextcarry)] == pytest.approx(pytest_nextcarry)
-    pytest_nextparents = [0, 3, 1, 4, 2, 5]
-    assert nextparents[:len(pytest_nextparents)] == pytest.approx(pytest_nextparents)
+    pytest_nextoffsets = [0, 2, 4, 6]
+    assert nextoffsets[:len(pytest_nextoffsets)] == pytest.approx(pytest_nextoffsets)
     assert not ret_pass.str
 
 def test_unit_cpuawkward_RegularArray_reduce_nonlocal_preparenext_64_5():
-    nextcarry = [123, 123, 123, 123, 123, 123, 123, 123, 123]
+    nextcarry = [123, 123, 123, 123, 123, 123]
     nextcarry = (ctypes.c_int64*len(nextcarry))(*nextcarry)
-    nextparents = [123, 123, 123, 123, 123, 123, 123, 123, 123]
-    nextparents = (ctypes.c_int64*len(nextparents))(*nextparents)
-    parents = [2, 4, 6]
-    parents = (ctypes.c_int64*len(parents))(*parents)
-    size = 3
+    nextoffsets = [123, 123, 123, 123, 123]
+    nextoffsets = (ctypes.c_int64*len(nextoffsets))(*nextoffsets)
+    offsets = [0, 2, 3]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
+    size = 2
     length = 3
+    outlength = 2
     funcC = getattr(lib, 'awkward_RegularArray_reduce_nonlocal_preparenext_64')
-    ret_pass = funcC(nextcarry, nextparents, parents, size, length)
-    pytest_nextcarry = [0, 3, 6, 1, 4, 7, 2, 5, 8]
+    ret_pass = funcC(nextcarry, nextoffsets, offsets, size, length, outlength)
+    pytest_nextcarry = [0, 2, 1, 3, 4, 5]
     assert nextcarry[:len(pytest_nextcarry)] == pytest.approx(pytest_nextcarry)
-    pytest_nextparents = [6, 12, 18, 7, 13, 19, 8, 14, 20]
-    assert nextparents[:len(pytest_nextparents)] == pytest.approx(pytest_nextparents)
+    pytest_nextoffsets = [0, 2, 4, 5, 6]
+    assert nextoffsets[:len(pytest_nextoffsets)] == pytest.approx(pytest_nextoffsets)
     assert not ret_pass.str
 
 def test_unit_cpuawkward_RegularArray_reduce_nonlocal_preparenext_64_6():
+    nextcarry = [123, 123, 123, 123]
+    nextcarry = (ctypes.c_int64*len(nextcarry))(*nextcarry)
+    nextoffsets = [123, 123, 123, 123, 123, 123, 123]
+    nextoffsets = (ctypes.c_int64*len(nextoffsets))(*nextoffsets)
+    offsets = [0, 0, 2, 2]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
+    size = 2
+    length = 2
+    outlength = 3
+    funcC = getattr(lib, 'awkward_RegularArray_reduce_nonlocal_preparenext_64')
+    ret_pass = funcC(nextcarry, nextoffsets, offsets, size, length, outlength)
+    pytest_nextcarry = [0, 2, 1, 3]
+    assert nextcarry[:len(pytest_nextcarry)] == pytest.approx(pytest_nextcarry)
+    pytest_nextoffsets = [0, 0, 0, 2, 4, 4, 4]
+    assert nextoffsets[:len(pytest_nextoffsets)] == pytest.approx(pytest_nextoffsets)
+    assert not ret_pass.str
+
+def test_unit_cpuawkward_RegularArray_reduce_nonlocal_preparenext_64_7():
     nextcarry = [123]
     nextcarry = (ctypes.c_int64*len(nextcarry))(*nextcarry)
-    nextparents = [123]
-    nextparents = (ctypes.c_int64*len(nextparents))(*nextparents)
-    parents = [0]
-    parents = (ctypes.c_int64*len(parents))(*parents)
+    nextoffsets = [123, 123]
+    nextoffsets = (ctypes.c_int64*len(nextoffsets))(*nextoffsets)
+    offsets = [0, 1]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     size = 1
     length = 1
+    outlength = 1
     funcC = getattr(lib, 'awkward_RegularArray_reduce_nonlocal_preparenext_64')
-    ret_pass = funcC(nextcarry, nextparents, parents, size, length)
+    ret_pass = funcC(nextcarry, nextoffsets, offsets, size, length, outlength)
     pytest_nextcarry = [0]
     assert nextcarry[:len(pytest_nextcarry)] == pytest.approx(pytest_nextcarry)
-    pytest_nextparents = [0]
-    assert nextparents[:len(pytest_nextparents)] == pytest.approx(pytest_nextparents)
+    pytest_nextoffsets = [0, 1]
+    assert nextoffsets[:len(pytest_nextoffsets)] == pytest.approx(pytest_nextoffsets)
     assert not ret_pass.str
 

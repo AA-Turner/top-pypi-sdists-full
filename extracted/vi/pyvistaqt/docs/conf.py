@@ -199,7 +199,6 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "pyvista": ("https://docs.pyvista.org/", None),
     "PySide6": ("https://doc.qt.io/qtforpython-6/", None),
-    "PyQt6": ("https://www.riverbankcomputing.com/static/Docs/PyQt6/", None),
     "numpy": ("https://numpy.org/doc/stable", None),
 }
 
@@ -232,7 +231,7 @@ from docutils.parsers.rst import directives  # noqa: E402
 
 # -- Autosummary options
 from sphinx.ext.autosummary import Autosummary  # noqa: E402
-from sphinx.ext.autosummary import get_documenter  # noqa: E402
+from sphinx.ext.autosummary import _get_documenter  # noqa: E402
 from sphinx.util.inspect import safe_getattr  # noqa: E402
 
 
@@ -252,7 +251,7 @@ class AutoAutoSummary(Autosummary):  # noqa: D101
         items = []
         for name in sorted(obj.__dict__.keys()):  # dir(obj):
             try:
-                documenter = get_documenter(AutoAutoSummary.app, safe_getattr(obj, name), obj)
+                documenter = _get_documenter(AutoAutoSummary.app, safe_getattr(obj, name), obj)
             except AttributeError:
                 continue
             if documenter.objtype in typ:

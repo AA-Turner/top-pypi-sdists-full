@@ -1,0 +1,34 @@
+name: publish
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    name: Publish distribution 📦 to PyPI
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          # setuptools-scm derives the package version from the release tag
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Setup
+        run: make setup
+
+      - name: Build
+        run: make build
+
+      - name: Publish distribution 📦 to PyPI
+        env:
+          TWINE_USERNAME: "${{ secrets.PYPI_USERNAME }}"
+          TWINE_PASSWORD: "${{ secrets.PYPI_PASSWORD }}"
+        run:
+          make publish

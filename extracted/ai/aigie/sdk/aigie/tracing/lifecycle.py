@@ -91,7 +91,9 @@ class FrameworkLifecycleBridge(abc.ABC):
         """
         return False
 
-    def _before_run(self, handler: Any, input: Any, config: dict | None) -> None:
+    def _before_run(
+        self, handler: Any, framework_handle: Any, input: Any, config: dict | None
+    ) -> None:
         """Hook called after handler creation, before invoking user code."""
         return
 
@@ -140,7 +142,7 @@ class FrameworkLifecycleBridge(abc.ABC):
         token = open_ambient(trace_id=trace.id)
         handler = self._make_handler(trace.id)
         config = dict(config) if config is not None else {}
-        self._before_run(handler, input, config)
+        self._before_run(handler, framework_handle, input, config)
         return handler, config, token
 
     async def _build_async_setup(
@@ -157,7 +159,7 @@ class FrameworkLifecycleBridge(abc.ABC):
         token = open_ambient(trace_id=trace.id)
         handler = self._make_handler(trace.id)
         config = dict(config) if config is not None else {}
-        self._before_run(handler, input, config)
+        self._before_run(handler, framework_handle, input, config)
         return handler, config, token
 
     def _teardown(

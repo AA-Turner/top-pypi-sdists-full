@@ -216,6 +216,32 @@ describe("puppeteer launch", () => {
     const page = await browser.newPage();
     expect(page.authenticate).not.toHaveBeenCalled();
   });
+
+  it("injects env when licenseKey provided", async () => {
+    const { launch } = await import("../src/puppeteer.js");
+    await launch({ licenseKey: "cb_pup_key" });
+    const callArgs = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
+    expect(callArgs.env).toBeDefined();
+    expect(callArgs.env!.CLOAKBROWSER_LICENSE_KEY).toBe("cb_pup_key");
+  });
+
+  it("does not inject env without license key", async () => {
+    const { launch } = await import("../src/puppeteer.js");
+    await launch({});
+    const callArgs = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
+    expect(callArgs.env).toBeUndefined();
+  });
+
+  it("merges custom launchOptions.env with license key via puppeteer", async () => {
+    const { launch } = await import("../src/puppeteer.js");
+    await launch({
+      licenseKey: "cb_merge",
+      launchOptions: { env: { EXTRA: "val" } },
+    });
+    const callArgs = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
+    expect(callArgs.env!.CLOAKBROWSER_LICENSE_KEY).toBe("cb_merge");
+    expect(callArgs.env!.EXTRA).toBe("val");
+  });
 });
 
 describe("puppeteer launchPersistentContext", () => {
@@ -329,5 +355,28 @@ describe("puppeteer launchPersistentContext", () => {
     const callArgs = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
     expect(callArgs.args).toContain("--fingerprint-timezone=Asia/Tokyo");
     expect(callArgs.args).toContain("--lang=ja-JP");
+  });
+
+  it("injects env with licenseKey in persistent context", async () => {
+    const { launchPersistentContext } = await import("../src/puppeteer.js");
+    await launchPersistentContext({
+      userDataDir: "./my-profile",
+      licenseKey: "cb_pup_persist",
+    });
+    const callArgs = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
+    expect(callArgs.env).toBeDefined();
+    expect(callArgs.env!.CLOAKBROWSER_LICENSE_KEY).toBe("cb_pup_persist");
+  });
+
+  it("preserves custom env via launchOptions in persistent context", async () => {
+    const { launchPersistentContext } = await import("../src/puppeteer.js");
+    await launchPersistentContext({
+      userDataDir: "./my-profile",
+      licenseKey: "cb_cust",
+      launchOptions: { env: { CUSTOM: "val" } },
+    });
+    const callArgs = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
+    expect(callArgs.env!.CLOAKBROWSER_LICENSE_KEY).toBe("cb_cust");
+    expect(callArgs.env!.CUSTOM).toBe("val");
   });
 });

@@ -4,7 +4,6 @@ from collections.abc import ItemsView, KeysView, Mapping, Sequence, ValuesView
 from typing import Any, Literal, cast
 
 import pytest
-
 from whenever import (
     Instant,
     ItemizedDateDelta,
@@ -42,7 +41,6 @@ pytestmark = pytest.mark.filterwarnings(
 
 
 class TestInit:
-
     @pytest.mark.parametrize(
         "kwargs, expect_sign",
         [
@@ -165,7 +163,7 @@ def test_mapping_like_interface(
     assert dict(d) == expected
     assert Counter(d) == Counter(expected)
     # mypy ignore awaiting release of https://github.com/python/mypy/pull/20416
-    assert ItemizedDelta(**d) == d  # type: ignore[misc]
+    assert ItemizedDelta(**d) == d  # type: ignore[arg-type]
 
     for key in expected:
         assert key in d
@@ -271,7 +269,6 @@ def test_exact_eq():
 
 
 class TestFormatIso:
-
     @pytest.mark.parametrize(
         "d, expected",
         [
@@ -393,7 +390,6 @@ INVALID_DELTAS.remove("PT4M3H")
 
 
 class TestParseIso:
-
     @pytest.mark.parametrize(
         "s, expected",
         [
@@ -761,7 +757,7 @@ class TestAddSub:
         assert result.exact_eq(expected)
 
         # same result with kwargs
-        assert d1.add(**d2, relative_to=relative_to, **kwargs).exact_eq(  # type: ignore[call-overload, misc]
+        assert d1.add(**d2, relative_to=relative_to, **kwargs).exact_eq(  # type: ignore[call-overload, arg-type]
             expected
         )
 
@@ -775,7 +771,7 @@ class TestAddSub:
             ).exact_eq(expected)
 
             assert d1.subtract(  # type: ignore[call-overload]
-                **{k: -v for k, v in d2.items()},  # type: ignore[misc]
+                **{k: -v for k, v in d2.items()},
                 relative_to=relative_to,
                 **kwargs,
             ).exact_eq(expected)
@@ -862,7 +858,6 @@ class TestAddSub:
 
 
 class TestTotal:
-
     # Relatively few test cases since it reuses ZonedDateTime.since()
     # which is tested more thoroughly elsewhere.
     @pytest.mark.parametrize(
@@ -929,7 +924,8 @@ class TestTotal:
     def test_invalid_unit(self):
         with pytest.raises(ValueError, match="foo"):
             ItemizedDelta(years=2, seconds=4_000_000).total(
-                "foo", relative_to=ZonedDateTime("2021-12-31T22Z[Europe/Athens]")  # type: ignore[arg-type]
+                "foo",  # type: ignore[arg-type]
+                relative_to=ZonedDateTime("2021-12-31T22Z[Europe/Athens]"),
             )
 
     def test_no_relative_to(self):
@@ -939,7 +935,8 @@ class TestTotal:
     def test_invalid_relative_to_type(self):
         with pytest.raises(TypeError, match="relative_to"):
             ItemizedDelta(years=2, hours=9).total(
-                "months", relative_to=Instant.from_utc(2021, 1, 1)  # type: ignore[arg-type]
+                "months",
+                relative_to=Instant.from_utc(2021, 1, 1),  # type: ignore[arg-type]
             )
 
     def test_nanoseconds_is_int(self):
@@ -1204,7 +1201,7 @@ def test_parts(
     expected_date: ItemizedDateDelta,
     expected_time: TimeDelta,
 ):
-    (date_part, time_part) = d.date_and_time_parts()
+    date_part, time_part = d.date_and_time_parts()
     if date_part is None:
         assert expected_date is None
     else:

@@ -60,6 +60,13 @@ class SMSConfig:
     temperature:   float = 0.7   # @temp <val>
     task_timeout:  int   = 0     # @timeout <secs>; 0 = unlimited
     output_mode:   str   = ""    # "verbose" | "quiet" | "" (auto)
+    
+    # Email-to-SMS Delivery Configuration
+    smtp_host:       str   = ""
+    smtp_port:       int   = 587
+    smtp_user:       str   = ""
+    smtp_pass:       str   = ""
+    carrier_gateway: str   = ""  # e.g., vtext.com, txt.att.net
 
     def save(self) -> None:
         SAGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -573,14 +580,6 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
 
     if attachment_paths is None:
         attachment_paths = []
-        import os, re
-        raw_paths = re.findall(r'(?:[a-zA-Z]:[\\/][^\s\'"`]+|/[^\s\'"`]+|\b[a-zA-Z0-9_\-\.]+\.[a-zA-Z0-9]{2,5}\b)', text)
-        for p in raw_paths:
-            p_clean = p.strip(".,;:!?()[]{}<>\"'`")
-            if os.path.isfile(p_clean):
-                attachment_paths.append(os.path.abspath(p_clean))
-            elif os.path.isfile(os.path.join(os.getcwd(), p_clean)):
-                attachment_paths.append(os.path.abspath(os.path.join(os.getcwd(), p_clean)))
 
     def _run_send_script(target_keyword: str, service_name: str | None = "iMessage") -> tuple[bool, str]:
         """Run the send via osascript with `participant` or `buddy` keyword."""
@@ -732,6 +731,74 @@ def _find_kdeconnect_cli() -> str | None:
         if os.path.exists(c):
             return c
     return None
+
+
+def _send_email_to_sms(cfg: SMSConfig, recipient: str, text: str, attachments: list[str]) -> bool:
+    """Send SMS via Email-to-SMS gateway using SMTP."""
+    if not cfg.smtp_host or not cfg.carrier_gateway:
+        return False
+        
+    import smtplib
+    from email.message import EmailMessage
+    import mimetypes
+
+    # Strip any non-digits from the recipient E164 number
+    digits = "".join(c for c in recipient if c.isdigit())
+    if len(digits) > 10 and digits.startswith("1"):
+        digits = digits[1:]  # strip US country code for gateways
+        
+    target_email = f"{digits}@{cfg.carrier_gateway}"
+    
+    msg = EmailMessage()
+    msg['Subject'] = "SAGE AI"
+    msg['From'] = cfg.smtp_user
+    msg['To'] = target_email
+    msg.set_content(text)
+
+    # Attachments are restricted to < 1MB for MMS
+    for att in attachments:
+        try:
+            size_mb = os.path.getsize(att) / (1024 * 1024)
+            if size_mb > 1.0:
+                logger.warning(f"Attachment {att} is too large for MMS ({size_mb:.2f}MB). Skipping.")
+                msg.add_attachment(f"File skipped (too large for MMS): {os.path.basename(att)}".encode(), maintype='text', subtype='plain')
+                continue
+
+            with open(att, 'rb') as f:
+                data = f.read()
+                
+            ctype, encoding = mimetypes.guess_type(att)
+            if ctype is None or encoding is not None:
+                ext = os.path.splitext(att)[1].lower()
+                mime_map = {
+                    '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', 
+                    '.gif': 'image/gif', '.webp': 'image/webp',
+                    '.mp4': 'video/mp4', '.mov': 'video/quicktime',
+                    '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.m4a': 'audio/mp4',
+                    '.pdf': 'application/pdf', '.csv': 'text/csv',
+                    '.doc': 'application/msword', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                }
+                ctype = mime_map.get(ext, 'application/octet-stream')
+            
+            maintype, subtype = ctype.split('/', 1)
+            msg.add_attachment(data, maintype=maintype, subtype=subtype, filename=os.path.basename(att))
+        except Exception as e:
+            logger.error(f"Failed to attach {att} to MMS: {e}")
+
+    try:
+        if cfg.smtp_port in (465, "465"):
+            with smtplib.SMTP_SSL(cfg.smtp_host, int(cfg.smtp_port)) as server:
+                server.login(cfg.smtp_user, cfg.smtp_pass)
+                server.send_message(msg)
+        else:
+            with smtplib.SMTP(cfg.smtp_host, int(cfg.smtp_port)) as server:
+                server.starttls()
+                server.login(cfg.smtp_user, cfg.smtp_pass)
+                server.send_message(msg)
+        return True
+    except Exception as e:
+        logger.error(f"SMTP Email-to-SMS delivery failed: {e}")
+        return False
 
 
 def _send_macos_sms(recipient: str, text: str) -> bool:
@@ -1048,16 +1115,8 @@ def _filter_attachments_for_phone(file_paths: list[str], task_prompt: str) -> li
     """
     prompt_lower = task_prompt.lower()
     
-    # Require explicit mention of sending to the phone to bypass filter.
-    specifically_asked = (
-        "to phone" in prompt_lower or 
-        "to my phone" in prompt_lower or
-        "send to phone" in prompt_lower or
-        "send code to my phone" in prompt_lower
-    )
-    
-    if specifically_asked:
-        return file_paths
+    # The user has explicitly requested that coding files NEVER be sent to the phone.
+    # We remove the 'specifically_asked' bypass to ensure strict filtering.
         
     # Standard coding extensions/names to exclude
     coding_extensions = {
@@ -1077,7 +1136,7 @@ def _filter_attachments_for_phone(file_paths: list[str], task_prompt: str) -> li
         # Audio
         '.mp3', '.wav', '.m4a', '.flac', '.aac', '.ogg', '.wma',
         # Documents
-        '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.csv'
+        '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.csv'
     }
     
     filtered = []
@@ -1193,9 +1252,9 @@ _PANEL_LINE_RE = re.compile(r'^\s*[╭╮╯╰┌┐└┘├┤┬┴┼─━
 # prints after the subprocess returns. None of these are the model's answer.
 _STATUS_LINE_RE = re.compile(
     r'^\s*(?:'
-    r'[✓✗⚠ℹ]\s+|'                                     # Status glyphs
+    r'[✓✗⚠ℹ*]\s+|'                                     # Status glyphs
     r'Shell cwd was reset to|'                         # Subprocess trailer
-    r'(?:Project scanned|Loading|Initializing|Ready)\b'
+    r'(?:Project scanned|Scanning project|Loading|Initializing|Ready)\b'
     r')',
     re.IGNORECASE,
 )
@@ -2111,44 +2170,52 @@ class SAGEMessageBridge:
         target = e164 or sender
 
         sent_via = None
-        if device_type == "android":
-            # Android: ONLY use KDE Connect — never iPhone relay (that would
-            # send from the user's iPhone, not from sage).
-            if getattr(self, "_kde_listener", None) and \
-               self._kde_listener.send_sms(target, body):
-                sent_via = "KDE Connect (takeover)"
-            elif _send_via_kdeconnect(target, body):
-                sent_via = "KDE Connect"
-            if sent_via and local_attachments:
-                for ap in local_attachments:
-                    _share_via_kdeconnect(ap)
-        elif device_type == "apple":
-            if sys.platform == "darwin":
-                if _send_imessage(target, body, local_attachments):
-                    sent_via = "iMessage"
-            
-            # Fallback for Apple on non-macOS or failed iMessage
-            if not sent_via and e164:
-                if _send_via_kdeconnect(target, body):
-                    sent_via = "KDE Connect (SMS)"
-                    if local_attachments:
-                        for ap in local_attachments:
-                            _share_via_kdeconnect(ap)
-        else:
-            # Untagged/unknown device
-            if sys.platform == "darwin":
-                if _send_imessage(target, body, local_attachments):
-                    sent_via = "iMessage"
-                elif _send_macos_sms(target, body):
-                    sent_via = "SMS (iPhone relay)"
-            
-            # Fallback to KDE Connect on all platforms (including Linux/Windows)
-            if not sent_via and e164:
-                if _send_via_kdeconnect(target, body):
-                    sent_via = "KDE Connect (SMS)"
-                    if local_attachments:
-                        for ap in local_attachments:
-                            _share_via_kdeconnect(ap)
+        
+        # Priority 1: Email-to-SMS (if configured)
+        if self.cfg.smtp_host and self.cfg.carrier_gateway:
+            if _send_email_to_sms(self.cfg, target, body, local_attachments):
+                sent_via = "Email-to-SMS"
+
+        # Priority 2: Native Device Logic (if Email-to-SMS wasn't configured or failed)
+        if not sent_via:
+            if device_type == "android":
+                # Android: ONLY use KDE Connect — never iPhone relay (that would
+                # send from the user's iPhone, not from sage).
+                if getattr(self, "_kde_listener", None) and \
+                   self._kde_listener.send_sms(target, body):
+                    sent_via = "KDE Connect (takeover)"
+                elif _send_via_kdeconnect(target, body):
+                    sent_via = "KDE Connect"
+                if sent_via and local_attachments:
+                    for ap in local_attachments:
+                        _share_via_kdeconnect(ap)
+            elif device_type == "apple":
+                if sys.platform == "darwin":
+                    if _send_imessage(target, body, local_attachments):
+                        sent_via = "iMessage"
+                
+                # Fallback for Apple on non-macOS or failed iMessage
+                if not sent_via and e164:
+                    if _send_via_kdeconnect(target, body):
+                        sent_via = "KDE Connect (SMS)"
+                        if local_attachments:
+                            for ap in local_attachments:
+                                _share_via_kdeconnect(ap)
+            else:
+                # Untagged/unknown device
+                if sys.platform == "darwin":
+                    if _send_imessage(target, body, local_attachments):
+                        sent_via = "iMessage"
+                    elif _send_macos_sms(target, body):
+                        sent_via = "SMS (iPhone relay)"
+                
+                # Fallback to KDE Connect on all platforms (including Linux/Windows)
+                if not sent_via and e164:
+                    if _send_via_kdeconnect(target, body):
+                        sent_via = "KDE Connect (SMS)"
+                        if local_attachments:
+                            for ap in local_attachments:
+                                _share_via_kdeconnect(ap)
 
         if sent_via:
             self._log(f"→ replied to {sender} via {sent_via}")

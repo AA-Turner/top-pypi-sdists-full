@@ -110,6 +110,8 @@ $type = Get-AnsibleParam $params "type" -type "str" -Default "element" -Validate
 $attribute = Get-AnsibleParam $params "attribute" -type "str" -FailIfEmpty ($type -eq "attribute")
 $state = Get-AnsibleParam $params "state" -type "str" -Default "present"
 $count = Get-AnsibleParam $params "count" -type "bool" -Default $false
+$preserve_whitespace = Get-AnsibleParam $params "preserve_whitespace" -type "bool" -Default $false
+$content = Get-AnsibleParam $params "content" -type "str" -ValidateSet "attribute", "text"
 
 $result = @{
     changed = $false
@@ -121,6 +123,8 @@ If (-Not (Test-Path -LiteralPath $dest -PathType Leaf)) {
 
 $xmlorig = New-Object -TypeName System.Xml.XmlDocument
 $xmlorig.XmlResolver = $null
+$xmlorig.PreserveWhitespace = $preserve_whitespace
+
 Try {
     $xmlorig.Load($dest)
 }
@@ -138,7 +142,7 @@ $nodeList = $xmlorig.SelectNodes($xpath, $namespaceMgr)
 $nodeListCount = $nodeList.get_Count()
 if ($count) {
     $result.count = $nodeListCount
-    if (-not $fragment) {
+    if (-not $fragment -and -not $content) {
         Exit-Json $result
     }
 }
@@ -150,6 +154,38 @@ if ($nodeListCount -eq 0) {
 
 $changed = $false
 $result.msg = "not changed"
+
+if ($content) {
+    $queryMatches = [System.Collections.Generic.List[PSCustomObject]]@()
+    if ($content -eq "attribute") {
+        foreach ($node in $nodeList) {
+            $attrTable = @{}
+            foreach ($attr in $node.Attributes) {
+                $attrTable[$attr.Name] = $attr.Value
+            }
+            $queryMatches.Add(
+                @{
+                    $node.get_Name() = $attrTable
+                }
+            )
+        }
+    }
+    else {
+        foreach ($node in $nodeList) {
+            $nodeText = $node.get_InnerText()
+            if ($nodeText -eq "") {
+                $nodeText = $null
+            }
+            $queryMatches.Add(
+                @{
+                    $node.get_Name() = $nodeText
+                }
+            )
+        }
+    }
+    $result.matches = $queryMatches
+    Exit-Json $result
+}
 
 if ($type -eq "element") {
     if ($state -eq "absent") {
@@ -265,7 +301,7 @@ elseif ($type -eq "attribute") {
             }
             else {
                 # element node processing
-                if ($node.Name -eq $attribute ) {
+                if ($node.HasAttribute($attribute)) {
                     # note not caring about the state of 'fragment' at this point
                     $node.RemoveAttribute($attribute)
                     $changed = $true

@@ -13,7 +13,7 @@ import sqlite3
 import threading
 import warnings
 from datetime import datetime
-from typing import Dict, NamedTuple, Optional, Set
+from typing import Dict, NamedTuple, Optional, Set, Union
 from urllib.parse import urlparse, urlunparse
 
 from urllib3.exceptions import InsecureRequestWarning
@@ -45,6 +45,7 @@ class RestApiContext:
         self.__store_server_key = False
         self.proxies = None
         self._certificate_check = True
+        self._resolved_verify = None
         self.fail_on_throttle = False
         self.client_ec_private_key = None  # EC private key for QRC ECDH exchange
     
@@ -132,13 +133,38 @@ class RestApiContext:
             self.proxies = None
 
     @property
-    def certificate_check(self):
-        return self._certificate_check
+    def certificate_check(self) -> Union[bool, str]:
+        """SSL verification value for ``requests``' ``verify=`` parameter.
+
+        Despite the name and the plain-bool ``_certificate_check`` backing field,
+        this getter never returns a bare ``True``/``bool``. It resolves
+        ``_certificate_check`` (and the ``KEEPER_SSL_CERT_FILE`` env var, via
+        ``utils.resolve_ssl_verify``/``utils.get_ssl_cert_file``) into one of:
+
+          - ``False`` - certificate verification disabled.
+          - ``str``   - path to the CA bundle to verify against (the default
+                        system/certifi bundle, or a user override).
+
+        In practice the return type is ``False | str`` (never ``True``), even
+        though the hint is the more permissive ``Union[bool, str]``. Callers
+        must not do ``is True`` checks against this value - it will always be
+        false. Use ``if certificate_check:`` to test enabled/disabled, or
+        ``isinstance(certificate_check, str)`` to detect a resolved bundle
+        path. The old plain-bool value is still available as the private
+        ``_certificate_check`` attribute for code that only cares about the
+        user's on/off intent, not the resolved ``requests`` verify value.
+        """
+        if self._resolved_verify is None:
+            from . import utils
+            self._resolved_verify = utils.resolve_ssl_verify(
+                certificate_check_enabled=self._certificate_check)
+        return self._resolved_verify
 
     @certificate_check.setter
     def certificate_check(self, value):
         if isinstance(value, bool):
             self._certificate_check = value
+            self._resolved_verify = None
             if value:
                 warnings.simplefilter('default', InsecureRequestWarning)
             else:
@@ -362,6 +388,10 @@ class KeeperParams:
     proxy = property(__get_proxy, __set_proxy)
     server = property(__get_server, __set_server)
     rest_context = property(__get_rest_context)
+
+    @property
+    def ssl_verify(self):
+        return self.rest_context.certificate_check
 
     def is_feature_disallowed(self, feature_name):    # type: (str) -> bool
         return isinstance(self.disallowed_features, list) and feature_name in self.disallowed_features

@@ -152,6 +152,8 @@ from .type_defs import (
     GetIdentityProviderByIdentifierResponseTypeDef,
     GetLogDeliveryConfigurationRequestTypeDef,
     GetLogDeliveryConfigurationResponseTypeDef,
+    GetProvisionedLimitRequestTypeDef,
+    GetProvisionedLimitResponseTypeDef,
     GetSigningCertificateRequestTypeDef,
     GetSigningCertificateResponseTypeDef,
     GetTokensFromRefreshTokenRequestTypeDef,
@@ -230,6 +232,8 @@ from .type_defs import (
     UpdateIdentityProviderResponseTypeDef,
     UpdateManagedLoginBrandingRequestTypeDef,
     UpdateManagedLoginBrandingResponseTypeDef,
+    UpdateProvisionedLimitRequestTypeDef,
+    UpdateProvisionedLimitResponseTypeDef,
     UpdateResourceServerRequestTypeDef,
     UpdateResourceServerResponseTypeDef,
     UpdateTermsRequestTypeDef,
@@ -290,6 +294,7 @@ class Exceptions(BaseClientExceptions):
     RefreshTokenReuseException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
     ScopeDoesNotExistException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
     SoftwareTokenMFANotFoundException: type[BotocoreClientError]
     TermsExistsException: type[BotocoreClientError]
     TierChangeNotAllowedException: type[BotocoreClientError]
@@ -1115,6 +1120,16 @@ class CognitoIdentityProviderClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#get_log_delivery_configuration)
         """
 
+    def get_provisioned_limit(
+        self, **kwargs: Unpack[GetProvisionedLimitRequestTypeDef]
+    ) -> GetProvisionedLimitResponseTypeDef:
+        """
+        Returns the current provisioned limit for a specific API category.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/get_provisioned_limit.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#get_provisioned_limit)
+        """
+
     def get_signing_certificate(
         self, **kwargs: Unpack[GetSigningCertificateRequestTypeDef]
     ) -> GetSigningCertificateResponseTypeDef:
@@ -1550,6 +1565,16 @@ class CognitoIdentityProviderClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/update_managed_login_branding.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#update_managed_login_branding)
+        """
+
+    def update_provisioned_limit(
+        self, **kwargs: Unpack[UpdateProvisionedLimitRequestTypeDef]
+    ) -> UpdateProvisionedLimitResponseTypeDef:
+        """
+        Sets the provisioned limit for a specific API category.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/update_provisioned_limit.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#update_provisioned_limit)
         """
 
     def update_resource_server(

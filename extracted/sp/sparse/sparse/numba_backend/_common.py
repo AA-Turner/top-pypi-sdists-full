@@ -10,7 +10,7 @@ from numba import literal_unroll
 
 import numpy as np
 
-from ._coo import as_coo, expand_dims
+from ._coo import COO, as_coo, expand_dims
 from ._sparse_array import SparseArray
 from ._utils import (
     _zero_of_dtype,
@@ -1344,7 +1344,7 @@ def _einsum_single(lhs, rhs, operand):
 
     if lhs == rhs:
         if not rhs:
-            # ensure scalar output
+            # full contraction — return 0-D array per the Array API standard
             return operand.sum()
         return operand
 
@@ -1390,8 +1390,9 @@ def _einsum_single(lhs, rhs, operand):
         new_data = operand.data
 
     if not rhs:
-        # scalar output - match numpy behaviour by not wrapping as array
-        return new_data.sum()
+        # full contraction — return 0-D COO array per the Array API standard
+        data = np.asarray(new_data.sum())
+        return COO.from_numpy(data)
 
     return to_output_format(COO(new_coords, new_data, shape=new_shape, has_duplicates=True))
 
@@ -2114,6 +2115,8 @@ def asarray(obj, /, *, dtype=None, format=None, copy=False, device=None):
     format_dict = {"coo": COO, "dok": DOK, "gcxs": GCXS, "csc": CSC, "csr": CSR}
 
     if isinstance(obj, SparseArray):
+        if copy:
+            obj = obj.copy()
         return obj.asformat(format) if format is not None else obj
 
     format = "coo" if format is None else format
@@ -2858,7 +2861,12 @@ def broadcast_arrays(*arrays):
     """
 
     shape = np.broadcast_shapes(*[a.shape for a in arrays])
-    return [a.broadcast_to(shape) for a in arrays]
+    arrays_out = []
+    for a in arrays:
+        if isinstance(a, np.generic | np.ndarray):
+            a = COO.from_numpy(a)
+        arrays_out.append(a.broadcast_to(shape))
+    return tuple(arrays_out)
 
 
 def equal(x1, x2, /):
@@ -3110,7 +3118,7 @@ def vecdot(x1, x2, /, *, axis=-1):
     return np.sum(x1 * x2, axis=axis, dtype=np.result_type(x1, x2))
 
 
-def repeat(a, repeats, axis=None):
+def repeat(a, repeats, axis: int | None = None):
     """
     Repeat each element of an array after themselves
 

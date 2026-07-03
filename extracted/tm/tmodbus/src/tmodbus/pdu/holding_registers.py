@@ -74,7 +74,7 @@ class RawReadHoldingRegistersPDU(BasePDU[bytes]):
             msg = f"Invalid response PDU length: expected {2 + byte_count}, got {len(response)}"
             raise InvalidResponseError(msg, response_bytes=response)
 
-        if byte_count // 2 != self.quantity:
+        if byte_count % 2 != 0 or byte_count // 2 != self.quantity:
             msg = f"Invalid register count: expected {self.quantity}, got {byte_count // 2}"
             raise InvalidResponseError(msg, response_bytes=response)
 
@@ -101,7 +101,10 @@ class RawReadHoldingRegistersPDU(BasePDU[bytes]):
             msg = f"Invalid function code: expected {cls.function_code:#04x}, received {function_code:#04x}"
             raise InvalidRequestError(msg, request_bytes=request)
 
-        return cls(address, quantity)
+        try:
+            return cls(address, quantity)
+        except ValueError as e:
+            raise InvalidRequestError(str(e), request_bytes=request) from e
 
     def encode_response(self, value: bytes) -> bytes:
         """Encode the response PDU with raw bytes.
@@ -181,7 +184,10 @@ class ReadHoldingRegistersPDU(BasePDU[list[int]]):
             msg = f"Invalid function code: expected {cls.function_code:#04x}, received {function_code:#04x}"
             raise InvalidRequestError(msg, request_bytes=request)
 
-        return cls(address, quantity)
+        try:
+            return cls(address, quantity)
+        except ValueError as e:
+            raise InvalidRequestError(str(e), request_bytes=request) from e
 
     def encode_response(self, value: list[int]) -> bytes:
         """Encode the response PDU with register values.
@@ -308,7 +314,10 @@ class WriteSingleRegisterPDU(BasePDU[int]):
             msg = f"Invalid function code: expected {cls.function_code:#04x}, received {function_code:#04x}"
             raise InvalidRequestError(msg, request_bytes=request)
 
-        return cls(address, value)
+        try:
+            return cls(address, value)
+        except ValueError as e:
+            raise InvalidRequestError(str(e), request_bytes=request) from e
 
     def encode_response(self, value: int) -> bytes:
         """Encode the response PDU.
@@ -351,7 +360,8 @@ class RawWriteMultipleRegistersPDU(BasePDU[int]):
             raise ValueError(msg)
 
         if len(content) % 2 != 0:
-            content += b"\x00"  # Pad with zero if odd length
+            msg = "Content length cannot be odd; each register is 2 bytes."
+            raise ValueError(msg)
 
         self.content = content
 
@@ -435,7 +445,10 @@ class RawWriteMultipleRegistersPDU(BasePDU[int]):
         if len(content) != byte_count:
             msg = f"Invalid data length: expected {byte_count}, got {len(content)}"
             raise InvalidRequestError(msg, request_bytes=request)
-        return cls(start_address, content)
+        try:
+            return cls(start_address, content)
+        except ValueError as e:
+            raise InvalidRequestError(str(e), request_bytes=request) from e
 
     def encode_response(self, value: int) -> bytes:
         """Encode the response PDU.
@@ -528,7 +541,10 @@ class WriteMultipleRegistersPDU(BasePDU[int]):
         raw = RawWriteMultipleRegistersPDU.decode_request(request)
         # Convert content bytes to list of ints
         values = list(struct.unpack(f">{'H' * (len(raw.content) // 2)}", raw.content))
-        return cls(raw.start_address, values)
+        try:
+            return cls(raw.start_address, values)
+        except ValueError as e:
+            raise InvalidRequestError(str(e), request_bytes=request) from e
 
     def encode_response(self, value: int) -> bytes:
         """Encode the response PDU.
@@ -609,6 +625,13 @@ class MaskWriteRegisterPDU(BasePDU[tuple[int, int]]):
             msg = f"Invalid address: expected {self.address}, received {address}"
             raise InvalidResponseError(msg, response_bytes=response)
 
+        if and_mask != self.and_mask or or_mask != self.or_mask:
+            msg = (
+                f"Mask mismatch: expected AND {self.and_mask:#06x} OR {self.or_mask:#06x}, "
+                f"received AND {and_mask:#06x} OR {or_mask:#06x}"
+            )
+            raise InvalidResponseError(msg, response_bytes=response)
+
         return and_mask, or_mask
 
     @classmethod
@@ -635,7 +658,10 @@ class MaskWriteRegisterPDU(BasePDU[tuple[int, int]]):
             msg = f"Invalid function code: expected {cls.function_code:#04x}, received {function_code:#04x}"
             raise InvalidRequestError(msg, request_bytes=request)
 
-        return cls(address, and_mask, or_mask)
+        try:
+            return cls(address, and_mask, or_mask)
+        except ValueError as e:
+            raise InvalidRequestError(str(e), request_bytes=request) from e
 
     def encode_response(self, value: tuple[int, int]) -> bytes:
         """Encode the response PDU.
@@ -789,12 +815,15 @@ class ReadWriteMultipleRegistersPDU(BasePDU[list[int]]):
             raise InvalidRequestError(msg, request_bytes=request)
 
         write_values = list(struct.unpack(f">{'H' * (write_quantity)}", content))
-        return cls(
-            read_start_address=read_start_address,
-            read_quantity=read_quantity,
-            write_start_address=write_start_address,
-            write_values=write_values,
-        )
+        try:
+            return cls(
+                read_start_address=read_start_address,
+                read_quantity=read_quantity,
+                write_start_address=write_start_address,
+                write_values=write_values,
+            )
+        except ValueError as e:
+            raise InvalidRequestError(str(e), request_bytes=request) from e
 
     def encode_response(self, value: list[int]) -> bytes:
         """Encode the response PDU with register values.

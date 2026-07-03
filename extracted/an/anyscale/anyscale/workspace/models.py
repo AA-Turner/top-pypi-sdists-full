@@ -4,6 +4,11 @@ from typing import ClassVar, Dict, List, Optional, Union
 
 from anyscale._private.models import ImageURI, ModelBase
 from anyscale._private.models.model_base import ModelEnum
+from anyscale._private.models.validation import (
+    SCHEDULING_PRIORITY_MAX,
+    SCHEDULING_PRIORITY_MIN,
+    validate_scheduling_priority,
+)
 from anyscale.compute_config.models import (
     compute_config_type_from_dict,
     ComputeConfig,
@@ -131,6 +136,18 @@ tags:
         for k, v in tags.items():
             if not isinstance(k, str) or not isinstance(v, str):
                 raise TypeError("'tags' must be a Dict[str, str].")
+
+    priority: Optional[int] = field(
+        default=None,
+        metadata={
+            "docstring": "Scheduling priority for the Global Resource Scheduler. An integer in "
+            f"the range [{SCHEDULING_PRIORITY_MIN}, {SCHEDULING_PRIORITY_MAX}] inclusive; leave "
+            "unset (None) for no priority."
+        },
+    )
+
+    def _validate_priority(self, priority: Optional[int]):
+        validate_scheduling_priority(priority)
 
     compute_config: Union[ComputeConfigType, Dict, str, None] = field(
         default=None,

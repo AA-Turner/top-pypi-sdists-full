@@ -322,6 +322,8 @@ class Debugger:
         elif result_type == 0x0008:  # decimal
             return int(result_value[:-1])
         elif result_type == 0x0010:  # float
+            if result_value in ("SNAN", "-SNAN"):
+                return float("nan")
             return float(result_value)
         elif result_type == 0x0020:  # TODO ascii constant
             return str(result_value)

@@ -9,14 +9,18 @@ from typing import Literal, Self, TypeVar
 
 from tmodbus.pdu import (
     BaseClientPDU,
+    FileRecord,
+    FileRecordRequest,
     MaskWriteRegisterPDU,
     ReadCoilsPDU,
     ReadDeviceIdentificationPDU,
     ReadDiscreteInputsPDU,
     ReadExceptionStatusPDU,
+    ReadFileRecordPDU,
     ReadHoldingRegistersPDU,
     ReadInputRegistersPDU,
     ReadWriteMultipleRegistersPDU,
+    WriteFileRecordPDU,
     WriteMultipleCoilsPDU,
     WriteMultipleRegistersPDU,
     WriteSingleCoilPDU,
@@ -139,7 +143,7 @@ class AsyncModbusClient(HoldingRegisterReadMixin, HoldingRegisterWriteMixin):
             InvalidResponseError: If response is invalid or does not match request
 
         Example:
-            >>> coils = await client.read_coils(1, 0, 8)
+            >>> coils = await client.read_coils(0, 8)
             [True, False, True, False, False, False, True, False]
 
         """
@@ -160,7 +164,7 @@ class AsyncModbusClient(HoldingRegisterReadMixin, HoldingRegisterWriteMixin):
             List of coil status, True for ON, False for OFF
 
         Example:
-            >>> coils = await client.read_coils(1, 0, 8)
+            >>> inputs = await client.read_discrete_inputs(0, 8)
             [True, False, True, False, False, False, True, False]
 
         """
@@ -320,6 +324,104 @@ class AsyncModbusClient(HoldingRegisterReadMixin, HoldingRegisterWriteMixin):
         """
         return await self.execute(ReportServerIdPDU())
 
+    async def read_file_records(
+        self,
+        requests: list[FileRecordRequest],
+    ) -> list[bytes]:
+        """Read File Record (Function Code 0x14).
+
+        Args:
+            requests: List of file record requests to read.
+
+        Returns:
+            List of raw record payloads in the same order as the input requests.
+
+        Example:
+            >>> from tmodbus.pdu import FileRecordRequest
+            >>> payloads = await client.read_file_records([
+            ...     FileRecordRequest(file_number=4, record_number=0, record_length=2),
+            ... ])
+
+        """
+        return await self.execute(ReadFileRecordPDU(requests=requests))
+
+    async def read_file_record(self, file_number: int, record_number: int, record_length: int) -> bytes:
+        """Read a single File Record (Function Code 0x14).
+
+        Args:
+            file_number: File number to read from
+            record_number: Record number to read from
+            record_length: Length of the record to read (in 16-bit words)
+
+        Example:
+            >>> from tmodbus.pdu import FileRecordRequest
+            >>> payloads = await client.read_file_record(4, 0, 2)
+
+        """
+        payloads = await self.read_file_records(
+            [
+                FileRecordRequest(
+                    file_number=file_number,
+                    record_number=record_number,
+                    record_length=record_length,
+                )
+            ]
+        )
+        return payloads[0]
+
+    async def write_file_records(
+        self,
+        file_records: list[FileRecord],
+    ) -> list[FileRecord]:
+        r"""Write File Record (Function Code 0x15).
+
+        Args:
+            file_records: List of file records to write.
+
+        Returns:
+            Echoed file records from the server.
+
+        Example:
+            >>> from tmodbus.pdu import FileRecord
+            >>> written = await client.write_file_records([
+            ...     FileRecord(file_number=4, record_number=0, data=b"\x12\x34"),
+            ... ])
+
+        """
+        return await self.execute(WriteFileRecordPDU(file_records=file_records))
+
+    async def write_file_record(
+        self,
+        file_number: int,
+        record_number: int,
+        data: bytes,
+    ) -> FileRecord:
+        r"""Write a single File Record (Function Code 0x15).
+
+        Args:
+            file_number: File number to write to
+            record_number: Record number to write to
+            data: Raw bytes to write (length must be even, as each register is 2 bytes)
+
+        Returns:
+            Echoed file record from the server.
+
+        Example:
+            >>> from tmodbus.pdu import FileRecord
+            >>> written = await client.write_file_record(4, 0, b"\x12\x34")
+
+        """
+        records = await self.write_file_records(
+            [
+                FileRecord(
+                    file_number=file_number,
+                    record_number=record_number,
+                    data=data,
+                )
+            ]
+        )
+        return records[0]
+
     async def mask_write_register(
         self,
         address: int,
@@ -406,17 +508,33 @@ class AsyncModbusClient(HoldingRegisterReadMixin, HoldingRegisterWriteMixin):
 
 
         Returns:
-            A dictionary mapping object IDs to their corresponding string values.
+            A dictionary mapping object IDs to their raw byte values. Decode them
+            with the encoding the device documents (commonly ASCII).
 
         Example:
             >>> device_info = await client.read_device_identification(1, 0)
-            {0: 'VendorName', 1: 'ProductCode', ...}
+            {0: b'VendorName', 1: b'ProductCode', ...}
+            >>> device_info[0].decode("ascii")
+            'VendorName'
 
         """
         result: dict[int, bytes] = {}
         more = True
         number_of_objects: int | None = None
+        requested_object_ids: set[int] = set()
         while more:
+            if object_id in requested_object_ids:
+                # The device says there is more to read but points back at an object we
+                # already requested. Stop here instead of looping forever on a device that
+                # never advances its next object id.
+                logger.warning(
+                    "Device repeated object id %#04x while streaming device identification; "
+                    "stopping with the objects collected so far.",
+                    object_id,
+                )
+                break
+            requested_object_ids.add(object_id)
+
             response = await self.execute(ReadDeviceIdentificationPDU(device_code, object_id))
             result.update(response.objects)
             more = response.more

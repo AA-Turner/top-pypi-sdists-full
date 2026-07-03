@@ -225,9 +225,45 @@ class TestDefaultUserDataDir:
             patch.object(AuthManager, "_load_session_from_disk"),
         ):
             mgr = AuthManager(cfg, "https://test.service-now.com")
-        assert mgr._resolve_user_data_dir(cfg.browser) == str(custom)
-        # Session JSON sits next to the profile dir so co-running MCP hosts share it.
-        assert mgr._session_cache_path.startswith(str(custom.parent) + os.sep)
+        # A configured dir is a BASE: profile is host+user scoped beneath it, and
+        # the session JSON sits in the same base — same structure as the default.
+        resolved = mgr._resolve_user_data_dir(cfg.browser)
+        assert resolved == str(custom / "profile_test_service-now_com")
+        assert mgr._session_cache_path == str(custom / "session_test_service-now_com.json")
+
+    def test_shared_base_dir_isolates_by_host_and_user(self, tmp_path):
+        # The footgun killer: even with ONE shared user_data_dir, two instances
+        # (different hosts) and two users never share a Chromium profile.
+        shared = str(tmp_path / "shared")
+
+        def _mgr(url, user):
+            cfg = AuthConfig(
+                type=AuthType.BROWSER,
+                browser=BrowserAuthConfig(user_data_dir=shared, username=user),
+            )
+            with (
+                patch.object(AuthManager, "_ensure_playwright_ready"),
+                patch.object(AuthManager, "_load_session_from_disk"),
+            ):
+                return AuthManager(cfg, url)
+
+        dev = _mgr("https://dev.service-now.com", None)
+        test = _mgr("https://test.service-now.com", None)
+        same_host_other_user = _mgr("https://dev.service-now.com", "alice")
+
+        dev_profile = dev._resolve_user_data_dir(dev.config.browser)
+        test_profile = test._resolve_user_data_dir(test.config.browser)
+        alice_profile = same_host_other_user._resolve_user_data_dir(
+            same_host_other_user.config.browser
+        )
+        # All three distinct, all under the shared base.
+        assert dev_profile != test_profile != alice_profile
+        assert dev_profile != alice_profile
+        for p in (dev_profile, test_profile, alice_profile):
+            assert p.startswith(shared + os.sep)
+        # Sessions isolated too.
+        assert dev._session_cache_path != test._session_cache_path
+        assert dev._session_cache_path != same_host_other_user._session_cache_path
 
 
 class TestSaveSessionToDisk:
@@ -631,3 +667,47 @@ class TestProbeCoalescing:
 
         with patch.object(mgr, "_is_browser_session_valid", return_value=False):
             assert mgr._has_reusable_browser_session(cfg) is False
+
+
+class TestCacheDirPermissions:
+    def test_cache_dir_created_private(self, tmp_path):
+        # The base dir holds the Chromium profile (SSO cookie DB) — must be 0700
+        # so a co-tenant on a shared host can't read/replay the session.
+        import stat as _stat
+
+        base = tmp_path / "snc_cache"
+        cfg = AuthConfig(
+            type=AuthType.BROWSER,
+            browser=BrowserAuthConfig(user_data_dir=str(base)),
+        )
+        with (
+            patch.object(AuthManager, "_ensure_playwright_ready"),
+            patch.object(AuthManager, "_load_session_from_disk"),
+        ):
+            mgr = AuthManager(cfg, "https://dev.service-now.com")
+        mode = _stat.S_IMODE(os.stat(mgr._get_cache_dir()).st_mode)
+        assert mode == 0o700
+
+    def test_preexisting_configured_base_mode_untouched(self, tmp_path):
+        # A user-chosen base that already exists must NOT be chmod'ed — the
+        # user may share it deliberately. Protection comes from the 0700
+        # profile subdir + 0600 session JSON instead.
+        import stat as _stat
+
+        base = tmp_path / "shared_base"
+        base.mkdir()
+        os.chmod(base, 0o755)
+        cfg = AuthConfig(
+            type=AuthType.BROWSER,
+            browser=BrowserAuthConfig(user_data_dir=str(base)),
+        )
+        with (
+            patch.object(AuthManager, "_ensure_playwright_ready"),
+            patch.object(AuthManager, "_load_session_from_disk"),
+        ):
+            mgr = AuthManager(cfg, "https://dev.service-now.com")
+        mgr._get_cache_dir()
+        assert _stat.S_IMODE(os.stat(base).st_mode) == 0o755  # untouched
+        # ...but the profile dir WE create under it is private.
+        profile = mgr._resolve_user_data_dir(cfg.browser)
+        assert _stat.S_IMODE(os.stat(profile).st_mode) == 0o700

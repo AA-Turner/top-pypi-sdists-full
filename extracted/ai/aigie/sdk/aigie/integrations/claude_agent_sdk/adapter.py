@@ -11,14 +11,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, ClassVar
 
-from aigie.autonomous.adapters import (
-    ActionType,
-    ApplyResult,
-    ApplyStatus,
-    FrameworkAdapter,
-    SpanContext,
-    register_adapter,
-)
+from aigie.integrations._base import FrameworkAdapter, register_adapter
 from aigie.integrations.claude_agent_sdk.error_conversion import to_kytte_error
 from aigie.integrations.claude_agent_sdk.event_classifier import (
     ClaudeAgentSDKEventClassifier,
@@ -27,12 +20,12 @@ from aigie.integrations.claude_agent_sdk.lifecycle import (
     ClaudeAgentSDKLifecycle,
     _get_singleton,
 )
+from aigie.integrations.claude_agent_sdk.rewind import ClaudeAgentSDKRewindCapability
 from aigie.tracing.error_enricher import KytteErrorEnricher
 from aigie.tracing.errors import KytteError
 
 if TYPE_CHECKING:
-    from aigie.autonomous.interventions.base import WorkflowIntervention
-    from aigie.autonomous.runtime import AutonomousRuntime
+    from aigie.rewind.coordinator import RewindCoordinator
     from aigie.tracing.emitter import TraceEmitter
 
 logger = logging.getLogger(__name__)
@@ -52,12 +45,13 @@ class ClaudeAgentSDKAdapter(FrameworkAdapter):
     def extract_error(self, span: dict) -> KytteError | None:
         return to_kytte_error(span)
 
-    def _install_autonomous(self, runtime: AutonomousRuntime) -> None:
-        return None
-
-    def _install_tracing(self, emitter: TraceEmitter) -> None:
+    def _install_tracing(
+        self, emitter: TraceEmitter, *, coordinator: RewindCoordinator | None = None
+    ) -> None:
         self._emitter = emitter
         emitter.register_span_complete_hook(KytteErrorEnricher(self.extract_error))
+        if coordinator is not None:
+            coordinator.register(ClaudeAgentSDKRewindCapability())
         self._lifecycle = _get_singleton()
         self._lifecycle._emitter = emitter
         self._lifecycle._adapter = self
@@ -71,21 +65,6 @@ class ClaudeAgentSDKAdapter(FrameworkAdapter):
 
     def event_classifier(self) -> ClaudeAgentSDKEventClassifier:
         return self._classifier
-
-    _CAPABILITIES: ClassVar[frozenset[ActionType]] = frozenset()
-
-    @classmethod
-    def capabilities(cls) -> frozenset[ActionType]:
-        return cls._CAPABILITIES
-
-    def apply(
-        self, intervention: WorkflowIntervention, ctx: SpanContext
-    ) -> ApplyResult:
-        return ApplyResult(
-            status=ApplyStatus.SKIPPED,
-            reason=f"unsupported_action:{intervention.action_type.name}",
-            observed={},
-        )
 
 
 __all__ = ["ClaudeAgentSDKAdapter"]

@@ -1,7 +1,5 @@
 """This module contains a basic Qt-compatible counter class."""  # noqa: D404
 
-from __future__ import annotations
-
 from qtpy.QtCore import QObject
 from qtpy.QtCore import Signal
 from qtpy.QtCore import Slot
@@ -9,8 +7,6 @@ from qtpy.QtCore import Slot
 
 class Counter(QObject):
     """Counter class with Qt signal/slot."""
-
-    # pylint: disable=too-few-public-methods
 
     signal_finished = Signal()
 

@@ -100,11 +100,13 @@ class ComputeStack(ModelEnum):
     UNKNOWN = "UNKNOWN"
     VM = "VM"
     K8S = "K8S"
+    KUBERAY = "KUBERAY"
 
     __docstrings__: ClassVar[Dict[str, str]] = {
         UNKNOWN: "Unknown compute stack.",
         VM: "Virtual machine-based compute stack.",
         K8S: "Kubernetes-based compute stack.",
+        KUBERAY: "KubeRay-connector compute stack (workloads run via the KubeRay operator).",
     }
 
 
@@ -503,6 +505,52 @@ kubernetes_config:
     )
 
 
+@dataclass(frozen=True)
+class ConnectorConfig(ModelBase):
+    """Anyscale Connector configuration (Kubernetes resources)."""
+
+    __skip_py_example__ = True
+
+    __doc_yaml_example__ = """\
+connector_config:
+  service_account_name: anyscale-connector
+  service_account_namespace: anyscale-connector
+  oidc_issuer: https://oidc.eks.us-west-2.amazonaws.com/id/EXAMPLED539D4633E53DE1B71EXAMPLE
+  jwks_uri: https://oidc.eks.us-west-2.amazonaws.com/id/EXAMPLED539D4633E53DE1B71EXAMPLE/keys
+  allowed_namespaces:
+    - anyscale-connector
+"""
+
+    oidc_issuer: str = field(
+        metadata={
+            "docstring": "The dataplane cluster's OIDC issuer URL. The control plane matches the 'iss' claim of OIDC tokens against this value during registration. Example: https://oidc.eks.us-west-2.amazonaws.com/id/<cluster-id>."
+        },
+    )
+    jwks_uri: str = field(
+        metadata={
+            "docstring": "The JWKS endpoint the control plane fetches the dataplane cluster's public signing keys from to verify OIDC token signatures. Example: https://oidc.eks.us-west-2.amazonaws.com/id/<cluster-id>/keys."
+        },
+    )
+    service_account_name: str = field(
+        default="anyscale-connector",
+        metadata={
+            "docstring": "Name of the Kubernetes ServiceAccount the Anyscale Connector runs as."
+        },
+    )
+    service_account_namespace: str = field(
+        default="anyscale-connector",
+        metadata={
+            "docstring": "Namespace of the Anyscale Connector's Kubernetes ServiceAccount."
+        },
+    )
+    allowed_namespaces: Optional[List[str]] = field(
+        default=None,
+        metadata={
+            "docstring": "Kubernetes namespaces the connector's workloads may run in. If null, the connector's own ServiceAccount namespace is used as the allowed set."
+        },
+    )
+
+
 ################################################################################
 # NOTE: The CloudResource model below is copied from the OpenAPI CloudDeployment
 # model, which is what is actually used in the CLI. It is only defined here so
@@ -578,4 +626,10 @@ aws_config:
     )
     kubernetes_config: Optional[KubernetesConfig] = field(
         default=None, metadata={"docstring": "Kubernetes stack configurations."},
+    )
+    connector_config: Optional[ConnectorConfig] = field(
+        default=None,
+        metadata={
+            "docstring": "Anyscale Connector configuration (Kubernetes resources)."
+        },
     )

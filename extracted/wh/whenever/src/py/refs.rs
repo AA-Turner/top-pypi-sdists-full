@@ -3,6 +3,7 @@ use super::{base::*, exc::*};
 use core::mem::ManuallyDrop;
 use core::ptr::null_mut as NULL;
 use pyo3_ffi::*;
+use std::ptr::NonNull;
 
 /// A wrapper for Python objects that have a reference owned by Rust.
 /// They are decreferred on drop.
@@ -25,10 +26,6 @@ impl<T: PyBase> Owned<T> {
         }
     }
 
-    pub(crate) fn borrow(&self) -> T {
-        self.inner
-    }
-
     /// Apply a function to the inner object while retaining ownership.
     pub(crate) fn map<U, F>(self, f: F) -> Owned<U>
     where
@@ -36,6 +33,11 @@ impl<T: PyBase> Owned<T> {
         U: PyBase,
     {
         Owned::new(f(self.py_owned()))
+    }
+
+    /// Upcast to `Owned<PyObj>`, losing the specific subtype.
+    pub(crate) fn into_obj(self) -> Owned<PyObj> {
+        self.map(|t| t.as_py_obj())
     }
 }
 
@@ -92,12 +94,25 @@ impl<T: PyBase> std::ops::DerefMut for Owned<T> {
 }
 
 pub(crate) trait PyObjectExt {
-    fn rust_owned(self) -> PyResult<Owned<PyObj>>;
+    fn own(self) -> PyResult<Owned<PyObj>>;
+    fn borrow(self) -> PyResult<PyObj>;
+    fn borrow_opt(self) -> Option<PyObj>;
 }
 
 impl PyObjectExt for *mut PyObject {
-    fn rust_owned(self) -> PyResult<Owned<PyObj>> {
-        PyObj::new(self).map(Owned::new)
+    /// Take ownership of a raw PyObject, interpreting NULL as an error.
+    fn own(self) -> PyResult<Owned<PyObj>> {
+        self.borrow().map(Owned::new)
+    }
+
+    /// Wrap a raw PyObject, interpreting NULL as an error.
+    fn borrow(self) -> PyResult<PyObj> {
+        NonNull::new(self).map(PyObj::new).ok_or(PyErrMarker)
+    }
+
+    /// Wrap a raw PyObject, interpreting NULL as None.
+    fn borrow_opt(self) -> Option<PyObj> {
+        NonNull::new(self).map(PyObj::new)
     }
 }
 

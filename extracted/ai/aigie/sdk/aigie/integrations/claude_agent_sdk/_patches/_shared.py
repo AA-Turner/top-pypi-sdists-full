@@ -9,6 +9,25 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _skip_instrumentation(client: Any) -> bool:
+    return bool(getattr(client, "_aigie_skip_instrumentation", False))
+
+
+def _get_batch_parent(handler: Any, parent_tool_use_id: str | None) -> str | None:
+    """Parent span for a batch of Task blocks in one message.
+
+    Parallel Task blocks in a message share one parent. Top-level orchestrator
+    Tasks (no parent_tool_use_id) must nest under the Turn/query span rather
+    than inherit a still-open sibling subagent.
+    """
+    parent: str | None
+    if parent_tool_use_id is None:
+        parent = handler._current_turn_span_id or handler._current_query_span_id
+    else:
+        parent = handler._get_current_parent()
+    return parent
+
+
 def _extract_agent_name(system_prompt: str, model: str, aigie: Any = None) -> str:
     """
     Resolve the trace display name. Honors `aigie.init(agent_name=...)` first,

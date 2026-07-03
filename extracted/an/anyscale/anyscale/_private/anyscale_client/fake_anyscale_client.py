@@ -2040,6 +2040,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             state=SessionState.RUNNING
             if not model.skip_start
             else SessionState.TERMINATED,
+            priority=model.priority,
         )
         self._workspaces[workspace.id] = workspace
         return workspace.id
@@ -2173,6 +2174,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         compute_config_id: Optional[str] = None,
         cluster_environment_build_id: Optional[str] = None,
         idle_timeout_minutes: Optional[int] = None,
+        priority: Optional[int] = None,
     ):
         if workspace_id not in self._workspaces:
             raise ValueError(f"Workspace '{workspace_id}' not found.")
@@ -2181,6 +2183,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
         if name:
             workspace.name = name
+
+        if priority is not None:
+            workspace.priority = priority
 
         if compute_config_id:
             workspace.compute_config_id = compute_config_id

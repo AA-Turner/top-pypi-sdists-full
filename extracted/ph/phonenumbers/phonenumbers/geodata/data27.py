@@ -19,6 +19,14 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '861883069':{'en': 'Shijiazhuang, Hebei', 'zh': u('\u6cb3\u5317\u7701\u77f3\u5bb6\u5e84\u5e02')},
+ '861883070':{'en': 'Cangzhou, Hebei', 'zh': u('\u6cb3\u5317\u7701\u6ca7\u5dde\u5e02')},
+ '861883071':{'en': 'Cangzhou, Hebei', 'zh': u('\u6cb3\u5317\u7701\u6ca7\u5dde\u5e02')},
+ '861883072':{'en': 'Cangzhou, Hebei', 'zh': u('\u6cb3\u5317\u7701\u6ca7\u5dde\u5e02')},
+ '861883073':{'en': 'Cangzhou, Hebei', 'zh': u('\u6cb3\u5317\u7701\u6ca7\u5dde\u5e02')},
+ '861883074':{'en': 'Cangzhou, Hebei', 'zh': u('\u6cb3\u5317\u7701\u6ca7\u5dde\u5e02')},
+ '861883075':{'en': 'Baoding, Hebei', 'zh': u('\u6cb3\u5317\u7701\u4fdd\u5b9a\u5e02')},
+ '861883076':{'en': 'Baoding, Hebei', 'zh': u('\u6cb3\u5317\u7701\u4fdd\u5b9a\u5e02')},
  '861883077':{'en': 'Baoding, Hebei', 'zh': u('\u6cb3\u5317\u7701\u4fdd\u5b9a\u5e02')},
  '861883078':{'en': 'Baoding, Hebei', 'zh': u('\u6cb3\u5317\u7701\u4fdd\u5b9a\u5e02')},
  '861883079':{'en': 'Baoding, Hebei', 'zh': u('\u6cb3\u5317\u7701\u4fdd\u5b9a\u5e02')},
@@ -10011,12 +10019,4 @@ data = {
  '9171607':{'en': 'Jamai, Madhya Pradesh'},
  '9171612':{'en': 'Parasia, Madhya Pradesh'},
  '9171613':{'en': 'Parasia, Madhya Pradesh'},
- '9171614':{'en': 'Parasia, Madhya Pradesh'},
- '9171615':{'en': 'Parasia, Madhya Pradesh'},
- '9171616':{'en': 'Parasia, Madhya Pradesh'},
- '9171617':{'en': 'Parasia, Madhya Pradesh'},
- '9171622':{'en': 'Chhindwara, Madhya Pradesh'},
- '9171623':{'en': 'Chhindwara, Madhya Pradesh'},
- '9171624':{'en': 'Chhindwara, Madhya Pradesh'},
- '9171625':{'en': 'Chhindwara, Madhya Pradesh'},
 }

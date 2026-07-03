@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-06-08 AT 11:28:09
+# AUTO GENERATED ON 2026-07-02 AT 19:33:43
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -16,7 +16,7 @@ from awkward_cpp.cpu_kernels import lib
 
 def test_unit_cpuawkward_ListOffsetArray32_reduce_local_nextparents_64_1():
     nextparents = []
-    nextparents = (ctypes.c_int64*len(nextparents))(*nextparents)
+    nextparents = (ctypes.c_int32*len(nextparents))(*nextparents)
     length = 0
     offsets = [0]
     offsets = (ctypes.c_int32*len(offsets))(*offsets)
@@ -29,7 +29,7 @@ def test_unit_cpuawkward_ListOffsetArray32_reduce_local_nextparents_64_1():
 
 def test_unit_cpuawkward_ListOffsetArray32_reduce_local_nextparents_64_2():
     nextparents = [123]
-    nextparents = (ctypes.c_int64*len(nextparents))(*nextparents)
+    nextparents = (ctypes.c_int32*len(nextparents))(*nextparents)
     length = 1
     offsets = [0, 1]
     offsets = (ctypes.c_int32*len(offsets))(*offsets)
@@ -42,7 +42,7 @@ def test_unit_cpuawkward_ListOffsetArray32_reduce_local_nextparents_64_2():
 
 def test_unit_cpuawkward_ListOffsetArray32_reduce_local_nextparents_64_3():
     nextparents = [123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123]
-    nextparents = (ctypes.c_int64*len(nextparents))(*nextparents)
+    nextparents = (ctypes.c_int32*len(nextparents))(*nextparents)
     length = 18
     offsets = [0, 0, 1, 3, 3, 6, 8, 9, 9, 9, 10, 10, 12, 15, 15, 17, 18, 18, 18]
     offsets = (ctypes.c_int32*len(offsets))(*offsets)
@@ -55,7 +55,7 @@ def test_unit_cpuawkward_ListOffsetArray32_reduce_local_nextparents_64_3():
 
 def test_unit_cpuawkward_ListOffsetArray32_reduce_local_nextparents_64_4():
     nextparents = [123, 123, 123, 123, 123]
-    nextparents = (ctypes.c_int64*len(nextparents))(*nextparents)
+    nextparents = (ctypes.c_int32*len(nextparents))(*nextparents)
     length = 4
     offsets = [0, 1, 3, 5, 5]
     offsets = (ctypes.c_int32*len(offsets))(*offsets)
@@ -68,7 +68,7 @@ def test_unit_cpuawkward_ListOffsetArray32_reduce_local_nextparents_64_4():
 
 def test_unit_cpuawkward_ListOffsetArray32_reduce_local_nextparents_64_5():
     nextparents = [123, 123, 123, 123, 123, 123, 123]
-    nextparents = (ctypes.c_int64*len(nextparents))(*nextparents)
+    nextparents = (ctypes.c_int32*len(nextparents))(*nextparents)
     length = 5
     offsets = [0, 1, 1, 3, 5, 7]
     offsets = (ctypes.c_int32*len(offsets))(*offsets)
@@ -81,7 +81,7 @@ def test_unit_cpuawkward_ListOffsetArray32_reduce_local_nextparents_64_5():
 
 def test_unit_cpuawkward_ListOffsetArray32_reduce_local_nextparents_64_6():
     nextparents = [123, 123]
-    nextparents = (ctypes.c_int64*len(nextparents))(*nextparents)
+    nextparents = (ctypes.c_int32*len(nextparents))(*nextparents)
     length = 5
     offsets = [0, 0, 1, 1, 2, 2]
     offsets = (ctypes.c_int32*len(offsets))(*offsets)

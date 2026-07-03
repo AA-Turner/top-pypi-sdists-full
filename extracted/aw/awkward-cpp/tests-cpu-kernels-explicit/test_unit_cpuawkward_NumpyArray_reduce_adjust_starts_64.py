@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-06-08 AT 11:28:09
+# AUTO GENERATED ON 2026-07-02 AT 19:33:43
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -22,10 +22,10 @@ def test_unit_cpuawkward_NumpyArray_reduce_adjust_starts_64_1():
     starts = []
     starts = (ctypes.c_int64*len(starts))(*starts)
     outlength = 0
-    parents = []
-    parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_NumpyArray_reduce_adjust_starts_64')
-    ret_pass = funcC(toptr, outlength, parents, starts)
+    ret_pass = funcC(toptr, outlength, offsets, starts)
     pytest_toptr = []
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -38,11 +38,11 @@ def test_unit_cpuawkward_NumpyArray_reduce_adjust_starts_64_2():
     starts = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
     starts = (ctypes.c_int64*len(starts))(*starts)
     outlength = 15
-    parents = [0, 0, 5, 5, 10, 10, 1, 1, 6, 6, 11, 11, 2, 2, 7, 7, 12, 12, 3, 3, 8, 8, 13, 13, 4, 4, 9, 9, 14, 14]
-    parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_NumpyArray_reduce_adjust_starts_64')
-    ret_pass = funcC(toptr, outlength, parents, starts)
-    pytest_toptr = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    ret_pass = funcC(toptr, outlength, offsets, starts)
+    pytest_toptr = [0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, -14]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -54,10 +54,10 @@ def test_unit_cpuawkward_NumpyArray_reduce_adjust_starts_64_3():
     starts = [0, 0, 0, 0, 0, 0]
     starts = (ctypes.c_int64*len(starts))(*starts)
     outlength = 6
-    parents = [0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 1, 1, 1, 4, 4, 4, 2, 5]
-    parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 5, 8, 9, 14, 17, 18]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_NumpyArray_reduce_adjust_starts_64')
-    ret_pass = funcC(toptr, outlength, parents, starts)
+    ret_pass = funcC(toptr, outlength, offsets, starts)
     pytest_toptr = [0, 0, 0, 0, 0, 0]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -70,10 +70,10 @@ def test_unit_cpuawkward_NumpyArray_reduce_adjust_starts_64_4():
     starts = [-1]
     starts = (ctypes.c_int64*len(starts))(*starts)
     outlength = 1
-    parents = [0, 0, 0, 0, 0]
-    parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 5]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_NumpyArray_reduce_adjust_starts_64')
-    ret_pass = funcC(toptr, outlength, parents, starts)
+    ret_pass = funcC(toptr, outlength, offsets, starts)
     pytest_toptr = [1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -86,11 +86,11 @@ def test_unit_cpuawkward_NumpyArray_reduce_adjust_starts_64_5():
     starts = [8, 7, 6, 5, 4, 3, 2, 1]
     starts = (ctypes.c_int64*len(starts))(*starts)
     outlength = 8
-    parents = [0, 0, 0, 0, 0, 4, 4, 4, 4, 4, 1, 1, 1, 5, 5, 5, 5, 2, 6, 6, 6, 7]
-    parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 5, 8, 9, 9, 14, 18, 21, 22]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_NumpyArray_reduce_adjust_starts_64')
-    ret_pass = funcC(toptr, outlength, parents, starts)
-    pytest_toptr = [-8, -8, -8, -7, -8, -8, -8, -8]
+    ret_pass = funcC(toptr, outlength, offsets, starts)
+    pytest_toptr = [-8, -7, -6, -4, -4, -3, -2, -1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -102,11 +102,11 @@ def test_unit_cpuawkward_NumpyArray_reduce_adjust_starts_64_6():
     starts = [-1, -2, -3, -4, -5, -6, -7, -8]
     starts = (ctypes.c_int64*len(starts))(*starts)
     outlength = 8
-    parents = [0, 0, 0, 6, 6, 1, 1, 7]
-    parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 3, 5, 5, 5, 5, 5, 7, 8]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_NumpyArray_reduce_adjust_starts_64')
-    ret_pass = funcC(toptr, outlength, parents, starts)
-    pytest_toptr = [1, 1, 1, 2, 2, 2, 1, 1]
+    ret_pass = funcC(toptr, outlength, offsets, starts)
+    pytest_toptr = [1, 2, 3, 5, 6, 7, 7, 8]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -118,11 +118,11 @@ def test_unit_cpuawkward_NumpyArray_reduce_adjust_starts_64_7():
     starts = [-1, -2, -3, -4, -5, -6, -7, -8]
     starts = (ctypes.c_int64*len(starts))(*starts)
     outlength = 8
-    parents = [0, 0, 0, 6, 6, 1, 1, 7]
-    parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 3, 5, 5, 5, 5, 5, 7, 8]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_NumpyArray_reduce_adjust_starts_64')
-    ret_pass = funcC(toptr, outlength, parents, starts)
-    pytest_toptr = [1, 1, 1, -1, -1, -1, 1, 1]
+    ret_pass = funcC(toptr, outlength, offsets, starts)
+    pytest_toptr = [1, 2, 3, -1, -1, -1, 7, 8]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -134,11 +134,11 @@ def test_unit_cpuawkward_NumpyArray_reduce_adjust_starts_64_8():
     starts = [-1, 1, 0, -5, 2, 3]
     starts = (ctypes.c_int64*len(starts))(*starts)
     outlength = 6
-    parents = [0, 0, 0, 2, 2, 3, 4, 4, 5]
-    parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 3, 3, 5, 6, 8, 9]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_NumpyArray_reduce_adjust_starts_64')
-    ret_pass = funcC(toptr, outlength, parents, starts)
-    pytest_toptr = [1, 2, 1, 1, 1, 1]
+    ret_pass = funcC(toptr, outlength, offsets, starts)
+    pytest_toptr = [1, 0, 0, 5, -2, -3]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -150,11 +150,11 @@ def test_unit_cpuawkward_NumpyArray_reduce_adjust_starts_64_9():
     starts = [-1, 0, 1]
     starts = (ctypes.c_int64*len(starts))(*starts)
     outlength = 3
-    parents = [0, 0, 2]
-    parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 2, 2, 3]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_NumpyArray_reduce_adjust_starts_64')
-    ret_pass = funcC(toptr, outlength, parents, starts)
-    pytest_toptr = [1, 2, 1]
+    ret_pass = funcC(toptr, outlength, offsets, starts)
+    pytest_toptr = [1, 1, -1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 
@@ -166,10 +166,10 @@ def test_unit_cpuawkward_NumpyArray_reduce_adjust_starts_64_10():
     starts = [0, 1, 0, 2, 1, 0, 3]
     starts = (ctypes.c_int64*len(starts))(*starts)
     outlength = 7
-    parents = [0, 0, 0, 2, 2, 3, 6, 6, 6]
-    parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 3, 3, 5, 6, 6, 6, 9]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_NumpyArray_reduce_adjust_starts_64')
-    ret_pass = funcC(toptr, outlength, parents, starts)
+    ret_pass = funcC(toptr, outlength, offsets, starts)
     pytest_toptr = [-1, -1, -1, -1, -1, -1, -1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -182,11 +182,11 @@ def test_unit_cpuawkward_NumpyArray_reduce_adjust_starts_64_11():
     starts = [0, 1, 0, 2, 1, 0, 3]
     starts = (ctypes.c_int64*len(starts))(*starts)
     outlength = 7
-    parents = [0, 0, 0, 2, 2, 3, 6, 6, 6]
-    parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 3, 3, 5, 6, 6, 6, 9]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_NumpyArray_reduce_adjust_starts_64')
-    ret_pass = funcC(toptr, outlength, parents, starts)
-    pytest_toptr = [0, 1, 0, 0, 1, 1, 0]
+    ret_pass = funcC(toptr, outlength, offsets, starts)
+    pytest_toptr = [0, 0, 0, -2, 0, 1, -3]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 

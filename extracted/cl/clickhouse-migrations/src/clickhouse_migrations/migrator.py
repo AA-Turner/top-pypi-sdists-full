@@ -1,20 +1,46 @@
 import logging
+import re
+from collections import namedtuple
 from typing import Dict, List, Optional, Tuple
 
-from clickhouse_driver import Client
-
+from clickhouse_migrations.connection import Connection
 from clickhouse_migrations.exceptions import MigrationException
 from clickhouse_migrations.migration import Migration
+from clickhouse_migrations.util import quote_identifier
 
 MIGRATION_LOG_FORMAT_FULL = "full"
 MIGRATION_LOG_FORMAT_COMPACT = "compact"
 MIGRATION_LOG_FORMATS = (MIGRATION_LOG_FORMAT_FULL, MIGRATION_LOG_FORMAT_COMPACT)
 
+STATUS_APPLIED = "applied"
+STATUS_PENDING = "pending"
+STATUS_MD5_MISMATCH = "md5-mismatch"
+STATUS_UNKNOWN = "unknown"
+
+# One row of a migration status report. state is one of the STATUS_* values;
+# applied_at is None for migrations that have not been applied yet.
+StatusRow = namedtuple("StatusRow", ["version", "state", "md5", "applied_at"])
+
+# Tokenizer used to split a script into statements without treating a ";" that
+# lives inside a string literal, quoted identifier or comment as a delimiter.
+_STATEMENT_TOKEN_RE = re.compile(
+    r"""
+      (?P<line_comment>--[^\n]*)
+    | (?P<block_comment>/\*.*?\*/)
+    | (?P<single>'(?:\\.|''|[^'])*')
+    | (?P<double>"(?:\\.|""|[^"])*")
+    | (?P<backtick>`(?:``|[^`])*`)
+    | (?P<semicolon>;)
+    | (?P<other>[^-/'"`;]+|.)
+    """,
+    re.VERBOSE | re.DOTALL,
+)
+
 
 class Migrator:
     def __init__(
         self,
-        conn: Client,
+        conn: Connection,
         dryrun: bool = False,
         migration_log_format: str = MIGRATION_LOG_FORMAT_FULL,
     ):
@@ -24,12 +50,20 @@ class Migrator:
                 f"Expected one of: {', '.join(MIGRATION_LOG_FORMATS)}"
             )
 
-        self._conn: Client = conn
+        self._conn: Connection = conn
         self._dryrun = dryrun
         self._migration_log_format = migration_log_format
 
     def init_schema(self, cluster_name: Optional[str] = None):
-        cluster_schema = f"""CREATE TABLE IF NOT EXISTS schema_versions ON CLUSTER "{cluster_name}" (
+        if cluster_name is None:
+            schema = """CREATE TABLE IF NOT EXISTS schema_versions (
+    version UInt32,
+    md5 String,
+    script String,
+    created_at DateTime DEFAULT now()
+) ENGINE = MergeTree ORDER BY tuple(created_at)"""
+        else:
+            schema = f"""CREATE TABLE IF NOT EXISTS schema_versions ON CLUSTER {quote_identifier(cluster_name)} (
     version UInt32,
     md5 String,
     script String,
@@ -37,14 +71,7 @@ class Migrator:
 ) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{{database}}/{{table}}', '{{replica}}')
 ORDER BY tuple(created_at)"""
 
-        single_schema = """CREATE TABLE IF NOT EXISTS schema_versions (
-    version UInt32,
-    md5 String,
-    script String,
-    created_at DateTime DEFAULT now()
-) ENGINE = MergeTree ORDER BY tuple(created_at)"""
-
-        self._execute(single_schema if cluster_name is None else cluster_schema)
+        self._conn.command(schema)
 
     def query_applied_migrations(self) -> List[Migration]:
         self.optimize_schema_table()
@@ -56,12 +83,7 @@ ORDER BY tuple(created_at)"""
         FROM schema_versions
         ORDER BY version"""
 
-        result = self._execute(query, with_column_types=True)
-        column_names = [c[0] for c in result[len(result) - 1]]
-
-        migrations_as_dict = [dict(zip(column_names, d)) for d in result[0]]
-
-        return [Migration(**d) for d in migrations_as_dict]
+        return [Migration(**row) for row in self._conn.query(query)]
 
     def migrations_to_apply(self, incoming: List[Migration]) -> List[Migration]:
         applied = self.query_applied_migrations()
@@ -108,6 +130,42 @@ ORDER BY tuple(created_at)"""
         ]
         return sorted(to_apply, key=lambda x: x.version)
 
+    def migration_status(self, incoming: List[Migration]) -> List[StatusRow]:
+        return self._build_status(incoming, self._query_applied_meta())
+
+    def _query_applied_meta(self) -> Dict[int, Tuple[str, object]]:
+        rows = self._conn.query(
+            "SELECT version, argMax(md5, created_at) AS md5, "
+            "max(created_at) AS applied_at "
+            "FROM schema_versions GROUP BY version ORDER BY version"
+        )
+        return {row["version"]: (row["md5"], row["applied_at"]) for row in rows}
+
+    @staticmethod
+    def _build_status(
+        incoming: List[Migration], applied: Dict[int, Tuple[str, object]]
+    ) -> List[StatusRow]:
+        incoming_by_version = {m.version: m for m in incoming}
+
+        rows: List[StatusRow] = []
+        for version in sorted(set(incoming_by_version) | set(applied)):
+            local = incoming_by_version.get(version)
+            applied_meta = applied.get(version)
+
+            if local and applied_meta:
+                applied_md5, applied_at = applied_meta
+                state = (
+                    STATUS_APPLIED if local.md5 == applied_md5 else STATUS_MD5_MISMATCH
+                )
+                rows.append(StatusRow(version, state, applied_md5, applied_at))
+            elif local:
+                rows.append(StatusRow(version, STATUS_PENDING, local.md5, None))
+            else:
+                applied_md5, applied_at = applied_meta
+                rows.append(StatusRow(version, STATUS_UNKNOWN, applied_md5, applied_at))
+
+        return rows
+
     def format_migration_log(self, migration: Migration) -> str:
         if self._migration_log_format == MIGRATION_LOG_FORMAT_COMPACT:
             return f"version={migration.version}, md5={migration.md5}"
@@ -143,64 +201,61 @@ ORDER BY tuple(created_at)"""
                 elif self._dryrun:
                     logging.info("Dry run mode, would have executed: %s", statement)
                 else:
-                    self._execute(statement)
+                    self._conn.command(statement)
 
             logging.info("Migration applied, need to update schema version table.")
             if fake:
                 logging.debug("update schema versions because fake option is enabled")
-                self._execute(
-                    "ALTER TABLE schema_versions DELETE WHERE version = %(version)s;",
-                    {
-                        "version": migration.version,
-                    },
+                self._conn.command(
+                    "ALTER TABLE schema_versions "
+                    f"DELETE WHERE version = {int(migration.version)}"
                 )
-                self._execute(
-                    "INSERT INTO schema_versions(version, script, md5) VALUES",
-                    [
-                        {
-                            "version": migration.version,
-                            "script": migration.script,
-                            "md5": migration.md5,
-                        }
-                    ],
-                )
+                self._insert_schema_version(migration)
             elif self._dryrun:
                 logging.debug(
                     "Skip updating schema versions because dry run is enabled"
                 )
             else:
                 logging.debug("Insert new schemas")
-                self._execute(
-                    "INSERT INTO schema_versions(version, script, md5) VALUES",
-                    [
-                        {
-                            "version": migration.version,
-                            "script": migration.script,
-                            "md5": migration.md5,
-                        }
-                    ],
-                )
+                self._insert_schema_version(migration)
 
             logging.info("Migration is fully applied.")
 
         return migrations_to_process
 
-    def optimize_schema_table(self):
-        self._execute("OPTIMIZE TABLE schema_versions FINAL;")
+    def _insert_schema_version(self, migration: Migration) -> None:
+        self._conn.insert(
+            "schema_versions",
+            [
+                {
+                    "version": migration.version,
+                    "script": migration.script,
+                    "md5": migration.md5,
+                }
+            ],
+        )
 
-    def _execute(self, statement, *args, **kwargs):
-        logging.debug(statement)
-        return self._conn.execute(statement, *args, **kwargs)
+    def optimize_schema_table(self):
+        self._conn.command("OPTIMIZE TABLE schema_versions FINAL")
 
     @classmethod
     def script_to_statements(cls, script: str, multi_statement: bool) -> List[str]:
-        statements = []
-        if multi_statement:
-            for statement in script.split(";"):
-                statement = statement.strip()
+        if not multi_statement:
+            return [script.strip()]
+
+        statements: List[str] = []
+        current: List[str] = []
+        for match in _STATEMENT_TOKEN_RE.finditer(script):
+            if match.lastgroup == "semicolon":
+                statement = "".join(current).strip()
                 if statement:
                     statements.append(statement + ";")
-        else:
-            statements.append(script.strip())
+                current = []
+            else:
+                current.append(match.group())
+
+        statement = "".join(current).strip()
+        if statement:
+            statements.append(statement + ";")
 
         return statements

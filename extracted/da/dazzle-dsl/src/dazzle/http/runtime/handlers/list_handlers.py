@@ -38,7 +38,6 @@ from dazzle.http.runtime.auth import AuthContext
 from dazzle.http.runtime.htmx_render import (
     _render_table_empty,
     _render_table_pagination,
-    _render_table_row,
     _render_table_sentinel,
 )
 
@@ -50,7 +49,11 @@ from dazzle.http.runtime.route_support import (
     _is_htmx_request,
     _wants_html,
 )
+from dazzle.http.runtime.usage_signal import USAGE_KIND_FIELD, read_usage_counts_for_request
+from dazzle.page.runtime.column_economy_resolver import resolve_column_economy_by_usage
 from dazzle.render.access_messages import _forbidden_detail
+from dazzle.render.fragment.primitives import DataTable, RowCapabilities
+from dazzle.render.fragment.renderer._data_row import render_data_table_rows
 
 if TYPE_CHECKING:
     from dazzle.core.ir.fk_graph import FKGraph
@@ -60,6 +63,32 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def build_data_table(table_dict: dict[str, Any], items: list[dict[str, Any]]) -> DataTable:
+    """Map an http/ HTMX-refresh ``table_dict`` (+ its row items) into the typed
+    render/ ``DataTable`` primitive (#1505 P2).
+
+    The capability vector is resolved from exactly the keys the retired
+    ``_render_table_row`` read (``bulk_actions`` / ``inline_editable`` /
+    ``detail_url_template``), so ``render_data_table_rows(build_data_table(...))``
+    is byte-identical to the legacy per-row join.
+    """
+    caps = RowCapabilities(
+        bulk_select=bool(table_dict.get("bulk_actions")),
+        inline_editable=tuple(table_dict.get("inline_editable") or ()),
+        drill=bool(table_dict.get("detail_url_template")),
+        peek=str(table_dict.get("peek_mode") or "off"),
+    )
+    return DataTable(
+        columns=tuple(table_dict.get("columns") or ()),
+        rows=tuple(items),
+        entity_name=str(table_dict.get("entity_name") or "Item"),
+        api_endpoint=str(table_dict.get("api_endpoint") or ""),
+        detail_url_template=str(table_dict.get("detail_url_template") or ""),
+        table_id=str(table_dict.get("table_id") or "dt-table"),
+        capabilities=caps,
+    )
+
+
 def create_list_handler(
     spec: "RouteSpec",
     *,
@@ -67,7 +96,10 @@ def create_list_handler(
     select_fields: list[str] | None = None,
     json_projection: list[str] | None = None,
     htmx_columns: list[dict[str, Any]] | None = None,
+    htmx_columns_full: list[dict[str, Any]] | None = None,
     htmx_detail_url: str | None = None,
+    htmx_peek_mode: str | None = None,
+    htmx_peek_by_table_id: dict[str, str] | None = None,
     htmx_entity_name: str | None = None,
     htmx_empty_message: str = "No items found.",
     search_fields: list[str] | None = None,
@@ -110,10 +142,26 @@ def create_list_handler(
 
     def _inject_htmx_meta(request: Request) -> None:
         """Set HTMX rendering metadata on request.state for table row fragments."""
-        if htmx_columns is not None:
-            request.state.htmx_columns = htmx_columns
+        cols = htmx_columns
+        # ADR-0050 2d → L4: for the entity-fallback path (columns_full present), apply
+        # usage-boosted column economy per request so a heavily-engaged field survives
+        # truncation. Cold-start / no usage / no DB → resolve_column_economy(full) ==
+        # the cached truncated `htmx_columns`, so the output is byte-identical.
+        if htmx_columns_full is not None:
+            usage = read_usage_counts_for_request(
+                request, surface=htmx_entity_name or "", kind=USAGE_KIND_FIELD
+            )
+            cols = resolve_column_economy_by_usage(
+                htmx_columns_full, usage, key_of=lambda c: str(c.get("key", ""))
+            )
+        if cols is not None:
+            request.state.htmx_columns = cols
         if htmx_detail_url is not None:
             request.state.htmx_detail_url = htmx_detail_url
+        if htmx_peek_mode is not None:
+            request.state.htmx_peek_mode = htmx_peek_mode
+        if htmx_peek_by_table_id is not None:
+            request.state.htmx_peek_by_table_id = htmx_peek_by_table_id
         request.state.htmx_entity_name = htmx_entity_name
         request.state.htmx_empty_message = htmx_empty_message
 
@@ -496,6 +544,16 @@ async def _list_handler_body(
             if htmx.target and htmx.target.endswith("-body"):
                 table_id = htmx.target.removesuffix("-body")
 
+            # #1494 (2c, Slice 2): `peek:` is declared per surface; resolve the
+            # mode for the *actual* surface in view (its table_id == region_name)
+            # so the row chevron matches the per-surface SlideOver container.
+            # Fall back to the entity-level default when no per-surface entry
+            # exists (single-list-surface entities — the common case, byte-stable).
+            _peek_by_tid = getattr(request.state, "htmx_peek_by_table_id", None) or {}
+            _resolved_peek = _peek_by_tid.get(table_id) or getattr(
+                request.state, "htmx_peek_mode", None
+            )
+
             items = result.get("items", []) if isinstance(result, dict) else []
             # Convert Pydantic models to dicts
             if items and hasattr(items[0], "model_dump"):
@@ -508,6 +566,7 @@ async def _list_handler_body(
                 if hasattr(request.state, "htmx_columns")
                 else [],
                 "detail_url_template": getattr(request.state, "htmx_detail_url", None),
+                "peek_mode": _resolved_peek,
                 "entity_name": getattr(request.state, "htmx_entity_name", "Item"),
                 "api_endpoint": str(request.url.path),
                 "table_id": table_id,
@@ -527,7 +586,9 @@ async def _list_handler_body(
             if not items:
                 html = _render_table_empty(table_dict, request)
             else:
-                html = "".join(_render_table_row(table_dict, item) for item in items)
+                # #1505 P2: the rich rows now render via the render/ substrate
+                # (one source of truth); http/ is transport-only here.
+                html = render_data_table_rows(build_data_table(table_dict, items))
 
             # Check if table uses infinite scroll mode
             pagination_mode = getattr(request.state, "htmx_pagination_mode", "pages")

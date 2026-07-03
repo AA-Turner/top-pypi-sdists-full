@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langgraph-checkpoint-aws
-Version: 1.1.1
+Version: 1.2.0
 Summary: A LangChain checkpointer implementation that uses Bedrock Session Management Service and ElastiCache Valkey to enable stateful and resumable LangGraph agents.
 Keywords: aws,bedrock,langchain,langgraph,checkpointer,dynamodb,elasticache,valkey
 License: MIT
@@ -9,7 +9,7 @@ Project-URL: repository, https://github.com/langchain-ai/langchain-aws
 Requires-Python: <4.0,>=3.10
 Requires-Dist: langgraph-checkpoint<5.0.0,>=3.0.0
 Requires-Dist: langgraph>=1.0.0
-Requires-Dist: boto3>=1.40.19
+Requires-Dist: boto3>=1.42.90
 Requires-Dist: typing_extensions>=4.0.0; python_version < "3.11"
 Provides-Extra: valkey
 Requires-Dist: valkey>=6.0.0rc1,>=6.1.1; extra == "valkey"

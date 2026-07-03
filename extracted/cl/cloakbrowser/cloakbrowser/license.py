@@ -34,21 +34,120 @@ class LicenseInfo:
     expires: str | None
 
 
-def resolve_license_key(license_key: str | None = None) -> str | None:
-    """Resolve the license key: explicit param > env var > file > None."""
+_LICENSE_KEY_SOURCE_PARAM = "param"
+_LICENSE_KEY_SOURCE_ENV = "env"
+_LICENSE_KEY_SOURCE_DEFAULT_FILE = "default_file"
+_LICENSE_KEY_SOURCE_CUSTOM_FILE = "custom_file"
+_LICENSE_KEY_SOURCE_NONE = "none"
+
+
+def _resolve_license_key_with_source(
+    license_key: str | None = None,
+) -> tuple[str | None, str]:
+    """Resolve license key with source tracking for env-injection decisions.
+
+    Returns (key, source) where source is one of the _LICENSE_KEY_SOURCE_*
+    constants. The source tells the caller *how* the key was found so they
+    can decide whether env injection is needed (e.g. the binary reads the
+    default file path directly, so env injection is unnecessary).
+    """
+    # 1. Explicit param
     if license_key and license_key.strip():
-        return license_key.strip()
+        return (license_key.strip(), _LICENSE_KEY_SOURCE_PARAM)
+
+    # 2. Environment variable
     env_key = os.environ.get("CLOAKBROWSER_LICENSE_KEY", "").strip()
     if env_key:
-        return env_key
-    key_file = get_cache_dir() / "license.key"
+        return (env_key, _LICENSE_KEY_SOURCE_ENV)
+
+    # 3. File in the wrapper cache dir
+    cache_dir = get_cache_dir()
+    key_file = cache_dir / "license.key"
     try:
         content = key_file.read_text().strip()
         if content:
-            return content
+            default_cache = Path.home() / ".cloakbrowser"
+            if cache_dir.resolve() == default_cache.resolve():
+                source = _LICENSE_KEY_SOURCE_DEFAULT_FILE
+            else:
+                source = _LICENSE_KEY_SOURCE_CUSTOM_FILE
+            return (content, source)
     except OSError:
         pass
-    return None
+
+    return (None, _LICENSE_KEY_SOURCE_NONE)
+
+
+def resolve_license_key(license_key: str | None = None) -> str | None:
+    """Resolve the license key: explicit param > env var > file > None."""
+    key, _ = _resolve_license_key_with_source(license_key)
+    return key
+
+
+def build_launch_env(
+    license_key: str | None = None,
+    user_env: dict[str, str] | None = None,
+) -> dict[str, str] | None:
+    """Build child process env dict with any needed license key injection.
+
+    The Pro binary reads ``CLOAKBROWSER_LICENSE_KEY`` from its own process
+    environment at startup.  This helper merges the resolved key into the
+    child process env dict **only** when injection is necessary:
+
+    * **param** or **custom_file** source -> inject the key into the child env
+      (the binary cannot see the wrapper-only key or the custom file path).
+    * **env** source -> the key is already in ``os.environ``, so the child
+      inherits it naturally.  No injection.
+    * **default_file** source -> the binary reads ``~/.cloakbrowser/license.key``
+      directly, so injection is unnecessary (and keeps the key out of process
+      env for security) — *unless* the caller passes a custom ``user_env``,
+      which Playwright uses to replace (not merge) the child env; a replaced
+      env can drop ``HOME`` and hide the file, so the key is injected then.
+    * **none** -> no key at all, no injection.
+
+    When *user_env* is provided (e.g. the caller passed ``env=`` via
+    Playwright kwargs), it is used as the base instead of ``os.environ``,
+    and the key is injected only when needed.
+
+    Returns ``None`` when no injection is needed and no custom user_env was
+    given — Playwright treats ``env=None`` as "inherit parent env", which
+    is correct in those cases.
+    """
+    key, source = _resolve_license_key_with_source(license_key)
+
+    # Normalize the custom env once so every return path behaves identically:
+    # drop None values (Playwright's env is typed str->str).
+    base_env = (
+        {k: v for k, v in user_env.items() if v is not None}
+        if user_env is not None
+        else None
+    )
+
+    # Default file: binary reads it directly — no env injection needed,
+    # UNLESS the caller passes a custom env. Playwright replaces (not merges)
+    # the child env, which can drop HOME and hide the file from the binary,
+    # so inject the key too in that case (fall through to the merge below).
+    if source == _LICENSE_KEY_SOURCE_DEFAULT_FILE and base_env is None:
+        return None
+
+    # No key at all: pass through the custom env or None.
+    if source == _LICENSE_KEY_SOURCE_NONE or key is None:
+        return base_env
+
+    # Env source, no custom user env: child inherits parent env, which
+    # already has CLOAKBROWSER_LICENSE_KEY.
+    if source == _LICENSE_KEY_SOURCE_ENV and base_env is None:
+        return None
+
+    # Build the merged env dict.
+    merged = dict(base_env) if base_env is not None else dict(os.environ)
+
+    # For param/custom_file this is THE injection into the child env.
+    # For env source with a custom user_env this ensures the key persists
+    # through the user's env override (Playwright replaces, not merges).
+    merged["CLOAKBROWSER_LICENSE_KEY"] = key
+
+    return merged
 
 
 def validate_license(license_key: str) -> LicenseInfo | None:

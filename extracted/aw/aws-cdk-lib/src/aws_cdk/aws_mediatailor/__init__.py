@@ -4103,48 +4103,6 @@ class CfnSourceLocation(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSourceLocation", [resource]))
 
-    @jsii.member(jsii_name="fromSourceLocationArn")
-    @builtins.classmethod
-    def from_source_location_arn(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        arn: builtins.str,
-    ) -> "_ISourceLocationRef_240f0e28":
-        '''Creates a new ISourceLocationRef from an ARN.
-
-        :param scope: -
-        :param id: -
-        :param arn: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e847088619cd1680f1c77248b1fed78fe233ca2f074624e89178586546d9d84)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_ISourceLocationRef_240f0e28", jsii.sinvoke(cls, "fromSourceLocationArn", [scope, id, arn]))
-
-    @jsii.member(jsii_name="fromSourceLocationName")
-    @builtins.classmethod
-    def from_source_location_name(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        source_location_name: builtins.str,
-    ) -> "_ISourceLocationRef_240f0e28":
-        '''Creates a new ISourceLocationRef from a sourceLocationName.
-
-        :param scope: -
-        :param id: -
-        :param source_location_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd94b00014bdca4702dc78995645d4b320302bddf764516a46f2651c266da0e3)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
-        return typing.cast("_ISourceLocationRef_240f0e28", jsii.sinvoke(cls, "fromSourceLocationName", [scope, id, source_location_name]))
-
     @jsii.member(jsii_name="isCfnSourceLocation")
     @builtins.classmethod
     def is_cfn_source_location(cls, x: typing.Any) -> builtins.bool:
@@ -5914,22 +5872,6 @@ def _typecheckingstub__dd693d384196965a6e6e42aa969746fa450f3a5099e7be68c145dcc9f
 
 def _typecheckingstub__a0d17f619c660f9b6fd1fb2b7aeb5e9f11758a50027ed09924fa2715dfe61616(
     resource: _ISourceLocationRef_240f0e28,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7e847088619cd1680f1c77248b1fed78fe233ca2f074624e89178586546d9d84(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cd94b00014bdca4702dc78995645d4b320302bddf764516a46f2651c266da0e3(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    source_location_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

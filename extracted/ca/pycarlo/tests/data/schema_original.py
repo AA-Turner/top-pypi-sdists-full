@@ -359,20 +359,22 @@ class AgentHealthEvidenceCategory(sgqlc.types.Enum):
 
 class AgentHealthEvidenceSource(sgqlc.types.Enum):
     """Signal origin; a row can carry several when cross-source signals
-    merge.  PR_DIFF only appears on reports produced before PR
-    information became a check (verifier verdict) on the evidence row
-    rather than a signal source.
+    merge.  EVAL marks facts originating from an evaluation detector
+    (e.g. an eval-score-drop). PR_DIFF only appears on reports
+    produced before PR information became a check (verifier verdict)
+    on the evidence row rather than a signal source.
 
     Enumeration Choices:
 
     * `CONVERSATION`None
     * `ERROR`None
+    * `EVAL`None
     * `GRAPH`None
     * `PR_DIFF`None
     """
 
     __schema__ = schema
-    __choices__ = ("CONVERSATION", "ERROR", "GRAPH", "PR_DIFF")
+    __choices__ = ("CONVERSATION", "ERROR", "EVAL", "GRAPH", "PR_DIFF")
 
 
 class AgentHealthGranularity(sgqlc.types.Enum):
@@ -4497,13 +4499,14 @@ class IncidentNotificationAlertType(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `CREATED`None
+    * `RENOTIFY`None
     * `RESOLVED`None
     * `SLO_BREACH`None
     * `UPDATED`None
     """
 
     __schema__ = schema
-    __choices__ = ("CREATED", "RESOLVED", "SLO_BREACH", "UPDATED")
+    __choices__ = ("CREATED", "RENOTIFY", "RESOLVED", "SLO_BREACH", "UPDATED")
 
 
 class IncidentSubType(sgqlc.types.Enum):
@@ -8978,7 +8981,7 @@ class AirflowEnvInput(sgqlc.types.Input):
 
 class AlertGroupingInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("mode", "max_hours")
+    __field_names__ = ("mode", "max_hours", "renotify_every_hours")
     mode = sgqlc.types.Field(sgqlc.types.non_null(AlertGroupingMode), graphql_name="mode")
     """Alert grouping strategy. group_into_open_alert: fold new breaches
     from this monitor into its currently-open alert (table monitors
@@ -8991,6 +8994,15 @@ class AlertGroupingInput(sgqlc.types.Input):
     new breaches are grouped into it. After this window a new breach
     starts a fresh alert. Defaults to 5 when omitted. Must be a
     positive integer.
+    """
+
+    renotify_every_hours = sgqlc.types.Field(Int, graphql_name="renotifyEveryHours")
+    """Re-notify the monitor's configured audience every this many hours
+    while the alert remains open. After each interval elapses
+    (measured from when the alert opened, then from the last re-
+    notify) a reminder notification is sent. Defaults to 24 when
+    omitted in monitors-as-code; pass -1 to disable re-notify. Must
+    otherwise be a positive integer.
     """
 
 
@@ -19254,6 +19266,8 @@ class AgentGraphNode(sgqlc.types.Type):
         "p95_duration_ms",
         "p50_input_tokens",
         "p50_output_tokens",
+        "p50_output_bytes",
+        "p95_output_bytes",
         "p50_iterations_per_trace",
         "max_iterations_per_trace",
         "p95_iterations_per_trace",
@@ -19334,6 +19348,19 @@ class AgentGraphNode(sgqlc.types.Type):
     nodes.
     """
 
+    p50_output_bytes = sgqlc.types.Field(Float, graphql_name="p50OutputBytes")
+    """Median (50th percentile) size of the tool result, in UTF-8 code
+    points (i.e. character count, not raw octets). Rolled up across
+    every occurrence of this node. Set only for TOOL nodes whose spans
+    record an output; null for other node kinds, and null when the
+    underlying trace store does not expose per-tool output size.
+    """
+
+    p95_output_bytes = sgqlc.types.Field(Float, graphql_name="p95OutputBytes")
+    """95th percentile size of the tool result, in UTF-8 code points. See
+    p50OutputBytes for units and nullability.
+    """
+
     p50_iterations_per_trace = sgqlc.types.Field(
         sgqlc.types.non_null(Float), graphql_name="p50IterationsPerTrace"
     )
@@ -19404,6 +19431,8 @@ class AgentHealthCheck(sgqlc.types.Type):
         "pr_number",
         "url",
         "merged_at",
+        "pre_fix_count",
+        "post_fix_count",
     )
     type = sgqlc.types.Field(AgentHealthCheckType, graphql_name="type")
     """Which verifier produced this check."""
@@ -19431,6 +19460,18 @@ class AgentHealthCheck(sgqlc.types.Type):
 
     merged_at = sgqlc.types.Field(DateTime, graphql_name="mergedAt")
     """When the referenced pull request merged, for PR checks."""
+
+    pre_fix_count = sgqlc.types.Field(Int, graphql_name="preFixCount")
+    """Trace-slice volume the verdict was decided on, before the
+    referenced PR merged (PR checks). Error findings carry raw error
+    totals; latency findings carry span-weighted avg p95 in ms.
+    Inconclusive checks carry 0 — gate on resolution before rendering.
+    """
+
+    post_fix_count = sgqlc.types.Field(Int, graphql_name="postFixCount")
+    """Trace-slice volume the verdict was decided on, after the
+    referenced PR merged (PR checks). Same units as preFixCount.
+    """
 
 
 class AgentHealthEvidence(sgqlc.types.Type):
@@ -19653,6 +19694,7 @@ class AgentHealthIssue(sgqlc.types.Type):
         "evidence",
         "recommended_actions",
         "action_context",
+        "proposed_monitor_yaml",
         "linear_ticket",
     )
     finding_uuid = sgqlc.types.Field(UUID, graphql_name="findingUuid")
@@ -19704,6 +19746,15 @@ class AgentHealthIssue(sgqlc.types.Type):
     checks, and recommended actions. Currently markdown, but the
     format may evolve — treat as opaque rich text. Null on reports
     produced before the bundle shipped.
+    """
+
+    proposed_monitor_yaml = sgqlc.types.Field(String, graphql_name="proposedMonitorYaml")
+    """The proposed agent-metric-monitor spec for this issue rendered as
+    YAML (deterministic, no LLM). Null when the issue has no
+    monitorable LLM span or no monitor was proposed. When present,
+    drives the 'Build monitor' action: the YAML holds the full monitor
+    config (source table, span filter, comparisons, schedule) ready
+    for the create-monitor API.
     """
 
     linear_ticket = sgqlc.types.Field("AgentHealthIssueLinearTicket", graphql_name="linearTicket")
@@ -20869,7 +20920,7 @@ class AlertEdge(sgqlc.types.Type):
 
 class AlertGrouping(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("mode", "max_hours")
+    __field_names__ = ("mode", "max_hours", "renotify_every_hours")
     mode = sgqlc.types.Field(sgqlc.types.non_null(AlertGroupingMode), graphql_name="mode")
     """Alert grouping strategy. group_into_open_alert: fold new breaches
     from this monitor into its currently-open alert (table monitors
@@ -20882,6 +20933,17 @@ class AlertGrouping(sgqlc.types.Type):
     new breaches are grouped into it. After this window a new breach
     starts a fresh alert. Defaults to 5 when omitted. Must be a
     positive integer.
+    """
+
+    renotify_every_hours = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="renotifyEveryHours"
+    )
+    """Re-notify the monitor's configured audience every this many hours
+    while the alert remains open. After each interval elapses
+    (measured from when the alert opened, then from the last re-
+    notify) a reminder notification is sent. Defaults to 24 when
+    omitted in monitors-as-code; pass -1 to disable re-notify. Must
+    otherwise be a positive integer.
     """
 
 

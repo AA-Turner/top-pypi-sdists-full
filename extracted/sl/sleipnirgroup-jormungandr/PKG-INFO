@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sleipnirgroup-jormungandr
-Version: 0.6.3
+Version: 0.6.4
 Summary: Reverse mode autodiff library and NLP solver DSL
 License-Expression: BSD-3-Clause
 License-File: LICENSE.txt
@@ -45,7 +45,7 @@ int main() {
 ```
 
 ```python
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 from sleipnir.optimization import Problem
 

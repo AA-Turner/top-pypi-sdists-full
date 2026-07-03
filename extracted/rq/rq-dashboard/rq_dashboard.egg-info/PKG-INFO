@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rq-dashboard
-Version: 0.8.7
+Version: 0.9.0
 Summary: rq-dashboard is a general purpose, lightweight, web interface to monitor your RQ queues, jobs, and workers in realtime.
 Home-page: https://github.com/Parallels/rq-dashboard
 Author: Vincent Driessen

@@ -6,7 +6,7 @@ import warnings
 from collections.abc import Mapping, Sequence
 from functools import singledispatchmethod
 from pathlib import Path
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal
 
 import dask.dataframe as dd
 import numpy as np
@@ -347,6 +347,11 @@ class RasterSchema:
                 f"No transformation found for `{data}`. At least one transformation is required for "
                 f"raster elements, e.g. images, labels."
             )
+        if len(parsed_transform) == 0:
+            raise ValueError(
+                f"The transformations dict for `{data}` is empty. At least one transformation is required for "
+                f"raster elements, e.g. images, labels."
+            )
 
     @classmethod
     def _check_chunk_size_not_too_large(cls, data: DataArray | DataTree) -> None:
@@ -393,6 +398,13 @@ class RasterSchema:
             for d in data:
                 cls._check_chunk_size_not_too_large(data[d][name])
 
+    def _validate_labels_dtype(data: DataArray | DataTree) -> None:
+        dtype = data.dtype if isinstance(data, DataArray) else data["scale0"]["image"].dtype
+        if not (np.issubdtype(dtype, np.integer) or np.issubdtype(dtype, np.bool_)):
+            raise ValueError(
+                f"Labels must have an integer dtype, found {dtype}. Cast the data, e.g. `.astype(np.uint16)`."
+            )
+
 
 class Labels2DModel(RasterSchema):
     dims = (Y, X)
@@ -407,6 +419,11 @@ class Labels2DModel(RasterSchema):
             raise ValueError("`c_coords` is not supported for labels")
         return super().parse(*args, **kwargs)
 
+    @classmethod
+    def validate(cls, data: Any) -> None:
+        super().validate(data)
+        cls._validate_labels_dtype(data)
+
 
 class Labels3DModel(RasterSchema):
     dims = (Z, Y, X)
@@ -416,6 +433,11 @@ class Labels3DModel(RasterSchema):
         if kwargs.get("c_coords") is not None:
             raise ValueError("`c_coords` is not supported for labels")
         return super().parse(*args, **kwargs)
+
+    @classmethod
+    def validate(cls, data: Any) -> None:
+        super().validate(data)
+        cls._validate_labels_dtype(data)
 
 
 class Image2DModel(RasterSchema):
@@ -479,6 +501,11 @@ class ShapesModel:
                 )
         if cls.TRANSFORM_KEY not in data.attrs:
             raise ValueError(f":class:`geopandas.GeoDataFrame` does not contain `{TRANSFORM_KEY}`." + SUGGESTION)
+        if not data.attrs[cls.TRANSFORM_KEY]:
+            raise ValueError(
+                f":class:`geopandas.GeoDataFrame` has an empty `{TRANSFORM_KEY}` dict. "
+                f"At least one transformation is required." + SUGGESTION
+            )
         if len(data) > 0:
             n = data.geometry.iloc[0]._ndim
             if n != 2:
@@ -671,6 +698,11 @@ class PointsModel:
         if cls.TRANSFORM_KEY not in data.attrs:
             raise ValueError(
                 f":attr:`dask.dataframe.core.DataFrame.attrs` does not contain `{cls.TRANSFORM_KEY}`." + SUGGESTION
+            )
+        if not data.attrs[cls.TRANSFORM_KEY]:
+            raise ValueError(
+                f":attr:`dask.dataframe.core.DataFrame.attrs` has an empty `{cls.TRANSFORM_KEY}` dict. "
+                f"At least one transformation is required." + SUGGESTION
             )
         if ATTRS_KEY in data.attrs and "feature_key" in data.attrs[ATTRS_KEY]:
             feature_key = data.attrs[ATTRS_KEY][cls.FEATURE_KEY]
@@ -1237,7 +1269,7 @@ class TableModel:
         return adata
 
 
-Schema_t: TypeAlias = (
+type Schema_t = (
     type[Image2DModel]
     | type[Image3DModel]
     | type[Labels2DModel]
@@ -1291,6 +1323,23 @@ def get_model(
     if isinstance(e, AnnData):
         return _validate_and_return(TableModel, e)
     raise TypeError(f"Unsupported type {type(e)}")
+
+
+def validate_element(e: SpatialElement) -> None:
+    """
+    Validate a spatial element against its model schema.
+
+    Parameters
+    ----------
+    e
+        The spatial element to validate.
+
+    Raises
+    ------
+    ValueError
+        If the element is invalid (e.g. missing or empty transformations, wrong dtypes).
+    """
+    get_model(e, validate=True)
 
 
 def get_table_keys(table: AnnData) -> tuple[str | list[str], str, str]:

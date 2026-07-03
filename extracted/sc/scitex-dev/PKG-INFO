@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scitex-dev
-Version: 0.23.0
+Version: 0.25.0
 Summary: Shared developer utilities for the SciTeX ecosystem
 Author-email: Yusuke Watanabe <ywatanabe@scitex.ai>
 License-Expression: AGPL-3.0-only
@@ -21,6 +21,9 @@ Provides-Extra: mcp
 Requires-Dist: fastmcp>=2.0.0; extra == "mcp"
 Provides-Extra: skills
 Requires-Dist: newb>=0.3.0; extra == "skills"
+Provides-Extra: sync
+Requires-Dist: scitex-ssh>=1.1.0; extra == "sync"
+Requires-Dist: scitex-scholar>=1.4.3; extra == "sync"
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.0.0; extra == "dev"

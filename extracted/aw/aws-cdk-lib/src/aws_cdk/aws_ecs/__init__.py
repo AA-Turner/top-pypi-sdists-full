@@ -18437,6 +18437,7 @@ class CfnService(
         health_check_grace_period_seconds: typing.Optional[jsii.Number] = None,
         launch_type: typing.Optional[builtins.str] = None,
         load_balancers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.LoadBalancerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        monitoring: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MonitoringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         placement_constraints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.PlacementConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         placement_strategies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.PlacementStrategyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -18468,6 +18469,7 @@ class CfnService(
         :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing, VPC Lattice, and container health checks after a task has first started. If you do not specify a health check grace period value, the default value of 0 is used. If you do not use any of the health checks, then ``healthCheckGracePeriodSeconds`` is unused. If your service has more running tasks than desired, unhealthy tasks in the grace period might be stopped to reach the desired count.
         :param launch_type: The launch type on which to run your service. For more information, see `Amazon ECS Launch Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/launch_types.html>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: If you want to use Managed Instances, you must use the ``capacityProviderStrategy`` request parameter
         :param load_balancers: A list of load balancer objects to associate with the service. If you specify the ``Role`` property, ``LoadBalancers`` must be specified as well. For information about the number of load balancers that you can specify per service, see `Service Load Balancing <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-load-balancing.html>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: To remove this property from your service resource, specify an empty ``LoadBalancer`` array.
+        :param monitoring: 
         :param network_configuration: The network configuration for the service. This parameter is required for task definitions that use the ``awsvpc`` network mode to receive their own elastic network interface, and it is not supported for other network modes. For more information, see `Task Networking <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-networking.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
         :param placement_constraints: An array of placement constraint objects to use for tasks in your service. You can specify a maximum of 10 constraints for each task. This limit includes constraints in the task definition and those specified at runtime. .. epigraph:: To remove this property from your service resource, specify an empty ``PlacementConstraint`` array.
         :param placement_strategies: The placement strategy objects to use for tasks in your service. You can specify a maximum of 5 strategy rules for each service. .. epigraph:: To remove this property from your service resource, specify an empty ``PlacementStrategy`` array.
@@ -18500,6 +18502,7 @@ class CfnService(
             health_check_grace_period_seconds=health_check_grace_period_seconds,
             launch_type=launch_type,
             load_balancers=load_balancers,
+            monitoring=monitoring,
             network_configuration=network_configuration,
             placement_constraints=placement_constraints,
             placement_strategies=placement_strategies,
@@ -18809,6 +18812,23 @@ class CfnService(
             type_hints = typing.get_type_hints(_typecheckingstub__2c0697b43444ff5c04248d1f0d58b447432c7db5822c3044eafda33bbf88a1f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loadBalancers", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="monitoring")
+    def monitoring(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MonitoringConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MonitoringConfigurationProperty"]], jsii.get(self, "monitoring"))
+
+    @monitoring.setter
+    def monitoring(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MonitoringConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e6f3aa92daa4c2299b9449db9a73bc9b7954fe60661ed81e4c6ccda818424a97)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "monitoring", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="networkConfiguration")
@@ -20937,6 +20957,136 @@ class CfnService(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.MetricConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "metric_names": "metricNames",
+            "resolution_seconds": "resolutionSeconds",
+        },
+    )
+    class MetricConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            metric_names: typing.Sequence[builtins.str],
+            resolution_seconds: jsii.Number,
+        ) -> None:
+            '''
+            :param metric_names: 
+            :param resolution_seconds: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-metricconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                metric_configuration_property = ecs.CfnService.MetricConfigurationProperty(
+                    metric_names=["metricNames"],
+                    resolution_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d288720b5bca1113b0b6570ce5bc7ff7e695779a00369d35cc5494f5c6b33b2b)
+                check_type(argname="argument metric_names", value=metric_names, expected_type=type_hints["metric_names"])
+                check_type(argname="argument resolution_seconds", value=resolution_seconds, expected_type=type_hints["resolution_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "metric_names": metric_names,
+                "resolution_seconds": resolution_seconds,
+            }
+
+        @builtins.property
+        def metric_names(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-metricconfiguration.html#cfn-ecs-service-metricconfiguration-metricnames
+            '''
+            result = self._values.get("metric_names")
+            assert result is not None, "Required property 'metric_names' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def resolution_seconds(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-metricconfiguration.html#cfn-ecs-service-metricconfiguration-resolutionseconds
+            '''
+            result = self._values.get("resolution_seconds")
+            assert result is not None, "Required property 'resolution_seconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.MonitoringConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"metric_configurations": "metricConfigurations"},
+    )
+    class MonitoringConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            metric_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MetricConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''
+            :param metric_configurations: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-monitoringconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                monitoring_configuration_property = ecs.CfnService.MonitoringConfigurationProperty(
+                    metric_configurations=[ecs.CfnService.MetricConfigurationProperty(
+                        metric_names=["metricNames"],
+                        resolution_seconds=123
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__10e8189dd52334e9d1c015b79fb85331ef394021f08123e0a5bbe7e5a1cfcb91)
+                check_type(argname="argument metric_configurations", value=metric_configurations, expected_type=type_hints["metric_configurations"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "metric_configurations": metric_configurations,
+            }
+
+        @builtins.property
+        def metric_configurations(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.MetricConfigurationProperty"]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-monitoringconfiguration.html#cfn-ecs-service-monitoringconfiguration-metricconfigurations
+            '''
+            result = self._values.get("metric_configurations")
+            assert result is not None, "Required property 'metric_configurations' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.MetricConfigurationProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MonitoringConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecs.CfnService.NetworkConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"awsvpc_configuration": "awsvpcConfiguration"},
@@ -22911,6 +23061,7 @@ class CfnService(
         "health_check_grace_period_seconds": "healthCheckGracePeriodSeconds",
         "launch_type": "launchType",
         "load_balancers": "loadBalancers",
+        "monitoring": "monitoring",
         "network_configuration": "networkConfiguration",
         "placement_constraints": "placementConstraints",
         "placement_strategies": "placementStrategies",
@@ -22943,6 +23094,7 @@ class CfnServiceProps:
         health_check_grace_period_seconds: typing.Optional[jsii.Number] = None,
         launch_type: typing.Optional[builtins.str] = None,
         load_balancers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.LoadBalancerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        monitoring: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MonitoringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         placement_constraints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.PlacementConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         placement_strategies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.PlacementStrategyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -22972,6 +23124,7 @@ class CfnServiceProps:
         :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing, VPC Lattice, and container health checks after a task has first started. If you do not specify a health check grace period value, the default value of 0 is used. If you do not use any of the health checks, then ``healthCheckGracePeriodSeconds`` is unused. If your service has more running tasks than desired, unhealthy tasks in the grace period might be stopped to reach the desired count.
         :param launch_type: The launch type on which to run your service. For more information, see `Amazon ECS Launch Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/launch_types.html>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: If you want to use Managed Instances, you must use the ``capacityProviderStrategy`` request parameter
         :param load_balancers: A list of load balancer objects to associate with the service. If you specify the ``Role`` property, ``LoadBalancers`` must be specified as well. For information about the number of load balancers that you can specify per service, see `Service Load Balancing <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-load-balancing.html>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: To remove this property from your service resource, specify an empty ``LoadBalancer`` array.
+        :param monitoring: 
         :param network_configuration: The network configuration for the service. This parameter is required for task definitions that use the ``awsvpc`` network mode to receive their own elastic network interface, and it is not supported for other network modes. For more information, see `Task Networking <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-networking.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
         :param placement_constraints: An array of placement constraint objects to use for tasks in your service. You can specify a maximum of 10 constraints for each task. This limit includes constraints in the task definition and those specified at runtime. .. epigraph:: To remove this property from your service resource, specify an empty ``PlacementConstraint`` array.
         :param placement_strategies: The placement strategy objects to use for tasks in your service. You can specify a maximum of 5 strategy rules for each service. .. epigraph:: To remove this property from your service resource, specify an empty ``PlacementStrategy`` array.
@@ -23071,6 +23224,12 @@ class CfnServiceProps:
                     load_balancer_name="loadBalancerName",
                     target_group_arn="targetGroupArn"
                 )],
+                monitoring=ecs.CfnService.MonitoringConfigurationProperty(
+                    metric_configurations=[ecs.CfnService.MetricConfigurationProperty(
+                        metric_names=["metricNames"],
+                        resolution_seconds=123
+                    )]
+                ),
                 network_configuration=ecs.CfnService.NetworkConfigurationProperty(
                     awsvpc_configuration=ecs.CfnService.AwsVpcConfigurationProperty(
                         assign_public_ip="assignPublicIp",
@@ -23214,6 +23373,7 @@ class CfnServiceProps:
             check_type(argname="argument health_check_grace_period_seconds", value=health_check_grace_period_seconds, expected_type=type_hints["health_check_grace_period_seconds"])
             check_type(argname="argument launch_type", value=launch_type, expected_type=type_hints["launch_type"])
             check_type(argname="argument load_balancers", value=load_balancers, expected_type=type_hints["load_balancers"])
+            check_type(argname="argument monitoring", value=monitoring, expected_type=type_hints["monitoring"])
             check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
             check_type(argname="argument placement_constraints", value=placement_constraints, expected_type=type_hints["placement_constraints"])
             check_type(argname="argument placement_strategies", value=placement_strategies, expected_type=type_hints["placement_strategies"])
@@ -23253,6 +23413,8 @@ class CfnServiceProps:
             self._values["launch_type"] = launch_type
         if load_balancers is not None:
             self._values["load_balancers"] = load_balancers
+        if monitoring is not None:
+            self._values["monitoring"] = monitoring
         if network_configuration is not None:
             self._values["network_configuration"] = network_configuration
         if placement_constraints is not None:
@@ -23449,6 +23611,16 @@ class CfnServiceProps:
         '''
         result = self._values.get("load_balancers")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnService.LoadBalancerProperty"]]]], result)
+
+    @builtins.property
+    def monitoring(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MonitoringConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-service.html#cfn-ecs-service-monitoring
+        '''
+        result = self._values.get("monitoring")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MonitoringConfigurationProperty"]], result)
 
     @builtins.property
     def network_configuration(
@@ -58651,6 +58823,7 @@ def _typecheckingstub__ec1192a1d20e03deef75c7fa1457b92ecf9506c5c5df97b5a4473fc3a
     health_check_grace_period_seconds: typing.Optional[jsii.Number] = None,
     launch_type: typing.Optional[builtins.str] = None,
     load_balancers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.LoadBalancerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    monitoring: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MonitoringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     placement_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.PlacementConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     placement_strategies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.PlacementStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -58761,6 +58934,12 @@ def _typecheckingstub__9ccfa1a8d0c5680335f975536f0056a9bfc4a669734ecfe2735182324
 
 def _typecheckingstub__2c0697b43444ff5c04248d1f0d58b447432c7db5822c3044eafda33bbf88a1f9(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnService.LoadBalancerProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6f3aa92daa4c2299b9449db9a73bc9b7954fe60661ed81e4c6ccda818424a97(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.MonitoringConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -58989,6 +59168,21 @@ def _typecheckingstub__dc71ad10c4d7e167753ff81a7c450165b3118a6f5f0f8c2ad282bc4bc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d288720b5bca1113b0b6570ce5bc7ff7e695779a00369d35cc5494f5c6b33b2b(
+    *,
+    metric_names: typing.Sequence[builtins.str],
+    resolution_seconds: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10e8189dd52334e9d1c015b79fb85331ef394021f08123e0a5bbe7e5a1cfcb91(
+    *,
+    metric_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MetricConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__69d6c8f5c91c26fb4e5d380e50f88db48e07eae26511e843bc32888305e7bf13(
     *,
     awsvpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.AwsVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -59164,6 +59358,7 @@ def _typecheckingstub__7f93658ccdbf3f250d0d1ce12224e9eddaef71a8f664c6a279122f60d
     health_check_grace_period_seconds: typing.Optional[jsii.Number] = None,
     launch_type: typing.Optional[builtins.str] = None,
     load_balancers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.LoadBalancerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    monitoring: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MonitoringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     placement_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.PlacementConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     placement_strategies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.PlacementStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,

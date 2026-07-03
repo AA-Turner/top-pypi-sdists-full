@@ -207,6 +207,9 @@ from .authentication_sso_timed_out_data_error import (
 from .authentication_sso_timed_out_data_sso import (
     AuthenticationSSOTimedOutDataSSO as AuthenticationSSOTimedOutDataSSO,
 )
+from .auth_method_mismatch_error import (
+    AuthMethodMismatchError as AuthMethodMismatchError,
+)
 from .authorization_permission import AuthorizationPermission as AuthorizationPermission
 from .connect_application import ConnectApplication as ConnectApplication
 from .connect_application_m2m import ConnectApplicationM2M as ConnectApplicationM2M
@@ -218,6 +221,7 @@ from .connect_application_oauth_redirect_uris import (
 )
 from .connect_application import ConnectApplicationUnknown as ConnectApplicationUnknown
 from .connect_application import ConnectApplicationVariant as ConnectApplicationVariant
+from .connected_account import ConnectedAccount as ConnectedAccount
 from .connected_account_auth_method import (
     ConnectedAccountAuthMethod as ConnectedAccountAuthMethod,
 )
@@ -284,11 +288,26 @@ from .create_user_password_hash_type import (
 from .create_webhook_endpoint_events import (
     CreateWebhookEndpointEvents as CreateWebhookEndpointEvents,
 )
+from .custom_provider_definition_authenticate_via import (
+    CustomProviderDefinitionAuthenticateVia as CustomProviderDefinitionAuthenticateVia,
+)
 from .data_integration_access_token_response_error import (
     DataIntegrationAccessTokenResponseError as DataIntegrationAccessTokenResponseError,
 )
 from .data_integration_credentials_credentials_type import (
     DataIntegrationCredentialsCredentialsType as DataIntegrationCredentialsCredentialsType,
+)
+from .data_integration_credentials_response_error import (
+    DataIntegrationCredentialsResponseError as DataIntegrationCredentialsResponseError,
+)
+from .data_integration_credentials_type import (
+    DataIntegrationCredentialsType as DataIntegrationCredentialsType,
+)
+from .data_integration_credential_type import (
+    DataIntegrationCredentialType as DataIntegrationCredentialType,
+)
+from .data_integration_custom_provider_authenticate_via import (
+    DataIntegrationCustomProviderAuthenticateVia as DataIntegrationCustomProviderAuthenticateVia,
 )
 from .data_integrations_list_response_data_auth_methods import (
     DataIntegrationsListResponseDataAuthMethods as DataIntegrationsListResponseDataAuthMethods,
@@ -302,6 +321,7 @@ from .data_integrations_list_response_data_connected_account_state import (
 from .data_integrations_list_response_data_ownership import (
     DataIntegrationsListResponseDataOwnership as DataIntegrationsListResponseDataOwnership,
 )
+from .data_integration_state import DataIntegrationState as DataIntegrationState
 from .directory_user_state import *  # noqa: F401,F403
 from .directory_group import DirectoryGroup as DirectoryGroup
 from .directory_state import DirectoryState as DirectoryState
@@ -649,6 +669,9 @@ from .session_revoked_data_impersonator import (
     SessionRevokedDataImpersonator as SessionRevokedDataImpersonator,
 )
 from .slim_role import SlimRole as SlimRole
+from .update_custom_provider_definition_authenticate_via import (
+    UpdateCustomProviderDefinitionAuthenticateVia as UpdateCustomProviderDefinitionAuthenticateVia,
+)
 from .update_user_password_hash_type import (
     UpdateUserPasswordHashType as UpdateUserPasswordHashType,
 )
@@ -682,6 +705,9 @@ from .user_organization_membership_base_list_data_status import (
 )
 from .user_organization_membership_status import (
     UserOrganizationMembershipStatus as UserOrganizationMembershipStatus,
+)
+from .user_role_assignment_source_type import (
+    UserRoleAssignmentSourceType as UserRoleAssignmentSourceType,
 )
 from .user_sessions_auth_method import UserSessionsAuthMethod as UserSessionsAuthMethod
 from .user_sessions_impersonator import (

@@ -1,3 +1,4 @@
+import os
 import sys
 from typing import Optional
 
@@ -10,6 +11,11 @@ from anyscale.util import is_anyscale_cluster, is_anyscale_workspace
 
 ANYSCALE_PYPI_PACKAGE = "anyscale"
 VERSION_UPGRADE_THRESHOLD = 5
+SUPPRESS_UPGRADE_WARNING_ENV_VAR = "ANYSCALE_SUPPRESS_UPGRADE_WARNING"
+
+
+def _is_upgrade_warning_suppressed() -> bool:
+    return os.environ.get(SUPPRESS_UPGRADE_WARNING_ENV_VAR, "0") == "1"
 
 
 def _get_latest_pypi_version(package_name: str) -> Optional[str]:
@@ -67,6 +73,10 @@ def log_warning_if_version_needs_upgrade() -> None:
 
     Note that the check is skipped for clusters/workspaces.
     """
+    # Honor the opt-out before any work so the PyPI request is skipped too.
+    if _is_upgrade_warning_suppressed():
+        return
+
     if is_anyscale_workspace() or is_anyscale_cluster():
         # If the command is run from clusters/workspaces, we don't do version checking
         # because the Anyscale CLI is bundled as a part of cluster envs.
@@ -79,6 +89,7 @@ def log_warning_if_version_needs_upgrade() -> None:
         print(
             "[WARNING] A newer version of the Anyscale CLI is available. "
             f"Your current version is {local_anyscale_version}. The latest version is {latest_version}. "
-            "To avoid issues accessing Anyscale`s API, upgrade to the latest version by running `pip install --upgrade anyscale`.",
+            "To avoid issues accessing Anyscale`s API, upgrade to the latest version by running `pip install --upgrade anyscale`. "
+            f"To silence this warning, set {SUPPRESS_UPGRADE_WARNING_ENV_VAR}=1.",
             file=sys.stderr,
         )

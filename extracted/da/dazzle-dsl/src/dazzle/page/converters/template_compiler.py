@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import functools
 import logging
+from collections import Counter
 from typing import TYPE_CHECKING, Any
 
 from dazzle.core import ir
@@ -38,6 +39,7 @@ from dazzle.render.context import (
     TableContext,
     TransitionContext,
 )
+from dazzle.render.filters import status_tone_map
 
 if TYPE_CHECKING:
     pass
@@ -144,14 +146,35 @@ def _field_type_to_column_type(
     type_map = {
         FieldTypeKind.BOOL: "bool",
         FieldTypeKind.DATE: "date",
+        # datetime stays date-only in dense list cells (time would be noise per
+        # row); the detail view renders it as `datetime` with time (#1491 1d).
         FieldTypeKind.DATETIME: "date",
         FieldTypeKind.MONEY: "currency",
+        # decimal keeps its natural precision via str() (a price 19.99 must not
+        # round); float is rounded to avoid leaking full binary precision (#1491).
         FieldTypeKind.DECIMAL: "text",
+        FieldTypeKind.FLOAT: "number",
+        FieldTypeKind.JSON: "json",
         FieldTypeKind.ENUM: "badge",
         FieldTypeKind.REF: "ref",
         FieldTypeKind.BELONGS_TO: "ref",
     }
     return type_map.get(kind, "text")
+
+
+def _enum_semantic_map(
+    field_spec: ir.FieldSpec | None,
+    enums: list[ir.EnumSpec] | None = None,
+    state_machine: Any = None,
+) -> dict[str, str]:
+    """Effective value→tone map for an enum/status field column (#1493 slice 2).
+
+    Thin FieldSpec→FieldType adapter over the shared `render.filters.status_tone_map`
+    (declared `semantic:` binding + state-machine terminal inference), which both
+    this page-render builder and the http-workspace builder call, so the logic
+    lives in one place.
+    """
+    return status_tone_map(field_spec.type if field_spec else None, enums, state_machine)
 
 
 def _file_accept_attr(field_spec: ir.FieldSpec) -> str:
@@ -354,6 +377,9 @@ def _build_columns(
                         filter_ref_api=_ref_api,
                         currency_code=col_currency,
                         visible_condition=_col_vis,
+                        semantic_map=_enum_semantic_map(
+                            field_spec, enums, entity.state_machine if entity else None
+                        ),
                     )
                 )
     elif entity and entity.fields:
@@ -401,6 +427,9 @@ def _build_columns(
                         filter_ref_entity=_ref_ent,
                         filter_ref_api=_ref_api,
                         currency_code=col_currency,
+                        semantic_map=_enum_semantic_map(
+                            field, enums, entity.state_machine if entity else None
+                        ),
                     )
                 )
 
@@ -1011,8 +1040,8 @@ def _compile_form_surface(
             page_purpose=page_purpose,
             persona_purposes=persona_purposes,
             # v0.67.74: PageContext.template field is no longer read by any
-            # renderer (form rendering moved to form_renderer.py + inline
-            # Python). Empty string for clarity.
+            # renderer (form rendering moved to the typed substrate, ADR-0049
+            # Phase 3b — the legacy form_renderer is deleted). Empty for clarity.
             template="",
             form=FormContext(
                 entity_name=entity_name,
@@ -1035,8 +1064,8 @@ def _compile_form_surface(
             page_purpose=page_purpose,
             persona_purposes=persona_purposes,
             # v0.67.74: PageContext.template field is no longer read by any
-            # renderer (form rendering moved to form_renderer.py + inline
-            # Python). Empty string for clarity.
+            # renderer (form rendering moved to the typed substrate, ADR-0049
+            # Phase 3b — the legacy form_renderer is deleted). Empty for clarity.
             template="",
             form=FormContext(
                 entity_name=entity_name,
@@ -1080,6 +1109,10 @@ def _build_entity_columns(entity: ir.EntitySpec) -> list[ColumnContext]:
                 label=col_key.replace("_", " ").title(),
                 type=_field_type_to_column_type(field, field.name),
                 currency_code=col_currency,
+                # No shared-enum registry here (related-tab columns); inline
+                # `enum[...]` bindings still resolve via FieldType.enum_semantics,
+                # plus SM-terminal inference from the related entity's machine.
+                semantic_map=_enum_semantic_map(field, None, entity.state_machine),
             )
         )
     return columns
@@ -1123,12 +1156,21 @@ def _compile_view_surface(
                 # Index by section name (lowercase) for fuzzy matching
                 _section_vis_map[_sec.name.lower()] = _sec_vis.model_dump()
 
-    # Build related entity tabs from reverse references
+    # Build related entity tabs from reverse references. An entity with more than
+    # one FK path to the parent yields one tab per path (#1523): disambiguate the
+    # tab_id (the Alpine activeTab key — duplicates render all tabs active) and the
+    # label by the FK field, so "Task · assigned to" / "Task · reviewed by" instead
+    # of N identical "Task" tabs. Single-path entities keep the historical shape.
+    _ref_path_counts = Counter(name for name, _, _ in reverse_refs or [])
     related_tabs: list[RelatedTabContext] = []
     for ref_entity_name, fk_field, ref_entity in reverse_refs or []:
         ref_slug = app_paths.entity_slug(ref_entity_name)
         ref_api = f"/{to_api_plural(ref_entity_name)}"
         tab_label = (ref_entity.title or ref_entity_name).replace("_", " ")
+        tab_id = f"tab-{ref_slug}"
+        if _ref_path_counts[ref_entity_name] > 1:
+            tab_id = f"tab-{ref_slug}-{fk_field.replace('_', '-')}"
+            tab_label = f"{tab_label} · {fk_field.replace('_', ' ')}"
         # Build columns from the related entity's fields (exclude FK to parent)
         tab_columns = [c for c in _build_entity_columns(ref_entity) if c.key != fk_field]
         # Match section visible condition to tab (#501)
@@ -1140,7 +1182,7 @@ def _compile_view_surface(
         )
         related_tabs.append(
             RelatedTabContext(
-                tab_id=f"tab-{ref_slug}",
+                tab_id=tab_id,
                 label=tab_label,
                 entity_name=ref_entity_name,
                 api_endpoint=ref_api,
@@ -1286,7 +1328,8 @@ def _compile_custom_surface(
         page_purpose=page_purpose,
         persona_purposes=persona_purposes,
         # v0.67.75: PageContext.template field is no longer read by any
-        # renderer (detail rendering moved to detail_renderer.py).
+        # renderer (detail/view rendering moved to the typed substrate,
+        # ADR-0049 Phase 2 — the legacy detail_renderer is deleted).
         template="",
     )
 

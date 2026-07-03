@@ -34,6 +34,7 @@ __all__ = (
     "DataFormatType",
     "DataPullModeType",
     "DateDimensionTypeType",
+    "DiversityCapTypeType",
     "EstimateStatusType",
     "EventStreamDestinationStatusType",
     "EventStreamStateType",
@@ -167,6 +168,7 @@ ContentTypeType = Literal["NUMBER", "STRING"]
 DataFormatType = Literal["CSV", "JSONL", "ORC"]
 DataPullModeType = Literal["Complete", "Incremental"]
 DateDimensionTypeType = Literal["AFTER", "BEFORE", "BETWEEN", "NOT_BETWEEN", "ON"]
+DiversityCapTypeType = Literal["PERCENTAGE", "VALUE"]
 EstimateStatusType = Literal["FAILED", "RUNNING", "SUCCEEDED"]
 EventStreamDestinationStatusType = Literal["HEALTHY", "UNHEALTHY"]
 EventStreamStateType = Literal["RUNNING", "STOPPED"]
@@ -616,8 +618,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -644,6 +644,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -711,7 +713,6 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
@@ -775,6 +776,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -796,7 +798,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -817,6 +818,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

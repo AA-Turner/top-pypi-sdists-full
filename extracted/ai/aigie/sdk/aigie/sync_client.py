@@ -86,20 +86,6 @@ class AigieSync:
         # Create sync wrapper that will handle async context manager
         return TraceContextSync(async_trace_ctx, self)
 
-    def remediate(self, trace_id: str, error: Exception) -> dict[str, Any]:
-        """Trigger autonomous remediation (blocking)."""
-        return self._run_async(self._async_client.remediate(trace_id, error))
-
-    def detect_precursors(self, context: dict[str, Any]) -> list[dict[str, Any]]:
-        """Detect error precursors (blocking)."""
-        return self._run_async(self._async_client.detect_precursors(context))
-
-    def apply_preventive_fix(
-        self, trace_id: str, precursors: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        """Apply preventive fixes (blocking)."""
-        return self._run_async(self._async_client.apply_preventive_fix(trace_id, precursors))
-
     def flush(self) -> None:
         """Manually flush all buffered events (blocking)."""
         self._run_async(self._async_client.flush())

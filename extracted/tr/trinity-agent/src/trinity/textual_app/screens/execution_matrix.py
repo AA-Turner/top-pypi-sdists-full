@@ -47,7 +47,7 @@ _EXECUTION_MATRIX_LABELS = {
         "retry_action": "재시도",
         "retry_summary": "재시도",
         "run": "실행",
-        "run_second_review_action": "2차 실행",
+        "run_second_review_action": "2차",
         "review": "리뷰",
         "review_prefix": "리뷰",
         "risk_lane": "리스크/그룹",
@@ -90,7 +90,7 @@ _EXECUTION_MATRIX_LABELS = {
         "retry_action": "Retry",
         "retry_summary": "retry",
         "run": "run",
-        "run_second_review_action": "Run 2nd",
+        "run_second_review_action": "2nd",
         "review": "Review",
         "review_prefix": "review",
         "risk_lane": "Risk/Lane",
@@ -371,22 +371,24 @@ class ExecutionPackageRow(Horizontal):
             disabled = not self.detail_enabled
             if detail_button.disabled != disabled:
                 detail_button.disabled = disabled
-        if previous_retry != (
+        next_retry = (
             self.retry_enabled,
             self.retry_button_id,
             self.retry_label,
-        ):
+        )
+        if previous_retry != next_retry and (previous_retry[0] or next_retry[0]):
             self._sync_optional_button(
                 ".execution-package-retry",
                 enabled=self.retry_enabled,
                 button_id=self.retry_button_id,
                 label=self.retry_label,
             )
-        if previous_review != (
+        next_review = (
             self.review_enabled,
             self.review_button_id,
             self.review_label,
-        ):
+        )
+        if previous_review != next_review and (previous_review[0] or next_review[0]):
             self._sync_optional_button(
                 ".execution-package-review-action",
                 enabled=self.review_enabled,
@@ -1135,7 +1137,7 @@ class ExecutionMatrixScreen(Screen[None]):
         source = self._activity_source_lines()
         if not source:
             return [self._label("activity"), self._label("execution_not_started")]
-        lines = [self._label("activity")]
+        lines = [self._label("recent_log")]
         source_len = len(source)
         recent_start = max(0, source_len - 7)
         recent = [str(source[index]) for index in range(recent_start, source_len)]
@@ -1166,7 +1168,9 @@ class ExecutionMatrixScreen(Screen[None]):
         )
 
     def _activity_toggle_label(self) -> str:
-        return self._label("full_log")
+        count = len(self._activity_source_lines())
+        label = self._label("full_log")
+        return f"{label} {count}" if count else label
 
     def _retry_button_label(self) -> str:
         retry_count = self._retry_count()
@@ -1362,14 +1366,11 @@ def _execution_lane_label(package: object, lang: str = "en") -> str:
 
 def _detail_button_label(package: object, lang: str = "en") -> str:
     status = str(getattr(package, "status", "") or "").strip().lower()
-    review_status = str(getattr(package, "review_status", "") or "").strip().lower()
     blocked_reason = str(
         getattr(package, "repair_blocked_reason", "") or ""
     ).strip()
     if status == "blocked" or blocked_reason:
         return _label(lang, "blocked")
-    if review_status == "needs_second_review":
-        return _label(lang, "second_review_action")
     return _label(lang, "spec")
 
 

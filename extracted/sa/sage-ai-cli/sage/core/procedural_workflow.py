@@ -2206,7 +2206,7 @@ RESPONSE FORMAT (JSON ONLY):
                     )
 
                 # Check if TDD is requested
-                is_tdd = "tdd" in task_lower or "test driven" in task_lower
+                is_tdd = "tdd" in task_description.lower() or "test driven" in task_description.lower()
                 tdd_guideline = ""
                 if is_tdd:
                     tdd_guideline = "⚠️ TDD ENFORCEMENT: Your plan MUST follow Test-Driven Development. Step 1 should be writing a failing test, and subsequent steps should implement the logic to make it pass."

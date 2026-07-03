@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import struct
 from bisect import bisect_left as _bisect_left, bisect_right as _bisect_right
+from datetime import datetime as _datetime, timezone as _timezone
 from io import BytesIO
 from typing import IO, MutableSequence, Sequence, final
 
@@ -102,7 +103,13 @@ class TimeZone:
             assert self._utc_offsets  # ensured during parsing
             return self._utc_offsets[-1]
 
-    def ambiguity_for_local(self, t: EpochSecs) -> Ambiguity:
+    def ambiguity_for_local(self, dt: _datetime) -> Ambiguity:
+        assert dt.tzinfo is None
+        return self._ambiguity_for_local_epoch(
+            int(dt.replace(tzinfo=_timezone.utc).timestamp())
+        )
+
+    def _ambiguity_for_local_epoch(self, t: EpochSecs) -> Ambiguity:
         """Get the UTC offset at the given local time (expressed in epoch seconds)"""
         idx = _bisect_right(self._local_epochs, t)
         if idx < len(self._local_epochs):
@@ -114,13 +121,13 @@ class TimeZone:
             if ambiguity == 0:
                 return Unambiguous(offset)
             elif ambiguity < 0:
-                return Fold(offset, offset + ambiguity)
+                return Fold(next_transition, offset, offset + ambiguity)
             else:  # ambiguity > 0
-                return Gap(offset + ambiguity, offset)
+                return Gap(next_transition, offset + ambiguity, offset)
 
         # If the time is after the last transition, use the POSIX TZ string
         if self._end is not None:
-            return self._end.ambiguity_for_local(t)
+            return self._end._ambiguity_for_local_epoch(t)
 
         # If there's no POSIX TZ string, use the last offset.
         # There's not much else we can do.
@@ -331,23 +338,28 @@ def _extend_with_posix(
     dst_abbrev = end.dst.abbrev
     std_abbrev = end.std_abbrev
 
-    start_year = year_for_epoch(offsets[-1][0]) + 1 if offsets else 1970
+    last_epoch = offsets[-1][0] if offsets else EPOCH_SECS_MIN
+    start_year = year_for_epoch(last_epoch) if offsets else 1970
 
     for year in range(start_year, _PRECALC_UNTIL + 1):
         dst_start = epoch_for_date(start_rule.apply(year)) + start_time - std
         dst_end = epoch_for_date(end_rule.apply(year)) + end_time - dst_offset
         if dst_start < dst_end:
             # Northern hemisphere: DST active in summer
-            offsets.append((dst_start, dst_offset))
-            offsets.append((dst_end, std))
-            meta.append((dst_saving, dst_abbrev))
-            meta.append((0, std_abbrev))
+            transitions = (
+                ((dst_start, dst_offset), (dst_saving, dst_abbrev)),
+                ((dst_end, std), (0, std_abbrev)),
+            )
         else:
             # Southern hemisphere: DST active in winter
-            offsets.append((dst_end, std))
-            offsets.append((dst_start, dst_offset))
-            meta.append((0, std_abbrev))
-            meta.append((dst_saving, dst_abbrev))
+            transitions = (
+                ((dst_end, std), (0, std_abbrev)),
+                ((dst_start, dst_offset), (dst_saving, dst_abbrev)),
+            )
+        for transition, transition_meta in transitions:
+            if transition[0] > last_epoch:
+                offsets.append(transition)
+                meta.append(transition_meta)
 
 
 def _parse_content(

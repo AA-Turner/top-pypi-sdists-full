@@ -314,6 +314,50 @@ def test_g3_fails_open_on_missing_audit_data() -> None:
         )
 
 
+def test_g3_fail_closed_blocks_when_audit_read_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Opt-in fail-closed: a FAILED audit read (None, None) blocks the write."""
+    monkeypatch.setenv("SERVICENOW_WRITE_GUARDS_FAIL", "closed")
+    with patch(
+        "servicenow_mcp.policies.write_guards._fetch_record_audit",
+        return_value=(None, None),  # request itself raised → both None
+    ):
+        with pytest.raises(PolicyViolation, match=r"could not verify"):
+            run_post_confirm_guards(
+                _SERVER,
+                "sn_write",
+                {"table": "incident", "action": "update", "sys_id": "xyz", "fields": {}},
+            )
+
+
+def test_g3_fail_closed_still_passes_when_record_absent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fail-closed is scoped to READ failure: a successful read with no matching
+    row (record None but server_now set) has nothing to conflict with — passes."""
+    monkeypatch.setenv("SERVICENOW_WRITE_GUARDS_FAIL", "closed")
+    server_now = datetime.now(timezone.utc)
+    with patch(
+        "servicenow_mcp.policies.write_guards._fetch_record_audit",
+        return_value=(None, server_now),  # read succeeded, record just absent
+    ):
+        run_post_confirm_guards(
+            _SERVER,
+            "sn_write",
+            {"table": "incident", "action": "update", "sys_id": "xyz", "fields": {}},
+        )
+
+
+def test_g3_default_fail_open_unaffected_by_read_failure() -> None:
+    """Without the opt-in, a failed audit read still passes (default availability)."""
+    with patch(
+        "servicenow_mcp.policies.write_guards._fetch_record_audit",
+        return_value=(None, None),
+    ):
+        run_post_confirm_guards(
+            _SERVER,
+            "sn_write",
+            {"table": "incident", "action": "update", "sys_id": "xyz", "fields": {}},
+        )
+
+
 def test_g3_custom_window_via_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Window configurable via env var."""
     monkeypatch.setenv("SERVICENOW_CONCURRENT_EDIT_WINDOW_MIN", "60")
@@ -603,6 +647,45 @@ def test_g8_registry_allows_my_own_edit() -> None:
             "manage_workflow",
             {"action": "update", "workflow_id": "wf-1", "name": "x"},
         )
+
+
+def test_g8_registry_blocks_manage_workflow_update_activity_other_user() -> None:
+    """Secondary registry: activity-level edits target wf_activity and must be
+    audited too — a blind overwrite of another user's activity edit was the gap."""
+    with patch(
+        "servicenow_mcp.policies.write_guards._fetch_record_audit",
+        return_value=(
+            {
+                "sys_updated_by": "alice@example.com",
+                "sys_updated_on": _utc_iso_minus_min(2),
+            },
+            None,
+        ),
+    ):
+        with pytest.raises(PolicyViolation, match=r"(?s)\[G8\].*alice"):
+            run_post_confirm_guards(
+                _SERVER,
+                "manage_workflow",
+                {"action": "update_activity", "activity_id": "act-1", "activity_name": "x"},
+            )
+
+
+def test_g8_registry_secondary_targets_wf_activity_table() -> None:
+    captured = {}
+
+    def _fake_fetch(ctx, table, query):
+        captured["table"] = table
+        captured["query"] = query
+        return None, None  # fail-open; we only inspect the query
+
+    with patch("servicenow_mcp.policies.write_guards._fetch_record_audit", _fake_fetch):
+        run_post_confirm_guards(
+            _SERVER,
+            "manage_workflow",
+            {"action": "delete_activity", "activity_id": "act-9"},
+        )
+    assert captured["table"] == "wf_activity"
+    assert captured["query"] == "sys_id=act-9"
 
 
 def test_g8_registry_skips_create_action() -> None:

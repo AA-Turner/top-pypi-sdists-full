@@ -171,12 +171,6 @@ class CLIConfig:
     def set_semver(self, semver: Optional[str]) -> None:
         self["semver"] = semver
 
-    def get_semver(self) -> Optional[str]:
-        try:
-            return self["semver"]
-        except KeyError:
-            return None
-
     def set_token_for_host(self, token: Optional[str], host: Optional[str]) -> None:
         """Sets the token for the specified host.
 

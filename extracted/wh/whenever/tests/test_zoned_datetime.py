@@ -16,7 +16,6 @@ from zoneinfo import (
 import pytest
 from hypothesis import given
 from hypothesis.strategies import text
-
 from whenever import (
     _EXTENSION_LOADED,
     Date,
@@ -181,7 +180,10 @@ class TestInit:
         d = ZonedDateTime(2020, 8, 15, 5, 12, tz=nyc)
         ZonedDateTime(2020, 8, 15, 5, 12, tz=ams)
 
-        assert available_timezones() == zoneinfo_available_timezones()
+        assert (
+            available_timezones()
+            == zoneinfo_available_timezones().difference(["localtime"])
+        )
 
         from whenever import TZPATH
 
@@ -194,7 +196,10 @@ class TestInit:
         assert TZPATH == (str(TEST_DIR / "tzif"),)
         try:
             # Available timezones should now be different
-            assert available_timezones() != zoneinfo_available_timezones()
+            assert (
+                available_timezones()
+                != zoneinfo_available_timezones().difference(["localtime"])
+            )
             # We still can find load the NYC timezone even though
             # it isn't in the new path. This is because it's cached!
             assert ZonedDateTime(1982, 8, 15, 5, 12, tz=nyc)
@@ -229,7 +234,10 @@ class TestInit:
         assert TZPATH == prev_tzpath
 
         # Available timezones should now be the same again
-        assert available_timezones() == zoneinfo_available_timezones()
+        assert (
+            available_timezones()
+            == zoneinfo_available_timezones().difference(["localtime"])
+        )
 
         # Our custom timezones are still in the cache
         assert ZonedDateTime(1982, 8, 15, 5, 12, tz="Amsterdam.tzif")
@@ -414,7 +422,7 @@ def test_available_timezones():
     tzs = available_timezones()
 
     # So long as we don't mess with the configuration, these should be identical
-    assert tzs == zoneinfo_available_timezones()
+    assert tzs == zoneinfo_available_timezones().difference(["localtime"])
 
     d = ZonedDateTime(2025, 3, 26, 1, 15, 30, tz="UTC")
 
@@ -742,7 +750,6 @@ class TestReplaceTime:
 
 
 class TestFormatIso:
-
     @pytest.mark.parametrize(
         "d, expected",
         [
@@ -1067,7 +1074,6 @@ class TestEquality:
 
 
 class TestIsAmbiguous:
-
     @pytest.mark.parametrize(
         "tz",
         ["Europe/Amsterdam", AMS_TZ_POSIX, AMS_TZ_RAWFILE],
@@ -1111,7 +1117,6 @@ class TestIsAmbiguous:
 
 
 class TestNextTransition:
-
     @pytest.mark.parametrize(
         "tz",
         ["Europe/Amsterdam", AMS_TZ_POSIX, AMS_TZ_RAWFILE],
@@ -1293,7 +1298,6 @@ class TestNextTransition:
 
 
 class TestPrevTransition:
-
     @pytest.mark.parametrize(
         "tz",
         ["Europe/Amsterdam", AMS_TZ_POSIX, AMS_TZ_RAWFILE],
@@ -1458,7 +1462,6 @@ class TestPrevTransition:
 
 
 class TestDstOffset:
-
     @pytest.mark.parametrize(
         "tz",
         ["Europe/Amsterdam", AMS_TZ_POSIX, AMS_TZ_RAWFILE],
@@ -1863,7 +1866,6 @@ class TestDstOffset:
 
 
 class TestTzAbbrev:
-
     @pytest.mark.parametrize(
         "tz",
         ["Europe/Amsterdam", AMS_TZ_POSIX, AMS_TZ_RAWFILE],
@@ -2268,7 +2270,6 @@ class TestDayLength:
 
 
 class TestStartOfDay:
-
     @pytest.mark.parametrize(
         "d, expect",
         [
@@ -2796,7 +2797,7 @@ class TestParseIso:
             ZonedDateTime.parse_iso("2020-08-15T12:08:30Z[X]")
 
         with pytest.raises((TimeZoneNotFoundError, ValueError)):
-            ZonedDateTime.parse_iso(f"2023-10-29T02:15:30+02:00[{'X'*9999}]")
+            ZonedDateTime.parse_iso(f"2023-10-29T02:15:30+02:00[{'X' * 9999}]")
 
         with pytest.raises((TimeZoneNotFoundError, ValueError)):
             ZonedDateTime.parse_iso(
@@ -2854,7 +2855,6 @@ class TestParseIso:
 
 
 class TestTimestamp:
-
     def test_default_seconds(self):
         assert ZonedDateTime(1970, 1, 1, tz="Iceland").timestamp() == 0
         assert (
@@ -2943,7 +2943,6 @@ class TestTimestamp:
 
 
 class TestFromTimestamp:
-
     @pytest.mark.parametrize(
         "method, factor",
         [
@@ -3389,7 +3388,6 @@ class _MyDatetime(py_datetime):
 
 
 class TestInitFromPy:
-
     @pytest.mark.parametrize(
         "pydt, expect",
         [
@@ -4152,7 +4150,6 @@ class TestAddSubtractTimeUnits:
 
 
 class TestAddSubtractCalendarUnits:
-
     def test_zero(self):
         d = ZonedDateTime(
             2020, 8, 15, 23, 12, 9, nanosecond=987_654_321, tz="Asia/Tokyo"
@@ -4289,7 +4286,6 @@ class TestAddSubtractCalendarUnits:
 
 
 class TestDifference:
-
     @pytest.mark.parametrize(
         "tz", ["Europe/Amsterdam", AMS_TZ_POSIX, AMS_TZ_RAWFILE]
     )
@@ -4349,7 +4345,6 @@ class TestDifference:
 
 
 class TestSince:
-
     @pytest.mark.parametrize(
         "a, b, units, kwargs, expect",
         [
@@ -5050,7 +5045,6 @@ class TestSince:
 
 
 class TestRound:
-
     @pytest.mark.parametrize(
         "d, increment, unit, floor, ceil, half_floor, half_ceil, half_even",
         [
@@ -5506,7 +5500,6 @@ def test_cannot_subclass():
 
 
 class TestDayOfYear:
-
     def test_basic(self):
         zdt = ZonedDateTime(2024, 2, 29, 12, tz="America/New_York")
         assert zdt.day_of_year() == 60
@@ -5525,7 +5518,6 @@ class TestDayOfYear:
 
 
 class TestDaysInMonth:
-
     def test_feb_leap(self):
         zdt = ZonedDateTime(2024, 2, 29, 12, tz="America/New_York")
         assert zdt.days_in_month() == 29
@@ -5548,7 +5540,6 @@ class TestDaysInMonth:
 
 
 class TestDaysInYear:
-
     def test_leap(self):
         zdt = ZonedDateTime(2024, 2, 29, 12, tz="America/New_York")
         assert zdt.days_in_year() == 366
@@ -5567,7 +5558,6 @@ class TestDaysInYear:
 
 
 class TestInLeapYear:
-
     def test_leap(self):
         zdt = ZonedDateTime(2024, 2, 29, 12, tz="America/New_York")
         assert zdt.in_leap_year() is True
@@ -5586,7 +5576,6 @@ class TestInLeapYear:
 
 
 class TestStartOf:
-
     def test_year(self):
         zdt = ZonedDateTime(
             2024, 8, 15, 14, 30, 45, nanosecond=123, tz="America/New_York"
@@ -5650,22 +5639,71 @@ class TestStartOf:
     def test_invalid_unit(self):
         with pytest.raises(ValueError, match="Invalid (unit|value for unit)"):
             ZonedDateTime(2024, 8, 15, 14, 30, tz="America/New_York").start_of(
+                "invalid"  # type: ignore[arg-type]
+            )
+
+    def test_week_value_error(self):
+        with pytest.raises(ValueError, match="ambiguous"):
+            ZonedDateTime(2024, 8, 15, 14, 30, tz="America/New_York").start_of(
                 "week"  # type: ignore[arg-type]
             )
 
-    def test_hour_gap_transition(self):
-        # Lord Howe: at 2:00 AM Oct 6, clocks spring forward 30min
-        # to 2:30 AM. Times 2:00-2:29 don't exist.
-        # At 2:45+11:00, start_of("hour") should resolve the gap.
+    def test_week_mon(self):
+        # Thursday Aug 15 -> Monday Aug 12 at midnight
+        zdt = ZonedDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, tz="America/New_York"
+        )
+        result = zdt.start_of("week_mon")
+        assert result.exact_eq(
+            ZonedDateTime(2024, 8, 12, tz="America/New_York")
+        )
+
+    def test_week_sun(self):
+        # Thursday Aug 15 -> Sunday Aug 11 at midnight
+        zdt = ZonedDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, tz="America/New_York"
+        )
+        result = zdt.start_of("week_sun")
+        assert result.exact_eq(
+            ZonedDateTime(2024, 8, 11, tz="America/New_York")
+        )
+
+    def test_non_hour_gap(self):
+        # Lord Howe starts DST: 2:00-2:29 does not exist
         zdt = ZonedDateTime(2024, 10, 6, 2, 45, tz="Australia/Lord_Howe")
         result = zdt.start_of("hour")
         assert result.exact_eq(
             ZonedDateTime(2024, 10, 6, 2, 30, tz="Australia/Lord_Howe")
         )
+        assert zdt.start_of("day").exact_eq(
+            ZonedDateTime(2024, 10, 6, tz="Australia/Lord_Howe")
+        )
 
-    def test_hour_fold_earlier(self):
+    def test_non_minute_aligned_gap(self):
+        # Monrovia advanced from 00:00 to 00:44:30 on Jan 7, 1972.
+        zdt = ZonedDateTime(
+            1972,
+            1,
+            7,
+            0,
+            44,
+            45,
+            nanosecond=123,
+            tz="Africa/Monrovia",
+        )
+        result = zdt.start_of("minute")
+        assert result.exact_eq(
+            ZonedDateTime(1972, 1, 7, 0, 44, 30, tz="Africa/Monrovia")
+        )
+        assert (
+            ZonedDateTime(1972, 1, 6, 23, 59, 45, tz="Africa/Monrovia")
+            .end_of("minute")
+            .add(nanoseconds=1)
+            .exact_eq(result)
+        )
+
+    def test_non_hour_fold(self):
         # Lord Howe end of DST: Apr 7, 1:30-1:59 occurs twice.
-        # At 1:45+11:00 (first occurrence), start_of("hour") => 1:00+11:00
         zdt = ZonedDateTime(
             2024,
             4,
@@ -5675,27 +5713,67 @@ class TestStartOf:
             tz="Australia/Lord_Howe",
             disambiguate="earlier",
         )
-        result = zdt.start_of("hour")
-        assert result.offset == hours(11)
-
-    def test_hour_fold_later(self):
-        # At 1:45+10:30 (second occurrence), start_of("hour") => 1:00+11:00
-        # because 1:00 is not in the fold (fold is 1:30-1:59),
-        # so it's unambiguous at +11:00
-        zdt = ZonedDateTime(
-            2024,
-            4,
-            7,
-            1,
-            45,
-            tz="Australia/Lord_Howe",
-            disambiguate="later",
+        zdt_later = zdt.replace(disambiguate="later")
+        expect = ZonedDateTime(2024, 4, 7, 1, tz="Australia/Lord_Howe")
+        assert zdt.start_of("hour").exact_eq(expect)
+        assert (
+            zdt.replace(disambiguate="later").start_of("hour").exact_eq(expect)
         )
-        result = zdt.start_of("hour")
-        assert result.offset == hours(11)
+
+        # For small units, the offset is preserved
+        assert zdt.start_of("minute").exact_eq(zdt)
+        assert zdt_later.start_of("minute").exact_eq(zdt_later)
+        assert (
+            zdt.replace(minute=30, second=1, disambiguate="later")
+            .start_of("minute")
+            .exact_eq(zdt.replace(minute=30, second=0, disambiguate="later"))
+        )
+        # FUTURE: Tests for folds that don't occur on neat hour boundaries.
+
+    @pytest.mark.parametrize("unit", ["week_mon", "week_sun"])
+    def test_min_max_no_crash(self, unit):
+        try:
+            ZonedDateTime(1, 1, 1, tz="UTC").start_of(unit)
+        except (ValueError, OverflowError):
+            pass
+        try:
+            ZonedDateTime(9999, 12, 31, 23, 59, 59, tz="UTC").start_of(unit)
+        except (ValueError, OverflowError):
+            pass
 
 
 class TestEndOf:
+    @pytest.mark.parametrize(
+        ("unit", "next_start"),
+        [
+            ("year", ZonedDateTime(2025, 1, 1, tz="America/New_York")),
+            ("month", ZonedDateTime(2024, 9, 1, tz="America/New_York")),
+            ("week_mon", ZonedDateTime(2024, 8, 19, tz="America/New_York")),
+            ("week_sun", ZonedDateTime(2024, 8, 18, tz="America/New_York")),
+            ("day", ZonedDateTime(2024, 8, 16, tz="America/New_York")),
+            ("hour", ZonedDateTime(2024, 8, 15, 15, tz="America/New_York")),
+            (
+                "minute",
+                ZonedDateTime(2024, 8, 15, 14, 31, tz="America/New_York"),
+            ),
+            (
+                "second",
+                ZonedDateTime(2024, 8, 15, 14, 30, 46, tz="America/New_York"),
+            ),
+        ],
+    )
+    def test_adjacent_to_next_start(self, unit, next_start):
+        zdt = ZonedDateTime(
+            2024,
+            8,
+            15,
+            14,
+            30,
+            45,
+            nanosecond=123,
+            tz="America/New_York",
+        )
+        assert zdt.end_of(unit).add(nanoseconds=1).exact_eq(next_start)
 
     def test_year(self):
         zdt = ZonedDateTime(
@@ -5783,6 +5861,28 @@ class TestEndOf:
             )
         )
 
+    @pytest.mark.parametrize(
+        ("tz", "hour"),
+        [
+            ("UTC", 23),
+            ("America/New_York", 18),
+        ],
+    )
+    def test_hour_at_upper_boundary(self, tz, hour):
+        zdt = ZonedDateTime(9999, 12, 31, hour, tz=tz)
+        assert zdt.end_of("hour").exact_eq(
+            ZonedDateTime(
+                9999,
+                12,
+                31,
+                hour,
+                59,
+                59,
+                nanosecond=999_999_999,
+                tz=tz,
+            )
+        )
+
     def test_minute(self):
         zdt = ZonedDateTime(
             2024, 8, 15, 14, 30, 45, nanosecond=123, tz="America/New_York"
@@ -5822,12 +5922,85 @@ class TestEndOf:
     def test_invalid_unit(self):
         with pytest.raises(ValueError, match="Invalid (unit|value for unit)"):
             ZonedDateTime(2024, 8, 15, 14, 30, tz="America/New_York").end_of(
+                "invalid"  # type: ignore[arg-type]
+            )
+
+    def test_week_value_error(self):
+        with pytest.raises(ValueError, match="ambiguous"):
+            ZonedDateTime(2024, 8, 15, 14, 30, tz="America/New_York").end_of(
                 "week"  # type: ignore[arg-type]
             )
 
-    def test_hour_gap_transition(self):
+    def test_week_mon(self):
+        # Thursday Aug 15 -> Sunday Aug 18 end of day
+        zdt = ZonedDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, tz="America/New_York"
+        )
+        result = zdt.end_of("week_mon")
+        assert result.exact_eq(
+            ZonedDateTime(
+                2024,
+                8,
+                18,
+                23,
+                59,
+                59,
+                nanosecond=999_999_999,
+                tz="America/New_York",
+            )
+        )
+
+    def test_week_sun(self):
+        # Thursday Aug 15 -> Saturday Aug 17 end of day
+        zdt = ZonedDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, tz="America/New_York"
+        )
+        result = zdt.end_of("week_sun")
+        assert result.exact_eq(
+            ZonedDateTime(
+                2024,
+                8,
+                17,
+                23,
+                59,
+                59,
+                nanosecond=999_999_999,
+                tz="America/New_York",
+            )
+        )
+
+    def test_week_end_on_dst_boundary(self):
+        zdt = ZonedDateTime(2016, 2, 20, tz="America/Sao_Paulo")
+        result = zdt.end_of("week_sun")
+        assert result.exact_eq(
+            ZonedDateTime(
+                2016,
+                2,
+                21,
+                4,
+                tz="America/Sao_Paulo",
+            )
+            .start_of("week_sun")
+            .subtract(nanoseconds=1)
+        )
+
+    def test_day_end_on_dst_boundary(self):
+        zdt = ZonedDateTime(2016, 2, 20, tz="America/Sao_Paulo")
+        result = zdt.end_of("day")
+        assert result.exact_eq(
+            ZonedDateTime(
+                2016,
+                2,
+                21,
+                4,
+                tz="America/Sao_Paulo",
+            )
+            .start_of("day")
+            .subtract(nanoseconds=1)
+        )
+
+    def test_non_hour_gap(self):
         # Lord Howe: at 2:00 AM Oct 6, clocks spring forward 30min.
-        # At 2:45+11:00, end_of("hour") should be 2:59:59.999999999+11:00
         zdt = ZonedDateTime(2024, 10, 6, 2, 45, tz="Australia/Lord_Howe")
         result = zdt.end_of("hour")
         assert result.exact_eq(
@@ -5842,10 +6015,41 @@ class TestEndOf:
                 tz="Australia/Lord_Howe",
             )
         )
+        assert (
+            ZonedDateTime(2024, 10, 6, 1, 45, tz="Australia/Lord_Howe")
+            .end_of("hour")
+            .exact_eq(
+                ZonedDateTime(
+                    2024,
+                    10,
+                    6,
+                    1,
+                    59,
+                    59,
+                    nanosecond=999_999_999,
+                    tz="Australia/Lord_Howe",
+                )
+            )
+        )
 
-    def test_hour_fold_preserves_offset(self):
+    def test_end_lands_in_gap(self):
+        # Caracas advanced from 02:30 to 03:00 on May 1, 2016.
+        zdt = ZonedDateTime(2016, 5, 1, 2, 15, tz="America/Caracas")
+        assert zdt.end_of("hour").exact_eq(
+            ZonedDateTime(
+                2016,
+                5,
+                1,
+                2,
+                29,
+                59,
+                nanosecond=999_999_999,
+                tz="America/Caracas",
+            )
+        )
+
+    def test_non_hour_fold(self):
         # Lord Howe end of DST: 1:30-1:59 occurs twice.
-        # At 1:45+11:00, end_of("hour") => 1:59+11:00 (earlier offset preserved)
         zdt_e = ZonedDateTime(
             2024,
             4,
@@ -5855,28 +6059,77 @@ class TestEndOf:
             tz="Australia/Lord_Howe",
             disambiguate="earlier",
         )
-        result_e = zdt_e.end_of("hour")
-        assert result_e.offset == hours(11)
-
-        # At 1:45+10:30, end_of("hour") => 1:59+10:30 (later offset preserved)
-        zdt_l = ZonedDateTime(
-            2024,
-            4,
-            7,
-            1,
-            45,
-            tz="Australia/Lord_Howe",
-            disambiguate="later",
+        zdt_l = zdt_e.replace(disambiguate="later")
+        # end of 'hour' consumes the fold
+        assert zdt_e.end_of("hour").exact_eq(
+            zdt_e.replace(
+                hour=1,
+                minute=59,
+                second=59,
+                nanosecond=999_999_999,
+                disambiguate="later",
+            )
         )
-        result_l = zdt_l.end_of("hour")
-        assert result_l.offset == TimeDelta(hours=10, minutes=30)
+        assert zdt_l.end_of("hour").exact_eq(
+            zdt_l.replace(
+                hour=1,
+                minute=59,
+                second=59,
+                nanosecond=999_999_999,
+            )
+        )
+        # end of minute does *not* consume the fold
+        assert zdt_e.end_of("minute").exact_eq(
+            zdt_e.replace(
+                second=59,
+                nanosecond=999_999_999,
+                disambiguate="earlier",
+            )
+        )
+        assert zdt_l.end_of("minute").exact_eq(
+            zdt_l.replace(
+                second=59,
+                nanosecond=999_999_999,
+            )
+        )
 
-        # They represent different instants
-        assert result_e != result_l
+    def test_hour_fold_does_not_consume_full_hour_fold(self):
+        zdt = ZonedDateTime(
+            2024,
+            11,
+            3,
+            1,
+            30,
+            tz="America/New_York",
+            disambiguate="earlier",
+        )
+        assert zdt.end_of("hour").exact_eq(
+            ZonedDateTime(
+                2024,
+                11,
+                3,
+                1,
+                59,
+                59,
+                nanosecond=999_999_999,
+                tz="America/New_York",
+                disambiguate="earlier",
+            )
+        )
+
+    @pytest.mark.parametrize("unit", ["week_mon", "week_sun"])
+    def test_min_max_no_crash(self, unit):
+        try:
+            ZonedDateTime(1, 1, 1, tz="UTC").end_of(unit)
+        except (ValueError, OverflowError):
+            pass
+        try:
+            ZonedDateTime(9999, 12, 31, 23, 59, 59, tz="UTC").end_of(unit)
+        except (ValueError, OverflowError):
+            pass
 
 
 class TestClearTzCache:
-
     @pytest.mark.skipif(
         _EXTENSION_LOADED, reason="Rust extension has its own cache"
     )

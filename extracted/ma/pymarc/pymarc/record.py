@@ -9,12 +9,18 @@
 import json
 import logging
 import re
+import typing
 import unicodedata
 import warnings
 from re import Pattern
-from typing import Any, Optional
 
-from pymarc.constants import DIRECTORY_ENTRY_LEN, END_OF_RECORD, LEADER_LEN
+from pymarc.constants import (
+    DIRECTORY_ENTRY_LEN,
+    END_OF_FIELD,
+    END_OF_RECORD,
+    LEADER_LEN,
+    SUBFIELD_INDICATOR,
+)
 from pymarc.exceptions import (
     BadSubfieldCodeWarning,
     BaseAddressInvalid,
@@ -27,8 +33,6 @@ from pymarc.exceptions import (
     TruncatedRecord,
 )
 from pymarc.field import (
-    END_OF_FIELD,
-    SUBFIELD_INDICATOR,
     Field,
     Indicators,
     RawField,
@@ -84,8 +88,8 @@ class Record:
 
     def __init__(
         self,
-        data: str = "",
-        fields: Optional[list[Field]] = None,
+        data: str | bytes = "",
+        fields: list[Field] | None = None,
         to_unicode: bool = True,
         force_utf8: bool = False,
         hide_utf8_warnings: bool = False,
@@ -94,9 +98,10 @@ class Record:
         file_encoding: str = "iso8859-1",
     ) -> None:
         """Initialize a Record."""
-        self.leader: Any = Leader(leader[0:10] + "22" + leader[12:20] + "4500")
-        self.fields: list = []
+        self.leader: Leader = Leader(leader[0:10] + "22" + leader[12:20] + "4500")
+        self.fields: list[Field | RawField] = []
         self.pos: int = 0
+        self.__pos: int = 0
         self.force_utf8: bool = force_utf8
         self.to_unicode: bool = to_unicode
         if fields:
@@ -119,12 +124,12 @@ class Record:
         See :func:`Field.__str__() <pymarc.record.Field.__str__>` for more information.
         """
         # join is significantly faster than concatenation
-        text_list: list = [f"=LDR  {self.leader}"]
+        text_list: list[str] = [f"=LDR  {self.leader}"]
         text_list.extend([str(field) for field in self.fields])
         text: str = "\n".join(text_list) + "\n"
         return text
 
-    def get(self, tag: str, default: Optional[Field] = None) -> Optional[Field]:
+    def get(self, tag: str, default: Field | None = None) -> Field | None:
         """Implements a dict-like get with a default value.
 
         If `tag` is not found, then the default value will be returned.
@@ -138,10 +143,10 @@ class Record:
 
 
         """
-        try:
-            return self[tag]
-        except KeyError:
-            return default
+        for field in self.fields:
+            if field.tag == tag:
+                return field
+        return default
 
     def __getitem__(self, tag: str) -> Field:
         """Allows a shorthand lookup by tag.
@@ -152,14 +157,10 @@ class Record:
 
             record['245']
         """
-        if tag not in self:
-            raise KeyError
-
-        fields: list[Field] = self.get_fields(tag)
-        if not fields:
-            raise KeyError
-
-        return fields[0]
+        for field in self.fields:
+            if field.tag == tag:
+                return field
+        raise KeyError
 
     def __contains__(self, tag: str) -> bool:
         """Allows a shorthand test of tag membership.
@@ -251,9 +252,28 @@ class Record:
             # remove all the fields marked with tags '200' or '899'.
             self.remove_fields('200', '899')
         """
-        self.fields[:] = (field for field in self.fields if field.tag not in tags)
+        if not tags:
+            return None
 
-    def get_fields(self, *args) -> list[Field]:
+        if len(tags) == 1:
+            tag = tags[0]
+            self.fields[:] = (field for field in self.fields if field.tag != tag)
+            return None
+
+        tag_set = set(tags)
+        self.fields[:] = (field for field in self.fields if field.tag not in tag_set)
+
+        # Add explicit return so type-checkers don't complain about missing returns on some
+        # code paths.
+        return None
+
+    @typing.overload
+    def get_fields(self, *args: str) -> list[Field]: ...
+
+    @typing.overload
+    def get_fields(self, *args: list[str]) -> list[Field]: ...
+
+    def get_fields(self, *args: str | list[str]) -> list[Field]:
         """Return a list of all the fields in a record tags matching `args`.
 
         .. code-block:: python
@@ -273,15 +293,21 @@ class Record:
         if not args:
             return self.fields
 
-        return [f for f in self.fields if f.tag in args]
+        if len(args) == 1:
+            tag = args[0]
+            return [field for field in self.fields if field.tag == tag]
+
+        tag_set = set(args)
+        return [field for field in self.fields if field.tag in tag_set]
 
     def get_linked_fields(self, field: Field) -> list[Field]:
         """Given a field that is not an 880, retrieve a list of any linked 880 fields."""
         num = field.linkage_occurrence_num()
-        fields = self.get_fields("880")
-        linked_fields = list(
-            filter(lambda f: f.linkage_occurrence_num() == num, fields)
-        )
+        linked_fields = [
+            linked_field
+            for linked_field in self.get_fields("880")
+            if linked_field.linkage_occurrence_num() == num
+        ]
         if num is not None and not linked_fields:
             raise MissingLinkedFields(field)
         return linked_fields
@@ -386,7 +412,7 @@ class Record:
                     try:
                         code = subfield[0:1].decode("ascii")
                     except UnicodeDecodeError:
-                        warnings.warn(BadSubfieldCodeWarning(), stacklevel=2)
+                        warnings.warn(BadSubfieldCodeWarning(subfield), stacklevel=2)
                         code, skip_bytes = normalize_subfield_code(subfield)
                     data = subfield[skip_bytes:]
 
@@ -473,15 +499,15 @@ class Record:
     # alias for backwards compatibility
     as_marc21 = as_marc
 
-    def as_dict(self) -> dict[str, str]:
+    def as_dict(self) -> dict[str, object]:
         """Turn a MARC record into a dictionary, which is used for ``as_json``."""
-        record: dict = {"leader": str(self.leader), "fields": []}
+        record: dict[str, object] = {"leader": str(self.leader), "fields": []}
 
         for field in self:
             if field.control_field:
-                record["fields"].append({field.tag: field.data})
+                record["fields"].append({field.tag: field.data})  # type: ignore
             else:
-                record["fields"].append(
+                record["fields"].append(  # type: ignore
                     {
                         field.tag: {
                             "ind1": field.indicator1,
@@ -501,13 +527,13 @@ class Record:
         return json.dumps(self.as_dict(), **kwargs)
 
     @property
-    def title(self) -> Optional[str]:
+    def title(self) -> str | None:
         """Returns the title of the record (245 $a and $b)."""
-        title_field: Optional[Field] = self.get("245")
+        title_field: Field | None = self.get("245")
         if not title_field:
             return None
 
-        title: Optional[str] = title_field.get("a")
+        title: str | None = title_field.get("a")
         if title:
             subtitle = title_field.get("b")
             if subtitle:
@@ -515,13 +541,13 @@ class Record:
         return title
 
     @property
-    def issn_title(self) -> Optional[str]:
+    def issn_title(self) -> str | None:
         """Returns the key title of the record (222 $a and $b)."""
-        title_field: Optional[Field] = self.get("222")
+        title_field: Field | None = self.get("222")
         if not title_field:
             return None
 
-        title: Optional[str] = title_field.get("a")
+        title: str | None = title_field.get("a")
         if title:
             subtitle = title_field.get("b")
             if subtitle:
@@ -529,7 +555,7 @@ class Record:
         return title
 
     @property
-    def isbn(self) -> Optional[str]:
+    def isbn(self) -> str | None:
         """Returns the first ISBN in the record or None if one is not present.
 
         The returned ISBN will be all numeric, except for an
@@ -539,11 +565,11 @@ class Record:
         e.g. record['020']['a']. Values that do not match the regex will not
         be returned.
         """
-        isbn_field: Optional[Field] = self.get("020")
+        isbn_field: Field | None = self.get("020")
         if not isbn_field:
             return None
 
-        isbn_number: Optional[str] = isbn_field.get("a")
+        isbn_number: str | None = isbn_field.get("a")
         if not isbn_number:
             return None
 
@@ -554,19 +580,19 @@ class Record:
         return None
 
     @property
-    def issn(self) -> Optional[str]:
+    def issn(self) -> str | None:
         """Returns the ISSN number [022]['a'] in the record or None."""
         field = self.get("022")
         return field.get("a") if (field and "a" in field) else None
 
     @property
-    def issnl(self) -> Optional[str]:
+    def issnl(self) -> str | None:
         """Returns the ISSN-L number [022]['l'] of the record or None."""
         field = self.get("022")
         return field["l"] if (field and "l" in field) else None
 
     @property
-    def sudoc(self) -> Optional[str]:
+    def sudoc(self) -> str | None:
         """Returns a Superintendent of Documents (SuDoc) classification number.
 
         Note: More information can be found at the following URL:
@@ -576,13 +602,13 @@ class Record:
         return field.format_field() if field else None
 
     @property
-    def author(self) -> Optional[str]:
+    def author(self) -> str | None:
         """Returns the author from field 100, 110 or 111."""
         field = self.get("100") or self.get("110") or self.get("111")
         return field.format_field() if field else None
 
     @property
-    def uniformtitle(self) -> Optional[str]:
+    def uniformtitle(self) -> str | None:
         """Returns the uniform title from field 130 or 240."""
         field = self.get("130") or self.get("240")
         return field.format_field() if field else None
@@ -649,7 +675,7 @@ class Record:
         return self.get_fields("300")
 
     @property
-    def publisher(self) -> Optional[str]:
+    def publisher(self) -> str | None:
         """Return publisher from 260 or 264.
 
         Note: 264 field with second indicator '1' indicates publisher.
@@ -663,7 +689,7 @@ class Record:
         return None
 
     @property
-    def pubyear(self) -> Optional[str]:
+    def pubyear(self) -> str | None:
         """Returns publication year from 260 or 264."""
         for f in self.get_fields("260", "264"):
             if f.tag == "260":
@@ -676,13 +702,13 @@ class Record:
 def map_marc8_record(record: Record) -> Record:
     """Map MARC-8 record."""
     record.fields = [map_marc8_field(field) for field in record.fields]
-    leader: list[str] = list(record.leader)
+    leader: list[str] = list(record.leader.leader)
     leader[9] = "a"  # see http://www.loc.gov/marc/specifications/speccharucs.html
-    record.leader = "".join(leader)
+    record.leader = Leader("".join(leader))
     return record
 
 
-def normalize_subfield_code(subfield) -> tuple[Any, int]:
+def normalize_subfield_code(subfield: bytes) -> tuple[str, int]:
     """Normalize subfield code."""
     skip_bytes: int = 1
     try:

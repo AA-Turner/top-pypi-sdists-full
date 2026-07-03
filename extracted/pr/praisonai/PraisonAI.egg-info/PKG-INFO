@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PraisonAI
-Version: 4.6.104
+Version: 4.6.111
 Summary: PraisonAI is an AI Agents Framework with Self Reflection. PraisonAI application combines PraisonAI Agents, AutoGen, and CrewAI into a low-code solution for building and managing multi-agent LLM systems, focusing on simplicity, customisation, and efficient human-agent collaboration.
 Author: Mervin Praison
 License: MIT
@@ -11,8 +11,8 @@ Description-Content-Type: text/markdown
 Requires-Dist: rich>=13.7
 Requires-Dist: markdown>=3.5
 Requires-Dist: pyparsing>=3.0.0
-Requires-Dist: praisonaiagents>=1.6.104
-Requires-Dist: praisonai-code
+Requires-Dist: praisonaiagents>=1.6.111
+Requires-Dist: praisonai-code>=0.0.9
 Requires-Dist: python-dotenv>=0.19.0
 Requires-Dist: litellm<2,>=1.83.14
 Requires-Dist: PyYAML>=6.0
@@ -36,6 +36,12 @@ Requires-Dist: fastapi>=0.115.0; extra == "os"
 Requires-Dist: uvicorn>=0.34.0; extra == "os"
 Requires-Dist: PyJWT>=2.8.0; extra == "os"
 Requires-Dist: sse-starlette>=1.6.0; extra == "os"
+Provides-Extra: gateway
+Requires-Dist: fastapi>=0.115.0; extra == "gateway"
+Requires-Dist: uvicorn>=0.34.0; extra == "gateway"
+Requires-Dist: sse-starlette>=1.6.0; extra == "gateway"
+Requires-Dist: websockets>=12.0; extra == "gateway"
+Requires-Dist: watchdog>=3.0.0; extra == "gateway"
 Provides-Extra: agentops
 Requires-Dist: agentops>=0.3.12; extra == "agentops"
 Provides-Extra: langfuse
@@ -123,6 +129,7 @@ Requires-Dist: fastapi>=0.115.0; extra == "all"
 Requires-Dist: uvicorn>=0.34.0; extra == "all"
 Requires-Dist: sse-starlette>=1.6.0; extra == "all"
 Requires-Dist: websockets>=12.0; extra == "all"
+Requires-Dist: watchdog>=3.0.0; extra == "all"
 Requires-Dist: tavily-python==0.5.0; extra == "all"
 Requires-Dist: crawl4ai>=0.7.0; extra == "all"
 Requires-Dist: playwright>=1.47.0; extra == "all"

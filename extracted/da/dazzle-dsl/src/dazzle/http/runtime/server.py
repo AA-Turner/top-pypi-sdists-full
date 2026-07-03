@@ -54,7 +54,7 @@ from dazzle.http.runtime.rate_limit import apply_rate_limiting
 from dazzle.http.runtime.relation_loader import RelationLoader, RelationRegistry
 from dazzle.http.runtime.renderers.init import register_default_renderers
 from dazzle.http.runtime.repository import RepositoryFactory
-from dazzle.http.runtime.rls_schema import build_all_rls_ddl
+from dazzle.http.runtime.rls_schema import build_all_rls_ddl, physical_cast_overrides
 from dazzle.http.runtime.route_generator import RouteGenerator
 from dazzle.http.runtime.route_validator import validate_routes
 from dazzle.http.runtime.sa_schema import build_metadata, scoped_entity_names
@@ -76,6 +76,8 @@ from dazzle.http.runtime.subsystems.seed import SeedSubsystem
 from dazzle.http.runtime.subsystems.sla import SLASubsystem
 from dazzle.http.runtime.subsystems.system_routes import SystemRoutesSubsystem
 from dazzle.http.runtime.tenant_isolation import register_rls_user_attr_names
+from dazzle.http.runtime.usage_routes import create_usage_routes
+from dazzle.http.runtime.usage_signal import UsageCollector, UsageSignalMiddleware
 from dazzle.http.runtime.workspace_aggregation import (  # noqa: F401
     _compute_aggregate_metrics,
     _fetch_count_metric,
@@ -83,6 +85,9 @@ from dazzle.http.runtime.workspace_aggregation import (  # noqa: F401
 )
 from dazzle.http.runtime.workspace_columns import (
     build_entity_columns as _build_entity_columns,  # noqa: F401
+)
+from dazzle.http.runtime.workspace_columns import (
+    build_entity_columns_full as _build_entity_columns_full,  # noqa: F401
 )
 from dazzle.http.runtime.workspace_columns import (
     build_surface_columns as _build_surface_columns,  # noqa: F401
@@ -97,6 +102,7 @@ from dazzle.http.runtime.workspace_handlers import (  # noqa: F401
 )
 from dazzle.http.runtime.workspace_region_handler import _workspace_region_handler  # noqa: F401
 from dazzle.http.runtime.workspace_route_builder import WorkspaceRouteBuilder
+from dazzle.page.runtime.peek_resolver import resolve_peek_mode
 from dazzle.page.runtime.theme import install_theme_middleware
 from dazzle.perf.bootstrap import maybe_configure_tracer
 from dazzle.perf.instrument import instrument_app
@@ -419,6 +425,7 @@ class DazzleBackendApp:
         self._auth_store: AuthStore | None = None
         self._auth_middleware: AuthMiddleware | None = None
         self._audit_logger: AuditLogger | None = None
+        self._usage_collector: Any = None  # UsageCollector | None (ADR-0050)
         self._file_service: FileService | None = None
         self._last_migration: MigrationPlan | None = None
         self._start_time: datetime | None = None
@@ -669,6 +676,8 @@ class DazzleBackendApp:
         self._db_manager.open_pool(min_size=pool_min, max_size=pool_max)
         if self._audit_logger is not None:
             self._audit_logger.start()
+        if self._usage_collector is not None:
+            self._usage_collector.start()  # ADR-0050 first-party usage signal
         # Subsystem startup hooks (seed/events/queues/sla/process/channels/…) run after the
         # pool is open so they can use the DB. Replaces the @on_event hooks a custom lifespan
         # silently dropped.
@@ -696,6 +705,8 @@ class DazzleBackendApp:
             await run_shutdown_hooks(app)
             if self._audit_logger is not None:
                 await self._audit_logger.stop()
+            if self._usage_collector is not None:
+                await self._usage_collector.stop()  # final flush of queued usage events
             self._db_manager.close_pool()
 
     def _create_app(self) -> None:
@@ -780,6 +791,13 @@ class DazzleBackendApp:
             add_metrics_middleware(self._app)
         except ImportError:
             pass
+
+        # Usage-signal middleware (ADR-0050 Option A, 3a): record heading-action
+        # clicks. Raw ASGI (NOT BaseHTTPMiddleware — SSE/streaming-safe, per the
+        # csrf.py convention); records after the response when request.state.tenant
+        # is resolved, no-op unless the `X-Dz-Usage-Action` header (set by the
+        # hx-boosted heading anchors) is present.
+        self._app.add_middleware(UsageSignalMiddleware)
 
         # Tenant isolation middleware (schema-per-tenant)
         tenant_config = self._tenant_config
@@ -978,10 +996,22 @@ class DazzleBackendApp:
         # shared_schema / no-scoped no-op gates) now lives in build_all_rls_ddl
         # so the dev apply, prod apply, inspect, and drift paths share one
         # generator. Behaviour here is identical to the old inline version.
-        statements = build_all_rls_ddl(self._appspec, self._entities)
-        if not statements:
+        # The DB-free build is only an emptiness gate (its gates fire before any
+        # cast is computed) — the applied DDL is rebuilt with the live column
+        # types below, so casts match the physical schema even when a dev DB
+        # (db_policy=preserve) predates a column-type change (#1531).
+        if not build_all_rls_ddl(self._appspec, self._entities):
             return
         with engine.begin() as conn:
+            rows = conn.execute(
+                _sa_text(
+                    "SELECT table_name, column_name, udt_name "
+                    "FROM information_schema.columns WHERE table_schema = current_schema()"
+                )
+            ).fetchall()
+            statements = build_all_rls_ddl(
+                self._appspec, self._entities, physical_types=physical_cast_overrides(rows)
+            )
             for stmt in statements:
                 conn.execute(_sa_text(stmt))
         logger.info(
@@ -1667,6 +1697,21 @@ class DazzleBackendApp:
             # time, well before the lifespan fires).
             self._audit_logger = audit_logger
 
+        # ADR-0050 Option A (first-party usage signal): construct the usage
+        # collector whenever a database is available (any app can capture usage,
+        # unlike audit which is gated on auditable entities). start()/stop() are
+        # driven by the lifespan (reads self._usage_collector at startup). Dormant
+        # until Phase 3 wires record() calls; reachable via request.app.state.
+        if self._database_url:
+            self._usage_collector = UsageCollector(database_url=self._database_url)
+            self._app.state.usage_collector = self._usage_collector
+            services = getattr(self._app.state, "services", None)
+            if services is not None:
+                services.usage_collector = self._usage_collector
+            # ADR-0050 3a (Phase 4): expose the pooled DB backend so the workspace
+            # handler can read usage counts at render time (best-effort, pooled).
+            self._app.state.db_manager = self._db_manager
+
         # Project route overrides — registered first for priority (v0.29.0)
         if self._project_root:
             try:
@@ -1722,22 +1767,52 @@ class DazzleBackendApp:
         # render table row fragments with correct column definitions.
         # Use surface field projection when a list surface exists (#405).
         _entity_list_surfaces: dict[str, Any] = {}
+        _entity_all_list_surfaces: dict[str, list[Any]] = {}
         for _surf in self._appspec.surfaces:
             _eref = _surf.entity_ref
             _mode = str(_surf.mode or "").lower()
-            if _eref and _mode == "list" and _eref not in _entity_list_surfaces:
-                _entity_list_surfaces[_eref] = _surf
+            if _eref and _mode == "list":
+                if _eref not in _entity_list_surfaces:
+                    _entity_list_surfaces[_eref] = _surf
+                _entity_all_list_surfaces.setdefault(_eref, []).append(_surf)
 
         entity_htmx_meta: dict[str, dict[str, Any]] = {}
         app_prefix = "/app"
         for entity in self._entities:
             slug = _entity_slug(entity.name)
             _ls = _entity_list_surfaces.get(entity.name)
-            cols = _build_surface_columns(entity, _ls) if _ls else _build_entity_columns(entity)
+            cols = (
+                _build_surface_columns(entity, _ls, self._appspec.enums)
+                if _ls
+                else _build_entity_columns(entity, self._appspec.enums)
+            )
+            # ADR-0050 2d → L4: for the pure entity-fallback (no list surface), cache
+            # the FULL untruncated column set so the request-time usage inferer can
+            # rescue a heavily-engaged field that build-time salience would shed. None
+            # for surface-declared columns (explicit author projection wins).
+            cols_full = None if _ls else _build_entity_columns_full(entity, self._appspec.enums)
+            # #1494 (2c, Slice 2): peek is declared PER SURFACE, but one entity can
+            # host several list surfaces with different `peek:` modes. Map each
+            # surface's table_id (= surface.name = region_name) to its resolved
+            # peek so the `/api` row-hydrate path picks the mode for the *actual*
+            # surface being viewed (recovered from HX-Target) — keeping the row
+            # chevron in step with the per-surface SlideOver container `_build_list`
+            # emits. `peek_mode` stays the first-surface value (the byte-stable
+            # default used when no table_id is resolvable).
+            peek_by_table_id = {
+                _s.name: resolve_peek_mode(_s, entity).value
+                for _s in _entity_all_list_surfaces.get(entity.name, [])
+            }
             entity_htmx_meta[entity.name] = {
                 "columns": cols,
+                "columns_full": cols_full,  # ADR-0050 2d: untruncated (entity-fallback only)
                 "detail_url": f"{app_prefix}/{slug}/{{id}}",
                 "entity_name": entity.name,
+                # #1494 (2c): resolved `peek:` mode for the (first) list surface.
+                # Unset → "off" (Slice-1 default, byte-stable); `peek: expand` opts
+                # the entity-list rows into the inline detail-panel chevron.
+                "peek_mode": resolve_peek_mode(_ls, entity).value if _ls else "off",
+                "peek_by_table_id": peek_by_table_id,
             }
 
         # Build per-entity audit config mapping.
@@ -2065,6 +2140,12 @@ class DazzleBackendApp:
             self._app.include_router(locale_router)
         except Exception:
             logger.warning("Locale router mount failed", exc_info=True)
+
+        # ADR-0050 Phase 5 / 1a: field-engagement beacon endpoint, mounted only when
+        # a usage collector exists (a database is configured). The dz-usage.js hook
+        # POSTs here on first form-field focus so the 1a widget inferer can adapt.
+        if getattr(self._app.state, "usage_collector", None) is not None:
+            self._app.include_router(create_usage_routes())
 
     def _mount_file_routes(self) -> None:
         assert self._app is not None

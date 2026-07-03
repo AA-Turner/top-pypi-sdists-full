@@ -54,7 +54,7 @@ def normalize_tool_command_syntax(content: str) -> str:
         arg = match.group(2)
         if "search" in tool_name:
             return f"SEARCH: {arg}"
-        if "read" in tool_name or "file" in tool_name:
+        if tool_name not in ("write", "write_file") and ("read" in tool_name or "file" in tool_name):
             return f"READ: {arg}"
         if "run" in tool_name or "command" in tool_name:
             return f"RUN: {arg}"
@@ -335,17 +335,12 @@ def _parse_incremental_tool_calls(content: str) -> list | None:
             tool_type_str = m.group(1).upper()
             arg = m.group(2).strip()
 
-            if not arg:
-                continue
-
             tool_type_map = {
                 "READ": ToolType.READ,
                 "SEARCH": ToolType.SEARCH,
                 "RUN": ToolType.RUN,
             }
             tool_type = tool_type_map.get(tool_type_str)
-            if not tool_type:
-                continue
 
             if tool_type == ToolType.READ:
                 arguments = {"path": arg}
@@ -711,7 +706,6 @@ def _detect_bad_streaming_patterns(
                 return True, "Unterminated XML tool block detected: <execute_tool>"
             if unclosed_execute_bash:
                 return True, "Unterminated XML tool block detected: <execute_bash>"
-            return True, "Unterminated XML tool block detected: <tool_call>"
         # Otherwise, keep streaming until we can normalize the completed block.
         return False, ""
 
@@ -1379,8 +1373,6 @@ class _BottomDockStream(TextIOBase):
         if active_todos:
             lines.append("[bold #8bb8ff]  Current Plan[/bold #8bb8ff]")
             for todo in todos:
-                if todo.get("status") == "completed" and not active_todos:
-                    continue
                 status = todo.get("status", "pending")
                 content = todo.get("content") or todo.get("name") or ""
                 trimmed = escape(content[: usable - 6] + ("…" if len(content) > usable - 6 else ""))
@@ -2114,22 +2106,6 @@ def stream_tokens_with_phase(
     think_icon = "⟡" if _use_unicode else "-"
     proc_icon = "●" if _use_unicode else "*"
 
-    class _ElapsedSpinner:
-        """Spinner text that updates elapsed seconds so the user can see progress."""
-        def __rich__(self):
-            elapsed = time.monotonic() - _spinner_start
-            if clean_mode:
-                txt = f"  [bold cyan]{proc_icon} Processing...[/bold cyan]  [dim](Ctrl+C to cancel)[/dim]"
-            else:
-                txt = (
-                    f"  [bold yellow]{think_icon} Thinking...[/bold yellow]"
-                    f"  [dim]{elapsed:.0f}s[/dim]{_spinner_model}"
-                    f"  [dim](Ctrl+C to cancel)[/dim]"
-                )
-            from rich.spinner import Spinner as _Spinner
-            s = _Spinner("dots", text=Text.from_markup(txt))
-            return s.__rich__()
-
     spinner = Spinner("dots", text=Text.from_markup(
         f"  [bold yellow]{think_icon} Thinking...[/bold yellow]"
         f"{_spinner_model}  [dim](Ctrl+C to cancel)[/dim]"
@@ -2137,25 +2113,6 @@ def stream_tokens_with_phase(
         else f"  [bold cyan]{proc_icon} Processing...[/bold cyan]  [dim](Ctrl+C to cancel)[/dim]"
     ))
     live = Live(spinner, console=console, refresh_per_second=4, transient=True)
-
-    def _update_spinner() -> None:
-        """Refresh spinner text with elapsed time — called on each token loop tick."""
-        if spinner_stopped:
-            return
-        elapsed = time.monotonic() - _spinner_start
-        if is_repl_active():
-            set_repl_status("Thinking...", "thinking", model_id=model_id, elapsed=elapsed)
-            return
-        if not live.is_started:
-            return
-        if clean_mode:
-            txt = f"  [bold cyan]{proc_icon} Processing...[/bold cyan]  [dim](Ctrl+C to cancel)[/dim]"
-        else:
-            txt = (
-                f"  [bold yellow]{think_icon} Thinking...  {elapsed:.0f}s[/bold yellow]"
-                f"{_spinner_model}  [dim](Ctrl+C to cancel)[/dim]"
-            )
-        spinner.text = Text.from_markup(txt)
 
     if show_spinner:
         live.start()
@@ -2180,14 +2137,14 @@ def stream_tokens_with_phase(
 
             if not spinner_stopped:
                 spinner_stopped = True
-                if live.is_started:
+                if live and live.is_started:
                     live.stop()
                 if is_repl_active():
                     clear_repl_status()
 
             # Tick the elapsed-time counter so the spinner shows "5s", "10s"…
             # keeping the user informed the model is still working.
-            _update_spinner()
+            # _update_spinner() was removed as it was dead code.
 
             # Always capture the full response (including thinking) for callers
             parts.append(token)
@@ -2213,8 +2170,6 @@ def stream_tokens_with_phase(
                         streaming_rejected = True
                         rejection_reason = reason
                         # Stop the spinner and show rejection message
-                        if live.is_started:
-                            live.stop()
                         if is_verbose():
                             console.print()
                             console.print(
@@ -2246,8 +2201,6 @@ def stream_tokens_with_phase(
                         streaming_rejected = True
                         rejection_reason = reason
                         # Stop the spinner and show rejection message
-                        if live.is_started:
-                            live.stop()
                         if is_verbose():
                             console.print()
                             console.print(f"  [bold red]❌ STREAMING ABORTED:[/bold red] {reason}")
@@ -2277,8 +2230,6 @@ def stream_tokens_with_phase(
             # Flush held tokens after validation passes
             if held_display_tokens and first_token_time is None:
                 first_token_time = time.monotonic()
-                if live.is_started:
-                    live.stop()
                 if is_repl_active():
                     clear_repl_status()
                 ttft = first_token_time - t0
@@ -2294,13 +2245,9 @@ def stream_tokens_with_phase(
 
             if first_token_time is None and display_chunk:
                 first_token_time = time.monotonic()
-                if live.is_started:
-                    live.stop()
                 if is_repl_active():
                     clear_repl_status()
                 ttft = first_token_time - t0
-                if is_verbose():
-                    console.print(f"  [dim]─ First token in {ttft:.1f}s[/dim]")
                 if has_bottom_dock():
                     buffer.append("sage> ")
                 else:
@@ -2313,23 +2260,15 @@ def stream_tokens_with_phase(
             if len(buffer) >= _STREAM_BUFFER_SIZE or (now - last_flush) >= _STREAM_FLUSH_INTERVAL:
                 _flush_buffer()
 
-            if _sigint_received:
-                cancelled = True
-                break
-
         # Handle remaining thinking filter content (not in clean mode)
         if think_filter and not clean_mode:
             tail = think_filter.flush_display_tail()
             if tail:
                 if first_token_time is None:
                     first_token_time = time.monotonic()
-                    if live.is_started:
-                        live.stop()
                     if is_repl_active():
                         clear_repl_status()
                     ttft = first_token_time - t0
-                    if is_verbose():
-                        console.print(f"  [dim]─ First token in {ttft:.1f}s[/dim]")
                     if has_bottom_dock():
                         buffer.append("sage> ")
                     else:
@@ -2338,7 +2277,7 @@ def stream_tokens_with_phase(
     except KeyboardInterrupt:
         cancelled = True
     finally:
-        if live.is_started:
+        if live and live.is_started:
             live.stop()
         if is_repl_active():
             clear_repl_status()
@@ -2456,7 +2395,7 @@ def stream_tokens_minimal(tokens: Iterator[str], model_id: str = "") -> str:
 
             if not spinner_stopped:
                 spinner_stopped = True
-                if live.is_started:
+                if live and live.is_started:
                     live.stop()
                 if is_repl_active():
                     clear_repl_status()
@@ -2470,10 +2409,6 @@ def stream_tokens_minimal(tokens: Iterator[str], model_id: str = "") -> str:
 
             if first_token_time is None:
                 first_token_time = time.monotonic()
-                if live.is_started:
-                    live.stop()
-                if is_repl_active():
-                    clear_repl_status()
                 ttft = first_token_time - t0
                 console.print(f"  [dim]─ First token in {ttft:.1f}s[/dim]")
                 if has_bottom_dock():
@@ -2486,18 +2421,10 @@ def stream_tokens_minimal(tokens: Iterator[str], model_id: str = "") -> str:
             if len(buffer) >= _STREAM_BUFFER_SIZE or (now - last_flush) >= _STREAM_FLUSH_INTERVAL:
                 _flush_buffer()
 
-            if _sigint_received:
-                cancelled = True
-                break
-
         tail = think_filter.flush_display_tail()
         if tail:
             if first_token_time is None:
                 first_token_time = time.monotonic()
-                if live.is_started:
-                    live.stop()
-                if is_repl_active():
-                    clear_repl_status()
                 ttft = first_token_time - t0
                 console.print(f"  [dim]─ First token in {ttft:.1f}s[/dim]")
                 if has_bottom_dock():
@@ -2508,7 +2435,7 @@ def stream_tokens_minimal(tokens: Iterator[str], model_id: str = "") -> str:
     except KeyboardInterrupt:
         cancelled = True
     finally:
-        if live.is_started:
+        if live and live.is_started:
             live.stop()
         if is_repl_active():
             clear_repl_status()

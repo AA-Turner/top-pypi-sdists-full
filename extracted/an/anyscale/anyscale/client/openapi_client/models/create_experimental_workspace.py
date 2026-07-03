@@ -47,6 +47,7 @@ class CreateExperimentalWorkspace(object):
         'template_version_id': 'str',
         'template_url': 'str',
         'tags': 'dict(str, str)',
+        'priority': 'int',
         'proxied_artifacts': 'WorkspaceDataplaneProxiedArtifacts',
         'skip_start': 'bool'
     }
@@ -66,11 +67,12 @@ class CreateExperimentalWorkspace(object):
         'template_version_id': 'template_version_id',
         'template_url': 'template_url',
         'tags': 'tags',
+        'priority': 'priority',
         'proxied_artifacts': 'proxied_artifacts',
         'skip_start': 'skip_start'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, cloud_id=None, compute_config_id=None, base_snapshot=None, cluster_environment_build_id=None, idle_timeout_minutes=None, cloned_job_id=None, cloned_workspace_id=None, template_id=None, template_version_id=None, template_url=None, tags=None, proxied_artifacts=None, skip_start=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, cloud_id=None, compute_config_id=None, base_snapshot=None, cluster_environment_build_id=None, idle_timeout_minutes=None, cloned_job_id=None, cloned_workspace_id=None, template_id=None, template_version_id=None, template_url=None, tags=None, priority=None, proxied_artifacts=None, skip_start=None, local_vars_configuration=None):  # noqa: E501
         """CreateExperimentalWorkspace - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -90,6 +92,7 @@ class CreateExperimentalWorkspace(object):
         self._template_version_id = None
         self._template_url = None
         self._tags = None
+        self._priority = None
         self._proxied_artifacts = None
         self._skip_start = None
         self.discriminator = None
@@ -117,6 +120,8 @@ class CreateExperimentalWorkspace(object):
             self.template_url = template_url
         if tags is not None:
             self.tags = tags
+        if priority is not None:
+            self.priority = priority
         if proxied_artifacts is not None:
             self.proxied_artifacts = proxied_artifacts
         if skip_start is not None:
@@ -453,6 +458,29 @@ class CreateExperimentalWorkspace(object):
         """
 
         self._tags = tags
+
+    @property
+    def priority(self):
+        """Gets the priority of this CreateExperimentalWorkspace.  # noqa: E501
+
+        Scheduling priority for the Global Resource Scheduler. Must be an integer in the range [0, 1000] inclusive. Leave unset (None) for no priority.  # noqa: E501
+
+        :return: The priority of this CreateExperimentalWorkspace.  # noqa: E501
+        :rtype: int
+        """
+        return self._priority
+
+    @priority.setter
+    def priority(self, priority):
+        """Sets the priority of this CreateExperimentalWorkspace.
+
+        Scheduling priority for the Global Resource Scheduler. Must be an integer in the range [0, 1000] inclusive. Leave unset (None) for no priority.  # noqa: E501
+
+        :param priority: The priority of this CreateExperimentalWorkspace.  # noqa: E501
+        :type: int
+        """
+
+        self._priority = priority
 
     @property
     def proxied_artifacts(self):

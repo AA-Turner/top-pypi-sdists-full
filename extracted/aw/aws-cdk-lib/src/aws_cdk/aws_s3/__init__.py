@@ -1863,7 +1863,7 @@ class BucketEncryption(enum.Enum):
     UNENCRYPTED = "UNENCRYPTED"
     '''(deprecated) Previous option.
 
-    Buckets can not be unencrypted now.
+    Buckets cannot be unencrypted now.
 
     :deprecated:
 
@@ -5501,6 +5501,28 @@ class CfnBucket(
         return typing.cast(builtins.str, jsii.get(self, "attrDualStackDomainName"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrMetadataConfigurationAnnotationTableConfigurationTableArn")
+    def attr_metadata_configuration_annotation_table_configuration_table_arn(
+        self,
+    ) -> builtins.str:
+        '''The ARN of the annotation table.
+
+        :cloudformationAttribute: MetadataConfiguration.AnnotationTableConfiguration.TableArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMetadataConfigurationAnnotationTableConfigurationTableArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMetadataConfigurationAnnotationTableConfigurationTableName")
+    def attr_metadata_configuration_annotation_table_configuration_table_name(
+        self,
+    ) -> builtins.str:
+        '''The name of the annotation table.
+
+        :cloudformationAttribute: MetadataConfiguration.AnnotationTableConfiguration.TableName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMetadataConfigurationAnnotationTableConfigurationTableName"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrMetadataConfigurationDestination")
     def attr_metadata_configuration_destination(self) -> "_IResolvable_da3f097b":
         '''The destination information for the S3 Metadata configuration.
@@ -6337,6 +6359,136 @@ class CfnBucket(
 
         def __repr__(self) -> str:
             return "AnalyticsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3.CfnBucket.AnnotationTableConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "configuration_state": "configurationState",
+            "encryption_configuration": "encryptionConfiguration",
+            "role": "role",
+            "table_arn": "tableArn",
+            "table_name": "tableName",
+        },
+    )
+    class AnnotationTableConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            configuration_state: builtins.str,
+            encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.MetadataTableEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            role: typing.Optional[builtins.str] = None,
+            table_arn: typing.Optional[builtins.str] = None,
+            table_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param configuration_state: Specifies whether annotation table configuration is enabled or disabled.
+            :param encryption_configuration: The encryption settings for an S3 Metadata journal table or inventory table configuration.
+            :param role: The ARN of the IAM role that grants Amazon S3 Metadata permission to read annotations from your bucket.
+            :param table_arn: The ARN of the annotation table.
+            :param table_name: The name of the annotation table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-annotationtableconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3 as s3
+                
+                annotation_table_configuration_property = s3.CfnBucket.AnnotationTableConfigurationProperty(
+                    configuration_state="configurationState",
+                
+                    # the properties below are optional
+                    encryption_configuration=s3.CfnBucket.MetadataTableEncryptionConfigurationProperty(
+                        sse_algorithm="sseAlgorithm",
+                
+                        # the properties below are optional
+                        kms_key_arn="kmsKeyArn"
+                    ),
+                    role="role",
+                    table_arn="tableArn",
+                    table_name="tableName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__16f2c154e3e136b7eae0b282cb76a3033d5da944fbe6ecf5fef6400bdab905ec)
+                check_type(argname="argument configuration_state", value=configuration_state, expected_type=type_hints["configuration_state"])
+                check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+                check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+                check_type(argname="argument table_arn", value=table_arn, expected_type=type_hints["table_arn"])
+                check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "configuration_state": configuration_state,
+            }
+            if encryption_configuration is not None:
+                self._values["encryption_configuration"] = encryption_configuration
+            if role is not None:
+                self._values["role"] = role
+            if table_arn is not None:
+                self._values["table_arn"] = table_arn
+            if table_name is not None:
+                self._values["table_name"] = table_name
+
+        @builtins.property
+        def configuration_state(self) -> builtins.str:
+            '''Specifies whether annotation table configuration is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-annotationtableconfiguration.html#cfn-s3-bucket-annotationtableconfiguration-configurationstate
+            '''
+            result = self._values.get("configuration_state")
+            assert result is not None, "Required property 'configuration_state' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def encryption_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBucket.MetadataTableEncryptionConfigurationProperty"]]:
+            '''The encryption settings for an S3 Metadata journal table or inventory table configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-annotationtableconfiguration.html#cfn-s3-bucket-annotationtableconfiguration-encryptionconfiguration
+            '''
+            result = self._values.get("encryption_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBucket.MetadataTableEncryptionConfigurationProperty"]], result)
+
+        @builtins.property
+        def role(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the IAM role that grants Amazon S3 Metadata permission to read annotations from your bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-annotationtableconfiguration.html#cfn-s3-bucket-annotationtableconfiguration-role
+            '''
+            result = self._values.get("role")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def table_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the annotation table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-annotationtableconfiguration.html#cfn-s3-bucket-annotationtableconfiguration-tablearn
+            '''
+            result = self._values.get("table_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def table_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the annotation table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-annotationtableconfiguration.html#cfn-s3-bucket-annotationtableconfiguration-tablename
+            '''
+            result = self._values.get("table_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AnnotationTableConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -8152,6 +8304,7 @@ class CfnBucket(
         jsii_struct_bases=[],
         name_mapping={
             "journal_table_configuration": "journalTableConfiguration",
+            "annotation_table_configuration": "annotationTableConfiguration",
             "destination": "destination",
             "inventory_table_configuration": "inventoryTableConfiguration",
         },
@@ -8161,6 +8314,7 @@ class CfnBucket(
             self,
             *,
             journal_table_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.JournalTableConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            annotation_table_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.AnnotationTableConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.MetadataDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             inventory_table_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.InventoryTableConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -8169,6 +8323,7 @@ class CfnBucket(
             For more information, see `Accelerating data discovery with S3 Metadata <https://docs.aws.amazon.com/AmazonS3/latest/userguide/metadata-tables-overview.html>`_ in the *Amazon S3 User Guide* .
 
             :param journal_table_configuration: The journal table configuration for a metadata configuration.
+            :param annotation_table_configuration: 
             :param destination: The destination information for the S3 Metadata configuration.
             :param inventory_table_configuration: The inventory table configuration for a metadata configuration.
 
@@ -8202,6 +8357,20 @@ class CfnBucket(
                     ),
                 
                     # the properties below are optional
+                    annotation_table_configuration=s3.CfnBucket.AnnotationTableConfigurationProperty(
+                        configuration_state="configurationState",
+                
+                        # the properties below are optional
+                        encryption_configuration=s3.CfnBucket.MetadataTableEncryptionConfigurationProperty(
+                            sse_algorithm="sseAlgorithm",
+                
+                            # the properties below are optional
+                            kms_key_arn="kmsKeyArn"
+                        ),
+                        role="role",
+                        table_arn="tableArn",
+                        table_name="tableName"
+                    ),
                     destination=s3.CfnBucket.MetadataDestinationProperty(
                         table_bucket_type="tableBucketType",
                 
@@ -8227,11 +8396,14 @@ class CfnBucket(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__5ba4e02b348fb368852d2eaf89da64d6c5432c39d5f771482cd73c5e29aea1d2)
                 check_type(argname="argument journal_table_configuration", value=journal_table_configuration, expected_type=type_hints["journal_table_configuration"])
+                check_type(argname="argument annotation_table_configuration", value=annotation_table_configuration, expected_type=type_hints["annotation_table_configuration"])
                 check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
                 check_type(argname="argument inventory_table_configuration", value=inventory_table_configuration, expected_type=type_hints["inventory_table_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "journal_table_configuration": journal_table_configuration,
             }
+            if annotation_table_configuration is not None:
+                self._values["annotation_table_configuration"] = annotation_table_configuration
             if destination is not None:
                 self._values["destination"] = destination
             if inventory_table_configuration is not None:
@@ -8248,6 +8420,16 @@ class CfnBucket(
             result = self._values.get("journal_table_configuration")
             assert result is not None, "Required property 'journal_table_configuration' is missing"
             return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBucket.JournalTableConfigurationProperty"], result)
+
+        @builtins.property
+        def annotation_table_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBucket.AnnotationTableConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-metadataconfiguration.html#cfn-s3-bucket-metadataconfiguration-annotationtableconfiguration
+            '''
+            result = self._values.get("annotation_table_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBucket.AnnotationTableConfigurationProperty"]], result)
 
         @builtins.property
         def destination(
@@ -25028,6 +25210,17 @@ def _typecheckingstub__05695abd70e28eaf41950817748f37845347f7c9dafcf363988c515ef
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__16f2c154e3e136b7eae0b282cb76a3033d5da944fbe6ecf5fef6400bdab905ec(
+    *,
+    configuration_state: builtins.str,
+    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.MetadataTableEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    role: typing.Optional[builtins.str] = None,
+    table_arn: typing.Optional[builtins.str] = None,
+    table_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ca8516e6217fff7a0e14490606e78fd9a861181ec3dda3919d1c54cb5d94ccf4(
     *,
     encryption_type: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -25190,6 +25383,7 @@ def _typecheckingstub__01491815d16a808a2dce4d193703181c42183e3e002a73f20f0f129d4
 def _typecheckingstub__5ba4e02b348fb368852d2eaf89da64d6c5432c39d5f771482cd73c5e29aea1d2(
     *,
     journal_table_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.JournalTableConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    annotation_table_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.AnnotationTableConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.MetadataDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     inventory_table_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.InventoryTableConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

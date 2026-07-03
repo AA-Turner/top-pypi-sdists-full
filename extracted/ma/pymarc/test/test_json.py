@@ -15,11 +15,8 @@ class JsonReaderTest(unittest.TestCase):
         with open("test/test.json") as fh:
             self.in_json = json.load(fh, strict=False)
 
-        self._js_fh = open("test/test.json")  # noqa: SIM115
+        self._js_fh = open("test/test.json").read()  # noqa: SIM115
         self.reader = pymarc.JSONReader(self._js_fh)
-
-    def tearDown(self) -> None:
-        self._js_fh.close()
 
     def testRoundtrip(self):
         """Test from and to json.
@@ -79,17 +76,18 @@ class JsonTest(unittest.TestCase):
 
     def test_as_json_types(self):
         rd = self._record.as_dict()
-        self.assertTrue(isinstance(rd, dict))
-        self.assertTrue(isinstance(rd["leader"], str))
-        self.assertTrue(isinstance(rd["fields"], list))
-        self.assertTrue(isinstance(rd["fields"][0], dict))
-        self.assertTrue(isinstance(rd["fields"][0], dict))
-        self.assertTrue(isinstance(rd["fields"][0]["245"]["ind1"], str))
-        self.assertTrue(isinstance(rd["fields"][0]["245"]["ind2"], str))
-        self.assertTrue(isinstance(rd["fields"][0]["245"]["subfields"], list))
-        self.assertTrue(isinstance(rd["fields"][0]["245"]["subfields"][0], dict))
-        self.assertTrue(isinstance(rd["fields"][0]["245"]["subfields"][0]["a"], str))
-        self.assertTrue(isinstance(rd["fields"][0]["245"]["subfields"][1]["c"], str))
+        assert isinstance(rd, dict)
+        assert isinstance(rd["leader"], str)
+        assert isinstance(rd["fields"], list)
+        assert isinstance(rd["fields"][0], dict)
+        assert isinstance(rd["fields"][0], dict)
+        assert isinstance(rd["fields"][0]["245"], dict)
+        assert isinstance(rd["fields"][0]["245"]["ind1"], str)
+        assert isinstance(rd["fields"][0]["245"]["ind2"], str)
+        assert isinstance(rd["fields"][0]["245"]["subfields"], list)
+        assert isinstance(rd["fields"][0]["245"]["subfields"][0], dict)
+        assert isinstance(rd["fields"][0]["245"]["subfields"][0]["a"], str)
+        assert isinstance(rd["fields"][0]["245"]["subfields"][1]["c"], str)
 
     def test_as_json_simple(self):
         record = json.loads(self._record.as_json())
@@ -110,6 +108,7 @@ class JsonTest(unittest.TestCase):
 
     def test_as_json_multiple(self):
         for record in self.reader:
+            assert record
             self.assertEqual(dict, json.loads(record.as_json()).__class__)
 
 
@@ -136,7 +135,9 @@ class JsonParse(unittest.TestCase):
         self.assertEqual(
             len(self.parse_json), len(recs), "Incorrect number of records found"
         )
-        for from_dat, from_json in zip(recs, self.parse_json):
+        for from_dat, from_json in zip(recs, self.parse_json, strict=False):
+            assert from_dat
+            assert from_json
             self.assertEqual(
                 from_dat.as_marc(), from_json.as_marc(), "Incorrect Record"
             )
@@ -147,7 +148,7 @@ class JsonParse(unittest.TestCase):
             len(self.batch_xml),
             "Incorrect number of parse records found",
         )
-        for from_dat, from_json in zip(self.batch_json, self.batch_xml):
+        for from_dat, from_json in zip(self.batch_json, self.batch_xml, strict=False):
             self.assertEqual(
                 from_dat.as_marc(), from_json.as_marc(), "Incorrect Record"
             )

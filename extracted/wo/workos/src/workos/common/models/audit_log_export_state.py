@@ -15,6 +15,7 @@ class AuditLogExportState(str, Enum):
     PENDING = "pending"
     READY = "ready"
     ERROR = "error"
+    EXPIRED = "expired"
 
     @classmethod
     def _missing_(cls, value: object) -> Optional["AuditLogExportState"]:
@@ -26,4 +27,4 @@ class AuditLogExportState(str, Enum):
         return unknown
 
 
-AuditLogExportStateLiteral: TypeAlias = Literal["pending", "ready", "error"]
+AuditLogExportStateLiteral: TypeAlias = Literal["pending", "ready", "error", "expired"]

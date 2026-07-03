@@ -1,0 +1,53 @@
+# Integration with GitHub Actions
+# See https://pre-commit.ci/
+ci:
+  autofix_prs: true
+  autoupdate_schedule: quarterly
+repos:
+- repo: https://github.com/keewis/blackdoc
+  rev: v0.4.6
+  hooks:
+  - id: blackdoc
+    files: \.py$
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.15.20
+  hooks:
+  - id: ruff-check
+    args: [--fix, --exit-non-zero-on-fix]
+    exclude: ^(docs/|tests)
+  - id: ruff-format
+- repo: https://github.com/codespell-project/codespell
+  rev: v2.4.2
+  hooks:
+  - id: codespell
+    args: [-S ./docs/\*, --ignore-words-list, thirdparty]
+- repo: https://github.com/pycqa/pydocstyle
+  rev: 6.3.0
+  hooks:
+  - id: pydocstyle
+    additional_dependencies: [toml]
+    exclude: tests/
+- repo: https://github.com/asottile/pyupgrade
+  rev: v3.21.2
+  hooks:
+  - id: pyupgrade
+    args: [--py39-plus, --keep-runtime-typing]
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v6.0.0
+  hooks:
+  - id: check-merge-conflict
+  - id: debug-statements
+  - id: no-commit-to-branch
+    args: [--branch, main]
+  - id: requirements-txt-fixer
+- repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+  rev: v2.16.0
+  hooks:
+  - id: pretty-format-toml
+    args: [--autofix]
+  - id: pretty-format-yaml
+    args: [--autofix, --indent, '2']
+- repo: https://github.com/abravalheri/validate-pyproject
+  rev: v0.25
+  hooks:
+  - id: validate-pyproject

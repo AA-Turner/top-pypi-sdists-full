@@ -37,6 +37,12 @@ class ColumnContext(BaseModel):
     hidden: bool = False
     currency_code: str = ""
     visible_condition: dict[str, Any] | None = None  # Role-based visibility (#585)
+    # #1493 slice 2: for `badge` (enum) columns, the field's declared `semantic:`
+    # value→tone binding (shared enum `EnumValueSpec.semantic` or inline
+    # `FieldType.enum_semantics`). Tones are stored as declared (raw/lowercased);
+    # `resolve_status_tone` normalises them. Empty = none declared → the badge
+    # tone falls back to the `_STATUS_TONE_MAP` name guess (byte-identical).
+    semantic_map: dict[str, str] = Field(default_factory=dict)
 
 
 class FieldSourceContext(BaseModel):
@@ -511,6 +517,11 @@ class ExperienceContext(BaseModel):
     current_step: str = ""
     transitions: list[ExperienceTransitionContext] = Field(default_factory=list)
     page_context: PageContext | None = None
+    # ADR-0049 Task 6: the current step's target surface name (when it is a
+    # surface step), so the http route can resolve the SurfaceSpec and render
+    # a table-step's list through the substrate (the legacy table_renderer that
+    # the experience step used is deleted). None for non-surface steps.
+    surface_name: str = ""
 
 
 # =============================================================================

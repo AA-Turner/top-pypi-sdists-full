@@ -73,7 +73,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from ._jsii import *
@@ -149,7 +149,7 @@ class CertbotDnsRoute53JobProps:
         if isinstance(function_url_options, dict):
             function_url_options = _aws_cdk_aws_lambda_ceddda9d.FunctionUrlOptions(**function_url_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2babfa71523bcd78147c91e40cba55e1fb4817d7a9f75a74440df56b87a4ac77)
+            type_hints = cached_type_hints(_typecheckingstub__2babfa71523bcd78147c91e40cba55e1fb4817d7a9f75a74440df56b87a4ac77)
             check_type(argname="argument certbot_options", value=certbot_options, expected_type=type_hints["certbot_options"])
             check_type(argname="argument destination_bucket", value=destination_bucket, expected_type=type_hints["destination_bucket"])
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
@@ -274,7 +274,7 @@ class CertbotDnsRoute53JobPython(
         :param schedule: run the Job with defined schedule. Default: - no schedule
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5b657acb87a1db5b5f92cd0b77de817854caa6498109714acceccd56213b9a7)
+            type_hints = cached_type_hints(_typecheckingstub__e5b657acb87a1db5b5f92cd0b77de817854caa6498109714acceccd56213b9a7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CertbotDnsRoute53JobProps(
@@ -313,7 +313,7 @@ class CertbotOptions:
         :param custom_prefix_directory: Custom prefix directory on s3 bucket object path. Default: - ``s3://YOUR_BUCKET_NAME/2021-01-01/your.domain.name/``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e7e742801dbdf780cc5cf2c7e7f9285935bc961d4ebc9445704722c53801ca1)
+            type_hints = cached_type_hints(_typecheckingstub__4e7e742801dbdf780cc5cf2c7e7f9285935bc961d4ebc9445704722c53801ca1)
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument email", value=email, expected_type=type_hints["email"])
             check_type(argname="argument custom_prefix_directory", value=custom_prefix_directory, expected_type=type_hints["custom_prefix_directory"])
@@ -394,7 +394,7 @@ class LambdaFunctionProps:
         :param role: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d360ce4eb27aa1f23d047f449cfd2e86d71ca527250cc61dd7d28694bb740f5f)
+            type_hints = cached_type_hints(_typecheckingstub__d360ce4eb27aa1f23d047f449cfd2e86d71ca527250cc61dd7d28694bb740f5f)
             check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
@@ -468,7 +468,7 @@ class LambdaPythonFunction(
         :param role: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee977bbc35ae9463cf82fe50c0588e74a7bc5c18d385a561fe9588bc59761818)
+            type_hints = cached_type_hints(_typecheckingstub__ee977bbc35ae9463cf82fe50c0588e74a7bc5c18d385a561fe9588bc59761818)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = LambdaFunctionProps(

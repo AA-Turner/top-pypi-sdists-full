@@ -190,6 +190,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 idle_timeout_minutes=config.idle_termination_minutes,
                 cloud_id=cloud_id,
                 tags=config.tags,
+                priority=config.priority,
                 skip_start=True,
             )
         )
@@ -374,12 +375,38 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         name: Optional[str] = None,
         cloud: Optional[str] = None,
         project: Optional[str] = None,
+        direct_ssh: bool = False,
         **kwargs,
     ) -> subprocess.CompletedProcess:
         workspace_model = self._resolve_to_workspace_model(
             id=id, name=name, cloud=cloud, project=project
         )
         host_name, config_file = self.generate_ssh_config_file(id=workspace_model.id)
+
+        # Prefer the HTTPS tunnel (legacy port-22 SSH is unreachable on k8s);
+        # direct_ssh forces the legacy path, else fall back to it when HTTPS
+        # can't be built. argv list (no shell) keeps the ProxyCommand intact.
+        proxy_cmd = (
+            None if direct_ssh else self._build_https_proxy_command(workspace_model.id)
+        )
+        if proxy_cmd is not None:
+            ssh_cmd = (
+                [
+                    "ssh",
+                    "-F",
+                    config_file,
+                    "-p",
+                    HTTPS_PORT,
+                    "-o",
+                    f"ProxyCommand={proxy_cmd}",
+                    "-o",
+                    PREFERRED_AUTH_METHOD,
+                ]
+                + ANYSCALE_WORKSPACES_SSH_OPTIONS
+                + [host_name, command]
+            )
+            return subprocess.run(ssh_cmd, check=kwargs.pop("check", False), **kwargs,)
+
         return subprocess.run(
             ["ssh"]
             + ANYSCALE_WORKSPACES_SSH_OPTIONS
@@ -420,13 +447,15 @@ class PrivateWorkspaceSDK(WorkloadSDK):
 
         changes = dry_run_output.strip().split("\n")
         for line in changes:
-            if (
-                not line or len(line) < ITEMISZED_PREFIX_LEN
-            ):  # Need at least "<fcsT......" part
+            if not line:
                 continue
             if line.startswith("*deleting"):
-                deleting_files.append(line[ITEMISZED_PREFIX_LEN:])
-            elif line[2] == "c":  # Check the checksum position
+                # rsync pads "*deleting" with a version-dependent number of spaces
+                # (1 on macOS rsync 2.6.9, 3 on rsync 3.x), so strip the keyword and
+                # its trailing whitespace rather than slicing a fixed-width prefix.
+                deleting_files.append(line[len("*deleting") :].lstrip())
+            elif len(line) >= ITEMISZED_PREFIX_LEN and line[2] == "c":
+                # Itemized line is "<fcsT...... name": 11 flag chars + 1 space.
                 modifying_files.append(line[ITEMISZED_PREFIX_LEN:])
 
         return modifying_files, deleting_files
@@ -525,12 +554,12 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             ]
         )
 
-    def _build_https_ssh_command(
-        self, workspace_id: str, config_file: str
-    ) -> Optional[str]:
-        """Build SSH command string with WebSocket ProxyCommand for rsync -e.
+    def _build_https_proxy_command(self, workspace_id: str) -> Optional[str]:
+        """Build the WebSocket ProxyCommand for an HTTPS SSH tunnel.
 
-        Returns None if HTTPS connection cannot be set up.
+        Returns None if an HTTPS connection cannot be set up (e.g. missing
+        cluster info). The returned value is a shell command with its segments
+        individually quoted, suitable as the value of ssh's `-o ProxyCommand=`.
         """
         try:
             cluster = self.client.get_workspace_cluster(workspace_id)
@@ -545,24 +574,37 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             if not cluster_access_token:
                 return None
 
-            proxy_cmd = self._create_https_proxy_command(
+            return self._create_https_proxy_command(
                 public_hostname, cluster_access_token
             )
-            if not proxy_cmd:
-                return None
-
-            # Build SSH command with ProxyCommand for HTTPS tunnel
-            ssh_options = subprocess.list2cmdline(ANYSCALE_WORKSPACES_SSH_OPTIONS)
-            return (
-                f"ssh -F {config_file} "
-                f"-p {HTTPS_PORT} "
-                f"-o ProxyCommand='{proxy_cmd}' "
-                f"-o {PREFERRED_AUTH_METHOD} "
-                f"{ssh_options}"
-            )
         except (AttributeError, KeyError, TypeError, ValueError, RuntimeError) as e:
-            self._logger.debug(f"Failed to build HTTPS SSH command: {type(e).__name__}")
+            self._logger.debug(
+                f"Failed to build HTTPS proxy command: {type(e).__name__}"
+            )
             return None
+
+    def _build_https_ssh_command(
+        self, workspace_id: str, config_file: str
+    ) -> Optional[str]:
+        """Build an SSH command string with WebSocket ProxyCommand for rsync -e.
+
+        Returns None if HTTPS connection cannot be set up. The ProxyCommand is
+        single-quoted so rsync's `-e` word-splitter keeps it as one token.
+        (run_command builds an argv list instead, avoiding a shell entirely.)
+        """
+        proxy_cmd = self._build_https_proxy_command(workspace_id)
+        if not proxy_cmd:
+            return None
+
+        # Build SSH command with ProxyCommand for HTTPS tunnel
+        ssh_options = subprocess.list2cmdline(ANYSCALE_WORKSPACES_SSH_OPTIONS)
+        return (
+            f"ssh -F {config_file} "
+            f"-p {HTTPS_PORT} "
+            f"-o ProxyCommand='{proxy_cmd}' "
+            f"-o {PREFERRED_AUTH_METHOD} "
+            f"{ssh_options}"
+        )
 
     def _execute_rsync_with_ssh_cmd(
         self, ssh_cmd: str, base_rsync_args: List[str], delete: bool,
@@ -638,6 +680,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 self.run_command(
                     id=workspace_model.id,
                     command=f"cd ~/{default_dir_name} && python -m snapshot_util repack_git_repos",
+                    direct_ssh=direct_ssh,
                 )
             elif not include_git_state:
                 rsync_args += ["--exclude", ".git"]
@@ -799,6 +842,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             compute_config_id=compute_config_id,
             cluster_environment_build_id=build_id,
             idle_timeout_minutes=config.idle_termination_minutes,
+            priority=config.priority,
         )
 
         self._logger.info(f"Workspace updated successfully id: {id}")
@@ -937,6 +981,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             env_vars=env_vars,
             project=results["project"].name if results["project"] else None,
             cloud=results["cloud"].name if results["cloud"] else None,
+            priority=workspace.priority,
         )
 
     def get(

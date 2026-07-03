@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: huey
-Version: 3.0.3
+Version: 3.1.1
 Summary: a little task queue
 Author-email: Charles Leifer <coleifer@gmail.com>
 Project-URL: Repository, https://github.com/coleifer/huey
@@ -14,6 +14,8 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: backends
 Requires-Dist: redis>=3.0.0; extra == "backends"
+Provides-Extra: postgres
+Requires-Dist: psycopg>=3.2; extra == "postgres"
 Dynamic: license-file
 
 .. image:: https://media.charlesleifer.com/blog/photos/huey3-logo.png
@@ -28,7 +30,9 @@ huey is:
 
 huey has:
 
-* support for redis (or valkey/redict), sqlite, file-system, or in-memory storage
+* support for redis (or valkey/redict), postgres, sqlite, file-system, or in-memory storage
+* zero dependencies (``redis-py`` required to use redis-like brokers,
+  ``psycopg`` for postgres).
 * `example code <https://github.com/coleifer/huey/tree/master/examples/>`_.
 * `django <https://huey.readthedocs.io/en/latest/django.html>`_ integration (native or via django.tasks)
 * `documentation <https://huey.readthedocs.io/>`_.
@@ -103,13 +107,13 @@ Run the consumer with four worker processes:
 
 .. code-block:: console
 
-    $ huey_consumer.py my_app.huey -k process -w 4
+    $ huey_consumer my_app.huey -k process -w 4
 
 To run the consumer with a single worker thread (default):
 
 .. code-block:: console
 
-    $ huey_consumer.py my_app.huey
+    $ huey_consumer my_app.huey
 
 If your work-loads are mostly IO-bound, you can run the consumer with threads
 or greenlets instead. Because greenlets are so lightweight, you can run quite a
@@ -117,7 +121,7 @@ few of them efficiently:
 
 .. code-block:: console
 
-    $ huey_consumer.py my_app.huey -k greenlet -w 32
+    $ huey_consumer my_app.huey -k greenlet -w 32
 
 Storage
 -------
@@ -132,7 +136,8 @@ Although Huey was designed with Redis in mind, the storage system implements a
 simple API and many other tools could be used instead of Redis if that's your
 preference.
 
-Huey comes with builtin support for Redis, Sqlite and in-memory storage.
+Huey comes with builtin support for Redis, Postgres, Sqlite and in-memory
+storage.
 
 Documentation
 ----------------

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neuro-san
-Version: 0.6.68
+Version: 0.6.69
 Summary: NeuroAI data-driven System for multi-Agent Networks - client, library and server
 Author-email: Dan Fink <Daniel.Fink@cognizant.com>
 License-Expression: Apache-2.0

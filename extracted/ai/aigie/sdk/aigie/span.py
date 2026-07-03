@@ -6,8 +6,6 @@ import logging
 from typing import Any
 from uuid import uuid4
 
-import httpx
-
 from aigie.buffer import EventBuffer
 from aigie.tracing.trace_state import deregister_open_span, register_open_span
 
@@ -27,16 +25,12 @@ class SpanContext:
 
     def __init__(
         self,
-        client: httpx.AsyncClient,
-        api_url: str,
         trace_id: str,
         name: str,
         span_type: str,
         parent_id: str | None = None,
         buffer: EventBuffer | None = None,
     ):
-        self.client = client
-        self.api_url = api_url
         self.buffer = buffer
         self.trace_id = trace_id
         self.name = name

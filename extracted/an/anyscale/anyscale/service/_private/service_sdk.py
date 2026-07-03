@@ -23,6 +23,12 @@ from anyscale.client.openapi_client.models.list_response_metadata import (
 from anyscale.client.openapi_client.models.resource_tag_resource_type import (
     ResourceTagResourceType,
 )
+from anyscale.client.openapi_client.models.service_status_checklist import (
+    ServiceStatusChecklist as APIServiceStatusChecklist,
+)
+from anyscale.client.openapi_client.models.status_checklist_item import (
+    StatusChecklistItem as APIStatusChecklistItem,
+)
 from anyscale.compute_config.models import ComputeConfig
 from anyscale.sdk.anyscale_client.models import (
     AccessConfig,
@@ -44,8 +50,11 @@ from anyscale.service.models import (
     ServiceSortOrder,
     ServiceState,
     ServiceStatus,
+    ServiceStatusChecklist,
     ServiceVersionStatus,
+    StatusChecklistItem,
     TracingConfig,
+    VersionChecklist,
 )
 from anyscale.shared_anyscale_utils.constants import SERVICE_VERSION_ID_TRUNCATED_LEN
 from anyscale.shared_anyscale_utils.utils.asyncio import run_sync
@@ -1092,6 +1101,39 @@ class PrivateServiceSDK(WorkloadSDK):
 
         return state
 
+    @staticmethod
+    def _api_checklist_to_model(
+        api_checklist: Optional[APIServiceStatusChecklist],
+    ) -> Optional[ServiceStatusChecklist]:
+        """Map the generated ServiceStatusChecklist into the CLI model.
+
+        The generated client preserves the raw wire enum strings (kind, state),
+        which are exactly what agents want to dispatch on — there's no need to
+        round-trip them through Python enums.
+        """
+        if api_checklist is None:
+            return None
+
+        def _item(raw: APIStatusChecklistItem) -> StatusChecklistItem:
+            return StatusChecklistItem(
+                kind=str(raw.kind) if raw.kind is not None else "UNKNOWN",
+                label=raw.label or "",
+                state=str(raw.state) if raw.state is not None else "UNKNOWN",
+                message=raw.message or "",
+                version_id=raw.version_id,
+                observed_at=raw.observed_at,
+            )
+
+        shared = [_item(raw) for raw in (api_checklist.shared or [])]
+        per_version = [
+            VersionChecklist(
+                version_id=entry.version_id,
+                items=[_item(raw) for raw in (entry.items or [])],
+            )
+            for entry in (api_checklist.per_version or [])
+        ]
+        return ServiceStatusChecklist(shared=shared, per_version=per_version)
+
     async def _service_model_to_status_async(
         self, model: DecoratedProductionServiceV2APIModel
     ) -> ServiceStatus:
@@ -1168,6 +1210,9 @@ class PrivateServiceSDK(WorkloadSDK):
             canary_version=canary_version,
             project=project_name,
             versions=all_versions,
+            service_status_checklist=self._api_checklist_to_model(
+                model.service_status_checklist
+            ),
         )
 
     def status(

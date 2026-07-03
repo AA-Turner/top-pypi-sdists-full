@@ -14,7 +14,6 @@ from .._utils import (
     check_consistent_fill_value,
     check_zero_fill_value,
     is_unsigned_dtype,
-    isscalar,
     normalize_axis,
 )
 
@@ -416,6 +415,19 @@ def nanmean(x, axis=None, keepdims=False, dtype=None, out=None):
         return (num / den).astype(dtype if dtype is not None else x.dtype)
 
 
+def _contains_nan(ar):
+    """Check if a SparseArray or scalar contains any NaN values.
+    Checks dtype first (fast), then fill_value, then data (slow).
+    """
+    if isinstance(ar, SparseArray):
+        if not np.issubdtype(ar.dtype, np.floating):
+            return False
+        if ar.nnz != ar.size and np.isnan(ar.fill_value):
+            return True
+        return np.isnan(ar.data).any()
+    return np.isnan(ar)
+
+
 def nanmax(x, axis=None, keepdims=False, dtype=None, out=None):
     """
     Maximize along the given axes, skipping `NaN` values. Uses all axes by default.
@@ -446,7 +458,7 @@ def nanmax(x, axis=None, keepdims=False, dtype=None, out=None):
 
     ar = x.reduce(np.fmax, axis=axis, keepdims=keepdims, dtype=dtype)
 
-    if (isscalar(ar) and np.isnan(ar)) or np.isnan(ar.data).any():
+    if _contains_nan(ar):
         warnings.warn("All-NaN slice encountered", RuntimeWarning, stacklevel=1)
 
     return ar
@@ -482,7 +494,7 @@ def nanmin(x, axis=None, keepdims=False, dtype=None, out=None):
 
     ar = x.reduce(np.fmin, axis=axis, keepdims=keepdims, dtype=dtype)
 
-    if (isscalar(ar) and np.isnan(ar)) or np.isnan(ar.data).any():
+    if _contains_nan(ar):
         warnings.warn("All-NaN slice encountered", RuntimeWarning, stacklevel=1)
 
     return ar
@@ -901,7 +913,7 @@ def diagonalize(a, axis=0):
     >>> a = sparse.random((3, 3, 3, 3, 3), density=0.3)
     >>> a_diag = sparse.diagonalize(a, axis=2)
     >>> (sparse.diagonal(a_diag, axis1=2, axis2=5) == a.transpose([0, 1, 3, 4, 2])).all()
-    np.True_
+    <COO: shape=(), dtype=bool, nnz=0, fill_value=True>
 
     Returns
     -------
@@ -1059,7 +1071,7 @@ def clip(a, min=None, max=None, out=None):
     return a.clip(min, max)
 
 
-def expand_dims(x, /, *, axis=0):
+def expand_dims(x, axis: int | tuple[int, ...] = 0):
     """
     Expands the shape of an array by inserting a new axis (dimension) of size
     one at the position specified by ``axis``.
@@ -1068,7 +1080,7 @@ def expand_dims(x, /, *, axis=0):
     ----------
     a : COO
         Input COO array.
-    axis : int
+    axis : int | tuple[int, ...]
         Position in the expanded axes where the new axis is placed.
 
     Returns
@@ -1090,23 +1102,31 @@ def expand_dims(x, /, *, axis=0):
     (1, 6, 1)
 
     """
+    from .core import COO
+
+    if isinstance(x, np.generic | np.ndarray):
+        x = COO.from_numpy(x)
 
     x = _validate_coo_input(x)
 
-    if not isinstance(axis, int):
-        raise IndexError(f"Invalid axis position: {axis}")
+    if isinstance(axis, int):
+        axis = (axis,)
 
-    axis = normalize_axis(axis, x.ndim + 1)
+    axis = normalize_axis(axis, x.ndim + len(axis))
 
-    new_coords = np.insert(x.coords, obj=axis, values=np.zeros(x.nnz, dtype=np.intp), axis=0)
-    new_shape = list(x.shape)
-    new_shape.insert(axis, 1)
-    new_shape = tuple(new_shape)
+    iter_curr_coords = iter(x.coords)
+    iter_curr_shape = iter(x.shape)
+    new_coords = []
+    new_shape = []
 
-    from .core import COO
+    for d in range(x.ndim + len(axis)):
+        s = next(iter_curr_shape) if d not in axis else 1
+        c = next(iter_curr_coords) if d not in axis else np.zeros_like(x.data, dtype=x.coords.dtype)
+        new_shape.append(s)
+        new_coords.append(c)
 
     return COO(
-        new_coords,
+        np.stack(new_coords, axis=0) if len(new_coords) > 0 else np.empty((0, x.coords.shape[1]), dtype=x.coords.dtype),
         x.data,
         shape=new_shape,
         fill_value=x.fill_value,
@@ -1199,13 +1219,19 @@ def unique_counts(x, /):
     x = _validate_coo_input(x)
 
     x = x.flatten()
-    values, counts = np.unique(x.data, return_counts=True)
-    if x.nnz < x.size:
-        values = np.concatenate([[x.fill_value], values])
-        counts = np.concatenate([[x.size - x.nnz], counts])
-        sorted_indices = np.argsort(values)
-        values[sorted_indices] = values.copy()
-        counts[sorted_indices] = counts.copy()
+    values, counts = np.unique(x.data, return_counts=True, equal_nan=False)
+    fill_count = x.size - x.nnz
+    if fill_count > 0:
+        if np.isnan(x.fill_value):
+            # Per the Array API spec, NaNs compare as False, so each NaN is distinct.
+            values = np.concatenate([values, np.full(fill_count, x.fill_value)])
+            counts = np.concatenate([counts, np.ones(fill_count, dtype=counts.dtype)])
+        else:
+            values = np.concatenate([[x.fill_value], values])
+            counts = np.concatenate([[fill_count], counts])
+            sorted_indices = np.argsort(values)
+            values[sorted_indices] = values.copy()
+            counts[sorted_indices] = counts.copy()
 
     return UniqueCountsResult(values, counts)
 
@@ -1240,9 +1266,14 @@ def unique_values(x, /):
     x = _validate_coo_input(x)
 
     x = x.flatten()
-    values = np.unique(x.data)
-    if x.nnz < x.size:
-        values = np.sort(np.concatenate([[x.fill_value], values]))
+    values = np.unique(x.data, equal_nan=False)
+    fill_count = x.size - x.nnz
+    if fill_count > 0:
+        if np.isnan(x.fill_value):
+            # Per the Array API spec, NaNs compare as False, so each NaN is distinct.
+            values = np.concatenate([values, np.full(fill_count, x.fill_value)])
+        else:
+            values = np.sort(np.concatenate([[x.fill_value], values]))
     return values
 
 
@@ -1563,3 +1594,25 @@ def matrix_transpose(x, /):
     transpose_axes[-2:] = transpose_axes[-2:][::-1]
 
     return x.transpose(transpose_axes)
+
+
+def broadcast_shapes(*shapes: tuple[int, ...]) -> tuple[int, ...]:
+    """
+    Broadcasts shapes against each other and returns the resulting shape.
+
+    Parameters
+    ----------
+    shapes : tuple[int, ...]
+        Shapes to broadcast.
+
+    Returns
+    -------
+    out : tuple[int, ...]
+        The broadcasted shape.
+
+    Raises
+    ------
+    ValueError
+        If the shapes are not broadcastable.
+    """
+    return np.broadcast_shapes(*shapes)

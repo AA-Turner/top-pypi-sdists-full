@@ -3931,7 +3931,7 @@ class Runtime(
     @jsii.member(jsii_name="of")
     @builtins.classmethod
     def of(cls, value: builtins.str) -> "Runtime":
-        '''(experimental) Create a new Runtime with with an arbitrary Flink version string.
+        '''(experimental) Create a new Runtime with an arbitrary Flink version string.
 
         :param value: -
 

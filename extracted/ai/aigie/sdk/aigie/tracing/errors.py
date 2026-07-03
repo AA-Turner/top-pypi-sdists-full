@@ -1,7 +1,7 @@
 """Framework-agnostic error blob written into span.metadata["error"].
 
 This is the canonical shape every framework adapter must produce via
-:meth:`aigie.autonomous.adapters.base.FrameworkAdapter.extract_error`.
+:meth:`aigie.integrations._base.base.FrameworkAdapter.extract_error`.
 The platform clusters and analyzes errors based on this shape, so the
 fields and field names are part of the wire contract — do not rename.
 

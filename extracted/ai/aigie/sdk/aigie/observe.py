@@ -17,9 +17,10 @@ Usage (Simple - Laminar-style):
 
 Usage (With Metrics):
     from aigie import observe
-    from aigie.metrics import DriftDetectionMetric
 
-    @observe(metrics=[DriftDetectionMetric()])
+    # `metrics` accepts any object exposing
+    # `evaluate()`, `name`, `threshold`, and `is_successful()`.
+    @observe(metrics=[MyMetric()])
     async def my_agent_function(input: str):
         result = await process(input)
         return result
@@ -61,7 +62,6 @@ from aigie.utils.safe import dont_throw, schedule_async
 
 if TYPE_CHECKING:
     from aigie.judges import JudgeType
-    from aigie.metrics.base import BaseMetric
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ def observe(
     span_type: str = "default",
     tags: list[str] | None = None,
     metadata: dict[str, Any] | None = None,
-    metrics: list["BaseMetric"] | None = None,
+    metrics: list[Any] | None = None,
     judges: list["JudgeType"] | None = None,
     capture_input: bool = True,
     capture_output: bool = True,
@@ -175,7 +175,7 @@ async def _trace_async_function(
     span_type: str,
     tags: list[str],
     metadata: dict[str, Any],
-    metrics: list["BaseMetric"] | None,
+    metrics: list[Any] | None,
     judges: list["JudgeType"] | None,
     capture_input: bool,
     capture_output: bool,
@@ -291,7 +291,7 @@ def _trace_sync_function(
     span_type: str,
     tags: list[str],
     metadata: dict[str, Any],
-    metrics: list["BaseMetric"] | None,
+    metrics: list[Any] | None,
     judges: list["JudgeType"] | None,
     capture_input: bool,
     capture_output: bool,
@@ -441,7 +441,7 @@ def _serialize_output(output: Any) -> Any:
 
 
 async def _run_metrics(
-    metrics: list["BaseMetric"],
+    metrics: list[Any],
     inputs: dict[str, Any],
     output: Any,
     run_ctx: RunContext,
@@ -530,7 +530,7 @@ async def _run_judges(
 
 @dont_throw
 def _schedule_async_evaluations(
-    metrics: list["BaseMetric"] | None,
+    metrics: list[Any] | None,
     judges: list["JudgeType"] | None,
     inputs: dict[str, Any],
     output: Any,
@@ -623,7 +623,7 @@ class ObserveDecorator:
 
     def __init__(
         self,
-        metrics: list["BaseMetric"] | None = None,
+        metrics: list[Any] | None = None,
         name: str | None = None,
         type: str | None = None,
         run_on: str = "span",

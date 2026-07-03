@@ -4,341 +4,310 @@ import kernels
 
 def test_awkward_reduce_count_64_1():
 	toptr = []
-	lenparents = 0
 	outlength = 0
-	parents = []
+	offsets = [0]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = []
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_2():
 	toptr = [123, 123, 123, 123, 123, 123, 123, 123, 123]
-	lenparents = 19
 	outlength = 9
-	parents = [1, 1, 1, 3, 3, 3, 3, 3, 4, 4, 4, 4, 6, 6, 6, 6, 7, 7, 7]
+	offsets = [0, 0, 3, 3, 8, 12, 12, 16, 19, 19]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [0, 3, 0, 5, 4, 0, 4, 3, 0]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_3():
 	toptr = [123, 123, 123, 123, 123, 123, 123, 123]
-	lenparents = 19
 	outlength = 8
-	parents = [1, 1, 1, 3, 3, 3, 3, 3, 4, 4, 4, 4, 6, 6, 6, 6, 7, 7, 7]
+	offsets = [0, 0, 3, 3, 8, 12, 12, 16, 19]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [0, 3, 0, 5, 4, 0, 4, 3]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_4():
 	toptr = [123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123]
-	lenparents = 1696
 	outlength = 331
-	parents = [194, 194, 194, 194, 194, 194, 194, 194, 194, 194, 193, 193, 193, 193, 193, 193, 193, 193, 193, 193, 192, 192, 192, 192, 192, 192, 192, 192, 192, 192, 191, 191, 191, 191, 191, 191, 191, 191, 191, 191, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 189, 189, 189, 189, 189, 189, 189, 189, 189, 189, 188, 188, 188, 188, 188, 188, 188, 188, 188, 188, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 177, 177, 177, 177, 177, 177, 177, 177, 177, 177, 176, 176, 176, 176, 176, 176, 176, 176, 176, 176, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 174, 174, 174, 174, 174, 174, 174, 174, 174, 174, 173, 173, 173, 173, 173, 173, 173, 173, 173, 173, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 160, 160, 160, 160, 160, 160, 160, 160, 160, 160, 159, 159, 159, 159, 159, 159, 159, 159, 159, 159, 158, 158, 158, 158, 158, 158, 158, 158, 158, 158, 157, 157, 157, 157, 157, 157, 157, 157, 157, 157, 156, 156, 156, 156, 156, 156, 156, 156, 156, 156, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 154, 154, 154, 154, 154, 154, 154, 154, 154, 154, 153, 153, 153, 153, 153, 153, 153, 153, 153, 153, 143, 143, 143, 143, 143, 143, 143, 143, 143, 143, 142, 142, 142, 142, 142, 142, 142, 142, 142, 142, 141, 141, 141, 141, 141, 141, 141, 141, 141, 141, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 139, 139, 139, 139, 139, 139, 139, 139, 139, 139, 138, 138, 138, 138, 138, 138, 138, 138, 138, 138, 137, 137, 137, 137, 137, 137, 137, 137, 137, 137, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 126, 126, 126, 126, 126, 126, 126, 126, 126, 126, 125, 125, 125, 125, 125, 125, 125, 125, 125, 125, 124, 124, 124, 124, 124, 124, 124, 124, 124, 124, 123, 123, 123, 123, 123, 123, 123, 123, 123, 123, 122, 122, 122, 122, 122, 122, 122, 122, 122, 122, 121, 121, 121, 121, 121, 121, 121, 121, 121, 121, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 109, 109, 109, 109, 109, 109, 109, 109, 109, 109, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 107, 107, 107, 107, 107, 107, 107, 107, 107, 107, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 103, 103, 103, 103, 103, 103, 103, 103, 103, 103, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 92, 92, 92, 92, 92, 92, 92, 92, 92, 92, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 89, 89, 89, 89, 89, 89, 89, 89, 89, 89, 88, 88, 88, 88, 88, 88, 88, 88, 88, 88, 87, 87, 87, 87, 87, 87, 87, 87, 87, 87, 86, 86, 86, 86, 86, 86, 86, 86, 86, 86, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 73, 73, 73, 73, 73, 73, 73, 73, 73, 73, 72, 72, 72, 72, 72, 72, 72, 72, 72, 72, 71, 71, 71, 71, 71, 71, 71, 71, 71, 71, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 69, 69, 69, 69, 69, 69, 69, 69, 69, 69, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 57, 57, 57, 57, 57, 57, 57, 57, 57, 57, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 54, 54, 54, 54, 54, 54, 54, 54, 54, 54, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 52, 52, 52, 52, 52, 52, 52, 52, 52, 52, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 39, 39, 39, 39, 39, 39, 39, 39, 39, 39, 38, 38, 38, 38, 38, 38, 38, 38, 38, 38, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+	offsets = [0, 626, 636, 646, 656, 666, 676, 686, 696, 706, 716, 726, 736, 746, 756, 766, 776, 786, 796, 806, 816, 826, 836, 846, 856, 866, 876, 886, 896, 896, 896, 896, 896, 896, 896, 906, 916, 926, 936, 946, 956, 966, 976, 976, 976, 976, 976, 976, 976, 976, 976, 976, 986, 996, 1006, 1016, 1026, 1036, 1046, 1056, 1056, 1056, 1056, 1056, 1056, 1056, 1056, 1056, 1056, 1066, 1076, 1086, 1096, 1106, 1116, 1126, 1136, 1136, 1136, 1136, 1136, 1136, 1136, 1136, 1136, 1136, 1146, 1156, 1166, 1176, 1186, 1196, 1206, 1216, 1216, 1216, 1216, 1216, 1216, 1216, 1216, 1216, 1216, 1226, 1236, 1246, 1256, 1266, 1276, 1286, 1296, 1296, 1296, 1296, 1296, 1296, 1296, 1296, 1296, 1296, 1306, 1316, 1326, 1336, 1346, 1356, 1366, 1376, 1376, 1376, 1376, 1376, 1376, 1376, 1376, 1376, 1376, 1386, 1396, 1406, 1416, 1426, 1436, 1446, 1456, 1456, 1456, 1456, 1456, 1456, 1456, 1456, 1456, 1456, 1466, 1476, 1486, 1496, 1506, 1516, 1526, 1536, 1536, 1536, 1536, 1536, 1536, 1536, 1536, 1536, 1536, 1546, 1556, 1566, 1576, 1586, 1596, 1606, 1616, 1616, 1616, 1616, 1616, 1616, 1616, 1616, 1616, 1616, 1626, 1636, 1646, 1656, 1666, 1676, 1686, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696, 1696]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [626, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_5():
 	toptr = [123, 123, 123]
-	lenparents = 3
 	outlength = 3
-	parents = [0, 0, 2]
+	offsets = [0, 2, 2, 3]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [2, 0, 1]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_6():
 	toptr = [123]
-	lenparents = 3
 	outlength = 1
-	parents = [0, 0, 0]
+	offsets = [0, 3]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_7():
 	toptr = [123, 123, 123, 123, 123, 123]
-	lenparents = 9
 	outlength = 6
-	parents = [0, 0, 0, 2, 2, 3, 4, 4, 5]
+	offsets = [0, 3, 3, 5, 6, 8, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 0, 2, 1, 2, 1]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_8():
 	toptr = [123, 123, 123, 123, 123, 123, 123, 123]
-	lenparents = 9
 	outlength = 8
-	parents = [0, 0, 0, 6, 6, 1, 1, 7, 2]
+	offsets = [0, 3, 5, 6, 6, 6, 6, 8, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 2, 1, 0, 0, 0, 2, 1]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_9():
 	toptr = [123, 123, 123, 123, 123, 123, 123, 123, 123]
-	lenparents = 21
 	outlength = 9
-	parents = [0, 0, 0, 1, 1, 1, 3, 3, 3, 3, 4, 4, 4, 4, 6, 6, 6, 6, 7, 7, 7]
+	offsets = [0, 3, 6, 6, 10, 14, 14, 18, 21, 21]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 0, 4, 4, 0, 4, 3, 0]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_10():
 	toptr = [123, 123, 123, 123, 123, 123, 123, 123]
-	lenparents = 21
 	outlength = 8
-	parents = [0, 0, 0, 1, 1, 1, 3, 3, 3, 3, 4, 4, 4, 4, 6, 6, 6, 6, 7, 7, 7]
+	offsets = [0, 3, 6, 6, 10, 14, 14, 18, 21]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 0, 4, 4, 0, 4, 3]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_11():
 	toptr = [123, 123, 123, 123, 123, 123, 123, 123, 123]
-	lenparents = 22
 	outlength = 9
-	parents = [0, 0, 0, 1, 1, 1, 3, 3, 3, 3, 3, 4, 4, 4, 4, 6, 6, 6, 6, 7, 7, 7]
+	offsets = [0, 3, 6, 6, 11, 15, 15, 19, 22, 22]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 0, 5, 4, 0, 4, 3, 0]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_12():
 	toptr = [123, 123, 123, 123, 123, 123, 123, 123]
-	lenparents = 22
 	outlength = 8
-	parents = [0, 0, 0, 1, 1, 1, 3, 3, 3, 3, 3, 4, 4, 4, 4, 6, 6, 6, 6, 7, 7, 7]
+	offsets = [0, 3, 6, 6, 11, 15, 15, 19, 22]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 0, 5, 4, 0, 4, 3]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_13():
 	toptr = [123, 123, 123, 123, 123, 123, 123, 123, 123]
-	lenparents = 24
 	outlength = 9
-	parents = [0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 6, 6, 6, 6, 7, 7, 7]
+	offsets = [0, 3, 6, 8, 13, 17, 17, 21, 24, 24]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 2, 5, 4, 0, 4, 3, 0]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_14():
 	toptr = [123, 123, 123, 123, 123, 123, 123, 123]
-	lenparents = 24
 	outlength = 8
-	parents = [0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 6, 6, 6, 6, 7, 7, 7]
+	offsets = [0, 3, 6, 8, 13, 17, 17, 21, 24]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 2, 5, 4, 0, 4, 3]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_15():
 	toptr = [123, 123, 123]
-	lenparents = 9
 	outlength = 3
-	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+	offsets = [0, 3, 6, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 3]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_16():
 	toptr = [123, 123, 123, 123]
-	lenparents = 10
 	outlength = 4
-	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3]
+	offsets = [0, 3, 6, 9, 10]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 3, 1]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_17():
 	toptr = [123, 123, 123, 123, 123, 123]
-	lenparents = 18
 	outlength = 6
-	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5]
+	offsets = [0, 3, 6, 9, 12, 15, 18]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 3, 3, 3, 3]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_18():
 	toptr = [123, 123, 123, 123, 123, 123, 123]
-	lenparents = 21
 	outlength = 7
-	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6]
+	offsets = [0, 3, 6, 9, 12, 15, 18, 21]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 3, 3, 3, 3, 3]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_19():
 	toptr = [123, 123, 123, 123, 123, 123, 123, 123, 123, 123]
-	lenparents = 30
 	outlength = 10
-	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9]
+	offsets = [0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_20():
 	toptr = [123, 123, 123, 123, 123, 123, 123]
-	lenparents = 23
 	outlength = 7
-	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6]
+	offsets = [0, 3, 6, 9, 12, 15, 20, 23]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 3, 3, 3, 5, 3]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_21():
 	toptr = [123, 123, 123, 123, 123, 123, 123]
-	lenparents = 23
 	outlength = 7
-	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 6, 6, 6]
+	offsets = [0, 3, 6, 9, 12, 17, 20, 23]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 3, 3, 5, 3, 3]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_22():
 	toptr = [123, 123, 123]
-	lenparents = 10
 	outlength = 3
-	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2]
+	offsets = [0, 3, 6, 10]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 4]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_23():
 	toptr = [123, 123, 123, 123, 123, 123, 123, 123, 123, 123]
-	lenparents = 43
 	outlength = 10
-	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9]
+	offsets = [0, 3, 6, 10, 12, 16, 21, 27, 31, 36, 43]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 4, 2, 4, 5, 6, 4, 5, 7]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_24():
 	toptr = [123, 123, 123, 123, 123, 123, 123, 123, 123, 123]
-	lenparents = 39
 	outlength = 10
-	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 8, 8, 8, 9, 9, 9, 9, 9]
+	offsets = [0, 3, 6, 10, 13, 16, 21, 27, 31, 34, 39]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 4, 3, 3, 5, 6, 4, 3, 5]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_25():
 	toptr = [123, 123, 123]
-	lenparents = 11
 	outlength = 3
-	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2]
+	offsets = [0, 3, 6, 11]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 5]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_26():
 	toptr = [123, 123, 123, 123, 123, 123]
-	lenparents = 20
 	outlength = 6
-	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5]
+	offsets = [0, 3, 6, 11, 14, 17, 20]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 5, 3, 3, 3]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_27():
 	toptr = [123, 123, 123, 123, 123, 123, 123]
-	lenparents = 25
 	outlength = 7
-	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6]
+	offsets = [0, 3, 6, 11, 14, 17, 20, 25]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [3, 3, 5, 3, 3, 3, 5]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_28():
 	toptr = [123]
-	lenparents = 5
 	outlength = 1
-	parents = [0, 0, 0, 0, 0]
+	offsets = [0, 5]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [5]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_29():
 	toptr = [123, 123]
-	lenparents = 10
 	outlength = 2
-	parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
+	offsets = [0, 5, 10]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [5, 5]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_30():
 	toptr = [123, 123, 123, 123, 123, 123, 123]
-	lenparents = 29
 	outlength = 7
-	parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6]
+	offsets = [0, 5, 10, 15, 18, 21, 24, 29]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [5, 5, 5, 3, 3, 3, 5]
 	assert toptr == pytest_toptr
 
 
 def test_awkward_reduce_count_64_31():
 	toptr = [123]
-	lenparents = 6
 	outlength = 1
-	parents = [0, 0, 0, 0, 0, 0]
+	offsets = [0, 6]
 	funcPy = getattr(kernels, 'awkward_reduce_count_64')
-	funcPy(toptr = toptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,outlength = outlength,offsets = offsets)
 	pytest_toptr = [6]
 	assert toptr == pytest_toptr
 

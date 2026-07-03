@@ -9,6 +9,7 @@ import {
   getDownloadUrl,
   getFallbackDownloadUrl,
   normalizeRequestedVersion,
+  binarySupportsHeadlessNoViewport,
 } from "../src/config.js";
 import { _buildArgsForTest, resolveTimezone } from "../src/playwright.js";
 
@@ -252,5 +253,49 @@ describe("resolveTimezone alias", () => {
     const opts = {};
     const result = resolveTimezone(opts);
     expect(result).toBe(opts);
+  });
+});
+
+describe("binarySupportsHeadlessNoViewport", () => {
+  // Parity-critical: Python and .NET mirror this gate. Threshold is an unshipped
+  // version, so the resolved-version path is a no-op today; the declared-version
+  // path is what these tests pin.
+  it("is OFF one build below the threshold (current live Pro version)", () => {
+    expect(binarySupportsHeadlessNoViewport(undefined, "148.0.7778.215.3")).toBe(false);
+  });
+
+  it("is ON at the threshold", () => {
+    expect(binarySupportsHeadlessNoViewport(undefined, "148.0.7778.215.4")).toBe(true);
+  });
+
+  it("is ON above the threshold", () => {
+    expect(binarySupportsHeadlessNoViewport(undefined, "149.0.0.0")).toBe(true);
+  });
+
+  it("declared version wins over a local override", () => {
+    const prev = process.env.CLOAKBROWSER_BINARY_PATH;
+    process.env.CLOAKBROWSER_BINARY_PATH = "/fake/chrome";
+    try {
+      expect(binarySupportsHeadlessNoViewport(undefined, "149.0.0.0")).toBe(true);
+    } finally {
+      if (prev === undefined) delete process.env.CLOAKBROWSER_BINARY_PATH;
+      else process.env.CLOAKBROWSER_BINARY_PATH = prev;
+    }
+  });
+
+  it("is OFF for a local override with no declared version", () => {
+    const prev = process.env.CLOAKBROWSER_BINARY_PATH;
+    process.env.CLOAKBROWSER_BINARY_PATH = "/fake/chrome";
+    try {
+      expect(binarySupportsHeadlessNoViewport()).toBe(false);
+    } finally {
+      if (prev === undefined) delete process.env.CLOAKBROWSER_BINARY_PATH;
+      else process.env.CLOAKBROWSER_BINARY_PATH = prev;
+    }
+  });
+
+  it("fails OFF on a malformed declared version", () => {
+    // parseVersion yields NaN rather than throwing — the gate must still fail safe.
+    expect(binarySupportsHeadlessNoViewport(undefined, "not.a.version")).toBe(false);
   });
 });

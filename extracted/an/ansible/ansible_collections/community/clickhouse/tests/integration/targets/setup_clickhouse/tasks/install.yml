@@ -5,6 +5,7 @@
     - apt-transport-https
     - ca-certificates
     - dirmngr
+    - python3-debian
     state: present
 
 - name: GPG part
@@ -15,11 +16,20 @@
     chmod +r /usr/share/keyrings/clickhouse-keyring.gpg
 
 - name: Add repository
-  ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/usr/share/keyrings/clickhouse-keyring.gpg] https://packages.clickhouse.com/deb stable main"
-    filename: clickhouse.list
+  ansible.builtin.deb822_repository:
+    name: clickhouse
+    types: deb
+    uris: https://packages.clickhouse.com/deb
+    suites: stable
+    components:
+      - main
+    signed_by: /usr/share/keyrings/clickhouse-keyring.gpg
     state: present
-    update_cache: true
+    enabled: true
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
 
 - name: Install clickhouse
   ansible.builtin.apt:
@@ -52,6 +62,23 @@
     owner: clickhouse
     group: clickhouse
     mode: '0600'
+
+- name: Configure clickhouse thread pool for container environment
+  ansible.builtin.copy:
+    dest: /etc/clickhouse-server/config.d/container.xml
+    content: |
+      <clickhouse>
+          <max_thread_pool_size>1000</max_thread_pool_size>
+          <background_schedule_pool_size>16</background_schedule_pool_size>
+      </clickhouse>
+
+- name: Configure clickhouse for testing named collections
+  ansible.builtin.copy:
+    dest: /etc/clickhouse-server/config.d/named_collections.xml
+    content: |
+      <clickhouse>
+        <display_secrets_in_show_and_select>1</display_secrets_in_show_and_select>
+      </clickhouse>
 
 - name: Enable and start clickhouse server
   ansible.builtin.systemd_service:

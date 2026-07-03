@@ -90,6 +90,13 @@ class BBAN(common.Base):
     def __init__(self, country_code: str, value: str) -> None:
         self.country_code = country_code
 
+    # BBAN.__new__ needs both values when pickle reconstructs the object.
+    def __getnewargs__(self) -> tuple[str, str]:  # type: ignore[override]
+        return (self.country_code, self.compact)
+
+    def __deepcopy__(self, memo: dict[str, Any] | None = None) -> Self:
+        return self.__class__(self.country_code, self.compact)
+
     @classmethod
     def from_components(cls, country_code: str, **values: str) -> BBAN:
         """Generate a BBAN from its national components.
@@ -251,7 +258,7 @@ class BBAN(common.Base):
         components = [self._get_component(component) for component in algo.accepts]
         if not algo.validate(components, self.national_checksum_digits):
             raise exceptions.InvalidBBANChecksum("Invalid national checksum")
-        return False
+        return True
 
     def _get_component(self, component_type: Component) -> str:
         position = _get_position_range(self.spec, component_type)

@@ -15,6 +15,7 @@ public sealed class CloakBrowserHandle : IAsyncDisposable
     private readonly HumanConfig? _humanCfg;
     private readonly IBrowser _rawBrowser;
     private readonly bool _headless;
+    private readonly bool _headlessNoViewport;
 
     /// <summary>
     /// The Playwright browser. When humanize is enabled this is a transparent
@@ -32,20 +33,21 @@ public sealed class CloakBrowserHandle : IAsyncDisposable
     internal IPlaywright PlaywrightInstance => _playwright;
 
     internal CloakBrowserHandle(IPlaywright playwright, IBrowser browser, bool humanize, HumanConfig? humanCfg,
-        bool headless = true)
+        bool headless = true, bool headlessNoViewport = false)
     {
         _playwright = playwright;
         _rawBrowser = browser;
         _humanize = humanize;
         _humanCfg = humanCfg;
         _headless = headless;
+        _headlessNoViewport = headlessNoViewport;
         // Wrap the whole browser so the entire object graph (contexts, pages, mice,
         // keyboards, locators, frames) is humanized transparently. The wrapper is
         // headless-aware so the headed no-viewport default also applies when pages are
         // created through the humanized browser (parity with Python's _default_no_viewport,
         // which patches the raw browser so the default holds on every path).
         Browser = humanize
-            ? Wrappers.Humanize.Browser(browser, humanCfg ?? new HumanConfig(), headless)
+            ? Wrappers.Humanize.Browser(browser, humanCfg ?? new HumanConfig(), headless, headlessNoViewport)
             : browser;
     }
 
@@ -56,10 +58,10 @@ public sealed class CloakBrowserHandle : IAsyncDisposable
     /// humanize wrapper). Port of Python <c>_default_no_viewport</c>.
     /// </summary>
     private BrowserNewPageOptions ApplyDefaultNoViewport(BrowserNewPageOptions? options) =>
-        ViewportDefaults.ApplyHeadedNoViewport(options, _headless);
+        ViewportDefaults.ApplyHeadedNoViewport(options, _headless, _headlessNoViewport);
 
     private BrowserNewContextOptions ApplyDefaultNoViewport(BrowserNewContextOptions? options) =>
-        ViewportDefaults.ApplyHeadedNoViewport(options, _headless);
+        ViewportDefaults.ApplyHeadedNoViewport(options, _headless, _headlessNoViewport);
 
     /// <summary>
     /// Create a new browser context. On headed launches without an explicit viewport,

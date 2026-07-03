@@ -74,9 +74,22 @@ __all__ = [
     "InvalidOffsetError",
     "ImplicitlyIgnoringDST",
     "TimeZoneNotFoundError",
-    # Other stuff
+    # Enums/constants
     "Weekday",
+    "MONDAY",
+    "TUESDAY",
+    "WEDNESDAY",
+    "THURSDAY",
+    "FRIDAY",
+    "SATURDAY",
+    "SUNDAY",
+    # Other
     "reset_system_tz",
+    "patch_current_time",
+    "reset_tzpath",
+    "clear_tzcache",
+    "available_timezones",
+    "AnyDelta",
 ]
 
 _EXTENSION_LOADED: bool
@@ -175,8 +188,26 @@ class Date(_DateOrTimeMixin):
     def prev_day(self) -> Date: ...
     def nth_weekday_of_month(self, n: int, weekday: Weekday, /) -> Date: ...
     def nth_weekday(self, n: int, weekday: Weekday, /) -> Date: ...
-    def start_of(self, unit: Literal["year", "month"], /) -> Date: ...
-    def end_of(self, unit: Literal["year", "month"], /) -> Date: ...
+    def start_of(
+        self,
+        unit: Literal[
+            "year",
+            "month",
+            "week_mon",
+            "week_sun",
+        ],
+        /,
+    ) -> Date: ...
+    def end_of(
+        self,
+        unit: Literal[
+            "year",
+            "month",
+            "week_mon",
+            "week_sun",
+        ],
+        /,
+    ) -> Date: ...
     def at(self, t: Time, /) -> PlainDateTime: ...
     def to_stdlib(self) -> _date: ...
     @deprecated("Use to_stdlib() instead")
@@ -930,7 +961,9 @@ class ItemizedDelta(
         *,
         relative_to: ZonedDateTime | PlainDateTime | OffsetDateTime,
     ) -> float: ...
-    def __iter__(self) -> Iterator[
+    def __iter__(
+        self,
+    ) -> Iterator[
         Literal[
             "years",
             "months",
@@ -1185,12 +1218,30 @@ class _LocalTime(ABC):
     def in_leap_year(self) -> bool: ...
     def start_of(
         self,
-        unit: Literal["year", "month", "day", "hour", "minute", "second"],
+        unit: Literal[
+            "year",
+            "month",
+            "week_mon",
+            "week_sun",
+            "day",
+            "hour",
+            "minute",
+            "second",
+        ],
         /,
     ) -> Self: ...
     def end_of(
         self,
-        unit: Literal["year", "month", "day", "hour", "minute", "second"],
+        unit: Literal[
+            "year",
+            "month",
+            "week_mon",
+            "week_sun",
+            "day",
+            "hour",
+            "minute",
+            "second",
+        ],
         /,
     ) -> Self: ...
     @overload
@@ -1615,14 +1666,32 @@ class OffsetDateTime(_PyDateTimeMixin, _ExactAndLocalTime):
     ) -> Self: ...
     def start_of(
         self,
-        unit: Literal["year", "month", "day", "hour", "minute", "second"],
+        unit: Literal[
+            "year",
+            "month",
+            "week_mon",
+            "week_sun",
+            "day",
+            "hour",
+            "minute",
+            "second",
+        ],
         /,
         *,
         stale_offset_ok: bool = ...,
     ) -> Self: ...
     def end_of(
         self,
-        unit: Literal["year", "month", "day", "hour", "minute", "second"],
+        unit: Literal[
+            "year",
+            "month",
+            "week_mon",
+            "week_sun",
+            "day",
+            "hour",
+            "minute",
+            "second",
+        ],
         /,
         *,
         stale_offset_ok: bool = ...,
@@ -2239,3 +2308,7 @@ class DaysAssumed24HoursWarning(PotentialDstBugWarning): ...
 class StaleOffsetWarning(PotentialDstBugWarning): ...
 class NaiveArithmeticWarning(PotentialDstBugWarning): ...
 class WheneverDeprecationWarning(UserWarning): ...
+
+AnyDelta: TypeAlias = (
+    DateDelta | TimeDelta | DateTimeDelta | ItemizedDelta | ItemizedDateDelta
+)

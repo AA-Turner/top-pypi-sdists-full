@@ -148,7 +148,25 @@ class ToolEvents:
         except Exception as exc:  # noqa: BLE001
             logger.debug("pre-tool intercept failed" + ": %s", exc)
 
+        await self._capture_rewind_point(span_id)
         return span_id
+
+    async def _capture_rewind_point(self, span_id: str) -> None:
+        """Best-effort fork point capture for late remediation."""
+        aigie = self._get_aigie()
+        coordinator = getattr(aigie, "_rewind_coordinator", None)
+        client = getattr(self, "_aigie_client", None)
+        if coordinator is None or client is None or not self.session_id:
+            return
+        try:
+            await coordinator.capture(
+                "claude_agent_sdk",
+                span_id,
+                self.trace_id,
+                {"client": client, "session_id": self.session_id},
+            )
+        except Exception:  # noqa: BLE001 — capture must never break a run
+            logger.debug("rewind capture failed", exc_info=True)
 
     async def handle_tool_use_end(  # noqa: C901, PLR0912, PLR0915
         self,

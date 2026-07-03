@@ -64,9 +64,9 @@ STAR_EM_STRONG2 = r'(?<!\*)(\*)(?![\*\s]){}\*{{2}}{}\*{{3}}'.format(STAR_CONTENT
 # _em __strong___
 UNDER_EM_STRONG2 = r'(?<!_)(_)(?![_\s]){}_{{2}}{}_{{3}}'.format(UNDER_CONTENT, UNDER_CONTENT)
 # Prioritize *value* when **value** is nested within
-STAR_EM2 = r'(?<!\*)(\*)(?![\*\s])((?:[^\*]|\*{2,})+?)(?<![\*\s])(\*)(?!\*)'
+STAR_EM2 = r'(?<!\*)(\*)(?![\*\s])((?:[^\*]|\*{2,}(?!\*))+?)(?<![\*\s])(\*)(?!\*)'
 # Prioritize _value_ when __value__ is nested within
-UNDER_EM2 = r'(?<!_)(_)(?![_\s])((?:[^_]|_{2,})+?)(?<![_\s])(_)(?!_)'
+UNDER_EM2 = r'(?<!_)(_)(?![_\s])((?:[^_]|_{2,}(?!_))+?)(?<![_\s])(_)(?!_)'
 # *emphasis*
 STAR_EM = r'(\*)(?!\s){}(?<!\s)\1'.format(STAR_CONTENT)
 # _emphasis_
@@ -90,7 +90,7 @@ SMART_UNDER_STRONG = r'(?<!\w)(_{{2}})(?![\s_]){}(?<!\s)\1(?!\w)'.format(SMART_U
 # SMART: _em_
 SMART_UNDER_EM = r'(?<!\w)(_)(?![\s_]){}(?<!\s)\1(?!\w)'.format(SMART_UNDER_CONTENT)
 # SMART: Prioritize _value_ when __value__ is nested within
-SMART_UNDER_EM2 = r'(?<![\w_])(_)(?![_\s])((?:[^_]|_{2,})+?)(?<![_\s])(_)(?!\w)'
+SMART_UNDER_EM2 = r'(?<![\w_])(_)(?![_\s])((?:[^_]|_{2,}(?!_))+?)(?<![_\s])(_)(?!\w)'
 # SMART: _em __strong___
 SMART_UNDER_EM_STRONG2 = \
     r'(?<!\w)(_)(?![\s_]){}(?<!\w)_{{2}}(?![\s_]){}(?<!\s)_{{3}}(?!\w)'.format(
@@ -123,7 +123,7 @@ SMART_STAR_STRONG = r'(?:(?<=_)|(?<![\w\*]))(\*{{2}})(?![\s\*]){}(?<!\s)\1(?:(?=
 # SMART: *em*
 SMART_STAR_EM = r'(?:(?<=_)|(?<![\w\*]))(\*)(?![\s\*]){}(?<!\s)\1(?:(?=_)|(?![\w\*]))'.format(SMART_STAR_CONTENT)
 # SMART: Prioritize *value* when **value** is nested within
-SMART_STAR_EM2 = r'(?:(?<=_)|(?<![\w\*]))(\*)(?![\*\s])((?:[^\*]|\*{2,})+?)(?<![\*\s])(\*)(?:(?=_)|(?![\w\*]))'
+SMART_STAR_EM2 = r'(?:(?<=_)|(?<![\w\*]))(\*)(?![\*\s])((?:[^\*]|\*{2,}(?!\*))+?)(?<![\*\s])(\*)(?:(?=_)|(?![\w\*]))'
 # SMART: *em **strong***
 SMART_STAR_EM_STRONG2 = \
     r'(?:(?<=_)|(?<![\w\*]))(\*)(?![\s\*]){}(?:(?<=_)|(?<![\w\*]))\*{{2}}(?![\s\*]){}(?<!\s)\*{{3}}(?:(?=_)|(?![\w\*]))'.format(

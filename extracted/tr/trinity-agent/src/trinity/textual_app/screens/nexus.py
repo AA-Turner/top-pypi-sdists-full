@@ -20,6 +20,7 @@ from trinity.textual_app.presenters import (
     nexus_central_snapshot_has_activity,
     nexus_current_workspace_text,
     nexus_fallback_snapshot,
+    nexus_next_action_line,
     nexus_provider_panel_state,
 )
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
@@ -38,6 +39,7 @@ from trinity.textual_app.widgets.provider_panel import (
     provider_panel_state_group,
 )
 from trinity.textual_app.widgets.question_panel import QuestionAnswer, QuestionPanel
+from trinity.textual_app.widgets.workspace_select import WorkspaceSelectSurface
 from trinity.workflow.provider_error_gate import (
     PROVIDER_ERROR_GATE_QUESTION_ID,
     provider_error_action_answer,
@@ -136,6 +138,8 @@ class NexusScreen(Screen[None]):
         self._inspector: WorkflowInspector | None = None
         self._recipient_selector: AgentRecipientModelSelector | None = None
         self._composer: PromptComposer | None = None
+        self._next_action_widget: Static | None = None
+        self._next_action_key = ""
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
@@ -168,10 +172,14 @@ class NexusScreen(Screen[None]):
                 self._workspace_label_widget = workspace_label
                 self._workspace_label_key = workspace_label_text
                 yield workspace_label
-                yield Static(
+                yield WorkspaceSelectSurface(
                     self.label_text("select_workspace"),
                     id="nexus-select-workspace",
                 )
+            next_action = Static(self.next_action_line(), id="nexus-next-action")
+            self._next_action_widget = next_action
+            self._next_action_key = str(next_action.content)
+            yield next_action
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):
                     central = CentralAgentView(id="central-agent", lang=self.config.lang)
@@ -203,20 +211,26 @@ class NexusScreen(Screen[None]):
         yield Footer()
 
     def on_mount(self) -> None:
+        self._sync_provider_strip_compact_mode()
         if self.snapshot is not None:
             self.apply_snapshot(self.snapshot)
         else:
             self._refresh_central()
             self._refresh_questions()
             self._refresh_inspector()
+            self._refresh_next_action_line()
         if self._selected_agents or self._agent_model_overrides:
             self._apply_agent_selection()
         self._apply_model_choices()
         self._prompt_composer().focus_text_area()
 
-    def on_click(self, event: events.Click) -> None:
-        if event.widget.id != "nexus-select-workspace":
-            return
+    def on_resize(self, event: events.Resize) -> None:
+        self._sync_provider_strip_compact_mode()
+
+    def on_workspace_select_surface_pressed(
+        self,
+        event: WorkspaceSelectSurface.Pressed,
+    ) -> None:
         event.stop()
         self.post_message(self.WorkspaceRequested())
 
@@ -227,6 +241,7 @@ class NexusScreen(Screen[None]):
         self.initial_prompt = next_prompt
         if self.is_mounted:
             self._refresh_central()
+            self._refresh_next_action_line()
 
     def set_agent_selection(
         self,
@@ -296,11 +311,21 @@ class NexusScreen(Screen[None]):
         self._inspector = None
         self._recipient_selector = None
         self._composer = None
+        self._next_action_widget = None
 
     def _reset_render_cache(self) -> None:
         self._provider_state_cache = {}
         self._applied_snapshot_identity = None
         self._workspace_label_key = ""
+        self._next_action_key = ""
+
+    def _sync_provider_strip_compact_mode(self) -> None:
+        if not self.is_mounted:
+            return
+        self.query_one("#provider-strip").set_class(
+            self.size.width <= 80 or self.size.height <= 24,
+            "provider-strip-compact",
+        )
 
     def _provider_panel(self, name: str) -> ProviderPanel | None:
         panel = self._provider_panels.get(name)
@@ -346,6 +371,11 @@ class NexusScreen(Screen[None]):
             self._composer = self.query_one("#nexus-composer", PromptComposer)
         return self._composer
 
+    def _next_action_static(self) -> Static:
+        if self._next_action_widget is None:
+            self._next_action_widget = self.query_one("#nexus-next-action", Static)
+        return self._next_action_widget
+
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
         snapshot_identity = id(snapshot)
         if (
@@ -371,6 +401,7 @@ class NexusScreen(Screen[None]):
         self._refresh_questions()
         self._refresh_inspector()
         self._refresh_workspace_label()
+        self._refresh_next_action_line()
         if self._snapshot_has_activity_frame_targets(snapshot):
             self._apply_activity_frame()
 
@@ -465,6 +496,20 @@ class NexusScreen(Screen[None]):
             lang=self.config.lang,
         )
 
+    def next_action_line(self) -> str:
+        snapshot = self.snapshot or nexus_fallback_snapshot(
+            self.initial_prompt,
+            self.follow_ups,
+        )
+        return nexus_next_action_line(snapshot, lang=self.config.lang)
+
+    def _refresh_next_action_line(self) -> None:
+        line = self.next_action_line()
+        if line == self._next_action_key:
+            return
+        self._next_action_static().update(line)
+        self._next_action_key = line
+
     def _submit_follow_up(self, text: str) -> None:
         cleaned = text.strip()
         if not cleaned:
@@ -481,6 +526,7 @@ class NexusScreen(Screen[None]):
         self.follow_ups.append(cleaned)
         self._prompt_composer().clear()
         self._refresh_central()
+        self._refresh_next_action_line()
         self.post_message(
             self.FollowUpSubmitted(
                 cleaned,
@@ -542,7 +588,13 @@ class NexusScreen(Screen[None]):
             self.initial_prompt,
             self.follow_ups,
         )
-        question_panel.apply_questions(snapshot.questions)
+        question_panel.apply_questions(
+            [
+                question
+                for question in snapshot.questions
+                if question.id != PROVIDER_ERROR_GATE_QUESTION_ID or question.answer
+            ]
+        )
 
     def _refresh_inspector(self) -> None:
         inspector = self._workflow_inspector()

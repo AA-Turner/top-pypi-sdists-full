@@ -6,7 +6,7 @@ use temporalio_common::{
     protos::temporal::api::{
         common::{
             self,
-            v1::{Header, Payload, Payloads},
+            v1::{Header, Payloads},
         },
         enums::v1::{
             ArchivalState, HistoryEventFilterType, QueryRejectCondition, WorkflowIdConflictPolicy,
@@ -15,6 +15,7 @@ use temporalio_common::{
         replication::v1::ClusterReplicationConfig,
         workflowservice::v1::RegisterNamespaceRequest,
     },
+    search_attributes::SearchAttributes,
     telemetry::metrics::TemporalMeter,
 };
 use tokio_rustls::rustls::client::danger::ServerCertVerifier;
@@ -286,8 +287,8 @@ pub struct WorkflowStartOptions {
     /// Optionally set a cron schedule for the workflow
     pub cron_schedule: Option<String>,
 
-    /// Optionally associate extra search attributes with a workflow
-    pub search_attributes: Option<HashMap<String, Payload>>,
+    /// Additional search attributes for the workflow.
+    pub search_attributes: Option<SearchAttributes>,
 
     /// Optionally enable Eager Workflow Start, a latency optimization using local workers
     /// NOTE: Experimental

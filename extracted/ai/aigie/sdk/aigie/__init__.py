@@ -34,17 +34,6 @@ Usage:
     @aigie.traceable(run_type="agent")
     async def my_agent(query: str):
         return await process(query)
-
-    # Score traces for quality monitoring
-    from aigie import score
-    await score(trace_id, "accuracy", 0.95)
-
-    # Manage prompts with versioning
-    from aigie import Prompt
-    prompt = Prompt.chat(
-        name="research_agent",
-        messages=[{"role": "system", "content": "You are helpful."}]
-    )
 """
 
 import sys
@@ -122,36 +111,6 @@ __all__ = [
     "create_traced_bedrock",
     "wrap_cohere",
     "create_traced_cohere",
-    # Gateway (Real-Time Validation)
-    "GatewayClient",
-    "GatewayConnectionState",
-    "ToolCallMiddleware",
-    "ToolCallResult",
-    "PreExecutionRequest",
-    "PreExecutionResponse",
-    "GatewayDecision",
-    "ValidationSignal",
-    "SignalType",
-    "InterventionSignal",
-    "FallbackMode",
-    "FallbackStrategy",
-    "InterventionHandler",
-    "BlockHandler",
-    "ModifyHandler",
-    "DelayHandler",
-    "EscalateHandler",
-    "HandlerChain",
-    "HandlerResult",
-    "InterventionType",
-    "ExecutionBlockedError",
-    "InterventionHandlerError",
-    # Checkpoint API
-    "CheckpointManager",
-    "Checkpoint",
-    "CheckpointStatus",
-    "CheckpointType",
-    "CheckpointConfig",
-    "CheckpointMetrics",
     # Unified Signal Reporter
     "SignalReporter",
     "Signal",
@@ -180,33 +139,8 @@ __all__ = [
     "W3CTraceContext",
     "extract_trace_context",
     "inject_trace_context",
-    # Prompts
-    "Prompt",
-    "PromptManager",
-    "PromptFormat",
-    "TextPrompt",
-    "ChatPrompt",
-    "get_prompt_manager",
-    "register_prompt",
-    "get_prompt",
     # Evaluation
-    "EvaluationHook",
-    "Evaluator",
     "EvaluationResult",
-    "ScoreType",
-    "Score",
-    "ScoreDataType",
-    "ScoreManager",
-    "get_score_manager",
-    "score",
-    "feedback",
-    # Metrics (new!)
-    "BaseMetric",
-    "DriftDetectionMetric",
-    "RecoverySuccessMetric",
-    "CheckpointValidityMetric",
-    "NestedAgentHealthMetric",
-    "ProductionReliabilityMetric",
     # Component-level evaluation (new!)
     "observe",
     # Streaming
@@ -227,7 +161,6 @@ __all__ = [
     "JudgeConfig",
     "judge",
     "judge_all",
-    # Phase 2 Features
     # Datasets
     "DatasetsClient",
     "Dataset",
@@ -240,25 +173,6 @@ __all__ = [
     "Session",
     "SessionMessage",
     "create_session_manager",
-    # Phase 3 Features
-    # Enhanced batch evaluation
-    "enhanced_batch_evaluate",
-    "generate_batch_report",
-    "export_batch_results",
-    "export_batch_results_to_csv",
-    "BatchProgress",
-    "TestCaseResult",
-    "BatchStatistics",
-    "BatchEvaluationResult",
-    # Experiments API
-    "ExperimentsClient",
-    "create_experiments_client",
-    "generate_experiment_report",
-    "ExperimentVariant",
-    "VariantResult",
-    "VariantStatistics",
-    "WinnerInfo",
-    "ExperimentResult",
     # Cost Tracking (Gap Fix)
     "extract_usage_from_response",
     "extract_and_calculate_cost",
@@ -282,14 +196,6 @@ __all__ = [
     "RunData",
     "SummaryEvaluationResult",
     "SummaryEvaluatorFunction",
-    # Safety Metrics (Gap Fix)
-    "PIILeakageEvaluator",
-    "ToxicityEvaluator",
-    "BiasEvaluator",
-    "PromptInjectionEvaluator",
-    "JailbreakEvaluator",
-    "RedTeamScanner",
-    "create_safety_evaluators",
     # Guardrails (SLA Production Runtime)
     "BaseGuardrail",
     "GuardrailChain",
@@ -313,13 +219,6 @@ __all__ = [
     "generate_batch_uuidv7",
     "uuidv7_with_timestamp",
     "get_uuidv7_age",
-    # Sampling System (Gap Fix)
-    "Sampler",
-    "SamplingConfig",
-    "AdaptiveConfig",
-    "create_smart_sampler",
-    "create_adaptive_sampler",
-    "create_importance_function",
     # Query API (Feature Parity)
     "QueryAPI",
     "TraceAPI",
@@ -406,25 +305,6 @@ __all__ = [
     "FeatureTracker",
     "ErrorCollector",
     # Agent Observability (new!)
-    "LoopDetector",
-    "TracingLoopDetector",
-    "LoopAction",
-    "LoopState",
-    "LoopDetectionResult",
-    "GoalTracker",
-    "TracingGoalTracker",
-    "Goal",
-    "Step",
-    "StepStatus",
-    "Deviation",
-    "DeviationType",
-    "PlanMetrics",
-    "ExecutionCycle",
-    "CyclePhase",
-    "PhaseContext",
-    "PhaseResult",
-    "CycleMetrics",
-    "MultiCycleExecutor",
     "LoopDetectedError",
     # Agent Framework
     "Agent",
@@ -472,7 +352,6 @@ __all__ = [
     "WorkflowsClient",
     "WorkflowDefinition",
     "WorkflowExecution",
-    "WorkflowStep",
     "RecommendationsClient",
     "TraceRecommendation",
     "WorkflowRecommendation",
@@ -482,17 +361,9 @@ __all__ = [
     "LearningPattern",
     "FeedbackEntry",
     "EvalStats",
-    "RemediationClient",
-    "RemediationJob",
-    "QueueStats",
-    "AutonomousPreview",
-    "HallucinationDetection",
-    "ControlLoopStatus",
-    # Autonomous v2
-    "AutonomousRuntime",
 ]
 
-__version__ = "0.2.48"
+__version__ = "0.3.1"
 
 
 # Lazy imports for performance
@@ -502,12 +373,6 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
 
     Modules are only imported when actually used, reducing cold start penalty.
     """
-    # Autonomous v2
-    if name == "AutonomousRuntime":
-        from aigie.autonomous.runtime import AutonomousRuntime
-
-        return AutonomousRuntime
-
     # Core client
     if name == "Aigie":
         from aigie.client import Aigie
@@ -659,148 +524,6 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
 
         return create_traced_cohere
 
-    # Gateway (Real-Time Validation)
-    if name == "GatewayClient":
-        from aigie.gateway import GatewayClient
-
-        return GatewayClient
-
-    if name == "GatewayConnectionState":
-        from aigie.gateway import GatewayConnectionState
-
-        return GatewayConnectionState
-
-    if name == "ToolCallMiddleware":
-        from aigie.gateway import ToolCallMiddleware
-
-        return ToolCallMiddleware
-
-    if name == "ToolCallResult":
-        from aigie.gateway import ToolCallResult
-
-        return ToolCallResult
-
-    if name == "PreExecutionRequest":
-        from aigie.gateway import PreExecutionRequest
-
-        return PreExecutionRequest
-
-    if name == "PreExecutionResponse":
-        from aigie.gateway import PreExecutionResponse
-
-        return PreExecutionResponse
-
-    if name == "GatewayDecision":
-        from aigie.gateway import GatewayDecision
-
-        return GatewayDecision
-
-    if name == "ValidationSignal":
-        from aigie.gateway import ValidationSignal
-
-        return ValidationSignal
-
-    if name == "SignalType":
-        from aigie.gateway import SignalType
-
-        return SignalType
-
-    if name == "InterventionSignal":
-        from aigie.gateway import InterventionSignal
-
-        return InterventionSignal
-
-    if name == "FallbackMode":
-        from aigie.gateway import FallbackMode
-
-        return FallbackMode
-
-    if name == "FallbackStrategy":
-        from aigie.gateway import FallbackStrategy
-
-        return FallbackStrategy
-
-    if name == "InterventionHandler":
-        from aigie.gateway import InterventionHandler
-
-        return InterventionHandler
-
-    if name == "BlockHandler":
-        from aigie.gateway import BlockHandler
-
-        return BlockHandler
-
-    if name == "ModifyHandler":
-        from aigie.gateway import ModifyHandler
-
-        return ModifyHandler
-
-    if name == "DelayHandler":
-        from aigie.gateway import DelayHandler
-
-        return DelayHandler
-
-    if name == "EscalateHandler":
-        from aigie.gateway import EscalateHandler
-
-        return EscalateHandler
-
-    if name == "HandlerChain":
-        from aigie.gateway import HandlerChain
-
-        return HandlerChain
-
-    if name == "HandlerResult":
-        from aigie.gateway import HandlerResult
-
-        return HandlerResult
-
-    if name == "InterventionType":
-        from aigie.gateway import InterventionType
-
-        return InterventionType
-
-    if name == "ExecutionBlockedError":
-        from aigie.gateway import ExecutionBlockedError
-
-        return ExecutionBlockedError
-
-    if name == "InterventionHandlerError":
-        from aigie.gateway import InterventionHandlerError
-
-        return InterventionHandlerError
-
-    # Checkpoint API
-    if name == "CheckpointManager":
-        from aigie.checkpoint import CheckpointManager
-
-        return CheckpointManager
-
-    if name == "Checkpoint":
-        from aigie.checkpoint import Checkpoint
-
-        return Checkpoint
-
-    if name == "CheckpointStatus":
-        from aigie.checkpoint import CheckpointStatus
-
-        return CheckpointStatus
-
-    if name == "CheckpointType":
-        from aigie.checkpoint import CheckpointType
-
-        return CheckpointType
-
-    if name == "CheckpointConfig":
-        from aigie.checkpoint import CheckpointConfig
-
-        return CheckpointConfig
-
-    if name == "CheckpointMetrics":
-        from aigie.checkpoint import CheckpointMetrics
-
-        return CheckpointMetrics
-
     # Unified Signal Reporter
     if name == "SignalReporter":
         from aigie.signals import SignalReporter
@@ -922,128 +645,13 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
         return inject_trace_context
 
     # Prompts
-    if name == "Prompt":
-        from aigie.prompts import Prompt
-
-        return Prompt
-
-    if name == "PromptManager":
-        from aigie.prompts import PromptManager
-
-        return PromptManager
-
-    if name == "PromptFormat":
-        from aigie.prompts import PromptFormat
-
-        return PromptFormat
-
-    if name == "TextPrompt":
-        from aigie.prompts import TextPrompt
-
-        return TextPrompt
-
-    if name == "ChatPrompt":
-        from aigie.prompts import ChatPrompt
-
-        return ChatPrompt
-
-    if name == "get_prompt_manager":
-        from aigie.prompts import get_prompt_manager
-
-        return get_prompt_manager
-
-    if name == "register_prompt":
-        from aigie.prompts import register_prompt
-
-        return register_prompt
-
-    if name == "get_prompt":
-        from aigie.prompts import get_prompt
-
-        return get_prompt
-
     # Evaluation
-    if name == "EvaluationHook":
-        from aigie.evaluation import EvaluationHook
-
-        return EvaluationHook
-
-    if name == "Evaluator":
-        from aigie.evaluation import Evaluator
-
-        return Evaluator
-
     if name == "EvaluationResult":
         from aigie.evaluation import EvaluationResult
 
         return EvaluationResult
 
-    if name == "ScoreType":
-        from aigie.evaluation import ScoreType
-
-        return ScoreType
-
-    if name == "Score":
-        from aigie.evaluation import Score
-
-        return Score
-
-    if name == "ScoreDataType":
-        from aigie.evaluation import ScoreDataType
-
-        return ScoreDataType
-
-    if name == "ScoreManager":
-        from aigie.evaluation import ScoreManager
-
-        return ScoreManager
-
-    if name == "get_score_manager":
-        from aigie.evaluation import get_score_manager
-
-        return get_score_manager
-
-    if name == "score":
-        from aigie.evaluation import score
-
-        return score
-
-    if name == "feedback":
-        from aigie.evaluation import feedback
-
-        return feedback
-
     # Metrics (new!)
-    if name == "BaseMetric":
-        from aigie.metrics.base import BaseMetric
-
-        return BaseMetric
-
-    if name == "DriftDetectionMetric":
-        from aigie.metrics.drift import DriftDetectionMetric
-
-        return DriftDetectionMetric
-
-    if name == "RecoverySuccessMetric":
-        from aigie.metrics.recovery import RecoverySuccessMetric
-
-        return RecoverySuccessMetric
-
-    if name == "CheckpointValidityMetric":
-        from aigie.metrics.checkpoint import CheckpointValidityMetric
-
-        return CheckpointValidityMetric
-
-    if name == "NestedAgentHealthMetric":
-        from aigie.metrics.nested import NestedAgentHealthMetric
-
-        return NestedAgentHealthMetric
-
-    if name == "ProductionReliabilityMetric":
-        from aigie.metrics.reliability import ProductionReliabilityMetric
-
-        return ProductionReliabilityMetric
-
     # Component-level evaluation (new!)
     if name == "observe":
         from aigie.observe import observe
@@ -1181,87 +789,7 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
         return create_session_manager
 
     # Enhanced batch evaluation
-    if name == "enhanced_batch_evaluate":
-        from aigie.batch_evaluation import enhanced_batch_evaluate
-
-        return enhanced_batch_evaluate
-
-    if name == "generate_batch_report":
-        from aigie.batch_evaluation import generate_batch_report
-
-        return generate_batch_report
-
-    if name == "export_batch_results":
-        from aigie.batch_evaluation import export_batch_results
-
-        return export_batch_results
-
-    if name == "export_batch_results_to_csv":
-        from aigie.batch_evaluation import export_batch_results_to_csv
-
-        return export_batch_results_to_csv
-
-    if name == "BatchProgress":
-        from aigie.batch_evaluation import BatchProgress
-
-        return BatchProgress
-
-    if name == "TestCaseResult":
-        from aigie.batch_evaluation import TestCaseResult
-
-        return TestCaseResult
-
-    if name == "BatchStatistics":
-        from aigie.batch_evaluation import BatchStatistics
-
-        return BatchStatistics
-
-    if name == "BatchEvaluationResult":
-        from aigie.batch_evaluation import BatchEvaluationResult
-
-        return BatchEvaluationResult
-
     # Experiments API
-    if name == "ExperimentsClient":
-        from aigie.experiments import ExperimentsClient
-
-        return ExperimentsClient
-
-    if name == "create_experiments_client":
-        from aigie.experiments import create_experiments_client
-
-        return create_experiments_client
-
-    if name == "generate_experiment_report":
-        from aigie.experiments import generate_experiment_report
-
-        return generate_experiment_report
-
-    if name == "ExperimentVariant":
-        from aigie.experiments import ExperimentVariant
-
-        return ExperimentVariant
-
-    if name == "VariantResult":
-        from aigie.experiments import VariantResult
-
-        return VariantResult
-
-    if name == "VariantStatistics":
-        from aigie.experiments import VariantStatistics
-
-        return VariantStatistics
-
-    if name == "WinnerInfo":
-        from aigie.experiments import WinnerInfo
-
-        return WinnerInfo
-
-    if name == "ExperimentResult":
-        from aigie.experiments import ExperimentResult
-
-        return ExperimentResult
-
     # Optional: Sync client
     if name == "AigieSync":
         try:
@@ -1379,41 +907,6 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
         return SummaryEvaluatorFunction
 
     # Safety Metrics (Gap Fix)
-    if name == "PIILeakageEvaluator":
-        from aigie.safety_metrics import PIILeakageEvaluator
-
-        return PIILeakageEvaluator
-
-    if name == "ToxicityEvaluator":
-        from aigie.safety_metrics import ToxicityEvaluator
-
-        return ToxicityEvaluator
-
-    if name == "BiasEvaluator":
-        from aigie.safety_metrics import BiasEvaluator
-
-        return BiasEvaluator
-
-    if name == "PromptInjectionEvaluator":
-        from aigie.safety_metrics import PromptInjectionEvaluator
-
-        return PromptInjectionEvaluator
-
-    if name == "JailbreakEvaluator":
-        from aigie.safety_metrics import JailbreakEvaluator
-
-        return JailbreakEvaluator
-
-    if name == "RedTeamScanner":
-        from aigie.safety_metrics import RedTeamScanner
-
-        return RedTeamScanner
-
-    if name == "create_safety_evaluators":
-        from aigie.safety_metrics import create_safety_evaluators
-
-        return create_safety_evaluators
-
     # Guardrails (SLA Production Runtime)
     if name == "BaseGuardrail":
         from aigie.guardrails import BaseGuardrail
@@ -1518,36 +1011,6 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
         return get_uuidv7_age
 
     # Sampling System (Gap Fix)
-    if name == "Sampler":
-        from aigie.sampling import Sampler
-
-        return Sampler
-
-    if name == "SamplingConfig":
-        from aigie.sampling import SamplingConfig
-
-        return SamplingConfig
-
-    if name == "AdaptiveConfig":
-        from aigie.sampling import AdaptiveConfig
-
-        return AdaptiveConfig
-
-    if name == "create_smart_sampler":
-        from aigie.sampling import create_smart_sampler
-
-        return create_smart_sampler
-
-    if name == "create_adaptive_sampler":
-        from aigie.sampling import create_adaptive_sampler
-
-        return create_adaptive_sampler
-
-    if name == "create_importance_function":
-        from aigie.sampling import create_importance_function
-
-        return create_importance_function
-
     # Query API (Feature Parity)
     if name == "QueryAPI":
         from aigie.query_api import QueryAPI
@@ -1949,101 +1412,6 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
         return ErrorCollector
 
     # Agent Observability (new!)
-    if name == "LoopDetector":
-        from aigie.agents import LoopDetector
-
-        return LoopDetector
-
-    if name == "TracingLoopDetector":
-        from aigie.agents import TracingLoopDetector
-
-        return TracingLoopDetector
-
-    if name == "LoopAction":
-        from aigie.agents import LoopAction
-
-        return LoopAction
-
-    if name == "LoopState":
-        from aigie.agents import LoopState
-
-        return LoopState
-
-    if name == "LoopDetectionResult":
-        from aigie.agents import LoopDetectionResult
-
-        return LoopDetectionResult
-
-    if name == "GoalTracker":
-        from aigie.agents import GoalTracker
-
-        return GoalTracker
-
-    if name == "TracingGoalTracker":
-        from aigie.agents import TracingGoalTracker
-
-        return TracingGoalTracker
-
-    if name == "Goal":
-        from aigie.agents import Goal
-
-        return Goal
-
-    if name == "Step":
-        from aigie.agents import Step
-
-        return Step
-
-    if name == "StepStatus":
-        from aigie.agents import StepStatus
-
-        return StepStatus
-
-    if name == "Deviation":
-        from aigie.agents import Deviation
-
-        return Deviation
-
-    if name == "DeviationType":
-        from aigie.agents import DeviationType
-
-        return DeviationType
-
-    if name == "PlanMetrics":
-        from aigie.agents import PlanMetrics
-
-        return PlanMetrics
-
-    if name == "ExecutionCycle":
-        from aigie.agents import ExecutionCycle
-
-        return ExecutionCycle
-
-    if name == "CyclePhase":
-        from aigie.agents import CyclePhase
-
-        return CyclePhase
-
-    if name == "PhaseContext":
-        from aigie.agents import PhaseContext
-
-        return PhaseContext
-
-    if name == "PhaseResult":
-        from aigie.agents import PhaseResult
-
-        return PhaseResult
-
-    if name == "CycleMetrics":
-        from aigie.agents import CycleMetrics
-
-        return CycleMetrics
-
-    if name == "MultiCycleExecutor":
-        from aigie.agents import MultiCycleExecutor
-
-        return MultiCycleExecutor
-
     if name == "LoopDetectedError":
         from aigie.exceptions import LoopDetectedError
 
@@ -2268,11 +1636,6 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
 
         return WorkflowExecution
 
-    if name == "WorkflowStep":
-        from aigie.workflows import WorkflowStep
-
-        return WorkflowStep
-
     # Platform API Clients - Recommendations
     if name == "RecommendationsClient":
         from aigie.recommendations import RecommendationsClient
@@ -2319,37 +1682,6 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
         from aigie.learning import EvalStats
 
         return EvalStats
-
-    # Platform API Clients - Remediation
-    if name == "RemediationClient":
-        from aigie.remediation import RemediationClient
-
-        return RemediationClient
-
-    if name == "RemediationJob":
-        from aigie.remediation import RemediationJob
-
-        return RemediationJob
-
-    if name == "QueueStats":
-        from aigie.remediation import QueueStats
-
-        return QueueStats
-
-    if name == "AutonomousPreview":
-        from aigie.remediation import AutonomousPreview
-
-        return AutonomousPreview
-
-    if name == "HallucinationDetection":
-        from aigie.remediation import HallucinationDetection
-
-        return HallucinationDetection
-
-    if name == "ControlLoopStatus":
-        from aigie.remediation import ControlLoopStatus
-
-        return ControlLoopStatus
 
     # Integration Registry (LiteLLM-style patching)
     if name == "patch":
@@ -2534,27 +1866,6 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
 
 # Type checking support
 if TYPE_CHECKING:
-    from aigie.agents import (
-        CycleMetrics,
-        CyclePhase,
-        Deviation,
-        DeviationType,
-        ExecutionCycle,
-        Goal,
-        GoalTracker,
-        LoopAction,
-        LoopDetectionResult,
-        LoopDetector,
-        LoopState,
-        MultiCycleExecutor,
-        PhaseContext,
-        PhaseResult,
-        PlanMetrics,
-        Step,
-        StepStatus,
-        TracingGoalTracker,
-        TracingLoopDetector,
-    )
     from aigie.alerting import (
         AggregationWindow,
         AlertCondition,
@@ -2589,16 +1900,6 @@ if TYPE_CHECKING:
         AnnotationTask,
         AnnotationType,
     )
-    from aigie.batch_evaluation import (
-        BatchEvaluationResult,
-        BatchProgress,
-        BatchStatistics,
-        TestCaseResult,
-        enhanced_batch_evaluate,
-        export_batch_results,
-        export_batch_results_to_csv,
-        generate_batch_report,
-    )
     from aigie.buffer import EventBuffer
     from aigie.callbacks import (
         BaseCallback,
@@ -2631,7 +1932,7 @@ if TYPE_CHECKING:
         get_supported_models,
     )
     from aigie.decorators_v3 import create_traceable, set_debug_mode, trace, traceable
-    from aigie.evaluation import EvaluationHook, EvaluationResult, Evaluator, ScoreType
+    from aigie.evaluation import EvaluationResult
     from aigie.evaluations import (
         EvaluationJob,
         EvaluationRequest,
@@ -2664,16 +1965,6 @@ if TYPE_CHECKING:
         TraceBufferError,
         TraceContextError,
         WebhookError,
-    )
-    from aigie.experiments import (
-        ExperimentResult,
-        ExperimentsClient,
-        ExperimentVariant,
-        VariantResult,
-        VariantStatistics,
-        WinnerInfo,
-        create_experiments_client,
-        generate_experiment_report,
     )
     from aigie.graph_view import (
         AgentGraph,
@@ -2747,12 +2038,6 @@ if TYPE_CHECKING:
         LicenseValidator,
         UsageSummary,
     )
-    from aigie.metrics.base import BaseMetric
-    from aigie.metrics.checkpoint import CheckpointValidityMetric
-    from aigie.metrics.drift import DriftDetectionMetric
-    from aigie.metrics.nested import NestedAgentHealthMetric
-    from aigie.metrics.recovery import RecoverySuccessMetric
-    from aigie.metrics.reliability import ProductionReliabilityMetric
     from aigie.observe import observe
     from aigie.playground import (
         ComparisonResult,
@@ -2764,7 +2049,6 @@ if TYPE_CHECKING:
         PromptTemplate,
         create_playground,
     )
-    from aigie.prompts import Prompt, PromptManager
     from aigie.pytest_plugin import AigieTestCase, aigie_assert, assert_test
     from aigie.query_api import (
         Observation,
@@ -2783,31 +2067,6 @@ if TYPE_CHECKING:
         RecommendationsClient,
         TraceRecommendation,
         WorkflowRecommendation,
-    )
-    from aigie.remediation import (
-        AutonomousPreview,
-        ControlLoopStatus,
-        HallucinationDetection,
-        QueueStats,
-        RemediationClient,
-        RemediationJob,
-    )
-    from aigie.safety_metrics import (
-        BiasEvaluator,
-        JailbreakEvaluator,
-        PIILeakageEvaluator,
-        PromptInjectionEvaluator,
-        RedTeamScanner,
-        ToxicityEvaluator,
-        create_safety_evaluators,
-    )
-    from aigie.sampling import (
-        AdaptiveConfig,
-        Sampler,
-        SamplingConfig,
-        create_adaptive_sampler,
-        create_importance_function,
-        create_smart_sampler,
     )
     from aigie.span import SpanContext
     from aigie.span_replay import (
@@ -2844,7 +2103,7 @@ if TYPE_CHECKING:
         uuidv7_to_datetime,
         uuidv7_with_timestamp,
     )
-    from aigie.workflows import WorkflowDefinition, WorkflowExecution, WorkflowsClient, WorkflowStep
+    from aigie.workflows import WorkflowDefinition, WorkflowExecution, WorkflowsClient
     from aigie.wrappers import wrap_anthropic, wrap_gemini, wrap_openai
     from aigie.wrappers_bedrock import create_traced_bedrock, wrap_bedrock
     from aigie.wrappers_cohere import create_traced_cohere, wrap_cohere

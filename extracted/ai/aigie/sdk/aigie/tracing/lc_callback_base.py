@@ -170,6 +170,11 @@ class LangChainCallbackBase(LangChainTraceBoundary, BaseCallbackHandler):
             metadata=merged,
         )
         self._execution.start_span(name=name, span_type="chain", at=datetime.now(timezone.utc))
+        self._on_node_span_opened(str(run_id), fw_meta)
+
+    def _on_node_span_opened(self, run_id: str, fw_meta: dict[str, Any]) -> None:
+        """Seam: called after a chain/node span opens. Override to hook capture."""
+        return
 
     def _open_subgraph_workflow_span(self, run_id, parent_run_id, inputs, metadata, fw_meta):
         sub_merged = {"chain_type": "workflow", **self._chain_metadata(metadata, fw_meta)}
@@ -254,7 +259,7 @@ class LangChainCallbackBase(LangChainTraceBoundary, BaseCallbackHandler):
         self._augment_llm_input(llm_input, fw_meta)
 
         span_name = self._llm_span_name(model_info.display_name, fw_meta)
-        if self._note_start(run_id, parent_run_id, span_name, llm_input):
+        if self._note_start(run_id, parent_run_id, span_name, llm_input, set_workflow_name=False):
             return
         # Backend extracts `model`/`model_name`/`model_id` from metadata into
         # the spans table columns (see spans.model in agent_monitor schema).
@@ -265,6 +270,8 @@ class LangChainCallbackBase(LangChainTraceBoundary, BaseCallbackHandler):
         }
         if model_info.model_id:
             merged_metadata["model_id"] = model_info.model_id
+        if model_info.provider:
+            merged_metadata["provider"] = model_info.provider
 
         # Backend reads spans.model from the top-level wire field, not metadata.
         extras: dict[str, Any] = {"model": model_info.display_name}
@@ -390,7 +397,7 @@ class LangChainCallbackBase(LangChainTraceBoundary, BaseCallbackHandler):
     ) -> None:
         fw_meta = self._fw_metadata(metadata, tags)
         name = (serialized or {}).get("name") or "tool"
-        if self._note_start(run_id, parent_run_id, name, input_str):
+        if self._note_start(run_id, parent_run_id, name, input_str, set_workflow_name=False):
             return
         self.spans.open_span(
             run_id=str(run_id),

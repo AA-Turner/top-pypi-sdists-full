@@ -394,14 +394,6 @@ class CfnLoadBalancer(
         return typing.cast(builtins.str, jsii.get(self, "attrDnsName"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="attrSourceSecurityGroup")
     def attr_source_security_group(self) -> "_IResolvable_da3f097b":
         '''

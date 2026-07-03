@@ -6,12 +6,17 @@
 
 import type { Browser } from "puppeteer-core";
 import type { LaunchOptions } from "./types.js";
-import { DEFAULT_VIEWPORT, IGNORE_DEFAULT_ARGS } from "./config.js";
+import {
+  DEFAULT_VIEWPORT,
+  IGNORE_DEFAULT_ARGS,
+  binarySupportsHeadlessNoViewport,
+} from "./config.js";
 import { buildArgs } from "./args.js";
 import { maybeWarnWindowsFonts } from "./fonts.js";
 import { ensureBinary } from "./download.js";
 import { isSocksProxy, normalizeHttpStringUrl, parseProxyUrl, reconstructHttpUrl, resolveProxyConfig, supportsHttpProxyInlineAuth } from "./proxy.js";
 import { maybeResolveGeoip, resolveWebrtcArgs } from "./geoip.js";
+import { buildLaunchEnv } from "./license.js";
 import { seedWidevineHint } from "./widevine.js";
 
 /**
@@ -29,7 +34,13 @@ function resolveDefaultViewport(options: LaunchOptions): { width: number; height
   if (launchOpts.defaultViewport !== undefined) {
     return launchOpts.defaultViewport as { width: number; height: number } | null;
   }
-  return (options.headless ?? true) ? DEFAULT_VIEWPORT : null;
+  const headless = options.headless ?? true;
+  // Headed and newer headless binaries: null (no emulation, coherent dimensions).
+  // Older headless binaries: a fixed viewport keeps dimensions coherent.
+  if (!headless || binarySupportsHeadlessNoViewport(options.licenseKey, options.browserVersion)) {
+    return null;
+  }
+  return DEFAULT_VIEWPORT;
 }
 
 /** Resolve binary path, geoip, webrtc, and build final Chrome args. */
@@ -142,13 +153,22 @@ export async function launch(options: LaunchOptions = {}): Promise<Browser> {
   const { binaryPath, args } = await resolveArgs(options);
   const proxyAuth = resolveProxy(options, args);
 
+  // Resolve env for the browser process (license key injection, if needed).
+  const { env: userEnv, ...restLaunchOptions } = options.launchOptions ?? {};
+  const launchEnv = buildLaunchEnv(
+    options.licenseKey,
+    userEnv as Record<string, string | undefined> | undefined,
+  );
+  const envResult = launchEnv !== undefined ? { env: launchEnv } : {};
+
   const browser = await puppeteer.default.launch({
-    ...options.launchOptions,
+    ...restLaunchOptions,
     executablePath: binaryPath,
     headless: options.headless ?? true,
     args,
     ignoreDefaultArgs: IGNORE_DEFAULT_ARGS,
     defaultViewport: resolveDefaultViewport(options),
+    ...envResult,
   });
 
   await applyPostLaunch(browser, options, proxyAuth);
@@ -182,14 +202,23 @@ export async function launchPersistentContext(
 
   seedWidevineHint(options.userDataDir, binaryPath);
 
+  // Resolve env for the browser process (license key injection, if needed).
+  const { env: userEnv, ...restLaunchOptions } = options.launchOptions ?? {};
+  const launchEnv = buildLaunchEnv(
+    options.licenseKey,
+    userEnv as Record<string, string | undefined> | undefined,
+  );
+  const envResult = launchEnv !== undefined ? { env: launchEnv } : {};
+
   const browser = await puppeteer.default.launch({
-    ...options.launchOptions,
+    ...restLaunchOptions,
     executablePath: binaryPath,
     headless: options.headless ?? true,
     args,
     ignoreDefaultArgs: IGNORE_DEFAULT_ARGS,
     userDataDir: options.userDataDir,
     defaultViewport: resolveDefaultViewport(options),
+    ...envResult,
   });
 
   await applyPostLaunch(browser, options, proxyAuth);

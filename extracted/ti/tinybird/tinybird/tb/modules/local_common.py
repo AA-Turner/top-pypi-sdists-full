@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import os
+import platform
 import re
 import subprocess
 import threading
@@ -13,6 +14,7 @@ import boto3
 import click
 import requests
 from docker.client import DockerClient
+from docker.errors import ImageNotFound
 from docker.models.containers import Container
 
 import docker
@@ -39,6 +41,11 @@ _PATTERN_MESSAGE = re.compile(r'message="([^"]*)"')
 
 TB_IMAGE_NAME = "tinybirdco/tinybird-local:latest"
 TB_CONTAINER_NAME = "tinybird-local"
+
+# Docker Hub registry hostnames that Docker may prepend to a repository name in
+# RepoDigests (e.g. ``docker.io/tinybirdco/tinybird-local@sha256:…``). They all
+# refer to the same registry, so we strip them before comparing repositories.
+_DOCKER_HUB_REGISTRY_PREFIXES = ("docker.io/", "index.docker.io/", "registry-1.docker.io/")
 TB_LOCAL_PORT = int(os.getenv("TB_LOCAL_PORT", 7181))
 TB_LOCAL_CLICKHOUSE_INTERFACE_PORT = int(os.getenv("TB_LOCAL_CLICKHOUSE_INTERFACE_PORT", 7182))
 TB_LOCAL_HOST = _PATTERN_HTTP_PREFIX.sub("", os.getenv("TB_LOCAL_HOST", "localhost"))
@@ -270,6 +277,107 @@ def get_local_tokens(silent: bool = False) -> Dict[str, str]:
         )
 
 
+def get_local_image_platform() -> str:
+    """Return the Docker platform for the Tinybird Local image matching the host.
+
+    Tinybird Local is published as a multi-arch image, so we select the native
+    architecture to avoid emulating linux/amd64 on arm64 hosts (e.g. Apple
+    Silicon). Defaults to linux/amd64 for unknown architectures.
+
+    ``TB_LOCAL_IMAGE_PLATFORM`` overrides the auto-detected platform. This is an
+    escape hatch for running a single-arch image that does not match the host
+    (e.g. deliberately running the amd64 image emulated on an arm64 Mac, or when
+    a locally built image only provides one architecture).
+    """
+    override = os.getenv("TB_LOCAL_IMAGE_PLATFORM")
+    if override:
+        return override
+    machine = platform.machine().lower()
+    if machine in ("arm64", "aarch64"):
+        return "linux/arm64"
+    return "linux/amd64"
+
+
+def _normalize_repo(name: str) -> str:
+    """Strip the Docker Hub registry host from a repository name so digests
+    recorded as ``docker.io/tinybirdco/tinybird-local`` and
+    ``tinybirdco/tinybird-local`` compare equal."""
+    for prefix in _DOCKER_HUB_REGISTRY_PREFIXES:
+        if name.startswith(prefix):
+            return name[len(prefix) :]
+    return name
+
+
+def _remote_manifest_digests(docker_client: DockerClient, image_name: str) -> set[str]:
+    remote_image = docker_client.images.get_registry_data(image_name)
+    remote_digests: set[str] = set()
+    if isinstance(remote_image.id, str):
+        remote_digests.add(remote_image.id)
+
+    attrs = remote_image.attrs if isinstance(remote_image.attrs, dict) else {}
+    descriptor = attrs.get("Descriptor", {})
+    if isinstance(descriptor, dict):
+        descriptor_digest = descriptor.get("digest")
+        if isinstance(descriptor_digest, str):
+            remote_digests.add(descriptor_digest)
+
+    return remote_digests
+
+
+def is_new_local_image_available(docker_client: DockerClient, check_new_version: bool = True) -> tuple[bool, bool]:
+    """Decide whether to pull the Tinybird Local image before starting it.
+
+    Returns ``(show_prompt, pull_required)``.
+
+    Two local-only checks always run, even with ``check_new_version=False`` (the
+    ``--skip-new-version`` / prompt-to-start paths), because they decide whether
+    the cached image is *usable* at all:
+    - image missing -> pull it;
+    - wrong platform cached -> re-pull. An arm64 user who pulled ``:latest`` with
+      the old (amd64-forcing) CLI has the tag cached as ``linux/amd64``; we must
+      replace it with the native image instead of running it emulated.
+
+    Only when ``check_new_version`` is set do we make the registry round-trip to
+    detect a newer published image. Docker Engine exposes the tag's registry
+    digest through ``get_registry_data``; we compare that digest with the
+    normalized local ``RepoDigests`` for this image.
+
+    We fail safe everywhere: if the registry is unreachable or the local image
+    cannot be inspected we keep what is there. A locally built image (no matching
+    registry digest) will prompt; developers use ``--skip-new-version`` for that.
+    """
+    try:
+        local_image = docker_client.images.get(TB_IMAGE_NAME)
+    except ImageNotFound:
+        return False, True  # nothing local yet, we must pull
+    except Exception:
+        return False, False  # cannot inspect locally, keep whatever is there
+
+    local_platform = f"{local_image.attrs.get('Os', '')}/{local_image.attrs.get('Architecture', '')}"
+    if local_platform != get_local_image_platform():
+        return False, True  # wrong platform cached, re-pull the native image
+
+    if not check_new_version:
+        return False, False  # cached image is usable; don't touch the registry
+
+    repo = _PATTERN_TAG_SUFFIX.sub("", TB_IMAGE_NAME)
+    local_digests = {
+        repo_digest.split("@", 1)[1]
+        for repo_digest in (local_image.attrs.get("RepoDigests") or [])
+        if "@" in repo_digest and _normalize_repo(repo_digest.split("@", 1)[0]) == repo
+    }
+
+    try:
+        remote_digests = _remote_manifest_digests(docker_client, TB_IMAGE_NAME)
+    except Exception:
+        return False, False  # registry unreachable, keep the local image
+
+    if not remote_digests:
+        return False, False  # registry metadata unavailable, keep the local image
+
+    return local_digests.isdisjoint(remote_digests), False
+
+
 def start_tinybird_local(
     docker_client: DockerClient,
     use_aws_creds: bool,
@@ -280,29 +388,23 @@ def start_tinybird_local(
     watch: bool = False,
 ) -> None:
     """Start the Tinybird container."""
-    pull_show_prompt = False
-    pull_required = False
+    # Always honors a forced pull (missing / wrong-platform image) even when the
+    # new-version check is skipped, so an arm64 host never keeps running the
+    # emulated amd64 image.
+    pull_show_prompt, pull_required = is_new_local_image_available(
+        docker_client, check_new_version=not skip_new_version
+    )
 
-    if not skip_new_version:
-        try:
-            local_image = docker_client.images.get(TB_IMAGE_NAME)
-            local_image_id = local_image.attrs["RepoDigests"][0].split("@")[1]
-            remote_image = docker_client.images.get_registry_data(TB_IMAGE_NAME)
-            pull_show_prompt = local_image_id != remote_image.id
-        except Exception:
-            pull_show_prompt = False
-            pull_required = True
+    if pull_show_prompt and click.confirm(
+        FeedbackManager.warning(message="△ New version detected, download? [y/N]:"),
+        show_default=False,
+        prompt_suffix="",
+    ):
+        click.echo(FeedbackManager.info(message="* Downloading latest version of Tinybird Local..."))
+        pull_required = True
 
-        if pull_show_prompt and click.confirm(
-            FeedbackManager.warning(message="△ New version detected, download? [y/N]:"),
-            show_default=False,
-            prompt_suffix="",
-        ):
-            click.echo(FeedbackManager.info(message="* Downloading latest version of Tinybird Local..."))
-            pull_required = True
-
-        if pull_required:
-            docker_client.images.pull(TB_IMAGE_NAME, platform="linux/amd64")
+    if pull_required:
+        docker_client.images.pull(TB_IMAGE_NAME, platform=get_local_image_platform())
 
     environment = {}
     if use_aws_creds:
@@ -334,7 +436,7 @@ def start_tinybird_local(
             detach=True,
             ports={"7181/tcp": TB_LOCAL_PORT, "7182/tcp": TB_LOCAL_CLICKHOUSE_INTERFACE_PORT},
             remove=False,
-            platform="linux/amd64",
+            platform=get_local_image_platform(),
             environment=environment,
             volumes=volumes,
         )

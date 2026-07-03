@@ -467,6 +467,10 @@ class CfnResourceShare(
             permission_arns=["permissionArns"],
             principals=["principals"],
             resource_arns=["resourceArns"],
+            resource_share_configuration=ram.CfnResourceShare.ResourceShareConfigurationProperty(
+                exclusive_account_access=False,
+                retain_sharing_on_account_leave_organization=False
+            ),
             sources=["sources"],
             tags=[CfnTag(
                 key="key",
@@ -485,6 +489,7 @@ class CfnResourceShare(
         permission_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         principals: typing.Optional[typing.Sequence[builtins.str]] = None,
         resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        resource_share_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceShare.ResourceShareConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sources: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -497,6 +502,7 @@ class CfnResourceShare(
         :param permission_arns: Specifies the `Amazon Resource Names (ARNs) <https://docs.aws.amazon.com//general/latest/gr/aws-arns-and-namespaces.html>`_ of the AWS RAM permission to associate with the resource share. If you do not specify an ARN for the permission, AWS RAM automatically attaches the default version of the permission for each resource type. You can associate only one permission with each resource type included in the resource share.
         :param principals: Specifies the principals to associate with the resource share. The possible values are:. - An AWS account ID - An Amazon Resource Name (ARN) of an organization in AWS Organizations - An ARN of an organizational unit (OU) in AWS Organizations - An ARN of an IAM role - An ARN of an IAM user .. epigraph:: Not all resource types can be shared with IAM roles and users. For more information, see the column *Can share with IAM roles and users* in the tables on `Shareable AWS resources <https://docs.aws.amazon.com/ram/latest/userguide/shareable.html>`_ in the *AWS Resource Access Manager User Guide* .
         :param resource_arns: Specifies a list of one or more ARNs of the resources to associate with the resource share.
+        :param resource_share_configuration: The configuration for a resource share.
         :param sources: Specifies from which source accounts the service principal has access to the resources in this resource share.
         :param tags: Specifies one or more tags to attach to the resource share itself. It doesn't attach the tags to the resources associated with the resource share.
         '''
@@ -510,6 +516,7 @@ class CfnResourceShare(
             permission_arns=permission_arns,
             principals=principals,
             resource_arns=resource_arns,
+            resource_share_configuration=resource_share_configuration,
             sources=sources,
             tags=tags,
         )
@@ -729,6 +736,24 @@ class CfnResourceShare(
         jsii.set(self, "resourceArns", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="resourceShareConfiguration")
+    def resource_share_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceShare.ResourceShareConfigurationProperty"]]:
+        '''The configuration for a resource share.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceShare.ResourceShareConfigurationProperty"]], jsii.get(self, "resourceShareConfiguration"))
+
+    @resource_share_configuration.setter
+    def resource_share_configuration(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceShare.ResourceShareConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8bbe169a562bf96addb295092d013df62468e87386fc039d6a6fa805db687e32)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceShareConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="sources")
     def sources(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies from which source accounts the service principal has access to the resources in this resource share.'''
@@ -754,6 +779,83 @@ class CfnResourceShare(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ram.CfnResourceShare.ResourceShareConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "exclusive_account_access": "exclusiveAccountAccess",
+            "retain_sharing_on_account_leave_organization": "retainSharingOnAccountLeaveOrganization",
+        },
+    )
+    class ResourceShareConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            exclusive_account_access: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            retain_sharing_on_account_leave_organization: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''The configuration for a resource share.
+
+            :param exclusive_account_access: The resource share restricts access to an account.
+            :param retain_sharing_on_account_leave_organization: Specifies whether the consumer account retains access to the resource share after leaving the organization.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ram-resourceshare-resourceshareconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ram as ram
+                
+                resource_share_configuration_property = ram.CfnResourceShare.ResourceShareConfigurationProperty(
+                    exclusive_account_access=False,
+                    retain_sharing_on_account_leave_organization=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2bbbef5e59aed180189cb70a7793cc23294faff4b1b27ba21be73f05a9da1512)
+                check_type(argname="argument exclusive_account_access", value=exclusive_account_access, expected_type=type_hints["exclusive_account_access"])
+                check_type(argname="argument retain_sharing_on_account_leave_organization", value=retain_sharing_on_account_leave_organization, expected_type=type_hints["retain_sharing_on_account_leave_organization"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if exclusive_account_access is not None:
+                self._values["exclusive_account_access"] = exclusive_account_access
+            if retain_sharing_on_account_leave_organization is not None:
+                self._values["retain_sharing_on_account_leave_organization"] = retain_sharing_on_account_leave_organization
+
+        @builtins.property
+        def exclusive_account_access(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''The resource share restricts access to an account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ram-resourceshare-resourceshareconfiguration.html#cfn-ram-resourceshare-resourceshareconfiguration-exclusiveaccountaccess
+            '''
+            result = self._values.get("exclusive_account_access")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def retain_sharing_on_account_leave_organization(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Specifies whether the consumer account retains access to the resource share after leaving the organization.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ram-resourceshare-resourceshareconfiguration.html#cfn-ram-resourceshare-resourceshareconfiguration-retainsharingonaccountleaveorganization
+            '''
+            result = self._values.get("retain_sharing_on_account_leave_organization")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ResourceShareConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ram.CfnResourceShareProps",
@@ -764,6 +866,7 @@ class CfnResourceShare(
         "permission_arns": "permissionArns",
         "principals": "principals",
         "resource_arns": "resourceArns",
+        "resource_share_configuration": "resourceShareConfiguration",
         "sources": "sources",
         "tags": "tags",
     },
@@ -777,6 +880,7 @@ class CfnResourceShareProps:
         permission_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         principals: typing.Optional[typing.Sequence[builtins.str]] = None,
         resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        resource_share_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceShare.ResourceShareConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sources: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -787,6 +891,7 @@ class CfnResourceShareProps:
         :param permission_arns: Specifies the `Amazon Resource Names (ARNs) <https://docs.aws.amazon.com//general/latest/gr/aws-arns-and-namespaces.html>`_ of the AWS RAM permission to associate with the resource share. If you do not specify an ARN for the permission, AWS RAM automatically attaches the default version of the permission for each resource type. You can associate only one permission with each resource type included in the resource share.
         :param principals: Specifies the principals to associate with the resource share. The possible values are:. - An AWS account ID - An Amazon Resource Name (ARN) of an organization in AWS Organizations - An ARN of an organizational unit (OU) in AWS Organizations - An ARN of an IAM role - An ARN of an IAM user .. epigraph:: Not all resource types can be shared with IAM roles and users. For more information, see the column *Can share with IAM roles and users* in the tables on `Shareable AWS resources <https://docs.aws.amazon.com/ram/latest/userguide/shareable.html>`_ in the *AWS Resource Access Manager User Guide* .
         :param resource_arns: Specifies a list of one or more ARNs of the resources to associate with the resource share.
+        :param resource_share_configuration: The configuration for a resource share.
         :param sources: Specifies from which source accounts the service principal has access to the resources in this resource share.
         :param tags: Specifies one or more tags to attach to the resource share itself. It doesn't attach the tags to the resources associated with the resource share.
 
@@ -808,6 +913,10 @@ class CfnResourceShareProps:
                 permission_arns=["permissionArns"],
                 principals=["principals"],
                 resource_arns=["resourceArns"],
+                resource_share_configuration=ram.CfnResourceShare.ResourceShareConfigurationProperty(
+                    exclusive_account_access=False,
+                    retain_sharing_on_account_leave_organization=False
+                ),
                 sources=["sources"],
                 tags=[CfnTag(
                     key="key",
@@ -822,6 +931,7 @@ class CfnResourceShareProps:
             check_type(argname="argument permission_arns", value=permission_arns, expected_type=type_hints["permission_arns"])
             check_type(argname="argument principals", value=principals, expected_type=type_hints["principals"])
             check_type(argname="argument resource_arns", value=resource_arns, expected_type=type_hints["resource_arns"])
+            check_type(argname="argument resource_share_configuration", value=resource_share_configuration, expected_type=type_hints["resource_share_configuration"])
             check_type(argname="argument sources", value=sources, expected_type=type_hints["sources"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -835,6 +945,8 @@ class CfnResourceShareProps:
             self._values["principals"] = principals
         if resource_arns is not None:
             self._values["resource_arns"] = resource_arns
+        if resource_share_configuration is not None:
+            self._values["resource_share_configuration"] = resource_share_configuration
         if sources is not None:
             self._values["sources"] = sources
         if tags is not None:
@@ -899,6 +1011,17 @@ class CfnResourceShareProps:
         '''
         result = self._values.get("resource_arns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def resource_share_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceShare.ResourceShareConfigurationProperty"]]:
+        '''The configuration for a resource share.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-resourceshare.html#cfn-ram-resourceshare-resourceshareconfiguration
+        '''
+        result = self._values.get("resource_share_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceShare.ResourceShareConfigurationProperty"]], result)
 
     @builtins.property
     def sources(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1020,6 +1143,7 @@ def _typecheckingstub__1fea9cca1996f068f8dde2c34bf4c41d370ee8638f9da1d855f8b0022
     permission_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     principals: typing.Optional[typing.Sequence[builtins.str]] = None,
     resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    resource_share_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceShare.ResourceShareConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sources: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -1080,6 +1204,12 @@ def _typecheckingstub__ebcfa059a044b9468256f95fd1dc2d90bce40e3d6d96d59d1755b38b7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8bbe169a562bf96addb295092d013df62468e87386fc039d6a6fa805db687e32(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResourceShare.ResourceShareConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__df7ab5400bf3b8953cb4a0db7747c4174b63b9e7963dfae4ea6eda15e4f55030(
     value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
@@ -1092,6 +1222,14 @@ def _typecheckingstub__2e8df76745e5c0758e8b5233e879c50ee5a6f6f817a0850af55da2744
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2bbbef5e59aed180189cb70a7793cc23294faff4b1b27ba21be73f05a9da1512(
+    *,
+    exclusive_account_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    retain_sharing_on_account_leave_organization: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a74e87907f43c8b632de2f93b4560b166f51134fc5a47c6f4892e716a268961a(
     *,
     name: builtins.str,
@@ -1099,6 +1237,7 @@ def _typecheckingstub__a74e87907f43c8b632de2f93b4560b166f51134fc5a47c6f4892e716a
     permission_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     principals: typing.Optional[typing.Sequence[builtins.str]] = None,
     resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    resource_share_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceShare.ResourceShareConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sources: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

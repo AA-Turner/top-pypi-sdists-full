@@ -10,7 +10,6 @@ Usage:
     python examples/stealth_test.py --proxy http://10.50.96.5:8888
 """
 
-import json
 import sys
 import time
 
@@ -54,8 +53,8 @@ def test_bot_incolumitas(page):
     """bot.incolumitas.com — comprehensive 30+ check bot detection."""
     page.goto("https://bot.incolumitas.com", wait_until="networkidle", timeout=30000)
 
-    # Poll until test count stabilizes (site runs tests progressively)
     last_total = 0
+    results = {"passed": 0, "failed": 0, "failedTests": [], "total": 0}
     for _ in range(15):
         time.sleep(2)
         results = page.evaluate("""() => {
@@ -63,18 +62,29 @@ def test_bot_incolumitas(page):
             const okMatches = text.match(/"\\w+":\\s*"OK"/g) || [];
             const failMatches = text.match(/"\\w+":\\s*"FAIL"/g) || [];
             const failedTests = failMatches.map(m => m.match(/"(\\w+)"/)[1]);
-            return {
-                passed: okMatches.length,
-                failed: failMatches.length,
-                failedTests,
-                total: okMatches.length + failMatches.length
-            };
+            return {passed: okMatches.length, failed: failMatches.length, failedTests, total: okMatches.length + failMatches.length};
         }""")
         if results["total"] >= 30 and results["total"] == last_total:
             break
         last_total = results["total"]
 
     return results
+
+
+def test_rebrowser(page):
+    """bot-detector.rebrowser.net — automation signal detector."""
+    page.goto("https://bot-detector.rebrowser.net/", wait_until="networkidle", timeout=30000)
+    time.sleep(10)
+
+    return page.evaluate("""() => {
+        const el = document.getElementById('detections-json');
+        if (!el) return {failing: [], totalFails: 0, passed: 0, notTriggered: 0, error: 'no detections-json element'};
+        const tests = JSON.parse(el.value);
+        const failing = tests.filter(t => t.rating === 1).map(t => t.type);
+        const passed = tests.filter(t => t.rating === -1).length;
+        const notTriggered = tests.filter(t => t.rating === 0).length;
+        return {failing, totalFails: failing.length, passed, notTriggered, total: tests.length};
+    }""")
 
 
 def test_browserscan(page):
@@ -123,47 +133,17 @@ def test_deviceandbrowserinfo(page):
     return results
 
 
-def test_fingerprintjs(page):
-    """demo.fingerprint.com/web-scraping — industry-standard bot detection."""
-    page.goto("https://demo.fingerprint.com/web-scraping", wait_until="domcontentloaded", timeout=30000)
-    time.sleep(8)
+def test_creepjs_noise_off(page):
+    """CreepJS — lie detection with fingerprint noise disabled."""
+    page.goto("https://abrahamjuliot.github.io/creepjs/", wait_until="domcontentloaded", timeout=30000)
+    time.sleep(15)
 
-    # Click search to trigger bot detection — bots get blocked, humans see flights
-    try:
-        page.click("button:has-text('Search')", timeout=5000)
-        time.sleep(5)
-    except Exception:
-        pass
-
-    results = page.evaluate("""() => {
-        const text = document.body.innerText;
-        // Bots see error messages; humans see flight prices
-        const hasFlights = text.includes('Price per adult') || text.includes('$');
-        const isBlocked = text.includes('request was blocked') || text.includes('bot visit detected');
-        return {passed: hasFlights && !isBlocked, isBlocked, hasFlights};
+    return page.evaluate("""() => {
+        const fp = window.Fingerprint;
+        if (!fp) return {error: 'Fingerprint not ready', totalLies: null};
+        const lies = fp.lies || {};
+        return {totalLies: lies.totalLies || 0};
     }""")
-    return results
-
-
-def test_recaptcha(page):
-    """recaptcha-demo.appspot.com — Google's official reCAPTCHA v3 score."""
-    page.goto(
-        "https://recaptcha-demo.appspot.com/recaptcha-v3-request-scores.php",
-        wait_until="domcontentloaded",
-        timeout=30000,
-    )
-    # Wait for score to appear (polls up to 30s)
-    for _ in range(15):
-        time.sleep(2)
-        score = page.evaluate("""() => {
-            const text = document.body.innerText;
-            const match = text.match(/"score":\\s*(\\d+\\.\\d+)/);
-            return match ? parseFloat(match[1]) : null;
-        }""")
-        if score is not None:
-            break
-
-    return {"score": score}
 
 
 TESTS = [
@@ -180,11 +160,33 @@ TESTS = [
         "url": "https://bot.incolumitas.com",
         "runner": test_bot_incolumitas,
         "verdict": lambda r: f"{r['passed']}/{r['total']} passed"
-            + (" — ALL GREEN" if r.get("failed", 0) == 0
-               else f" (FAILED: {', '.join(r.get('failedTests', []))} — known false positives)"
-               if set(r.get("failedTests", [])) <= {"WEBDRIVER", "connectionRTT"}
-               else f" (FAILED: {', '.join(r.get('failedTests', []))})"),
-        "pass": lambda r: set(r.get("failedTests", [])) <= {"WEBDRIVER", "connectionRTT"},  # known false positives
+            + (
+                " — ALL GREEN"
+                if r.get("failed", 0) == 0
+                else f" (FAILED: {', '.join(r.get('failedTests', []))} — known false positives)"
+                if set(r.get("failedTests", [])) <= {"WEBDRIVER", "connectionRTT"}
+                else f" (FAILED: {', '.join(r.get('failedTests', []))})"
+            ),
+        "pass": lambda r: set(r.get("failedTests", [])) <= {"WEBDRIVER", "connectionRTT"},
+    },
+    {
+        "name": "Rebrowser Bot Detector",
+        "url": "https://bot-detector.rebrowser.net/",
+        "runner": test_rebrowser,
+        "verdict": lambda r: (
+            f"🟢{r.get('passed', 0)} ⚪{r.get('notTriggered', 0)} — ALL CLEAN"
+            if r.get("totalFails", 1) == 0
+            else f"FAIL: {', '.join(r.get('failing', []))}"
+        ),
+        "pass": lambda r: r.get("totalFails", 1) == 0,
+    },
+    {
+        "name": "deviceandbrowserinfo.com",
+        "url": "https://deviceandbrowserinfo.com/are_you_a_bot",
+        "runner": test_deviceandbrowserinfo,
+        "verdict": lambda r: f"isBot: {r.get('isBot', 'unknown')}"
+            + (f", trueFlags: {sum(1 for v in r.get('checks', {}).values() if v)}" if r.get("checks") else ""),
+        "pass": lambda r: not r.get("isBot", True) and not any(r.get("checks", {}).values()),
     },
     {
         "name": "BrowserScan",
@@ -194,26 +196,12 @@ TESTS = [
         "pass": lambda r: r.get("abnormal", 1) == 0,
     },
     {
-        "name": "deviceandbrowserinfo.com",
-        "url": "https://deviceandbrowserinfo.com/are_you_a_bot",
-        "runner": test_deviceandbrowserinfo,
-        "verdict": lambda r: f"isBot: {r.get('isBot', 'unknown')}"
-            + (f" checks: {json.dumps(r.get('checks', {}))}" if r.get("checks") else ""),
-        "pass": lambda r: not r.get("isBot", True),
-    },
-    {
-        "name": "FingerprintJS",
-        "url": "https://demo.fingerprint.com/web-scraping",
-        "runner": test_fingerprintjs,
-        "verdict": lambda r: "PASSED (flights shown)" if r.get("passed") else "BLOCKED" if r.get("isBlocked") else "NO FLIGHTS",
-        "pass": lambda r: r.get("passed", False),
-    },
-    {
-        "name": "reCAPTCHA v3 (Google)",
-        "url": "https://recaptcha-demo.appspot.com/recaptcha-v3-request-scores.php",
-        "runner": test_recaptcha,
-        "verdict": lambda r: f"Score: {r.get('score', 'N/A')}",
-        "pass": lambda r: (r.get("score") or 0) >= 0.7,
+        "name": "CreepJS lies (noise=false)",
+        "url": "https://abrahamjuliot.github.io/creepjs/",
+        "runner": test_creepjs_noise_off,
+        "verdict": lambda r: f"lies: {r.get('totalLies', 'N/A')}",
+        "pass": lambda r: r.get("totalLies") == 0,
+        "args": ["--fingerprint-noise=false"],
     },
 ]
 
@@ -229,6 +217,7 @@ def main():
     print("Launching stealth browser...", flush=True)
 
     browser = launch(headless=not HEADED, proxy=PROXY, geoip=True)
+    shared_browser_closed = False
     page = browser.new_page()
 
     # Show browser fingerprint details
@@ -281,8 +270,19 @@ def main():
         print(f"--- {name} ---")
         print(f"URL: {test['url']}")
 
+        test_browser = browser
+        test_context = None
+        test_page = page
         try:
-            result = test["runner"](page)
+            if test.get("args"):
+                browser.close()
+                shared_browser_closed = True
+                test_browser = launch(headless=not HEADED, proxy=PROXY, geoip=True, args=test["args"])
+
+            test_context = test_browser.new_context(viewport={"width": 1920, "height": 1080})
+            test_page = test_context.new_page()
+
+            result = test["runner"](test_page)
             passed = test["pass"](result)
             verdict = test["verdict"](result)
             status = "PASS" if passed else "FAIL"
@@ -292,16 +292,22 @@ def main():
 
             if SCREENSHOTS:
                 filename = f"stealth_test_{name.replace('.', '_').replace(' ', '_').replace('/', '_')}.png"
-                page.screenshot(path=filename)
+                test_page.screenshot(path=filename)
                 print(f"Screenshot: {filename}")
 
         except Exception as e:
             results_summary.append((name, "ERROR", str(e)))
             print(f"Error: {e}")
+        finally:
+            if test_context is not None:
+                test_context.close()
+            if test_browser is not browser:
+                test_browser.close()
 
         print()
 
-    browser.close()
+    if not shared_browser_closed:
+        browser.close()
 
     # Summary table
     print("=" * 60)

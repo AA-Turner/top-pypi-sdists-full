@@ -90,9 +90,6 @@ from ._shared import (
     Weekday,
     YearMonth,
     _nth_weekday_of_month,
-    _unpkl_iwd,
-    _unpkl_md,
-    _unpkl_ym,
 )
 from ._typing import (
     DateDeltaUnitStr,
@@ -103,6 +100,8 @@ from ._typing import (
     RoundModeStr,
 )
 from ._tz import (  # noqa: F401
+    Fold,
+    Gap,
     RepeatedTime,
     SkippedTime,
     TimeZone,
@@ -110,6 +109,7 @@ from ._tz import (  # noqa: F401
     Unambiguous,
     _clear_tz_cache as _clear_tz_cache,
     _clear_tz_cache_by_keys as _clear_tz_cache_by_keys,
+    _get_tzpath as _get_tzpath,
     _set_tzpath as _set_tzpath,
     get_system_tz,
     get_tz,
@@ -118,7 +118,7 @@ from ._tz import (  # noqa: F401
     resolve_ambiguity_using_prev_offset,
 )
 
-__all__ = [
+__all__ = (
     # Date and time
     "Date",
     "YearMonth",
@@ -156,11 +156,21 @@ __all__ = [
     "InvalidOffsetError",
     "ImplicitlyIgnoringDST",
     "TimeZoneNotFoundError",
-    # Other stuff
-    "Weekday",
+    # Other
     "reset_system_tz",
-]
-
+    "_unpkl_date",
+    "_unpkl_ddelta",
+    "_unpkl_dtdelta",
+    "_unpkl_iddelta",
+    "_unpkl_idelta",
+    "_unpkl_inst",
+    "_unpkl_local",
+    "_unpkl_offset",
+    "_unpkl_tdelta",
+    "_unpkl_time",
+    "_unpkl_utc",
+    "_unpkl_zoned",
+)
 
 # Helpers that pre-compute/lookup as much as possible
 _UTC = _timezone.utc
@@ -200,7 +210,16 @@ def _time_units_to_nanos(
     return delta_ns
 
 
-_UNITS_FOR_START_END_OF = ("year", "month", "day", "hour", "minute", "second")
+_UNITS_FOR_START_END_OF = (
+    "year",
+    "month",
+    "week_mon",
+    "week_sun",
+    "day",
+    "hour",
+    "minute",
+    "second",
+)
 
 
 def _start_of_dt(dt: _datetime, unit: str) -> _datetime:
@@ -208,6 +227,14 @@ def _start_of_dt(dt: _datetime, unit: str) -> _datetime:
         return dt.replace(month=1, day=1, hour=0, minute=0, second=0)
     elif unit == "month":
         return dt.replace(day=1, hour=0, minute=0, second=0)
+    elif unit == "week_mon":
+        days_back = dt.isoweekday() - 1
+        d = dt - _timedelta(days=days_back)
+        return d.replace(hour=0, minute=0, second=0)
+    elif unit == "week_sun":
+        days_back = dt.isoweekday() % 7
+        d = dt - _timedelta(days=days_back)
+        return d.replace(hour=0, minute=0, second=0)
     elif unit == "day":
         return dt.replace(hour=0, minute=0, second=0)
     elif unit == "hour":
@@ -216,6 +243,10 @@ def _start_of_dt(dt: _datetime, unit: str) -> _datetime:
         return dt.replace(second=0)
     elif unit == "second":
         return dt
+    elif unit == "week":
+        raise ValueError(
+            "unit 'week' is ambiguous. Use 'week_mon' or 'week_sun' instead."
+        )
     else:
         raise ValueError(
             f"Invalid unit: {unit!r}. "
@@ -233,6 +264,14 @@ def _end_of_dt(dt: _datetime, unit: str) -> _datetime:
             minute=59,
             second=59,
         )
+    elif unit == "week_mon":
+        days_fwd = 7 - dt.isoweekday()
+        d = dt + _timedelta(days=days_fwd)
+        return d.replace(hour=23, minute=59, second=59)
+    elif unit == "week_sun":
+        days_fwd = (6 - dt.isoweekday()) % 7
+        d = dt + _timedelta(days=days_fwd)
+        return d.replace(hour=23, minute=59, second=59)
     elif unit == "day":
         return dt.replace(hour=23, minute=59, second=59)
     elif unit == "hour":
@@ -241,11 +280,49 @@ def _end_of_dt(dt: _datetime, unit: str) -> _datetime:
         return dt.replace(second=59)
     elif unit == "second":
         return dt
+    elif unit == "week":
+        raise ValueError(
+            "unit 'week' is ambiguous. Use 'week_mon' or 'week_sun' instead."
+        )
     else:
         raise ValueError(
             f"Invalid unit: {unit!r}. "
             f"Valid units: {', '.join(map(repr, _UNITS_FOR_START_END_OF))}"
         )
+
+
+def _start_of_next_dt(dt: _datetime, unit: str) -> _datetime:
+    if unit == "year":
+        return dt.replace(
+            year=dt.year + 1,
+            month=1,
+            day=1,
+            hour=0,
+            minute=0,
+            second=0,
+        )
+    elif unit == "month":
+        year, month = divmod(dt.month, 12)
+        return dt.replace(
+            year=dt.year + year,
+            month=month + 1,
+            day=1,
+            hour=0,
+            minute=0,
+            second=0,
+        )
+    elif unit == "week_mon":
+        days_fwd = 8 - dt.isoweekday()
+        d = dt + _timedelta(days=days_fwd)
+        return d.replace(hour=0, minute=0, second=0)
+    elif unit == "week_sun":
+        days_fwd = 7 - dt.isoweekday() % 7
+        d = dt + _timedelta(days=days_fwd)
+        return d.replace(hour=0, minute=0, second=0)
+    else:
+        assert unit == "day"
+        # OPTIMIZE: compute days(1), hours(1) etc. as singletons
+        return (dt + _timedelta(days=1)).replace(hour=0, minute=0, second=0)
 
 
 @final
@@ -433,18 +510,17 @@ class Date(_Base):
         """
         return Date._from_py_unchecked(self._py_date - _timedelta(days=1))
 
-    def start_of(self, unit: Literal["year", "month"], /) -> Date:
+    def start_of(
+        self, unit: Literal["year", "month", "week_mon", "week_sun"], /
+    ) -> Date:
         """The start of the given calendar unit
 
         >>> Date(2024, 8, 15).start_of("year")
         Date("2024-01-01")
         >>> Date(2024, 8, 15).start_of("month")
         Date("2024-08-01")
-
-        Note
-        ----
-        ``"week"`` is not a valid unit because weeks do not have
-        a universal start day. Use :meth:`nth_weekday` instead.
+        >>> Date(2024, 8, 15).start_of("week_mon")
+        Date("2024-08-12")
         """
         if unit == "year":
             return Date._from_py_unchecked(
@@ -452,18 +528,35 @@ class Date(_Base):
             )
         elif unit == "month":
             return Date._from_py_unchecked(self._py_date.replace(day=1))
-        else:
-            raise ValueError(
-                f"Invalid unit: {unit!r}. " "Valid units: 'year', 'month'"
+        elif unit == "week_mon":
+            days_back = self._py_date.isoweekday() - 1
+            return Date._from_py_unchecked(
+                self._py_date - _timedelta(days=days_back)
             )
+        elif unit == "week_sun":
+            days_back = self._py_date.isoweekday() % 7
+            return Date._from_py_unchecked(
+                self._py_date - _timedelta(days=days_back)
+            )
+        elif unit == "week":
+            raise ValueError(
+                "unit 'week' is ambiguous. "
+                "Use 'week_mon' or 'week_sun' instead."
+            )
+        else:
+            raise ValueError(f"Invalid value for unit: {unit!r}")
 
-    def end_of(self, unit: Literal["year", "month"], /) -> Date:
+    def end_of(
+        self, unit: Literal["year", "month", "week_mon", "week_sun"], /
+    ) -> Date:
         """The end of the given calendar unit
 
         >>> Date(2024, 8, 15).end_of("year")
         Date("2024-12-31")
         >>> Date(2024, 8, 15).end_of("month")
         Date("2024-08-31")
+        >>> Date(2024, 8, 15).end_of("week_mon")
+        Date("2024-08-18")
 
         See also :meth:`start_of`
         """
@@ -477,10 +570,23 @@ class Date(_Base):
                     day=days_in_month(self._py_date.year, self._py_date.month)
                 )
             )
-        else:
-            raise ValueError(
-                f"Invalid unit: {unit!r}. " "Valid units: 'year', 'month'"
+        elif unit == "week_mon":
+            days_fwd = 7 - self._py_date.isoweekday()
+            return Date._from_py_unchecked(
+                self._py_date + _timedelta(days=days_fwd)
             )
+        elif unit == "week_sun":
+            days_fwd = (6 - self._py_date.isoweekday()) % 7
+            return Date._from_py_unchecked(
+                self._py_date + _timedelta(days=days_fwd)
+            )
+        elif unit == "week":
+            raise ValueError(
+                "unit 'week' is ambiguous. "
+                "Use 'week_mon' or 'week_sun' instead."
+            )
+        else:
+            raise ValueError(f"Invalid value for unit: {unit!r}")
 
     def nth_weekday_of_month(self, n: int, weekday: Weekday, /) -> Date:
         """The n-th occurrence of a weekday in this date's month.
@@ -936,10 +1042,9 @@ class Date(_Base):
                 sign,
             )
 
-        # mypy false positive: 'keywords must be strings' (but they're string literals!)
         return ItemizedDateDelta._from_signed(
             sign if any(results.values()) else 0, **results
-        )  # type: ignore[misc]
+        )
 
     @overload
     def until(
@@ -1695,7 +1800,7 @@ class TimeDelta(_Base):
             milliseconds: float = 0,
             microseconds: float = 0,
             nanoseconds: int = 0,
-            days_assumed_24h_ok: bool = False,
+            days_assumed_24h_ok: bool = UNSET,
         ) -> None: ...
 
     def __init__(
@@ -1709,7 +1814,7 @@ class TimeDelta(_Base):
         milliseconds: float = 0,
         microseconds: float = 0,
         nanoseconds: int = 0,
-        days_assumed_24h_ok: bool = False,
+        days_assumed_24h_ok: bool = UNSET,
     ) -> None:
         assert type(nanoseconds) is int  # catch this common mistake
         if (weeks or days) and not days_assumed_24h_ok:
@@ -1762,7 +1867,7 @@ class TimeDelta(_Base):
         ],
         relative_to: ZonedDateTime | PlainDateTime | OffsetDateTime = UNSET,
         _warn_stacklevel: int = 2,
-        days_assumed_24h_ok: bool = False,
+        days_assumed_24h_ok: bool = UNSET,
     ) -> float | int:
         """The total size in the given unit, as a float (or int for nanoseconds)
 
@@ -2005,7 +2110,7 @@ class TimeDelta(_Base):
         round_mode: RoundModeStr = "trunc",
         round_increment: int = 1,
         relative_to: ZonedDateTime | PlainDateTime | OffsetDateTime = UNSET,
-        days_assumed_24h_ok: bool = False,
+        days_assumed_24h_ok: bool = UNSET,
     ) -> ItemizedDelta:
         """Convert to a :class:`ItemizedDelta` with the specified units
 
@@ -2094,8 +2199,7 @@ class TimeDelta(_Base):
         sign: Sign = 1 if self._total_ns >= 0 else -1
         if not any(result.values()):
             sign = 0  # due to rounding, the result may be zero even if self is not zero
-        # mypy false positive: 'keywords must be strings' (but they're string literals!)
-        return ItemizedDelta._from_signed(sign, **result)  # type: ignore[misc]
+        return ItemizedDelta._from_signed(sign, **result)
 
     def _in_exact_units(
         self,
@@ -2281,7 +2385,7 @@ class TimeDelta(_Base):
         *,
         increment: int = 1,
         mode: RoundModeStr = "half_even",
-        days_assumed_24h_ok: bool = False,
+        days_assumed_24h_ok: bool = UNSET,
     ) -> TimeDelta:
         """Round the delta to the specified unit and increment,
         or to a multiple of another :class:`TimeDelta`.
@@ -3415,8 +3519,7 @@ class ItemizedDelta(_Base, Mapping[DeltaUnitStr, int]):
         >>> d.format_iso()
         'P1W11DT4H1.000012S'
         """
-        # Mypy complains about string unpacking. But it's valid here. See mypy/issues/13823
-        y, m, w, d, h, s = "ymwdhs" if lowercase_units else "YMWDHS"  # type: ignore[misc]
+        y, m, w, d, h, s = "ymwdhs" if lowercase_units else "YMWDHS"
 
         sgn = self.sign()
         parts = ["-" * (sgn < 0), "P"]
@@ -4301,8 +4404,7 @@ class ItemizedDateDelta(_Base, Mapping[DateDeltaUnitStr, int]):
         which is not part of the ISO 8601 standard, but is a common extension.
         See :ref:`here <iso8601-durations>` for more information.
         """
-        # Mypy complains about string unpacking. But it's valid here. See mypy/issues/13823
-        y, m, w, d = "ymwd" if lowercase_units else "YMWD"  # type: ignore[misc]
+        y, m, w, d = "ymwd" if lowercase_units else "YMWD"
 
         parts = ["-" * (self.sign() < 0), "P"]
         if self._years is not None:
@@ -4809,7 +4911,9 @@ def _check_bound(i: int | None, max_value: int) -> int | None:
 
 
 def _check_component(
-    value: int, sign: Sign, max_value: int  # may also be UNSET
+    value: int,
+    sign: Sign,
+    max_value: int,  # may also be UNSET
 ) -> tuple[int | None, Sign]:
     if value is UNSET:
         return None, sign
@@ -5491,7 +5595,6 @@ class _LocalTime(_BasicConversions):
 # - OffsetDateTime
 # (This base class class itself is not for public use.)
 class _ExactTime(_BasicConversions):
-
     __slots__ = ()
 
     def timestamp(self) -> int:
@@ -5727,7 +5830,6 @@ class _ExactTime(_BasicConversions):
 # - OffsetDateTime
 # (The class itself it not for public use.)
 class _ExactAndLocalTime(_LocalTime, _ExactTime):
-
     __slots__ = ()
 
     @property
@@ -6024,7 +6126,7 @@ class Instant(_ExactTime):
         state = parse_fields(elements, s)
         if state.offset_secs is None:
             raise ValueError(
-                "Instant.parse() pattern must include an offset " "field (x/X)"
+                "Instant.parse() pattern must include an offset field (x/X)"
             )
         if state.year is None or state.month is None or state.day is None:
             raise ValueError(
@@ -6060,7 +6162,7 @@ class Instant(_ExactTime):
             milliseconds: float = 0,
             microseconds: float = 0,
             nanoseconds: int = 0,
-            days_assumed_24h_ok: bool = False,
+            days_assumed_24h_ok: bool = UNSET,
         ) -> Instant: ...
 
     @no_type_check
@@ -6088,7 +6190,7 @@ class Instant(_ExactTime):
             milliseconds: float = 0,
             microseconds: float = 0,
             nanoseconds: int = 0,
-            days_assumed_24h_ok: bool = False,
+            days_assumed_24h_ok: bool = UNSET,
         ) -> Instant: ...
 
     @no_type_check
@@ -6130,7 +6232,7 @@ class Instant(_ExactTime):
         milliseconds: float = 0,
         microseconds: float = 0,
         nanoseconds: int = 0,
-        days_assumed_24h_ok: bool = False,
+        days_assumed_24h_ok: bool = UNSET,
     ) -> Instant:
         if (weeks or days) and not days_assumed_24h_ok:
             warn(
@@ -6256,7 +6358,7 @@ class Instant(_ExactTime):
         return hash((self._py_dt, self._nanos))
 
     def __repr__(self) -> str:
-        return f"Instant(\"{str(self).replace('T', ' ')}\")"
+        return f'Instant("{str(self).replace("T", " ")}")'
 
     # a custom pickle implementation with a smaller payload
     def __reduce__(self) -> tuple[object, ...]:
@@ -6376,7 +6478,7 @@ class OffsetDateTime(_ExactAndLocalTime):
         /,
         *,
         ignore_dst: bool = UNSET,
-        stale_offset_ok: bool = False,
+        stale_offset_ok: bool = UNSET,
     ) -> OffsetDateTime:
         """Create an instance from the current time.
 
@@ -6467,7 +6569,7 @@ class OffsetDateTime(_ExactAndLocalTime):
         *,
         offset: int | TimeDelta,
         ignore_dst: bool = UNSET,
-        stale_offset_ok: bool = False,
+        stale_offset_ok: bool = UNSET,
     ) -> OffsetDateTime:
         """Create an instance from a UNIX timestamp (in seconds).
 
@@ -6508,7 +6610,7 @@ class OffsetDateTime(_ExactAndLocalTime):
         *,
         offset: int | TimeDelta,
         ignore_dst: bool = UNSET,
-        stale_offset_ok: bool = False,
+        stale_offset_ok: bool = UNSET,
     ) -> OffsetDateTime:
         """Create an instance from a UNIX timestamp (in milliseconds).
 
@@ -6543,7 +6645,7 @@ class OffsetDateTime(_ExactAndLocalTime):
         *,
         offset: int | TimeDelta,
         ignore_dst: bool = UNSET,
-        stale_offset_ok: bool = False,
+        stale_offset_ok: bool = UNSET,
     ) -> OffsetDateTime:
         """Create an instance from a UNIX timestamp (in nanoseconds).
 
@@ -6607,7 +6709,7 @@ class OffsetDateTime(_ExactAndLocalTime):
         self,
         /,
         ignore_dst: bool = UNSET,
-        stale_offset_ok: bool = False,
+        stale_offset_ok: bool = UNSET,
         **kwargs: Any,
     ) -> OffsetDateTime:
         """Construct a new instance with the given fields replaced.
@@ -6649,7 +6751,7 @@ class OffsetDateTime(_ExactAndLocalTime):
         /,
         *,
         ignore_dst: bool = UNSET,
-        stale_offset_ok: bool = False,
+        stale_offset_ok: bool = UNSET,
     ) -> OffsetDateTime:
         """Construct a new instance with the date replaced.
 
@@ -6680,7 +6782,7 @@ class OffsetDateTime(_ExactAndLocalTime):
         /,
         *,
         ignore_dst: bool = UNSET,
-        stale_offset_ok: bool = False,
+        stale_offset_ok: bool = UNSET,
     ) -> OffsetDateTime:
         """Construct a new instance with the time replaced.
 
@@ -6709,21 +6811,24 @@ class OffsetDateTime(_ExactAndLocalTime):
 
     def start_of(
         self,
-        unit: Literal["year", "month", "day", "hour", "minute", "second"],
+        unit: Literal[
+            "year",
+            "month",
+            "week_mon",
+            "week_sun",
+            "day",
+            "hour",
+            "minute",
+            "second",
+        ],
         /,
         *,
-        stale_offset_ok: bool = False,
+        stale_offset_ok: bool = UNSET,
     ) -> OffsetDateTime:
         """The start of the given unit
 
         >>> OffsetDateTime(2024, 8, 15, 14, 30, offset=5).start_of("day")
         OffsetDateTime("2024-08-15 00:00:00+05:00")
-
-        Note
-        ----
-        ``"week"`` is not a valid unit because weeks do not have
-        a universal start day. Use :meth:`~Date.nth_weekday` on the
-        :meth:`date` instead.
 
         Warning
         -------
@@ -6742,10 +6847,19 @@ class OffsetDateTime(_ExactAndLocalTime):
 
     def end_of(
         self,
-        unit: Literal["year", "month", "day", "hour", "minute", "second"],
+        unit: Literal[
+            "year",
+            "month",
+            "week_mon",
+            "week_sun",
+            "day",
+            "hour",
+            "minute",
+            "second",
+        ],
         /,
         *,
-        stale_offset_ok: bool = False,
+        stale_offset_ok: bool = UNSET,
     ) -> OffsetDateTime:
         """The end of the given unit
 
@@ -7051,7 +7165,7 @@ class OffsetDateTime(_ExactAndLocalTime):
         /,
         *,
         ignore_dst: bool = UNSET,
-        stale_offset_ok: bool = False,
+        stale_offset_ok: bool = UNSET,
         **kwargs,
     ) -> OffsetDateTime:
         if ignore_dst is not UNSET:
@@ -7141,7 +7255,7 @@ class OffsetDateTime(_ExactAndLocalTime):
         increment: int = 1,
         mode: RoundModeStr = "half_even",
         ignore_dst: bool = UNSET,
-        stale_offset_ok: bool = False,
+        stale_offset_ok: bool = UNSET,
     ) -> OffsetDateTime:
         """Round the datetime to the specified unit and increment,
         or to a multiple of a :class:`TimeDelta`.
@@ -7215,10 +7329,12 @@ class OffsetDateTime(_ExactAndLocalTime):
             return result
         elif offset_mismatch == "raise":
             offset_expected = _format_offset(
-                self._py_dt.utcoffset(), basic=False  # type: ignore[arg-type]
+                self._py_dt.utcoffset(),  # type: ignore[arg-type]
+                basic=False,
             )
             offset_actual = _format_offset(
-                result._py_dt.utcoffset(), basic=False  # type: ignore[arg-type]
+                result._py_dt.utcoffset(),  # type: ignore[arg-type]
+                basic=False,
             )
             raise InvalidOffsetError(
                 f"Offset mismatch: timezone {tz!r} has offset {offset_actual}, "
@@ -7320,7 +7436,7 @@ class OffsetDateTime(_ExactAndLocalTime):
         )
 
     def __repr__(self) -> str:
-        return f"OffsetDateTime(\"{str(self).replace('T', ' ')}\")"
+        return f'OffsetDateTime("{str(self).replace("T", " ")}")'
 
     # a custom pickle implementation with a smaller payload
     def __reduce__(self) -> tuple[object, ...]:
@@ -7829,6 +7945,11 @@ class ZonedDateTime(_ExactAndLocalTime):
     ) -> ZonedDateTime:
         """Construct a new instance with the given fields replaced.
 
+        Tip
+        ---
+        If you need the start or end of a unit (e.g. the start of the day),
+        use :meth:`start_of` and :meth:`end_of` instead.
+
         Important
         ---------
         Replacing fields of a ZonedDateTime may result in an ambiguous time
@@ -7840,6 +7961,7 @@ class ZonedDateTime(_ExactAndLocalTime):
 
         See `the documentation <https://whenever.rtfd.io/en/latest/guide/ambiguity.html>`__
         for more information.
+
         """
 
         _check_invalid_replace_kwargs(kwargs)
@@ -8170,9 +8292,7 @@ class ZonedDateTime(_ExactAndLocalTime):
         """
         return (
             type(
-                self._tz.ambiguity_for_local(
-                    int(self._py_dt.replace(tzinfo=_UTC).timestamp())
-                )
+                self._tz.ambiguity_for_local(self._py_dt.replace(tzinfo=None))
             )
             is not Unambiguous
         )
@@ -8292,17 +8412,67 @@ class ZonedDateTime(_ExactAndLocalTime):
 
     def _resolve_for_unit(self, naive: _datetime, unit: str) -> _datetime:
         tz = self._tz
-        if unit in ("year", "month", "day"):
+        if unit in ("year", "month", "week_mon", "week_sun", "day"):
             return resolve_ambiguity(naive, tz, "compatible")
-        return resolve_ambiguity_using_prev_offset(
-            naive,
-            self._py_dt.utcoffset(),  # type: ignore[arg-type]
-            tz,
-        )
+        match tz.ambiguity_for_local(naive):
+            case Unambiguous(offset):
+                pass
+            case Fold(_, earlier_offset, later_offset):
+                current_offset = int(
+                    self._py_dt.utcoffset().total_seconds()  # type: ignore[union-attr]
+                )
+                offset = (
+                    later_offset
+                    if current_offset == later_offset
+                    else earlier_offset
+                )
+            case Gap(end, later_offset, _):  # pragma: no branch
+                # A skipped boundary starts at the first instant after the gap.
+                return _from_epoch_offset(end - later_offset, later_offset)
+        return naive.replace(tzinfo=mk_fixed_tzinfo(offset))
+
+    def _resolve_end_of_time_unit(
+        self, naive: _datetime, unit: str
+    ) -> _datetime:
+        local_epoch = int(naive.replace(tzinfo=_UTC).timestamp())
+        match self._tz._ambiguity_for_local_epoch(local_epoch):
+            case Unambiguous(offset):
+                pass
+            case Fold(end, earlier_offset, later_offset):
+                current_offset = int(
+                    self._py_dt.utcoffset().total_seconds()  # type: ignore[union-attr]
+                )
+                unit_seconds = {"hour": 3_600, "minute": 60, "second": 1}[unit]
+                # A fold shorter than the unit is part of the same local-clock
+                # unit, so include it when it ends exactly at the boundary.
+                offset = (
+                    later_offset
+                    if current_offset == later_offset
+                    or (
+                        local_epoch + 1 == end
+                        and earlier_offset - later_offset < unit_seconds
+                    )
+                    else earlier_offset
+                )
+            case Gap(end, later_offset, earlier_offset):  # pragma: no branch
+                # A skipped endpoint ends at the instant before the gap.
+                return _from_epoch_offset(
+                    end - later_offset - 1, earlier_offset
+                )
+        return naive.replace(tzinfo=mk_fixed_tzinfo(offset))
 
     def start_of(
         self,
-        unit: Literal["year", "month", "day", "hour", "minute", "second"],
+        unit: Literal[
+            "year",
+            "month",
+            "week_mon",
+            "week_sun",
+            "day",
+            "hour",
+            "minute",
+            "second",
+        ],
         /,
     ) -> ZonedDateTime:
         """The start of the given unit
@@ -8312,18 +8482,14 @@ class ZonedDateTime(_ExactAndLocalTime):
         >>> ZonedDateTime(2024, 8, 15, 14, 30, tz="America/New_York").start_of("hour")
         ZonedDateTime("2024-08-15 14:00:00-04:00[America/New_York]")
 
-        Note
-        ----
-        ``"week"`` is not a valid unit because weeks do not have
-        a universal start day. Use :meth:`~Date.nth_weekday` on the
-        :meth:`date` instead.
-
-        For ``"day"``, ``"month"``, and ``"year"``, the resulting time
+        For ``"day"``, ``"month"``, ``"week_mon"``, ``"week_sun"``,
+        and ``"year"``, the resulting time
         is resolved in the timezone using ``"compatible"`` disambiguation,
         since midnight may not exist due to DST transitions.
 
         For ``"hour"``, ``"minute"``, and ``"second"``, the existing offset
-        is preserved if valid, otherwise the "compatible" disambiguation strategy is used.
+        is preserved if valid. A boundary skipped by a transition is moved to
+        the first valid time after the gap.
         """
         new_dt = _start_of_dt(self._py_dt, unit)
         naive = new_dt.replace(tzinfo=None)
@@ -8333,7 +8499,16 @@ class ZonedDateTime(_ExactAndLocalTime):
 
     def end_of(
         self,
-        unit: Literal["year", "month", "day", "hour", "minute", "second"],
+        unit: Literal[
+            "year",
+            "month",
+            "week_mon",
+            "week_sun",
+            "day",
+            "hour",
+            "minute",
+            "second",
+        ],
         /,
     ) -> ZonedDateTime:
         """The end of the given unit
@@ -8343,10 +8518,19 @@ class ZonedDateTime(_ExactAndLocalTime):
 
         See also :meth:`start_of`
         """
+        if unit in ("year", "month", "week_mon", "week_sun", "day"):
+            new_dt = _start_of_next_dt(self._py_dt, unit)
+            naive = new_dt.replace(tzinfo=None)
+            return self._from_py_unchecked(
+                self._resolve_for_unit(naive, unit), 0, self._tz
+            ).subtract(nanoseconds=1)
+
         new_dt = _end_of_dt(self._py_dt, unit)
         naive = new_dt.replace(tzinfo=None)
         return self._from_py_unchecked(
-            self._resolve_for_unit(naive, unit), _MAX_SUBSEC_NANOS, self._tz
+            self._resolve_end_of_time_unit(naive, unit),
+            _MAX_SUBSEC_NANOS,
+            self._tz,
         )
 
     def round(
@@ -8465,7 +8649,7 @@ class ZonedDateTime(_ExactAndLocalTime):
             f'ZonedDateTime("{_format_date(self._py_dt, False)} '
             f"{_format_time(self._py_dt, self._nanos, 'auto', False)}"
             f"{_format_offset(self._py_dt.utcoffset(), False)}"  # type: ignore[arg-type]
-            f"[{self._tz.key or '<system timezone without ID>'}]\")"
+            f'[{self._tz.key or "<system timezone without ID>"}]")'
         )
 
     # a custom pickle implementation with a smaller payload
@@ -8727,7 +8911,16 @@ class PlainDateTime(_LocalTime):
 
     def start_of(
         self,
-        unit: Literal["year", "month", "day", "hour", "minute", "second"],
+        unit: Literal[
+            "year",
+            "month",
+            "week_mon",
+            "week_sun",
+            "day",
+            "hour",
+            "minute",
+            "second",
+        ],
         /,
     ) -> PlainDateTime:
         """The start of the given unit
@@ -8736,19 +8929,22 @@ class PlainDateTime(_LocalTime):
         PlainDateTime("2024-08-15 00:00:00")
         >>> PlainDateTime(2024, 8, 15, 14, 30, 45).start_of("hour")
         PlainDateTime("2024-08-15 14:00:00")
-
-        Note
-        ----
-        ``"week"`` is not a valid unit because weeks do not have
-        a universal start day. Use :meth:`~Date.nth_weekday` on the
-        :meth:`date` instead.
         """
         new_dt = _start_of_dt(self._py_dt, unit)
         return self._from_py_unchecked(new_dt, 0)
 
     def end_of(
         self,
-        unit: Literal["year", "month", "day", "hour", "minute", "second"],
+        unit: Literal[
+            "year",
+            "month",
+            "week_mon",
+            "week_sun",
+            "day",
+            "hour",
+            "minute",
+            "second",
+        ],
         /,
     ) -> PlainDateTime:
         """The end of the given unit
@@ -8907,7 +9103,7 @@ class PlainDateTime(_LocalTime):
         /,
         *,
         ignore_dst: bool = UNSET,
-        naive_arithmetic_ok: bool = False,
+        naive_arithmetic_ok: bool = UNSET,
     ) -> TimeDelta:
         """Calculate the exact time difference between two plain datetimes.
 
@@ -8970,7 +9166,7 @@ class PlainDateTime(_LocalTime):
         in_units: Sequence[DeltaUnitStr] = UNSET,
         round_mode: RoundModeStr = UNSET,
         round_increment: int = UNSET,
-        naive_arithmetic_ok: bool = False,
+        naive_arithmetic_ok: bool = UNSET,
     ) -> ItemizedDelta | float:
         """Calculate the duration since another PlainDateTime,
         in terms of the specified units.
@@ -9023,7 +9219,7 @@ class PlainDateTime(_LocalTime):
         in_units: Sequence[DeltaUnitStr] = UNSET,
         round_mode: RoundModeStr = UNSET,
         round_increment: int = UNSET,
-        naive_arithmetic_ok: bool = False,
+        naive_arithmetic_ok: bool = UNSET,
     ) -> ItemizedDelta | float:
         """Inverse of the ``since()`` method. See :meth:`since` for more information."""
         return _plain_since(
@@ -9122,7 +9318,7 @@ class PlainDateTime(_LocalTime):
         /,
         *,
         ignore_dst: bool = UNSET,
-        naive_arithmetic_ok: bool = False,
+        naive_arithmetic_ok: bool = UNSET,
         **kwargs,
     ) -> PlainDateTime:
         if ignore_dst is not UNSET:
@@ -9166,7 +9362,7 @@ class PlainDateTime(_LocalTime):
         milliseconds: float = 0,
         microseconds: float = 0,
         nanoseconds: int = 0,
-        naive_arithmetic_ok: bool = False,
+        naive_arithmetic_ok: bool = UNSET,
     ) -> PlainDateTime:
         py_dt_with_new_date = self.replace_date(
             self.date()
@@ -9343,7 +9539,7 @@ class PlainDateTime(_LocalTime):
         return self.date()._add_days(next_day).at(rounded_time)
 
     def __repr__(self) -> str:
-        return f"PlainDateTime(\"{str(self).replace('T', ' ')}\")"
+        return f'PlainDateTime("{str(self).replace("T", " ")}")'
 
     # a custom pickle implementation with a smaller payload
     def __reduce__(self) -> tuple[object, ...]:
@@ -9933,8 +10129,7 @@ def _plain_since(
                 sign,
             )
 
-    # mypy false positive: 'keywords must be strings' (but they're string literals!)
-    return ItemizedDelta._from_signed(  # type: ignore[misc]
+    return ItemizedDelta._from_signed(
         sign if any(result.values()) else 0, **result
     )
 
@@ -10003,7 +10198,7 @@ def _offset_since(
             round_increment=effective_increment,
             round_mode=effective_round_mode,
         )
-        return ItemizedDelta._from_signed(  # type: ignore[misc]
+        return ItemizedDelta._from_signed(
             sign if any(result.values()) else 0, **result
         )
 
@@ -10096,8 +10291,7 @@ def _zoned_since(
                 sign,
             )
 
-    # mypy false positive: 'keywords must be strings' (but they're string literals!)
-    return ItemizedDelta._from_signed(  # type: ignore[misc]
+    return ItemizedDelta._from_signed(
         sign if any(result.values()) else 0, **result
     )
 
@@ -10311,36 +10505,13 @@ _ExactTimeAlias = Instant | OffsetDateTime | ZonedDateTime
 # This does mess up sphinx autodoc's introspection a bit, so we fix that below.
 # see https://github.com/sphinx-doc/sphinx/issues/3673
 if not SPHINX_RUNNING:  # pragma: no branch
-    for name in __all__ + "_LocalTime _ExactTime _ExactAndLocalTime".split():
-        member = locals()[name]
-        if getattr(member, "__module__", "").startswith(
-            "whenever"
-        ):  # pragma: no branch
-            member.__module__ = "whenever"
-
-    # clear up loop variables so they don't leak into the namespace
-    del name
-    del member
-
-
-for _unpkl in (
-    _unpkl_date,
-    _unpkl_ym,
-    _unpkl_md,
-    _unpkl_iwd,
-    _unpkl_time,
-    _unpkl_tdelta,
-    _unpkl_dtdelta,
-    _unpkl_idelta,
-    _unpkl_iddelta,
-    _unpkl_ddelta,
-    _unpkl_utc,
-    _unpkl_offset,
-    _unpkl_zoned,
-    _unpkl_local,
-):
-    _unpkl.__module__ = "whenever"
-
+    _ftype = type(_unpkl_date)
+    for _name in __all__:
+        _member = globals()[_name]
+        if isinstance(_member, (type, _ftype)) and (
+            getattr(_member, "__module__", "") or ""
+        ).startswith("whenever"):  # pragma: no branch
+            _member.__module__ = "whenever"
 
 # disable further subclassing
 final(_Base)

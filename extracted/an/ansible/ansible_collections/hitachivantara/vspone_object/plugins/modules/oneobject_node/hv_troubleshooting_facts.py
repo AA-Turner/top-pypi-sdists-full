@@ -134,7 +134,16 @@ def get_os_info():
         ansible_path = shutil.which("ansible")
         if not ansible_path or not os.path.isfile(ansible_path) or not os.access(ansible_path, os.X_OK):
             raise FileNotFoundError("Ansible not installed or not executable.")
-        ansible_version = os.popen(f"{ansible_path} --version").read().strip()
+        ansible_version = ""
+        rc, ansible_version, stderr = MODULE.run_command([ansible_path, "--version"])
+        if rc != 0:
+            MODULE.fail_json(
+                msg="Failed to get Ansible version",
+                rc=rc,
+                stderr=stderr
+            )
+            ansible_version = ansible_version.strip()
+
     except Exception as e:
         ansible_version = f"Error: {e}"
 
@@ -275,8 +284,10 @@ def create_log_bundle(log_retention_count: int = 3):
 
 
 def main():
+    global MODULE
     fields = OOArgumentSpec.troubleshooting()
     module = AnsibleModule(argument_spec=fields, supports_check_mode=True)
+    MODULE = module
     log_retention_count = module.params.get("log_bundle_retention_count", 3)
 
     try:

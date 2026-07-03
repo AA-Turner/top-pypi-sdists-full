@@ -290,4 +290,100 @@ public class LicenseTests : IDisposable
         // Marker present but no Pro binary on disk -> falls back to bundled version.
         Assert.Equal(Config.GetChromiumVersion(), Config.GetEffectiveVersion(pro: true));
     }
+
+    // =======================================================================
+    // BuildLaunchEnv
+    // =======================================================================
+
+    [Fact]
+    public void BuildLaunchEnv_no_key_returns_null()
+    {
+        Assert.Null(License.BuildLaunchEnv());
+    }
+
+    [Fact]
+    public void BuildLaunchEnv_explicit_param_injects_env()
+    {
+        var result = License.BuildLaunchEnv("cb_test_key");
+        Assert.NotNull(result);
+        Assert.Equal("cb_test_key", result["CLOAKBROWSER_LICENSE_KEY"]);
+        // Parent env vars should be present
+        Assert.Contains("PATH", result.Keys);
+    }
+
+    [Fact]
+    public void BuildLaunchEnv_env_source_no_user_env_returns_null()
+    {
+        var prev = Environment.GetEnvironmentVariable("CLOAKBROWSER_LICENSE_KEY");
+        try
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_LICENSE_KEY", "cb_env");
+            Assert.Null(License.BuildLaunchEnv());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_LICENSE_KEY", prev);
+        }
+    }
+
+    [Fact]
+    public void BuildLaunchEnv_env_source_with_user_env_preserves_key()
+    {
+        var prev = Environment.GetEnvironmentVariable("CLOAKBROWSER_LICENSE_KEY");
+        try
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_LICENSE_KEY", "cb_env");
+            var result = License.BuildLaunchEnv(null, new Dictionary<string, string> { ["MY_VAR"] = "1" });
+            Assert.NotNull(result);
+            Assert.Equal("cb_env", result["CLOAKBROWSER_LICENSE_KEY"]);
+            Assert.Equal("1", result["MY_VAR"]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_LICENSE_KEY", prev);
+        }
+    }
+
+    [Fact]
+    public void BuildLaunchEnv_default_file_skips_injection()
+    {
+        // Place license.key in the default ~/.cloakbrowser path
+        var homeDir = Path.Combine(_tmp, "home");
+        var defaultCache = Path.Combine(homeDir, ".cloakbrowser");
+        Directory.CreateDirectory(defaultCache);
+        File.WriteAllText(Path.Combine(defaultCache, "license.key"), "cb_file");
+
+        var prevCacheDir = Environment.GetEnvironmentVariable("CLOAKBROWSER_CACHE_DIR");
+        try
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_CACHE_DIR", defaultCache);
+            // Mock the OS home path via the test seam so the cache dir is
+            // recognized as the default ~/.cloakbrowser path.
+            License.HomeDirOverride = () => homeDir;
+            Assert.Null(License.BuildLaunchEnv());
+
+            // With a custom userEnv, Playwright replaces the child env (which
+            // could drop HOME and hide the file), so the key IS injected.
+            var withUser = License.BuildLaunchEnv(null, new Dictionary<string, string> { ["KEEP"] = "me" });
+            Assert.NotNull(withUser);
+            Assert.Equal("me", withUser["KEEP"]);
+            Assert.Equal("cb_file", withUser["CLOAKBROWSER_LICENSE_KEY"]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_CACHE_DIR", prevCacheDir);
+            License.HomeDirOverride = null;
+        }
+    }
+
+    [Fact]
+    public void BuildLaunchEnv_user_env_preserved()
+    {
+        var result = License.BuildLaunchEnv("cb_mine", new Dictionary<string, string> { ["PATH"] = "/custom/bin" });
+        Assert.NotNull(result);
+        Assert.Equal("cb_mine", result["CLOAKBROWSER_LICENSE_KEY"]);
+        Assert.Equal("/custom/bin", result["PATH"]);
+        // Only the user env + injected key — NOT the full parent environment.
+        Assert.Equal(2, result.Count);
+    }
 }

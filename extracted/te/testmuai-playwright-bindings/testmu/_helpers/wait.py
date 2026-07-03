@@ -1,6 +1,6 @@
 """Vision wait/check helper — check_until_condition.
 
-Smart-gated: calls the vision sidecar's wait/check endpoint.
+Smart-gated: calls the vision sidecar's visibility/check endpoint.
 When smart is OFF, returns False immediately (condition not met — skip behavior).
 """
 import base64
@@ -34,7 +34,7 @@ async def check_until_condition(page, condition: str) -> bool:
     a never-evaluable condition fails loudly instead of silently exhausting the
     retry budget.
 
-    Legacy path: smart-gated visual wait/check via the vision sidecar.
+    Legacy path: smart-gated visual visibility/check via the vision sidecar.
 
     Args:
         page: Playwright page object.
@@ -66,14 +66,19 @@ async def check_until_condition(page, condition: str) -> bool:
 
     async with create_session() as session:
         async with session.post(
-            f"{vision_api_host}/api/v1/wait/check",
+            f"{vision_api_host}/api/v1/visibility/check",
             json={"screenshot_b64": screenshot_b64, "query": condition},
             timeout=aiohttp.ClientTimeout(total=30),
         ) as response:
             if response.status == 200:
                 result = await response.json()
-                met = not result.get("waiting", True)
-                _log.info("    [check_until_condition] met=%s", met)
+                # Parity with the m-hps UntilBlock evaluator: missing
+                # "visible" defaults to condition-met.
+                met = result.get("visible", True)
+                _log.info(
+                    "    [check_until_condition] condition check: visible=%s, confidence=%s",
+                    result.get("visible"), result.get("confidence"),
+                )
                 return met
             _log.info("    [check_until_condition] API error status=%d → returning False",
                       response.status)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chronos-forecasting
-Version: 2.3.0
+Version: 2.3.1
 Summary: Chronos: Pretrained models for time series forecasting
 Project-URL: Homepage, https://github.com/amazon-science/chronos-forecasting
 Project-URL: Issues, https://github.com/amazon-science/chronos-forecasting/issues

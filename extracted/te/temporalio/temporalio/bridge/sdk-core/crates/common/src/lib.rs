@@ -11,14 +11,16 @@ extern crate tracing;
 pub mod envconfig;
 #[doc(hidden)]
 pub mod fsm_trait;
+#[doc(hidden)]
+pub mod payload_limits;
 pub mod payload_visitor;
 pub mod protos;
 pub mod telemetry;
 pub mod worker;
 pub use temporalio_common_wasm::{
     ActivityDefinition, ActivityError, HasWorkflowDefinition, Priority, QueryDefinition,
-    SignalDefinition, UntypedWorkflow, UpdateDefinition, WorkerDeploymentVersion,
-    WorkflowDefinition, data_converters, error,
+    SignalDefinition, UntypedActivity, UntypedWorkflow, UpdateDefinition, WorkerDeploymentVersion,
+    WorkflowDefinition, data_converters, error, search_attributes,
 };
 
 macro_rules! dbg_panic {

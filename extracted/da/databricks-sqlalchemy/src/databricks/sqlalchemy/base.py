@@ -42,6 +42,16 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _parse_bool_url_param(value: Optional[str], default: bool) -> bool:
+    if value is None:
+        return default
+    if value.lower() in ("1", "true", "yes", "on"):
+        return True
+    if value.lower() in ("0", "false", "no", "off"):
+        return False
+    return default
+
+
 class DatabricksDialect(default.DefaultDialect):
     """This dialect implements only those methods required to pass our e2e tests"""
 
@@ -65,11 +75,13 @@ class DatabricksDialect(default.DefaultDialect):
     supports_server_side_cursors: bool = False
     supports_sequences: bool = False
     supports_native_boolean: bool = True
+    enable_multirow_insert_casts: bool = True
 
     colspecs = {
         sqlalchemy.types.DateTime: dialect_type_impl.TIMESTAMP_NTZ,
         sqlalchemy.types.Time: dialect_type_impl.DatabricksTimeType,
         sqlalchemy.types.String: dialect_type_impl.DatabricksStringType,
+        sqlalchemy.types.Uuid: dialect_type_impl.DatabricksUUID,
     }
 
     # SQLAlchemy requires that a table with no primary key
@@ -116,6 +128,9 @@ class DatabricksDialect(default.DefaultDialect):
 
         self.schema = kwargs["schema"]
         self.catalog = kwargs["catalog"]
+        self.enable_multirow_insert_casts = _parse_bool_url_param(
+            url.query.get("enable_multirow_insert_casts"), True
+        )
 
         self._force_paramstyle_to_native_mode()
 
@@ -428,7 +443,7 @@ def receive_do_connect(dialect, conn_rec, cargs, cparams):
     if not dialect.name == "databricks":
         return
 
-    ua = cparams.get("_user_agent_entry", "")
+    ua = cparams.pop("_user_agent_entry", "") or cparams.get("user_agent_entry", "")
 
     def add_sqla_tag_if_not_present(val: str):
         if not val:
@@ -442,7 +457,7 @@ def receive_do_connect(dialect, conn_rec, cargs, cparams):
 
         return output
 
-    cparams["_user_agent_entry"] = add_sqla_tag_if_not_present(ua)
+    cparams["user_agent_entry"] = add_sqla_tag_if_not_present(ua)
 
     if sqlalchemy.__version__.startswith("1.3"):
         # SQLAlchemy 1.3.x fails to parse the http_path, catalog, and schema from our connection string

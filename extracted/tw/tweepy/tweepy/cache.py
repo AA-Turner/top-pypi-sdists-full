@@ -400,7 +400,7 @@ class MongodbCache(Cache):
     def store(self, key, value):
         from bson.binary import Binary
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         blob = Binary(pickle.dumps(value))
 
         self.col.insert({'created': now, '_id': key, 'value': blob})

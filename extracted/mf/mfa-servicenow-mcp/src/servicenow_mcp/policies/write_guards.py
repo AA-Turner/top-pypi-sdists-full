@@ -70,8 +70,10 @@ class _EditTarget:
 
 # Registry of manage_* write tools that identify their target by a tool-specific
 # id arg (not a generic table+sys_id). Only single-record update/delete actions
-# on one known table are listed; ambiguous junction/multi-table actions (link,
-# add_members, update_activity) and creates are deliberately omitted → fail-open.
+# on one known table are listed; ambiguous junction/multi-record actions (link,
+# add_members, reorder_activities) and creates are deliberately omitted →
+# fail-open. Tools whose actions span a SECOND table get an extra entry in
+# _CONCURRENT_EDIT_REGISTRY_SECONDARY below.
 _CONCURRENT_EDIT_REGISTRY: Dict[str, _EditTarget] = {
     "manage_incident": _EditTarget(
         "incident", "incident_id", frozenset({"update", "comment", "resolve"}), ("sys_id", "number")
@@ -111,6 +113,21 @@ _CONCURRENT_EDIT_REGISTRY: Dict[str, _EditTarget] = {
     ),
 }
 
+# Additional per-tool targets for bundles whose actions write MORE than one
+# table (each action set must be disjoint from the primary entry's). Checked by
+# _g8_registry_concurrent_edit alongside the primary registry.
+_CONCURRENT_EDIT_REGISTRY_SECONDARY: Dict[str, Tuple[_EditTarget, ...]] = {
+    # Activity-level edits target wf_activity by activity_id; without this a
+    # blind overwrite of another user's concurrent activity edit went undetected.
+    "manage_workflow": (
+        _EditTarget(
+            "wf_activity",
+            "activity_id",
+            frozenset({"update_activity", "delete_activity"}),
+        ),
+    ),
+}
+
 
 @dataclass(frozen=True)
 class _CreateDupTarget:
@@ -145,6 +162,16 @@ ENV_WRITE_GUARDS = "SERVICENOW_WRITE_GUARDS"  # master toggle ("off" disables al
 ENV_CONCURRENT_WINDOW_MIN = "SERVICENOW_CONCURRENT_EDIT_WINDOW_MIN"
 ENV_CONCURRENT_GUARD = "SERVICENOW_CONCURRENT_EDIT_GUARD"  # disables G3+G8 only
 DEFAULT_CONCURRENT_WINDOW_MIN = 10
+
+# Opt-in fail-CLOSED for the concurrent-edit guard. Default is fail-open: if the
+# pre-write audit read cannot run (network error, ACL denial, 5xx), the guard
+# lets the write through rather than blocking a legitimate write on missing data.
+# Security-sensitive callers can flip this to "closed" so a guard that *could not
+# verify* blocks instead of silently passing — trading availability for the
+# guarantee that a lost-update check never silently no-ops. Scoped to the
+# read-FAILED case only; a read that succeeds and finds no conflict still passes.
+ENV_WRITE_GUARDS_FAIL = "SERVICENOW_WRITE_GUARDS_FAIL"  # "closed" ⇒ fail-closed
+_FAIL_CLOSED_VALUES = ("closed", "close", "strict", "1", "true", "yes")
 
 # G6 — tables that must only be written via scaffold tools.
 FLOW_DESIGNER_INTERNAL_TABLES = frozenset(
@@ -204,9 +231,50 @@ def preview_hint(tool_name: str) -> str:
     return _PREVIEW_HINTS.get(tool_name, "")
 
 
-# Read-only manage_X sub-actions (mirror of server.MANAGE_READ_ACTIONS).
-# Duplicated here to avoid circular import; keep in sync.
-_MANAGE_READ_ACTIONS: Dict[str, frozenset] = {
+# ---------------------------------------------------------------------------
+# Write classification — SINGLE SOURCE OF TRUTH.
+#
+# server.py imports these (module-level import is safe: this module only
+# imports stdlib at module level). History: this table used to be a hand
+# mirror of server.MANAGE_READ_ACTIONS "to avoid circular import" — and it
+# drifted (get_action_source was read-only in server but a write here, so a
+# pure read ran the concurrent-edit guards). Never fork these tables again;
+# tests/test_write_classification.py pins identity.
+# ---------------------------------------------------------------------------
+
+# Tool-name prefixes that mean "this call mutates ServiceNow data".
+# manage_* is a write bundle by default; read-only sub-actions are exempted
+# via MANAGE_READ_ACTIONS below.
+MUTATING_TOOL_PREFIXES = (
+    "create_",
+    "update_",
+    "delete_",
+    "remove_",
+    "add_",
+    "move_",
+    "activate_",
+    "deactivate_",
+    "commit_",
+    "publish_",
+    "submit_",
+    "approve_",
+    "reject_",
+    "resolve_",
+    "reorder_",
+    "execute_",
+    "assign_",
+    "manage_",
+)
+
+# Mutating tools whose NAME matches no prefix above. Any new tool that writes
+# but doesn't match a prefix MUST be listed here, or it silently bypasses the
+# confirm gate AND the allow_writes read-only guard (the scaffold_page bug).
+MUTATING_TOOL_NAMES = frozenset({"sn_batch", "sn_write", "scaffold_page"})
+
+# manage_<X>: per-tool set of action values that are read-only (no confirm).
+# Bundles whose actions are all writes don't appear here — the prefix gate
+# applies.
+MANAGE_READ_ACTIONS: Dict[str, frozenset] = {
     "manage_incident": frozenset({"get"}),
     "manage_change": frozenset({"get"}),
     "manage_changeset": frozenset({"get"}),
@@ -220,7 +288,15 @@ _MANAGE_READ_ACTIONS: Dict[str, frozenset] = {
     ),
     "manage_kb_article": frozenset({"list_kbs", "list_articles", "get_article", "list_categories"}),
     "manage_flow_designer": frozenset(
-        {"list", "get_detail", "get_executions", "compare", "edit_status"}
+        {
+            "list",
+            "get_detail",
+            "get_executions",
+            "compare",
+            "edit_status",
+            "get_action_source",
+            "read_action",
+        }
     ),
     "manage_project": frozenset({"list"}),
     "manage_epic": frozenset({"list"}),
@@ -266,35 +342,22 @@ def _concurrent_guard_enabled() -> bool:
     return os.getenv(ENV_CONCURRENT_GUARD, "on").lower() not in ("off", "false", "0", "no")
 
 
+def _fail_closed() -> bool:
+    """True when the operator opted the concurrent-edit guard into fail-CLOSED —
+    an audit read that could not run blocks the write instead of passing."""
+    return os.getenv(ENV_WRITE_GUARDS_FAIL, "").strip().lower() in _FAIL_CLOSED_VALUES
+
+
 def _is_read_only(tool_name: str, arguments: Dict[str, Any]) -> bool:
     """True if this call doesn't mutate ServiceNow data."""
-    if tool_name in {"sn_write", "sn_batch"}:
+    if tool_name in MUTATING_TOOL_NAMES:
         return False
     if tool_name.startswith("manage_"):
-        read_actions = _MANAGE_READ_ACTIONS.get(tool_name)
+        read_actions = MANAGE_READ_ACTIONS.get(tool_name)
         if read_actions is not None:
             return arguments.get("action") in read_actions
         return False
-    mutation_prefixes = (
-        "create_",
-        "update_",
-        "delete_",
-        "remove_",
-        "add_",
-        "move_",
-        "activate_",
-        "deactivate_",
-        "commit_",
-        "publish_",
-        "submit_",
-        "approve_",
-        "reject_",
-        "resolve_",
-        "reorder_",
-        "execute_",
-        "assign_",
-    )
-    if tool_name.startswith(mutation_prefixes):
+    if tool_name.startswith(MUTATING_TOOL_PREFIXES):
         return False
     return True
 
@@ -474,7 +537,21 @@ def _check_concurrent_edit(
     confirmed clash. `label` (e.g. "incident/INC001") is for the message only."""
     target, server_now = _fetch_record_audit(ctx, table, query)
     if target is None:
-        return  # fail-open if audit fetch fails
+        # Distinguish "read FAILED" from "record legitimately absent":
+        # _fetch_record_audit returns (None, None) only when the request itself
+        # raised; a successful read with no matching row still parses the Date
+        # header, so server_now is set. Fail-closed applies ONLY to the former —
+        # a genuine record-not-found has nothing to conflict with.
+        if server_now is None and _fail_closed():
+            raise PolicyViolation(
+                guard,
+                f"Concurrent-edit guard could not verify {label}: the pre-write "
+                f"audit read failed (network, ACL, or 5xx). Fail-closed mode "
+                f"({ENV_WRITE_GUARDS_FAIL}=closed) blocks rather than risk a "
+                f"silent lost update. Retry, or set {ENV_WRITE_GUARDS_FAIL} back "
+                f"to its default (fail-open) if this instance denies audit reads.",
+            )
+        return  # fail-open (default): audit fetch failed or record absent
 
     other = (target.get("sys_updated_by") or "").strip()
     me = (_current_username(ctx.server) or "").strip()
@@ -556,22 +633,24 @@ def _g8_registry_concurrent_edit(ctx: WriteGuardContext) -> None:
     matches the exact record regardless of which identifier form was passed."""
     if not _concurrent_guard_enabled():
         return
-    target = _CONCURRENT_EDIT_REGISTRY.get(ctx.tool_name)
-    if target is None:
-        return
+    primary = _CONCURRENT_EDIT_REGISTRY.get(ctx.tool_name)
+    targets = ([primary] if primary else []) + list(
+        _CONCURRENT_EDIT_REGISTRY_SECONDARY.get(ctx.tool_name, ())
+    )
     action = str(ctx.arguments.get("action") or "").lower()
-    if action not in target.update_actions:
-        return
-    value = str(ctx.arguments.get(target.id_arg) or "").strip()
-    if not value:
-        return
-    # Resolve the target table — static, or derived from args for multi-table
-    # tools. An unresolvable table fails open (skip) rather than guessing.
-    table = target.table_fn(ctx.arguments) if target.table_fn else target.table
-    if not table:
-        return
-    query = "^OR".join(f"{col}={value}" for col in target.id_columns)
-    _check_concurrent_edit(ctx, table, query, f"{table}/{value}", guard="G8")
+    for target in targets:
+        if action not in target.update_actions:
+            continue
+        value = str(ctx.arguments.get(target.id_arg) or "").strip()
+        if not value:
+            continue
+        # Resolve the target table — static, or derived from args for multi-table
+        # tools. An unresolvable table fails open (skip) rather than guessing.
+        table = target.table_fn(ctx.arguments) if target.table_fn else target.table
+        if not table:
+            continue
+        query = "^OR".join(f"{col}={value}" for col in target.id_columns)
+        _check_concurrent_edit(ctx, table, query, f"{table}/{value}", guard="G8")
 
 
 def _fetch_existing_by_name(

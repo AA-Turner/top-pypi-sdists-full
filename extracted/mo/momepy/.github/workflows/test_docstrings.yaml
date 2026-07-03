@@ -1,11 +1,12 @@
+---
 name: Test docstrings
 
-on:
+on:  # yamllint disable-line rule:truthy
   push:
     branches: [main]
   pull_request:
-      branches:
-        - "*"
+    branches:
+      - "*"
   schedule:
     - cron: "0 0 * * 1,4"
   workflow_dispatch:
@@ -14,7 +15,6 @@ on:
         description: Manual docstring test
         default: test
         required: false
-
 
 jobs:
   Test:
@@ -25,10 +25,12 @@ jobs:
         shell: bash -l {0}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # Fetch all history for all branches and tags.
 
       - name: setup micromamba
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           environment-file: ci/envs/314-latest.yaml
 
@@ -37,5 +39,4 @@ jobs:
 
       - name: Test docstrings
         run: |
-          pytest -v --color=yes --doctest-only momepy/functional
-
+          pytest -v --color=yes --doctest-only momepy

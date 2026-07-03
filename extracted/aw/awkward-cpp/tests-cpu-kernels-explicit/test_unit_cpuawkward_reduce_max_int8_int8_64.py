@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-06-08 AT 11:28:09
+# AUTO GENERATED ON 2026-07-02 AT 19:33:43
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -20,14 +20,11 @@ def test_unit_cpuawkward_reduce_max_int8_int8_64_1():
     fromptr = [1, 3, 5, 4, 2, 2, 3, 1, 5]
     fromptr = (ctypes.c_int8*len(fromptr))(*fromptr)
     identity = 4
-    lenparents = 9
     outlength = 4
-    parents = [0, 0, 0, 0, 0, 2, 2, 2, 3]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 5, 5, 8, 9]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_max_int8_int8_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength, identity)
+    ret_pass = funcC(toptr, fromptr, offsets, outlength, identity)
     pytest_toptr = [5, 4, 4, 5]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -38,14 +35,11 @@ def test_unit_cpuawkward_reduce_max_int8_int8_64_2():
     fromptr = [1, 3, 6, 4, 2, 2, 3, 1, 6]
     fromptr = (ctypes.c_int8*len(fromptr))(*fromptr)
     identity = 4
-    lenparents = 9
     outlength = 4
-    parents = [0, 0, 0, 0, 0, 2, 2, 2, 3]
-    parents = (ctypes.c_int64*len(parents))(*parents)
     offsets = [0, 5, 5, 8, 9]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_max_int8_int8_64')
-    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength, identity)
+    ret_pass = funcC(toptr, fromptr, offsets, outlength, identity)
     pytest_toptr = [6, 4, 4, 6]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str

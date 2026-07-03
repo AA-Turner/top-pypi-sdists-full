@@ -117,6 +117,14 @@ class _CommunicationQuality(SHCDevice):
     def communicationquality(self) -> CommunicationQualityService.State:
         return self._communicationquality_service.value
 
+    def request_communication_quality_test(self) -> None:
+        """Trigger a fresh communication-quality measurement (write-only)."""
+        self._communicationquality_service.request_quality_test()
+
+    async def async_request_communication_quality_test(self) -> None:
+        """Async counterpart to request_communication_quality_test."""
+        await self._communicationquality_service.async_request_quality_test()
+
 
 class _PowerMeter(SHCDevice):
     def __init__(
@@ -975,6 +983,12 @@ class SHCLightControl(_CommunicationQuality, _PowerMeter):
         if self._switch_config_service is not None:
             await self._switch_config_service.async_set_outputMode(value)
 
+    @property
+    def supports_swap_outputs(self) -> bool | None:
+        if self._switch_config_service is None:
+            return None
+        return self._switch_config_service.supports_swap_outputs
+
 
 class SHCMicromoduleRelay(
     _CommunicationQuality, _ChildProtection, _PowerSwitch, _PowerSwitchProgram
@@ -1122,6 +1136,12 @@ class SHCMicromoduleRelay(
     ) -> None:
         if self._switch_config_service is not None:
             await self._switch_config_service.async_set_outputMode(value)
+
+    @property
+    def supports_swap_outputs(self) -> bool | None:
+        if self._switch_config_service is None:
+            return None
+        return self._switch_config_service.supports_swap_outputs
 
     @property
     def supports_switch_configuration(self) -> bool:
@@ -1327,6 +1347,45 @@ class SHCShutterContact2(SHCShutterContact, _CommunicationQuality):
         """Async write: set bypass on Bypass service."""
         await self._bypass_service.async_put_state_element(
             "state", "BYPASS_ACTIVE" if state else "BYPASS_INACTIVE"
+        )
+
+    @property
+    def bypass_configuration_enabled(self) -> bool:
+        """Whether timed/infinite bypass configuration is enabled."""
+        return self._bypass_service.configuration_enabled
+
+    @property
+    def bypass_timeout(self) -> int:
+        """Bypass auto-expiry timeout in seconds (ignored if infinite)."""
+        return self._bypass_service.timeout
+
+    @property
+    def bypass_infinite(self) -> bool:
+        """Whether an active bypass never expires."""
+        return self._bypass_service.infinite
+
+    def set_bypass_configuration(
+        self,
+        *,
+        enabled: bool | None = None,
+        timeout: int | None = None,
+        infinite: bool | None = None,
+    ) -> None:
+        """Write: update the bypass timeout/infinite configuration."""
+        self._bypass_service.set_bypass_configuration(
+            enabled=enabled, timeout=timeout, infinite=infinite
+        )
+
+    async def async_set_bypass_configuration(
+        self,
+        *,
+        enabled: bool | None = None,
+        timeout: int | None = None,
+        infinite: bool | None = None,
+    ) -> None:
+        """Async write: update the bypass timeout/infinite configuration."""
+        await self._bypass_service.async_set_bypass_configuration(
+            enabled=enabled, timeout=timeout, infinite=infinite
         )
 
 
@@ -1543,7 +1602,7 @@ class SHCThermostat(
         )  # type: ignore[assignment]
 
     @property
-    def position(self) -> float:
+    def position(self) -> int:
         return self._valvetappet_service.position
 
     @property
@@ -2195,10 +2254,12 @@ class SHCMotionDetector2(SHCBatteryDevice):
         raw_device_services: list[dict[str, Any]],
     ) -> None:
         super().__init__(api, raw_device, raw_device_services)
-        self._multi_level_switch_service: MultiLevelSwitchService = self.device_service(  # type: ignore[assignment]
-            "MultiLevelSwitch"
+        self._multi_level_switch_service: MultiLevelSwitchService | None = (
+            self.device_service(  # type: ignore[assignment]
+                "MultiLevelSwitch"
+            )
         )
-        self._binaryswitch_service: BinarySwitchService = self.device_service(  # type: ignore[assignment]
+        self._binaryswitch_service: BinarySwitchService | None = self.device_service(  # type: ignore[assignment]
             "BinarySwitch"
         )
         self._detectiontest_service: DetectionTestService | None = self.device_service(  # type: ignore[assignment]
@@ -2255,27 +2316,57 @@ class SHCMotionDetector2(SHCBatteryDevice):
         return self._multi_level_sensor_service.illuminance
 
     @property
+    def supports_light(self) -> bool:
+        """Whether this MD2 has the [+M] indicator-light services.
+
+        BinarySwitch/MultiLevelSwitch presence depends on the physical
+        [+M] hardware variant, NOT on the installation profile — a
+        GENERIC-profile MD2 [+M] still reports both services (rawscan-
+        confirmed, hass#356: same device, profile GENERIC, both services
+        present on 2026-05-05 and 2026-06-23). A base MD2 without the
+        [+M] light module has neither service. Without this guard, every
+        property/setter below would raise AttributeError on a None
+        service for the (common) non-[+M] case.
+        """
+        return (
+            self._multi_level_switch_service is not None
+            and self._binaryswitch_service is not None
+        )
+
+    @property
     def multi_level_switch(self) -> int:
+        if self._multi_level_switch_service is None:
+            return 0
         return self._multi_level_switch_service.value
 
     @multi_level_switch.setter
     def multi_level_switch(self, value: int) -> None:
+        if self._multi_level_switch_service is None:
+            return
         self._multi_level_switch_service.put_state_element("level", value)
 
     async def async_set_multi_level_switch(self, value: int) -> None:
         """Async write: set indicator light brightness level (0-100)."""
+        if self._multi_level_switch_service is None:
+            return
         await self._multi_level_switch_service.async_put_state_element("level", value)
 
     @property
     def binaryswitch(self) -> bool:
+        if self._binaryswitch_service is None:
+            return False
         return self._binaryswitch_service.value
 
     @binaryswitch.setter
     def binaryswitch(self, value: bool) -> None:
+        if self._binaryswitch_service is None:
+            return
         self._binaryswitch_service.put_state_element("on", bool(value))
 
     async def async_set_binaryswitch(self, value: bool) -> None:
         """Async write: turn indicator light on/off via BinarySwitch service."""
+        if self._binaryswitch_service is None:
+            return
         await self._binaryswitch_service.async_put_state_element("on", bool(value))
 
     @property
@@ -2532,7 +2623,10 @@ class SHCTwinguard(SHCBatteryDevice):
         return self._airqualitylevel_service.humidityRating
 
     @property
-    def purity(self) -> float:
+    def purity(self) -> int:
+        # See AirQualityLevelService.purity in services_impl.py: the APK's
+        # AirQualityLevelState model declares purity as java.lang.Integer
+        # (unlike temperature/humidity, which are Float) -- kept as int.
         return self._airqualitylevel_service.purity
 
     @property

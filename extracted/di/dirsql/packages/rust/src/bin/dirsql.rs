@@ -9,12 +9,9 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 use dirsql::cli::{
-    AppState, ServerConfig,
-    init::InitOptions,
-    native_config::{InterpretHelper, build_dirsql},
-    serve_with_state,
+    AppState, PostQuery, PreQuery, ServerConfig, init::InitOptions, serve_with_state,
 };
-use dirsql::{DirSQL, Row, Table};
+use dirsql::{DirSQL, Extension, Row, Table};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -46,6 +43,19 @@ struct Cli {
     /// TCP port to bind. Used when no subcommand is given.
     #[arg(long, default_value_t = 7117)]
     port: u16,
+
+    /// Load a SQLite extension by literal path, overriding a TOML config's
+    /// `[[dirsql.extension]]` entries. Repeatable. Format: `<path>` or
+    /// `<path>::<entrypoint>`.
+    ///
+    /// Intended for the language launcher (pip/npm), not end users: the
+    /// launcher resolves config extensions — including bare **package names**,
+    /// which need an interpreter this compiled binary lacks (see #227) — and
+    /// passes the resolved literal paths here. When any are present, the TOML
+    /// config's own extension entries are not loaded (the launcher already
+    /// merged and resolved them).
+    #[arg(long = "extension")]
+    extension: Vec<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -110,7 +120,13 @@ fn run_init(args: InitArgs) -> ExitCode {
 
 async fn run_server(cli: Cli) -> ExitCode {
     let state = load_state(&cli);
-    let server_config = ServerConfig::bind(cli.host.clone(), cli.port);
+    let mut server_config = ServerConfig::bind(cli.host.clone(), cli.port);
+    if let Some(pre_query) = load_pre_query(&cli) {
+        server_config = server_config.with_pre_query(pre_query);
+    }
+    if let Some(post_query) = load_post_query(&cli) {
+        server_config = server_config.with_post_query(post_query);
+    }
 
     let host = cli.host.clone();
     let handle = match serve_with_state(server_config, state).await {
@@ -157,71 +173,81 @@ fn load_state(cli: &Cli) -> AppState {
         }
     };
 
-    if is_native_config(&resolved) {
-        return load_native_state(&resolved);
-    }
-
-    match DirSQL::from_config_path(&resolved) {
+    // Launcher-resolved extensions (`--extension`) override the TOML config's
+    // own `[[dirsql.extension]]` entries: the launcher has already merged and
+    // resolved them (including package names the compiled binary can't resolve;
+    // #227), so build from the config but suppress its extension loading and
+    // supply the resolved literal paths instead.
+    let build = if cli.extension.is_empty() {
+        DirSQL::from_config_path(&resolved)
+    } else {
+        DirSQL::builder()
+            .config(&resolved)
+            .extensions(parse_extension_specs(&cli.extension))
+            .suppress_config_extensions(true)
+            .build()
+    };
+    match build {
         Ok(db) => AppState::Ready(db),
         Err(err) => AppState::Unavailable(format!("failed to load config: {err}")),
     }
 }
 
-/// Native-language config support: `--config X.{py,js,mjs,cjs}` delegates
-/// to `dirsql interpret <X>` (spawned via PATH) for `extract` execution.
-/// The binary still owns SQL, HTTP, and the file watcher.
-fn is_native_config(path: &Path) -> bool {
-    matches!(
-        path.extension().and_then(|s| s.to_str()),
-        Some("py") | Some("js") | Some("mjs") | Some("cjs")
-    )
+/// Parse `--extension` specs (`<path>` or `<path>::<entrypoint>`) into
+/// [`Extension`]s. Splitting on the first `::` keeps a path that itself
+/// contains `::` unambiguous only after the entrypoint boundary — entrypoints
+/// are C identifiers, so the first `::` is the boundary.
+fn parse_extension_specs(specs: &[String]) -> Vec<Extension> {
+    specs
+        .iter()
+        .map(|spec| match spec.split_once("::") {
+            Some((path, entrypoint)) => Extension {
+                path: PathBuf::from(path),
+                entrypoint: Some(entrypoint.to_string()),
+            },
+            None => Extension {
+                path: PathBuf::from(spec),
+                entrypoint: None,
+            },
+        })
+        .collect()
 }
 
-fn load_native_state(config_path: &Path) -> AppState {
-    let (helper, config) = match spawn_interpret_helper(config_path) {
-        Ok(x) => x,
-        Err(err) => return AppState::Unavailable(err),
-    };
-    match build_dirsql(helper, config) {
-        Ok(db) => AppState::Ready(db),
-        Err(err) => AppState::Unavailable(format!(
-            "failed to build DirSQL from {}: {err}",
-            config_path.display()
-        )),
+/// Extract the server-wide `pre-query` hook from the config, if any.
+///
+/// Returns `None` when the config is absent, unresolvable, unparsable, or
+/// declares no `pre-query` — the server then parses `POST /query` bodies as
+/// `{"sql": …}` (the degraded / zero-config paths never get a hook). The
+/// command's working directory is the config file's parent, mirroring the
+/// `on-file` contract. Config resolution mirrors [`load_state`]: a config that
+/// fails here also fails there (leaving the server degraded), so the hook is
+/// simply skipped.
+fn load_pre_query(cli: &Cli) -> Option<PreQuery> {
+    let config_path = &cli.config;
+    if !config_path.exists() {
+        return None;
     }
+    let resolved = config_path.canonicalize().ok()?;
+    let command = dirsql::config::load_config(&resolved).ok()?.pre_query?;
+    let config_dir = resolved.parent()?.to_path_buf();
+    Some(PreQuery::new(command, config_dir))
 }
 
-/// Spawn `dirsql interpret <config_path>` via PATH and hand the child
-/// off to [`InterpretHelper::from_child`]. Lives in the CLI binary
-/// (rather than the lib's `cli::native_config` module) because the
-/// `Command::new("dirsql")` plumbing is only meaningfully exercised
-/// end-to-end via the `dirsql --config X.{py,js,mjs,cjs}` integration
-/// path — there's no useful in-process unit test for it.
-fn spawn_interpret_helper(
-    config_path: &Path,
-) -> Result<
-    (
-        std::sync::Arc<InterpretHelper>,
-        dirsql::cli::native_config::NativeConfig,
-    ),
-    String,
-> {
-    use std::process::{Command, Stdio};
-    let child = Command::new("dirsql")
-        .arg("interpret")
-        .arg(config_path)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .map_err(|e| {
-            format!(
-                "failed to spawn `dirsql interpret`: {e}. \
-                 Native-language configs require a launcher that implements `interpret` \
-                 on PATH (install dirsql via pip/uv or npm/npx)."
-            )
-        })?;
-    InterpretHelper::from_child(child)
+/// Extract the server-wide `post-query` hook from the config, if any.
+///
+/// Returns `None` when the config is absent, unresolvable, unparsable, or
+/// declares no `post-query` — the server then returns `POST /query` result rows
+/// as-is (the degraded / zero-config paths never get a hook). The command's
+/// working directory is the config file's parent, mirroring [`load_pre_query`].
+fn load_post_query(cli: &Cli) -> Option<PostQuery> {
+    let config_path = &cli.config;
+    if !config_path.exists() {
+        return None;
+    }
+    let resolved = config_path.canonicalize().ok()?;
+    let command = dirsql::config::load_config(&resolved).ok()?.post_query?;
+    let config_dir = resolved.parent()?.to_path_buf();
+    Some(PostQuery::new(command, config_dir))
 }
 
 /// Zero-config fallback. When no `.dirsql.toml` is found, dirsql indexes the
@@ -287,24 +313,49 @@ mod tests {
     use super::*;
 
     #[test]
-    fn is_native_config_matches_script_extensions() {
-        for ext in ["py", "js", "mjs", "cjs"] {
-            let path = format!("cfg.{ext}");
-            assert!(
-                is_native_config(Path::new(&path)),
-                "expected .{ext} to be treated as a native config"
-            );
-        }
+    fn parse_extension_specs_handles_bare_path_and_entrypoint() {
+        let specs = vec![
+            "/abs/vec0.so".to_string(),
+            "/abs/spellfix.so::sqlite3_spellfix_init".to_string(),
+        ];
+        let exts = parse_extension_specs(&specs);
+        assert_eq!(exts.len(), 2);
+        assert_eq!(exts[0].path, PathBuf::from("/abs/vec0.so"));
+        assert!(exts[0].entrypoint.is_none());
+        assert_eq!(exts[1].path, PathBuf::from("/abs/spellfix.so"));
+        assert_eq!(exts[1].entrypoint.as_deref(), Some("sqlite3_spellfix_init"));
     }
 
     #[test]
-    fn is_native_config_rejects_other_extensions_and_casing() {
-        // `.toml` is the built-in format; bare/uppercase extensions are not
-        // delegated to the `interpret` helper.
-        for name in ["cfg.toml", "cfg.txt", "cfg", "cfg.PY", "cfg.JS"] {
+    fn parse_extension_specs_splits_on_first_double_colon() {
+        let specs = vec!["/a.so::init::extra".to_string()];
+        let exts = parse_extension_specs(&specs);
+        assert_eq!(exts[0].path, PathBuf::from("/a.so"));
+        assert_eq!(exts[0].entrypoint.as_deref(), Some("init::extra"));
+    }
+
+    #[test]
+    fn default_files_table_declares_filesystem_fact_columns_over_recursive_glob() {
+        // The zero-config fallback table is pure data: a fixed DDL naming only
+        // the auto-injected filesystem-fact columns and a `**/*` glob that
+        // matches every file at any depth. The extract closure is never
+        // invoked here, so this stays a pure unit test.
+        let table = default_files_table();
+        assert_eq!(table.glob, "**/*");
+        assert!(table.ddl.starts_with("CREATE TABLE files ("));
+        for col in [
+            "_path",
+            "_basename",
+            "_dir",
+            "_ext",
+            "_size",
+            "_mtime",
+            "_ctime",
+        ] {
             assert!(
-                !is_native_config(Path::new(name)),
-                "expected {name} not to be treated as a native config"
+                table.ddl.contains(col),
+                "default files DDL must declare {col}, got: {}",
+                table.ddl
             );
         }
     }

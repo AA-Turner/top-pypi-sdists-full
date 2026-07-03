@@ -1025,6 +1025,15 @@ def test_as_coo(format):
     assert_eq(x, s2)
 
 
+@pytest.mark.parametrize(
+    "format", [sparse.COO, sparse.GCXS, sparse.DOK, sparse._compressed.CSC, sparse._compressed.CSR]
+)
+def test_as_copy(format):
+    x = format.from_numpy(np.array([[1, 0], [0, 2]]))
+    y = sparse.asarray(x, copy=True)
+    assert y is not x
+
+
 def test_invalid_attrs_error():
     s = sparse.random((3, 4), density=0.5, format="coo")
 
@@ -1682,7 +1691,7 @@ class TestSqueeze:
     def test_squeeze_validation(self):
         s_arr = sparse.COO.from_numpy(np.eye(3))
 
-        with pytest.raises(IndexError, match="tuple index out of range"):
+        with pytest.raises(ValueError, match="Invalid axis index"):
             s_arr.squeeze(3)
 
         with pytest.raises(ValueError, match="Invalid axis parameter: `1.1`."):
@@ -1717,6 +1726,40 @@ class TestUnique:
         expected = np.unique(arr)
 
         np.testing.assert_equal(result, expected)
+
+    def test_unique_values_nan_distinct(self):
+        # Per the Array API spec, NaN values compare as False and must be treated
+        # as distinct elements, not collapsed into one.
+        arr = sparse.asarray([float("nan"), float("nan")])
+        result = sparse.unique_values(arr)
+        assert result.shape == (2,)
+        assert all(np.isnan(result))
+
+    def test_unique_values_nan_fill_value(self):
+        # When fill_value is NaN, each un-stored slot is a distinct NaN.
+        arr = sparse.COO(coords=[[0, 2]], data=[1.0, 2.0], shape=(4,), fill_value=float("nan"))
+        result = sparse.unique_values(arr)
+        # dense: [1., nan, 2., nan] -> unique (nan distinct): [1., 2., nan, nan]
+        assert result.shape == (4,)
+        np.testing.assert_equal(result[:2], [1.0, 2.0])
+        assert all(np.isnan(result[2:]))
+
+    def test_unique_counts_nan_distinct(self):
+        # Each NaN occurrence must be counted separately.
+        arr = sparse.asarray([float("nan"), float("nan"), float("nan")])
+        result = sparse.unique_counts(arr)
+        assert result.values.shape == (3,)
+        assert all(np.isnan(result.values))
+        np.testing.assert_equal(result.counts, [1, 1, 1])
+
+    def test_unique_counts_nan_fill_value(self):
+        # When fill_value is NaN, each un-stored slot is a distinct NaN count.
+        arr = sparse.COO(coords=[[0, 2]], data=[1.0, 2.0], shape=(4,), fill_value=float("nan"))
+        result = sparse.unique_counts(arr)
+        # dense: [1., nan, 2., nan] -> unique counts: [(1., 1), (2., 1), (nan, 1), (nan, 1)]
+        np.testing.assert_equal(result.values[:2], [1.0, 2.0])
+        assert all(np.isnan(result.values[2:]))
+        np.testing.assert_equal(result.counts, [1, 1, 1, 1])
 
     @pytest.mark.parametrize("func", [sparse.unique_counts, sparse.unique_values])
     def test_input_validation(self, func):

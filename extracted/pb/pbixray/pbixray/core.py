@@ -32,7 +32,7 @@ class PBIXRay:
         self._metadata = Metadata(self._data_model)
         self._vertipaq_decoder = VertiPaqDecoder(self._metadata.source, self._data_model)
 
-    def get_table(self, table_name, columns=None):
+    def get_table(self, table_name, columns=None, strings_as_categorical=False):
         """Generates a DataFrame representation of the specified table.
 
         Args:
@@ -40,8 +40,49 @@ class PBIXRay:
             columns: Optional list of column names to decode. When provided, only
                 those columns are decoded (useful for wide tables); ``None``
                 decodes every column.
+            strings_as_categorical: When ``True``, string columns are returned
+                as ``pd.Categorical`` so each distinct value is stored once
+                instead of once per row. Default ``False`` keeps the original
+                object-dtype output.
         """
-        return self._vertipaq_decoder.get_table(table_name, columns=columns)
+        return self._vertipaq_decoder.get_table(
+            table_name, columns=columns, strings_as_categorical=strings_as_categorical
+        )
+
+    def iter_table(self, table_name, columns=None, chunk_size=None,
+                   strings_as_categorical=True):
+        """Iterates over the specified table as a sequence of DataFrame chunks.
+
+        Use this instead of :meth:`get_table` for tables too large to
+        materialize whole. Chunks follow VertiPaq segment boundaries
+        (partitions flattened in storage order); ``chunk_size`` further
+        splits each segment, so a chunk never spans two segments and tail
+        chunks may be shorter than ``chunk_size``.
+
+        Dictionaries of every selected column are decoded up front and kept
+        for the whole iteration — on dictionary-heavy models (e.g. wide
+        free-text columns) pass ``columns`` to project only what you need.
+        Pairs well with ``on_disk=True``, which keeps the decompressed model
+        itself out of RAM.
+
+        Args:
+            table_name: Name of the table to decode.
+            columns: Optional list of column names to decode.
+            chunk_size: Optional maximum rows per chunk; ``None`` yields one
+                chunk per VertiPaq segment.
+            strings_as_categorical: Default ``True``: string columns come back
+                as ``pd.Categorical`` sharing one categories array across all
+                chunks. Set ``False`` for plain object-dtype strings.
+
+        Yields:
+            ``pd.DataFrame`` chunks whose index is the global row range.
+        """
+        return self._vertipaq_decoder.iter_table(
+            table_name,
+            columns=columns,
+            chunk_size=chunk_size,
+            strings_as_categorical=strings_as_categorical,
+        )
 
     def close(self):
         """Release OS resources (memory-map / temp file, metadata connection).
@@ -90,6 +131,18 @@ class PBIXRay:
     @property
     def dax_columns(self):
         return self._metadata.source.dax_columns_df
+
+    @property
+    def aggregations(self):
+        """Resolved aggregation mappings as a DataFrame.
+
+        Columns: ``AggregationTable, AggregationColumn, Summarization,
+        DetailTable, DetailColumn``. One row per aggregation-table column mapped
+        to its detail (base) table; ``DetailColumn`` is ``None`` for the
+        "Count table rows" case. Empty (with those columns) when the model has
+        no aggregations. Friendly layer over ``tmschema_alternate_of``.
+        """
+        return self._metadata.source.aggregations_df
 
     @property
     def metadata(self):
@@ -160,6 +213,33 @@ class PBIXRay:
     @property
     def rls(self):
         return self._metadata.source.rls_df
+
+    @property
+    def ols(self):
+        """Object-level security restrictions as a DataFrame.
+
+        Columns: ``RoleName, TableName, ColumnName, Scope, Permission``. One row
+        per secured object: ``Scope='Column'`` rows hide/expose a single column,
+        ``Scope='Table'`` rows (``ColumnName`` is ``None``) hide/expose a whole
+        table. ``Permission`` is ``None`` (hidden), ``Read`` (visible) or
+        ``Default``. Plain row-level-security rows are excluded (see ``rls``).
+        Empty (with those columns) when the model has no OLS. Friendly layer over
+        ``tmschema_column_permissions`` and the table permissions.
+        """
+        return self._metadata.source.ols_df
+
+    @property
+    def perspectives(self):
+        """Consolidated perspective membership as a DataFrame.
+
+        Columns: ``PerspectiveName, ObjectType, TableName, ObjectName,
+        IncludeAll``. One row per object included in a perspective, with
+        ``ObjectType`` one of ``Table, Column, Measure, Hierarchy``;
+        ``IncludeAll`` is populated only for ``Table`` rows. Empty (with those
+        columns) when the model has no perspectives. Friendly roll-up over the
+        raw ``tmschema_perspective_*`` rowsets.
+        """
+        return self._metadata.source.perspectives_view_df
 
     # -------------------------------------------------------------------------
     # TMSCHEMA_* DMV equivalents
@@ -321,3 +401,7 @@ class PBIXRay:
     @property
     def tmschema_role_memberships(self):
         return self._metadata.source.role_memberships_df
+
+    @property
+    def tmschema_column_permissions(self):
+        return self._metadata.source.column_permissions_df

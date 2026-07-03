@@ -1056,17 +1056,8 @@ class AnthropicWrapper:
         prev_span_ctx = get_current_span_context()
         set_current_span_context(run_ctx)
 
-        # Autonomous retry routing was gated on the removed autonomous mode; ctx stays None.
-        _aigie_for_retry = get_aigie()
-        _intercept_ctx = None
-
-        async def _do_call():
-            return await func(*args, **kwargs)
-
-        from aigie.autonomous.inline_call import acall_with_autonomous
-
         try:
-            response = await acall_with_autonomous(_do_call, _intercept_ctx, _aigie_for_retry)
+            response = await func(*args, **kwargs)
 
             # Extract response data
             if hasattr(response, "content") and response.content:
@@ -1170,16 +1161,8 @@ class AnthropicWrapper:
         prev_span_ctx = get_current_span_context()
         set_current_span_context(run_ctx)
 
-        # Autonomous retry routing was gated on the removed autonomous mode; ctx stays None.
-        _aigie_for_retry = get_aigie()
-        _intercept_ctx = None
-
-        from aigie.autonomous.inline_call import call_sync_with_autonomous
-
         try:
-            response = call_sync_with_autonomous(
-                lambda: func(*args, **kwargs), _intercept_ctx, _aigie_for_retry
-            )
+            response = func(*args, **kwargs)
 
             if hasattr(response, "content") and response.content:
                 content_blocks = response.content

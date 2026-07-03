@@ -63,24 +63,54 @@ class PlaybookRunner:
         """
         return self.exit_codes.get(exit_code, f"Código desconocido: {exit_code}")
     
+    def check_missing_deps(self, playbook_path: Path) -> List[str]:
+        """Detecta vars files referenciados en el playbook que no existen en disco."""
+        missing = []
+        try:
+            with open(playbook_path, encoding='utf-8') as f:
+                content = f.read()
+        except Exception:
+            return missing
+
+        # Buscar include_vars con file: o vars_files
+        patterns = [
+            r"file:\s+['\"]?([^\s'\"]+\.ya?ml)['\"]?",
+            r"vars_files:\s*\n\s+-\s+['\"]?([^\s'\"]+\.ya?ml)['\"]?",
+        ]
+        for pattern in patterns:
+            for match in re.finditer(pattern, content):
+                dep_file = match.group(1)
+                # Resolver relativo al directorio del playbook
+                dep_path = playbook_path.parent / dep_file
+                if not dep_path.exists():
+                    missing.append(dep_file)
+        return missing
+
     def run_playbook(self, playbook_path: Path) -> Tuple[bool, str, str, int]:
         """
         Ejecuta un playbook y retorna (éxito, stdout, stderr, exit_code).
-        
+
         Args:
             playbook_path: Ruta al playbook
-            
+
         Returns:
             Tupla con (éxito, stdout, stderr, exit_code)
         """
         print(f"\n{'='*80}")
         print(f"Ejecutando: {playbook_path.name}")
         print(f"{'='*80}")
+
+        # Pre-check: detectar dependencias faltantes antes de correr
+        missing_deps = self.check_missing_deps(playbook_path)
+        if missing_deps:
+            msg = f"Dependencias faltantes: {', '.join(missing_deps)}"
+            print(f"⚠ {playbook_path.name} - SKIP ({msg})")
+            return None, "", msg, -2
         
         try:
             # Ejecutar ansible-playbook con captura de salida
             result = subprocess.run(
-                ['ansible-playbook', str(playbook_path)],
+                ['ansible-playbook', '-i', 'localhost,', str(playbook_path)],
                 capture_output=True,
                 text=True,
                 timeout=600,  # Timeout de 10 minutos por playbook
@@ -91,16 +121,15 @@ class PlaybookRunner:
             stdout = result.stdout
             stderr = result.stderr
             exit_code = result.returncode
-            
+
             if success:
                 print(f"✓ {playbook_path.name} - ÉXITO")
             else:
                 exit_meaning = self.get_exit_code_meaning(exit_code)
                 print(f"✗ {playbook_path.name} - FALLÓ")
                 print(f"  Código de salida: {exit_code} - {exit_meaning}")
-                # El log se guardará después, pero informamos aquí
                 print(f"  Log completo se guardará en: {self.logs_dir}/")
-            
+
             return success, stdout, stderr, exit_code
             
         except subprocess.TimeoutExpired:
@@ -282,7 +311,23 @@ class PlaybookRunner:
             print(f"\n[{i}/{len(playbooks)}] Procesando: {playbook.name}")
             
             success, stdout, stderr, exit_code = self.run_playbook(playbook)
-            
+
+            # None = skipped por dependencias faltantes
+            if success is None:
+                self.results.append({
+                    'playbook': playbook.name,
+                    'path': str(playbook),
+                    'success': None,
+                    'exit_code': -2,
+                    'exit_meaning': 'Skipped',
+                    'error_reason': stderr,
+                    'error_category': 'Dependencia faltante',
+                    'stdout': '',
+                    'stderr': stderr,
+                    'log_file': None,
+                })
+                continue
+
             error_reason = ""
             exit_meaning = ""
             error_category = ""
@@ -290,12 +335,11 @@ class PlaybookRunner:
                 error_reason = self.extract_error_reason(stdout, stderr)
                 exit_meaning = self.get_exit_code_meaning(exit_code)
                 error_category = self.categorize_error(error_reason)
-            
-            # Guardar logs completos si falló
+
             log_file = None
             if not success:
                 log_file = self.save_logs(playbook.name, stdout, stderr, exit_code)
-            
+
             self.results.append({
                 'playbook': playbook.name,
                 'path': str(playbook),
@@ -306,7 +350,7 @@ class PlaybookRunner:
                 'error_category': error_category,
                 'stdout': stdout,
                 'stderr': stderr,
-                'log_file': log_file
+                'log_file': log_file,
             })
     
     def generate_report(self, output_file: str = None) -> str:
@@ -320,8 +364,9 @@ class PlaybookRunner:
             Contenido del informe
         """
         total = len(self.results)
-        successful = sum(1 for r in self.results if r['success'])
-        failed = total - successful
+        successful = sum(1 for r in self.results if r['success'] is True)
+        skipped = sum(1 for r in self.results if r['success'] is None)
+        failed = total - successful - skipped
         
         report_lines = []
         report_lines.append("=" * 80)
@@ -329,26 +374,37 @@ class PlaybookRunner:
         report_lines.append("=" * 80)
         report_lines.append(f"Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         report_lines.append(f"Total de playbooks: {total}")
-        report_lines.append(f"Éxitos: {successful} ({successful/total*100:.1f}%)" if total > 0 else "Éxitos: 0")
-        report_lines.append(f"Fallos: {failed} ({failed/total*100:.1f}%)" if total > 0 else "Fallos: 0")
+        report_lines.append(f"Éxitos : {successful} ({successful/total*100:.1f}%)" if total > 0 else "Éxitos: 0")
+        report_lines.append(f"Fallos : {failed} ({failed/total*100:.1f}%)" if total > 0 else "Fallos: 0")
+        report_lines.append(f"Saltados: {skipped} (dependencias faltantes)" if skipped > 0 else "Saltados: 0")
         if failed > 0:
             report_lines.append(f"Logs de playbooks fallidos guardados en: {self.logs_dir}/")
         report_lines.append("")
-        
+
         if successful > 0:
             report_lines.append("-" * 80)
             report_lines.append("PLAYBOOKS EXITOSOS")
             report_lines.append("-" * 80)
             for result in self.results:
-                if result['success']:
+                if result['success'] is True:
                     report_lines.append(f"✓ {result['playbook']}")
             report_lines.append("")
-        
+
+        if skipped > 0:
+            report_lines.append("-" * 80)
+            report_lines.append("PLAYBOOKS SALTADOS (dependencia faltante)")
+            report_lines.append("-" * 80)
+            for result in self.results:
+                if result['success'] is None:
+                    report_lines.append(f"⚠ {result['playbook']}")
+                    report_lines.append(f"  {result['error_reason']}")
+            report_lines.append("")
+
         if failed > 0:
             # Agrupar errores por categoría
             errors_by_category = defaultdict(list)
             for result in self.results:
-                if not result['success']:
+                if result['success'] is False:
                     category = result.get('error_category', 'Otro error')
                     errors_by_category[category].append(result)
             
@@ -434,7 +490,7 @@ def main():
             print("\n" + report)
         
         # Retornar código de salida apropiado
-        failed_count = sum(1 for r in runner.results if not r['success'])
+        failed_count = sum(1 for r in runner.results if r['success'] is False)
         sys.exit(0 if failed_count == 0 else 1)
         
     except KeyboardInterrupt:

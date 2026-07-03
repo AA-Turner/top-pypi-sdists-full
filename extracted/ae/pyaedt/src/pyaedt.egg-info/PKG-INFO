@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pyaedt
-Version: 1.1.0
+Version: 1.2.0
 Summary: High-level Python API for Ansys Electronics Desktop Framework
-Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
-Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
+Author-email: "Synopsys, Inc. and ANSYS, Inc." <pyansys-core@synopsys.com>
+Maintainer-email: "Synopsys, Inc. and ANSYS, Inc." <pyansys-core@synopsys.com>
 License-Expression: MIT
 Project-URL: Bugs, https://github.com/ansys/pyaedt/issues
 Project-URL: Documentation, https://aedt.docs.pyansys.com
@@ -269,7 +269,7 @@ create issues to report bugs and request new features. On the
 [Discussions](https://discuss.ansys.com/) page on the Ansys Developer portal,
 you can post questions, share ideas, and get community feedback.
 
-To reach the project support team, email [pyansys.core@ansys.com](mailto:pyansys.core@ansys.com).
+To reach the project support team, email [pyansys-core@synopsys.com](mailto:pyansys-core@synopsys.com).
 
 ## Dependencies
 

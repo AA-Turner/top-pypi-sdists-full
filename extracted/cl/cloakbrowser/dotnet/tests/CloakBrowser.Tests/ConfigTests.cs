@@ -179,3 +179,62 @@ public class ConfigTests
         }
     }
 }
+
+/// <summary>
+/// Config.BinarySupportsHeadlessNoViewport() — parity-critical: Python and JS mirror
+/// this gate. Threshold is an unshipped version, so the resolved-version path is a
+/// no-op today; the declared-version path is what these tests pin. In env-serial
+/// because the override tests mutate CLOAKBROWSER_BINARY_PATH.
+/// </summary>
+[Collection("env-serial")]
+public class HeadlessNoViewportGateTests
+{
+    [Fact]
+    public void DeclaredBelowThreshold_Off()
+    {
+        // Current live Pro version — one build below the threshold => feature OFF.
+        Assert.False(Config.BinarySupportsHeadlessNoViewport(browserVersion: "148.0.7778.215.3"));
+    }
+
+    [Fact]
+    public void DeclaredAtThreshold_On()
+    {
+        Assert.True(Config.BinarySupportsHeadlessNoViewport(browserVersion: "148.0.7778.215.4"));
+    }
+
+    [Fact]
+    public void DeclaredAboveThreshold_On()
+    {
+        Assert.True(Config.BinarySupportsHeadlessNoViewport(browserVersion: "149.0.0.0"));
+    }
+
+    [Fact]
+    public void DeclaredWinsOverLocalOverride()
+    {
+        var prev = Environment.GetEnvironmentVariable("CLOAKBROWSER_BINARY_PATH");
+        try
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_BINARY_PATH", "/fake/chrome");
+            Assert.True(Config.BinarySupportsHeadlessNoViewport(browserVersion: "149.0.0.0"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_BINARY_PATH", prev);
+        }
+    }
+
+    [Fact]
+    public void LocalOverrideWithoutDeclared_Off()
+    {
+        var prev = Environment.GetEnvironmentVariable("CLOAKBROWSER_BINARY_PATH");
+        try
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_BINARY_PATH", "/fake/chrome");
+            Assert.False(Config.BinarySupportsHeadlessNoViewport());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CLOAKBROWSER_BINARY_PATH", prev);
+        }
+    }
+}

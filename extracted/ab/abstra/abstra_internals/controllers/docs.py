@@ -18,6 +18,12 @@ _GUIDE_SOURCES = {
     ("form", "examples"): ("ai_guides", "forms_examples.md"),
     ("agent", "guide"): ("ai_guides", "agents_guide.md"),
     ("agent", "examples"): ("ai_guides", "agents_examples.md"),
+    ("job", "guide"): ("ai_guides", "jobs_guide.md"),
+    ("job", "examples"): ("ai_guides", "jobs_examples.md"),
+    ("hook", "guide"): ("ai_guides", "hooks_guide.md"),
+    ("hook", "examples"): ("ai_guides", "hooks_examples.md"),
+    ("tasklet", "guide"): ("ai_guides", "tasklets_guide.md"),
+    ("tasklet", "examples"): ("ai_guides", "tasklets_examples.md"),
 }
 
 
@@ -103,15 +109,17 @@ class DocsController:
 
     def get_stage_guide(
         self,
-        topic: Literal["page", "form", "agent"],
+        topic: Literal["page", "form", "agent", "job", "hook", "tasklet"],
         kind: Literal["guide", "examples"] = "guide",
     ) -> str:
         """
-        Get the guide or examples for writing good Abstra code for Pages,
-        Forms, or Agents. Always call this before writing any code for the respective topic.
+        Get the guide or examples for writing good Abstra code for a workflow
+        stage type: Pages, Forms, Agents, Jobs, Hooks, or Tasklets. Always call
+        this before writing any code for the respective topic.
 
         Args:
-            topic: Which topic to get docs for. One of 'page', 'form', or 'agent'.
+            topic: Which stage type to get docs for. One of 'page', 'form',
+                'agent', 'job', 'hook', or 'tasklet'.
             kind: Either 'guide' (best-practices guide) or 'examples' (annotated
                 real-world code examples). Defaults to 'guide'.
 

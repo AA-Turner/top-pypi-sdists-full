@@ -39,6 +39,10 @@ _is_processing_aliased_relation = ContextVar[bool](
 )
 _is_analyze_plan_request = ContextVar[bool]("_is_analyze_plan_request", default=False)
 _execute_root_plan_id = ContextVar[int | None]("_execute_root_plan_id", default=None)
+# Tracks the plan_id of the relation node currently being translated. Updated
+# by map_relation for every node so that error_plan_id in request_summary
+# and null-type-fallback telemetry can point to the exact plan node.
+_current_plan_id = ContextVar[int | None]("_current_plan_id", default=None)
 
 _sql_aggregate_function_count = ContextVar[int](
     "_contains_aggregate_function", default=0
@@ -582,6 +586,37 @@ def set_execute_root_plan_id(value: int | None) -> None:
     _execute_root_plan_id.set(value)
 
 
+def get_current_plan_id() -> int | None:
+    return _current_plan_id.get()
+
+
+@contextmanager
+def active_plan_id(plan_id: int | None) -> Iterator[None]:
+    """Context manager that tracks the active plan_id for the duration of a
+    map_relation call, handling both normal returns and exceptions correctly.
+
+    On normal return: the previous plan_id is restored via ContextVar.reset so
+    that the *caller's* plan_id is active again (fixes the "stale child id after
+    nested call returns" bug).
+
+    On exception: the exception is tagged with `_scos_plan_id` the *first* time
+    it passes through this context manager so that report_request_failure can
+    report the innermost origin plan node even after the ContextVar is reset.
+    """
+    if plan_id is None:
+        yield
+        return
+    token = _current_plan_id.set(plan_id)
+    try:
+        yield
+    except Exception as e:
+        if not hasattr(e, "_scos_plan_id"):
+            e._scos_plan_id = plan_id
+        raise
+    finally:
+        _current_plan_id.reset(token)
+
+
 def clear_context_data() -> None:
     _spark_session_id.set(None)
     _plan_id_map.set({})
@@ -599,6 +634,7 @@ def clear_context_data() -> None:
     _outer_dataframes.set([])
     _is_analyze_plan_request.set(False)
     _execute_root_plan_id.set(None)
+    _current_plan_id.set(None)
     _should_skip_file_read_cache_result.set(False)
 
     # Reset CLD ContextVars so state from a previous RPC handled by the same

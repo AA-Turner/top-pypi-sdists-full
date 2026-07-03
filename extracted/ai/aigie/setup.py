@@ -50,7 +50,7 @@ else:
 
 setup(
     name="aigie",
-    version="0.2.48",
+    version="0.3.1",
     description="Enterprise-grade AI agent reliability monitoring and autonomous remediation",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -128,6 +128,10 @@ setup(
         # Claude Agent SDK integration (Anthropic's official agent SDK)
         "claude-agent-sdk": [
             "claude-agent-sdk>=0.0.10",
+        ],
+        # Strands Agents SDK integration (AWS)
+        "strands": [
+            "strands-agents>=1.0",
         ],
         # Vector Database integrations
         "pinecone": [
@@ -208,6 +212,7 @@ setup(
             "langchain-core>=0.1.0",
             "langgraph>=0.0.20",
             "claude-agent-sdk>=0.0.10",
+            "strands-agents>=1.0",
             # Observability
             "opentelemetry-api>=1.20.0",
             "opentelemetry-sdk>=1.20.0",
@@ -218,6 +223,7 @@ setup(
             "langchain-core>=0.1.0",
             "langgraph>=0.0.20",
             "claude-agent-sdk>=0.0.10",
+            "strands-agents>=1.0",
         ],
     },
     # Entry points for CLI tools and pytest plugins

@@ -1,17 +1,18 @@
 Metadata-Version: 2.4
 Name: SQLAlchemy-Continuum
-Version: 1.6.0
+Version: 1.7.0
 Summary: Versioning and auditing extension for SQLAlchemy.
 Author: Mark Steward, Jose Soto
 Author-email: Konsta Vesterinen <konsta@fastmonkeys.com>
 License-Expression: BSD-3-Clause
-Project-URL: Homepage, https://github.com/kvesteri/sqlalchemy-continuum
+Project-URL: Homepage, https://github.com/sqlalchemy-continuum/sqlalchemy-continuum
+Project-URL: Documentation, https://sqlalchemy-continuum.github.io/
+Project-URL: Changelog, https://github.com/sqlalchemy-continuum/sqlalchemy-continuum/blob/main/CHANGES.rst
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -19,31 +20,16 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: SQLAlchemy<2.1,>=1.4.53
-Provides-Extra: test
-Requires-Dist: pytest>=2.3.5; extra == "test"
-Requires-Dist: psycopg2>=2.4.6; extra == "test"
-Requires-Dist: PyMySQL>=0.8.0; extra == "test"
-Requires-Dist: Flask>=0.9; extra == "test"
-Requires-Dist: Flask-Login>=0.2.9; extra == "test"
-Requires-Dist: Flask-SQLAlchemy>=1.0; extra == "test"
-Requires-Dist: packaging; extra == "test"
 Provides-Extra: flask
-Requires-Dist: Flask>=0.9; extra == "flask"
+Requires-Dist: Flask>=2.0; extra == "flask"
 Provides-Extra: flask-login
-Requires-Dist: Flask-Login>=0.2.9; extra == "flask-login"
+Requires-Dist: Flask-Login>=0.6; extra == "flask-login"
 Provides-Extra: flask-sqlalchemy
-Requires-Dist: Flask-SQLAlchemy>=1.0; extra == "flask-sqlalchemy"
-Provides-Extra: dev
-Requires-Dist: ruff>=0.1.0; extra == "dev"
-Requires-Dist: tox>=4.0.0; extra == "dev"
-Requires-Dist: pre-commit>=3.0.0; extra == "dev"
-Provides-Extra: docs
-Requires-Dist: sphinx>=4.0.0; extra == "docs"
-Requires-Dist: furo>=2021.11.0; extra == "docs"
+Requires-Dist: Flask-SQLAlchemy>=3.0; extra == "flask-sqlalchemy"
 Dynamic: license-file
 
 SQLAlchemy-Continuum
@@ -86,6 +72,7 @@ In order to make your models versioned you need two things:
 .. code-block:: python
 
 
+    import sqlalchemy as sa
     from sqlalchemy_continuum import make_versioned
 
 
@@ -128,7 +115,7 @@ For completeness, below is a working example.
 
     from sqlalchemy_continuum import make_versioned
     from sqlalchemy import Column, Integer, Unicode, UnicodeText, create_engine
-    from sqlalchemy.orm import create_session, configure_mappers, declarative_base
+    from sqlalchemy.orm import Session, configure_mappers, declarative_base
 
     make_versioned(user_cls=None)
 
@@ -143,13 +130,13 @@ For completeness, below is a working example.
     configure_mappers()
     engine = create_engine('sqlite://')
     Base.metadata.create_all(engine)
-    session = create_session(bind=engine, autocommit=False)
+    session = Session(engine)
 
-    article = Article(name=u'Some article', content=u'Some content')
+    article = Article(name='Some article', content='Some content')
     session.add(article)
     session.commit()
     article.versions[0].name
-    article.name = u'Updated name'
+    article.name = 'Updated name'
     session.commit()
     article.versions[1].name
     article.versions[0].revert()
@@ -158,16 +145,16 @@ For completeness, below is a working example.
 Resources
 ---------
 
-- `Documentation <https://sqlalchemy-continuum.readthedocs.io/>`_
-- `Issue Tracker <http://github.com/kvesteri/sqlalchemy-continuum/issues>`_
-- `Code <http://github.com/kvesteri/sqlalchemy-continuum/>`_
+- `Documentation <https://sqlalchemy-continuum.github.io/>`_
+- `Issue Tracker <https://github.com/sqlalchemy-continuum/sqlalchemy-continuum/issues>`_
+- `Code <https://github.com/sqlalchemy-continuum/sqlalchemy-continuum>`_
 
 
 .. image:: http://i.imgur.com/UFaRx.gif
 
 
-.. |Build Status| image:: https://github.com/kvesteri/sqlalchemy-continuum/workflows/Test/badge.svg
-   :target: https://github.com/kvesteri/sqlalchemy-continuum/actions?query=workflow%3ATest
+.. |Build Status| image:: https://github.com/sqlalchemy-continuum/sqlalchemy-continuum/workflows/Test/badge.svg
+   :target: https://github.com/sqlalchemy-continuum/sqlalchemy-continuum/actions?query=workflow%3ATest
 .. |Version Status| image:: https://img.shields.io/pypi/v/SQLAlchemy-Continuum.png
    :target: https://pypi.python.org/pypi/SQLAlchemy-Continuum/
 .. |Downloads| image:: https://img.shields.io/pypi/dm/SQLAlchemy-Continuum.png

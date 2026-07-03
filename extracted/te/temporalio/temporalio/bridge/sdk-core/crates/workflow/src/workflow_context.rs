@@ -2,12 +2,13 @@ mod options;
 
 pub use options::{
     ActivityCloseTimeouts, ActivityOptions, ChildWorkflowOptions, ContinueAsNewOptions,
-    LocalActivityOptions, NexusOperationOptions, Signal, SignalData, TimerOptions,
+    ContinueAsNewVersioningBehavior, LocalActivityOptions, NexusOperationOptions, Signal,
+    SignalData, TimerOptions,
 };
 pub use temporalio_common_wasm::protos::coresdk::child_workflow::StartChildWorkflowExecutionFailedCause;
 
 use crate::runtime::{
-    SdkWakeGuard,
+    SdkGuardedFuture, SdkWakeGuard,
     entry::WorkflowImplementation,
     host::WorkflowHost,
     model::{
@@ -22,11 +23,10 @@ use futures_util::{
     task::Context,
 };
 use std::{
-    cell::{Cell, Ref, RefCell},
+    cell::{Cell, RefCell},
     collections::HashMap,
     future::{self, Future},
     marker::PhantomData,
-    ops::Deref,
     pin::Pin,
     rc::Rc,
     sync::atomic::{AtomicBool, Ordering},
@@ -37,13 +37,13 @@ use temporalio_common_wasm::{
     ActivityDefinition, SignalDefinition, WorkflowDefinition,
     data_converters::{
         ActivityExecutionDecodeHint, ChildWorkflowExecutionDecodeHint,
-        ChildWorkflowSignalDecodeHint, ChildWorkflowStartDecodeHint, DataConverter,
-        GenericPayloadConverter, PayloadConversionError, PayloadConverter, SerializationContext,
-        SerializationContextData, TemporalDeserializable,
+        ChildWorkflowStartDecodeHint, DataConverter, GenericPayloadConverter, PayloadConverter,
+        SerializationContext, SerializationContextData, TemporalDeserializable,
+        WorkflowSignalDecodeHint,
     },
     error::{
-        ActivityExecutionError, ChildWorkflowExecutionError, ChildWorkflowSignalError,
-        ChildWorkflowStartError,
+        ActivityExecutionError, ChildWorkflowExecutionError, ChildWorkflowStartError,
+        WorkflowSignalError,
     },
     protos::{
         coresdk::{
@@ -66,11 +66,12 @@ use temporalio_common_wasm::{
             },
         },
         temporal::api::{
-            common::v1::{Memo, Payload, SearchAttributes},
+            common::v1::{Memo, Payload, SearchAttributes as ProtoSearchAttributes},
             failure::v1::{CanceledFailureInfo, Failure, failure::FailureInfo},
         },
         utilities::TryIntoOrNone,
     },
+    search_attributes::{SearchAttributeUpdate, SearchAttributes},
     worker::WorkerDeploymentVersion,
 };
 
@@ -147,7 +148,7 @@ impl PendingCommandId {
 struct WorkflowRuntimeState {
     host: Rc<dyn WorkflowHost>,
     pending_unblocks: RefCell<HashMap<PendingCommandId, oneshot::Sender<UnblockEvent>>>,
-    forced_wft_failure: RefCell<Option<anyhow::Error>>,
+    forced_wft_failure: RefCell<Option<Box<dyn std::error::Error + Send + Sync>>>,
     progress_made: Cell<bool>,
 }
 
@@ -189,12 +190,12 @@ impl WorkflowRuntimeState {
         true
     }
 
-    fn set_forced_wft_failure(&self, err: anyhow::Error) {
+    fn set_forced_wft_failure(&self, err: Box<dyn std::error::Error + Send + Sync>) {
         *self.forced_wft_failure.borrow_mut() = Some(err);
         self.progress_made.set(true);
     }
 
-    fn take_forced_wft_failure(&self) -> Option<anyhow::Error> {
+    fn take_forced_wft_failure(&self) -> Option<Box<dyn std::error::Error + Send + Sync>> {
         self.forced_wft_failure.borrow_mut().take()
     }
 
@@ -314,7 +315,7 @@ pub struct WorkflowContextView {
     pub cron_schedule: Option<String>,
     /// User-defined memo
     pub memo: Option<Memo>,
-    /// Initial search attributes
+    /// Initial search attributes as a typed collection.
     pub search_attributes: Option<SearchAttributes>,
 }
 
@@ -394,7 +395,10 @@ impl WorkflowContextView {
             retry_policy: init.retry_policy.clone(),
             cron_schedule,
             memo: init.memo.clone(),
-            search_attributes: init.search_attributes.clone(),
+            search_attributes: init
+                .search_attributes
+                .as_ref()
+                .map(SearchAttributes::from_proto),
         }
     }
 }
@@ -456,7 +460,9 @@ impl BaseWorkflowContext {
         self.inner.runtime.take_progress()
     }
 
-    pub(crate) fn take_forced_wft_failure(&self) -> Option<anyhow::Error> {
+    pub(crate) fn take_forced_wft_failure(
+        &self,
+    ) -> Option<Box<dyn std::error::Error + Send + Sync>> {
         self.inner.runtime.take_forced_wft_failure()
     }
 
@@ -553,7 +559,7 @@ impl BaseWorkflowContext {
     /// Request to run an activity
     pub fn start_activity<AD: ActivityDefinition>(
         &self,
-        _activity: AD,
+        activity: AD,
         input: impl Into<AD::Input>,
         mut opts: ActivityOptions,
     ) -> impl CancellableFuture<Result<AD::Output, ActivityExecutionError>>
@@ -583,7 +589,7 @@ impl BaseWorkflowContext {
         }
         self.inner.runtime.host.push_command(opts.into_command(
             seq,
-            AD::name().to_string(),
+            activity.name().to_string(),
             payloads,
         ));
         ActivityFut::running(cmd, self.inner.data_converter.clone())
@@ -592,7 +598,7 @@ impl BaseWorkflowContext {
     /// Request to run a local activity
     pub fn start_local_activity<AD: ActivityDefinition>(
         &self,
-        _activity: AD,
+        activity: AD,
         input: impl Into<AD::Input>,
         opts: LocalActivityOptions,
     ) -> impl CancellableFuture<Result<AD::Output, ActivityExecutionError>>
@@ -612,7 +618,7 @@ impl BaseWorkflowContext {
             }
         };
         ActivityFut::running(
-            LATimerBackoffFut::new(AD::name().to_string(), payloads, opts, self.clone()),
+            LATimerBackoffFut::new(activity.name().to_string(), payloads, opts, self.clone()),
             self.inner.data_converter.clone(),
         )
     }
@@ -787,9 +793,9 @@ impl<W> SyncWorkflowContext<W> {
             .map(Into::into)
     }
 
-    /// Return current values for workflow search attributes
-    pub fn search_attributes(&self) -> impl Deref<Target = SearchAttributes> + '_ {
-        Ref::map(self.base.inner.shared.borrow(), |s| &s.search_attributes)
+    /// Return current values for workflow search attributes.
+    pub fn search_attributes(&self) -> SearchAttributes {
+        SearchAttributes::from_proto(&self.base.inner.shared.borrow().search_attributes)
     }
 
     /// Return the workflow's randomness seed
@@ -810,6 +816,18 @@ impl<W> SyncWorkflowContext<W> {
             .borrow()
             .activation
             .continue_as_new_suggested
+    }
+
+    /// Returns true if the workflow's target worker deployment version changed.
+    ///
+    /// This experimental signal is intended for workers using worker deployment versioning.
+    pub fn target_worker_deployment_version_changed(&self) -> bool {
+        self.base
+            .inner
+            .shared
+            .borrow()
+            .activation
+            .target_worker_deployment_version_changed
     }
 
     /// Returns the headers for the current handler invocation (signal, update, query, etc.).
@@ -981,14 +999,35 @@ impl<W> SyncWorkflowContext<W> {
         }
     }
 
-    /// Add or create a set of search attributes
-    pub fn upsert_search_attributes(&self, attr_iter: impl IntoIterator<Item = (String, Payload)>) {
+    /// Add, update, or remove search attributes using typed keys.
+    ///
+    /// Updates are applied to the local in-memory view immediately so that
+    /// subsequent calls to [`search_attributes()`](Self::search_attributes)
+    /// reflect the changes. The command is also sent to the server.
+    pub fn upsert_search_attributes(
+        &self,
+        updates: impl IntoIterator<Item = SearchAttributeUpdate>,
+    ) {
+        // Collect so we can iterate twice: once for local state, once for the
+        // wire proto (which uses a different encoding for "unset").
+        let updates: Vec<SearchAttributeUpdate> = updates.into_iter().collect();
+
+        // Update local state using the typed API, which correctly removes keys
+        // on unset (rather than inserting empty payloads like the wire format).
+        {
+            let mut shared = self.base.inner.shared.borrow_mut();
+            let mut attrs = SearchAttributes::from_proto(&shared.search_attributes);
+            for update in updates.iter().cloned() {
+                attrs.apply(update);
+            }
+            shared.search_attributes = attrs.into_proto();
+        }
+
+        let proto = SearchAttributes::updates_to_proto(updates);
         self.base.inner.runtime.host.push_command(
             workflow_command::Variant::UpsertWorkflowSearchAttributes(
                 UpsertWorkflowSearchAttributes {
-                    search_attributes: Some(SearchAttributes {
-                        indexed_fields: attr_iter.into_iter().collect(),
-                    }),
+                    search_attributes: Some(proto),
                 },
             )
             .into(),
@@ -1018,8 +1057,8 @@ impl<W> SyncWorkflowContext<W> {
     }
 
     /// Force a workflow task failure (EX: in order to retry on non-sticky queue)
-    pub fn force_task_fail(&self, with: anyhow::Error) {
-        self.base.inner.runtime.set_forced_wft_failure(with);
+    pub fn force_task_fail(&self, with: impl Into<Box<dyn std::error::Error + Send + Sync>>) {
+        self.base.inner.runtime.set_forced_wft_failure(with.into());
     }
 
     /// Start a nexus operation
@@ -1136,8 +1175,8 @@ impl<W> WorkflowContext<W> {
         self.sync.current_deployment_version()
     }
 
-    /// Return current values for workflow search attributes
-    pub fn search_attributes(&self) -> impl Deref<Target = SearchAttributes> + '_ {
+    /// Return current values for workflow search attributes.
+    pub fn search_attributes(&self) -> SearchAttributes {
         self.sync.search_attributes()
     }
 
@@ -1154,6 +1193,13 @@ impl<W> WorkflowContext<W> {
     /// Returns true if the server suggests this workflow should continue-as-new
     pub fn continue_as_new_suggested(&self) -> bool {
         self.sync.continue_as_new_suggested()
+    }
+
+    /// Returns true if the workflow's target worker deployment version changed.
+    ///
+    /// This experimental signal is intended for workers using worker deployment versioning.
+    pub fn target_worker_deployment_version_changed(&self) -> bool {
+        self.sync.target_worker_deployment_version_changed()
     }
 
     /// Returns the headers for the current handler invocation (signal, update, query, etc.).
@@ -1254,9 +1300,12 @@ impl<W> WorkflowContext<W> {
         self.sync.external_workflow(workflow_id, run_id)
     }
 
-    /// Add or create a set of search attributes
-    pub fn upsert_search_attributes(&self, attr_iter: impl IntoIterator<Item = (String, Payload)>) {
-        self.sync.upsert_search_attributes(attr_iter)
+    /// Add, update, or remove search attributes using typed keys.
+    pub fn upsert_search_attributes(
+        &self,
+        updates: impl IntoIterator<Item = SearchAttributeUpdate>,
+    ) {
+        self.sync.upsert_search_attributes(updates)
     }
 
     /// Add or create a set of memo fields
@@ -1272,7 +1321,7 @@ impl<W> WorkflowContext<W> {
     }
 
     /// Force a workflow task failure (EX: in order to retry on non-sticky queue)
-    pub fn force_task_fail(&self, with: anyhow::Error) {
+    pub fn force_task_fail(&self, with: impl Into<Box<dyn std::error::Error + Send + Sync>>) {
         self.sync.force_task_fail(with)
     }
 
@@ -1392,7 +1441,7 @@ struct WorkflowContextSharedData {
     /// Maps change ids -> resolved status
     changes: HashMap<String, bool>,
     activation: CoreWorkflowActivation,
-    search_attributes: SearchAttributes,
+    search_attributes: ProtoSearchAttributes,
     random_seed: u64,
     /// Current details string, surfaced via the workflow metadata query.
     current_details: String,
@@ -2044,7 +2093,7 @@ where
 enum SignalChildFut<F> {
     /// Immediate error (e.g., signal input serialization failure). Resolves on first poll.
     Errored {
-        error: Option<ChildWorkflowSignalError>,
+        error: Option<WorkflowSignalError>,
     },
     Running {
         inner: F,
@@ -2054,7 +2103,7 @@ enum SignalChildFut<F> {
 }
 
 impl<F> SignalChildFut<F> {
-    fn eager(err: ChildWorkflowSignalError) -> Self {
+    fn eager(err: WorkflowSignalError) -> Self {
         Self::Errored { error: Some(err) }
     }
 }
@@ -2065,7 +2114,7 @@ impl<F> Future for SignalChildFut<F>
 where
     F: Future<Output = SignalExternalWfResult> + Unpin,
 {
-    type Output = Result<(), ChildWorkflowSignalError>;
+    type Output = Result<(), WorkflowSignalError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
@@ -2082,7 +2131,7 @@ where
                 Poll::Ready(Err(failure)) => Poll::Ready(Err(data_converter.to_error(
                     &SerializationContextData::Workflow,
                     failure,
-                    ChildWorkflowSignalDecodeHint,
+                    WorkflowSignalDecodeHint,
                 )?)),
             },
             SignalChildFut::Terminated => panic!("polled after termination"),
@@ -2103,7 +2152,7 @@ where
     }
 }
 
-impl<F> CancellableFuture<Result<(), ChildWorkflowSignalError>> for SignalChildFut<F>
+impl<F> CancellableFuture<Result<(), WorkflowSignalError>> for SignalChildFut<F>
 where
     F: CancellableFuture<SignalExternalWfResult> + Unpin,
 {
@@ -2146,7 +2195,7 @@ where
         &self,
         signal: S,
         input: S::Input,
-    ) -> impl CancellableFuture<Result<(), ChildWorkflowSignalError>> + 'static {
+    ) -> impl CancellableFuture<Result<(), WorkflowSignalError>> + 'static {
         let payload_converter = self.common.data_converter.payload_converter();
         let ctx = SerializationContext {
             data: &SerializationContextData::Workflow,
@@ -2198,8 +2247,8 @@ impl ExternalWorkflowHandle {
         &self,
         signal: S,
         input: S::Input,
-    ) -> impl CancellableFuture<SignalExternalWfResult> + 'static {
-        let payload_converter = self.base_ctx.inner.data_converter.payload_converter();
+    ) -> impl CancellableFuture<Result<(), WorkflowSignalError>> + 'static {
+        let payload_converter = self.base_ctx.data_converter().payload_converter();
         let ctx = SerializationContext {
             data: &SerializationContextData::Workflow,
             converter: payload_converter,
@@ -2207,7 +2256,7 @@ impl ExternalWorkflowHandle {
         let payloads = match payload_converter.to_payloads(&ctx, &input) {
             Ok(p) => p,
             Err(e) => {
-                return SignalExternalFut::SerializationError(Some(e));
+                return SignalChildFut::eager(e.into());
             }
         };
         let signal = Signal::new(S::name(&signal), payloads);
@@ -2218,7 +2267,10 @@ impl ExternalWorkflowHandle {
                 run_id: self.run_id.clone().unwrap_or_default(),
             },
         );
-        SignalExternalFut::Running(self.base_ctx.clone().send_signal_wf(target, signal))
+        SignalChildFut::Running {
+            inner: self.base_ctx.clone().send_signal_wf(target, signal),
+            data_converter: self.base_ctx.data_converter().clone(),
+        }
     }
 
     /// Request cancellation of the external workflow.
@@ -2255,61 +2307,6 @@ impl ExternalWorkflowHandle {
     }
 }
 
-enum SignalExternalFut<F> {
-    Running(F),
-    SerializationError(Option<PayloadConversionError>),
-    Done,
-}
-
-impl<F: Unpin> Unpin for SignalExternalFut<F> {}
-
-impl<F> Future for SignalExternalFut<F>
-where
-    F: Future<Output = SignalExternalWfResult> + Unpin,
-{
-    type Output = SignalExternalWfResult;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.get_mut();
-        match this {
-            SignalExternalFut::Running(inner) => {
-                let result = std::task::ready!(Pin::new(inner).poll(cx));
-                *this = SignalExternalFut::Done;
-                Poll::Ready(result)
-            }
-            SignalExternalFut::SerializationError(e) => {
-                let err = e.take().expect("polled after completion");
-                *this = SignalExternalFut::Done;
-                Poll::Ready(Err(Failure {
-                    message: format!("Failed to serialize signal input: {err}"),
-                    ..Default::default()
-                }))
-            }
-            SignalExternalFut::Done => panic!("polled after completion"),
-        }
-    }
-}
-
-impl<F> FusedFuture for SignalExternalFut<F>
-where
-    F: Future<Output = SignalExternalWfResult> + Unpin,
-{
-    fn is_terminated(&self) -> bool {
-        matches!(self, SignalExternalFut::Done)
-    }
-}
-
-impl<F> CancellableFuture<SignalExternalWfResult> for SignalExternalFut<F>
-where
-    F: CancellableFuture<SignalExternalWfResult> + Unpin,
-{
-    fn cancel(&self) {
-        if let SignalExternalFut::Running(inner) = self {
-            inner.cancel()
-        }
-    }
-}
-
 #[derive(derive_more::Debug)]
 #[debug("StartedNexusOperation{{ operation_token: {operation_token:?} }}")]
 pub struct StartedNexusOperation {
@@ -2326,7 +2323,10 @@ pub(crate) struct NexusUnblockData {
 
 impl StartedNexusOperation {
     pub async fn result(&self) -> NexusOperationResult {
-        self.unblock_dat.result_future.clone().await
+        // The result future is a `Shared`; poll it inside an `SdkWakeGuard` (via
+        // `SdkGuardedFuture`) so its internal waker machinery isn't mistaken for a non-SDK wake on
+        // replay (which would fail the workflow task with TMPRL1100).
+        SdkGuardedFuture(self.unblock_dat.result_future.clone()).await
     }
 
     pub fn cancel(&self) {
@@ -2349,7 +2349,7 @@ mod tests {
             },
             temporal::api::{
                 common::v1::{Payload, RetryPolicy},
-                enums::v1::ContinueAsNewVersioningBehavior,
+                enums::v1::ContinueAsNewVersioningBehavior as ProtoContinueAsNewVersioningBehavior,
             },
         },
     };
@@ -2414,12 +2414,14 @@ mod tests {
                 arguments: vec![7u8.as_json_payload().unwrap()],
                 workflow_run_timeout: None,
                 workflow_task_timeout: None,
+                backoff_start_interval: None,
                 memo: HashMap::new(),
                 headers: HashMap::new(),
                 search_attributes: None,
                 retry_policy: None,
                 versioning_intent: ProtoVersioningIntent::Unspecified.into(),
-                initial_versioning_behavior: ContinueAsNewVersioningBehavior::Unspecified.into(),
+                initial_versioning_behavior: ProtoContinueAsNewVersioningBehavior::Unspecified
+                    .into(),
             }
         );
     }
@@ -2438,11 +2440,12 @@ mod tests {
             "header-key".to_string(),
             Payload::from(b"header-value".as_slice()),
         );
-        let mut search_attributes = SearchAttributes::default();
-        search_attributes.indexed_fields.insert(
+        let mut proto_search_attributes = ProtoSearchAttributes::default();
+        proto_search_attributes.indexed_fields.insert(
             "CustomKeywordField".to_string(),
             Payload::from(b"value".as_slice()),
         );
+        let search_attributes = SearchAttributes::from_proto(&proto_search_attributes);
 
         let termination = sync
             .continue_as_new(
@@ -2452,6 +2455,7 @@ mod tests {
                     task_queue: Some("next-task-queue".to_string()),
                     run_timeout: Some(Duration::from_secs(10)),
                     task_timeout: Some(Duration::from_secs(3)),
+                    backoff_start_interval: Some(Duration::from_secs(4)),
                     memo: Some(memo.clone()),
                     headers: Some(headers.clone()),
                     search_attributes: Some(search_attributes.clone()),
@@ -2460,6 +2464,9 @@ mod tests {
                         ..Default::default()
                     }),
                     versioning_intent: Some(ProtoVersioningIntent::Compatible),
+                    initial_versioning_behavior: Some(
+                        ContinueAsNewVersioningBehavior::UseRampingVersion,
+                    ),
                 },
             )
             .expect_err("continue_as_new should terminate the workflow");
@@ -2479,15 +2486,17 @@ mod tests {
                 arguments: vec![11u8.as_json_payload().unwrap()],
                 workflow_run_timeout: Some(Duration::from_secs(10).try_into().unwrap()),
                 workflow_task_timeout: Some(Duration::from_secs(3).try_into().unwrap()),
+                backoff_start_interval: Some(Duration::from_secs(4).try_into().unwrap()),
                 memo,
                 headers,
-                search_attributes: Some(search_attributes),
+                search_attributes: Some(proto_search_attributes),
                 retry_policy: Some(RetryPolicy {
                     maximum_attempts: 5,
                     ..Default::default()
                 }),
                 versioning_intent: ProtoVersioningIntent::Compatible.into(),
-                initial_versioning_behavior: ContinueAsNewVersioningBehavior::Unspecified.into(),
+                initial_versioning_behavior: ProtoContinueAsNewVersioningBehavior::UseRampingVersion
+                    as i32,
             }
         );
     }
@@ -2510,7 +2519,33 @@ mod tests {
             unreachable!()
         };
 
-        assert_eq!(cmd.search_attributes, Some(SearchAttributes::default()));
+        assert_eq!(
+            cmd.search_attributes,
+            Some(ProtoSearchAttributes::default())
+        );
+    }
+
+    #[test]
+    fn workflow_context_continue_as_new_applies_auto_upgrade_versioning_behavior() {
+        let ctx = test_context();
+
+        let termination = ctx
+            .continue_as_new(
+                &13,
+                ContinueAsNewOptions {
+                    initial_versioning_behavior: Some(ContinueAsNewVersioningBehavior::AutoUpgrade),
+                    ..Default::default()
+                },
+            )
+            .expect_err("continue_as_new should terminate the workflow");
+        let WorkflowTermination::ContinueAsNew(cmd) = termination else {
+            unreachable!()
+        };
+
+        assert_eq!(
+            cmd.initial_versioning_behavior,
+            ProtoContinueAsNewVersioningBehavior::AutoUpgrade as i32
+        );
     }
 
     #[test]
@@ -2579,5 +2614,107 @@ mod tests {
             panic!("expected failed termination, got {err:?}");
         };
         assert_eq!(err.to_string(), "Encoding error: serialization failure");
+    }
+
+    #[test]
+    fn upsert_search_attributes_updates_local_state() {
+        use temporalio_common_wasm::search_attributes::SearchAttributeKey;
+
+        const K: SearchAttributeKey<i64> = SearchAttributeKey::int("my_int");
+
+        let ctx = test_context();
+        assert!(ctx.search_attributes().is_empty());
+
+        ctx.upsert_search_attributes([K.value_set(42)]);
+        let attrs = ctx.search_attributes();
+        assert_eq!(attrs.get(&K), Some(42));
+    }
+
+    #[test]
+    fn upsert_search_attributes_unset_removes_from_local_state() {
+        use temporalio_common_wasm::search_attributes::SearchAttributeKey;
+
+        const K: SearchAttributeKey<String> = SearchAttributeKey::keyword("my_kw");
+
+        let ctx = test_context();
+        // Set, then unset.
+        ctx.upsert_search_attributes([K.value_set("hello".into())]);
+        assert_eq!(ctx.search_attributes().get(&K), Some("hello".into()));
+
+        ctx.upsert_search_attributes([K.value_unset()]);
+        assert!(!ctx.search_attributes().contains_key(&K));
+        assert!(ctx.search_attributes().is_empty());
+    }
+
+    #[test]
+    fn upsert_search_attributes_multiple_updates_last_wins() {
+        use temporalio_common_wasm::search_attributes::SearchAttributeKey;
+
+        const K: SearchAttributeKey<i64> = SearchAttributeKey::int("counter");
+
+        let ctx = test_context();
+        ctx.upsert_search_attributes([K.value_set(1), K.value_set(2)]);
+        assert_eq!(ctx.search_attributes().get(&K), Some(2));
+    }
+
+    #[test]
+    fn upsert_search_attributes_merges_with_initial() {
+        use temporalio_common_wasm::search_attributes::SearchAttributeKey;
+
+        const A: SearchAttributeKey<i64> = SearchAttributeKey::int("attr_a");
+        const B: SearchAttributeKey<String> = SearchAttributeKey::keyword("attr_b");
+
+        // Start with initial search attribute A.
+        let init_sa = SearchAttributes::new([A.value_set(1)]).into_proto();
+        let init = InitializeWorkflow {
+            workflow_type: TestWorkflow.name().to_string(),
+            search_attributes: Some(init_sa),
+            ..Default::default()
+        };
+        let base = BaseWorkflowContext::new(
+            "default".to_string(),
+            "tq".to_string(),
+            "run-id".to_string(),
+            init,
+            DataConverter::default(),
+            Rc::new(NoopHost),
+        );
+        let ctx = WorkflowContext::from_base(base, Rc::new(RefCell::new(TestWorkflow)));
+
+        assert_eq!(ctx.search_attributes().get(&A), Some(1));
+
+        // Upsert B — A should still be present.
+        ctx.upsert_search_attributes([B.value_set("hello".into())]);
+        assert_eq!(ctx.search_attributes().get(&A), Some(1));
+        assert_eq!(ctx.search_attributes().get(&B), Some("hello".into()));
+    }
+
+    #[test]
+    fn view_search_attributes_returns_typed() {
+        use temporalio_common_wasm::search_attributes::SearchAttributeKey;
+
+        const K: SearchAttributeKey<bool> = SearchAttributeKey::bool("active");
+
+        let init_sa = SearchAttributes::new([K.value_set(true)]).into_proto();
+        let init = InitializeWorkflow {
+            workflow_type: TestWorkflow.name().to_string(),
+            search_attributes: Some(init_sa),
+            ..Default::default()
+        };
+        let base = BaseWorkflowContext::new(
+            "default".to_string(),
+            "tq".to_string(),
+            "run-id".to_string(),
+            init,
+            DataConverter::default(),
+            Rc::new(NoopHost),
+        );
+        let ctx = WorkflowContext::from_base(base, Rc::new(RefCell::new(TestWorkflow)));
+
+        let view = ctx.view();
+        let sa = view
+            .search_attributes
+            .expect("should have search attributes");
+        assert_eq!(sa.get(&K), Some(true));
     }
 }

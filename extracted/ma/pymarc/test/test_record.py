@@ -342,6 +342,7 @@ class RecordTest(unittest.TestCase):
         with open("test/multi_isbn.dat", "rb") as fh:
             reader = MARCReader(fh)
             record = next(reader)
+            assert record
             self.assertEqual(record.isbn, "0914378287")
 
     def test_author(self):
@@ -667,6 +668,7 @@ class RecordTest(unittest.TestCase):
 
         with open("test/one.dat", "rb") as fh:
             r1 = next(MARCReader(fh))
+            assert r1
             r2 = deepcopy(r1)
             r1.add_field(
                 Field(
@@ -698,7 +700,7 @@ class RecordTest(unittest.TestCase):
                 subfields=[Subfield(code="a", value="The pragmatic programmer")],
             )
         )
-        record.leader = "00067    a2200037   4500"
+        record.leader = Leader("00067    a2200037   4500")
         leader_not_touched = record.leader
         record.as_marc()
         leader_touched = record.leader
@@ -781,6 +783,7 @@ class RecordTest(unittest.TestCase):
             original_record_bytes = fh.read()
             reader = MARCReader(original_record_bytes, to_unicode=True)
             record = next(reader)
+            assert record
             record_bytes = record.as_marc()
             self.assertEqual(record_bytes[9], ord("a"))
             self.assertEqual(modified_record_bytes, record_bytes)
@@ -791,6 +794,7 @@ class RecordTest(unittest.TestCase):
         with open("test/marc8.dat", "rb") as fh:
             reader = MARCReader(fh, to_unicode=True)
             record = next(reader)
+            assert record
             map_marc8_data = map_marc8_record(record)
             self.assertEqual(map_marc8_data.as_marc(), record.as_marc())
 

@@ -593,6 +593,237 @@ primary_version:
 
 
 @dataclass(frozen=True)
+class StatusChecklistItem(ModelBase):
+    """One row of the per-component service status checklist.
+
+    Each item names a single backend resource (cluster, application, load
+    balancer, DNS record, etc.) that contributes to the service's overall
+    state, along with that resource's current state and a human-readable
+    message from the reconciler. Agents and automation can use this to point
+    at *which* component is unhealthy when the service-level state is
+    `UNHEALTHY` or `STARTING`.
+    """
+
+    __doc_py_example__ = """\
+import anyscale
+from anyscale.service.models import ServiceStatus
+
+status: ServiceStatus = anyscale.service.status("my-service")
+if status.service_status_checklist:
+    for item in status.service_status_checklist.shared:
+        print(f"{item.label}: {item.state} ({item.message})")
+"""
+
+    kind: str = field(
+        metadata={
+            "docstring": "Backend resource kind (e.g. 'CLUSTER', 'APPLICATION', 'LOAD_BALANCER', 'DNS', 'CERTIFICATE'). Stable wire enum — safe for automated dispatch."
+        }
+    )
+
+    def _validate_kind(self, kind: str):
+        if not isinstance(kind, str):
+            raise TypeError("'kind' must be a string.")
+
+    label: str = field(
+        metadata={
+            "docstring": "User-facing label for this component (e.g. 'Cluster', 'Load balancer')."
+        }
+    )
+
+    def _validate_label(self, label: str):
+        if not isinstance(label, str):
+            raise TypeError("'label' must be a string.")
+
+    state: str = field(
+        metadata={
+            "docstring": "Current state of this component (e.g. 'RUNNING', 'STARTING', 'UNHEALTHY', 'SYSTEM_FAILURE', 'TERMINATED')."
+        }
+    )
+
+    def _validate_state(self, state: str):
+        if not isinstance(state, str):
+            raise TypeError("'state' must be a string.")
+
+    message: str = field(
+        default="",
+        metadata={
+            "docstring": "Reconciler-provided message describing the current state. Empty when the component is healthy with nothing to report."
+        },
+    )
+
+    def _validate_message(self, message: str):
+        if not isinstance(message, str):
+            raise TypeError("'message' must be a string.")
+
+    version_id: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "ID of the service version this component belongs to. `None` for shared cloud-networking components (load balancer, listener rule, DNS, TLS certificate)."
+        },
+    )
+
+    def _validate_version_id(self, version_id: Optional[str]):
+        if version_id is not None and not isinstance(version_id, str):
+            raise TypeError("'version_id' must be a string.")
+
+    observed_at: Optional[datetime] = field(
+        default=None,
+        metadata={
+            "docstring": "Timestamp the reconciler last observed this component's state. Use this as a freshness indicator — a stale value means the reconciler hasn't re-checked since then. `None` for events predating this field."
+        },
+    )
+
+    def _validate_observed_at(self, observed_at: Optional[datetime]):
+        if observed_at is not None and not isinstance(observed_at, datetime):
+            raise TypeError("'observed_at' must be a datetime.")
+
+
+@dataclass(frozen=True)
+class VersionChecklist(ModelBase):
+    """Per-version slice of the service status checklist."""
+
+    __doc_py_example__ = """\
+import anyscale
+from anyscale.service.models import ServiceStatus
+
+status: ServiceStatus = anyscale.service.status("my-service")
+if status.service_status_checklist:
+    for version in status.service_status_checklist.per_version:
+        print(f"version {version.version_id}:")
+        for item in version.items:
+            print(f"  {item.label}: {item.state}")
+"""
+
+    version_id: str = field(
+        metadata={
+            "docstring": "ID of the service version these checklist items belong to."
+        }
+    )
+
+    def _validate_version_id(self, version_id: str):
+        if not isinstance(version_id, str):
+            raise TypeError("'version_id' must be a string.")
+
+    items: List[StatusChecklistItem] = field(
+        default_factory=list,
+        metadata={
+            "docstring": "Per-component statuses for this version (cluster, application, target group)."
+        },
+    )
+
+    def _validate_items(
+        self, items: List[StatusChecklistItem]
+    ) -> List[StatusChecklistItem]:
+        if not isinstance(items, list):
+            raise TypeError("'items' must be a list.")
+        coerced: List[StatusChecklistItem] = []
+        for raw_item in items:
+            item = (
+                StatusChecklistItem.from_dict(raw_item)
+                if isinstance(raw_item, dict)
+                else raw_item
+            )
+            if not isinstance(item, StatusChecklistItem):
+                raise TypeError(
+                    "'items' must be a list of StatusChecklistItem or corresponding dicts."
+                )
+            coerced.append(item)
+        return coerced
+
+
+@dataclass(frozen=True)
+class ServiceStatusChecklist(ModelBase):
+    """Per-component breakdown of a service's status.
+
+    The reconciler computes the service-level state by aggregating the state
+    of each backend resource it manages (cluster, Ray Serve application, load
+    balancer, listener rule, DNS, TLS certificate, target group). This
+    checklist surfaces that breakdown so a human or agent can answer
+    "*which* component is making my service unhealthy?" without having to
+    introspect the cluster directly.
+
+    Shape:
+      * `shared` — components shared across all versions (the cloud networking
+        stack). Same set of items regardless of how many versions are active.
+      * `per_version` — one entry per active service version, each carrying
+        the components that belong to that version (cluster, application,
+        target group). During a rollout, both primary and canary appear.
+
+    Returns `None` on the parent `ServiceStatus` when the snapshot isn't
+    available yet (brand-new service before its first reconciler tick) or for
+    older service events that predate this feature.
+    """
+
+    __doc_py_example__ = """\
+import anyscale
+from anyscale.service.models import ServiceStatus
+
+status: ServiceStatus = anyscale.service.status("my-service")
+checklist = status.service_status_checklist
+if checklist is None:
+    print("Per-component status not yet available")
+else:
+    for item in checklist.shared:
+        print(f"[shared] {item.label}: {item.state}")
+    for version in checklist.per_version:
+        for item in version.items:
+            print(f"[{version.version_id}] {item.label}: {item.state}")
+"""
+
+    shared: List[StatusChecklistItem] = field(
+        default_factory=list,
+        metadata={
+            "docstring": "Components shared across all versions (load balancer, listener rule, DNS, TLS certificate)."
+        },
+    )
+
+    def _validate_shared(
+        self, shared: List[StatusChecklistItem]
+    ) -> List[StatusChecklistItem]:
+        if not isinstance(shared, list):
+            raise TypeError("'shared' must be a list.")
+        coerced: List[StatusChecklistItem] = []
+        for raw_item in shared:
+            item = (
+                StatusChecklistItem.from_dict(raw_item)
+                if isinstance(raw_item, dict)
+                else raw_item
+            )
+            if not isinstance(item, StatusChecklistItem):
+                raise TypeError(
+                    "'shared' must be a list of StatusChecklistItem or corresponding dicts."
+                )
+            coerced.append(item)
+        return coerced
+
+    per_version: List[VersionChecklist] = field(
+        default_factory=list,
+        metadata={
+            "docstring": "Per-version components (cluster, application, target group), one entry per active service version."
+        },
+    )
+
+    def _validate_per_version(
+        self, per_version: List[VersionChecklist]
+    ) -> List[VersionChecklist]:
+        if not isinstance(per_version, list):
+            raise TypeError("'per_version' must be a list.")
+        coerced: List[VersionChecklist] = []
+        for raw_entry in per_version:
+            entry = (
+                VersionChecklist.from_dict(raw_entry)
+                if isinstance(raw_entry, dict)
+                else raw_entry
+            )
+            if not isinstance(entry, VersionChecklist):
+                raise TypeError(
+                    "'per_version' must be a list of VersionChecklist or corresponding dicts."
+                )
+            coerced.append(entry)
+        return coerced
+
+
+@dataclass(frozen=True)
 class ServiceStatus(ModelBase):
     """Current status of a service."""
 
@@ -612,6 +843,31 @@ primary_version:
   id: 601bd56c4b
   state: RUNNING
   weight: 100
+service_status_checklist:
+  shared:
+    - kind: LOAD_BALANCER
+      label: Load balancer
+      state: RUNNING
+      message: ''
+      observed_at: 2026-05-20T12:34:56+00:00
+    - kind: DNS
+      label: DNS record
+      state: RUNNING
+      message: ''
+      observed_at: 2026-05-20T12:34:56+00:00
+  per_version:
+    - version_id: 601bd56c4b
+      items:
+        - kind: CLUSTER
+          label: Cluster
+          state: RUNNING
+          message: ''
+          observed_at: 2026-05-20T12:34:56+00:00
+        - kind: APPLICATION
+          label: Application
+          state: RUNNING
+          message: ''
+          observed_at: 2026-05-20T12:34:56+00:00
 """
 
     name: str = field(metadata={"docstring": "Unique name of the service."})
@@ -748,6 +1004,29 @@ primary_version:
             if not isinstance(v, ServiceVersionStatus):
                 raise TypeError("'versions' must be a list of ServiceVersionStatus.")
         return versions
+
+    service_status_checklist: Union[ServiceStatusChecklist, Dict, None] = field(
+        default=None,
+        repr=False,
+        metadata={
+            "docstring": "Per-component breakdown of the service's status — one row per backend resource the reconciler manages (cluster, Ray Serve application, load balancer, listener rule, DNS, TLS certificate, target group). Use this to answer 'which component is making my service unhealthy?' without introspecting the cluster directly. `None` for brand-new services before their first reconciler tick or for older events predating this feature."
+        },
+    )
+
+    def _validate_service_status_checklist(
+        self, service_status_checklist: Union[ServiceStatusChecklist, Dict, None],
+    ) -> Optional[ServiceStatusChecklist]:
+        if service_status_checklist is None:
+            return None
+        if isinstance(service_status_checklist, dict):
+            service_status_checklist = ServiceStatusChecklist.from_dict(
+                service_status_checklist
+            )
+        if not isinstance(service_status_checklist, ServiceStatusChecklist):
+            raise TypeError(
+                "'service_status_checklist' must be a ServiceStatusChecklist or corresponding dict."
+            )
+        return service_status_checklist
 
 
 class ServiceSortField(ModelEnum):

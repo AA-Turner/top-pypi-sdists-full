@@ -1611,6 +1611,14 @@ class TextSpan:
     def char_widths(self) -> list[float]: ...
     @property
     def color(self) -> tuple[float, float, float]: ...
+    @property
+    def sequence(self) -> int:
+        """
+        Content-stream emission order: incremented as spans are emitted
+        during the Tj/TJ walk, so two spans with adjacent `sequence`
+        values were drawn consecutively, distinguishing that from spans
+        that are merely spatially close.
+        """
 
 @t.final
 class TextWord:
@@ -1628,6 +1636,12 @@ class TextWord:
     def is_italic(self) -> bool: ...
     @property
     def chars(self) -> list[TextChar]: ...
+    @property
+    def sequence(self) -> int:
+        """
+        Content-stream emission order of the originating span — see
+        `TextSpan.sequence`.
+        """
 
 @t.final
 class TextLine:

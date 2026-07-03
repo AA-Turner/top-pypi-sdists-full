@@ -17,8 +17,13 @@ unchanged from the legacy registry so existing consumers don't break.
 from typing import Any
 
 FRAGMENT_REGISTRY: dict[str, dict[str, Any]] = {
+    # ADR-0049: list rendering moved entirely to the typed substrate. The
+    # table body rows + inline edit are emitted by the render/ row-core
+    # (`render_data_row`, #1505); the list chrome (table/pagination/sentinel)
+    # by `FragmentSurfaceAdapter._build_list` + the render/ list primitives.
+    # The legacy `page.runtime.table_renderer` module is deleted.
     "table_rows": {
-        "module": "dazzle.page.runtime.table_renderer",
+        "module": "dazzle.render.fragment.renderer._data_row",
         "params": [
             "table.rows",
             "table.columns",
@@ -31,35 +36,39 @@ FRAGMENT_REGISTRY: dict[str, dict[str, Any]] = {
         "description": "Table body rows with typed cell rendering and row-level actions.",
     },
     "table_pagination": {
-        "module": "dazzle.page.runtime.table_renderer",
+        "module": "dazzle.http.runtime.renderers.fragment_adapter",
         "params": ["table.total", "table.page_size", "table.page", "table.api_endpoint"],
         "emits": [],
         "listens": [],
         "description": "Page navigation buttons for paginated tables.",
     },
     "inline_edit": {
-        "module": "dazzle.page.runtime.table_renderer",
+        "module": "dazzle.render.fragment.renderer._data_row",
         "params": ["field_name", "field_value", "endpoint", "field_type"],
         "emits": [],
         "listens": [],
         "description": "Click-to-edit field with inline event handlers and HTMX save.",
     },
     "form_errors": {
-        "module": "dazzle.page.runtime.form_renderer",
+        # ADR-0049 Phase 3b: form rendering moved to the typed substrate
+        # (the legacy page.runtime.form_renderer is deleted).
+        "module": "dazzle.render.fragment.renderer._render_forms",
         "params": ["form_errors"],
         "emits": [],
         "listens": [],
         "description": "Validation error alert with single or multiple error messages.",
     },
     "detail_fields": {
-        "module": "dazzle.page.runtime.detail_renderer",
+        # ADR-0049 Phase 2: detail/view rendering moved to the typed-substrate
+        # adapter (the legacy page.runtime.detail_renderer is deleted).
+        "module": "dazzle.http.runtime.renderers.fragment_adapter",
         "params": ["item", "fields"],
         "emits": [],
         "listens": [],
         "description": "Definition-list renderer for detail/view surfaces.",
     },
     "table_sentinel": {
-        "module": "dazzle.page.runtime.table_renderer",
+        "module": "dazzle.http.runtime.renderers.fragment_adapter",
         "params": ["table"],
         "emits": [],
         "listens": [],

@@ -4457,6 +4457,9 @@ class CfnReplicator(
                     bootstrap_broker_string="bootstrapBrokerString"
                 ),
                 client_authentication=msk.CfnReplicator.KafkaClusterClientAuthenticationProperty(
+                    mtls=msk.CfnReplicator.KafkaClusterMtlsAuthenticationProperty(
+                        secret_arn="secretArn"
+                    ),
                     sasl_scram=msk.CfnReplicator.KafkaClusterSaslScramAuthenticationProperty(
                         mechanism="mechanism",
                         secret_arn="secretArn"
@@ -5190,16 +5193,18 @@ class CfnReplicator(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.KafkaClusterClientAuthenticationProperty",
         jsii_struct_bases=[],
-        name_mapping={"sasl_scram": "saslScram"},
+        name_mapping={"mtls": "mtls", "sasl_scram": "saslScram"},
     )
     class KafkaClusterClientAuthenticationProperty:
         def __init__(
             self,
             *,
-            sasl_scram: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.KafkaClusterSaslScramAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]],
+            mtls: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.KafkaClusterMtlsAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sasl_scram: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.KafkaClusterSaslScramAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Details of the client authentication used by the Apache Kafka cluster.
 
+            :param mtls: Details for mTLS client authentication.
             :param sasl_scram: Details for SASL/SCRAM client authentication.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusterclientauthentication.html
@@ -5212,6 +5217,9 @@ class CfnReplicator(
                 from aws_cdk import aws_msk as msk
                 
                 kafka_cluster_client_authentication_property = msk.CfnReplicator.KafkaClusterClientAuthenticationProperty(
+                    mtls=msk.CfnReplicator.KafkaClusterMtlsAuthenticationProperty(
+                        secret_arn="secretArn"
+                    ),
                     sasl_scram=msk.CfnReplicator.KafkaClusterSaslScramAuthenticationProperty(
                         mechanism="mechanism",
                         secret_arn="secretArn"
@@ -5220,22 +5228,35 @@ class CfnReplicator(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__c571a114ab290550ca33f1735aecfb895c5cfc0879d719ffab9178fd3c27f276)
+                check_type(argname="argument mtls", value=mtls, expected_type=type_hints["mtls"])
                 check_type(argname="argument sasl_scram", value=sasl_scram, expected_type=type_hints["sasl_scram"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "sasl_scram": sasl_scram,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if mtls is not None:
+                self._values["mtls"] = mtls
+            if sasl_scram is not None:
+                self._values["sasl_scram"] = sasl_scram
+
+        @builtins.property
+        def mtls(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterMtlsAuthenticationProperty"]]:
+            '''Details for mTLS client authentication.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusterclientauthentication.html#cfn-msk-replicator-kafkaclusterclientauthentication-mtls
+            '''
+            result = self._values.get("mtls")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterMtlsAuthenticationProperty"]], result)
 
         @builtins.property
         def sasl_scram(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterSaslScramAuthenticationProperty"]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterSaslScramAuthenticationProperty"]]:
             '''Details for SASL/SCRAM client authentication.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusterclientauthentication.html#cfn-msk-replicator-kafkaclusterclientauthentication-saslscram
             '''
             result = self._values.get("sasl_scram")
-            assert result is not None, "Required property 'sasl_scram' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterSaslScramAuthenticationProperty"], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterSaslScramAuthenticationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5401,6 +5422,58 @@ class CfnReplicator(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.KafkaClusterMtlsAuthenticationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"secret_arn": "secretArn"},
+    )
+    class KafkaClusterMtlsAuthenticationProperty:
+        def __init__(self, *, secret_arn: builtins.str) -> None:
+            '''Details for mTLS client authentication.
+
+            :param secret_arn: The Amazon Resource Name (ARN) of the Secrets Manager secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustermtlsauthentication.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                kafka_cluster_mtls_authentication_property = msk.CfnReplicator.KafkaClusterMtlsAuthenticationProperty(
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a9b59dc53fb186f75b7c4e80f864155f9c5a72a4e3ddbb40fa204209f0c34396)
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of the Secrets Manager secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustermtlsauthentication.html#cfn-msk-replicator-kafkaclustermtlsauthentication-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KafkaClusterMtlsAuthenticationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.KafkaClusterProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -5447,6 +5520,9 @@ class CfnReplicator(
                         bootstrap_broker_string="bootstrapBrokerString"
                     ),
                     client_authentication=msk.CfnReplicator.KafkaClusterClientAuthenticationProperty(
+                        mtls=msk.CfnReplicator.KafkaClusterMtlsAuthenticationProperty(
+                            secret_arn="secretArn"
+                        ),
                         sasl_scram=msk.CfnReplicator.KafkaClusterSaslScramAuthenticationProperty(
                             mechanism="mechanism",
                             secret_arn="secretArn"
@@ -6408,6 +6484,9 @@ class CfnReplicatorProps:
                         bootstrap_broker_string="bootstrapBrokerString"
                     ),
                     client_authentication=msk.CfnReplicator.KafkaClusterClientAuthenticationProperty(
+                        mtls=msk.CfnReplicator.KafkaClusterMtlsAuthenticationProperty(
+                            secret_arn="secretArn"
+                        ),
                         sasl_scram=msk.CfnReplicator.KafkaClusterSaslScramAuthenticationProperty(
                             mechanism="mechanism",
                             secret_arn="secretArn"
@@ -8664,7 +8743,8 @@ def _typecheckingstub__42de6b2042f8086b2898030e584464f88b05b245c742dd15f6ac50ce1
 
 def _typecheckingstub__c571a114ab290550ca33f1735aecfb895c5cfc0879d719ffab9178fd3c27f276(
     *,
-    sasl_scram: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.KafkaClusterSaslScramAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
+    mtls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.KafkaClusterMtlsAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sasl_scram: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.KafkaClusterSaslScramAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8681,6 +8761,13 @@ def _typecheckingstub__91b4882bfa3be581c7d0490f265b896701a077acbf8099ee4488efd91
     *,
     encryption_type: builtins.str,
     root_ca_certificate: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9b59dc53fb186f75b7c4e80f864155f9c5a72a4e3ddbb40fa204209f0c34396(
+    *,
+    secret_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

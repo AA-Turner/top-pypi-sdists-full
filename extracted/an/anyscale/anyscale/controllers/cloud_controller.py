@@ -2573,7 +2573,7 @@ class CloudController(BaseController):
             skip_verification = True
 
         if not skip_verification and not self.verify_cloud_deployment(
-            cloud_id=cloud_id, cloud_deployment=new_deployment
+            cloud_id=cloud_id, cloud_deployment=new_deployment, yes=yes
         ):
             raise ClickException("Cloud resource verification failed.")
 
@@ -2741,7 +2741,7 @@ class CloudController(BaseController):
             if deployment.compute_stack == ComputeStack.K8S:
                 self.log.info("Skipping verification for Kubernetes compute stack.")
             elif not skip_verification and not self.verify_cloud_deployment(
-                cloud_id=cloud_id, cloud_deployment=deployment
+                cloud_id=cloud_id, cloud_deployment=deployment, yes=yes
             ):
                 raise ClickException(
                     f"Verification failed for cloud resource {deployment.name or deployment.cloud_resource_id}."
@@ -3205,6 +3205,7 @@ class CloudController(BaseController):
             cloud_id,
             cloud_resource,
             strict=strict,
+            yes=yes,
             _use_strict_iam_permissions=_use_strict_iam_permissions,
             boto3_session=boto3_session,
         )
@@ -3306,6 +3307,7 @@ class CloudController(BaseController):
                     functions_to_verify=None,
                     boto3_session=boto3_session,
                     strict=strict,
+                    yes=yes,
                     _use_strict_iam_permissions=_use_strict_iam_permissions,
                 )
                 cloud_resource_results.append((display_name, result))
@@ -3348,6 +3350,7 @@ class CloudController(BaseController):
         cloud_id: str,
         cloud_deployment: CloudDeployment,
         strict: bool = False,
+        yes: bool = False,
         _use_strict_iam_permissions: bool = False,  # This should only be used in testing.
         boto3_session: Optional[boto3.Session] = None,
     ) -> bool:
@@ -3363,7 +3366,10 @@ class CloudController(BaseController):
                 )
             elif effective_provider == CloudProviders.GCP:
                 return self.verify_gcp_cloud_resources_from_cloud_deployment(
-                    cloud_id=cloud_id, cloud_deployment=cloud_deployment, strict=strict,
+                    cloud_id=cloud_id,
+                    cloud_deployment=cloud_deployment,
+                    strict=strict,
+                    yes=yes,
                 )
             else:
                 raise ValueError(

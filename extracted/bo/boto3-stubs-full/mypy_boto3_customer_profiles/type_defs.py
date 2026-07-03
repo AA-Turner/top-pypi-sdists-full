@@ -32,6 +32,7 @@ from .literals import (
     DataFormatType,
     DataPullModeType,
     DateDimensionTypeType,
+    DiversityCapTypeType,
     EstimateStatusType,
     EventStreamDestinationStatusType,
     EventStreamStateType,
@@ -206,6 +207,9 @@ __all__ = (
     "DimensionOutputTypeDef",
     "DimensionTypeDef",
     "DimensionUnionTypeDef",
+    "DiversityColumnTypeDef",
+    "DiversityConfigOutputTypeDef",
+    "DiversityConfigTypeDef",
     "DomainObjectTypeFieldTypeDef",
     "DomainObjectTypesListItemTypeDef",
     "DomainStatsTypeDef",
@@ -431,6 +435,7 @@ __all__ = (
     "RangeOverrideTypeDef",
     "RangeTypeDef",
     "ReadinessTypeDef",
+    "RecommendationDiversityConfigTypeDef",
     "RecommendationTypeDef",
     "RecommenderConfigOutputTypeDef",
     "RecommenderConfigTypeDef",
@@ -862,6 +867,12 @@ class ObjectTypeKeyOutputTypeDef(TypedDict):
     FieldNames: NotRequired[list[str]]
 
 
+class DiversityColumnTypeDef(TypedDict):
+    Name: str
+    CapType: DiversityCapTypeType
+    Target: str
+
+
 class DomainObjectTypeFieldTypeDef(TypedDict):
     Source: str
     Target: str
@@ -1077,6 +1088,11 @@ class MetadataConfigTypeDef(TypedDict):
     MetadataColumns: NotRequired[Sequence[str]]
 
 
+class RecommendationDiversityConfigTypeDef(TypedDict):
+    Enabled: bool
+    Values: NotRequired[Mapping[str, int]]
+
+
 class RecommenderFilterTypeDef(TypedDict):
     Name: NotRequired[str]
     Values: NotRequired[Mapping[str, str]]
@@ -1103,6 +1119,7 @@ class GetRecommenderRequestTypeDef(TypedDict):
 class TrainingMetricsTypeDef(TypedDict):
     Time: NotRequired[datetime]
     Metrics: NotRequired[dict[TrainingMetricNameType, float]]
+    RecommenderVersionName: NotRequired[str]
 
 
 class GetRecommenderSchemaRequestTypeDef(TypedDict):
@@ -2162,6 +2179,14 @@ class PutProfileObjectTypeResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DiversityConfigOutputTypeDef(TypedDict):
+    DiversityColumns: NotRequired[list[DiversityColumnTypeDef]]
+
+
+class DiversityConfigTypeDef(TypedDict):
+    DiversityColumns: NotRequired[Sequence[DiversityColumnTypeDef]]
+
+
 class GetDomainObjectTypeResponseTypeDef(TypedDict):
     ObjectTypeName: str
     Description: str
@@ -2292,6 +2317,7 @@ class GetProfileRecommendationsRequestTypeDef(TypedDict):
     CandidateIds: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     MetadataConfig: NotRequired[MetadataConfigTypeDef]
+    DiversityConfig: NotRequired[RecommendationDiversityConfigTypeDef]
 
 
 class GetSimilarProfilesRequestPaginateTypeDef(TypedDict):
@@ -2675,6 +2701,7 @@ class RecommenderConfigOutputTypeDef(TypedDict):
     InferenceConfig: NotRequired[InferenceConfigTypeDef]
     IncludedColumns: NotRequired[dict[str, list[str]]]
     ExcludedColumns: NotRequired[dict[str, list[str]]]
+    DiversityConfig: NotRequired[DiversityConfigOutputTypeDef]
 
 
 class RecommenderConfigTypeDef(TypedDict):
@@ -2683,6 +2710,7 @@ class RecommenderConfigTypeDef(TypedDict):
     InferenceConfig: NotRequired[InferenceConfigTypeDef]
     IncludedColumns: NotRequired[Mapping[str, Sequence[str]]]
     ExcludedColumns: NotRequired[Mapping[str, Sequence[str]]]
+    DiversityConfig: NotRequired[DiversityConfigTypeDef]
 
 
 class EventTriggerConditionOutputTypeDef(TypedDict):
@@ -2913,6 +2941,7 @@ class RecommenderUpdateTypeDef(TypedDict):
     CreatedAt: NotRequired[datetime]
     LastUpdatedAt: NotRequired[datetime]
     FailureReason: NotRequired[str]
+    RecommenderVersionName: NotRequired[str]
 
 
 RecommenderConfigUnionTypeDef = Union[RecommenderConfigTypeDef, RecommenderConfigOutputTypeDef]
@@ -3092,6 +3121,7 @@ class GetRecommenderResponseTypeDef(TypedDict):
     CreatedAt: datetime
     FailureReason: str
     LatestRecommenderUpdate: RecommenderUpdateTypeDef
+    ActiveRecommenderVersionName: str
     TrainingMetrics: list[TrainingMetricsTypeDef]
     Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3126,6 +3156,7 @@ class UpdateRecommenderRequestTypeDef(TypedDict):
     RecommenderName: str
     Description: NotRequired[str]
     RecommenderConfig: NotRequired[RecommenderConfigUnionTypeDef]
+    RecommenderVersionName: NotRequired[str]
 
 
 class CreateCalculatedAttributeDefinitionResponseTypeDef(TypedDict):

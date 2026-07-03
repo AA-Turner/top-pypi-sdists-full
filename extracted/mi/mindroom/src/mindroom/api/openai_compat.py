@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
 
 from mindroom.agent_run_context import prepend_knowledge_availability_notice
-from mindroom.ai import AIStreamChunk, ai_response, stream_agent_response
+from mindroom.ai import AIStreamChunk, ResponseTurnContext, ai_response, stream_agent_response
 from mindroom.api import config_lifecycle
 from mindroom.api.openai_request_parsing import (
     AUTO_MODEL_NAME,
@@ -571,6 +571,21 @@ async def chat_completions(  # noqa: C901, PLR0912
 # ---------------------------------------------------------------------------
 
 
+def _openai_agent_turn_context(agent_name: str, *, session_id: str) -> ResponseTurnContext:
+    """Build the turn context for one OpenAI-compatible agent completion."""
+    return ResponseTurnContext(
+        entity_label=agent_name,
+        session_id=session_id,
+        run_id=None,
+        correlation_id=uuid4().hex,
+        reply_to_event_id=None,
+        room_id=None,
+        thread_id=None,
+        requester_id=None,
+        matrix_run_metadata=None,
+    )
+
+
 async def _non_stream_completion(
     agent_name: str,
     prompt: str,
@@ -585,18 +600,14 @@ async def _non_stream_completion(
 ) -> JSONResponse:
     """Handle non-streaming chat completion."""
     response_text = await ai_response(
-        agent_name=agent_name,
+        _openai_agent_turn_context(agent_name, session_id=session_id),
         prompt=prompt,
-        session_id=session_id,
         runtime_paths=runtime_paths,
         config=config,
         thread_history=thread_history,
-        room_id=None,
         knowledge=knowledge,
-        user_id=None,
         include_interactive_questions=False,
         include_openai_compat_guidance=True,
-        active_event_ids=set(),
         execution_identity=execution_identity,
         refresh_scheduler=refresh_scheduler,
     )
@@ -643,18 +654,14 @@ async def _stream_completion(  # noqa: C901, PLR0915
         stream_with_tool_execution_identity(
             execution_identity,
             stream_factory=lambda: stream_agent_response(
-                agent_name=agent_name,
+                _openai_agent_turn_context(agent_name, session_id=session_id),
                 prompt=prompt,
-                session_id=session_id,
                 runtime_paths=runtime_paths,
                 config=config,
                 thread_history=thread_history,
-                room_id=None,
                 knowledge=knowledge,
-                user_id=None,
                 include_interactive_questions=False,
                 include_openai_compat_guidance=True,
-                active_event_ids=set(),
                 execution_identity=execution_identity,
                 refresh_scheduler=refresh_scheduler,
             ),
@@ -827,6 +834,17 @@ async def _prepare_openai_team_prompt(
 ) -> _PreparedOpenAITeamPrompt:
     """Prepare the final prompt for one OpenAI-compatible team run."""
     prepared_execution = await prepare_materialized_team_execution(
+        ResponseTurnContext(
+            entity_label=team_name,
+            session_id=None,
+            run_id=None,
+            correlation_id=uuid4().hex,
+            reply_to_event_id=None,
+            room_id=None,
+            thread_id=None,
+            requester_id=execution_identity.requester_id if execution_identity is not None else None,
+            matrix_run_metadata=None,
+        ),
         scope_context=scope_context,
         agents=agents,
         team=team,
@@ -834,18 +852,10 @@ async def _prepare_openai_team_prompt(
         thread_history=thread_history,
         config=config,
         runtime_paths=runtime_paths,
-        active_model_name=config.resolve_runtime_model(entity_name=team_name).model_name,
-        reply_to_event_id=None,
-        active_event_ids=frozenset(),
+        runtime_model=config.resolve_runtime_model(entity_name=team_name),
         response_sender_id=None,
         current_sender_id=None,
-        room_id=None,
-        thread_id=None,
-        requester_id=execution_identity.requester_id if execution_identity is not None else None,
-        correlation_id=uuid4().hex,
-        compaction_outcomes_collector=None,
         configured_team_name=team_name,
-        matrix_run_metadata=None,
     )
     return _PreparedOpenAITeamPrompt(
         prompt=render_prepared_team_messages_text(prepared_execution.messages),

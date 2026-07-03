@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-06-08 AT 11:28:09
+# AUTO GENERATED ON 2026-07-02 AT 19:33:43
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -22,13 +22,15 @@ def test_unit_cpuawkward_NumpyArray_rearrange_shifted_toint64_fromint64_1():
     length = 0
     fromoffsets = []
     fromoffsets = (ctypes.c_int64*len(fromoffsets))(*fromoffsets)
-    offsetslength = 0
     fromparents = []
     fromparents = (ctypes.c_int64*len(fromparents))(*fromparents)
     fromstarts = []
     fromstarts = (ctypes.c_int64*len(fromstarts))(*fromstarts)
+    outlength = 0
+    toptr = []
+    toptr = (ctypes.c_int64*len(toptr))(*toptr)
     funcC = getattr(lib, 'awkward_NumpyArray_rearrange_shifted_toint64_fromint64')
-    ret_pass = funcC(toptr, fromshifts, length, fromoffsets, offsetslength, fromparents, fromstarts)
+    ret_pass = funcC(toptr, fromshifts, length, fromoffsets, outlength, fromparents, fromstarts)
     pytest_toptr = []
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -36,20 +38,20 @@ def test_unit_cpuawkward_NumpyArray_rearrange_shifted_toint64_fromint64_1():
 def test_unit_cpuawkward_NumpyArray_rearrange_shifted_toint64_fromint64_2():
     toptr = [123, 123, 123, 123, 123, 123, 123, 123, 123]
     toptr = (ctypes.c_int64*len(toptr))(*toptr)
-    toptr = [0, 1, 2, 3, 4, 5, 6, 7, 8]
-    toptr = (ctypes.c_int64*len(toptr))(*toptr)
     fromshifts = [0, 1, 2, 3, 4, 5, 6]
     fromshifts = (ctypes.c_int64*len(fromshifts))(*fromshifts)
     length = 4
     fromoffsets = [0, 1, 3, 3, 5, 7, 9]
     fromoffsets = (ctypes.c_int64*len(fromoffsets))(*fromoffsets)
-    offsetslength = 7
     fromparents = [0, 1, 3, 6]
     fromparents = (ctypes.c_int64*len(fromparents))(*fromparents)
     fromstarts = [0, 1, 2, 3, 4, 5, 6]
     fromstarts = (ctypes.c_int64*len(fromstarts))(*fromstarts)
+    outlength = 6
+    toptr = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    toptr = (ctypes.c_int64*len(toptr))(*toptr)
     funcC = getattr(lib, 'awkward_NumpyArray_rearrange_shifted_toint64_fromint64')
-    ret_pass = funcC(toptr, fromshifts, length, fromoffsets, offsetslength, fromparents, fromstarts)
+    ret_pass = funcC(toptr, fromshifts, length, fromoffsets, outlength, fromparents, fromstarts)
     pytest_toptr = [0, 3, 3, 6, 7, 10, 11, 14, 15]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -57,21 +59,21 @@ def test_unit_cpuawkward_NumpyArray_rearrange_shifted_toint64_fromint64_2():
 def test_unit_cpuawkward_NumpyArray_rearrange_shifted_toint64_fromint64_3():
     toptr = [123, 123, 123, 123, 123, 123, 123, 123]
     toptr = (ctypes.c_int64*len(toptr))(*toptr)
-    toptr = [0, 0, 0, 0, 0, 0, 0, 0]
-    toptr = (ctypes.c_int64*len(toptr))(*toptr)
     fromshifts = [0, 1, 2, 3, 4, 5, 6]
     fromshifts = (ctypes.c_int64*len(fromshifts))(*fromshifts)
     length = 4
     fromoffsets = [0, 2, 5, 8]
     fromoffsets = (ctypes.c_int64*len(fromoffsets))(*fromoffsets)
-    offsetslength = 4
     fromparents = [0, 1, 3, 6]
     fromparents = (ctypes.c_int64*len(fromparents))(*fromparents)
     fromstarts = [0, 1, 2, 3, 4, 5, 6]
     fromstarts = (ctypes.c_int64*len(fromstarts))(*fromstarts)
+    outlength = 3
+    toptr = [0, 1, 2, 3, 4, 5, 6, 7]
+    toptr = (ctypes.c_int64*len(toptr))(*toptr)
     funcC = getattr(lib, 'awkward_NumpyArray_rearrange_shifted_toint64_fromint64')
-    ret_pass = funcC(toptr, fromshifts, length, fromoffsets, offsetslength, fromparents, fromstarts)
-    pytest_toptr = [0, -1, 1, -2, 2, 5, 5, 5]
+    ret_pass = funcC(toptr, fromshifts, length, fromoffsets, outlength, fromparents, fromstarts)
+    pytest_toptr = [0, 1, 5, 4, 6, 10, 11, 12]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
 

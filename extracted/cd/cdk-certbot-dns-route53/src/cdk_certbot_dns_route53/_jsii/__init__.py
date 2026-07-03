@@ -11,7 +11,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 import aws_cdk._jsii
@@ -20,9 +20,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "cdk-certbot-dns-route53",
-    "2.5.91",
+    "2.5.92",
     __name__[0:-6],
-    "cdk-certbot-dns-route53@2.5.91.jsii.tgz",
+    "cdk-certbot-dns-route53@2.5.92.jsii.tgz",
 )
 
 __all__ = [

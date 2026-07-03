@@ -1,5 +1,6 @@
-"""Pre-GA scheduler SDK. Not wired into the ``Anyscale()`` facade yet; this
-import path is unstable and may change before GA. Do not depend on it.
+"""Alpha SDK for the Anyscale Global Resource Scheduler.
+
+Exposed as ``anyscale.scheduler`` and ``Anyscale().scheduler``.
 """
 from typing import Any, Dict, List, Optional, Union
 

@@ -133,6 +133,7 @@ class AsyncRtuTransport(AsyncBaseTransport):
         port: str,
         *,
         timeout: float | None = None,
+        on_connection_lost: Callable[[Exception | None], None] | None = None,
         **serialx_options: Unpack[SerialXOptions],
     ) -> None:
         """Initialize async Serial transport layer.
@@ -140,6 +141,8 @@ class AsyncRtuTransport(AsyncBaseTransport):
         Args:
             port: Target serial port (e.g., '/dev/ttyUSB0')
             timeout: Timeout in seconds, default 10.0 seconds
+            on_connection_lost: Optional callback invoked the moment the connection is lost.
+                                Receives the causing exception, or None on a clean close.
             serialx_options: Additional SerialX options like baudrate, parity, stopbits, etc.
 
         Raises:
@@ -152,6 +155,8 @@ class AsyncRtuTransport(AsyncBaseTransport):
         if timeout is None:
             timeout = DEFAULT_TIMEOUT
         self.timeout = timeout
+
+        self.on_connection_lost = on_connection_lost
 
         self.serialx_options = serialx_options
 
@@ -208,10 +213,19 @@ class AsyncRtuTransport(AsyncBaseTransport):
 
         except TimeoutError:
             logger.warning("Async serial connection timeout: %s", self.port, exc_info=True)
+            self._abort_failed_open()
             raise
         except Exception as e:
             logger.exception("Async serial connection error: %s", self.port)
+            self._abort_failed_open()
             raise ModbusConnectionError from e
+
+    def _abort_failed_open(self) -> None:
+        """Close and clear a partially opened transport after a failed open."""
+        if self._transport is not None:
+            self._transport.close()
+        self._transport = None
+        self._protocol = None
 
     async def close(self) -> None:
         """Close Serial connection."""
@@ -237,6 +251,8 @@ class AsyncRtuTransport(AsyncBaseTransport):
 
         self._transport = None
         self._protocol = None
+
+        self._notify_connection_lost(exc)
 
     async def send_and_receive(self, unit_id: int, pdu: BaseClientPDU[RT]) -> RT:
         """Async send PDU and receive response.
@@ -454,15 +470,22 @@ class ModbusRtuProtocol(asyncio.Protocol):
             expected_total_frame_length = 5  # address + exception FC + exception code + CRC
         else:
             # check if we can already determine the expected length with the available data
-            if not is_function_code_for_subfunction_pdu(function_code):
-                pdu_class = get_pdu_class(function_code)
-            else:
-                # It's a sub-function PDU, we need at least 6 bytes to determine the length
-                # 6 = address + function code + sub-function code + at least 1 byte of data + CRC
-                if len(self._buffer) < 6:
-                    return None  # Wait for more data
-                sub_function_code = self._buffer[2]
-                pdu_class = get_subfunction_pdu_class(function_code, sub_function_code)
+            try:
+                if not is_function_code_for_subfunction_pdu(function_code):
+                    pdu_class = get_pdu_class(function_code)
+                else:
+                    # It's a sub-function PDU, we need at least 6 bytes to determine the length
+                    # 6 = address + function code + sub-function code + at least 1 byte of data + CRC
+                    if len(self._buffer) < 6:
+                        return None  # Wait for more data
+                    sub_function_code = self._buffer[2]
+                    pdu_class = get_subfunction_pdu_class(function_code, sub_function_code)
+            except ValueError as e:
+                # Unknown or unsupported (sub-)function code, for example a bit flip on the
+                # line. We cannot determine where the frame ends, so fail the pending request
+                # with a frame error rather than letting the exception crash the protocol.
+                msg = f"Cannot frame response with unsupported function code {function_code:#04x}"
+                raise RTUFrameError(msg, response_bytes=bytes(self._buffer)) from e
 
             expected_response_data_length = pdu_class.get_expected_response_data_length(self._buffer[2:])
 
@@ -539,6 +562,15 @@ class ModbusRtuProtocol(asyncio.Protocol):
                     )
                 )
             else:
+                # The unit id is also part of the raw frame, so in theory it is possible that the CRC is caused by
+                # a bit flip on the unit id.
+
+                # However, in most cases this corrupt unit id would not correspond with a pending request,
+                # and the frame would have been discarded already anyway.
+
+                # As we're trying to recover from a bad frame, we prefer to fail fast instead of letting pending
+                # requests wait for a timeout. Therefore, we set an exception on the pending future and continue.
+
                 pending_future.set_exception(CRCError(response_bytes=frame))
 
     def connection_lost(self, exc: Exception | None) -> None:

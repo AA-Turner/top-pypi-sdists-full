@@ -230,17 +230,19 @@ awkward_ByteMaskedArray_overlay_mask8 = awkward_ByteMaskedArray_overlay_mask
 
 
 def awkward_ByteMaskedArray_reduce_next_64(
-    nextcarry, nextparents, outindex, mask, parents, length, validwhen
+    nextcarry, nextoffsets, outindex, mask, offsets, outlength, validwhen
 ):
     k = 0
-    for i in range(length):
-        if (mask[i] != 0) == validwhen:
-            nextcarry[k] = i
-            nextparents[k] = parents[i]
-            outindex[i] = k
-            k = k + 1
-        else:
-            outindex[i] = -1
+    nextoffsets[0] = 0
+    for bin in range(outlength):
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if (mask[i] != 0) == validwhen:
+                nextcarry[k] = i
+                outindex[i] = k
+                k = k + 1
+            else:
+                outindex[i] = -1
+        nextoffsets[bin + 1] = k
 
 awkward_ByteMaskedArray_reduce_next_64 = awkward_ByteMaskedArray_reduce_next_64
 
@@ -392,16 +394,17 @@ awkward_IndexedArrayU32_getitem_nextcarry_outindex_64 = awkward_IndexedArray_get
 
 
 def awkward_IndexedArray_local_preparenext_64(
-  tocarry, starts, parents, parentslength, nextparents, nextlen
+    tocarry, starts, offsets, nextoffsets, outlength
 ):
-    j = 0
-    for i in range(parentslength):
-        parent = parents[i];
-        if j < nextlen and parent == nextparents[j]:
-            tocarry[i] = j;
-            j += 1;
-        else:
-            tocarry[i] = -1;
+    for bin in range(outlength):
+        k = nextoffsets[bin]
+        inner_stop = nextoffsets[bin + 1]
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if k < inner_stop:
+                tocarry[i] = k
+                k += 1
+            else:
+                tocarry[i] = -1
 
 awkward_IndexedArray_local_preparenext_64 = awkward_IndexedArray_local_preparenext_64
 
@@ -439,14 +442,14 @@ def awkward_IndexedArray_numnull_unique_64(toindex, lenindex):
 awkward_IndexedArray_numnull_unique_64 = awkward_IndexedArray_numnull_unique_64
 
 
-def awkward_IndexedArray_index_of_nulls(toindex, fromindex, lenindex, parents, starts):
+def awkward_IndexedArray_index_of_nulls(toindex, fromindex, offsets, outlength, starts):
     j = 0
-    for i in range(lenindex):
-        if fromindex[i] < 0:
-            parent = parents[i]
-            start = starts[parent]
-            toindex[j] = i - start
-            j = j + 1
+    for bin in range(outlength):
+        start = starts[bin]
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if fromindex[i] < 0:
+                toindex[j] = i - start
+                j = j + 1
 
 awkward_IndexedArray32_index_of_nulls = awkward_IndexedArray_index_of_nulls
 awkward_IndexedArray64_index_of_nulls = awkward_IndexedArray_index_of_nulls
@@ -464,17 +467,19 @@ awkward_IndexedArrayU32_overlay_mask8_to64 = awkward_IndexedArray_overlay_mask
 
 
 def awkward_IndexedArray_reduce_next_64(
-    nextcarry, nextparents, outindex, index, parents, length
+    nextcarry, nextoffsets, outindex, index, offsets, outlength
 ):
     k = 0
-    for i in range(length):
-        if index[i] >= 0:
-            nextcarry[k] = index[i]
-            nextparents[k] = parents[i]
-            outindex[i] = k
-            k = k + 1
-        else:
-            outindex[i] = -1
+    nextoffsets[0] = 0
+    for bin in range(outlength):
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if index[i] >= 0:
+                nextcarry[k] = index[i]
+                outindex[i] = k
+                k = k + 1
+            else:
+                outindex[i] = -1
+        nextoffsets[bin + 1] = k
 
 awkward_IndexedArray32_reduce_next_64 = awkward_IndexedArray_reduce_next_64
 awkward_IndexedArray64_reduce_next_64 = awkward_IndexedArray_reduce_next_64
@@ -1204,28 +1209,22 @@ awkward_ListOffsetArray_reduce_nonlocal_maxcount_offsetscopy_64 = awkward_ListOf
 
 
 def awkward_ListOffsetArray_reduce_nonlocal_nextshifts_64(
-    nummissing,
-    missing,
-    nextshifts,
-    offsets,
-    length,
-    starts,
-    parents,
-    maxcount,
-    nextlen,
-    nextcarry,
+    nummissing, missing, nextshifts, offsets, length, starts,
+    outer_offsets, outlength, maxcount, nextlen, nextcarry,
 ):
-    for i in range(length):
-        start = offsets[i]
-        stop = offsets[i + 1]
-        count = stop - start
-        if starts[parents[i]] == i:
-            for k in range(maxcount):
-                nummissing[k] = 0
-        for k in range(count, maxcount):
-            nummissing[k] = nummissing[k] + 1
-        for j in range(count):
-            missing[start + j] = nummissing[j]
+    for outer_bin in range(outlength):
+        for k in range(maxcount):
+            nummissing[k] = 0
+        row_start = outer_offsets[outer_bin]
+        row_stop = outer_offsets[outer_bin + 1]
+        for i in range(row_start, row_stop):
+            start = offsets[i]
+            stop = offsets[i + 1]
+            count = stop - start
+            for k in range(count, maxcount):
+                nummissing[k] = nummissing[k] + 1
+            for j in range(count):
+                missing[start + j] = nummissing[j]
     for j in range(nextlen):
         nextshifts[j] = missing[nextcarry[j]]
 
@@ -1276,40 +1275,34 @@ awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64 = awkward_ListOffsetAr
 
 
 def awkward_ListOffsetArray_reduce_nonlocal_preparenext_64(
-    nextcarry,
-    nextparents,
-    nextlen,
-    maxnextparents,
-    distincts,
-    distinctslen,
-    offsetscopy,
-    offsets,
-    length,
-    parents,
-    maxcount,
+    nextcarry, nextoffsets, nextlen, maxnextparents,
+    distincts, distinctslen, offsetscopy, offsets, length,
+    outer_offsets, outlength, maxcount,
 ):
-    maxnextparents[0] = 0
+    # -1 sentinel so callers compute (maxnextparents + 1) == 0 for empty input
+    maxnextparents[0] = -1
     for i in range(distinctslen):
         distincts[i] = -1
 
-    k  = 0
-    while k < nextlen:
-        j = 0
-        for i in range(length):
-            if offsetscopy[i] < offsets[i + 1]:
-                diff = offsetscopy[i] - offsets[i]
-                parent = parents[i]
-                nextcarry[k] = offsetscopy[i]
-                nextparents[k] = parent*maxcount + diff
-
-                if maxnextparents[0] < nextparents[k]:
-                    maxnextparents[0] = nextparents[k]
-
-                if nextparents[k] < distinctslen and distincts[nextparents[k]] == -1:
-                    distincts[nextparents[k]] = j
-                    j += 1
-                k += 1
-                offsetscopy[i] += 1
+    k = 0
+    nextoffsets[0] = 0
+    for outer_bin in range(outlength):
+        row_start = outer_offsets[outer_bin]
+        row_stop = outer_offsets[outer_bin + 1]
+        for col in range(maxcount):
+            nextbin = outer_bin * maxcount + col
+            any_in_bin = False
+            for row in range(row_start, row_stop):
+                if col < offsets[row + 1] - offsets[row]:
+                    nextcarry[k] = offsets[row] + col
+                    k += 1
+                    any_in_bin = True
+            nextoffsets[nextbin + 1] = k
+            if any_in_bin:
+                if nextbin < distinctslen:
+                    distincts[nextbin] = nextbin
+                if nextbin > maxnextparents[0]:
+                    maxnextparents[0] = nextbin
 
 awkward_ListOffsetArray_reduce_nonlocal_preparenext_64 = awkward_ListOffsetArray_reduce_nonlocal_preparenext_64
 
@@ -1397,13 +1390,15 @@ awkward_MaskedArray64_getitem_next_jagged_project = awkward_MaskedArray_getitem_
 awkward_MaskedArrayU32_getitem_next_jagged_project = awkward_MaskedArray_getitem_next_jagged_project
 
 
-def awkward_NumpyArray_rearrange_shifted(toptr, fromshifts, length, fromoffsets, offsetslength, fromparents, fromstarts):
+def awkward_NumpyArray_rearrange_shifted(
+    toptr, fromshifts, length, fromoffsets, outlength, fromparents, fromstarts
+):
     k = 0
-    for i in range(offsetslength - 1):
-        for j in range(fromoffsets[i + 1] - fromoffsets[i]):
-            toptr[k] = toptr[k] + fromoffsets[i]
+    for bin in range(outlength):
+        bin_offset = fromoffsets[bin]
+        for j in range(fromoffsets[bin + 1] - bin_offset):
+            toptr[k] = toptr[k] + bin_offset
             k = k + 1
-
     for i in range(length):
         parent = fromparents[i]
         start = fromstarts[parent]
@@ -1412,37 +1407,34 @@ def awkward_NumpyArray_rearrange_shifted(toptr, fromshifts, length, fromoffsets,
 awkward_NumpyArray_rearrange_shifted_toint64_fromint64 = awkward_NumpyArray_rearrange_shifted
 
 
-def awkward_NumpyArray_reduce_adjust_starts_64(toptr, outlength, parents, starts):
+def awkward_NumpyArray_reduce_adjust_starts_64(toptr, outlength, offsets, starts):
     for k in range(outlength):
         i = toptr[k]
         if i >= 0:
-            parent = parents[i]
-            start = starts[parent]
-            toptr[k] += -start
+            toptr[k] -= starts[k]
 
 awkward_NumpyArray_reduce_adjust_starts_64 = awkward_NumpyArray_reduce_adjust_starts_64
 
 
 def awkward_NumpyArray_reduce_adjust_starts_shifts_64(
-    toptr, outlength, parents, starts, shifts
+    toptr, outlength, offsets, starts, shifts
 ):
     for k in range(outlength):
         i = toptr[k]
         if i >= 0:
-            parent = parents[i]
-            start = starts[parent]
-            toptr[k] += shifts[i] - start
+            toptr[k] += shifts[i] - starts[k]
 
 awkward_NumpyArray_reduce_adjust_starts_shifts_64 = awkward_NumpyArray_reduce_adjust_starts_shifts_64
 
 
 def awkward_NumpyArray_reduce_mask_ByteMaskedArray_64(
-    toptr, parents, lenparents, outlength
+    toptr, offsets, outlength
 ):
     for i in range(outlength):
-        toptr[i] = 1
-    for i in range(lenparents):
-        toptr[parents[i]] = 0
+        if offsets[i + 1] - offsets[i] > 0:
+          toptr[i] = 0
+        else:
+          toptr[i] = 1
 
 awkward_NumpyArray_reduce_mask_ByteMaskedArray_64 = awkward_NumpyArray_reduce_mask_ByteMaskedArray_64
 
@@ -1513,45 +1505,6 @@ awkward_NumpyArray_subrange_equal_uint32 = awkward_NumpyArray_subrange_equal
 awkward_NumpyArray_subrange_equal_uint64 = awkward_NumpyArray_subrange_equal
 awkward_NumpyArray_subrange_equal_float32 = awkward_NumpyArray_subrange_equal
 awkward_NumpyArray_subrange_equal_float64 = awkward_NumpyArray_subrange_equal
-
-
-def awkward_RecordArray_reduce_nonlocal_outoffsets_64(
-    outoffsets, outcarry, parents, lenparents, outlength
-):
-    # Zero initialise offsets
-    outoffsets[0] = 0
-
-    # Initialise carry to unique value, indicating "missing"
-    for i in range(outlength):
-        outcarry[i] = -1
-
-    # Fill offsets with lengths of sublists (in order of appearance, *NOT* parents)
-    i = 0
-    k_sublist = 0
-    for j in range(1, lenparents):
-        if parents[i] != parents[j]:
-            outoffsets[k_sublist + 1] = j
-            outcarry[parents[i]] = k_sublist
-            i = j
-            k_sublist += 1
-
-    # Close open sublist
-    if lenparents > 0:
-        outoffsets[k_sublist + 1] = j + 1
-        outcarry[parents[i]] = k_sublist
-        k_sublist += 1
-
-    # Append empty lists for missing parents
-    for i in range(k_sublist, outlength):
-        outoffsets[i + 1] = lenparents
-
-    # Replace unique value with index of appended empty list
-    for i in range(outlength):
-        if outcarry[i] == -1:
-            outcarry[i] = k_sublist
-            k_sublist += 1
-
-awkward_RecordArray_reduce_nonlocal_outoffsets_64 = awkward_RecordArray_reduce_nonlocal_outoffsets_64
 
 
 def awkward_RegularArray_combinations_64(
@@ -1675,15 +1628,19 @@ def awkward_RegularArray_reduce_local_nextparents_64(nextparents, size, length):
 awkward_RegularArray_reduce_local_nextparents_64 = awkward_RegularArray_reduce_local_nextparents_64
 
 
-def awkward_RegularArray_reduce_nonlocal_preparenext_64(nextcarry, nextparents, parents, size, length):
+def awkward_RegularArray_reduce_nonlocal_preparenext_64(
+    nextcarry, nextoffsets, offsets, size, length, outlength
+):
     k = 0
-    for j in range(size):
-        for i in range(length):
-            # nextparents needs to be locally contiguous
-            # so order our arrays by the transpose
-            nextcarry[k] = i * size + j
-            nextparents[k] = parents[i] * size + j
-            k += 1
+    nextoffsets[0] = 0
+    for bin in range(outlength):
+        row_start = offsets[bin]
+        row_stop = offsets[bin + 1]
+        for j in range(size):
+            for i in range(row_start, row_stop):
+                nextcarry[k] = i * size + j
+                k += 1
+            nextoffsets[bin * size + j + 1] = k
 
 awkward_RegularArray_reduce_nonlocal_preparenext_64 = awkward_RegularArray_reduce_nonlocal_preparenext_64
 
@@ -1917,17 +1874,50 @@ def awkward_argsort(
     for i in range(length):
         toptr[i] = result[i]
 
-awkward_argsort_bool = awkward_argsort
-awkward_argsort_int8 = awkward_argsort
-awkward_argsort_int16 = awkward_argsort
-awkward_argsort_int32 = awkward_argsort
-awkward_argsort_int64 = awkward_argsort
-awkward_argsort_uint8 = awkward_argsort
-awkward_argsort_uint16 = awkward_argsort
-awkward_argsort_uint32 = awkward_argsort
-awkward_argsort_uint64 = awkward_argsort
-awkward_argsort_float32 = awkward_argsort
-awkward_argsort_float64 = awkward_argsort
+awkward_argsort_bool_int32 = awkward_argsort
+awkward_argsort_bool_uint32 = awkward_argsort
+awkward_argsort_bool_uint64 = awkward_argsort
+awkward_argsort_bool_int64 = awkward_argsort
+awkward_argsort_int8_int32 = awkward_argsort
+awkward_argsort_int8_uint32 = awkward_argsort
+awkward_argsort_int8_uint64 = awkward_argsort
+awkward_argsort_int8_int64 = awkward_argsort
+awkward_argsort_int16_int32 = awkward_argsort
+awkward_argsort_int16_uint32 = awkward_argsort
+awkward_argsort_int16_uint64 = awkward_argsort
+awkward_argsort_int16_int64 = awkward_argsort
+awkward_argsort_int32_int32 = awkward_argsort
+awkward_argsort_int32_uint32 = awkward_argsort
+awkward_argsort_int32_uint64 = awkward_argsort
+awkward_argsort_int32_int64 = awkward_argsort
+awkward_argsort_int64_int32 = awkward_argsort
+awkward_argsort_int64_uint32 = awkward_argsort
+awkward_argsort_int64_uint64 = awkward_argsort
+awkward_argsort_int64_int64 = awkward_argsort
+awkward_argsort_uint8_int32 = awkward_argsort
+awkward_argsort_uint8_uint32 = awkward_argsort
+awkward_argsort_uint8_uint64 = awkward_argsort
+awkward_argsort_uint8_int64 = awkward_argsort
+awkward_argsort_uint16_int32 = awkward_argsort
+awkward_argsort_uint16_uint32 = awkward_argsort
+awkward_argsort_uint16_uint64 = awkward_argsort
+awkward_argsort_uint16_int64 = awkward_argsort
+awkward_argsort_uint32_int32 = awkward_argsort
+awkward_argsort_uint32_uint32 = awkward_argsort
+awkward_argsort_uint32_uint64 = awkward_argsort
+awkward_argsort_uint32_int64 = awkward_argsort
+awkward_argsort_uint64_int32 = awkward_argsort
+awkward_argsort_uint64_uint32 = awkward_argsort
+awkward_argsort_uint64_uint64 = awkward_argsort
+awkward_argsort_uint64_int64 = awkward_argsort
+awkward_argsort_float32_int32 = awkward_argsort
+awkward_argsort_float32_uint32 = awkward_argsort
+awkward_argsort_float32_uint64 = awkward_argsort
+awkward_argsort_float32_int64 = awkward_argsort
+awkward_argsort_float64_int32 = awkward_argsort
+awkward_argsort_float64_uint32 = awkward_argsort
+awkward_argsort_float64_uint64 = awkward_argsort
+awkward_argsort_float64_int64 = awkward_argsort
 
 
 def awkward_index_rpad_and_clip_axis0(toindex, target, length):
@@ -1979,335 +1969,376 @@ def awkward_missing_repeat(outindex, index, indexlength, repetitions, regularsiz
 awkward_missing_repeat_64 = awkward_missing_repeat
 
 
-def awkward_reduce_argmax(toptr, fromptr, parents, offsets, lenparents, starts, outlength):
-    for k in range(outlength):
-        toptr[k] = -1
-    for i in range(lenparents):
-        parent = parents[i]
-        if (toptr[parent] == -1) or (fromptr[i] > fromptr[toptr[parent]]):
-            toptr[parent] = i
+def awkward_reduce_argmax(toptr, fromptr, offsets, starts, outlength):
+    for bin in range(outlength):
+        best = -1
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if best == -1 or fromptr[i] > fromptr[best]:
+                best = i
+        toptr[bin] = best
 
 awkward_reduce_argmax_int8_64 = awkward_reduce_argmax
-awkward_reduce_argmax_int16_64 = awkward_reduce_argmax
-awkward_reduce_argmax_int32_64 = awkward_reduce_argmax
-awkward_reduce_argmax_int64_64 = awkward_reduce_argmax
 awkward_reduce_argmax_uint8_64 = awkward_reduce_argmax
+awkward_reduce_argmax_int16_64 = awkward_reduce_argmax
 awkward_reduce_argmax_uint16_64 = awkward_reduce_argmax
+awkward_reduce_argmax_int32_64 = awkward_reduce_argmax
 awkward_reduce_argmax_uint32_64 = awkward_reduce_argmax
+awkward_reduce_argmax_int64_64 = awkward_reduce_argmax
 awkward_reduce_argmax_uint64_64 = awkward_reduce_argmax
 awkward_reduce_argmax_float32_64 = awkward_reduce_argmax
 awkward_reduce_argmax_float64_64 = awkward_reduce_argmax
 
 
-def awkward_reduce_argmax_complex(toptr, fromptr, parents, offsets, lenparents, outlength):
-    for k in range(outlength):
-        toptr[k] = -1
-    for i in range(lenparents):
-        parent = parents[i]
-        if (toptr[parent] == -1  or (fromptr[i * 2] > fromptr[toptr[parent] * 2] or
-           (fromptr[i * 2] == fromptr[toptr[parent] * 2]  and
-            fromptr[i * 2 + 1] > fromptr[toptr[parent] * 2 + 1]))):
-            toptr[parent] = i
+def awkward_reduce_argmax_complex(toptr, fromptr, offsets, outlength):
+    for bin in range(outlength):
+        best = -1
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if best == -1:
+                best = i
+            else:
+                x = fromptr[i * 2]; y = fromptr[i * 2 + 1]
+                bx = fromptr[best * 2]; by = fromptr[best * 2 + 1]
+                if x > bx or (x == bx and y > by):
+                    best = i
+        toptr[bin] = best
 
 awkward_reduce_argmax_complex64_64 = awkward_reduce_argmax_complex
 awkward_reduce_argmax_complex128_64 = awkward_reduce_argmax_complex
 
 
-def awkward_reduce_argmin(toptr, fromptr, parents, offsets, lenparents, starts, outlength):
-    for k in range(outlength):
-        toptr[k] = -1
-    for i in range(lenparents):
-        parent = parents[i]
-        if (toptr[parent] == -1) or (fromptr[i] < fromptr[toptr[parent]]):
-            toptr[parent] = i
+def awkward_reduce_argmin(toptr, fromptr, offsets, starts, outlength):
+    for bin in range(outlength):
+        best = -1
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if best == -1 or fromptr[i] < fromptr[best]:
+                best = i
+        toptr[bin] = best
 
 awkward_reduce_argmin_int8_64 = awkward_reduce_argmin
-awkward_reduce_argmin_int16_64 = awkward_reduce_argmin
-awkward_reduce_argmin_int32_64 = awkward_reduce_argmin
-awkward_reduce_argmin_int64_64 = awkward_reduce_argmin
 awkward_reduce_argmin_uint8_64 = awkward_reduce_argmin
+awkward_reduce_argmin_int16_64 = awkward_reduce_argmin
 awkward_reduce_argmin_uint16_64 = awkward_reduce_argmin
+awkward_reduce_argmin_int32_64 = awkward_reduce_argmin
 awkward_reduce_argmin_uint32_64 = awkward_reduce_argmin
+awkward_reduce_argmin_int64_64 = awkward_reduce_argmin
 awkward_reduce_argmin_uint64_64 = awkward_reduce_argmin
 awkward_reduce_argmin_float32_64 = awkward_reduce_argmin
 awkward_reduce_argmin_float64_64 = awkward_reduce_argmin
 
 
-def awkward_reduce_argmin_complex(toptr, fromptr, parents, offsets, lenparents, outlength):
-    for k in range(outlength):
-        toptr[k] = -1
-    for i in range(lenparents):
-        parent = parents[i]
-        if (toptr[parent] == -1  or (fromptr[i * 2] < fromptr[toptr[parent] * 2] or
-           (fromptr[i * 2] == fromptr[toptr[parent] * 2]  and
-            fromptr[i * 2 + 1] < fromptr[toptr[parent] * 2 + 1]))):
-            toptr[parent] = i
+def awkward_reduce_argmin_complex(toptr, fromptr, offsets, outlength):
+    for bin in range(outlength):
+        best = -1
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if best == -1:
+                best = i
+            else:
+                x = fromptr[i * 2]; y = fromptr[i * 2 + 1]
+                bx = fromptr[best * 2]; by = fromptr[best * 2 + 1]
+                if x < bx or (x == bx and y < by):
+                    best = i
+        toptr[bin] = best
 
 awkward_reduce_argmin_complex64_64 = awkward_reduce_argmin_complex
 awkward_reduce_argmin_complex128_64 = awkward_reduce_argmin_complex
 
 
-def awkward_reduce_count_64(toptr, parents, lenparents, outlength):
-    for i in range(outlength):
-        toptr[i] = 0
-    for i in range(lenparents):
-        toptr[parents[i]] = toptr[parents[i]] + 1
+def awkward_reduce_count_64(toptr, offsets, outlength):
+    for bin in range(outlength):
+        toptr[bin] = offsets[bin + 1] - offsets[bin]
 
 awkward_reduce_count_64 = awkward_reduce_count_64
 
 
-def awkward_reduce_countnonzero(toptr, fromptr, parents, lenparents, outlength):
-    for i in range(outlength):
-        toptr[i] = 0
-    for i in range(lenparents):
-        toptr[parents[i]] += fromptr[i] != 0
+def awkward_reduce_countnonzero(toptr, fromptr, offsets, outlength):
+    for bin in range(outlength):
+        c = 0
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if fromptr[i] != 0:
+                c += 1
+        toptr[bin] = c
 
 awkward_reduce_countnonzero_bool_64 = awkward_reduce_countnonzero
 awkward_reduce_countnonzero_int8_64 = awkward_reduce_countnonzero
-awkward_reduce_countnonzero_int16_64 = awkward_reduce_countnonzero
-awkward_reduce_countnonzero_int32_64 = awkward_reduce_countnonzero
-awkward_reduce_countnonzero_int64_64 = awkward_reduce_countnonzero
 awkward_reduce_countnonzero_uint8_64 = awkward_reduce_countnonzero
+awkward_reduce_countnonzero_int16_64 = awkward_reduce_countnonzero
 awkward_reduce_countnonzero_uint16_64 = awkward_reduce_countnonzero
+awkward_reduce_countnonzero_int32_64 = awkward_reduce_countnonzero
 awkward_reduce_countnonzero_uint32_64 = awkward_reduce_countnonzero
+awkward_reduce_countnonzero_int64_64 = awkward_reduce_countnonzero
 awkward_reduce_countnonzero_uint64_64 = awkward_reduce_countnonzero
 awkward_reduce_countnonzero_float32_64 = awkward_reduce_countnonzero
 awkward_reduce_countnonzero_float64_64 = awkward_reduce_countnonzero
 
 
-def awkward_reduce_countnonzero_complex(toptr, fromptr, parents, lenparents, outlength):
-    for i in range(outlength):
-        toptr[i] = 0
-    for i in range(lenparents):
-        toptr[parents[i]] += fromptr[i * 2] != 0 or fromptr[i * 2 + 1] != 0
+def awkward_reduce_countnonzero_complex(toptr, fromptr, offsets, outlength):
+    for bin in range(outlength):
+        c = 0
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if fromptr[i * 2] != 0 or fromptr[i * 2 + 1] != 0:
+                c += 1
+        toptr[bin] = c
 
 awkward_reduce_countnonzero_complex64_64 = awkward_reduce_countnonzero_complex
 awkward_reduce_countnonzero_complex128_64 = awkward_reduce_countnonzero_complex
 
 
-def awkward_reduce_max(toptr, fromptr, parents, offsets, lenparents, outlength, identity):
-    for i in range(outlength):
-        toptr[i] = identity
-    for i in range(lenparents):
-        x = fromptr[i]
-        toptr[parents[i]] = x if x > toptr[parents[i]] else toptr[parents[i]]
+def awkward_reduce_max(toptr, fromptr, offsets, outlength, identity):
+    for bin in range(outlength):
+        best = identity
+        for i in range(offsets[bin], offsets[bin + 1]):
+            x = fromptr[i]
+            if x > best:
+                best = x
+        toptr[bin] = best
 
 awkward_reduce_max_int8_int8_64 = awkward_reduce_max
-awkward_reduce_max_int16_int16_64 = awkward_reduce_max
-awkward_reduce_max_int32_int32_64 = awkward_reduce_max
-awkward_reduce_max_int64_int64_64 = awkward_reduce_max
 awkward_reduce_max_uint8_uint8_64 = awkward_reduce_max
+awkward_reduce_max_int16_int16_64 = awkward_reduce_max
 awkward_reduce_max_uint16_uint16_64 = awkward_reduce_max
+awkward_reduce_max_int32_int32_64 = awkward_reduce_max
 awkward_reduce_max_uint32_uint32_64 = awkward_reduce_max
+awkward_reduce_max_int64_int64_64 = awkward_reduce_max
 awkward_reduce_max_uint64_uint64_64 = awkward_reduce_max
 awkward_reduce_max_float32_float32_64 = awkward_reduce_max
 awkward_reduce_max_float64_float64_64 = awkward_reduce_max
 
 
-def awkward_reduce_max_complex(toptr, fromptr, parents, offsets, lenparents, outlength, identity):
-    for i in range(outlength):
-        toptr[i * 2] = identity
-        toptr[i * 2 + 1] = 0
-    for i in range(lenparents):
-        x = fromptr[i * 2]
-        y = fromptr[i * 2 + 1]
-        parent = parents[i]
-        if x > toptr[parent * 2] or (x == toptr[parent * 2]  and  y > toptr[parent * 2 + 1]):
-            toptr[parent * 2] = x
-            toptr[parent * 2 + 1] = y
+def awkward_reduce_max_complex(toptr, fromptr, offsets, outlength, identity):
+    for bin in range(outlength):
+        best_re = identity
+        best_im = 0
+        seen = False
+        for i in range(offsets[bin], offsets[bin + 1]):
+            x = fromptr[i * 2]
+            y = fromptr[i * 2 + 1]
+            if not seen or x > best_re or (x == best_re and y > best_im):
+                best_re = x
+                best_im = y
+                seen = True
+        toptr[bin * 2] = best_re
+        toptr[bin * 2 + 1] = best_im
 
 awkward_reduce_max_complex64_complex64_64 = awkward_reduce_max_complex
 awkward_reduce_max_complex128_complex128_64 = awkward_reduce_max_complex
 
 
-def awkward_reduce_min(toptr, fromptr, parents, offsets, lenparents, outlength, identity):
-    for i in range(outlength):
-        toptr[i] = identity
-    for i in range(lenparents):
-        x = fromptr[i]
-        toptr[parents[i]] = x if x < toptr[parents[i]] else toptr[parents[i]]
+def awkward_reduce_min(toptr, fromptr, offsets, outlength, identity):
+    for bin in range(outlength):
+        best = identity
+        for i in range(offsets[bin], offsets[bin + 1]):
+            x = fromptr[i]
+            if x < best:
+                best = x
+        toptr[bin] = best
 
 awkward_reduce_min_int8_int8_64 = awkward_reduce_min
-awkward_reduce_min_int16_int16_64 = awkward_reduce_min
-awkward_reduce_min_int32_int32_64 = awkward_reduce_min
-awkward_reduce_min_int64_int64_64 = awkward_reduce_min
 awkward_reduce_min_uint8_uint8_64 = awkward_reduce_min
+awkward_reduce_min_int16_int16_64 = awkward_reduce_min
 awkward_reduce_min_uint16_uint16_64 = awkward_reduce_min
+awkward_reduce_min_int32_int32_64 = awkward_reduce_min
 awkward_reduce_min_uint32_uint32_64 = awkward_reduce_min
+awkward_reduce_min_int64_int64_64 = awkward_reduce_min
 awkward_reduce_min_uint64_uint64_64 = awkward_reduce_min
 awkward_reduce_min_float32_float32_64 = awkward_reduce_min
 awkward_reduce_min_float64_float64_64 = awkward_reduce_min
 
 
-def awkward_reduce_min_complex(toptr, fromptr, parents, offsets, lenparents, outlength, identity):
-    for i in range(outlength):
-        toptr[i * 2] = identity
-        toptr[i * 2 + 1] = 0
-    for i in range(lenparents):
-        x = fromptr[i * 2]
-        y = fromptr[i * 2 + 1]
-        parent = parents[i]
-        if x < toptr[parent * 2] or (x == toptr[parent * 2]  and  y < toptr[parent * 2 + 1]):
-            toptr[parent * 2] = x
-            toptr[parent * 2 + 1] = y
+def awkward_reduce_min_complex(toptr, fromptr, offsets, outlength, identity):
+    for bin in range(outlength):
+        best_re = identity
+        best_im = 0
+        seen = False
+        for i in range(offsets[bin], offsets[bin + 1]):
+            x = fromptr[i * 2]
+            y = fromptr[i * 2 + 1]
+            if not seen or x < best_re or (x == best_re and y < best_im):
+                best_re = x
+                best_im = y
+                seen = True
+        toptr[bin * 2] = best_re
+        toptr[bin * 2 + 1] = best_im
 
 awkward_reduce_min_complex64_complex64_64 = awkward_reduce_min_complex
 awkward_reduce_min_complex128_complex128_64 = awkward_reduce_min_complex
 
 
-def awkward_reduce_prod(toptr, fromptr, parents, offsets, lenparents, outlength):
-    for i in range(outlength):
-        toptr[i] = 1
-    for i in range(lenparents):
-        toptr[parents[i]] *= fromptr[i]
+def awkward_reduce_prod(toptr, fromptr, offsets, outlength):
+    for bin in range(outlength):
+        acc = 1
+        for i in range(offsets[bin], offsets[bin + 1]):
+            acc *= fromptr[i]
+        toptr[bin] = acc
 
-awkward_reduce_prod_int32_int8_64 = awkward_reduce_prod
-awkward_reduce_prod_int32_int16_64 = awkward_reduce_prod
-awkward_reduce_prod_int32_int32_64 = awkward_reduce_prod
 awkward_reduce_prod_int64_int8_64 = awkward_reduce_prod
-awkward_reduce_prod_int64_int16_64 = awkward_reduce_prod
-awkward_reduce_prod_int64_int32_64 = awkward_reduce_prod
-awkward_reduce_prod_int64_int64_64 = awkward_reduce_prod
-awkward_reduce_prod_uint32_uint8_64 = awkward_reduce_prod
-awkward_reduce_prod_uint32_uint16_64 = awkward_reduce_prod
-awkward_reduce_prod_uint32_uint32_64 = awkward_reduce_prod
 awkward_reduce_prod_uint64_uint8_64 = awkward_reduce_prod
+awkward_reduce_prod_int64_int16_64 = awkward_reduce_prod
 awkward_reduce_prod_uint64_uint16_64 = awkward_reduce_prod
+awkward_reduce_prod_int64_int32_64 = awkward_reduce_prod
 awkward_reduce_prod_uint64_uint32_64 = awkward_reduce_prod
+awkward_reduce_prod_int64_int64_64 = awkward_reduce_prod
 awkward_reduce_prod_uint64_uint64_64 = awkward_reduce_prod
 awkward_reduce_prod_float32_float32_64 = awkward_reduce_prod
 awkward_reduce_prod_float64_float64_64 = awkward_reduce_prod
+awkward_reduce_prod_int32_int8_64 = awkward_reduce_prod
+awkward_reduce_prod_uint32_uint8_64 = awkward_reduce_prod
+awkward_reduce_prod_int32_int16_64 = awkward_reduce_prod
+awkward_reduce_prod_uint32_uint16_64 = awkward_reduce_prod
+awkward_reduce_prod_int32_int32_64 = awkward_reduce_prod
+awkward_reduce_prod_uint32_uint32_64 = awkward_reduce_prod
 
 
-def awkward_reduce_prod_complex(toptr, fromptr, parents, offsets, lenparents, outlength):
-    for i in range(outlength):
-        toptr[i * 2] = 1
-        toptr[i * 2 + 1] = 0
-    for i in range(lenparents):
-        parent = parents[i]
-        real = toptr[parent * 2] * fromptr[i * 2] - toptr[parent * 2 + 1] * fromptr[i * 2 + 1]
-        imag = toptr[parent * 2] * fromptr[i * 2 + 1] + toptr[parent * 2 + 1] * fromptr[i * 2]
-        toptr[parents[i] * 2] = real
-        toptr[parents[i] * 2 + 1] = imag
+def awkward_reduce_prod_complex(toptr, fromptr, offsets, outlength):
+    for bin in range(outlength):
+        a = 1
+        b = 0
+        for i in range(offsets[bin], offsets[bin + 1]):
+            c = fromptr[i * 2]
+            d = fromptr[i * 2 + 1]
+            na = a * c - b * d
+            nb = a * d + b * c
+            a = na
+            b = nb
+        toptr[bin * 2] = a
+        toptr[bin * 2 + 1] = b
 
 awkward_reduce_prod_complex64_complex64_64 = awkward_reduce_prod_complex
 awkward_reduce_prod_complex128_complex128_64 = awkward_reduce_prod_complex
 
 
-def awkward_reduce_prod_bool(toptr, fromptr, parents, offsets, lenparents, outlength):
-    for i in range(outlength):
-        toptr[i] = True
-    for i in range(lenparents):
-        toptr[parents[i]] &= fromptr[i] != 0
+def awkward_reduce_prod_bool(toptr, fromptr, offsets, outlength):
+    for bin in range(outlength):
+        all_nz = True
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if fromptr[i] == 0:
+                all_nz = False
+                break
+        toptr[bin] = all_nz
 
 awkward_reduce_prod_bool_bool_64 = awkward_reduce_prod_bool
 awkward_reduce_prod_bool_int8_64 = awkward_reduce_prod_bool
-awkward_reduce_prod_bool_int16_64 = awkward_reduce_prod_bool
-awkward_reduce_prod_bool_int32_64 = awkward_reduce_prod_bool
-awkward_reduce_prod_bool_int64_64 = awkward_reduce_prod_bool
 awkward_reduce_prod_bool_uint8_64 = awkward_reduce_prod_bool
+awkward_reduce_prod_bool_int16_64 = awkward_reduce_prod_bool
 awkward_reduce_prod_bool_uint16_64 = awkward_reduce_prod_bool
+awkward_reduce_prod_bool_int32_64 = awkward_reduce_prod_bool
 awkward_reduce_prod_bool_uint32_64 = awkward_reduce_prod_bool
+awkward_reduce_prod_bool_int64_64 = awkward_reduce_prod_bool
 awkward_reduce_prod_bool_uint64_64 = awkward_reduce_prod_bool
 awkward_reduce_prod_bool_float32_64 = awkward_reduce_prod_bool
 awkward_reduce_prod_bool_float64_64 = awkward_reduce_prod_bool
 
 
-def awkward_reduce_prod_bool_complex(toptr, fromptr, parents, offsets, lenparents, outlength):
-    for i in range(outlength):
-        toptr[i] = 1
-    for i in range(lenparents):
-        toptr[parents[i]] = fromptr[i * 2] != 0 or fromptr[i * 2 + 1] != 0
+def awkward_reduce_prod_bool_complex(toptr, fromptr, offsets, outlength):
+    for bin in range(outlength):
+        all_nz = True
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if fromptr[i * 2] == 0 and fromptr[i * 2 + 1] == 0:
+                all_nz = False
+                break
+        toptr[bin] = all_nz
 
 awkward_reduce_prod_bool_complex64_64 = awkward_reduce_prod_bool_complex
 awkward_reduce_prod_bool_complex128_64 = awkward_reduce_prod_bool_complex
 
 
-def awkward_reduce_sum(toptr, fromptr, parents, offsets, lenparents, outlength):
-    for i in range(outlength):
-        toptr[i] = 0
-    for i in range(lenparents):
-        toptr[parents[i]] += fromptr[i]
+def awkward_reduce_sum(toptr, fromptr, offsets, outlength):
+    for bin in range(outlength):
+        acc = 0
+        for i in range(offsets[bin], offsets[bin + 1]):
+            acc += fromptr[i]
+        toptr[bin] = acc
 
-awkward_reduce_sum_int32_int8_64 = awkward_reduce_sum
-awkward_reduce_sum_int32_int16_64 = awkward_reduce_sum
-awkward_reduce_sum_int32_int32_64 = awkward_reduce_sum
 awkward_reduce_sum_int64_int8_64 = awkward_reduce_sum
-awkward_reduce_sum_int64_int16_64 = awkward_reduce_sum
-awkward_reduce_sum_int64_int32_64 = awkward_reduce_sum
-awkward_reduce_sum_int64_int64_64 = awkward_reduce_sum
-awkward_reduce_sum_uint32_uint8_64 = awkward_reduce_sum
-awkward_reduce_sum_uint32_uint16_64 = awkward_reduce_sum
-awkward_reduce_sum_uint32_uint32_64 = awkward_reduce_sum
 awkward_reduce_sum_uint64_uint8_64 = awkward_reduce_sum
+awkward_reduce_sum_int64_int16_64 = awkward_reduce_sum
 awkward_reduce_sum_uint64_uint16_64 = awkward_reduce_sum
+awkward_reduce_sum_int64_int32_64 = awkward_reduce_sum
 awkward_reduce_sum_uint64_uint32_64 = awkward_reduce_sum
+awkward_reduce_sum_int64_int64_64 = awkward_reduce_sum
 awkward_reduce_sum_uint64_uint64_64 = awkward_reduce_sum
 awkward_reduce_sum_float32_float32_64 = awkward_reduce_sum
 awkward_reduce_sum_float64_float64_64 = awkward_reduce_sum
+awkward_reduce_sum_int32_int8_64 = awkward_reduce_sum
+awkward_reduce_sum_uint32_uint8_64 = awkward_reduce_sum
+awkward_reduce_sum_int32_int16_64 = awkward_reduce_sum
+awkward_reduce_sum_uint32_uint16_64 = awkward_reduce_sum
+awkward_reduce_sum_int32_int32_64 = awkward_reduce_sum
+awkward_reduce_sum_uint32_uint32_64 = awkward_reduce_sum
 
 
-def awkward_reduce_sum_complex(toptr, fromptr, parents, offsets, lenparents, outlength):
-    for i in range(outlength):
-        toptr[i * 2] = 0
-        toptr[i * 2 + 1] = 0
-    for i in range(lenparents):
-        toptr[parents[i] * 2] += fromptr[i * 2]
-        toptr[parents[i] * 2 + 1] += fromptr[i * 2 + 1]
+def awkward_reduce_sum_complex(toptr, fromptr, offsets, outlength):
+    for bin in range(outlength):
+        re = 0
+        im = 0
+        for i in range(offsets[bin], offsets[bin + 1]):
+            re += fromptr[i * 2]
+            im += fromptr[i * 2 + 1]
+        toptr[bin * 2] = re
+        toptr[bin * 2 + 1] = im
 
 awkward_reduce_sum_complex64_complex64_64 = awkward_reduce_sum_complex
 awkward_reduce_sum_complex128_complex128_64 = awkward_reduce_sum_complex
 
 
-def awkward_reduce_sum_bool(toptr, fromptr, parents, offsets, lenparents, outlength):
-    for i in range(outlength):
-        toptr[i] = False
-    for i in range(lenparents):
-        toptr[parents[i]] |= fromptr[i] != 0
+def awkward_reduce_sum_bool(toptr, fromptr, offsets, outlength):
+    for bin in range(outlength):
+        found = False
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if fromptr[i] != 0:
+                found = True
+                break
+        toptr[bin] = found
 
 awkward_reduce_sum_bool_bool_64 = awkward_reduce_sum_bool
 awkward_reduce_sum_bool_int8_64 = awkward_reduce_sum_bool
-awkward_reduce_sum_bool_int16_64 = awkward_reduce_sum_bool
-awkward_reduce_sum_bool_int32_64 = awkward_reduce_sum_bool
-awkward_reduce_sum_bool_int64_64 = awkward_reduce_sum_bool
 awkward_reduce_sum_bool_uint8_64 = awkward_reduce_sum_bool
+awkward_reduce_sum_bool_int16_64 = awkward_reduce_sum_bool
 awkward_reduce_sum_bool_uint16_64 = awkward_reduce_sum_bool
+awkward_reduce_sum_bool_int32_64 = awkward_reduce_sum_bool
 awkward_reduce_sum_bool_uint32_64 = awkward_reduce_sum_bool
+awkward_reduce_sum_bool_int64_64 = awkward_reduce_sum_bool
 awkward_reduce_sum_bool_uint64_64 = awkward_reduce_sum_bool
 awkward_reduce_sum_bool_float32_64 = awkward_reduce_sum_bool
 awkward_reduce_sum_bool_float64_64 = awkward_reduce_sum_bool
 
 
-def awkward_reduce_sum_bool_complex(toptr, fromptr, parents, offsets, lenparents, outlength):
-    for i in range(outlength):
-        toptr[i] = 0
-    for i in range(lenparents):
-        toptr[parents[i]] |= fromptr[i * 2] != 0 or fromptr[i * 2 + 1] != 0
+def awkward_reduce_sum_bool_complex(toptr, fromptr, offsets, outlength):
+    for bin in range(outlength):
+        found = False
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if fromptr[i * 2] != 0 or fromptr[i * 2 + 1] != 0:
+                found = True
+                break
+        toptr[bin] = found
 
 awkward_reduce_sum_bool_complex64_64 = awkward_reduce_sum_bool_complex
 awkward_reduce_sum_bool_complex128_64 = awkward_reduce_sum_bool_complex
 
 
-def awkward_reduce_sum_int32_bool_64(toptr, fromptr, parents, offsets, lenparents, outlength):
-    for i in range(outlength):
-        toptr[i] = 0
-    for i in range(lenparents):
-        toptr[parents[i]] += fromptr[i] != 0
+def awkward_reduce_sum_int32_bool_64(toptr, fromptr, offsets, outlength):
+    for bin in range(outlength):
+        acc = 0
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if fromptr[i]:
+                acc += 1
+        toptr[bin] = acc
 
 awkward_reduce_sum_int32_bool_64 = awkward_reduce_sum_int32_bool_64
 
 
-def awkward_reduce_sum_int64_bool_64(toptr, fromptr, parents, offsets, lenparents, outlength):
-    for i in range(outlength):
-        toptr[i] = 0
-    for i in range(lenparents):
-        toptr[parents[i]] += fromptr[i] != 0
+def awkward_reduce_sum_int64_bool_64(toptr, fromptr, offsets, outlength):
+    for bin in range(outlength):
+        acc = 0
+        for i in range(offsets[bin], offsets[bin + 1]):
+            if fromptr[i]:
+                acc += 1
+        toptr[bin] = acc
 
 awkward_reduce_sum_int64_bool_64 = awkward_reduce_sum_int64_bool_64
 
 
 def awkward_sort(
-    toptr, fromptr, length, offsets, offsetslength, parentslength, ascending, stable
+    toptr, fromptr, length, offsets, offsetslength, ascending, stable
 ):
     result = []
     for i in range(offsetslength - 1):
@@ -2316,7 +2347,7 @@ def awkward_sort(
             result += sub_list
         else:
             result += sorted(sub_list, reverse=not ascending)
-    for i in range(parentslength):
+    for i in range(len(result)):
         toptr[i] = result[i]
 
 awkward_sort_bool = awkward_sort

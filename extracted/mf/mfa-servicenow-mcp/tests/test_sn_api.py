@@ -5,13 +5,20 @@ from servicenow_mcp.tools.sn_api import (
     _CACHE_TTL_SECONDS,
     GenericQueryParams,
     HealthCheckParams,
+    _authenticated_user,
     _cache_get,
     _cache_put,
     invalidate_query_cache,
     sn_health,
     sn_query,
 )
-from servicenow_mcp.utils.config import AuthConfig, AuthType, BrowserAuthConfig, ServerConfig
+from servicenow_mcp.utils.config import (
+    AuthConfig,
+    AuthType,
+    BasicAuthConfig,
+    BrowserAuthConfig,
+    ServerConfig,
+)
 
 
 def test_sn_query_uses_auth_manager_make_request():
@@ -252,3 +259,146 @@ def test_sn_health_treats_browser_probe_acl_failure_as_authenticated_warning():
     assert result["ok"] is True
     assert result["status_code"] == 403
     assert "warning" in result
+
+
+def _browser_cfg():
+    return ServerConfig(
+        instance_url="https://example.service-now.com",
+        auth=AuthConfig(type=AuthType.BROWSER, browser=BrowserAuthConfig()),
+    )
+
+
+def _basic_cfg(username="admin"):
+    return ServerConfig(
+        instance_url="https://example.service-now.com",
+        auth=AuthConfig(
+            type=AuthType.BASIC,
+            basic=BasicAuthConfig(username=username, password="pw"),
+        ),
+    )
+
+
+def test_authenticated_user_basic_from_config_no_network():
+    am = MagicMock()
+    assert _authenticated_user(_basic_cfg("svc_prod"), am, allow_live=False) == "svc_prod"
+    am.make_request.assert_not_called()  # identity is the configured user, no call
+
+
+def test_authenticated_user_browser_live_asks_current_user():
+    import servicenow_mcp.tools.sn_api as api
+
+    api._LIVE_USER_CACHE.clear()
+    am = MagicMock()
+    resp = MagicMock()
+    resp.json.return_value = {"result": {"user_name": "alice"}}
+    am.make_request.return_value = resp
+    assert _authenticated_user(_browser_cfg(), am, allow_live=True) == "alice"
+    called_url = am.make_request.call_args[0][1]
+    assert called_url.endswith("/api/now/ui/user/current_user")
+
+
+def test_authenticated_user_browser_not_live_never_calls():
+    # A dead session must not trigger a re-login from a health check.
+    am = MagicMock()
+    assert _authenticated_user(_browser_cfg(), am, allow_live=False) is None
+    am.make_request.assert_not_called()
+
+
+def test_authenticated_user_browser_live_failure_is_best_effort():
+    import servicenow_mcp.tools.sn_api as api
+
+    api._LIVE_USER_CACHE.clear()
+    am = MagicMock()
+    am.make_request.side_effect = RuntimeError("boom")
+    assert _authenticated_user(_browser_cfg(), am, allow_live=True) is None
+
+
+def test_sn_health_surfaces_browser_authenticated_user():
+    import servicenow_mcp.tools.sn_api as api
+
+    invalidate_query_cache()
+    api._LIVE_USER_CACHE.clear()
+    config = _browser_cfg()
+    am = MagicMock()
+    probe = MagicMock()
+    probe.status_code = 200
+    probe.headers = {}
+    probe.url = "https://example.service-now.com/api/now/table/sys_user_preference"
+    probe.is_redirect = False
+    probe.json.return_value = {"result": [{"sys_id": "1"}]}
+    current = MagicMock()
+    current.json.return_value = {"result": {"user_name": "alice"}}
+    am.make_request.side_effect = [probe, current]
+
+    result = sn_health(config, am, HealthCheckParams())
+
+    assert result["ok"] is True
+    assert result["authenticated_user"] == "alice"
+
+
+def _browser_cfg_for(url):
+    return ServerConfig(
+        instance_url=url,
+        auth=AuthConfig(type=AuthType.BROWSER, browser=BrowserAuthConfig()),
+    )
+
+
+def test_resolve_live_username_caches_within_ttl():
+    import servicenow_mcp.tools.sn_api as api
+
+    api._LIVE_USER_CACHE.clear()
+    cfg = _browser_cfg_for("https://cache.service-now.com")
+    am = MagicMock()
+    resp = MagicMock()
+    resp.json.return_value = {"result": {"user_name": "alice"}}
+    am.make_request.return_value = resp
+
+    assert api.resolve_live_username(cfg, am) == "alice"
+    assert api.resolve_live_username(cfg, am) == "alice"
+    assert am.make_request.call_count == 1  # second call served from cache
+
+
+def test_resolve_live_username_refetches_after_ttl(monkeypatch):
+    import servicenow_mcp.tools.sn_api as api
+
+    api._LIVE_USER_CACHE.clear()
+    cfg = _browser_cfg_for("https://ttl.service-now.com")
+    am = MagicMock()
+    first = MagicMock()
+    first.json.return_value = {"result": {"user_name": "alice"}}
+    second = MagicMock()
+    second.json.return_value = {"result": {"user_name": "bob"}}
+    am.make_request.side_effect = [first, second]
+
+    t = {"now": 1000.0}
+    monkeypatch.setattr(api.time, "monotonic", lambda: t["now"])
+    assert api.resolve_live_username(cfg, am) == "alice"
+    t["now"] += api._LIVE_USER_TTL_SECONDS + 1  # expire
+    assert api.resolve_live_username(cfg, am) == "bob"  # user switch reflected
+    assert am.make_request.call_count == 2
+
+
+def test_resolve_live_username_failure_returns_empty_uncached():
+    import servicenow_mcp.tools.sn_api as api
+
+    api._LIVE_USER_CACHE.clear()
+    cfg = _browser_cfg_for("https://fail.service-now.com")
+    am = MagicMock()
+    am.make_request.side_effect = RuntimeError("down")
+    assert api.resolve_live_username(cfg, am) == ""
+    assert "https://fail.service-now.com" not in api._LIVE_USER_CACHE
+
+
+def test_sync_resolve_current_user_delegates_to_shared():
+    # sync_tools keeps its symbol but must route through the shared helper.
+    import servicenow_mcp.tools.sn_api as api
+    from servicenow_mcp.tools.sync_tools import _resolve_current_user
+
+    api._LIVE_USER_CACHE.clear()
+    cfg = _browser_cfg_for("https://deleg.service-now.com")
+    am = MagicMock()
+    resp = MagicMock()
+    resp.json.return_value = {"result": {"user_name": "carol"}}
+    am.make_request.return_value = resp
+    assert _resolve_current_user(cfg, am) == "carol"
+    assert api._LIVE_USER_CACHE["https://deleg.service-now.com"][0] == "carol"

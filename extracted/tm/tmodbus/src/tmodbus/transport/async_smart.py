@@ -47,15 +47,46 @@ logger = logging.getLogger(__name__)
 RT = TypeVar("RT")
 
 
+def _format_retry_cause(retry_state: RetryCallState) -> str:
+    """Format the failure that triggered a retry."""
+    if retry_state.outcome and retry_state.outcome.failed:
+        exception = retry_state.outcome.exception()
+        if exception is not None:
+            return f"{type(exception).__name__}: {exception}"
+
+    return "unknown"
+
+
+def _log_response_retry(retry_state: RetryCallState) -> None:
+    """Log when a response retry is about to happen."""
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "Retrying request after attempt %d due to %s",
+            retry_state.attempt_number,
+            _format_retry_cause(retry_state),
+        )
+
+
+def _log_auto_reconnect_retry(retry_state: RetryCallState) -> None:
+    """Log when auto-reconnect is about to retry."""
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "Retrying connection after attempt %d due to %s",
+            retry_state.attempt_number,
+            _format_retry_cause(retry_state),
+        )
+
+
 DEFAULT_RECONNECT_RETRY_STRATEGY = AsyncRetrying(
     stop=stop_after_delay(60),
     wait=wait_exponential(min=0.1, max=10),
+    before_sleep=_log_auto_reconnect_retry,
 )
 
 DEFAULT_RESPONSE_RETRY_STRATEGY = AsyncRetrying(
     stop=stop_after_delay(60),
     wait=wait_exponential(min=0.1, max=10),
-    reraise=True,  # Reraise the last exception if all retries are exhausted
+    before_sleep=_log_response_retry,
 )
 
 
@@ -82,6 +113,7 @@ class AsyncSmartTransport(AsyncBaseTransport):
         wait_after_connect: float = 0.0,
         auto_reconnect: bool | AsyncRetrying = True,
         on_reconnected: Callable[[], Awaitable[None] | None] | None = None,
+        on_connection_lost: Callable[[Exception | None], None] | None = None,
         response_retry_strategy: AsyncRetrying | None = None,
         retry_on_device_busy: bool = True,
         retry_on_device_failure: bool = False,
@@ -95,6 +127,12 @@ class AsyncSmartTransport(AsyncBaseTransport):
             auto_reconnect: Whether to automatically reconnect on connection loss (default: True).
                             Can be a custom AsyncRetrying instance when more control is needed.
             on_reconnected: Callback to be called after a successful reconnection.
+                            Requires auto_reconnect to be enabled.
+            on_connection_lost: Callback invoked the moment the underlying connection is lost, receiving
+                                the causing exception (or None on a clean close). Unlike on_reconnected,
+                                this works even when auto_reconnect is disabled: it is forwarded to the
+                                base transport and fires straight from its protocol's connection_lost,
+                                so it is the earliest notification that the socket dropped.
             response_retry_strategy: Retry strategy for handling failed requests (default: None).
             retry_on_device_busy: Whether to retry on device busy errors (default: True).
                                   Can be a custom AsyncRetrying instance when more control is needed.
@@ -103,6 +141,12 @@ class AsyncSmartTransport(AsyncBaseTransport):
 
         """
         self.base_transport = base_transport
+
+        # Forward the connection-lost callback to the base transport, which is where the socket
+        # actually lives and where connection_lost originates. Only override when a callback was
+        # provided, so a callback set directly on the base transport is not silently cleared.
+        if on_connection_lost is not None:
+            self.base_transport.on_connection_lost = on_connection_lost
         self._communication_lock = asyncio.Lock()
         self._should_be_connected = False
         self._must_reconnect = False
@@ -260,10 +304,18 @@ class AsyncSmartTransport(AsyncBaseTransport):
                     if attempt.retry_state.outcome and not attempt.retry_state.outcome.failed:
                         attempt.retry_state.set_result(response)
             except RetryError as e:
-                msg = (
-                    f"Failed to get a valid response after {attempt.retry_state.attempt_number} attempts "
-                    f"over {attempt.retry_state.seconds_since_start} seconds"
+                underlying_error = e.last_attempt.exception() if e.last_attempt is not None else None
+                underlying_error_text = (
+                    f"{type(underlying_error).__name__}: {underlying_error}"
+                    if underlying_error is not None
+                    else "unknown"
                 )
+
+                msg = (
+                    f"Failed to get a valid response after {attempt.retry_state.attempt_number} attempts"
+                    f"over {attempt.retry_state.seconds_since_start} seconds. Last error: {underlying_error_text}"
+                )
+
                 raise RequestRetryFailedError(msg) from e
             else:
                 return response
@@ -275,6 +327,10 @@ class AsyncSmartTransport(AsyncBaseTransport):
         if retry_state.outcome and retry_state.outcome.failed:
             exception = retry_state.outcome.exception()
             if isinstance(exception, ModbusConnectionError):
+                logger.debug(
+                    "Retrying request with a new connection after %s",
+                    f"{type(exception).__name__}: {exception}",
+                )
                 logger.warning(
                     "Received an %s error. Closing the connection to force a reconnect.", type(exception).__name__
                 )

@@ -4,6 +4,7 @@ import logging
 import struct
 
 import pytest
+from tmodbus.exceptions import InvalidResponseError
 from tmodbus.pdu.device import (
     ConformityLevel,
     ReadDeviceIdentificationPDU,
@@ -25,9 +26,16 @@ class TestReadDeviceIdentificationPDU:
             ReadDeviceIdentificationPDU(read_device_id_code=0x01, object_id=-1)
 
     def test_init_invalid_object_id_too_high(self) -> None:
-        """Test creating ReadDeviceIdentificationPDU with object_id >= 0xFF."""
+        """Test creating ReadDeviceIdentificationPDU with object_id above 0xFF."""
         with pytest.raises(ValueError, match=r"Object ID must be between 0x00 and 0xFF\."):
-            ReadDeviceIdentificationPDU(read_device_id_code=0x01, object_id=0xFF)
+            ReadDeviceIdentificationPDU(read_device_id_code=0x01, object_id=0x100)
+
+    def test_init_object_id_max_value(self) -> None:
+        """Object ID 0xFF is valid (the top of the extended object range)."""
+        pdu = ReadDeviceIdentificationPDU(read_device_id_code=0x01, object_id=0xFF)
+        assert pdu.object_id == 0xFF
+        # And it encodes into the request unchanged.
+        assert pdu.encode_request()[-1] == 0xFF
 
     def test_encode_request(self) -> None:
         """Test encoding request."""
@@ -110,7 +118,7 @@ class TestReadDeviceIdentificationPDU:
             0x00,
         )
 
-        with pytest.raises(ValueError, match=r"Invalid function code: expected 0x2b, received 0x03"):
+        with pytest.raises(InvalidResponseError, match=r"Invalid function code: expected 0x2b, received 0x03"):
             pdu.decode_response(response)
 
     def test_decode_response_invalid_sub_function_code(self) -> None:
@@ -128,7 +136,7 @@ class TestReadDeviceIdentificationPDU:
             0x00,
         )
 
-        with pytest.raises(ValueError, match=r"Invalid sub function code: expected 0x0e, received 0x0f"):
+        with pytest.raises(InvalidResponseError, match=r"Invalid sub function code: expected 0x0e, received 0x0f"):
             pdu.decode_response(response)
 
     def test_decode_response_invalid_more_value(self) -> None:
@@ -146,7 +154,29 @@ class TestReadDeviceIdentificationPDU:
             0x00,
         )
 
-        with pytest.raises(ValueError, match=r"Invalid 'more' value: 0x01"):
+        with pytest.raises(InvalidResponseError, match=r"Invalid 'more' value: 0x01"):
+            pdu.decode_response(response)
+
+    def test_decode_response_invalid_conformity_level(self) -> None:
+        """An unknown conformity level raises InvalidResponseError, not a raw ValueError."""
+        pdu = ReadDeviceIdentificationPDU(read_device_id_code=0x01, object_id=0x00)
+        # Conformity level 0x04 is not a defined value.
+        response = struct.pack(">BBBBBBB", 0x2B, 0x0E, 0x01, 0x04, 0x00, 0x00, 0x00)
+        with pytest.raises(InvalidResponseError, match=r"Invalid conformity level: 0x04"):
+            pdu.decode_response(response)
+
+    def test_decode_response_truncated_header(self) -> None:
+        """A response shorter than the header raises InvalidResponseError, not struct.error."""
+        pdu = ReadDeviceIdentificationPDU(read_device_id_code=0x01, object_id=0x00)
+        with pytest.raises(InvalidResponseError, match=r"Response too short"):
+            pdu.decode_response(bytes.fromhex("2B0E0101"))
+
+    def test_decode_response_truncated_object_header(self) -> None:
+        """A response that ends mid-object header raises InvalidResponseError."""
+        pdu = ReadDeviceIdentificationPDU(read_device_id_code=0x01, object_id=0x00)
+        # Valid 7-byte header claiming one object, then a single dangling object id byte.
+        response = bytes.fromhex("2B0E01010000 01".replace(" ", "")) + b"\x00"
+        with pytest.raises(InvalidResponseError, match=r"Truncated object header"):
             pdu.decode_response(response)
 
     def test_decode_response_empty_objects(self) -> None:

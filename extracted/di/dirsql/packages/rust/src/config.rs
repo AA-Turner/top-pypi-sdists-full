@@ -16,6 +16,9 @@ pub enum ConfigError {
 
     #[error("Missing required field '{0}' in [[dirsql.extension]] entry")]
     MissingExtensionField(&'static str),
+
+    #[error("Field '{0}' must not be empty")]
+    EmptyField(&'static str),
 }
 
 pub type Result<T> = std::result::Result<T, ConfigError>;
@@ -41,6 +44,20 @@ pub struct Config {
     /// relative paths are resolved against the config file's parent directory
     /// by the caller (`DirSQLBuilder::resolve`).
     pub extensions: Vec<ExtensionSpec>,
+    /// Optional server-wide `pre-query` command (`[dirsql].pre-query`). When
+    /// set, the HTTP server passes each `POST /query` request body to this
+    /// command as `{args}` and runs the plain-text SQL it prints, instead of
+    /// parsing the body as `{"sql": …}`. See `dirsql::command` for the
+    /// execution contract. Only the CLI server consults this; the SDK ignores
+    /// it.
+    pub pre_query: Option<String>,
+    /// Optional server-wide `post-query` command (`[dirsql].post-query`). When
+    /// set, the HTTP server hands each successful `POST /query` result set (the
+    /// rows serialized as a JSON array) to this command as `{args}` and on
+    /// stdin, and returns the JSON body the command prints, instead of returning
+    /// the rows as-is. See `dirsql::command` for the execution contract. Only
+    /// the CLI server consults this; the SDK ignores it.
+    pub post_query: Option<String>,
 }
 
 /// A SQLite extension to load at startup.
@@ -75,6 +92,11 @@ pub struct TableConfig {
     pub ddl: String,
     pub glob: String,
     pub strict: Option<bool>,
+    /// Optional per-file command (`on-file`). When set, each matched file's
+    /// rows come from running this command (which reads the file and prints a
+    /// JSON array of row objects) instead of the empty filesystem-facts-only
+    /// row. See `dirsql::command` for the execution contract.
+    pub on_file: Option<String>,
 }
 
 // --- Raw deserialization types (serde) ---
@@ -92,6 +114,10 @@ struct RawDirsql {
     persist: Option<bool>,
     persist_path: Option<PathBuf>,
     extension: Option<Vec<RawExtension>>,
+    #[serde(rename = "pre-query")]
+    pre_query: Option<String>,
+    #[serde(rename = "post-query")]
+    post_query: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -105,6 +131,8 @@ struct RawTable {
     ddl: Option<String>,
     glob: Option<String>,
     strict: Option<bool>,
+    #[serde(rename = "on-file")]
+    on_file: Option<String>,
 }
 
 /// Load and parse a `.dirsql.toml` config file from the given path.
@@ -117,15 +145,38 @@ pub fn load_config(path: &Path) -> Result<Config> {
 pub fn load_config_str(content: &str) -> Result<Config> {
     let raw: RawConfig = toml::from_str(content)?;
 
-    let (root, ignore, persist, persist_path, raw_extensions) = match raw.dirsql {
-        Some(d) => (
-            d.root,
-            d.ignore.unwrap_or_default(),
-            d.persist.unwrap_or(false),
-            d.persist_path,
-            d.extension.unwrap_or_default(),
-        ),
-        None => (None, Vec::new(), false, None, Vec::new()),
+    let (root, ignore, persist, persist_path, raw_extensions, raw_pre_query, raw_post_query) =
+        match raw.dirsql {
+            Some(d) => (
+                d.root,
+                d.ignore.unwrap_or_default(),
+                d.persist.unwrap_or(false),
+                d.persist_path,
+                d.extension.unwrap_or_default(),
+                d.pre_query,
+                d.post_query,
+            ),
+            None => (None, Vec::new(), false, None, Vec::new(), None, None),
+        };
+
+    // A present-but-empty `pre-query = ""` is as unusable as a missing key:
+    // reject it at parse time rather than spawning an empty command later
+    // (mirrors the `on-file` handling below).
+    let pre_query = match raw_pre_query {
+        Some(cmd) if cmd.trim().is_empty() => {
+            return Err(ConfigError::EmptyField("pre-query"));
+        }
+        other => other,
+    };
+
+    // A present-but-empty `post-query = ""` is as unusable as a missing key:
+    // reject it at parse time rather than spawning an empty command later
+    // (mirrors the `pre-query` handling above).
+    let post_query = match raw_post_query {
+        Some(cmd) if cmd.trim().is_empty() => {
+            return Err(ConfigError::EmptyField("post-query"));
+        }
+        other => other,
     };
 
     let mut extensions = Vec::with_capacity(raw_extensions.len());
@@ -149,10 +200,20 @@ pub fn load_config_str(content: &str) -> Result<Config> {
         let ddl = raw_table.ddl.ok_or(ConfigError::MissingField("ddl"))?;
         let glob = raw_table.glob.ok_or(ConfigError::MissingField("glob"))?;
 
+        // A present-but-empty `on-file = ""` is as unusable as a missing key:
+        // reject it at parse time rather than spawning an empty command later.
+        let on_file = match raw_table.on_file {
+            Some(cmd) if cmd.trim().is_empty() => {
+                return Err(ConfigError::EmptyField("on-file"));
+            }
+            other => other,
+        };
+
         tables.push(TableConfig {
             ddl,
             glob,
             strict: raw_table.strict,
+            on_file,
         });
     }
 
@@ -163,6 +224,8 @@ pub fn load_config_str(content: &str) -> Result<Config> {
         persist,
         persist_path,
         extensions,
+        pre_query,
+        post_query,
     })
 }
 
@@ -442,6 +505,127 @@ path = "b.so"
         assert_eq!(config.extensions.len(), 2);
         assert_eq!(config.extensions[0].path, PathBuf::from("a.so"));
         assert_eq!(config.extensions[1].path, PathBuf::from("b.so"));
+    }
+
+    #[test]
+    fn on_file_parses_when_present() {
+        let toml = r#"
+[[table]]
+ddl = "CREATE TABLE papers (paper_id TEXT, title TEXT)"
+glob = "**/meta.json"
+on-file = "uv run python extract_papers.py {path}"
+"#;
+        let config = load_config_str(toml).unwrap();
+        assert_eq!(config.tables.len(), 1);
+        assert_eq!(
+            config.tables[0].on_file.as_deref(),
+            Some("uv run python extract_papers.py {path}")
+        );
+    }
+
+    #[test]
+    fn on_file_absent_is_none() {
+        let toml = r#"
+[[table]]
+ddl = "CREATE TABLE t (_path TEXT)"
+glob = "*.json"
+"#;
+        let config = load_config_str(toml).unwrap();
+        assert!(config.tables[0].on_file.is_none());
+    }
+
+    #[test]
+    fn on_file_empty_errors() {
+        let toml = r#"
+[[table]]
+ddl = "CREATE TABLE t (_path TEXT)"
+glob = "*.json"
+on-file = "   "
+"#;
+        let err = load_config_str(toml).unwrap_err();
+        assert!(
+            matches!(err, ConfigError::EmptyField("on-file")),
+            "got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn pre_query_parses_when_present() {
+        let toml = r#"
+[dirsql]
+pre-query = "uv run python to_sql.py {args}"
+
+[[table]]
+ddl = "CREATE TABLE t (_path TEXT)"
+glob = "*.json"
+"#;
+        let config = load_config_str(toml).unwrap();
+        assert_eq!(
+            config.pre_query.as_deref(),
+            Some("uv run python to_sql.py {args}")
+        );
+    }
+
+    #[test]
+    fn pre_query_absent_is_none() {
+        let toml = r#"
+[[table]]
+ddl = "CREATE TABLE t (_path TEXT)"
+glob = "*.json"
+"#;
+        let config = load_config_str(toml).unwrap();
+        assert!(config.pre_query.is_none());
+    }
+
+    #[test]
+    fn pre_query_empty_errors() {
+        let toml = r#"
+[dirsql]
+pre-query = "   "
+"#;
+        let err = load_config_str(toml).unwrap_err();
+        assert!(
+            matches!(err, ConfigError::EmptyField("pre-query")),
+            "got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn post_query_parses_when_present() {
+        let toml = r#"
+[dirsql]
+post-query = "jq '{results: .}'"
+
+[[table]]
+ddl = "CREATE TABLE t (_path TEXT)"
+glob = "*.json"
+"#;
+        let config = load_config_str(toml).unwrap();
+        assert_eq!(config.post_query.as_deref(), Some("jq '{results: .}'"));
+    }
+
+    #[test]
+    fn post_query_absent_is_none() {
+        let toml = r#"
+[[table]]
+ddl = "CREATE TABLE t (_path TEXT)"
+glob = "*.json"
+"#;
+        let config = load_config_str(toml).unwrap();
+        assert!(config.post_query.is_none());
+    }
+
+    #[test]
+    fn post_query_empty_errors() {
+        let toml = r#"
+[dirsql]
+post-query = "   "
+"#;
+        let err = load_config_str(toml).unwrap_err();
+        assert!(
+            matches!(err, ConfigError::EmptyField("post-query")),
+            "got: {err:?}"
+        );
     }
 
     #[test]

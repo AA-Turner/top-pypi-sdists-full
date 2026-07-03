@@ -2149,6 +2149,8 @@ class CfnChannel(
                     audio_normalization_settings=medialive.CfnChannel.AudioNormalizationSettingsProperty(
                         algorithm="algorithm",
                         algorithm_control="algorithmControl",
+                        peak_calculation="peakCalculation",
+                        peak_limiter_threshold=123,
                         target_lkfs=123
                     ),
                     audio_selector_name="audioSelectorName",
@@ -2495,6 +2497,76 @@ class CfnChannel(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.AudioFeedInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "audio_selector_name": "audioSelectorName",
+            "feed_input": "feedInput",
+        },
+    )
+    class AudioFeedInputProperty:
+        def __init__(
+            self,
+            *,
+            audio_selector_name: typing.Optional[builtins.str] = None,
+            feed_input: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param audio_selector_name: 
+            :param feed_input: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiofeedinput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                audio_feed_input_property = medialive.CfnChannel.AudioFeedInputProperty(
+                    audio_selector_name="audioSelectorName",
+                    feed_input="feedInput"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b13dea7555176556452c1ed0f5fe6e2a1c48abdad3d6daf5683c038b2baf1521)
+                check_type(argname="argument audio_selector_name", value=audio_selector_name, expected_type=type_hints["audio_selector_name"])
+                check_type(argname="argument feed_input", value=feed_input, expected_type=type_hints["feed_input"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if audio_selector_name is not None:
+                self._values["audio_selector_name"] = audio_selector_name
+            if feed_input is not None:
+                self._values["feed_input"] = feed_input
+
+        @builtins.property
+        def audio_selector_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiofeedinput.html#cfn-medialive-channel-audiofeedinput-audioselectorname
+            '''
+            result = self._values.get("audio_selector_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def feed_input(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiofeedinput.html#cfn-medialive-channel-audiofeedinput-feedinput
+            '''
+            result = self._values.get("feed_input")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AudioFeedInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.AudioHlsRenditionSelectionProperty",
         jsii_struct_bases=[],
         name_mapping={"group_id": "groupId", "name": "name"},
@@ -2649,6 +2721,8 @@ class CfnChannel(
         name_mapping={
             "algorithm": "algorithm",
             "algorithm_control": "algorithmControl",
+            "peak_calculation": "peakCalculation",
+            "peak_limiter_threshold": "peakLimiterThreshold",
             "target_lkfs": "targetLkfs",
         },
     )
@@ -2658,6 +2732,8 @@ class CfnChannel(
             *,
             algorithm: typing.Optional[builtins.str] = None,
             algorithm_control: typing.Optional[builtins.str] = None,
+            peak_calculation: typing.Optional[builtins.str] = None,
+            peak_limiter_threshold: typing.Optional[jsii.Number] = None,
             target_lkfs: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The settings for normalizing video.
@@ -2666,6 +2742,8 @@ class CfnChannel(
 
             :param algorithm: The audio normalization algorithm to use. itu17701 conforms to the CALM Act specification. itu17702 conforms to the EBU R-128 specification.
             :param algorithm_control: When set to correctAudio, the output audio is corrected using the chosen algorithm. If set to measureOnly, the audio is measured but not adjusted.
+            :param peak_calculation: 
+            :param peak_limiter_threshold: 
             :param target_lkfs: The Target LKFS(loudness) to adjust volume to. If no value is entered, a default value is used according to the chosen algorithm. The CALM Act (1770-1) recommends a target of -24 LKFS. The EBU R-128 specification (1770-2) recommends a target of -23 LKFS.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audionormalizationsettings.html
@@ -2680,6 +2758,8 @@ class CfnChannel(
                 audio_normalization_settings_property = medialive.CfnChannel.AudioNormalizationSettingsProperty(
                     algorithm="algorithm",
                     algorithm_control="algorithmControl",
+                    peak_calculation="peakCalculation",
+                    peak_limiter_threshold=123,
                     target_lkfs=123
                 )
             '''
@@ -2687,12 +2767,18 @@ class CfnChannel(
                 type_hints = typing.get_type_hints(_typecheckingstub__48c0d0ae257261670d1c62e1a75660424f8feeb6c3901fb0cf6bbdf5a182164a)
                 check_type(argname="argument algorithm", value=algorithm, expected_type=type_hints["algorithm"])
                 check_type(argname="argument algorithm_control", value=algorithm_control, expected_type=type_hints["algorithm_control"])
+                check_type(argname="argument peak_calculation", value=peak_calculation, expected_type=type_hints["peak_calculation"])
+                check_type(argname="argument peak_limiter_threshold", value=peak_limiter_threshold, expected_type=type_hints["peak_limiter_threshold"])
                 check_type(argname="argument target_lkfs", value=target_lkfs, expected_type=type_hints["target_lkfs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if algorithm is not None:
                 self._values["algorithm"] = algorithm
             if algorithm_control is not None:
                 self._values["algorithm_control"] = algorithm_control
+            if peak_calculation is not None:
+                self._values["peak_calculation"] = peak_calculation
+            if peak_limiter_threshold is not None:
+                self._values["peak_limiter_threshold"] = peak_limiter_threshold
             if target_lkfs is not None:
                 self._values["target_lkfs"] = target_lkfs
 
@@ -2717,6 +2803,22 @@ class CfnChannel(
             '''
             result = self._values.get("algorithm_control")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def peak_calculation(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audionormalizationsettings.html#cfn-medialive-channel-audionormalizationsettings-peakcalculation
+            '''
+            result = self._values.get("peak_calculation")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def peak_limiter_threshold(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audionormalizationsettings.html#cfn-medialive-channel-audionormalizationsettings-peaklimiterthreshold
+            '''
+            result = self._values.get("peak_limiter_threshold")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
         def target_lkfs(self) -> typing.Optional[jsii.Number]:
@@ -2858,17 +2960,135 @@ class CfnChannel(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.AudioPidProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "dolby_e_decode": "dolbyEDecode",
+            "pid": "pid",
+            "premix_settings": "premixSettings",
+        },
+    )
+    class AudioPidProperty:
+        def __init__(
+            self,
+            *,
+            dolby_e_decode: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioDolbyEDecodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            pid: typing.Optional[jsii.Number] = None,
+            premix_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioPreMixerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param dolby_e_decode: 
+            :param pid: 
+            :param premix_settings: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiopid.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                audio_pid_property = medialive.CfnChannel.AudioPidProperty(
+                    dolby_e_decode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
+                        program_selection="programSelection"
+                    ),
+                    pid=123,
+                    premix_settings=medialive.CfnChannel.AudioPreMixerSettingsProperty(
+                        audio_normalization_settings=medialive.CfnChannel.AudioNormalizationSettingsProperty(
+                            algorithm="algorithm",
+                            algorithm_control="algorithmControl",
+                            peak_calculation="peakCalculation",
+                            peak_limiter_threshold=123,
+                            target_lkfs=123
+                        ),
+                        channels=123,
+                        gain_db=123,
+                        remix_settings=medialive.CfnChannel.RemixSettingsProperty(
+                            channel_mappings=[medialive.CfnChannel.AudioChannelMappingProperty(
+                                input_channel_levels=[medialive.CfnChannel.InputChannelLevelProperty(
+                                    gain=123,
+                                    input_channel=123
+                                )],
+                                output_channel=123
+                            )],
+                            channels_in=123,
+                            channels_out=123
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__26f1d8c3935909eddde9788e485d4308a4c044ee6609e9b8aab3f39a0db33881)
+                check_type(argname="argument dolby_e_decode", value=dolby_e_decode, expected_type=type_hints["dolby_e_decode"])
+                check_type(argname="argument pid", value=pid, expected_type=type_hints["pid"])
+                check_type(argname="argument premix_settings", value=premix_settings, expected_type=type_hints["premix_settings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if dolby_e_decode is not None:
+                self._values["dolby_e_decode"] = dolby_e_decode
+            if pid is not None:
+                self._values["pid"] = pid
+            if premix_settings is not None:
+                self._values["premix_settings"] = premix_settings
+
+        @builtins.property
+        def dolby_e_decode(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioDolbyEDecodeProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiopid.html#cfn-medialive-channel-audiopid-dolbyedecode
+            '''
+            result = self._values.get("dolby_e_decode")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioDolbyEDecodeProperty"]], result)
+
+        @builtins.property
+        def pid(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiopid.html#cfn-medialive-channel-audiopid-pid
+            '''
+            result = self._values.get("pid")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def premix_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioPreMixerSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiopid.html#cfn-medialive-channel-audiopid-premixsettings
+            '''
+            result = self._values.get("premix_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioPreMixerSettingsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AudioPidProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.AudioPidSelectionProperty",
         jsii_struct_bases=[],
-        name_mapping={"pid": "pid"},
+        name_mapping={"pid": "pid", "pids": "pids"},
     )
     class AudioPidSelectionProperty:
-        def __init__(self, *, pid: typing.Optional[jsii.Number] = None) -> None:
+        def __init__(
+            self,
+            *,
+            pid: typing.Optional[jsii.Number] = None,
+            pids: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioPidProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
             '''Used to extract audio by The PID.
 
             The parent of this entity is AudioSelectorSettings.
 
             :param pid: Select the audio by this PID.
+            :param pids: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiopidselection.html
             :exampleMetadata: fixture=_generated
@@ -2880,15 +3100,46 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 audio_pid_selection_property = medialive.CfnChannel.AudioPidSelectionProperty(
-                    pid=123
+                    pid=123,
+                    pids=[medialive.CfnChannel.AudioPidProperty(
+                        dolby_e_decode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
+                            program_selection="programSelection"
+                        ),
+                        pid=123,
+                        premix_settings=medialive.CfnChannel.AudioPreMixerSettingsProperty(
+                            audio_normalization_settings=medialive.CfnChannel.AudioNormalizationSettingsProperty(
+                                algorithm="algorithm",
+                                algorithm_control="algorithmControl",
+                                peak_calculation="peakCalculation",
+                                peak_limiter_threshold=123,
+                                target_lkfs=123
+                            ),
+                            channels=123,
+                            gain_db=123,
+                            remix_settings=medialive.CfnChannel.RemixSettingsProperty(
+                                channel_mappings=[medialive.CfnChannel.AudioChannelMappingProperty(
+                                    input_channel_levels=[medialive.CfnChannel.InputChannelLevelProperty(
+                                        gain=123,
+                                        input_channel=123
+                                    )],
+                                    output_channel=123
+                                )],
+                                channels_in=123,
+                                channels_out=123
+                            )
+                        )
+                    )]
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__edbfe7bd24e96996e28867af4eb731d2289ac6b4c69a82aac37cecc71c7cb444)
                 check_type(argname="argument pid", value=pid, expected_type=type_hints["pid"])
+                check_type(argname="argument pids", value=pids, expected_type=type_hints["pids"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if pid is not None:
                 self._values["pid"] = pid
+            if pids is not None:
+                self._values["pids"] = pids
 
         @builtins.property
         def pid(self) -> typing.Optional[jsii.Number]:
@@ -2899,6 +3150,16 @@ class CfnChannel(
             result = self._values.get("pid")
             return typing.cast(typing.Optional[jsii.Number], result)
 
+        @builtins.property
+        def pids(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioPidProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiopidselection.html#cfn-medialive-channel-audiopidselection-pids
+            '''
+            result = self._values.get("pids")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioPidProperty"]]]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -2907,6 +3168,126 @@ class CfnChannel(
 
         def __repr__(self) -> str:
             return "AudioPidSelectionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.AudioPreMixerSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "audio_normalization_settings": "audioNormalizationSettings",
+            "channels": "channels",
+            "gain_db": "gainDb",
+            "remix_settings": "remixSettings",
+        },
+    )
+    class AudioPreMixerSettingsProperty:
+        def __init__(
+            self,
+            *,
+            audio_normalization_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioNormalizationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            channels: typing.Optional[jsii.Number] = None,
+            gain_db: typing.Optional[jsii.Number] = None,
+            remix_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.RemixSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param audio_normalization_settings: 
+            :param channels: 
+            :param gain_db: 
+            :param remix_settings: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiopremixersettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                audio_pre_mixer_settings_property = medialive.CfnChannel.AudioPreMixerSettingsProperty(
+                    audio_normalization_settings=medialive.CfnChannel.AudioNormalizationSettingsProperty(
+                        algorithm="algorithm",
+                        algorithm_control="algorithmControl",
+                        peak_calculation="peakCalculation",
+                        peak_limiter_threshold=123,
+                        target_lkfs=123
+                    ),
+                    channels=123,
+                    gain_db=123,
+                    remix_settings=medialive.CfnChannel.RemixSettingsProperty(
+                        channel_mappings=[medialive.CfnChannel.AudioChannelMappingProperty(
+                            input_channel_levels=[medialive.CfnChannel.InputChannelLevelProperty(
+                                gain=123,
+                                input_channel=123
+                            )],
+                            output_channel=123
+                        )],
+                        channels_in=123,
+                        channels_out=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__92eb9dbb82f34c251b47805ad1d289a22c908218a1e8dc540908591fb283e5b7)
+                check_type(argname="argument audio_normalization_settings", value=audio_normalization_settings, expected_type=type_hints["audio_normalization_settings"])
+                check_type(argname="argument channels", value=channels, expected_type=type_hints["channels"])
+                check_type(argname="argument gain_db", value=gain_db, expected_type=type_hints["gain_db"])
+                check_type(argname="argument remix_settings", value=remix_settings, expected_type=type_hints["remix_settings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if audio_normalization_settings is not None:
+                self._values["audio_normalization_settings"] = audio_normalization_settings
+            if channels is not None:
+                self._values["channels"] = channels
+            if gain_db is not None:
+                self._values["gain_db"] = gain_db
+            if remix_settings is not None:
+                self._values["remix_settings"] = remix_settings
+
+        @builtins.property
+        def audio_normalization_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioNormalizationSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiopremixersettings.html#cfn-medialive-channel-audiopremixersettings-audionormalizationsettings
+            '''
+            result = self._values.get("audio_normalization_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioNormalizationSettingsProperty"]], result)
+
+        @builtins.property
+        def channels(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiopremixersettings.html#cfn-medialive-channel-audiopremixersettings-channels
+            '''
+            result = self._values.get("channels")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def gain_db(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiopremixersettings.html#cfn-medialive-channel-audiopremixersettings-gaindb
+            '''
+            result = self._values.get("gain_db")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def remix_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.RemixSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiopremixersettings.html#cfn-medialive-channel-audiopremixersettings-remixsettings
+            '''
+            result = self._values.get("remix_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.RemixSettingsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AudioPreMixerSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2950,13 +3331,63 @@ class CfnChannel(
                             language_selection_policy="languageSelectionPolicy"
                         ),
                         audio_pid_selection=medialive.CfnChannel.AudioPidSelectionProperty(
-                            pid=123
+                            pid=123,
+                            pids=[medialive.CfnChannel.AudioPidProperty(
+                                dolby_e_decode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
+                                    program_selection="programSelection"
+                                ),
+                                pid=123,
+                                premix_settings=medialive.CfnChannel.AudioPreMixerSettingsProperty(
+                                    audio_normalization_settings=medialive.CfnChannel.AudioNormalizationSettingsProperty(
+                                        algorithm="algorithm",
+                                        algorithm_control="algorithmControl",
+                                        peak_calculation="peakCalculation",
+                                        peak_limiter_threshold=123,
+                                        target_lkfs=123
+                                    ),
+                                    channels=123,
+                                    gain_db=123,
+                                    remix_settings=medialive.CfnChannel.RemixSettingsProperty(
+                                        channel_mappings=[medialive.CfnChannel.AudioChannelMappingProperty(
+                                            input_channel_levels=[medialive.CfnChannel.InputChannelLevelProperty(
+                                                gain=123,
+                                                input_channel=123
+                                            )],
+                                            output_channel=123
+                                        )],
+                                        channels_in=123,
+                                        channels_out=123
+                                    )
+                                )
+                            )]
                         ),
                         audio_track_selection=medialive.CfnChannel.AudioTrackSelectionProperty(
                             dolby_e_decode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
                                 program_selection="programSelection"
                             ),
                             tracks=[medialive.CfnChannel.AudioTrackProperty(
+                                premix_settings=medialive.CfnChannel.AudioPreMixerSettingsProperty(
+                                    audio_normalization_settings=medialive.CfnChannel.AudioNormalizationSettingsProperty(
+                                        algorithm="algorithm",
+                                        algorithm_control="algorithmControl",
+                                        peak_calculation="peakCalculation",
+                                        peak_limiter_threshold=123,
+                                        target_lkfs=123
+                                    ),
+                                    channels=123,
+                                    gain_db=123,
+                                    remix_settings=medialive.CfnChannel.RemixSettingsProperty(
+                                        channel_mappings=[medialive.CfnChannel.AudioChannelMappingProperty(
+                                            input_channel_levels=[medialive.CfnChannel.InputChannelLevelProperty(
+                                                gain=123,
+                                                input_channel=123
+                                            )],
+                                            output_channel=123
+                                        )],
+                                        channels_in=123,
+                                        channels_out=123
+                                    )
+                                ),
                                 track=123
                             )]
                         )
@@ -3051,13 +3482,63 @@ class CfnChannel(
                         language_selection_policy="languageSelectionPolicy"
                     ),
                     audio_pid_selection=medialive.CfnChannel.AudioPidSelectionProperty(
-                        pid=123
+                        pid=123,
+                        pids=[medialive.CfnChannel.AudioPidProperty(
+                            dolby_e_decode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
+                                program_selection="programSelection"
+                            ),
+                            pid=123,
+                            premix_settings=medialive.CfnChannel.AudioPreMixerSettingsProperty(
+                                audio_normalization_settings=medialive.CfnChannel.AudioNormalizationSettingsProperty(
+                                    algorithm="algorithm",
+                                    algorithm_control="algorithmControl",
+                                    peak_calculation="peakCalculation",
+                                    peak_limiter_threshold=123,
+                                    target_lkfs=123
+                                ),
+                                channels=123,
+                                gain_db=123,
+                                remix_settings=medialive.CfnChannel.RemixSettingsProperty(
+                                    channel_mappings=[medialive.CfnChannel.AudioChannelMappingProperty(
+                                        input_channel_levels=[medialive.CfnChannel.InputChannelLevelProperty(
+                                            gain=123,
+                                            input_channel=123
+                                        )],
+                                        output_channel=123
+                                    )],
+                                    channels_in=123,
+                                    channels_out=123
+                                )
+                            )
+                        )]
                     ),
                     audio_track_selection=medialive.CfnChannel.AudioTrackSelectionProperty(
                         dolby_e_decode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
                             program_selection="programSelection"
                         ),
                         tracks=[medialive.CfnChannel.AudioTrackProperty(
+                            premix_settings=medialive.CfnChannel.AudioPreMixerSettingsProperty(
+                                audio_normalization_settings=medialive.CfnChannel.AudioNormalizationSettingsProperty(
+                                    algorithm="algorithm",
+                                    algorithm_control="algorithmControl",
+                                    peak_calculation="peakCalculation",
+                                    peak_limiter_threshold=123,
+                                    target_lkfs=123
+                                ),
+                                channels=123,
+                                gain_db=123,
+                                remix_settings=medialive.CfnChannel.RemixSettingsProperty(
+                                    channel_mappings=[medialive.CfnChannel.AudioChannelMappingProperty(
+                                        input_channel_levels=[medialive.CfnChannel.InputChannelLevelProperty(
+                                            gain=123,
+                                            input_channel=123
+                                        )],
+                                        output_channel=123
+                                    )],
+                                    channels_in=123,
+                                    channels_out=123
+                                )
+                            ),
                             track=123
                         )]
                     )
@@ -3216,14 +3697,20 @@ class CfnChannel(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.AudioTrackProperty",
         jsii_struct_bases=[],
-        name_mapping={"track": "track"},
+        name_mapping={"premix_settings": "premixSettings", "track": "track"},
     )
     class AudioTrackProperty:
-        def __init__(self, *, track: typing.Optional[jsii.Number] = None) -> None:
+        def __init__(
+            self,
+            *,
+            premix_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioPreMixerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            track: typing.Optional[jsii.Number] = None,
+        ) -> None:
             '''Information about one audio track to extract. You can select multiple tracks.
 
             The parent of this entity is AudioTrackSelection.
 
+            :param premix_settings: 
             :param track: 1-based integer value that maps to a specific audio track.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiotrack.html
@@ -3236,15 +3723,50 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 audio_track_property = medialive.CfnChannel.AudioTrackProperty(
+                    premix_settings=medialive.CfnChannel.AudioPreMixerSettingsProperty(
+                        audio_normalization_settings=medialive.CfnChannel.AudioNormalizationSettingsProperty(
+                            algorithm="algorithm",
+                            algorithm_control="algorithmControl",
+                            peak_calculation="peakCalculation",
+                            peak_limiter_threshold=123,
+                            target_lkfs=123
+                        ),
+                        channels=123,
+                        gain_db=123,
+                        remix_settings=medialive.CfnChannel.RemixSettingsProperty(
+                            channel_mappings=[medialive.CfnChannel.AudioChannelMappingProperty(
+                                input_channel_levels=[medialive.CfnChannel.InputChannelLevelProperty(
+                                    gain=123,
+                                    input_channel=123
+                                )],
+                                output_channel=123
+                            )],
+                            channels_in=123,
+                            channels_out=123
+                        )
+                    ),
                     track=123
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__7bf3b0127d348b2a7ec18b1b7cd1aa5f3d6a074834971fee9a17fcfa5414e914)
+                check_type(argname="argument premix_settings", value=premix_settings, expected_type=type_hints["premix_settings"])
                 check_type(argname="argument track", value=track, expected_type=type_hints["track"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if premix_settings is not None:
+                self._values["premix_settings"] = premix_settings
             if track is not None:
                 self._values["track"] = track
+
+        @builtins.property
+        def premix_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioPreMixerSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiotrack.html#cfn-medialive-channel-audiotrack-premixsettings
+            '''
+            result = self._values.get("premix_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioPreMixerSettingsProperty"]], result)
 
         @builtins.property
         def track(self) -> typing.Optional[jsii.Number]:
@@ -3299,6 +3821,28 @@ class CfnChannel(
                         program_selection="programSelection"
                     ),
                     tracks=[medialive.CfnChannel.AudioTrackProperty(
+                        premix_settings=medialive.CfnChannel.AudioPreMixerSettingsProperty(
+                            audio_normalization_settings=medialive.CfnChannel.AudioNormalizationSettingsProperty(
+                                algorithm="algorithm",
+                                algorithm_control="algorithmControl",
+                                peak_calculation="peakCalculation",
+                                peak_limiter_threshold=123,
+                                target_lkfs=123
+                            ),
+                            channels=123,
+                            gain_db=123,
+                            remix_settings=medialive.CfnChannel.RemixSettingsProperty(
+                                channel_mappings=[medialive.CfnChannel.AudioChannelMappingProperty(
+                                    input_channel_levels=[medialive.CfnChannel.InputChannelLevelProperty(
+                                        gain=123,
+                                        input_channel=123
+                                    )],
+                                    output_channel=123
+                                )],
+                                channels_in=123,
+                                channels_out=123
+                            )
+                        ),
                         track=123
                     )]
                 )
@@ -5808,6 +6352,10 @@ class CfnChannel(
                             ocr_language="ocrLanguage",
                             pid=123
                         ),
+                        smart_subtitle_source_settings=medialive.CfnChannel.SmartSubtitleSourceSettingsProperty(
+                            caption_synchronization_mode="captionSynchronizationMode",
+                            inference_feed_output="inferenceFeedOutput"
+                        ),
                         teletext_source_settings=medialive.CfnChannel.TeletextSourceSettingsProperty(
                             output_rectangle=medialive.CfnChannel.CaptionRectangleProperty(
                                 height=123,
@@ -5885,6 +6433,7 @@ class CfnChannel(
             "embedded_source_settings": "embeddedSourceSettings",
             "scte20_source_settings": "scte20SourceSettings",
             "scte27_source_settings": "scte27SourceSettings",
+            "smart_subtitle_source_settings": "smartSubtitleSourceSettings",
             "teletext_source_settings": "teletextSourceSettings",
         },
     )
@@ -5898,6 +6447,7 @@ class CfnChannel(
             embedded_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.EmbeddedSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             scte20_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Scte20SourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             scte27_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Scte27SourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            smart_subtitle_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.SmartSubtitleSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             teletext_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TeletextSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Captions Selector Settings.
@@ -5910,6 +6460,7 @@ class CfnChannel(
             :param embedded_source_settings: Information about the embedded captions to extract from the input.
             :param scte20_source_settings: Information about the SCTE-20 captions to extract from the input.
             :param scte27_source_settings: Information about the SCTE-27 captions to extract from the input.
+            :param smart_subtitle_source_settings: 
             :param teletext_source_settings: Information about the Teletext captions to extract from the input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captionselectorsettings.html
@@ -5944,6 +6495,10 @@ class CfnChannel(
                         ocr_language="ocrLanguage",
                         pid=123
                     ),
+                    smart_subtitle_source_settings=medialive.CfnChannel.SmartSubtitleSourceSettingsProperty(
+                        caption_synchronization_mode="captionSynchronizationMode",
+                        inference_feed_output="inferenceFeedOutput"
+                    ),
                     teletext_source_settings=medialive.CfnChannel.TeletextSourceSettingsProperty(
                         output_rectangle=medialive.CfnChannel.CaptionRectangleProperty(
                             height=123,
@@ -5963,6 +6518,7 @@ class CfnChannel(
                 check_type(argname="argument embedded_source_settings", value=embedded_source_settings, expected_type=type_hints["embedded_source_settings"])
                 check_type(argname="argument scte20_source_settings", value=scte20_source_settings, expected_type=type_hints["scte20_source_settings"])
                 check_type(argname="argument scte27_source_settings", value=scte27_source_settings, expected_type=type_hints["scte27_source_settings"])
+                check_type(argname="argument smart_subtitle_source_settings", value=smart_subtitle_source_settings, expected_type=type_hints["smart_subtitle_source_settings"])
                 check_type(argname="argument teletext_source_settings", value=teletext_source_settings, expected_type=type_hints["teletext_source_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if ancillary_source_settings is not None:
@@ -5977,6 +6533,8 @@ class CfnChannel(
                 self._values["scte20_source_settings"] = scte20_source_settings
             if scte27_source_settings is not None:
                 self._values["scte27_source_settings"] = scte27_source_settings
+            if smart_subtitle_source_settings is not None:
+                self._values["smart_subtitle_source_settings"] = smart_subtitle_source_settings
             if teletext_source_settings is not None:
                 self._values["teletext_source_settings"] = teletext_source_settings
 
@@ -6045,6 +6603,16 @@ class CfnChannel(
             '''
             result = self._values.get("scte27_source_settings")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Scte27SourceSettingsProperty"]], result)
+
+        @builtins.property
+        def smart_subtitle_source_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.SmartSubtitleSourceSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captionselectorsettings.html#cfn-medialive-channel-captionselectorsettings-smartsubtitlesourcesettings
+            '''
+            result = self._values.get("smart_subtitle_source_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.SmartSubtitleSourceSettingsProperty"]], result)
 
         @builtins.property
         def teletext_source_settings(
@@ -14103,11 +14671,17 @@ class CfnChannel(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.InferenceSettingsProperty",
         jsii_struct_bases=[],
-        name_mapping={"feed_arn": "feedArn"},
+        name_mapping={"audio_feed_inputs": "audioFeedInputs", "feed_arn": "feedArn"},
     )
     class InferenceSettingsProperty:
-        def __init__(self, *, feed_arn: typing.Optional[builtins.str] = None) -> None:
+        def __init__(
+            self,
+            *,
+            audio_feed_inputs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioFeedInputProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            feed_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
             '''
+            :param audio_feed_inputs: 
             :param feed_arn: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-inferencesettings.html
@@ -14120,15 +14694,32 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 inference_settings_property = medialive.CfnChannel.InferenceSettingsProperty(
+                    audio_feed_inputs=[medialive.CfnChannel.AudioFeedInputProperty(
+                        audio_selector_name="audioSelectorName",
+                        feed_input="feedInput"
+                    )],
                     feed_arn="feedArn"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__247f28e68caf60c2736ce17d7ad287bf10e4f4a8a40d8d0b13e531b452dd5d13)
+                check_type(argname="argument audio_feed_inputs", value=audio_feed_inputs, expected_type=type_hints["audio_feed_inputs"])
                 check_type(argname="argument feed_arn", value=feed_arn, expected_type=type_hints["feed_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if audio_feed_inputs is not None:
+                self._values["audio_feed_inputs"] = audio_feed_inputs
             if feed_arn is not None:
                 self._values["feed_arn"] = feed_arn
+
+        @builtins.property
+        def audio_feed_inputs(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioFeedInputProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-inferencesettings.html#cfn-medialive-channel-inferencesettings-audiofeedinputs
+            '''
+            result = self._values.get("audio_feed_inputs")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioFeedInputProperty"]]]], result)
 
         @builtins.property
         def feed_arn(self) -> typing.Optional[builtins.str]:
@@ -14225,13 +14816,63 @@ class CfnChannel(
                                     language_selection_policy="languageSelectionPolicy"
                                 ),
                                 audio_pid_selection=medialive.CfnChannel.AudioPidSelectionProperty(
-                                    pid=123
+                                    pid=123,
+                                    pids=[medialive.CfnChannel.AudioPidProperty(
+                                        dolby_e_decode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
+                                            program_selection="programSelection"
+                                        ),
+                                        pid=123,
+                                        premix_settings=medialive.CfnChannel.AudioPreMixerSettingsProperty(
+                                            audio_normalization_settings=medialive.CfnChannel.AudioNormalizationSettingsProperty(
+                                                algorithm="algorithm",
+                                                algorithm_control="algorithmControl",
+                                                peak_calculation="peakCalculation",
+                                                peak_limiter_threshold=123,
+                                                target_lkfs=123
+                                            ),
+                                            channels=123,
+                                            gain_db=123,
+                                            remix_settings=medialive.CfnChannel.RemixSettingsProperty(
+                                                channel_mappings=[medialive.CfnChannel.AudioChannelMappingProperty(
+                                                    input_channel_levels=[medialive.CfnChannel.InputChannelLevelProperty(
+                                                        gain=123,
+                                                        input_channel=123
+                                                    )],
+                                                    output_channel=123
+                                                )],
+                                                channels_in=123,
+                                                channels_out=123
+                                            )
+                                        )
+                                    )]
                                 ),
                                 audio_track_selection=medialive.CfnChannel.AudioTrackSelectionProperty(
                                     dolby_e_decode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
                                         program_selection="programSelection"
                                     ),
                                     tracks=[medialive.CfnChannel.AudioTrackProperty(
+                                        premix_settings=medialive.CfnChannel.AudioPreMixerSettingsProperty(
+                                            audio_normalization_settings=medialive.CfnChannel.AudioNormalizationSettingsProperty(
+                                                algorithm="algorithm",
+                                                algorithm_control="algorithmControl",
+                                                peak_calculation="peakCalculation",
+                                                peak_limiter_threshold=123,
+                                                target_lkfs=123
+                                            ),
+                                            channels=123,
+                                            gain_db=123,
+                                            remix_settings=medialive.CfnChannel.RemixSettingsProperty(
+                                                channel_mappings=[medialive.CfnChannel.AudioChannelMappingProperty(
+                                                    input_channel_levels=[medialive.CfnChannel.InputChannelLevelProperty(
+                                                        gain=123,
+                                                        input_channel=123
+                                                    )],
+                                                    output_channel=123
+                                                )],
+                                                channels_in=123,
+                                                channels_out=123
+                                            )
+                                        ),
                                         track=123
                                     )]
                                 )
@@ -14262,6 +14903,10 @@ class CfnChannel(
                                 scte27_source_settings=medialive.CfnChannel.Scte27SourceSettingsProperty(
                                     ocr_language="ocrLanguage",
                                     pid=123
+                                ),
+                                smart_subtitle_source_settings=medialive.CfnChannel.SmartSubtitleSourceSettingsProperty(
+                                    caption_synchronization_mode="captionSynchronizationMode",
+                                    inference_feed_output="inferenceFeedOutput"
                                 ),
                                 teletext_source_settings=medialive.CfnChannel.TeletextSourceSettingsProperty(
                                     output_rectangle=medialive.CfnChannel.CaptionRectangleProperty(
@@ -14832,13 +15477,63 @@ class CfnChannel(
                                 language_selection_policy="languageSelectionPolicy"
                             ),
                             audio_pid_selection=medialive.CfnChannel.AudioPidSelectionProperty(
-                                pid=123
+                                pid=123,
+                                pids=[medialive.CfnChannel.AudioPidProperty(
+                                    dolby_e_decode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
+                                        program_selection="programSelection"
+                                    ),
+                                    pid=123,
+                                    premix_settings=medialive.CfnChannel.AudioPreMixerSettingsProperty(
+                                        audio_normalization_settings=medialive.CfnChannel.AudioNormalizationSettingsProperty(
+                                            algorithm="algorithm",
+                                            algorithm_control="algorithmControl",
+                                            peak_calculation="peakCalculation",
+                                            peak_limiter_threshold=123,
+                                            target_lkfs=123
+                                        ),
+                                        channels=123,
+                                        gain_db=123,
+                                        remix_settings=medialive.CfnChannel.RemixSettingsProperty(
+                                            channel_mappings=[medialive.CfnChannel.AudioChannelMappingProperty(
+                                                input_channel_levels=[medialive.CfnChannel.InputChannelLevelProperty(
+                                                    gain=123,
+                                                    input_channel=123
+                                                )],
+                                                output_channel=123
+                                            )],
+                                            channels_in=123,
+                                            channels_out=123
+                                        )
+                                    )
+                                )]
                             ),
                             audio_track_selection=medialive.CfnChannel.AudioTrackSelectionProperty(
                                 dolby_e_decode=medialive.CfnChannel.AudioDolbyEDecodeProperty(
                                     program_selection="programSelection"
                                 ),
                                 tracks=[medialive.CfnChannel.AudioTrackProperty(
+                                    premix_settings=medialive.CfnChannel.AudioPreMixerSettingsProperty(
+                                        audio_normalization_settings=medialive.CfnChannel.AudioNormalizationSettingsProperty(
+                                            algorithm="algorithm",
+                                            algorithm_control="algorithmControl",
+                                            peak_calculation="peakCalculation",
+                                            peak_limiter_threshold=123,
+                                            target_lkfs=123
+                                        ),
+                                        channels=123,
+                                        gain_db=123,
+                                        remix_settings=medialive.CfnChannel.RemixSettingsProperty(
+                                            channel_mappings=[medialive.CfnChannel.AudioChannelMappingProperty(
+                                                input_channel_levels=[medialive.CfnChannel.InputChannelLevelProperty(
+                                                    gain=123,
+                                                    input_channel=123
+                                                )],
+                                                output_channel=123
+                                            )],
+                                            channels_in=123,
+                                            channels_out=123
+                                        )
+                                    ),
                                     track=123
                                 )]
                             )
@@ -14869,6 +15564,10 @@ class CfnChannel(
                             scte27_source_settings=medialive.CfnChannel.Scte27SourceSettingsProperty(
                                 ocr_language="ocrLanguage",
                                 pid=123
+                            ),
+                            smart_subtitle_source_settings=medialive.CfnChannel.SmartSubtitleSourceSettingsProperty(
+                                caption_synchronization_mode="captionSynchronizationMode",
+                                inference_feed_output="inferenceFeedOutput"
                             ),
                             teletext_source_settings=medialive.CfnChannel.TeletextSourceSettingsProperty(
                                 output_rectangle=medialive.CfnChannel.CaptionRectangleProperty(
@@ -23193,6 +23892,76 @@ class CfnChannel(
 
         def __repr__(self) -> str:
             return "Scte35TimeSignalAposProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.SmartSubtitleSourceSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "caption_synchronization_mode": "captionSynchronizationMode",
+            "inference_feed_output": "inferenceFeedOutput",
+        },
+    )
+    class SmartSubtitleSourceSettingsProperty:
+        def __init__(
+            self,
+            *,
+            caption_synchronization_mode: typing.Optional[builtins.str] = None,
+            inference_feed_output: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param caption_synchronization_mode: 
+            :param inference_feed_output: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-smartsubtitlesourcesettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                smart_subtitle_source_settings_property = medialive.CfnChannel.SmartSubtitleSourceSettingsProperty(
+                    caption_synchronization_mode="captionSynchronizationMode",
+                    inference_feed_output="inferenceFeedOutput"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e269851b30e95d9319a391828569d0e1b5fb08a2835d7d892c2e1d7c3fe3915b)
+                check_type(argname="argument caption_synchronization_mode", value=caption_synchronization_mode, expected_type=type_hints["caption_synchronization_mode"])
+                check_type(argname="argument inference_feed_output", value=inference_feed_output, expected_type=type_hints["inference_feed_output"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if caption_synchronization_mode is not None:
+                self._values["caption_synchronization_mode"] = caption_synchronization_mode
+            if inference_feed_output is not None:
+                self._values["inference_feed_output"] = inference_feed_output
+
+        @builtins.property
+        def caption_synchronization_mode(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-smartsubtitlesourcesettings.html#cfn-medialive-channel-smartsubtitlesourcesettings-captionsynchronizationmode
+            '''
+            result = self._values.get("caption_synchronization_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def inference_feed_output(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-smartsubtitlesourcesettings.html#cfn-medialive-channel-smartsubtitlesourcesettings-inferencefeedoutput
+            '''
+            result = self._values.get("inference_feed_output")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SmartSubtitleSourceSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -35908,6 +36677,14 @@ def _typecheckingstub__fc0d2585efcd86a49f8ec949eba6e7d948c486ed3e468a980987251fc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b13dea7555176556452c1ed0f5fe6e2a1c48abdad3d6daf5683c038b2baf1521(
+    *,
+    audio_selector_name: typing.Optional[builtins.str] = None,
+    feed_input: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4a6ab29a08aea906ab2edfe9cb3b006a503c86868e1e216f809c2dff0e58f195(
     *,
     group_id: typing.Optional[builtins.str] = None,
@@ -35928,6 +36705,8 @@ def _typecheckingstub__48c0d0ae257261670d1c62e1a75660424f8feeb6c3901fb0cf6bbdf5a
     *,
     algorithm: typing.Optional[builtins.str] = None,
     algorithm_control: typing.Optional[builtins.str] = None,
+    peak_calculation: typing.Optional[builtins.str] = None,
+    peak_limiter_threshold: typing.Optional[jsii.Number] = None,
     target_lkfs: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -35943,9 +36722,29 @@ def _typecheckingstub__730c480186bce3ae3ce0ff4c36da958ea8baa502e87ff721ca3963c20
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__26f1d8c3935909eddde9788e485d4308a4c044ee6609e9b8aab3f39a0db33881(
+    *,
+    dolby_e_decode: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.AudioDolbyEDecodeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pid: typing.Optional[jsii.Number] = None,
+    premix_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.AudioPreMixerSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__edbfe7bd24e96996e28867af4eb731d2289ac6b4c69a82aac37cecc71c7cb444(
     *,
     pid: typing.Optional[jsii.Number] = None,
+    pids: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.AudioPidProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92eb9dbb82f34c251b47805ad1d289a22c908218a1e8dc540908591fb283e5b7(
+    *,
+    audio_normalization_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.AudioNormalizationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    channels: typing.Optional[jsii.Number] = None,
+    gain_db: typing.Optional[jsii.Number] = None,
+    remix_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.RemixSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -35978,6 +36777,7 @@ def _typecheckingstub__3bfd7acac26919f80314d3c30b6526a1df17df88432037f26383217f6
 
 def _typecheckingstub__7bf3b0127d348b2a7ec18b1b7cd1aa5f3d6a074834971fee9a17fcfa5414e914(
     *,
+    premix_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.AudioPreMixerSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     track: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -36186,6 +36986,7 @@ def _typecheckingstub__9f5921966f5531402267983faa699d1d40cac1bdb60fc5826ff72330e
     embedded_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.EmbeddedSourceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scte20_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.Scte20SourceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scte27_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.Scte27SourceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    smart_subtitle_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.SmartSubtitleSourceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     teletext_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.TeletextSourceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -36814,6 +37615,7 @@ def _typecheckingstub__9127d145510b55400db9ebe097d21c49700c749c5836f277c9ac9da29
 
 def _typecheckingstub__247f28e68caf60c2736ce17d7ad287bf10e4f4a8a40d8d0b13e531b452dd5d13(
     *,
+    audio_feed_inputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.AudioFeedInputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     feed_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -37453,6 +38255,14 @@ def _typecheckingstub__10d53938ab39b895d66d51ac4942026de711810f8220771dd959a93c1
     ad_avail_offset: typing.Optional[jsii.Number] = None,
     no_regional_blackout_flag: typing.Optional[builtins.str] = None,
     web_delivery_allowed_flag: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e269851b30e95d9319a391828569d0e1b5fb08a2835d7d892c2e1d7c3fe3915b(
+    *,
+    caption_synchronization_mode: typing.Optional[builtins.str] = None,
+    inference_feed_output: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

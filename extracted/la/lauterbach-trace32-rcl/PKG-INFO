@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lauterbach-trace32-rcl
-Version: 1.1.5
+Version: 1.1.6
 Summary: Lauterbach TRACE32 Python Remote Control Library
 Home-page: https://www.lauterbach.com
 Author: Lauterbach GmbH
@@ -23,6 +23,11 @@ Dynamic: license-file
 # pyrcl
 
 ## Release Notes
+
+### v1.1.6
+
+* Fixed handling of `SNAN` and `-SNAN`
+* Fixed `library.t32_notifystateenable`
 
 ### v1.1.5
 

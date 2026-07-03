@@ -1,10 +1,4 @@
-"""Port protocols for PgQueuer's hexagonal architecture.
-
-These Protocol classes define the contracts that the core domain
-(QueueManager, SchedulerManager) depends on. The existing ``Queries``
-class satisfies all four ports via structural subtyping -- no
-inheritance or registration is required.
-"""
+"""Repository port protocols satisfied by Queries via structural subtyping."""
 
 from __future__ import annotations
 
@@ -27,19 +21,9 @@ class QueryBuilderEnvironmentPort(Protocol):
 
 @dataclasses.dataclass
 class EntrypointExecutionParameter:
-    """
-    Job execution parameters passed to dequeue.
-
-    Attributes:
-        concurrency_limit (int): Max number of concurrent executions (0 = unlimited).
-    """
+    """Per-entrypoint dequeue parameter. ``concurrency_limit=0`` means unlimited."""
 
     concurrency_limit: int
-
-
-# ---------------------------------------------------------------------------
-# Queue persistence
-# ---------------------------------------------------------------------------
 
 
 class QueueRepositoryPort(Protocol):
@@ -134,22 +118,13 @@ class QueueRepositoryPort(Protocol):
     ) -> list[tuple[models.JobId, models.JOB_STATUS]]: ...
 
     @property
-    def driver(self) -> Driver:
-        """Access the underlying database driver."""
-        ...
+    def driver(self) -> Driver: ...
 
-    async def clear_statistics_log(self, entrypoint: str | list[str] | None = None) -> None:
-        """Clear statistics log entries."""
-        ...
+    async def clear_statistics_log(self, entrypoint: str | list[str] | None = None) -> None: ...
 
     async def next_deferred_eta(self, entrypoints: list[str]) -> timedelta | None:
         """Return time until the soonest deferred job becomes eligible, or None."""
         ...
-
-
-# ---------------------------------------------------------------------------
-# Schedule persistence
-# ---------------------------------------------------------------------------
 
 
 class ScheduleRepositoryPort(Protocol):
@@ -180,11 +155,6 @@ class ScheduleRepositoryPort(Protocol):
     async def clear_schedule(self) -> None: ...
 
 
-# ---------------------------------------------------------------------------
-# Notifications
-# ---------------------------------------------------------------------------
-
-
 class NotificationPort(Protocol):
     """Abstraction over PostgreSQL NOTIFY for inter-process signalling."""
 
@@ -193,18 +163,11 @@ class NotificationPort(Protocol):
     async def notify_health_check(self, health_check_event_id: uuid.UUID) -> None: ...
 
 
-# ---------------------------------------------------------------------------
-# Schema management (DDL)
-# ---------------------------------------------------------------------------
-
-
 class SchemaManagementPort(Protocol):
     """DDL operations for installing, upgrading, and inspecting the schema."""
 
     @property
-    def qbe(self) -> QueryBuilderEnvironmentPort:
-        """Access the query builder environment for schema operations."""
-        ...
+    def qbe(self) -> QueryBuilderEnvironmentPort: ...
 
     async def install(self) -> None: ...
 

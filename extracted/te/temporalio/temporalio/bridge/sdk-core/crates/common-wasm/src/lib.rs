@@ -16,11 +16,16 @@ pub mod protos {
 
     pub use temporalio_protos::*;
 }
+pub mod search_attributes;
 pub mod worker;
 mod workflow_definition;
 
-pub use activity_definition::{ActivityDefinition, ActivityError};
+pub use activity_definition::{ActivityDefinition, ActivityError, UntypedActivity};
 pub use priority::Priority;
+pub use search_attributes::{
+    SearchAttributeError, SearchAttributeKey, SearchAttributeUpdate, SearchAttributeValue,
+    SearchAttributes, Timestamp,
+};
 pub use worker::WorkerDeploymentVersion;
 pub use workflow_definition::{
     HasWorkflowDefinition, QueryDefinition, SignalDefinition, UntypedWorkflow, UpdateDefinition,

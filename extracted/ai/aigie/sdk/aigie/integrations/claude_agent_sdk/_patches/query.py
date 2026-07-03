@@ -12,6 +12,7 @@ from typing import Any
 
 from aigie.integrations.claude_agent_sdk._patches._shared import (
     _extract_agent_name,
+    _get_batch_parent,
     _wrap_tools_with_remediation,
 )
 from aigie.integrations.claude_agent_sdk.session_context import (
@@ -168,7 +169,7 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                                 )
                                 handler.set_parent_context(parent_tool_use_id)
 
-                            batch_parent = handler._get_current_parent()
+                            batch_parent = _get_batch_parent(handler, parent_tool_use_id)
                             logger.debug(
                                 f"[AIGIE] Batch parent for {len(task_tools)} Task tools: {batch_parent}"
                             )

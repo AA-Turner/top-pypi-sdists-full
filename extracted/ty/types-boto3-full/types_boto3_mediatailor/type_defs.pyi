@@ -380,6 +380,7 @@ class DashConfigurationForPutTypeDef(TypedDict):
 
 class DashConfigurationTypeDef(TypedDict):
     ManifestEndpointPrefix: NotRequired[str]
+    DualStackManifestEndpointPrefix: NotRequired[str]
     MpdLocation: NotRequired[str]
     OriginManifestType: NotRequired[OriginManifestTypeType]
 
@@ -478,6 +479,7 @@ class GetPlaybackConfigurationRequestTypeDef(TypedDict):
 
 class HlsConfigurationTypeDef(TypedDict):
     ManifestEndpointPrefix: NotRequired[str]
+    DualStackManifestEndpointPrefix: NotRequired[str]
 
 class LivePreRollConfigurationTypeDef(TypedDict):
     AdDecisionServerUrl: NotRequired[str]
@@ -835,6 +837,7 @@ class ResponseOutputItemTypeDef(TypedDict):
     SourceGroup: str
     DashPlaylistSettings: NotRequired[DashPlaylistSettingsTypeDef]
     HlsPlaylistSettings: NotRequired[HlsPlaylistSettingsOutputTypeDef]
+    DualStackPlaybackUrl: NotRequired[str]
 
 HlsPlaylistSettingsUnionTypeDef = Union[
     HlsPlaylistSettingsTypeDef, HlsPlaylistSettingsOutputTypeDef
@@ -990,7 +993,9 @@ class GetPlaybackConfigurationResponseTypeDef(TypedDict):
     PersonalizationThresholdSeconds: int
     PlaybackConfigurationArn: str
     PlaybackEndpointPrefix: str
+    DualStackPlaybackEndpointPrefix: str
     SessionInitializationEndpointPrefix: str
+    DualStackSessionInitializationEndpointPrefix: str
     SlateAdUrl: str
     Tags: dict[str, str]
     TranscodeProfileName: str
@@ -1016,7 +1021,9 @@ class PlaybackConfigurationTypeDef(TypedDict):
     PersonalizationThresholdSeconds: NotRequired[int]
     PlaybackConfigurationArn: NotRequired[str]
     PlaybackEndpointPrefix: NotRequired[str]
+    DualStackPlaybackEndpointPrefix: NotRequired[str]
     SessionInitializationEndpointPrefix: NotRequired[str]
+    DualStackSessionInitializationEndpointPrefix: NotRequired[str]
     SlateAdUrl: NotRequired[str]
     Tags: NotRequired[dict[str, str]]
     TranscodeProfileName: NotRequired[str]
@@ -1041,7 +1048,9 @@ class PutPlaybackConfigurationResponseTypeDef(TypedDict):
     PersonalizationThresholdSeconds: int
     PlaybackConfigurationArn: str
     PlaybackEndpointPrefix: str
+    DualStackPlaybackEndpointPrefix: str
     SessionInitializationEndpointPrefix: str
+    DualStackSessionInitializationEndpointPrefix: str
     SlateAdUrl: str
     Tags: dict[str, str]
     TranscodeProfileName: str

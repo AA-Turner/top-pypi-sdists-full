@@ -840,7 +840,7 @@ class Annotations(
 
     @jsii.member(jsii_name="hasNoWarning")
     def has_no_warning(self, construct_path: builtins.str, message: typing.Any) -> None:
-        '''Assert that an warning with the given message does not exist in the synthesized CDK ``Stack``.
+        '''Assert that a warning with the given message does not exist in the synthesized CDK ``Stack``.
 
         :param construct_path: the construct path to the warning, provide ``'*'`` to match all warnings in the template.
         :param message: the warning message as should be expected. This should be a string or Matcher object.
@@ -853,7 +853,7 @@ class Annotations(
 
     @jsii.member(jsii_name="hasWarning")
     def has_warning(self, construct_path: builtins.str, message: typing.Any) -> None:
-        '''Assert that an warning with the given message exists in the synthesized CDK ``Stack``.
+        '''Assert that a warning with the given message exists in the synthesized CDK ``Stack``.
 
         :param construct_path: the construct path to the warning, provide ``'*'`` to match all warnings in the template.
         :param message: the warning message as should be expected. This should be a string or Matcher object.

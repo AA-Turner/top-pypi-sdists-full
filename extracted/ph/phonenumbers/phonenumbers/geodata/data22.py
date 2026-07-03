@@ -19,6 +19,14 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '861568181':{'en': 'Garze, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u7518\u5b5c\u85cf\u65cf\u81ea\u6cbb\u5dde')},
+ '861568182':{'en': 'GuangAn, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u5e7f\u5b89\u5e02')},
+ '861568183':{'en': 'GuangAn, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u5e7f\u5b89\u5e02')},
+ '861568184':{'en': 'Zigong, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u81ea\u8d21\u5e02')},
+ '861568185':{'en': 'Zigong, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u81ea\u8d21\u5e02')},
+ '861568186':{'en': 'Zigong, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u81ea\u8d21\u5e02')},
+ '861568187':{'en': 'Dazhou, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u8fbe\u5dde\u5e02')},
+ '861568188':{'en': 'Dazhou, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u8fbe\u5dde\u5e02')},
  '861568189':{'en': 'Dazhou, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u8fbe\u5dde\u5e02')},
  '86156819':{'en': 'Mianyang, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u7ef5\u9633\u5e02')},
  '86156820':{'en': 'Chengdu, Sichuan', 'zh': u('\u56db\u5ddd\u7701\u6210\u90fd\u5e02')},
@@ -10011,12 +10019,4 @@ data = {
  '861595667':{'en': 'Huainan, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u6dee\u5357\u5e02')},
  '861595668':{'en': 'Huainan, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u6dee\u5357\u5e02')},
  '861595669':{'en': 'Huainan, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u6dee\u5357\u5e02')},
- '86159567':{'en': 'Bozhou, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u4eb3\u5dde\u5e02')},
- '861595670':{'en': 'Huaibei, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u6dee\u5317\u5e02')},
- '861595671':{'en': 'Huaibei, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u6dee\u5317\u5e02')},
- '86159568':{'en': 'Fuyang, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u961c\u9633\u5e02')},
- '86159569':{'en': 'Hefei, Anhui', 'zh': u('\u5b89\u5fbd\u7701\u5408\u80a5\u5e02')},
- '861595700':{'en': 'Quzhou, Zhejiang', 'zh': u('\u6d59\u6c5f\u7701\u8862\u5dde\u5e02')},
- '861595701':{'en': 'Quzhou, Zhejiang', 'zh': u('\u6d59\u6c5f\u7701\u8862\u5dde\u5e02')},
- '861595702':{'en': 'Quzhou, Zhejiang', 'zh': u('\u6d59\u6c5f\u7701\u8862\u5dde\u5e02')},
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mindroom
-Version: 2026.7.19
+Version: 2026.7.38
 Summary: A universal interface for AI agents with persistent memory, where every conversation has a home
 Project-URL: documentation, https://github.com/mindroom-ai/mindroom
 Project-URL: homepage, https://github.com/mindroom-ai/mindroom
@@ -27,7 +27,7 @@ Requires-Dist: cryptography>=47
 Requires-Dist: fastapi[standard]>=0.116.1
 Requires-Dist: filetype>=1.2
 Requires-Dist: google-auth>=2.40.3
-Requires-Dist: google-genai>=2
+Requires-Dist: google-genai<2.9,>=2
 Requires-Dist: groq>=0.31
 Requires-Dist: httpx>=0.27
 Requires-Dist: humanize>=4.12.3

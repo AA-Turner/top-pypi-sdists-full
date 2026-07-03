@@ -3,6 +3,11 @@ from typing import Dict, List, Optional, Union
 
 from anyscale._private.models import ImageURI, ModelBase
 from anyscale._private.models.integrations import ConnectionConfig, ConnectionType
+from anyscale._private.models.validation import (
+    SCHEDULING_PRIORITY_MAX,
+    SCHEDULING_PRIORITY_MIN,
+    validate_scheduling_priority,
+)
 from anyscale.compute_config.models import (
     compute_config_type_from_dict,
     ComputeConfig,
@@ -256,3 +261,16 @@ class WorkloadConfig(ModelBase):
                     f"Each connection must be a ConnectionConfig or dict (got {type(conn)})."
                 )
         return validated
+
+    priority: Optional[int] = field(
+        default=None,
+        metadata={
+            "docstring": "Scheduling priority for the Global Resource Scheduler. An integer in "
+            f"the range [{SCHEDULING_PRIORITY_MIN}, {SCHEDULING_PRIORITY_MAX}] inclusive; leave "
+            "unset (None) for no priority. Distinct from a job queue's per-job 'priority' "
+            "(`job_queue_config.priority`)."
+        },
+    )
+
+    def _validate_priority(self, priority: Optional[int]):
+        validate_scheduling_priority(priority)

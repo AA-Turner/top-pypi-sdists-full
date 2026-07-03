@@ -39,11 +39,13 @@ from dazzle.render.fragment.primitives.data import (
     CalendarGrid,
     CardPicker,
     CohortStripRegion,
+    ColumnVisibilityMenu,
     ConfirmGate,
     CreateButton,
     CsvExportButton,
     DashboardCard,
     DashboardGrid,
+    DataListScroll,
     DateRangePicker,
     DayTimelineRegion,
     DetailGrid,
@@ -57,6 +59,7 @@ from dazzle.render.fragment.primitives.data import (
     KanbanBoard,
     KanbanRegion,
     LazyTabPanel,
+    ListFilterBar,
     ListRegion,
     MetricsGrid,
     MetricTile,
@@ -67,8 +70,10 @@ from dazzle.render.fragment.primitives.data import (
     ProfileCard,
     QueueRegion,
     Radar,
+    RelatedGroup,
     SearchBox,
     Sequence,
+    SlideOver,
     SortHeader,
     Sparkline,
     StageBar,
@@ -84,13 +89,22 @@ from dazzle.render.fragment.primitives.data import (
     WorkspaceToolbar,
 )
 from dazzle.render.fragment.primitives.forms import (
+    ColorField,
     Combobox,
+    DatePickerField,
     Field,
     FileUpload,
     FormSection,
     FormStack,
+    FormStepper,
+    MoneyField,
     RefPicker,
+    RichTextField,
+    SearchSelect,
+    SliderField,
     Submit,
+    TagsField,
+    WidgetCombobox,
 )
 from dazzle.render.fragment.primitives.interactive import (
     Button,
@@ -168,6 +182,7 @@ Fragment = (
     | KanbanRegion
     | PivotTableRegion
     | QueueRegion
+    | RelatedGroup
     | ActionGrid
     | ActivityFeed
     | StatusList
@@ -195,16 +210,29 @@ Fragment = (
     | DashboardGrid
     | DashboardCard
     | AddCardRow
+    | SlideOver
     | FilterBar
+    | ListFilterBar
+    | DataListScroll
+    | ColumnVisibilityMenu
     | SortHeader
     | CsvExportButton
     | DateRangePicker
     # Forms
     | FormStack
     | FormSection
+    | FormStepper
     | Field
     | Combobox
     | RefPicker
+    | SearchSelect
+    | MoneyField
+    | WidgetCombobox
+    | TagsField
+    | DatePickerField
+    | ColorField
+    | SliderField
+    | RichTextField
     | FileUpload
     | Submit
     # Escape hatches

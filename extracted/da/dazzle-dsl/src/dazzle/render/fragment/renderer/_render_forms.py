@@ -20,19 +20,29 @@ See issue #1064 for the full decomposition plan.
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from dazzle.render.fragment.context import RenderContext
 from dazzle.render.fragment.primitives import (
     AddCardRow,
     CardPicker,
+    ColorField,
     Combobox,
+    DatePickerField,
     Field,
     FileUpload,
     FormSection,
     FormStack,
+    FormStepper,
+    MoneyField,
     RefPicker,
+    RichTextField,
+    SearchSelect,
+    SliderField,
     Submit,
+    TagsField,
+    WidgetCombobox,
 )
 
 if TYPE_CHECKING:
@@ -70,12 +80,44 @@ class _RenderFormsMixin:
         `json-enc` extension was dropped in the htmx 4 migration, so
         handlers must read fields via `Form()`/`request.form()`, not
         JSON. The RBAC contract checker requires `hx-post` on the form."""
-        action = ctx.escape_attr(str(fs.action))
         fields_html = "".join(self._emit(f, ctx) for f in fs.fields)  # type: ignore[arg-type]
         submit_html = self._emit(fs.submit, ctx) if fs.submit is not None else ""
+        peek_attrs = ""
         if fs.method == "GET":
+            action = ctx.escape_attr(str(fs.action))
             method_attrs = f'action="{action}" method="GET"'
+        elif fs.peek_target:
+            # #1494 (2c, Slice 2): inline save-and-stay inside a peek panel.
+            # The submit posts `?peek=1` (→ API suppresses HX-Redirect),
+            # discards the JSON body (`hx-swap="none"`), and on success
+            # re-fetches the read-only view back into the panel cell — a
+            # native htmx after-request hook, no page reload, no JS module.
+            raw_action = str(fs.action)
+            sep = "&" if "?" in raw_action else "?"
+            action = ctx.escape_attr(f"{raw_action}{sep}peek=1")
+            hx_verb = "hx-put" if fs.method == "PUT" else "hx-post"
+            target = ctx.escape_attr(fs.peek_target)
+            # The re-fetch lives in an `hx-on` inline JS string, so the
+            # URL/selector cross TWO contexts: a JS string literal nested in a
+            # double-quoted HTML attribute. `json.dumps` safely encodes the
+            # JS-string layer (quotes/backslashes), then `escape_attr` encodes
+            # the outer HTML-attribute layer — defense-in-depth that holds even
+            # if a future caller routes a slug/display-name into these values,
+            # not just the server-derived uuid/path they carry today.
+            view_url_js = ctx.escape_attr(json.dumps(fs.peek_view_url))
+            target_js = ctx.escape_attr(json.dumps(fs.peek_target))
+            refetch = (
+                "if(event.detail.successful){"
+                f"htmx.ajax('GET',{view_url_js},"
+                f"{{target:{target_js},swap:'innerHTML'}})}}"
+            )
+            method_attrs = (
+                f'{hx_verb}="{action}" hx-target="{target}" hx-swap="none" '
+                f'hx-on:htmx:after:request="{refetch}"'
+            )
+            peek_attrs = ' data-dz-peek-save="1"'
         else:
+            action = ctx.escape_attr(str(fs.action))
             hx_verb = "hx-put" if fs.method == "PUT" else "hx-post"
             method_attrs = f'{hx_verb}="{action}" hx-target="body" hx-swap="innerHTML"'
         data_parts: list[str] = []
@@ -85,57 +127,130 @@ class _RenderFormsMixin:
             data_parts.append(f'data-dazzle-form-mode="{ctx.escape_attr(fs.mode)}"')
         data_attrs = (" " + " ".join(data_parts)) if data_parts else ""
         return (
-            f'<form class="dz-form-stack" {method_attrs}{data_attrs}>'
+            f'<form class="dz-form-stack" {method_attrs}{data_attrs}{peek_attrs}>'
             f"{fields_html}{submit_html}"
             f"</form>"
         )
 
+    @staticmethod
+    def _form_required_indicator(required: bool) -> str:
+        """The `*` + visually-hidden `(required)` marker (legacy
+        `_required_indicator`), rendered only for required fields."""
+        return (
+            (
+                '<span class="dz-form-required" aria-hidden="true">*</span>'
+                '<span class="visually-hidden">(required)</span>'
+            )
+            if required
+            else ""
+        )
+
+    def _form_label_block(self, ctx: RenderContext, name: str, label: str, required: bool) -> str:
+        """`<label for="field-{name}" class="dz-form-label">` + required marker
+        (legacy `_label_block`)."""
+        return (
+            f'<label for="field-{ctx.escape_attr(name)}" class="dz-form-label">'
+            f"{ctx.escape(label)}{self._form_required_indicator(required)}</label>"
+        )
+
+    def _form_hint(self, ctx: RenderContext, name: str, help_text: str) -> str:
+        """Optional `<p class="dz-form-hint">` help paragraph (legacy
+        `_hint_paragraph`)."""
+        if not help_text:
+            return ""
+        return (
+            f'<p id="hint-{ctx.escape_attr(name)}" class="dz-form-hint">{ctx.escape(help_text)}</p>'
+        )
+
+    @staticmethod
+    def _form_field_a11y(name_attr: str, required: bool, help_text: str) -> str:
+        """Inline ` required aria-required` + ` aria-describedby="hint-{name}"`
+        on the input (legacy `_required_attrs` + `_describedby_attr`)."""
+        req = ' required aria-required="true"' if required else ""
+        describedby = f' aria-describedby="hint-{name_attr}"' if help_text else ""
+        return req + describedby
+
     def _emit_field(self, f: Field, ctx: RenderContext) -> str:
-        # Field labels are developer-supplied; values may be user-supplied —
-        # escape both as a safety net.
-        label = ctx.escape(f.label)
+        """Render a plain form field at parity with the legacy
+        `render_form_field` standard-field contract: a `<div class="dz-form-field">`
+        wrapping a `<label for>` (+ required marker), an optional help paragraph,
+        and the input — which carries `id`/`data-dazzle-field` (QA-harness +
+        a11y selectors), `dz-form-input`, and `aria-required`/`aria-describedby`."""
         name = ctx.escape_attr(f.name)
-        placeholder = ctx.escape_attr(f.placeholder)
-        initial = ctx.escape_attr(f.initial_value)
-        required_attr = " required" if f.required else ""
+        a11y = self._form_field_a11y(name, f.required, f.help)
         readonly_attr = " readonly" if f.readonly else ""
+        # ADR-0050 Phase 5b: usage-driven autofocus (default False = no attr).
+        autofocus_attr = " autofocus" if f.autofocus else ""
+
+        if f.kind == "checkbox":
+            # Checkbox keeps its own label structure (input nested in the label);
+            # the hint sits after, both inside the dz-form-field wrapper.
+            checked = " checked" if f.initial_value == "true" else ""
+            return (
+                '<div class="dz-form-field">'
+                '<label class="dz-form-checkbox-label">'
+                f'<input type="checkbox" name="{name}" id="field-{name}" '
+                f'data-dazzle-field="{name}" class="dz-form-checkbox"'
+                f"{a11y}{checked}{readonly_attr}{autofocus_attr}>"
+                f"<span>{ctx.escape(f.label)}</span></label>"
+                f"{self._form_hint(ctx, f.name, f.help)}"
+                "</div>"
+            )
 
         if f.kind == "textarea":
             inner = (
-                f'<textarea class="dz-field__input" name="{name}" '
-                f'placeholder="{placeholder}"{required_attr}{readonly_attr}>'
-                f"{ctx.escape(f.initial_value)}</textarea>"
-            )
-        elif f.kind == "checkbox":
-            checked = " checked" if f.initial_value == "true" else ""
-            inner = (
-                f'<input class="dz-field__input" type="checkbox" name="{name}"'
-                f"{checked}{required_attr}{readonly_attr}>"
+                f'<textarea id="field-{name}" name="{name}" data-dazzle-field="{name}" '
+                f'class="dz-form-input dz-form-textarea" '
+                f'placeholder="{ctx.escape_attr(f.placeholder)}"'
+                f'{a11y}{readonly_attr}{autofocus_attr} rows="4">{ctx.escape(f.initial_value)}</textarea>'
             )
         else:
+            # Native date/datetime inputs suppress the placeholder (legacy parity).
+            placeholder = (
+                ""
+                if f.kind in ("date", "datetime-local")
+                else f' placeholder="{ctx.escape_attr(f.placeholder)}"'
+            )
             inner = (
-                f'<input class="dz-field__input" type="{f.kind}" name="{name}" '
-                f'value="{initial}" placeholder="{placeholder}"{required_attr}{readonly_attr}>'
+                f'<input id="field-{name}" type="{f.kind}" name="{name}" '
+                f'data-dazzle-field="{name}" class="dz-form-input" '
+                f'value="{ctx.escape_attr(f.initial_value)}"'
+                f"{placeholder}{a11y}{readonly_attr}{autofocus_attr}>"
             )
         return (
-            f'<label class="dz-field"><span class="dz-field__label">{label}</span>{inner}</label>'
+            '<div class="dz-form-field">'
+            f"{self._form_label_block(ctx, f.name, f.label, f.required)}"
+            f"{self._form_hint(ctx, f.name, f.help)}"
+            f"{inner}</div>"
         )
 
     def _emit_combobox(self, c: Combobox, ctx: RenderContext) -> str:
-        options = "".join(
-            f'<option value="{ctx.escape_attr(value)}"'
-            + (" selected" if value == c.initial_value else "")
-            + f">{ctx.escape(label)}</option>"
-            for value, label in c.options
-        )
-        required_attr = " required" if c.required else ""
-        label = ctx.escape(c.label)
+        """Render a plain enum `<select>` at parity with the legacy
+        `_render_select` — a leading disabled placeholder option so a *required*
+        select starts unselected (without it the first real option auto-selects
+        and `required` is a no-op → silent wrong-default writes)."""
         name = ctx.escape_attr(c.name)
+        a11y = self._form_field_a11y(name, c.required, c.help)
+        placeholder_text = c.placeholder or f"Select {c.label}"
+        opts = [
+            f'<option value="" disabled{" selected" if not c.initial_value else ""}>'
+            f"{ctx.escape(placeholder_text)}</option>"
+        ]
+        for value, label in c.options:
+            sel = " selected" if value == c.initial_value else ""
+            opts.append(
+                f'<option value="{ctx.escape_attr(value)}"{sel}>{ctx.escape(label)}</option>'
+            )
+        autofocus_attr = " autofocus" if c.autofocus else ""
+        inner = (
+            f'<select id="field-{name}" name="{name}" data-dazzle-field="{name}" '
+            f'class="dz-form-input"{a11y}{autofocus_attr}>{"".join(opts)}</select>'
+        )
         return (
-            f'<label class="dz-combobox">'
-            f'<span class="dz-combobox__label">{label}</span>'
-            f'<select class="dz-combobox__select" name="{name}"{required_attr}>{options}</select>'
-            f"</label>"
+            '<div class="dz-form-field">'
+            f"{self._form_label_block(ctx, c.name, c.label, c.required)}"
+            f"{self._form_hint(ctx, c.name, c.help)}"
+            f"{inner}</div>"
         )
 
     def _emit_file_upload(self, f: FileUpload, ctx: RenderContext) -> str:
@@ -192,6 +307,282 @@ class _RenderFormsMixin:
             f"{initial_option}"
             f"</select>"
             f"</label>"
+        )
+
+    def _emit_search_select(self, s: SearchSelect, ctx: RenderContext) -> str:
+        """Render a SearchSelect (`source:` typeahead) reproducing the legacy
+        `_render_search_select` DOM contract the fidelity scorer keys off:
+        `search-input-{name}` + `search-results-{name}` ids, `hx-indicator`,
+        a `delay:` debounce in `hx-trigger`, an empty-state prompt, and
+        `aria-invalid` error wiring. Alpine open/close is self-contained
+        (`x-data="{ open: false }"`); no external controller."""
+        name = ctx.escape_attr(s.name)
+        label_text = ctx.escape(s.label)
+        placeholder = ctx.escape_attr(s.placeholder or f"Search {s.label}...")
+        endpoint = ctx.escape_attr(str(s.endpoint))
+        init_id = ctx.escape_attr(s.initial_value)
+        init_display = ctx.escape_attr(s.initial_label or s.initial_value)
+        required_attr = ' required aria-required="true"' if s.required else ""
+        hx_min_chars = f" hx-vals='{{\"min_chars\": {s.min_chars}}}'" if s.min_chars else ""
+        return (
+            '<div class="dz-search-select" x-data="{ open: false }" '
+            'data-dz-widget="search_select">'
+            f'<input type="hidden" name="{name}" id="field-{name}" '
+            f'data-dazzle-field="{name}" value="{init_id}"{required_attr}>'
+            '<input type="text" '
+            f'id="search-input-{name}" '
+            'class="dz-search-select-input" '
+            f'placeholder="{placeholder}" '
+            'autocomplete="off" role="combobox" '
+            ':aria-expanded="open" '
+            f'aria-controls="search-results-{name}" '
+            'aria-autocomplete="list" aria-haspopup="listbox" '
+            f'value="{init_display}" '
+            f'hx-get="{endpoint}" '
+            f'hx-trigger="keyup changed delay:{s.debounce_ms}ms" '
+            f'hx-target="#search-results-{name}" '
+            f'hx-indicator="#search-spinner-{name}" '
+            f'hx-params="q"{hx_min_chars} '
+            '@focus="open = true" '
+            '@blur="setTimeout(() => { open = false }, 200)">'
+            f'<span id="search-spinner-{name}" '
+            'class="htmx-indicator dz-search-select-spinner" '
+            'role="status" aria-label="Searching">'
+            '<svg class="dz-search-select-spinner-icon" fill="none" viewBox="0 0 24 24" '
+            'aria-hidden="true">'
+            '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" '
+            'stroke-width="4"></circle>'
+            '<path class="opacity-75" fill="currentColor" '
+            'd="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>'
+            "</svg></span>"
+            f'<div id="search-results-{name}" '
+            'x-show="open" x-cloak role="listbox" '
+            f'aria-label="{label_text} suggestions" '
+            'class="dz-search-select-results">'
+            '<div class="dz-search-select-prompt" role="option" aria-disabled="true">'
+            f"Type at least {s.min_chars} characters to search..."
+            "</div></div></div>"
+        )
+
+    def _emit_money(self, m: MoneyField, ctx: RenderContext) -> str:
+        """Render a MoneyField reproducing the legacy `_render_money` dzMoney
+        contract — a major-unit text input + hidden `{name}_minor` carrier,
+        in fixed (symbol prefix + hidden currency) or selector mode."""
+        name = ctx.escape_attr(m.name)
+        label_text = ctx.escape(m.label)
+        minor_attr = ctx.escape_attr(m.minor_initial)
+        required_attr = ' required aria-required="true"' if m.required else ""
+
+        if m.currency_fixed:
+            return (
+                '<div x-data="dzMoney" '
+                f'data-dz-currency="{ctx.escape_attr(m.currency_code)}" '
+                f'data-dz-scale="{ctx.escape_attr(m.scale)}">'
+                '<div class="dz-form-money-group">'
+                f'<span class="dz-form-money-prefix" aria-hidden="true">'
+                f"{ctx.escape(m.symbol)}</span>"
+                f'<input type="text" inputmode="decimal" id="field-{name}" '
+                f'data-dazzle-field="{name}" '
+                'x-model="displayValue" @input="onInput()" @blur="onBlur()" '
+                'class="dz-form-input dz-form-input-trailing" '
+                'placeholder="0.00" '
+                f'aria-label="{label_text} ({ctx.escape(m.currency_code)})"'
+                f"{required_attr}>"
+                "</div>"
+                f'<input type="hidden" name="{name}_minor" x-model="minorValue" '
+                f"x-init=\"minorValue = '{minor_attr}'\">"
+                f'<input type="hidden" name="{name}_currency" '
+                f'value="{ctx.escape_attr(m.currency_code)}">'
+                "</div>"
+            )
+        currency_opts = "".join(
+            f'<option value="{ctx.escape_attr(code)}" '
+            f'data-scale="{ctx.escape_attr(opt_scale)}" '
+            f'data-symbol="{ctx.escape_attr(opt_symbol)}"'
+            + (" selected" if code == m.currency_code else "")
+            + f">{ctx.escape(opt_symbol)} {ctx.escape(code)}</option>"
+            for code, opt_scale, opt_symbol in m.currency_options
+        )
+        return (
+            f'<div x-data="dzMoney" data-dz-scale="{ctx.escape_attr(m.scale)}">'
+            '<div class="dz-form-money-group">'
+            f'<select name="{name}_currency" '
+            '@change="onCurrencyChange($event)" '
+            'class="dz-form-money-select" '
+            f'aria-label="Currency for {label_text}">'
+            f"{currency_opts}"
+            "</select>"
+            f'<input type="text" inputmode="decimal" id="field-{name}" '
+            f'data-dazzle-field="{name}" '
+            'x-model="displayValue" @input="onInput()" @blur="onBlur()" '
+            'class="dz-form-input dz-form-input-trailing" '
+            'placeholder="0.00" '
+            f'aria-label="{label_text}"'
+            f"{required_attr}>"
+            "</div>"
+            f'<input type="hidden" name="{name}_minor" x-model="minorValue" '
+            f"x-init=\"minorValue = '{minor_attr}'\">"
+            "</div>"
+        )
+
+    @staticmethod
+    def _widget_label(label_html: str, name: str, inner: str) -> str:
+        """Common substrate field wrapper for `widget=`-driven primitives —
+        the label + the widget element the client controller mounts on."""
+        return (
+            f'<label class="dz-field" for="field-{name}">'
+            f'<span class="dz-field__label">{label_html}</span>{inner}</label>'
+        )
+
+    def _emit_widget_combobox(self, c: WidgetCombobox, ctx: RenderContext) -> str:
+        name = ctx.escape_attr(c.name)
+        placeholder_html = ctx.escape(c.placeholder or "Select...")
+        placeholder_attr = (
+            f' placeholder="{ctx.escape_attr(c.placeholder)}"' if c.placeholder else ""
+        )
+        required_attr = ' required aria-required="true"' if c.required else ""
+        opts = [f'<option value="">{placeholder_html}</option>']
+        for value, label in c.options:
+            sel = " selected" if value == c.initial_value else ""
+            opts.append(
+                f'<option value="{ctx.escape_attr(value)}"{sel}>{ctx.escape(label)}</option>'
+            )
+        inner = (
+            f'<select id="field-{name}" name="{name}" '
+            "data-dz-widget=\"combobox\" data-dz-options='{}' "
+            f'class="dz-form-input"{placeholder_attr}{required_attr}>'
+            f"{''.join(opts)}</select>"
+        )
+        return self._widget_label(ctx.escape(c.label), name, inner)
+
+    def _emit_tags_field(self, t: TagsField, ctx: RenderContext) -> str:
+        name = ctx.escape_attr(t.name)
+        placeholder_attr = (
+            f' placeholder="{ctx.escape_attr(t.placeholder)}"' if t.placeholder else ""
+        )
+        required_attr = ' required aria-required="true"' if t.required else ""
+        inner = (
+            f'<input id="field-{name}" name="{name}" type="text" '
+            'data-dz-widget="tags" '
+            'data-dz-options=\'{"create":true,"plugins":["remove_button"]}\' '
+            f'class="dz-form-input" value="{ctx.escape_attr(t.initial_value)}"'
+            f"{placeholder_attr}{required_attr}>"
+        )
+        return self._widget_label(ctx.escape(t.label), name, inner)
+
+    def _emit_date_picker(self, d: DatePickerField, ctx: RenderContext) -> str:
+        name = ctx.escape_attr(d.name)
+        date_format = "Y-m-d H:i" if d.is_datetime else "Y-m-d"
+        enable_time = ',"enableTime":true' if d.is_datetime else ""
+        placeholder_attr = (
+            f' placeholder="{ctx.escape_attr(d.placeholder)}"' if d.placeholder else ""
+        )
+        required_attr = ' required aria-required="true"' if d.required else ""
+        inner = (
+            f'<input id="field-{name}" name="{name}" type="text" '
+            'data-dz-widget="datepicker" '
+            f'data-dz-options=\'{{"dateFormat":"{date_format}"{enable_time}}}\' '
+            f'class="dz-form-input" value="{ctx.escape_attr(d.initial_value)}"'
+            f"{placeholder_attr}{required_attr}>"
+        )
+        return self._widget_label(ctx.escape(d.label), name, inner)
+
+    def _emit_color_field(self, c: ColorField, ctx: RenderContext) -> str:
+        name = ctx.escape_attr(c.name)
+        init_attr = ctx.escape_attr(c.initial_value)
+        required_attr = ' required aria-required="true"' if c.required else ""
+        inner = (
+            f'<div class="dz-form-color-group" x-data="{{ value: \'{init_attr}\' }}">'
+            f'<input type="color" id="field-{name}" name="{name}" '
+            f'class="dz-form-color-input" x-model="value"{required_attr}>'
+            '<span class="dz-form-color-hex" aria-hidden="true" '
+            f'x-text="value">{ctx.escape(c.initial_value)}</span>'
+            "</div>"
+        )
+        return self._widget_label(ctx.escape(c.label), name, inner)
+
+    def _emit_slider_field(self, s: SliderField, ctx: RenderContext) -> str:
+        name = ctx.escape_attr(s.name)
+        required_attr = ' required aria-required="true"' if s.required else ""
+        inner = (
+            '<div data-dz-widget="range-tooltip" class="dz-form-slider-group">'
+            f'<input id="field-{name}" name="{name}" type="range" '
+            'data-dz-slider class="dz-form-slider" '
+            f'min="{ctx.escape_attr(s.min_val)}" '
+            f'max="{ctx.escape_attr(s.max_val)}" '
+            f'step="{ctx.escape_attr(s.step)}" '
+            f'value="{ctx.escape_attr(s.initial_value)}"{required_attr}>'
+            '<span data-dz-range-value class="dz-form-slider-value" '
+            f'aria-hidden="true">{ctx.escape(s.initial_value)}</span>'
+            "</div>"
+        )
+        return self._widget_label(ctx.escape(s.label), name, inner)
+
+    def _emit_rich_text(self, r: RichTextField, ctx: RenderContext) -> str:
+        import json
+
+        name = ctx.escape_attr(r.name)
+        required_attr = ' required aria-required="true"' if r.required else ""
+        rt_opts: dict[str, object] = {}
+        if r.toolbar:
+            rt_opts["toolbar"] = r.toolbar
+        if r.max_length:
+            rt_opts["maxLength"] = r.max_length
+        rt_opts_json = ctx.escape_attr(json.dumps(rt_opts))
+        inner = (
+            '<div data-dz-widget="richtext" '
+            f"data-dz-options='{rt_opts_json}' "
+            'class="dz-form-richtext">'
+            f'<input type="hidden" id="field-{name}" name="{name}" '
+            f'value="{ctx.escape_attr(r.initial_value)}"{required_attr}>'
+            "<div data-dz-editor></div>"
+            "</div>"
+        )
+        return self._widget_label(ctx.escape(r.label), name, inner)
+
+    def _emit_form_stepper(self, fs: FormStepper, ctx: RenderContext) -> str:
+        """Render the dzWizard stage-tabs at parity with the legacy
+        `render_form_stepper` — checkmark SVG for completed stages, the bare
+        index for current/pending, Alpine `isActive`/`isCurrent`/`goToStep`."""
+        n = len(fs.sections)
+        items: list[str] = []
+        for idx, title in enumerate(fs.sections):
+            title_html = ctx.escape(title)
+            is_last = idx == n - 1
+            not_last_cls = "" if is_last else " is-not-last"
+            connector = (
+                ""
+                if is_last
+                else (
+                    '<span class="dz-form-stepper-connector" '
+                    f":class=\"{{ 'is-active': isActive({idx + 1}) }}\" "
+                    'aria-hidden="true"></span>'
+                )
+            )
+            items.append(
+                f'<li class="dz-form-stepper-item{not_last_cls}" '
+                f'@click="goToStep({idx})" '
+                f":aria-current=\"isCurrent({idx}) ? 'step' : false\">"
+                '<span class="dz-form-stepper-circle" '
+                f":class=\"{{ 'is-active': isActive({idx}) }}\">"
+                f'<template x-if="step > {idx}">'
+                '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" '
+                'stroke="currentColor" stroke-width="3" aria-hidden="true">'
+                '<path stroke-linecap="round" stroke-linejoin="round" '
+                'd="M5 13l4 4L19 7" /></svg></template>'
+                f'<template x-if="step <= {idx}"><span>{idx + 1}</span></template>'
+                "</span>"
+                '<span class="dz-form-stepper-label" '
+                f":class=\"{{ 'is-active': isActive({idx}) }}\">{title_html}</span>"
+                '<span class="visually-hidden" '
+                f"x-text=\"step > {idx} ? 'completed' : "
+                f"(isCurrent({idx}) ? 'current' : 'pending')\"></span>"
+                f"{connector}"
+                "</li>"
+            )
+        return (
+            '<ol class="dz-form-stepper" role="list" aria-label="Form progress">'
+            f"{''.join(items)}</ol>"
         )
 
     def _emit_submit(self, s: Submit, ctx: RenderContext) -> str:

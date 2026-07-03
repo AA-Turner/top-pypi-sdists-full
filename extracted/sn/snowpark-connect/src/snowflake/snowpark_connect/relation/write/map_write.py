@@ -6,6 +6,7 @@ import copy
 import os
 import shutil
 import uuid
+from collections.abc import Iterable
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pyspark.sql.connect.proto.base_pb2 as proto_base
 import pyspark.sql.connect.proto.commands_pb2 as commands_proto
+import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 from pyspark.errors.exceptions.base import AnalysisException
 from pyspark.errors.exceptions.connect import IllegalArgumentException
@@ -59,6 +61,7 @@ from snowflake.snowpark.types import (
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
 from snowflake.snowpark_connect.config import (
     SessionConfig,
+    get_iceberg_target_file_size_for_writes,
     get_parquet_metadata_generation_enabled,
     get_success_file_generation_enabled,
     global_config,
@@ -109,6 +112,13 @@ from snowflake.snowpark_connect.type_support import is_integral_types_conversion
 from snowflake.snowpark_connect.utils.context import (
     get_spark_session_id,
     should_skip_file_read_cache_result,
+)
+from snowflake.snowpark_connect.utils.iceberg_partition_utils import (
+    V2PartitionSpec,
+    build_iceberg_partition_exprs,
+    parse_v2_partition_specs,
+    render_partition_transform,
+    resolve_v2_partition_specs,
 )
 from snowflake.snowpark_connect.utils.identifiers import (
     is_in_cld_context,
@@ -508,6 +518,34 @@ def _validate_partition_columns_match_spec(
             f"provided [{', '.join(partition_cols)}] vs table [{', '.join(table_partition_spec.columns())}]."
         )
         attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+
+
+def _validate_no_partition_cols_on_fdn(
+    partitioning_columns: Iterable[expressions_proto.Expression],
+) -> None:
+    """Reject ``partitionedBy`` on standard (FDN) Snowflake tables.
+
+    FDN tables have no user-defined partitioning — Snowflake auto-organizes
+    rows into micro-partitions — so a Spark partition spec has no equivalent.
+    We raise instead of silently ignoring so users don't assume a partition
+    layout that was never applied.
+
+    Applied uniformly across every DataFrameWriterV2 mode. Previously only
+    MODE_CREATE_OR_REPLACE rejected this while create / replace / append /
+    overwrite silently ignored it; rejecting everywhere makes the behavior
+    consistent (SNOW-3406172, Make DataFrameWriterV2 Spark-compatible).
+    Iceberg targets support partitioning and never reach this path.
+
+    ``partitioning_columns`` is the raw ``WriteOperationV2.partitioning_columns``
+    proto field; we only test it for emptiness, so identity columns and
+    transform expressions (``days(col)``, etc.) are rejected alike.
+    """
+    if partitioning_columns:
+        exception = SnowparkConnectNotImplementedError(
+            "Standard Snowflake tables do not support partition columns"
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
 
 
@@ -968,17 +1006,37 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 and partition_hint > 0
                 and not write_op.partitioning_columns
             ):
-                # Create a stable synthetic file number per row using ROW_NUMBER() over a
-                # randomized order, then modulo partition_hint.
-                # Using proper Snowpark window functions allows the flattening logic to
-                # correctly detect window functions and prevent invalid SQL generation.
+                # Assign each row a synthetic file number via ROW_NUMBER() over a
+                # randomized order, then modulo partition_hint. Using proper Snowpark
+                # window functions allows the flattening logic to correctly detect window
+                # functions and prevent invalid SQL generation.
+                #
+                # This MUST be materialized once before the per-file COPYs run. The
+                # expression is non-deterministic (ORDER BY RANDOM()), so a lazy DataFrame
+                # would make each per-partition COPY statement inline and re-roll an
+                # independent assignment (SNOW-3699974):
+                #   (1) Correctness: a row's bucket would differ between statements, so the
+                #       n filters below would NOT form a partition -- rows get silently
+                #       dropped and duplicated (the per-file total still sums to the input
+                #       count, so it hides from row-count checks).
+                #   (2) Performance: every one of the n COPYs would re-scan and globally
+                #       re-sort the entire input.
+                # Sorting by the file number clusters the materialized table so each
+                # per-file COPY prunes to ~1/n of it. We materialize into an explicit
+                # temporary table dropped in a finally (rather than cache_result) so this
+                # materialization -- which can be very large -- is released as soon as the
+                # unload completes instead of lingering for the whole session lifetime.
                 file_num_col = "_sas_file_num"
-                partitioned_df = rewritten_df.withColumn(
-                    file_num_col,
-                    row_number().over(Window.order_by(random())) % partition_hint,
+                materialized_table = random_string(10, "sas_repartition_unload_")
+                (
+                    rewritten_df.withColumn(
+                        file_num_col,
+                        row_number().over(Window.order_by(random())) % partition_hint,
+                    )
+                    .sort(col(file_num_col))
+                    .write.save_as_table(materialized_table, table_type="temporary")
                 )
 
-                # Execute multiple COPY INTO operations, one per target file.
                 # Since we write per-partition with distinct prefixes, download from the base write path.
                 download_stage_path = write_path
 
@@ -986,22 +1044,48 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 shared_uuid = str(uuid.uuid4())
                 part_params = copy.deepcopy(dict(parameters))
                 part_params["single"] = True
-                for part_idx in range(partition_hint):
-                    # Preserve Spark-like filename prefix per partition so downloaded basenames
-                    # match the expected Spark pattern (with possible Snowflake counters appended).
-                    per_part_prefix = generate_spark_compatible_filename(
-                        task_id=part_idx,
-                        attempt_number=0,
-                        compression=compression,
-                        format_ext=extension,
-                        shared_uuid=shared_uuid,
-                    )
-                    part_params["location"] = f"{write_location_base}/{per_part_prefix}"
-                    (
-                        partitioned_df.filter(col(file_num_col) == lit(part_idx))
-                        .drop(file_num_col)
-                        .write.copy_into_location(**part_params)
-                    )
+
+                try:
+                    partitioned_df = session.table(materialized_table)
+                    # Submit all per-file COPYs asynchronously (block=False) and then wait,
+                    # so the n single-file unloads run concurrently on the warehouse instead
+                    # of strictly serially (previously one multi-minute blocking COPY at a
+                    # time -- the root cause of the ~hours-long unloads in SNOW-3699974).
+                    # The output (exactly n files with Spark-compatible names) is unchanged.
+                    async_jobs = []
+                    for part_idx in range(partition_hint):
+                        # Preserve Spark-like filename prefix per partition so downloaded basenames
+                        # match the expected Spark pattern (with possible Snowflake counters appended).
+                        per_part_prefix = generate_spark_compatible_filename(
+                            task_id=part_idx,
+                            attempt_number=0,
+                            compression=compression,
+                            format_ext=extension,
+                            shared_uuid=shared_uuid,
+                        )
+                        part_params[
+                            "location"
+                        ] = f"{write_location_base}/{per_part_prefix}"
+                        async_jobs.append(
+                            partitioned_df.filter(col(file_num_col) == lit(part_idx))
+                            .drop(file_num_col)
+                            .write.copy_into_location(block=False, **part_params)
+                        )
+                    # Block until every COPY has finished; the first failure propagates.
+                    try:
+                        for async_job in async_jobs:
+                            async_job.result()
+                    except Exception:
+                        # On the first failure the remaining COPYs may still be
+                        # running. Cancel them before the finally drops the source
+                        # table, otherwise in-flight COPYs fail against the dropped
+                        # table with noisy "object does not exist" errors.
+                        for async_job in async_jobs:
+                            with suppress(Exception):
+                                async_job.cancel()
+                        raise
+                finally:
+                    session.sql(f"DROP TABLE IF EXISTS {materialized_table}").collect()
             else:
                 rewritten_df.write.copy_into_location(**parameters)
 
@@ -1538,31 +1622,41 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
         is_cld,
     )
     table_type = "iceberg" if is_iceberg else "fdn"
-    partition_cols = (
-        [
-            i.unresolved_attribute.unparsed_identifier
-            for i in write_op.partitioning_columns
-        ]
-        if write_op.partitioning_columns
-        else None
+    # FDN tables have no user-defined partitioning; reject partitionedBy
+    # uniformly across all write modes (SNOW-3310107). Iceberg targets honor it.
+    if not is_iceberg:
+        _validate_no_partition_cols_on_fdn(write_op.partitioning_columns)
+
+    # Iceberg: parse partitionedBy (identity + years/months/days/hours/bucket
+    # transforms) once. partition_specs carries the source columns (used as the
+    # overwritePartitions fallback below); partition_exprs are the rendered
+    # Snowflake PARTITION BY strings used by the non-CLD iceberg_config path.
+    # The CLD CREATE ICEBERG TABLE path instead consumes partition_specs_cld
+    # (column resolved, transform kept structured), because it re-quotes each
+    # element and would corrupt a pre-rendered string like DAY("TS")
+    # (SNOW-3310107).
+    partition_specs = (
+        parse_v2_partition_specs(write_op.partitioning_columns)
+        if is_iceberg and write_op.partitioning_columns
+        else []
     )
-    partition_cols_for_iceberg_config = (
-        updated_result.column_map.get_snowpark_column_names_from_spark_column_names(
-            partition_cols
+    partition_exprs = (
+        build_iceberg_partition_exprs(
+            partition_specs, updated_result.column_map, is_cld
         )
-        if partition_cols
+        if partition_specs
         else None
     )
-    if partition_cols_for_iceberg_config and not global_config.spark_sql_caseSensitive:
-        partition_cols_for_iceberg_config = [
-            spark_to_sf_single_id(unquote_if_quoted(c), is_column=True)
-            for c in partition_cols_for_iceberg_config
-        ]
+    partition_specs_cld = (
+        resolve_v2_partition_specs(partition_specs, updated_result.column_map, is_cld)
+        if partition_specs
+        else None
+    )
 
     iceberg_config = (
         _build_iceberg_config(
             options=dict(write_op.table_properties),
-            partition_cols=partition_cols_for_iceberg_config,
+            partition_cols=partition_exprs,
             is_cld=is_cld,
         )
         if is_iceberg
@@ -1603,6 +1697,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     writer,
                     snowpark_table_name,
                     options=cld_create_options,
+                    partition_specs=partition_specs_cld,
                 )
             else:
                 writer.saveAsTable(
@@ -1643,8 +1738,15 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             _validate_table_exist_and_of_type(
                 snowpark_table_name, session, table_type, table_schema_or_error
             )
+            # SNOW-3310119: V2 overwrite preserves the table definition (schema,
+            # partitioning, properties) and only replaces rows — unlike replace()
+            # / createOrReplace(), which rebuild the definition. Use append-style
+            # schema handling so a DataFrame whose schema does not match the
+            # existing table fails fast with a clean AnalysisException, and
+            # write via an atomic INSERT OVERWRITE (table_exists=True) rather
+            # than a CREATE OR REPLACE.
             writer = _validate_schema_and_get_writer(
-                input_df, "overwrite", snowpark_table_name, table_schema_or_error
+                input_df, "append", snowpark_table_name, table_schema_or_error
             )
 
             overwrite_cond = None
@@ -1664,18 +1766,17 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     overwrite_condition=overwrite_cond,
                     iceberg_config=iceberg_config,
                 )
-            elif is_iceberg:
-                _overwrite_iceberg_with_fallback(
-                    writer=writer,
-                    snowpark_table_name=snowpark_table_name,
-                    iceberg_config=iceberg_config,
-                    session=session,
-                    input_df=input_df,
-                )
             else:
+                # Reached when the V2 command carries no overwrite condition
+                # (e.g. df.writeTo(t).overwrite(None)); a real condition such as
+                # overwrite(lit(True)) goes through the conditional branch above.
+                # Replace every row but keep the table definition intact via an
+                # INSERT OVERWRITE (table_exists=True + mode="truncate"), never a
+                # CREATE OR REPLACE.
                 writer.saveAsTable(
                     table_name=snowpark_table_name,
-                    mode="overwrite",
+                    table_exists=True,
+                    mode="truncate",
                     column_order=_column_order_for_write,
                 )
 
@@ -1701,10 +1802,16 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             if actual_is_iceberg:
                 table_partition_spec = get_partition_spec(snowpark_table_name, session)
 
+                # Prefer the table's persisted spec; fall back to this request's
+                # partitionedBy columns only when the table has none (best-effort
+                # for unpartitioned tables — identity cols; raw col for transforms).
+                # partition_specs is None for the common overwritePartitions call
+                # (no partitionedBy in the request); treat that as "no columns" so
+                # the guard below falls through to a full overwrite.
                 effective_partition_cols = (
                     table_partition_spec.columns()
                     if table_partition_spec
-                    else partition_cols
+                    else [spec.column for spec in (partition_specs or [])]
                 )
 
                 if effective_partition_cols:
@@ -1727,9 +1834,13 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     # Empty input has no partitions to overwrite — skip the
                     # write entirely so existing data is not truncated.
                     if overwrite_condition is not None:
+                        # overwritePartitions preserves the table definition and
+                        # replaces only the partitions present in the DataFrame.
+                        # Use append-style schema handling (validate/align to the
+                        # existing table) so a mismatched schema fails cleanly.
                         _validate_schema_and_get_writer(
                             input_df,
-                            "overwrite",
+                            "append",
                             snowpark_table_name,
                             table_schema_or_error,
                         ).saveAsTable(
@@ -1777,6 +1888,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     writer,
                     snowpark_table_name,
                     options=cld_create_options,
+                    partition_specs=partition_specs_cld,
                 )
             elif is_iceberg:
                 _overwrite_iceberg_with_fallback(
@@ -1808,6 +1920,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     writer,
                     snowpark_table_name,
                     options=cld_create_options,
+                    partition_specs=partition_specs_cld,
                 )
             elif is_iceberg:
                 _overwrite_iceberg_with_fallback(
@@ -1818,16 +1931,6 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     input_df=input_df,
                 )
             else:
-                if partition_cols:
-                    # Do not allow users to think that FDN tables have partition columns,
-                    # at least until we implement
-                    exception = SnowparkConnectNotImplementedError(
-                        "Standard Snowflake table do not support partition columns"
-                    )
-                    attach_custom_error_code(
-                        exception, ErrorCodes.UNSUPPORTED_OPERATION
-                    )
-                    raise exception
                 writer.saveAsTable(
                     table_name=snowpark_table_name,
                     mode="overwrite",
@@ -2399,11 +2502,12 @@ def _snowpark_type_to_iceberg_ddl(
         )
         return f"MAP({key_type}, {value_type})"
     elif isinstance(t, StructType):
-        # Snowflake Iceberg OBJECT(<key> <type>, ...) — quote field names
-        # for the same reason as top-level columns (SNOW-3649315).
+        # Snowflake Iceberg OBJECT(<key> <type>, ...) — render field names via
+        # _cld_ddl_identifier (quoted + case-folded) for the same reason as
+        # top-level columns (SNOW-3649315).
         fields = []
         for field in t.fields:
-            field_name = quote_name_without_upper_casing(unquote_if_quoted(field.name))
+            field_name = _cld_ddl_identifier(field.name)
             field_type = _snowpark_type_to_iceberg_ddl(
                 field.datatype, use_number_for_integrals
             )
@@ -2466,6 +2570,7 @@ def _create_cld_iceberg_table_then_load(
     writer: snowpark.DataFrameWriter,
     snowpark_table_name: str,
     options: dict | None,
+    partition_specs: list[V2PartitionSpec] | None = None,
 ) -> None:
     """Emit explicit ``CREATE ICEBERG TABLE`` for a CLD target, then append
     rows via Snowpark against the now-existing table.
@@ -2476,10 +2581,13 @@ def _create_cld_iceberg_table_then_load(
     V1 itself still calls the inner DDL helper directly. The DDL step is
     what makes column casing CLD-correct on Glue / Unity case-insensitive
     catalogs: :func:`_create_cld_iceberg_table` routes each
-    ``writer._dataframe`` field name through the CLD-aware
-    :func:`spark_to_sf_single_id`. The load step then appends against the
-    now-existing table, so Snowpark does not need to issue any DDL of its
-    own (which would otherwise reintroduce the uppercase-quoted columns
+    ``writer._dataframe`` field name through :func:`_cld_ddl_identifier`,
+    which double-quotes the name (injection-safe, SNOW-3649315) and, on the
+    default case-insensitive path, lower-cases it so the quoted identifier
+    matches the catalog's case-folded storage (a quoted upper-case ``"ID"``
+    is otherwise rejected with 004510). The load step then appends against
+    the now-existing table, so Snowpark does not need to issue any DDL of
+    its own (which would otherwise reintroduce the uppercase-quoted columns
     the CLD rejects).
 
     The load step is hard-coded to ``mode="append"`` on purpose. Any other
@@ -2498,6 +2606,7 @@ def _create_cld_iceberg_table_then_load(
         writer._dataframe,
         snowpark_table_name,
         options=options,
+        partition_specs=partition_specs,
     )
     writer.saveAsTable(
         table_name=snowpark_table_name,
@@ -2506,12 +2615,43 @@ def _create_cld_iceberg_table_then_load(
     )
 
 
+def _cld_ddl_identifier(name: str) -> str:
+    """Render a column/field identifier for a CLD ``CREATE ICEBERG TABLE`` DDL.
+
+    Always double-quotes the name (escaping embedded ``"`` by doubling) so that
+    names with spaces or other special characters can't break or inject into
+    the DDL (SNOW-3649315).
+
+    On the default case-insensitive path the name is lower-cased first.
+    Catalog-linked databases over case-insensitive external catalogs (Glue,
+    Unity) store identifiers lower-cased and reject a quoted upper-case name
+    such as ``"ID"`` with ``004510`` ("Only lowercase and double-quoted
+    identifier names are allowed"). Lower-casing makes the quoted name match
+    the catalog's stored, case-folded identifier. It is skipped when
+    ``spark.sql.caseSensitive`` is set, preserving the caller's explicit
+    casing (which is the only case where mixed-case is intended, and which the
+    catalog may then legitimately reject).
+
+    This mirrors the case policy of the canonical CLD identifier transformer
+    ``spark_to_sf_single_id`` / ``transform_identifier_for_snowflake`` (same
+    ``spark.sql.caseSensitive`` gate) but additionally *always* double-quotes.
+    That transformer returns ordinary names bare (case-insensitive, catalog-
+    safe) yet also leaves special-character names unquoted — unsafe in
+    hand-built DDL — so it cannot be reused directly here (SNOW-3649315).
+    """
+    bare = unquote_if_quoted(name)
+    if not global_config.spark_sql_caseSensitive:
+        bare = bare.lower()
+    return quote_name_without_upper_casing(bare)
+
+
 def _create_cld_iceberg_table(
     session: snowpark.Session,
     df: snowpark.DataFrame,
     table_name: str,
     options: dict | None = None,
     partition_cols: list[str] | None = None,
+    partition_specs: list[V2PartitionSpec] | None = None,
     iceberg_version: int | None = None,
 ) -> None:
     """Issue CREATE ICEBERG TABLE for a Catalog-Linked Database.
@@ -2520,23 +2660,38 @@ def _create_cld_iceberg_table(
     (columns, partition cols, nested OBJECT fields) are quoted via
     quote_name_without_upper_casing to prevent broken DDL from names with
     special characters.
+
+    Partitioning arrives one of two ways. ``partition_cols`` is a list of bare
+    identity column names (the V1 path / SQL DDL path). ``partition_specs``
+    carries DataFrameWriterV2 transforms (``DAY``/``BUCKET``/...): each spec's
+    column is quoted on its own and the transform keyword is wrapped around the
+    quoted identifier, so the keyword is never swept into the quoted name
+    (SNOW-3310107). At most one of the two is set.
     """
-    # Always quote column names — spark_to_sf_single_id returns them unquoted
-    # on the common CLD path, which breaks DDL for names with special chars.
+    # Render identifiers via _cld_ddl_identifier: double-quoted (injection-safe,
+    # SNOW-3649315) and lower-cased on the case-insensitive path so case-
+    # insensitive Glue/Unity catalogs accept them.
     columns = []
     for field in df.schema.fields:
-        col_name = quote_name_without_upper_casing(unquote_if_quoted(field.name))
+        col_name = _cld_ddl_identifier(field.name)
         col_type = _snowpark_type_to_iceberg_ddl(field.datatype)
         columns.append(f"{col_name} {col_type}")
 
     columns_ddl = ", ".join(columns)
     parts = [f"CREATE ICEBERG TABLE {table_name} ({columns_ddl})"]
 
-    if partition_cols:
-        safe_parts = [
-            quote_name_without_upper_casing(unquote_if_quoted(c))
-            for c in partition_cols
+    if partition_specs:
+        rendered = [
+            render_partition_transform(
+                spec.transform,
+                spec.num_buckets,
+                quote_name_without_upper_casing(unquote_if_quoted(spec.column)),
+            )
+            for spec in partition_specs
         ]
+        parts.append(f"PARTITION BY ({', '.join(rendered)})")
+    elif partition_cols:
+        safe_parts = [_cld_ddl_identifier(c) for c in partition_cols]
         parts.append(f"PARTITION BY ({', '.join(safe_parts)})")
 
     if iceberg_version is not None:
@@ -2582,6 +2737,11 @@ def _build_iceberg_config(
             config["base_location"] = location
 
     tfs = options.get("write.target-file-size") or options.get("target_file_size")
+    if not tfs:
+        # SNOW-3674169: Fall back to the bucketed value derived from
+        # spark.sql.files.maxPartitionBytes, if the user has set it. An
+        # explicit per-table tableProperty above always wins.
+        tfs = get_iceberg_target_file_size_for_writes()
     if tfs:
         _validate_target_file_size(tfs)
         config["target_file_size"] = tfs
@@ -2695,19 +2855,24 @@ def _overwrite_iceberg_with_fallback(
 ) -> None:
     """Try a normal Snowpark ``mode='overwrite'`` (CREATE OR REPLACE).
 
-    If the table belongs to an external catalog (Glue, Foundry, …) the
-    CREATE OR REPLACE will fail. In that case we fall back to
-    TRUNCATE TABLE + INSERT (mode='append') which preserves the table
-    definition and its catalog integration.
+    Used only by the *rebuild* modes — ``MODE_REPLACE`` and
+    ``MODE_CREATE_OR_REPLACE`` — which intentionally replace the table
+    definition. ``MODE_OVERWRITE`` no longer routes here (it preserves the
+    definition via INSERT OVERWRITE; see ``map_write_v2``).
 
-    Schema evolution is not supported for external catalog tables via
-    this path – the customer must ALTER the table through the external
-    catalog first.
+    For Snowflake-managed iceberg this is an atomic CREATE OR REPLACE. If the
+    table belongs to an external catalog (Glue, Polaris, …) the CREATE OR
+    REPLACE is rejected; we fall back to a single **atomic** ``INSERT
+    OVERWRITE INTO`` that replaces every row of the existing table in one
+    statement. Either the new snapshot is fully committed or the old one is
+    preserved — matching Spark's V2 replace/createOrReplace atomicity
+    contract.
 
-    To prevent data loss the fallback validates that the DataFrame
-    schema is compatible with the target table *before* truncating.
-    If the subsequent INSERT still fails for an unexpected reason
-    (network error, etc.) a clear error is logged.
+    Schema evolution is not supported for external catalog tables via this
+    path - the column set is owned by the external catalog. The schema is
+    validated up front (fail-fast, before any DML), and if the INSERT
+    OVERWRITE fails for any other reason the error propagates so the table's
+    existing data is left intact.
     """
     try:
         writer.saveAsTable(
@@ -2718,37 +2883,49 @@ def _overwrite_iceberg_with_fallback(
             copy_grants=True,
         )
     except SnowparkSQLException as e:
-        if _is_external_catalog_error(e):
-            logger.info(
-                "Overwrite failed for external-catalog iceberg table %s; "
-                "falling back to TRUNCATE + APPEND.",
-                snowpark_table_name,
-            )
-
-            # Validate that the DataFrame schema is compatible with the
-            # target table BEFORE truncating.  Without this check a
-            # schema mismatch would cause the INSERT to fail *after*
-            # the TRUNCATE, leaving the table empty (data loss).
-            if input_df is not None:
-                try:
-                    table_schema = session.table(snowpark_table_name).schema
-                    _validate_schema_for_append(
-                        table_schema, input_df.schema, snowpark_table_name
-                    )
-                except SnowparkSQLException:
-                    raise
-                except AnalysisException:
-                    raise  # schema mismatch – fail fast, no data lost
-
-            session.sql(f"TRUNCATE TABLE IF EXISTS {snowpark_table_name}").collect()
-            writer.saveAsTable(
-                table_name=snowpark_table_name,
-                mode="append",
-                column_order=_column_order_for_write,
-                iceberg_config=iceberg_config,
-            )
-        else:
+        if not _is_external_catalog_error(e):
             raise
+
+        logger.info(
+            "Overwrite failed for external-catalog iceberg table %s; "
+            "falling back to atomic INSERT OVERWRITE.",
+            snowpark_table_name,
+        )
+
+        # Validate that the DataFrame schema is compatible with the target
+        # table before issuing any DML. INSERT OVERWRITE is atomic, but a
+        # schema mismatch should fail fast with a clear error.
+        if input_df is not None:
+            table_schema = session.table(snowpark_table_name).schema
+            _validate_schema_for_append(
+                table_schema, input_df.schema, snowpark_table_name
+            )
+
+        # SNOW-3517523: Atomic full overwrite. Under the hood Snowpark compiles
+        # ``mode='truncate'`` + ``table_exists=True`` into a single
+        # ``INSERT OVERWRITE INTO`` statement (NOT a literal TRUNCATE), which
+        # Snowflake commits atomically: the old snapshot survives if the write
+        # fails. ``table_exists=True`` is required so Snowpark does not attempt
+        # a CREATE OR REPLACE (CTAS), which external catalogs reject. We keep
+        # ``column_order='name'`` for name-based column matching, same as the
+        # managed path above.
+        #
+        # Deliberately NO TRUNCATE+APPEND fallback here: that path is
+        # non-atomic and can silently empty the table if the APPEND fails. Any
+        # failure of the INSERT OVERWRITE below must propagate (hard error) so
+        # the existing data is preserved.
+        # iceberg_config intentionally omitted: the old TRUNCATE+APPEND path
+        # passed it to recreate table-creation parameters on each write, but
+        # INSERT OVERWRITE INTO operates on the existing table and does not
+        # accept table-creation parameters. Snowflake uses the table's existing
+        # catalog configuration (external volume, catalog integration)
+        # automatically.
+        writer.saveAsTable(
+            table_name=snowpark_table_name,
+            table_exists=True,
+            mode="truncate",
+            column_order=_column_order_for_write,
+        )
 
 
 def _is_complex_structured_type(dt: DataType) -> bool:
@@ -2979,10 +3156,12 @@ def handle_column_names(
         for column, _quoted_name in raw_pairs:
             key = column_map._normalized_spark_name(column.spark_name)
             if key in seen:
-                raise AnalysisException(
+                exception = AnalysisException(
                     f"[COLUMN_ALREADY_EXISTS] The column `{column.spark_name}` already exists. "
                     "Consider to choose another name or rename the existing column."
                 )
+                attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+                raise exception
             seen.add(key)
 
         spark_column_names = [column.spark_name for column, _ in raw_pairs]

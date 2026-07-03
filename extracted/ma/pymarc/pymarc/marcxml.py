@@ -11,7 +11,10 @@ import xml.etree.ElementTree as ET
 from xml.sax import make_parser
 from xml.sax.handler import ContentHandler, feature_namespaces
 
-from pymarc import Field, Indicators, Leader, MARC8ToUnicode, Record
+from pymarc.field import Field, Indicators
+from pymarc.leader import Leader
+from pymarc.marc8 import MARC8ToUnicode
+from pymarc.record import Record
 
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
 MARC_XML_NS = "http://www.loc.gov/MARC21/slim"
@@ -74,27 +77,27 @@ class XmlHandler(ContentHandler):
         else:
             text = "".join(self._text)
 
-        if element == "record":
+        if element == "record" and self._record:
             self.process_record(self._record)
             self._record = None
-        elif element == "leader":
+        elif element == "leader" and self._record:
             self._record.leader = Leader(text)
-        elif element == "controlfield":
+        elif element == "controlfield" and self._record and self._field:
             self._field.data = text
             self._record.add_field(self._field)
             self._field = None
-        elif element == "datafield":
+        elif element == "datafield" and self._record and self._field:
             self._record.add_field(self._field)
             self._field = None
-        elif element == "subfield":
+        elif element == "subfield" and self._field and self._subfield_code:
             self._field.add_subfield(self._subfield_code, text)
             self._subfield_code = None
 
         self._text = []
 
-    def characters(self, chars):
+    def characters(self, content):
         """Append `chars` to `_text`."""
-        self._text.append(chars)
+        self._text.append(content)
 
     def process_record(self, record):
         """Append `record` to `records`."""

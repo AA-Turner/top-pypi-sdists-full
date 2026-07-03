@@ -14,13 +14,13 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
 
 from aigie.context_manager import merge_metadata
-from aigie.tracing.retention import is_retention_suppressed
-from aigie.tracing.trace_state import deregister_open_span, register_open_span
 from aigie.integrations.claude_agent_sdk.monitoring import (
     DetectedError,
     DriftDetector,
     ErrorDetector,
 )
+from aigie.tracing.retention import is_retention_suppressed
+from aigie.tracing.trace_state import deregister_open_span, register_open_span
 
 
 def _utc_now() -> datetime:
@@ -31,6 +31,15 @@ def _utc_now() -> datetime:
 def _utc_isoformat() -> str:
     """Get current UTC time as ISO format string."""
     return datetime.now(timezone.utc).isoformat()
+
+
+def _usage_dict(input_tokens: int, output_tokens: int) -> dict[str, int]:
+    """Build the standard token-usage payload shared across span outputs."""
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+    }
 
 
 logger = logging.getLogger(__name__)
@@ -159,7 +168,7 @@ def _format_subagent_name(subagent_type: str) -> str:
 # Late import: ._events.* modules import helpers (_format_subagent_name,
 # _serialize_tool_result, ...) from this module, so the imports must run
 # after those helpers are defined to avoid a circular import.
-from aigie.integrations.claude_agent_sdk._events import (
+from aigie.integrations.claude_agent_sdk._events import (  # noqa: E402
     LLMSubagentEvents,
     QueryEvents,
     SessionTurnEvents,
@@ -346,6 +355,8 @@ class ClaudeAgentSDKEvents(
         self._aigie: Any = None
         self._trace_context: Any | None = None
         self._current_user_prompt: str | None = None  # type: ignore[assignment]
+        self._first_user_prompt: str | None = None
+        self._last_response_text: str | None = None
         self._parent_span_stack: list[str] = []
         self._local_current_parent: str | None = None
         self._span_depth_map: dict[str, int] = {}

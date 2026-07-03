@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wcmatch
-Version: 10.2
+Version: 10.2.1
 Summary: Wildcard/glob file name matcher.
 Project-URL: Homepage, https://github.com/facelessuser/wcmatch
 Author-email: Isaac Muse <Isaac.Muse@gmail.com>
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: bracex>=2.1.1
+Requires-Dist: bracex>=3.0
 Description-Content-Type: text/markdown
 
 [![Donate via PayPal][donate-image]][donate-link]

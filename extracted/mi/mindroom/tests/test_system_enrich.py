@@ -51,6 +51,7 @@ from mindroom.teams import TeamMode, build_materialized_team_instance, prepare_m
 from tests.conftest import (
     TEST_PASSWORD,
     bind_runtime_paths,
+    make_turn_context,
     message_origin,
     patch_response_runner_module,
     request_envelope,
@@ -328,7 +329,10 @@ async def test_prepare_agent_and_prompt_applies_system_enrichment_to_agent_addit
     rendered = render_system_enrichment_block(system_items)
     prepared_agent = _agent("code", "CodeAgent")
 
-    async def fake_prepare_agent_execution_context(**kwargs: object) -> _PreparedExecutionContext:
+    async def fake_prepare_agent_execution_context(
+        _ctx: object,
+        **kwargs: object,
+    ) -> _PreparedExecutionContext:
         agent = kwargs["agent"]
         assert isinstance(agent, Agent)
         assert agent.additional_context == rendered
@@ -347,11 +351,10 @@ async def test_prepare_agent_and_prompt_applies_system_enrichment_to_agent_addit
         ),
     ):
         prepared_run = await _prepare_agent_and_prompt(
-            agent_name="code",
+            make_turn_context("code", system_enrichment_items=system_items),
             prompt="prompt",
             runtime_paths=runtime_paths_for(config),
             config=config,
-            system_enrichment_items=system_items,
         )
 
     agent = prepared_run.agent
@@ -393,7 +396,10 @@ async def test_prepare_materialized_team_execution_applies_system_enrichment_to_
     )
     rendered = render_system_enrichment_block(system_items)
 
-    async def fake_prepare_bound_team_execution_context(**kwargs: object) -> _PreparedExecutionContext:
+    async def fake_prepare_bound_team_execution_context(
+        _ctx: object,
+        **kwargs: object,
+    ) -> _PreparedExecutionContext:
         team = kwargs["team"]
         agents = kwargs["agents"]
         assert isinstance(team, Team)
@@ -427,11 +433,20 @@ async def test_prepare_materialized_team_execution_applies_system_enrichment_to_
             config=config,
             runtime_paths=runtime_paths,
             scope_context=scope_context,
-            model_name=None,
+            model_name="default",
             configured_team_name=None,
             execution_identity=None,
         )
         await prepare_materialized_team_execution(
+            make_turn_context(
+                room_id="!room:localhost",
+                thread_id="$thread",
+                requester_id="@user:localhost",
+                correlation_id="$event",
+                reply_to_event_id="$event",
+                active_event_ids=frozenset(),
+                system_enrichment_items=system_items,
+            ),
             scope_context=scope_context,
             agents=team_members.agents,
             team=team,
@@ -439,18 +454,10 @@ async def test_prepare_materialized_team_execution_applies_system_enrichment_to_
             thread_history=[],
             config=config,
             runtime_paths=runtime_paths,
-            active_model_name=None,
-            room_id="!room:localhost",
-            thread_id="$thread",
-            requester_id="@user:localhost",
-            correlation_id="$event",
-            reply_to_event_id="$event",
-            active_event_ids=frozenset(),
+            runtime_model=config.resolve_runtime_model(entity_name=None),
             response_sender_id="@mindroom_code:localhost",
             current_sender_id=None,
-            compaction_outcomes_collector=[],
             configured_team_name=None,
-            system_enrichment_items=system_items,
         )
 
     assert team is prepared_team
@@ -482,7 +489,10 @@ async def test_prepare_materialized_team_execution_returns_prompt_helpers(tmp_pa
         failed_agent_names=[],
     )
 
-    async def fake_prepare_bound_team_execution_context(**_kwargs: object) -> _PreparedExecutionContext:
+    async def fake_prepare_bound_team_execution_context(
+        _ctx: object,
+        **_kwargs: object,
+    ) -> _PreparedExecutionContext:
         return _PreparedExecutionContext(
             messages=(Message(role="user", content="prepared team prompt"),),
             unseen_event_ids=[],
@@ -513,11 +523,18 @@ async def test_prepare_materialized_team_execution_returns_prompt_helpers(tmp_pa
             config=config,
             runtime_paths=runtime_paths,
             scope_context=scope_context,
-            model_name=None,
+            model_name="default",
             configured_team_name=None,
             execution_identity=None,
         )
         prepared_execution = await prepare_materialized_team_execution(
+            make_turn_context(
+                room_id=None,
+                thread_id=None,
+                requester_id=None,
+                reply_to_event_id="$event",
+                active_event_ids=frozenset(),
+            ),
             scope_context=scope_context,
             agents=team_members.agents,
             team=team,
@@ -525,16 +542,9 @@ async def test_prepare_materialized_team_execution_returns_prompt_helpers(tmp_pa
             thread_history=[],
             config=config,
             runtime_paths=runtime_paths,
-            active_model_name=None,
-            room_id=None,
-            thread_id=None,
-            requester_id=None,
-            correlation_id=None,
-            reply_to_event_id="$event",
-            active_event_ids=frozenset(),
+            runtime_model=config.resolve_runtime_model(entity_name=None),
             response_sender_id="@mindroom_code:localhost",
             current_sender_id=None,
-            compaction_outcomes_collector=[],
             configured_team_name=None,
         )
 
@@ -551,8 +561,8 @@ async def test_process_and_respond_threads_system_enrichment_items(tmp_path: Pat
         EnrichmentItem(key="omega", text="volatile", cache_policy="volatile"),
     )
 
-    async def fake_ai_response(*_args: object, **kwargs: object) -> str:
-        assert kwargs["system_enrichment_items"] == system_items
+    async def fake_ai_response(*args: object, **_kwargs: object) -> str:
+        assert args[0].system_enrichment_items == system_items
         return "handled"
 
     with (
@@ -573,7 +583,7 @@ async def test_process_and_respond_threads_system_enrichment_items(tmp_path: Pat
             ai_response=AsyncMock(side_effect=fake_ai_response),
         ),
     ):
-        delivery = await bot._response_runner.process_and_respond(
+        generation = await bot._response_runner.process_and_respond(
             ResponseRequest(
                 thread_history=[],
                 prompt="Please reply",
@@ -588,8 +598,8 @@ async def test_process_and_respond_threads_system_enrichment_items(tmp_path: Pat
             ),
         )
 
-    assert delivery.event_id == "$response"
-    assert delivery.response_text == "handled"
+    assert generation.delivery.event_id == "$response"
+    assert generation.delivery.response_text == "handled"
 
 
 @pytest.mark.asyncio
@@ -601,8 +611,8 @@ async def test_process_and_respond_streaming_threads_system_enrichment_items(tmp
         EnrichmentItem(key="omega", text="volatile", cache_policy="volatile"),
     )
 
-    async def fake_stream_agent_response(*_args: object, **kwargs: object) -> AsyncIterator[str]:
-        assert kwargs["system_enrichment_items"] == system_items
+    async def fake_stream_agent_response(*args: object, **_kwargs: object) -> AsyncIterator[str]:
+        assert args[0].system_enrichment_items == system_items
         yield "stream chunk"
 
     async def fake_send_streaming_response(*args: object, **_kwargs: object) -> StreamTransportOutcome:
@@ -625,7 +635,7 @@ async def test_process_and_respond_streaming_threads_system_enrichment_items(tmp
             stream_agent_response=fake_stream_agent_response,
         ),
     ):
-        delivery = await bot._response_runner.process_and_respond_streaming(
+        generation = await bot._response_runner.process_and_respond_streaming(
             ResponseRequest(
                 thread_history=[],
                 prompt="Please reply",
@@ -640,5 +650,5 @@ async def test_process_and_respond_streaming_threads_system_enrichment_items(tmp
             ),
         )
 
-    assert delivery.event_id == "$response"
-    assert delivery.response_text == "stream chunk"
+    assert generation.delivery.event_id == "$response"
+    assert generation.delivery.response_text == "stream chunk"

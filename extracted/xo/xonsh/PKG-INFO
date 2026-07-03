@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xonsh
-Version: 0.23.8
+Version: 0.24.0
 Summary: Python-powered shell. Full-featured, cross-platform and AI-friendly. 
 Author-email: Xonsh Maintainers <xore.004fdbd5c8e6589bdd80944b5b8d4100.show-sender@streams.zulipchat.com>
 Maintainer-email: Xonsh Maintainers <xore.004fdbd5c8e6589bdd80944b5b8d4100.show-sender@streams.zulipchat.com>, Gil Forsyth <xonsh@gil.forsyth.dev>
@@ -178,10 +178,11 @@ Xonsh
             xontrib load sh \
                          fish_completer
 
+            osqueryi ! SELECT platform FROM os_version
+
             def nudf(cmd):
                 return @.imp.pandas.DataFrame(
-                  @.imp.json.loads(
-                    $(nu -c @(cmd+'| to json'))))
+                  $(@json nu -c @(cmd+'| to json')))
             nudf!(ls -la)
 
             aliases['ai'] = 'ollama run llama3'
@@ -224,9 +225,6 @@ If you like xonsh, :star: the repo and spread the word about xonsh.
             :target: https://github.com/xonsh/xonsh/actions/workflows/test.yml
             :alt: GitHub Actions
 
-    .. image:: https://codecov.io/gh/xonsh/xonsh/branch/master/graphs/badge.svg?branch=main
-            :target: https://codecov.io/github/xonsh/xonsh?branch=main
-            :alt: codecov.io
 
 First steps
 ***********

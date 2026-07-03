@@ -14,7 +14,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from aigie.context_manager import merge_metadata
-from aigie.tracing.usage import Usage
 from aigie.integrations.claude_agent_sdk.native_callback import (
     _format_subagent_name,
     _parse_subagent_usage_payload,
@@ -23,6 +22,8 @@ from aigie.integrations.claude_agent_sdk.native_callback import (
     _shorten_model_name,
     _utc_now,
 )
+from aigie.integrations.claude_agent_sdk.provider import resolve_claude_provider
+from aigie.tracing.usage import Usage
 
 if TYPE_CHECKING:
     pass
@@ -108,6 +109,10 @@ class LLMSubagentEvents:
                 ) + usage.get("output_tokens", 0)
                 current_subagent["cost"] = current_subagent.get("cost", 0.0) + cost
 
+        # Usage/tool-only messages should not produce empty LLM spans.
+        if not text_content:
+            return ""
+
         # Calculate depth for flow view ordering
         llm_depth = self._register_span_depth(span_id, parent_id)
 
@@ -156,6 +161,7 @@ class LLMSubagentEvents:
                     "model": model_name,
                     "model_short": model_short,
                     "framework": "claude_agent_sdk",
+                    "provider": resolve_claude_provider(),
                     "response_index": response_index,
                     "depth": llm_depth,
                     **usage_obj.to_metadata(),

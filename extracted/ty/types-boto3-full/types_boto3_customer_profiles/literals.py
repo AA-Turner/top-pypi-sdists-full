@@ -34,6 +34,7 @@ __all__ = (
     "DataFormatType",
     "DataPullModeType",
     "DateDimensionTypeType",
+    "DiversityCapTypeType",
     "EstimateStatusType",
     "EventStreamDestinationStatusType",
     "EventStreamStateType",
@@ -167,6 +168,7 @@ ContentTypeType = Literal["NUMBER", "STRING"]
 DataFormatType = Literal["CSV", "JSONL", "ORC"]
 DataPullModeType = Literal["Complete", "Incremental"]
 DateDimensionTypeType = Literal["AFTER", "BEFORE", "BETWEEN", "NOT_BETWEEN", "ON"]
+DiversityCapTypeType = Literal["PERCENTAGE", "VALUE"]
 EstimateStatusType = Literal["FAILED", "RUNNING", "SUCCEEDED"]
 EventStreamDestinationStatusType = Literal["HEALTHY", "UNHEALTHY"]
 EventStreamStateType = Literal["RUNNING", "STOPPED"]

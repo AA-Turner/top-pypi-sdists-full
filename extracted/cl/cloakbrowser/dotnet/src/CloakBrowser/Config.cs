@@ -373,4 +373,57 @@ public static class Config
     /// </summary>
     public static string? GetLocalBinaryOverride() =>
         Environment.GetEnvironmentVariable("CLOAKBROWSER_BINARY_PATH");
+
+    // First Chromium build that reports coherent headless dimensions without an
+    // emulated viewport. On these binaries the wrapper launches headless with no
+    // viewport; older binaries need a fixed default viewport to stay coherent.
+    // null => not shipped yet; feature off, behavior byte-identical to today.
+    // TODO: set to the chromium version string that first ships it.
+    public static readonly string? HeadlessNoViewportMinVersion = "148.0.7778.215.4";
+
+    /// <summary>
+    /// Whether headless can launch without an emulated viewport on the resolved binary.
+    /// Only binaries at or above <see cref="HeadlessNoViewportMinVersion"/> qualify; older
+    /// ones keep the fixed default viewport. A local override binary
+    /// (<c>CLOAKBROWSER_BINARY_PATH</c>) is unknown-version, so stay on the safe path.
+    /// </summary>
+    public static bool BinarySupportsHeadlessNoViewport(string? licenseKey = null, string? browserVersion = null)
+    {
+        if (HeadlessNoViewportMinVersion == null)
+            return false;
+        // A declared version (browserVersion arg OR CLOAKBROWSER_VERSION env) wins even
+        // under a local override — the caller asserts the version (also how internal builds
+        // opt in). Only an override with no declared version stays on the safe path.
+        string? declared;
+        try
+        {
+            declared = NormalizeRequestedVersion(browserVersion);
+        }
+        catch
+        {
+            declared = null;
+        }
+        string version;
+        if (!string.IsNullOrEmpty(declared))
+        {
+            version = declared!;
+        }
+        else if (GetLocalBinaryOverride() != null)
+        {
+            return false;
+        }
+        else
+        {
+            bool pro = !string.IsNullOrEmpty(License.ResolveLicenseKey(licenseKey));
+            version = GetEffectiveVersion(pro);
+        }
+        try
+        {
+            return !VersionNewer(HeadlessNoViewportMinVersion, version);
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }

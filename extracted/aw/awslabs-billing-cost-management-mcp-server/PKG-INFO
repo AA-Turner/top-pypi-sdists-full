@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.billing-cost-management-mcp-server
-Version: 0.0.24
+Version: 0.0.26
 Summary: A Model Context Protocol (MCP) server that provides tools for AWS Billing and Cost Management by wrapping boto3 SDK functions.
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/billing-cost-management-mcp-server/
@@ -27,6 +27,7 @@ Requires-Dist: loguru>=0.7.0
 Requires-Dist: mcp[cli]>=1.23.0
 Requires-Dist: pydantic>=2.10.6
 Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: sqlglot>=20.0.0
 Description-Content-Type: text/markdown
 
 # AWS Billing and Cost Management MCP Server

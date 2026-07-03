@@ -100,10 +100,7 @@ async fn do_list_via_session(config: &Config) {
     output::newline();
 
     // Add a legend for the asterisk
-    output::note(&format!(
-        "{}\n",
-        "* indicates currently active team".dimmed()
-    ));
+    println!("{}", "* indicates currently active team".dimmed());
     output::newline();
 }
 

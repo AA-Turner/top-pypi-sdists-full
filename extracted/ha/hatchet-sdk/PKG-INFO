@@ -1,21 +1,21 @@
 Metadata-Version: 2.4
 Name: hatchet-sdk
-Version: 1.33.14
+Version: 1.33.15
 Summary: This is the official Python SDK for Hatchet, a distributed, fault-tolerant task queue. The SDK allows you to easily integrate Hatchet's task scheduling and workflow orchestration capabilities into your Python applications.
 Author-email: Alexander Belanger <alexander@hatchet.run>, Matt Kaye <matt@hatchet.run>, Gabe Ruttner <gabe@hatchet.run>, Mohammed Nafees <nafees@hatchet.run>
 License: MIT
 Requires-Python: <4,>=3.10
-Requires-Dist: aiohttp<4,>=3.14.1
-Requires-Dist: grpcio-tools<2,>=1.81.1
-Requires-Dist: grpcio<2,>=1.81.1
-Requires-Dist: prometheus-client>=0.25.0
-Requires-Dist: protobuf<7,>=6.33.5
-Requires-Dist: pydantic-settings<3,>=2.14.1
-Requires-Dist: pydantic<3,>=2.13.4
+Requires-Dist: aiohttp<4,>=3.10.5
+Requires-Dist: grpcio-tools<2,>=1.76.0
+Requires-Dist: grpcio<2,>=1.76.0
+Requires-Dist: prometheus-client>=0.21.1
+Requires-Dist: protobuf<7,>=6.30.2
+Requires-Dist: pydantic-settings<3,>=2.7.1
+Requires-Dist: pydantic<3,>=2.6.3
 Requires-Dist: python-dateutil<3,>=2.9.0.post0
 Requires-Dist: tenacity>=8.4.1
 Requires-Dist: typing-inspection>=0.1.0
-Requires-Dist: urllib3<3,>=2.7.0
+Requires-Dist: urllib3<3,>=2.6.0
 Provides-Extra: claude
 Requires-Dist: claude-agent-sdk; extra == 'claude'
 Requires-Dist: mcp; extra == 'claude'

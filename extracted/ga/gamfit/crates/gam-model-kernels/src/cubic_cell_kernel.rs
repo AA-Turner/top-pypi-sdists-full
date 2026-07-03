@@ -5026,6 +5026,13 @@ mod tests {
     #[test]
     fn affine_anchor_moments_match_whole_line_closed_forms() {
         let out = affine_anchor_moment_vector(0.0, 0.0, f64::NEG_INFINITY, f64::INFINITY, 4);
+        // `affine_anchor_moment_vector` returns the RAW substrate moments
+        // `T_n = ∫ z^n exp(-½z²) dz` (the cubic-cell `∫ z^n exp(-q) dz`
+        // convention that every production consumer and the GPU parity path
+        // share; the `1/√(2π)` is folded in downstream via `INV_TWO_PI`). At
+        // the affine identity the anchor is the *unnormalized* standard normal,
+        // so M0 = M2 = √(2π) and M1 = 0 — the normalized {1, 0, 1} moments
+        // scaled by the whole-line mass √(2π).
         let sqrt_2pi = (2.0 * std::f64::consts::PI).sqrt();
         assert!((out[0] - sqrt_2pi).abs() < 1e-12);
         assert!(out[1].abs() < 1e-12);
@@ -5039,6 +5046,12 @@ mod tests {
         let out = affine_anchor_moment_vector(alpha, beta, f64::NEG_INFINITY, f64::INFINITY, 4);
         let s = (1.0 + beta * beta).sqrt();
         let mu = -alpha * beta / (1.0 + beta * beta);
+        // RAW (unnormalized) whole-line moments of the affine anchor
+        // `exp(-½(alpha + beta·z)²)·exp(-½z²)`, an unnormalized Gaussian with
+        // mean `mu` and variance `1/s²`. Its raw moments carry the `√(2π)` mass
+        // factor: M0 = √(2π)·scale, M1 = √(2π)·scale·mu,
+        // M2 = √(2π)·scale·(mu² + 1/s²), where the anchor amplitude
+        // `scale = exp(-alpha² / 2s²) / s`.
         let scale = (-alpha * alpha / (2.0 * s * s)).exp() / s;
         let sqrt_2pi = (2.0 * std::f64::consts::PI).sqrt();
         assert!((out[0] - scale * sqrt_2pi).abs() < 1e-12);

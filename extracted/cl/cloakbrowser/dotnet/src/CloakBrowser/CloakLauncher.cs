@@ -47,6 +47,7 @@ public static class CloakLauncher
                 Args = chromeArgs,
                 IgnoreDefaultArgs = Config.IgnoreDefaultArgs,
                 Proxy = proxyResolution.PlaywrightProxy,
+                Env = License.BuildLaunchEnv(options.LicenseKey),
             }).ConfigureAwait(false);
 
             var humanCfg = options.Humanize
@@ -54,7 +55,11 @@ public static class CloakLauncher
                 : null;
             // Pass headless so headed handles default new pages/contexts to NoViewport
             // (track the real window - see CloakBrowserHandle.ApplyDefaultNoViewport).
-            return new CloakBrowserHandle(playwright, browser, options.Humanize, humanCfg, options.Headless);
+            // headlessNoViewport extends that default to headless on newer binaries.
+            bool headlessNoViewport =
+                Config.BinarySupportsHeadlessNoViewport(options.LicenseKey, options.BrowserVersion);
+            return new CloakBrowserHandle(
+                playwright, browser, options.Humanize, humanCfg, options.Headless, headlessNoViewport);
         }
         catch
         {
@@ -150,6 +155,7 @@ public static class CloakLauncher
                 Args = chromeArgs,
                 IgnoreDefaultArgs = Config.IgnoreDefaultArgs,
                 Proxy = proxyResolution.PlaywrightProxy,
+                Env = License.BuildLaunchEnv(options.LicenseKey),
             };
             ApplyContextEmulation(ctxLaunchOptions, options);
 
@@ -447,8 +453,11 @@ public static class CloakLauncher
             return ViewportSize.NoViewport;
         if (options.Viewport != null)
             return new ViewportSize { Width = options.Viewport.Value.Width, Height = options.Viewport.Value.Height };
-        // Viewport unset: headed tracks the real window; headless gets the fixed default.
-        return options.Headless
+        // Viewport unset: headed tracks the real window; headless on a newer binary also
+        // tracks it (coherent dimensions natively), older headless gets the fixed default.
+        bool headlessNoViewport = options.Headless
+            && Config.BinarySupportsHeadlessNoViewport(options.LicenseKey, options.BrowserVersion);
+        return options.Headless && !headlessNoViewport
             ? new ViewportSize { Width = Config.DefaultViewportWidth, Height = Config.DefaultViewportHeight }
             : ViewportSize.NoViewport;
     }

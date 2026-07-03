@@ -12,6 +12,7 @@ import pytest
 from cloakbrowser.download import BinaryVerificationError, ensure_binary
 from cloakbrowser.license import (
     LicenseInfo,
+    build_launch_env,
     get_pro_latest_version,
     resolve_license_key,
     validate_license,
@@ -448,3 +449,93 @@ class TestEnsureBinaryProRouting:
                    side_effect=AssertionError("MUST NOT reach the free-tier path on macOS")):
             with pytest.raises(RuntimeError, match="Pro binary unavailable"):
                 ensure_binary("cb_x")
+
+
+# ── build_launch_env ──────────────────────────────────
+
+
+class TestBuildLaunchEnv:
+    """Tests for the build_launch_env helper that decides whether license key
+    env injection is needed in the spawned browser process."""
+
+    def test_no_key_no_env_returns_none(self):
+        """No key anywhere → None (no env dict to inject)."""
+        with patch.dict(os.environ, {}, clear=True), \
+             patch("cloakbrowser.license.get_cache_dir") as mock_cache:
+            mock_cache.return_value = Path("/tmp/no-such-dir")
+            assert build_launch_env() is None
+            assert build_launch_env(user_env={"FOO": "bar"}) == {"FOO": "bar"}
+            # None values are filtered consistently across all return paths.
+            assert build_launch_env(user_env={"FOO": "bar", "BAZ": None}) == {"FOO": "bar"}
+
+    def test_explicit_param_injects_env(self):
+        """Explicit license_key param → env dict with key injected."""
+        result = build_launch_env(license_key="cb_test_key")
+        assert result is not None
+        assert result["CLOAKBROWSER_LICENSE_KEY"] == "cb_test_key"
+        # Should also preserve the rest of the parent env
+        assert "HOME" in result
+
+    def test_env_source_no_user_env_returns_none(self):
+        """Key from env var, no custom user_env → None (child inherits parent)."""
+        with patch.dict(os.environ, {"CLOAKBROWSER_LICENSE_KEY": "cb_env"}):
+            assert build_launch_env() is None
+
+    def test_env_source_with_user_env_preserves_key(self):
+        """Key from env var + explicit user_env → merged env with key."""
+        with patch.dict(os.environ, {"CLOAKBROWSER_LICENSE_KEY": "cb_env"}):
+            result = build_launch_env(user_env={"MY_VAR": "1"})
+            assert result is not None
+            assert result["CLOAKBROWSER_LICENSE_KEY"] == "cb_env"
+            assert result["MY_VAR"] == "1"
+
+    def test_default_file_skips_injection(self, tmp_path):
+        """Key from default ~/.cloakbrowser/license.key → no env injection.
+        The binary reads that file directly."""
+        home_dir = tmp_path / "home"
+        default_cache = home_dir / ".cloakbrowser"
+        default_cache.mkdir(parents=True)
+        (default_cache / "license.key").write_text("cb_file_key\n")
+
+        with patch.dict(os.environ, {}, clear=True), \
+             patch("cloakbrowser.license.get_cache_dir", return_value=default_cache), \
+             patch("pathlib.Path.home", return_value=home_dir):
+            result = build_launch_env()
+            assert result is None
+
+            # With a custom user_env, Playwright replaces the child env (which
+            # could drop HOME and hide the file), so the key IS injected.
+            result2 = build_launch_env(user_env={"KEEP": "me"})
+            assert result2 == {"KEEP": "me", "CLOAKBROWSER_LICENSE_KEY": "cb_file_key"}
+
+    def test_custom_cache_dir_injects_env(self, tmp_path):
+        """Key from CLOAKBROWSER_CACHE_DIR/license.key → env injection needed
+        because the binary looks at ~/.cloakbrowser/license.key, not the custom path."""
+        home_dir = tmp_path / "home"
+        home_dir.mkdir()
+        custom_cache = tmp_path / "custom-cache"
+        custom_cache.mkdir()
+        (custom_cache / "license.key").write_text("cb_custom\n")
+
+        with patch.dict(os.environ, {}, clear=True), \
+             patch("cloakbrowser.license.get_cache_dir", return_value=custom_cache), \
+             patch("pathlib.Path.home", return_value=home_dir):
+            result = build_launch_env()
+            assert result is not None
+            assert result["CLOAKBROWSER_LICENSE_KEY"] == "cb_custom"
+            # User env preserved — but os.environ was cleared so only the key exists
+            assert len(result) == 1
+
+    def test_explicit_param_merges_user_env(self):
+        """Explicit param + user_env → user_env entries preserved alongside key."""
+        result = build_launch_env(license_key="cb_mine", user_env={"PATH": "/bin"})
+        assert result is not None
+        assert result["CLOAKBROWSER_LICENSE_KEY"] == "cb_mine"
+        assert result["PATH"] == "/bin"
+        # Should NOT contain the full os.environ (user env replaces it)
+        assert "HOME" not in result
+
+    def test_empty_license_key_treated_as_missing(self):
+        """Empty/whitespace key param treated as absent → None."""
+        assert build_launch_env(license_key="") is None
+        assert build_launch_env(license_key="   ") is None

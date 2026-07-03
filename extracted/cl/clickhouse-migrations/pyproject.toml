@@ -14,6 +14,14 @@ requires-python = ">=3.9, <4"
 keywords = [
     "clickhouse",
     "migrations",
+    "migration",
+    "database",
+    "database-migration",
+    "schema-migration",
+    "sql",
+    "ddl",
+    "olap",
+    "cli",
 ]
 license = {text = "MIT"}
 classifiers = [
@@ -29,19 +37,25 @@ classifiers = [
 dependencies = [
     "clickhouse-driver>=0.2.2",
 ]
+optional-dependencies.connect = [
+    "clickhouse-connect>=0.7",
+]
 optional-dependencies.testing = [
     "pytest==8.4.1",
     "pytest-cov==6.2.1",
+    "clickhouse-connect>=0.7",
 ]
 dynamic =["version", "readme"]
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.dynamic]
 readme = {file = ["README.md"], content-type = "text/markdown"}
-version = {attr = "clickhouse_migrations.__version__"}
+
+[tool.setuptools_scm]
+fallback_version = "0.0.0"
 
 [tool.setuptools]
 package-dir = { "clickhouse_migrations" = "src/clickhouse_migrations", "tests" = "src/tests" }
@@ -49,14 +63,13 @@ packages = [
     "clickhouse_migrations"
 ]
 
-[tool.distutils.bdist_wheel]
-universal = true
+[tool.pytest.ini_options]
+markers = [
+    "integration: tests that require a running ClickHouse instance",
+]
 
 [tool.isort]
 profile = "black"
-
-[tool.hatch.version]
-source = "vcs"
 
 [project.scripts]
 clickhouse-migrations = "clickhouse_migrations.command_line:main"

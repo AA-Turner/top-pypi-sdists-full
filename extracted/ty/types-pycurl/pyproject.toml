@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-pycurl"
-version = "7.46.0.20260618"
+version = "7.47.0.20260703"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for pycurl"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`pycurl`](https://github.com/pycurl/pycurl) package. It can be used by type checkers
 to check code that uses `pycurl`. This version of
 `types-pycurl` aims to provide accurate annotations for
-`pycurl==7.46.0`.
+`pycurl==7.47.0`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -26,10 +26,10 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.410
+* [pyright](https://github.com/microsoft/pyright) 1.1.411
 
 It was generated from typeshed commit
-[`63c876f66ae413d8729da02422c5f40153a86540`](https://github.com/python/typeshed/commit/63c876f66ae413d8729da02422c5f40153a86540).
+[`07d5d81efaece4ea311645c9e26097b23c764098`](https://github.com/python/typeshed/commit/07d5d81efaece4ea311645c9e26097b23c764098).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -50,4 +50,4 @@ packages = ['pycurl-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'pycurl-stubs' = ['__init__.pyi', 'METADATA.toml', 'py.typed']
+'pycurl-stubs' = ['__init__.pyi', '_pycurl.pyi', 'async_multi.pyi', 'METADATA.toml', 'py.typed']

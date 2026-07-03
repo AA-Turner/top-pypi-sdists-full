@@ -79,6 +79,7 @@ class CentralAgentView(VerticalScroll):
         self._actions_key: tuple[object, ...] = ()
         self._applied_snapshot_identity: int | None = None
         self._running_class_key: bool | None = None
+        self._provider_error_class_key: bool | None = None
         self._title_widget: Static | None = None
         self._markdown_widget: Markdown | None = None
         self._local_command_container: Vertical | None = None
@@ -132,6 +133,7 @@ class CentralAgentView(VerticalScroll):
             self.render_local_command_tables(snapshot.local_commands)
             self._local_commands_key = local_commands_key
         action_plan = central_action_plan(snapshot)
+        self._sync_provider_error_class(action_plan)
         actions_key = self._action_plan_key(action_plan)
         if actions_key != self._actions_key:
             self.render_blueprint_actions(action_plan)
@@ -164,12 +166,19 @@ class CentralAgentView(VerticalScroll):
         self.set_class(running, "central-running")
         self._running_class_key = running
 
+    def _sync_provider_error_class(self, plan: CentralActionPlan) -> None:
+        provider_error = plan.title_key == "provider_error_action"
+        if provider_error == self._provider_error_class_key:
+            return
+        self.set_class(provider_error, "central-provider-error")
+        self._provider_error_class_key = provider_error
+
     def render_markdown(self) -> str:
         snapshot = self.snapshot
         if snapshot is None:
             return (
                 f"**{self.label('progress')}:** {self.label('waiting')}\n\n"
-                f"{self.label('planning_no_workspace')}"
+                f"{self.label('empty_prompt')}"
             )
 
         lines = [f"**{self.label('progress')}:** {self._progress_line(snapshot)}"]
@@ -199,7 +208,7 @@ class CentralAgentView(VerticalScroll):
                     "",
                     self.label("waiting"),
                     "",
-                    self.label("planning_no_workspace"),
+                    self.label("empty_prompt"),
                 ]
             )
         self._append_work_package_overview(lines, snapshot)
@@ -553,6 +562,15 @@ class CentralAgentView(VerticalScroll):
                     tooltip=self.label(button.tooltip_key),
                 )
             )
+        self.call_after_refresh(self._scroll_actions_into_view)
+
+    def _scroll_actions_into_view(self) -> None:
+        if not self.is_mounted:
+            return
+        actions = self._actions_grid()
+        if not list(actions.children):
+            return
+        self.scroll_end(animate=False, force=True, immediate=True, x_axis=False)
 
     def _set_action_title(self, text: str) -> None:
         if text == self._action_title_key:
@@ -576,6 +594,7 @@ class CentralAgentView(VerticalScroll):
         self._actions_key = ()
         self._applied_snapshot_identity = None
         self._running_class_key = None
+        self._provider_error_class_key = None
 
     def _title_static(self) -> Static:
         if self._title_widget is None:
@@ -632,7 +651,7 @@ class CentralAgentView(VerticalScroll):
             "next": "다음",
             "next_action": "다음 작업",
             "no_follow_up_items": "최종 리뷰에서 추가 작업 항목이 추출되지 않았습니다.",
-            "planning_no_workspace": "기획은 작업 폴더 없이 진행할 수 있습니다. 실행 시 작업 폴더를 선택합니다.",
+            "empty_prompt": "입력창에 목표나 작업을 한 줄로 적으세요.",
             "post_review_ready": "최종 리뷰 이후 보강 선택 대기",
             "provider_error_action": "프로바이더 오류 결정",
             "provider_error_retry": "실패 재시도",
@@ -697,7 +716,7 @@ class CentralAgentView(VerticalScroll):
             "next": "Next",
             "next_action": "Next action",
             "no_follow_up_items": "No action items were extracted from the final review.",
-            "planning_no_workspace": "Planning does not require a workspace. Execute will ask for one.",
+            "empty_prompt": "Type one goal or task in the composer.",
             "post_review_ready": "Post-review follow-up ready",
             "provider_error_action": "Provider error decision",
             "provider_error_retry": "Retry failed",

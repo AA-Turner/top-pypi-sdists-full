@@ -171,9 +171,43 @@ describe("composable Playwright launch helpers", () => {
         password: "pass",
       });
       expect(options.timeout).toBe(1234);
+      // No license key -> env is not injected
+      expect(options.env).toBeUndefined();
     } finally {
       vi.restoreAllMocks();
     }
+  });
+
+  it("buildLaunchOptions injects env with license key", async () => {
+    const { buildLaunchOptions } = await import("../src/index.js");
+
+    const options = await buildLaunchOptions({
+      licenseKey: "cb_test_key",
+      launchOptions: { timeout: 1234 },
+    });
+
+    expect(options.env).toBeDefined();
+    expect(options.env!.CLOAKBROWSER_LICENSE_KEY).toBe("cb_test_key");
+    // launchOptions timeout still forwarded
+    expect(options.timeout).toBe(1234);
+  });
+
+  it("buildLaunchOptions preserves custom env via launchOptions", async () => {
+    const { buildLaunchOptions } = await import("../src/index.js");
+
+    const options = await buildLaunchOptions({
+      licenseKey: "cb_key",
+      launchOptions: {
+        timeout: 1234,
+        env: { MY_VAR: "custom" },
+      },
+    });
+
+    expect(options.env).toBeDefined();
+    // Custom env var preserved
+    expect(options.env!.MY_VAR).toBe("custom");
+    // License key injected
+    expect(options.env!.CLOAKBROWSER_LICENSE_KEY).toBe("cb_key");
   });
 
   it("humanizeBrowser patches an existing browser only when requested", async () => {
@@ -493,5 +527,41 @@ describe("launchPersistentContext (unit)", () => {
     expect(args.locale).toBeUndefined();
     expect(args.timezoneId).toBeUndefined();
     expect(warnSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("injects env when licenseKey param provided", async () => {
+    const { launchPersistentContext } = await import("../src/playwright.js");
+    await launchPersistentContext({
+      userDataDir: "/tmp/profile",
+      licenseKey: "cb_persistent",
+    });
+
+    const args = mockChromium.launchPersistentContext.mock.calls[0][1];
+    expect(args.env).toBeDefined();
+    expect(args.env!.CLOAKBROWSER_LICENSE_KEY).toBe("cb_persistent");
+  });
+
+  it("does not inject env when no license key", async () => {
+    const { launchPersistentContext } = await import("../src/playwright.js");
+    await launchPersistentContext({ userDataDir: "/tmp/profile" });
+
+    const args = mockChromium.launchPersistentContext.mock.calls[0][1];
+    expect(args.env).toBeUndefined();
+  });
+
+  it("preserves custom launchOptions env merged with license key", async () => {
+    const { launchPersistentContext } = await import("../src/playwright.js");
+    await launchPersistentContext({
+      userDataDir: "/tmp/profile",
+      licenseKey: "cb_merge",
+      launchOptions: {
+        env: { MY_VAR: "keep" },
+      },
+    });
+
+    const args = mockChromium.launchPersistentContext.mock.calls[0][1];
+    expect(args.env).toBeDefined();
+    expect(args.env!.CLOAKBROWSER_LICENSE_KEY).toBe("cb_merge");
+    expect(args.env!.MY_VAR).toBe("keep");
   });
 });

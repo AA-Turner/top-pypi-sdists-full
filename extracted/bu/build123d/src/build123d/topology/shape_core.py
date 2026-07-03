@@ -2144,7 +2144,7 @@ class Shape(NodeMixin, Generic[TOPODS]):
 
     @overload
     def split_by_perimeter(
-        self, perimeter: Edge | Wire
+        self, perimeter: Edge | Wire, keep: Literal[Keep.INSIDE] = Keep.INSIDE
     ) -> Face | Shell | ShapeList[Face] | None:
         """split_by_perimeter and keep inside (default)"""
 
@@ -2653,9 +2653,9 @@ class Shape(NodeMixin, Generic[TOPODS]):
     def _repr_html_(self):
         """Jupyter 3D representation support"""
 
-        from build123d.jupyter_tools import shape_to_html, HAS_VTK
+        from build123d.jupyter_tools import shape_to_html, has_vtk
 
-        if HAS_VTK:
+        if has_vtk:
             return shape_to_html(self)._repr_html_()
         return repr(self)
 
@@ -2806,7 +2806,9 @@ def topo_distance_to(
     if not all(isinstance(shape, Shape) for shape in sources):
         raise ValueError("Topological distance requires Shape objects")
 
+    # pylint: disable=no-member
     peer_type = sources[0].shape_type
+
     if any(shape.shape_type != peer_type for shape in sources):
         raise ValueError("Topological distance requires shapes of the same type")
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 
@@ -7,6 +8,7 @@ import {
   resolveLicenseKey,
   validateLicense,
   getProLatestVersion,
+  buildLaunchEnv,
 } from "../src/license.js";
 
 import * as config from "../src/config.js";
@@ -324,5 +326,86 @@ describe("config pro parameter", () => {
   it("getBinaryDir default has no suffix", () => {
     const normal = config.getBinaryDir("147.0.0.0");
     expect(normal).not.toMatch(/-pro$/);
+  });
+});
+
+// ── buildLaunchEnv ─────────────────────────────────────
+
+describe("buildLaunchEnv", () => {
+  it("returns undefined with no key", () => {
+    expect(buildLaunchEnv()).toBeUndefined();
+    expect(buildLaunchEnv(undefined, { FOO: "bar" })).toEqual({ FOO: "bar" });
+    // undefined values are filtered consistently across all return paths.
+    expect(buildLaunchEnv(undefined, { FOO: "bar", BAZ: undefined })).toEqual({ FOO: "bar" });
+  });
+
+  it("injects env from explicit param", () => {
+    const result = buildLaunchEnv("cb_key");
+    expect(result).toBeDefined();
+    expect(result!.CLOAKBROWSER_LICENSE_KEY).toBe("cb_key");
+    expect(result!.PATH).toBeDefined(); // process.env preserved
+  });
+
+  it("returns undefined when key is in env without custom userEnv", () => {
+    vi.stubGlobal("process", { env: { ...process.env, CLOAKBROWSER_LICENSE_KEY: "cb_env" } });
+    expect(buildLaunchEnv()).toBeUndefined();
+  });
+
+  it("preserves key when env source with custom userEnv", () => {
+    vi.stubGlobal("process", { env: { ...process.env, CLOAKBROWSER_LICENSE_KEY: "cb_env" } });
+    const result = buildLaunchEnv(undefined, { MY_VAR: "1" });
+    expect(result).toBeDefined();
+    expect(result!.CLOAKBROWSER_LICENSE_KEY).toBe("cb_env");
+    expect(result!.MY_VAR).toBe("1");
+  });
+
+  it("returns undefined with default file key (binary reads directly)", () => {
+    const homeDir = path.join(tmpDir, "home");
+    const defaultCache = path.join(homeDir, ".cloakbrowser");
+    fs.mkdirSync(defaultCache, { recursive: true });
+    fs.writeFileSync(path.join(defaultCache, "license.key"), "cb_file");
+
+    // Both getCacheDir and os.homedir must point to the same place
+    vi.spyOn(config, "getCacheDir").mockReturnValue(defaultCache);
+    vi.spyOn(os, "homedir").mockReturnValue(homeDir);
+
+    expect(buildLaunchEnv()).toBeUndefined();
+    // With a custom userEnv, Playwright replaces the child env (which could
+    // drop HOME and hide the file), so the key IS injected.
+    expect(buildLaunchEnv(undefined, { KEEP: "me" })).toEqual({
+      KEEP: "me",
+      CLOAKBROWSER_LICENSE_KEY: "cb_file",
+    });
+  });
+
+  it("injects env with custom cache dir file", () => {
+    const homeDir = path.join(tmpDir, "custom-home");
+    const customCache = path.join(tmpDir, "custom-cache");
+    fs.mkdirSync(homeDir);
+    fs.mkdirSync(customCache);
+    fs.writeFileSync(path.join(customCache, "license.key"), "cb_custom");
+
+    vi.stubGlobal("process", { env: {} });
+    vi.spyOn(config, "getCacheDir").mockReturnValue(customCache);
+    // Mock os.homedir to NOT match cache dir
+    vi.spyOn(os, "homedir").mockReturnValue(homeDir);
+
+    const result = buildLaunchEnv();
+    expect(result).toBeDefined();
+    expect(result!.CLOAKBROWSER_LICENSE_KEY).toBe("cb_custom");
+  });
+
+  it("explicit param merges userEnv without os.environ", () => {
+    const result = buildLaunchEnv("cb_mine", { PATH: "/custom/bin" });
+    expect(result).toBeDefined();
+    expect(result!.CLOAKBROWSER_LICENSE_KEY).toBe("cb_mine");
+    expect(result!.PATH).toBe("/custom/bin");
+    // Should NOT have full process.env
+    expect(result!.HOME).toBeUndefined();
+  });
+
+  it("empty licenseKey treated as missing", () => {
+    expect(buildLaunchEnv("")).toBeUndefined();
+    expect(buildLaunchEnv("   ")).toBeUndefined();
   });
 });

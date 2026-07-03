@@ -247,7 +247,7 @@ class Tomography(Experiment):
         plt.tight_layout()
         plt.show()
 
-    def load_experiment_data(self, file_path, withTumor=True):
+    def load_experiment_data(self, file_path, withTumor=True,N_average=None):
         self.expParams = {}
         print("loading experiment data from:", file_path)
         with h5py.File(file_path, 'r') as f:
@@ -266,6 +266,8 @@ class Tomography(Experiment):
                 print("Warning: 'data' dataset not found in the HDF5 file.")
                 print("Available datasets:", list(f.keys()))
             else:
+                if N_average is not None:
+                    self.expParams['data_raw'] = self.expParams['data_raw'][:N_average,:,:]
                 if withTumor:
                     self.AOsignal_withTumor = np.mean(self.expParams['data_raw'], axis=0).T
                 else:   

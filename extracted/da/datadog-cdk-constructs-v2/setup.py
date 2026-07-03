@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "datadog-cdk-constructs-v2",
-    "version": "4.1.0",
+    "version": "4.2.0",
     "description": "CDK Construct Library to automatically instrument Python and Node Lambda functions with Datadog using AWS CDK v2",
     "license": "Apache-2.0",
     "url": "https://github.com/DataDog/datadog-cdk-constructs",
@@ -26,28 +26,29 @@ kwargs = json.loads(
     ],
     "package_data": {
         "datadog_cdk_constructs_v2._jsii": [
-            "datadog-cdk-constructs-v2@4.1.0.jsii.tgz"
+            "datadog-cdk-constructs-v2@4.2.0.jsii.tgz"
         ],
         "datadog_cdk_constructs_v2": [
             "py.typed"
         ]
     },
-    "python_requires": "~=3.9",
+    "python_requires": ">=3.10",
     "install_requires": [
-        "aws-cdk-lib>=2.253.0, <3.0.0",
+        "aws-cdk-lib>=2.257.0, <3.0.0",
         "constructs>=10.5.1, <11.0.0",
-        "jsii>=1.128.0, <2.0.0",
-        "publication>=0.0.3",
-        "typeguard==2.13.3"
+        "jsii>=1.136.0, <2.0.0",
+        "publication>=0.0.3"
     ],
     "classifiers": [
         "Intended Audience :: Developers",
         "Operating System :: OS Independent",
         "Programming Language :: JavaScript",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Typing :: Typed",
         "Development Status :: 5 - Production/Stable",
         "License :: OSI Approved"

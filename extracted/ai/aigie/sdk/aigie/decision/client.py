@@ -1,9 +1,8 @@
 """Async gRPC client for ``kytte.decision.v1.DecisionOrchestrator``.
 
-One unary RPC: ``EvaluateSpan``, fired once per finalized span,
-**fire-and-forget** — the SDK never blocks on or consumes the verdict
-(Determine Error MVP). ``evaluate_span`` therefore swallows every exception:
-callers schedule it with ``asyncio.create_task`` and an escaping exception
+One unary RPC: ``EvaluateSpan``, fired once per finalized span. The SDK
+returns the decision when the caller awaits it, but failures stay fail-open:
+callers often schedule it with ``asyncio.create_task`` and an escaping exception
 would only produce "Task exception was never retrieved" noise.
 """
 
@@ -20,6 +19,7 @@ from aigie._grpc import (
 )
 from aigie.decision._pb.kytte.decision.v1 import decision_pb2 as _decision_pb2
 from aigie.decision._pb.kytte.decision.v1 import decision_pb2_grpc as pb_grpc
+from aigie.decision.models import RemediationDecision
 
 pb: Any = _decision_pb2
 
@@ -73,16 +73,19 @@ class DecisionClient:
         logger.debug("DecisionClient channel opened: target=%s tls=%s", self._target, self._use_tls)
         return self._stub
 
-    async def evaluate_span(self, span: Any) -> None:
-        """Fire one EvaluateSpan for a finalized span. Never raises."""
+    async def evaluate_span(self, span: Any) -> RemediationDecision | None:
+        """Evaluate one finalized span; return ``None`` if the RPC fails."""
         try:
             stub = self._ensure_channel()
-            await stub.EvaluateSpan(
+            response = await stub.EvaluateSpan(
                 pb.EvaluateSpanRequest(span=span, trace_id=span.trace_id),
                 metadata=self._metadata,
                 timeout=self._timeout_s,
             )
             self._unreachable_logged = False
+            decision = RemediationDecision.from_response(response)
+            self._log_decision(span, decision)
+            return decision
         except Exception as e:
             # Fire-and-forget contract: any failure is dropped, not raised. A
             # connectivity failure surfaces once as a warning (so a silently
@@ -92,6 +95,28 @@ class DecisionClient:
                 self._log_unreachable(e)
             else:
                 logger.debug("[AIGIE] EvaluateSpan dropped for span=%s: %s", span.span_id, e)
+            return None
+
+    def _log_decision(self, span: Any, decision: RemediationDecision) -> None:
+        level = logging.INFO if decision.action_selected else logging.DEBUG
+        logger.log(
+            level,
+            "[AIGIE] remediation decision span=%s verdict=%s problem=%s steps=%d "
+            "apply=%s execution_id=%s",
+            span.span_id,
+            decision.verdict,
+            decision.problem_type,
+            len(decision.steps),
+            decision.apply,
+            decision.execution_id,
+        )
+        if decision.apply:
+            logger.warning(
+                "[AIGIE] EvaluateSpan returned apply=true but this SDK is read-only; "
+                "ignoring (no mutation). span=%s execution_id=%s",
+                span.span_id,
+                decision.execution_id,
+            )
 
     def _log_unreachable(self, error: BaseException) -> None:
         """Warn once per outage when the Decision Orchestrator can't be reached."""

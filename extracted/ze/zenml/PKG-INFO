@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zenml
-Version: 0.95.1
+Version: 0.96.1
 Summary: ZenML: MLOps for Reliable AI: from Classical AI to Agents.
 Keywords: machine learning,production,pipeline,mlops,devops,ai,agents,agentic workflows
 Author: ZenML GmbH
@@ -38,7 +38,7 @@ Requires-Dist: rich>=12.0.0
 Requires-Dist: setuptools>=70.0.0
 Requires-Dist: structlog>=25.5.0
 Requires-Dist: adlfs>=2021.10.0 ; extra == 'adlfs'
-Requires-Dist: azure-ai-ml==1.23.1 ; extra == 'azureml'
+Requires-Dist: azure-ai-ml>=1.23.1,<2.0.0 ; extra == 'azureml'
 Requires-Dist: boto3>=1.16.0 ; extra == 'connectors-aws'
 Requires-Dist: kubernetes>=18.20.0 ; extra == 'connectors-aws'
 Requires-Dist: aws-profile-manager>=0.5.0 ; extra == 'connectors-aws'
@@ -46,7 +46,7 @@ Requires-Dist: azure-identity>=1.4.0 ; extra == 'connectors-azure'
 Requires-Dist: azure-mgmt-containerservice>=20.0.0 ; extra == 'connectors-azure'
 Requires-Dist: azure-mgmt-containerregistry>=10.0.0 ; extra == 'connectors-azure'
 Requires-Dist: azure-mgmt-storage>=20.0.0 ; extra == 'connectors-azure'
-Requires-Dist: azure-storage-blob>=12.0.0 ; extra == 'connectors-azure'
+Requires-Dist: azure-storage-blob>=12.17.0,<13.0.0 ; extra == 'connectors-azure'
 Requires-Dist: azure-mgmt-resource>=21.0.0,<25.0.0 ; extra == 'connectors-azure'
 Requires-Dist: kubernetes>=18.20.0 ; extra == 'connectors-azure'
 Requires-Dist: requests>=2.27.11,<3.0.0 ; extra == 'connectors-azure'
@@ -62,6 +62,7 @@ Requires-Dist: yamlfix>=1.16.0 ; extra == 'dev'
 Requires-Dist: zizmor>=1.0.0 ; extra == 'dev'
 Requires-Dist: coverage[toml]>=7.6.1,<8.0.0 ; extra == 'dev'
 Requires-Dist: pytest>=9.0.3,<10.0.0 ; extra == 'dev'
+Requires-Dist: beautifulsoup4>=4.12.0,<5.0.0 ; extra == 'dev'
 Requires-Dist: mypy==1.18.1 ; extra == 'dev'
 Requires-Dist: pre-commit ; extra == 'dev'
 Requires-Dist: pyment>=0.3.3,<0.4.0 ; extra == 'dev'
@@ -340,7 +341,7 @@ Built on the same infrastructure that powers ZenML. Two decorators (`@flow` + `@
 pip install kitaru
 ```
 
-👉 **[kitaru.ai](https://kitaru.ai)** · **[GitHub](https://github.com/zenml-io/kitaru)** · **[Docs](https://kitaru.ai/docs)**
+👉 **[kitaru.ai](https://kitaru.ai)** · **[GitHub](https://github.com/zenml-io/kitaru)** · **[Docs](https://docs.zenml.io/kitaru)**
 
 ### 🎓 Books & Resources
 

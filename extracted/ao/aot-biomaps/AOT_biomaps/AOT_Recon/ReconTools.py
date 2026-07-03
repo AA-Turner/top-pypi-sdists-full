@@ -87,7 +87,7 @@ def calculate_step_size_reg(SMatrix, gamma, num_subsets, num_iters, show_logs):
     sigma_q_val = float((0.99 * gamma / np.sqrt(L_total)) * num_subsets)
     sigma_p_val = float(0.99 * gamma / np.sqrt(L_total))
     if show_logs:
-        print(f"Estimated Lipschitz: {L_estimate:.4f} | tau: {tau_val:.5e} | sigma_q: {sigma_q_val:.5e} | sigma_p: {sigma_p_val:.5e}")
+        print(f"Estimated Lipschitz: {L_estimate:.2e} | tau: {tau_val:.2e} | sigma_q: {sigma_q_val:.2e} | sigma_p: {sigma_p_val:.2e}")
         
     return tau_val, sigma_q_val, sigma_p_val
 
@@ -108,7 +108,7 @@ def calculate_step_size(SMatrix, eta, num_iters, show_logs):
     L_estimate = estimate_operator_norm(SMatrix, num_iters=num_iters)
     alpha = eta / (L_estimate**2) if L_estimate > 0 else 1.0
     if show_logs:
-        print(f"Estimated Lipschitz constant: {L_estimate:.4f}, using step size alpha: {alpha:.5f}")
+        print(f"Estimated Lipschitz constant: {L_estimate:.2e}, using step size alpha: {alpha:.2e}")
     return alpha
 
 def estimate_operator_norm(SMatrix, num_iters: int = 15) -> float:

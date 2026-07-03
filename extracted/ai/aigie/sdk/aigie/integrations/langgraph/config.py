@@ -69,6 +69,9 @@ class LangGraphConfig(FrameworkConfigBase):
     # Agent plan capture
     capture_agent_plan: bool = True
 
+    # Rewind settings
+    auto_checkpointer_for_rewind: bool = False
+
     # Real-time remediation settings
     enable_realtime_remediation: bool = False
     remediation_mode: str = "recommendation"  # "recommendation" or "autonomous"
@@ -119,6 +122,7 @@ class LangGraphConfig(FrameworkConfigBase):
             AIGIE_LANGGRAPH_MAX_RETRIES: Max retry attempts (default: 3)
             AIGIE_LANGGRAPH_RETRY_DELAY: Initial retry delay in seconds (default: 1.0)
             AIGIE_LANGGRAPH_CAPTURE_PLAN: Capture agent plan from first LLM response (default: true)
+            AIGIE_LANGGRAPH_REWIND_AUTO_CHECKPOINTER: Inject MemorySaver for rewind (default: false)
             AIGIE_LANGGRAPH_REALTIME_REMEDIATION: Enable real-time remediation (default: false)
             AIGIE_LANGGRAPH_REMEDIATION_MODE: Remediation mode - recommendation or autonomous (default: recommendation)
             AIGIE_LANGGRAPH_REMEDIATION_TIMEOUT: Max seconds to query platform (default: 2.0)
@@ -142,6 +146,10 @@ class LangGraphConfig(FrameworkConfigBase):
             max_retries=int(os.getenv("AIGIE_LANGGRAPH_MAX_RETRIES", "3")),
             retry_delay=float(os.getenv("AIGIE_LANGGRAPH_RETRY_DELAY", "1.0")),
             capture_agent_plan=os.getenv("AIGIE_LANGGRAPH_CAPTURE_PLAN", "true").lower() == "true",
+            auto_checkpointer_for_rewind=os.getenv(
+                "AIGIE_LANGGRAPH_REWIND_AUTO_CHECKPOINTER", "false"
+            ).lower()
+            == "true",
             enable_realtime_remediation=os.getenv(
                 "AIGIE_LANGGRAPH_REALTIME_REMEDIATION", "false"
             ).lower()
@@ -185,6 +193,9 @@ class LangGraphConfig(FrameworkConfigBase):
             default_tags=overrides.get("default_tags", self.default_tags),
             default_metadata=overrides.get("default_metadata", self.default_metadata),
             capture_agent_plan=overrides.get("capture_agent_plan", self.capture_agent_plan),
+            auto_checkpointer_for_rewind=overrides.get(
+                "auto_checkpointer_for_rewind", self.auto_checkpointer_for_rewind
+            ),
             enable_realtime_remediation=overrides.get(
                 "enable_realtime_remediation", self.enable_realtime_remediation
             ),

@@ -4,9 +4,10 @@ import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from tenacity import AsyncRetrying, Future, retry_if_exception_type, stop_after_attempt
+from tenacity import AsyncRetrying, Future, RetryCallState, retry_if_exception_type, stop_after_attempt
 from tmodbus.exceptions import ModbusConnectionError, RequestRetryFailedError
 from tmodbus.pdu.base import BaseClientPDU
+from tmodbus.transport import async_smart as async_smart_module
 from tmodbus.transport.async_base import AsyncBaseTransport
 from tmodbus.transport.async_smart import AsyncSmartTransport
 
@@ -48,6 +49,41 @@ def test_on_reconnected_requires_auto_reconnect(base_transport_mock: AsyncBaseTr
     """Test that providing on_reconnected without auto_reconnect raises ValueError."""
     with pytest.raises(ValueError, match="on_reconnected callback provided but auto_reconnect is disabled"):
         AsyncSmartTransport(base_transport_mock, auto_reconnect=False, on_reconnected=lambda: None)
+
+
+def test_on_connection_lost_forwarded_to_base_transport(base_transport_mock: AsyncBaseTransport) -> None:
+    """on_connection_lost is forwarded to the base transport, where the socket lives."""
+
+    def callback(_exc: Exception | None) -> None:
+        pass
+
+    AsyncSmartTransport(base_transport_mock, on_connection_lost=callback)
+
+    assert base_transport_mock.on_connection_lost is callback
+
+
+def test_on_connection_lost_works_without_auto_reconnect(base_transport_mock: AsyncBaseTransport) -> None:
+    """Unlike on_reconnected, on_connection_lost is allowed when auto_reconnect is disabled."""
+
+    def callback(_exc: Exception | None) -> None:
+        pass
+
+    # Must not raise.
+    AsyncSmartTransport(base_transport_mock, auto_reconnect=False, on_connection_lost=callback)
+
+    assert base_transport_mock.on_connection_lost is callback
+
+
+def test_on_connection_lost_not_provided_keeps_base_callback(base_transport_mock: AsyncBaseTransport) -> None:
+    """When no callback is passed, a callback set directly on the base transport is preserved."""
+
+    def existing(_exc: Exception | None) -> None:
+        pass
+
+    base_transport_mock.on_connection_lost = existing
+    AsyncSmartTransport(base_transport_mock)
+
+    assert base_transport_mock.on_connection_lost is existing
 
 
 def test_init_creates_instance_communication_state(base_transport_mock: AsyncBaseTransport) -> None:
@@ -197,9 +233,60 @@ async def test_send_and_receive_retry_strategy_raises_request_retry_failed(
         response_retry_strategy=AsyncRetrying(stop=stop_after_attempt(1), reraise=False),
     )
     with patch.object(t, "_reconnect_send_and_receive", AsyncMock(side_effect=ModbusConnectionError("fail"))):
-        with pytest.raises(RequestRetryFailedError):
+        with pytest.raises(
+            RequestRetryFailedError,
+            match=(
+                r"Failed to get a valid response after 1 attempts.+"
+                r"Last error: ModbusConnectionError: fail"
+            ),
+        ):
             await t.send_and_receive(1, DummyPDU())
         assert t._last_request_finished_at is not None
+
+
+async def test_retry_logging_helpers_include_retry_cause(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that retry logging includes the retry cause."""
+    retry_state = RetryCallState(AsyncRetrying(stop=stop_after_attempt(1), reraise=True), None, (), {})
+    retry_state.set_exception((ModbusConnectionError, ModbusConnectionError("fail"), None))
+
+    empty_retry_state = RetryCallState(
+        AsyncRetrying(stop=stop_after_attempt(1), reraise=True), fn=None, args=(), kwargs={}
+    )
+    unknown_retry_state = MagicMock(
+        spec=RetryCallState, outcome=MagicMock(failed=True, exception=MagicMock(return_value=None))
+    )
+
+    with caplog.at_level("DEBUG", logger="tmodbus.transport.async_smart"):
+        async_smart_module._log_response_retry(retry_state)
+        async_smart_module._log_auto_reconnect_retry(retry_state)
+
+    assert async_smart_module._format_retry_cause(retry_state) == "ModbusConnectionError: fail"
+    assert async_smart_module._format_retry_cause(empty_retry_state) == "unknown"
+    assert async_smart_module._format_retry_cause(unknown_retry_state) == "unknown"
+    assert any(
+        "Retrying request after attempt 1 due to ModbusConnectionError: fail" in record.message
+        for record in caplog.records
+    )
+    assert any(
+        "Retrying connection after attempt 1 due to ModbusConnectionError: fail" in record.message
+        for record in caplog.records
+    )
+
+
+async def test_retry_logging_helpers_skip_debug_logging_when_disabled(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that retry logging helpers do nothing when debug logging is disabled."""
+    retry_state = RetryCallState(AsyncRetrying(stop=stop_after_attempt(1), reraise=True), None, (), {})
+    retry_state.set_exception((ModbusConnectionError, ModbusConnectionError("fail"), None))
+
+    with caplog.at_level("INFO", logger="tmodbus.transport.async_smart"):
+        async_smart_module._log_response_retry(retry_state)
+        async_smart_module._log_auto_reconnect_retry(retry_state)
+
+    assert caplog.records == []
 
 
 def test_is_open_cases() -> None:

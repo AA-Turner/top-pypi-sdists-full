@@ -22,7 +22,7 @@ short_description: Create or delete FlashBlade Object Store accounts
 description:
 - Create or delete object store accounts on a Pure Stoage FlashBlade.
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -114,7 +114,7 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PURESTORAGE = True
+HAS_PYPURECLIENT = True
 try:
     from pypureclient.flashblade import (
         ObjectStoreAccountPatch,
@@ -122,14 +122,19 @@ try:
         PublicAccessConfig,
     )
 except ImportError:
-    HAS_PURESTORAGE = False
+    HAS_PYPURECLIENT = False
 
 from ansible.module_utils.basic import AnsibleModule, human_to_bytes
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
 )
-
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
+)
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
+)
 
 PUBLIC_API_VERSION = "2.12"
 CONTEXT_API_VERSION = "2.17"
@@ -271,7 +276,7 @@ def update_s3acc(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to update account {0}. "
-                    "Error: {1}".format(module.params["name"], res.errors[0].message)
+                    "Error: {1}".format(module.params["name"], get_error_message(res))
                 )
 
     module.exit_json(changed=changed)
@@ -292,7 +297,7 @@ def create_s3acc(module, blade):
             module.fail_json(
                 msg="Object Store Account {0} creation failed. Error: {1}".format(
                     module.params["name"],
-                    res.errors[0].message,
+                    get_error_message(res),
                 )
             )
         if module.params["quota"] or module.params["default_quota"]:
@@ -338,7 +343,7 @@ def create_s3acc(module, blade):
                     )
                 module.fail_json(
                     msg="Failed to set quotas correctly for account {0}. "
-                    "Error: {1}".format(module.params["name"], res.errors[0].message)
+                    "Error: {1}".format(module.params["name"], get_error_message(res))
                 )
         if PUBLIC_API_VERSION in api_version:
             if not module.params["block_new_public_policies"]:
@@ -366,7 +371,7 @@ def create_s3acc(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to Public Access config correctly for account {0}. "
-                    "Error: {1}".format(module.params["name"], res.errors[0].message)
+                    "Error: {1}".format(module.params["name"], get_error_message(res))
                 )
 
     module.exit_json(changed=changed)
@@ -385,12 +390,8 @@ def delete_s3acc(module, blade):
         else:
             res = blade.get_object_store_users(names=[module.params["name"] + "/*'"])
         if res.status_code == 200:
-            module.fail_json(
-                msg="Remove all Users from Object Store Account {0} \
-                                 before deletion".format(
-                    module.params["name"]
-                )
-            )
+            module.fail_json(msg="Remove all Users from Object Store Account {0} \
+                                 before deletion".format(module.params["name"]))
         else:
             if CONTEXT_API_VERSION in api_version:
                 res = blade.delete_object_store_accounts(
@@ -402,7 +403,7 @@ def delete_s3acc(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Object Store Account {0} deletion failed. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -430,7 +431,7 @@ def main():
     blade = get_system(module)
 
     if module.params["quota"] or module.params["default_quota"]:
-        if not HAS_PURESTORAGE:
+        if not HAS_PYPURECLIENT:
             module.fail_json(msg="py-pure-client sdk is required for to set quotas")
 
     upper = False

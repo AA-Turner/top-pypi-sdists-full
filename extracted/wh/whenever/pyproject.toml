@@ -7,7 +7,7 @@ maintainers = [
     {name = "Arie Bovenberg", email = "a.c.bovenberg@gmail.com"},
 ]
 readme = "README.md"
-version = "0.10.0"
+version = "0.10.1"
 license = "MIT"
 description = "Modern datetime library for Python"
 requires-python = ">=3.10"
@@ -39,6 +39,50 @@ keywords = [
     "zoneinfo", "tzdata", "tzdb"
 ]
 
+[dependency-groups]
+test = [
+    "pytest-benchmark[histogram]>=5.2.3,<6",
+    "pytest-cov>=7.1.0,<8",
+    "pytest-order>=1.4.0,<2",
+    "pytest>=9.0.3,<10",
+    "hypothesis>=6.152.7,<7",
+]
+typing = [
+    "mypy>=2.1.0,<2.2",
+]
+integrations = [
+    "time_machine>=3.2,<4; implementation_name == 'cpython'",
+    "tzdata>=2020.1",
+    "pydantic>=2.10,<3",
+]
+dev-extra = [
+    "ruff>=0.15,<0.16",
+    "slotscheck>=0.20,<0.21",
+    "build",
+    "packaging>=26.2",
+    "setuptools-rust",
+    "twine>=6.2.0",
+]
+benchmark = [
+    "arrow>=1.4,<2",
+    "matplotlib>=3.10,<4",
+    "pendulum>=3.2,<4",
+    "pyperf>=2.10,<3",
+    "python-dateutil>=2.9,<3",
+    "setuptools-rust",
+]
+docs = [
+    "furo>=2025.12.19,<2026",
+    "myst-parser>=5,<6",
+    "sphinx-copybutton~=0.5",
+    "sphinx-design>=0.7,<0.8",
+    "sphinx>=9,<10",
+]
+
+[tool.uv.dependency-groups]
+benchmark = {requires-python = ">=3.14"}
+docs = {requires-python = ">=3.13"}
+
 
 [project.urls]
 Documentation = "https://whenever.readthedocs.io"
@@ -46,26 +90,24 @@ Repository = "https://github.com/ariebovenberg/whenever"
 Issues = "https://github.com/ariebovenberg/whenever/issues"
 Changelog = "https://github.com/ariebovenberg/whenever/blob/main/CHANGELOG.md"
 
-[tool.black]
+[tool.ruff]
 line-length = 79
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.eggs
-  | \.hg
-  | \.git
-  | \.mypy_cache
-  | \.venv
-  | _build
-  | build
-  | dist
-)/
-'''
+target-version = "py310"
+exclude = ["pysrc/whenever/_typing_312.py"]
 
-[tool.isort]
-profile = 'black'
-line_length = 79
-combine_as_imports = true
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"_custom_pybuild/backend.py" = ["F403"]
+"docs/conf.py" = ["E402"]
+"pysrc/whenever/__init__.py" = ["F401", "F403", "F405"]
+"pysrc/whenever/_core.py" = ["F401", "F403", "F405"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.ruff.format]
 
 [tool.mypy]
 warn_unused_ignores = true
@@ -96,8 +138,9 @@ find = { where = ["pysrc"] }
 # We essentially use three build systems:
 # - We use maturin to build the binary distributions for different
 #   platforms in CI, since it is very convenient for this purpose.
-# - We need setuptools to allow enabling/disabling building the Rust
-#   extension using the environment variable, since maturin does not support this.
+# - We use setuptools for source distributions and editable installs.
+# - The custom backend below runs `build_rust --inplace` during editable
+#   installs so `uv sync` can keep the Rust extension in the source tree.
 # - To actually build the Rust extension with setuptools, we need
 #   setuptools_rust.
 [tool.maturin]
@@ -110,8 +153,8 @@ requires = [
     "setuptools",
     "wheel",
 ]
-# We need a custom backend to make the inclusion of setuptools_rust conditional
-# on the environment variable.
+# We need a custom backend to make editable installs build the Rust
+# extension in place.
 # Follows the approach from setuptools.pypa.io/en/latest/build_meta.html#dynamic-build-dependencies-and-other-build-meta-tweaks
 build-backend = "backend"
 backend-path = ["_custom_pybuild"]

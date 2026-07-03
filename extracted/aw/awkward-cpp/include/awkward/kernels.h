@@ -1,4 +1,4 @@
-// AUTO GENERATED ON 2026-06-08 AT 11:28:09
+// AUTO GENERATED ON 2026-07-02 AT 19:33:43
 // DO NOT EDIT BY HAND!
 //
 // To regenerate file, run
@@ -63,11 +63,11 @@ extern "C" {
   EXPORT_SYMBOL ERROR
   awkward_ByteMaskedArray_reduce_next_64(
     int64_t* nextcarry,
-    int64_t* nextparents,
+    int64_t* nextoffsets,
     int64_t* outindex,
     const int8_t* mask,
-    const int64_t* parents,
-    int64_t length,
+    const int64_t* offsets,
+    int64_t outlength,
     bool validwhen);
 
   EXPORT_SYMBOL ERROR
@@ -216,10 +216,9 @@ extern "C" {
   awkward_IndexedArray_local_preparenext_64(
     int64_t* tocarry,
     const int64_t* starts,
-    const int64_t* parents,
-    const int64_t parentslength,
-    const int64_t* nextparents,
-    const int64_t nextlen);
+    const int64_t* offsets,
+    const int64_t* nextoffsets,
+    const int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_IndexedArray32_numnull(
@@ -265,22 +264,22 @@ extern "C" {
   awkward_IndexedArray32_index_of_nulls(
     int64_t* toindex,
     const int32_t* fromindex,
-    int64_t lenindex,
-    const int64_t* parents,
+    const int64_t* offsets,
+    int64_t outlength,
     const int64_t* starts);
   EXPORT_SYMBOL ERROR
   awkward_IndexedArray64_index_of_nulls(
     int64_t* toindex,
     const int64_t* fromindex,
-    int64_t lenindex,
-    const int64_t* parents,
+    const int64_t* offsets,
+    int64_t outlength,
     const int64_t* starts);
   EXPORT_SYMBOL ERROR
   awkward_IndexedArrayU32_index_of_nulls(
     int64_t* toindex,
     const uint32_t* fromindex,
-    int64_t lenindex,
-    const int64_t* parents,
+    const int64_t* offsets,
+    int64_t outlength,
     const int64_t* starts);
 
   EXPORT_SYMBOL ERROR
@@ -305,27 +304,27 @@ extern "C" {
   EXPORT_SYMBOL ERROR
   awkward_IndexedArray32_reduce_next_64(
     int64_t* nextcarry,
-    int64_t* nextparents,
+    int64_t* nextoffsets,
     int64_t* outindex,
     const int32_t* index,
-    int64_t* parents,
-    int64_t length);
+    const int64_t* offsets,
+    int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_IndexedArray64_reduce_next_64(
     int64_t* nextcarry,
-    int64_t* nextparents,
+    int64_t* nextoffsets,
     int64_t* outindex,
     const int64_t* index,
-    int64_t* parents,
-    int64_t length);
+    const int64_t* offsets,
+    int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_IndexedArrayU32_reduce_next_64(
     int64_t* nextcarry,
-    int64_t* nextparents,
+    int64_t* nextoffsets,
     int64_t* outindex,
     const uint32_t* index,
-    int64_t* parents,
-    int64_t length);
+    const int64_t* offsets,
+    int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_IndexedArray_reduce_next_fix_offsets_64(
@@ -1093,7 +1092,7 @@ extern "C" {
 
   EXPORT_SYMBOL ERROR
   awkward_ListOffsetArray32_reduce_local_nextparents_64(
-    int64_t* nextparents,
+    int32_t* nextparents,
     const int32_t* offsets,
     int64_t length,
     int64_t nextparents_length);
@@ -1105,7 +1104,7 @@ extern "C" {
     int64_t nextparents_length);
   EXPORT_SYMBOL ERROR
   awkward_ListOffsetArrayU32_reduce_local_nextparents_64(
-    int64_t* nextparents,
+    uint32_t* nextparents,
     const uint32_t* offsets,
     int64_t length,
     int64_t nextparents_length);
@@ -1132,7 +1131,8 @@ extern "C" {
     const int64_t* offsets,
     int64_t length,
     const int64_t* starts,
-    const int64_t* parents,
+    const int64_t* outer_offsets,
+    int64_t outlength,
     int64_t maxcount,
     int64_t nextlen,
     const int64_t* nextcarry);
@@ -1154,7 +1154,7 @@ extern "C" {
   EXPORT_SYMBOL ERROR
   awkward_ListOffsetArray_reduce_nonlocal_preparenext_64(
     int64_t* nextcarry,
-    int64_t* nextparents,
+    int64_t* nextoffsets,
     int64_t nextlen,
     int64_t* maxnextparents,
     int64_t* distincts,
@@ -1162,7 +1162,8 @@ extern "C" {
     int64_t* offsetscopy,
     const int64_t* offsets,
     int64_t length,
-    const int64_t* parents,
+    const int64_t* outer_offsets,
+    int64_t outlength,
     int64_t maxcount);
 
   EXPORT_SYMBOL ERROR
@@ -1272,7 +1273,7 @@ extern "C" {
     const int64_t* fromshifts,
     int64_t length,
     const int64_t* fromoffsets,
-    int64_t offsetslength,
+    int64_t outlength,
     const int64_t* fromparents,
     const int64_t* fromstarts);
 
@@ -1280,22 +1281,21 @@ extern "C" {
   awkward_NumpyArray_reduce_adjust_starts_64(
     int64_t* toptr,
     int64_t outlength,
-    const int64_t* parents,
+    const int64_t* offsets,
     const int64_t* starts);
 
   EXPORT_SYMBOL ERROR
   awkward_NumpyArray_reduce_adjust_starts_shifts_64(
     int64_t* toptr,
     int64_t outlength,
-    const int64_t* parents,
+    const int64_t* offsets,
     const int64_t* starts,
     const int64_t* shifts);
 
   EXPORT_SYMBOL ERROR
   awkward_NumpyArray_reduce_mask_ByteMaskedArray_64(
     int8_t* toptr,
-    const int64_t* parents,
-    int64_t lenparents,
+    const int64_t* offsets,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
@@ -1471,14 +1471,6 @@ extern "C" {
     bool* toequal);
 
   EXPORT_SYMBOL ERROR
-  awkward_RecordArray_reduce_nonlocal_outoffsets_64(
-    int64_t* outoffsets,
-    int64_t* outcarry,
-    const int64_t* parents,
-    int64_t lenparents,
-    int64_t outlength);
-
-  EXPORT_SYMBOL ERROR
   awkward_RegularArray_combinations_64(
     int64_t** tocarry,
     int64_t* toindex,
@@ -1566,10 +1558,11 @@ extern "C" {
   EXPORT_SYMBOL ERROR
   awkward_RegularArray_reduce_nonlocal_preparenext_64(
     int64_t* nextcarry,
-    int64_t* nextparents,
-    const int64_t* parents,
+    int64_t* nextoffsets,
+    const int64_t* offsets,
     int64_t size,
-    int64_t length);
+    int64_t length,
+    int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_RegularArray_rpad_and_clip_axis1_64(
@@ -1991,7 +1984,34 @@ extern "C" {
     const int64_t* lencontents);
 
   EXPORT_SYMBOL ERROR
-  awkward_argsort_bool(
+  awkward_argsort_bool_int32(
+    int64_t* toptr,
+    const bool* fromptr,
+    int64_t length,
+    const int32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_bool_uint32(
+    int64_t* toptr,
+    const bool* fromptr,
+    int64_t length,
+    const uint32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_bool_uint64(
+    int64_t* toptr,
+    const bool* fromptr,
+    int64_t length,
+    const uint64_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_bool_int64(
     int64_t* toptr,
     const bool* fromptr,
     int64_t length,
@@ -2000,7 +2020,34 @@ extern "C" {
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
-  awkward_argsort_int8(
+  awkward_argsort_int8_int32(
+    int64_t* toptr,
+    const int8_t* fromptr,
+    int64_t length,
+    const int32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_int8_uint32(
+    int64_t* toptr,
+    const int8_t* fromptr,
+    int64_t length,
+    const uint32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_int8_uint64(
+    int64_t* toptr,
+    const int8_t* fromptr,
+    int64_t length,
+    const uint64_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_int8_int64(
     int64_t* toptr,
     const int8_t* fromptr,
     int64_t length,
@@ -2009,7 +2056,34 @@ extern "C" {
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
-  awkward_argsort_int16(
+  awkward_argsort_int16_int32(
+    int64_t* toptr,
+    const int16_t* fromptr,
+    int64_t length,
+    const int32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_int16_uint32(
+    int64_t* toptr,
+    const int16_t* fromptr,
+    int64_t length,
+    const uint32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_int16_uint64(
+    int64_t* toptr,
+    const int16_t* fromptr,
+    int64_t length,
+    const uint64_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_int16_int64(
     int64_t* toptr,
     const int16_t* fromptr,
     int64_t length,
@@ -2018,7 +2092,34 @@ extern "C" {
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
-  awkward_argsort_int32(
+  awkward_argsort_int32_int32(
+    int64_t* toptr,
+    const int32_t* fromptr,
+    int64_t length,
+    const int32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_int32_uint32(
+    int64_t* toptr,
+    const int32_t* fromptr,
+    int64_t length,
+    const uint32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_int32_uint64(
+    int64_t* toptr,
+    const int32_t* fromptr,
+    int64_t length,
+    const uint64_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_int32_int64(
     int64_t* toptr,
     const int32_t* fromptr,
     int64_t length,
@@ -2027,7 +2128,34 @@ extern "C" {
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
-  awkward_argsort_int64(
+  awkward_argsort_int64_int32(
+    int64_t* toptr,
+    const int64_t* fromptr,
+    int64_t length,
+    const int32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_int64_uint32(
+    int64_t* toptr,
+    const int64_t* fromptr,
+    int64_t length,
+    const uint32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_int64_uint64(
+    int64_t* toptr,
+    const int64_t* fromptr,
+    int64_t length,
+    const uint64_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_int64_int64(
     int64_t* toptr,
     const int64_t* fromptr,
     int64_t length,
@@ -2036,7 +2164,34 @@ extern "C" {
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
-  awkward_argsort_uint8(
+  awkward_argsort_uint8_int32(
+    int64_t* toptr,
+    const uint8_t* fromptr,
+    int64_t length,
+    const int32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_uint8_uint32(
+    int64_t* toptr,
+    const uint8_t* fromptr,
+    int64_t length,
+    const uint32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_uint8_uint64(
+    int64_t* toptr,
+    const uint8_t* fromptr,
+    int64_t length,
+    const uint64_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_uint8_int64(
     int64_t* toptr,
     const uint8_t* fromptr,
     int64_t length,
@@ -2045,7 +2200,34 @@ extern "C" {
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
-  awkward_argsort_uint16(
+  awkward_argsort_uint16_int32(
+    int64_t* toptr,
+    const uint16_t* fromptr,
+    int64_t length,
+    const int32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_uint16_uint32(
+    int64_t* toptr,
+    const uint16_t* fromptr,
+    int64_t length,
+    const uint32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_uint16_uint64(
+    int64_t* toptr,
+    const uint16_t* fromptr,
+    int64_t length,
+    const uint64_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_uint16_int64(
     int64_t* toptr,
     const uint16_t* fromptr,
     int64_t length,
@@ -2054,7 +2236,34 @@ extern "C" {
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
-  awkward_argsort_uint32(
+  awkward_argsort_uint32_int32(
+    int64_t* toptr,
+    const uint32_t* fromptr,
+    int64_t length,
+    const int32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_uint32_uint32(
+    int64_t* toptr,
+    const uint32_t* fromptr,
+    int64_t length,
+    const uint32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_uint32_uint64(
+    int64_t* toptr,
+    const uint32_t* fromptr,
+    int64_t length,
+    const uint64_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_uint32_int64(
     int64_t* toptr,
     const uint32_t* fromptr,
     int64_t length,
@@ -2063,7 +2272,34 @@ extern "C" {
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
-  awkward_argsort_uint64(
+  awkward_argsort_uint64_int32(
+    int64_t* toptr,
+    const uint64_t* fromptr,
+    int64_t length,
+    const int32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_uint64_uint32(
+    int64_t* toptr,
+    const uint64_t* fromptr,
+    int64_t length,
+    const uint32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_uint64_uint64(
+    int64_t* toptr,
+    const uint64_t* fromptr,
+    int64_t length,
+    const uint64_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_uint64_int64(
     int64_t* toptr,
     const uint64_t* fromptr,
     int64_t length,
@@ -2072,7 +2308,34 @@ extern "C" {
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
-  awkward_argsort_float32(
+  awkward_argsort_float32_int32(
+    int64_t* toptr,
+    const float* fromptr,
+    int64_t length,
+    const int32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_float32_uint32(
+    int64_t* toptr,
+    const float* fromptr,
+    int64_t length,
+    const uint32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_float32_uint64(
+    int64_t* toptr,
+    const float* fromptr,
+    int64_t length,
+    const uint64_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_float32_int64(
     int64_t* toptr,
     const float* fromptr,
     int64_t length,
@@ -2081,7 +2344,34 @@ extern "C" {
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
-  awkward_argsort_float64(
+  awkward_argsort_float64_int32(
+    int64_t* toptr,
+    const double* fromptr,
+    int64_t length,
+    const int32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_float64_uint32(
+    int64_t* toptr,
+    const double* fromptr,
+    int64_t length,
+    const uint32_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_float64_uint64(
+    int64_t* toptr,
+    const double* fromptr,
+    int64_t length,
+    const uint64_t* offsets,
+    int64_t offsetslength,
+    bool ascending,
+    bool stable);
+  EXPORT_SYMBOL ERROR
+  awkward_argsort_float64_int64(
     int64_t* toptr,
     const double* fromptr,
     int64_t length,
@@ -2125,90 +2415,70 @@ extern "C" {
   awkward_reduce_argmax_int8_64(
     int64_t* toptr,
     const int8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
-    const int64_t* starts,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_argmax_int16_64(
-    int64_t* toptr,
-    const int16_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    const int64_t* starts,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_argmax_int32_64(
-    int64_t* toptr,
-    const int32_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    const int64_t* starts,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_argmax_int64_64(
-    int64_t* toptr,
-    const int64_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
     const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_uint8_64(
     int64_t* toptr,
     const uint8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    const int64_t* starts,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_argmax_int16_64(
+    int64_t* toptr,
+    const int16_t* fromptr,
+    const int64_t* offsets,
     const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_uint16_64(
     int64_t* toptr,
     const uint16_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    const int64_t* starts,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_argmax_int32_64(
+    int64_t* toptr,
+    const int32_t* fromptr,
+    const int64_t* offsets,
     const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_uint32_64(
     int64_t* toptr,
     const uint32_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    const int64_t* starts,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_argmax_int64_64(
+    int64_t* toptr,
+    const int64_t* fromptr,
+    const int64_t* offsets,
     const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_uint64_64(
     int64_t* toptr,
     const uint64_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_float32_64(
     int64_t* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_float64_64(
     int64_t* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     const int64_t* starts,
     int64_t outlength);
 
@@ -2216,107 +2486,83 @@ extern "C" {
   awkward_reduce_argmax_complex64_64(
     int64_t* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_complex128_64(
     int64_t* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_int8_64(
     int64_t* toptr,
     const int8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
-    const int64_t* starts,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_argmin_int16_64(
-    int64_t* toptr,
-    const int16_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    const int64_t* starts,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_argmin_int32_64(
-    int64_t* toptr,
-    const int32_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    const int64_t* starts,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_argmin_int64_64(
-    int64_t* toptr,
-    const int64_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
     const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_uint8_64(
     int64_t* toptr,
     const uint8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    const int64_t* starts,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_argmin_int16_64(
+    int64_t* toptr,
+    const int16_t* fromptr,
+    const int64_t* offsets,
     const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_uint16_64(
     int64_t* toptr,
     const uint16_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    const int64_t* starts,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_argmin_int32_64(
+    int64_t* toptr,
+    const int32_t* fromptr,
+    const int64_t* offsets,
     const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_uint32_64(
     int64_t* toptr,
     const uint32_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    const int64_t* starts,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_argmin_int64_64(
+    int64_t* toptr,
+    const int64_t* fromptr,
+    const int64_t* offsets,
     const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_uint64_64(
     int64_t* toptr,
     const uint64_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_float32_64(
     int64_t* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_float64_64(
     int64_t* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     const int64_t* starts,
     int64_t outlength);
 
@@ -2324,207 +2570,169 @@ extern "C" {
   awkward_reduce_argmin_complex64_64(
     int64_t* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_complex128_64(
     int64_t* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_reduce_count_64(
     int64_t* toptr,
-    const int64_t* parents,
-    int64_t lenparents,
+    const int64_t* offsets,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_reduce_countnonzero_bool_64(
     int64_t* toptr,
     const bool* fromptr,
-    const int64_t* parents,
-    int64_t lenparents,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_countnonzero_int8_64(
     int64_t* toptr,
     const int8_t* fromptr,
-    const int64_t* parents,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_countnonzero_int16_64(
-    int64_t* toptr,
-    const int16_t* fromptr,
-    const int64_t* parents,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_countnonzero_int32_64(
-    int64_t* toptr,
-    const int32_t* fromptr,
-    const int64_t* parents,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_countnonzero_int64_64(
-    int64_t* toptr,
-    const int64_t* fromptr,
-    const int64_t* parents,
-    int64_t lenparents,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_countnonzero_uint8_64(
     int64_t* toptr,
     const uint8_t* fromptr,
-    const int64_t* parents,
-    int64_t lenparents,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_countnonzero_int16_64(
+    int64_t* toptr,
+    const int16_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_countnonzero_uint16_64(
     int64_t* toptr,
     const uint16_t* fromptr,
-    const int64_t* parents,
-    int64_t lenparents,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_countnonzero_int32_64(
+    int64_t* toptr,
+    const int32_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_countnonzero_uint32_64(
     int64_t* toptr,
     const uint32_t* fromptr,
-    const int64_t* parents,
-    int64_t lenparents,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_countnonzero_int64_64(
+    int64_t* toptr,
+    const int64_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_countnonzero_uint64_64(
     int64_t* toptr,
     const uint64_t* fromptr,
-    const int64_t* parents,
-    int64_t lenparents,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_countnonzero_float32_64(
     int64_t* toptr,
     const float* fromptr,
-    const int64_t* parents,
-    int64_t lenparents,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_countnonzero_float64_64(
     int64_t* toptr,
     const double* fromptr,
-    const int64_t* parents,
-    int64_t lenparents,
+    const int64_t* offsets,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_reduce_countnonzero_complex64_64(
     int64_t* toptr,
     const float* fromptr,
-    const int64_t* parents,
-    int64_t lenparents,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_countnonzero_complex128_64(
     int64_t* toptr,
     const double* fromptr,
-    const int64_t* parents,
-    int64_t lenparents,
+    const int64_t* offsets,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_reduce_max_int8_int8_64(
     int8_t* toptr,
     const int8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     int8_t identity);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_max_int16_int16_64(
-    int16_t* toptr,
-    const int16_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength,
-    int16_t identity);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_max_int32_int32_64(
-    int32_t* toptr,
-    const int32_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength,
-    int32_t identity);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_max_int64_int64_64(
-    int64_t* toptr,
-    const int64_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength,
-    int64_t identity);
   EXPORT_SYMBOL ERROR
   awkward_reduce_max_uint8_uint8_64(
     uint8_t* toptr,
     const uint8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     uint8_t identity);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_max_int16_int16_64(
+    int16_t* toptr,
+    const int16_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int16_t identity);
   EXPORT_SYMBOL ERROR
   awkward_reduce_max_uint16_uint16_64(
     uint16_t* toptr,
     const uint16_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     uint16_t identity);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_max_int32_int32_64(
+    int32_t* toptr,
+    const int32_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int32_t identity);
   EXPORT_SYMBOL ERROR
   awkward_reduce_max_uint32_uint32_64(
     uint32_t* toptr,
     const uint32_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     uint32_t identity);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_max_int64_int64_64(
+    int64_t* toptr,
+    const int64_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int64_t identity);
   EXPORT_SYMBOL ERROR
   awkward_reduce_max_uint64_uint64_64(
     uint64_t* toptr,
     const uint64_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     uint64_t identity);
   EXPORT_SYMBOL ERROR
   awkward_reduce_max_float32_float32_64(
     float* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     float identity);
   EXPORT_SYMBOL ERROR
   awkward_reduce_max_float64_float64_64(
     double* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     double identity);
 
@@ -2532,18 +2740,14 @@ extern "C" {
   awkward_reduce_max_complex64_complex64_64(
     float* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     float identity);
   EXPORT_SYMBOL ERROR
   awkward_reduce_max_complex128_complex128_64(
     double* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     double identity);
 
@@ -2551,90 +2755,70 @@ extern "C" {
   awkward_reduce_min_int8_int8_64(
     int8_t* toptr,
     const int8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     int8_t identity);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_min_int16_int16_64(
-    int16_t* toptr,
-    const int16_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength,
-    int16_t identity);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_min_int32_int32_64(
-    int32_t* toptr,
-    const int32_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength,
-    int32_t identity);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_min_int64_int64_64(
-    int64_t* toptr,
-    const int64_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength,
-    int64_t identity);
   EXPORT_SYMBOL ERROR
   awkward_reduce_min_uint8_uint8_64(
     uint8_t* toptr,
     const uint8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     uint8_t identity);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_min_int16_int16_64(
+    int16_t* toptr,
+    const int16_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int16_t identity);
   EXPORT_SYMBOL ERROR
   awkward_reduce_min_uint16_uint16_64(
     uint16_t* toptr,
     const uint16_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     uint16_t identity);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_min_int32_int32_64(
+    int32_t* toptr,
+    const int32_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int32_t identity);
   EXPORT_SYMBOL ERROR
   awkward_reduce_min_uint32_uint32_64(
     uint32_t* toptr,
     const uint32_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     uint32_t identity);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_min_int64_int64_64(
+    int64_t* toptr,
+    const int64_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int64_t identity);
   EXPORT_SYMBOL ERROR
   awkward_reduce_min_uint64_uint64_64(
     uint64_t* toptr,
     const uint64_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     uint64_t identity);
   EXPORT_SYMBOL ERROR
   awkward_reduce_min_float32_float32_64(
     float* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     float identity);
   EXPORT_SYMBOL ERROR
   awkward_reduce_min_float64_float64_64(
     double* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     double identity);
 
@@ -2642,541 +2826,409 @@ extern "C" {
   awkward_reduce_min_complex64_complex64_64(
     float* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     float identity);
   EXPORT_SYMBOL ERROR
   awkward_reduce_min_complex128_complex128_64(
     double* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength,
     double identity);
 
   EXPORT_SYMBOL ERROR
-  awkward_reduce_prod_int32_int8_64(
-    int32_t* toptr,
-    const int8_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_prod_int32_int16_64(
-    int32_t* toptr,
-    const int16_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_prod_int32_int32_64(
-    int32_t* toptr,
-    const int32_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
   awkward_reduce_prod_int64_int8_64(
     int64_t* toptr,
     const int8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_prod_int64_int16_64(
-    int64_t* toptr,
-    const int16_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_prod_int64_int32_64(
-    int64_t* toptr,
-    const int32_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_prod_int64_int64_64(
-    int64_t* toptr,
-    const int64_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_prod_uint32_uint8_64(
-    uint32_t* toptr,
-    const uint8_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_prod_uint32_uint16_64(
-    uint32_t* toptr,
-    const uint16_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_prod_uint32_uint32_64(
-    uint32_t* toptr,
-    const uint32_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_uint64_uint8_64(
     uint64_t* toptr,
     const uint8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_prod_int64_int16_64(
+    int64_t* toptr,
+    const int16_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_uint64_uint16_64(
     uint64_t* toptr,
     const uint16_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_prod_int64_int32_64(
+    int64_t* toptr,
+    const int32_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_uint64_uint32_64(
     uint64_t* toptr,
     const uint32_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_prod_int64_int64_64(
+    int64_t* toptr,
+    const int64_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_uint64_uint64_64(
     uint64_t* toptr,
     const uint64_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_float32_float32_64(
     float* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_float64_float64_64(
     double* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_prod_int32_int8_64(
+    int32_t* toptr,
+    const int8_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_prod_uint32_uint8_64(
+    uint32_t* toptr,
+    const uint8_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_prod_int32_int16_64(
+    int32_t* toptr,
+    const int16_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_prod_uint32_uint16_64(
+    uint32_t* toptr,
+    const uint16_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_prod_int32_int32_64(
+    int32_t* toptr,
+    const int32_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_prod_uint32_uint32_64(
+    uint32_t* toptr,
+    const uint32_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_complex64_complex64_64(
     float* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_complex128_complex128_64(
     double* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_bool_bool_64(
     bool* toptr,
     const bool* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_bool_int8_64(
     bool* toptr,
     const int8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_prod_bool_int16_64(
-    bool* toptr,
-    const int16_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_prod_bool_int32_64(
-    bool* toptr,
-    const int32_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_prod_bool_int64_64(
-    bool* toptr,
-    const int64_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_bool_uint8_64(
     bool* toptr,
     const uint8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_prod_bool_int16_64(
+    bool* toptr,
+    const int16_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_bool_uint16_64(
     bool* toptr,
     const uint16_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_prod_bool_int32_64(
+    bool* toptr,
+    const int32_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_bool_uint32_64(
     bool* toptr,
     const uint32_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_prod_bool_int64_64(
+    bool* toptr,
+    const int64_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_bool_uint64_64(
     bool* toptr,
     const uint64_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_bool_float32_64(
     bool* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_bool_float64_64(
     bool* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_bool_complex64_64(
     bool* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_prod_bool_complex128_64(
     bool* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
 
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_sum_int32_int8_64(
-    int32_t* toptr,
-    const int8_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_sum_int32_int16_64(
-    int32_t* toptr,
-    const int16_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_sum_int32_int32_64(
-    int32_t* toptr,
-    const int32_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_int64_int8_64(
     int64_t* toptr,
     const int8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_sum_int64_int16_64(
-    int64_t* toptr,
-    const int16_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_sum_int64_int32_64(
-    int64_t* toptr,
-    const int32_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_sum_int64_int64_64(
-    int64_t* toptr,
-    const int64_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_sum_uint32_uint8_64(
-    uint32_t* toptr,
-    const uint8_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_sum_uint32_uint16_64(
-    uint32_t* toptr,
-    const uint16_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_sum_uint32_uint32_64(
-    uint32_t* toptr,
-    const uint32_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_uint64_uint8_64(
     uint64_t* toptr,
     const uint8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_int64_int16_64(
+    int64_t* toptr,
+    const int16_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_uint64_uint16_64(
     uint64_t* toptr,
     const uint16_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_int64_int32_64(
+    int64_t* toptr,
+    const int32_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_uint64_uint32_64(
     uint64_t* toptr,
     const uint32_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_int64_int64_64(
+    int64_t* toptr,
+    const int64_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_uint64_uint64_64(
     uint64_t* toptr,
     const uint64_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_float32_float32_64(
     float* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_float64_float64_64(
     double* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_int32_int8_64(
+    int32_t* toptr,
+    const int8_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_uint32_uint8_64(
+    uint32_t* toptr,
+    const uint8_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_int32_int16_64(
+    int32_t* toptr,
+    const int16_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_uint32_uint16_64(
+    uint32_t* toptr,
+    const uint16_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_int32_int32_64(
+    int32_t* toptr,
+    const int32_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_uint32_uint32_64(
+    uint32_t* toptr,
+    const uint32_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_complex64_complex64_64(
     float* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_complex128_complex128_64(
     double* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_bool_bool_64(
     bool* toptr,
     const bool* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_bool_int8_64(
     bool* toptr,
     const int8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_sum_bool_int16_64(
-    bool* toptr,
-    const int16_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_sum_bool_int32_64(
-    bool* toptr,
-    const int32_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
-    int64_t outlength);
-  EXPORT_SYMBOL ERROR
-  awkward_reduce_sum_bool_int64_64(
-    bool* toptr,
-    const int64_t* fromptr,
-    const int64_t* parents,
-    const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_bool_uint8_64(
     bool* toptr,
     const uint8_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_bool_int16_64(
+    bool* toptr,
+    const int16_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_bool_uint16_64(
     bool* toptr,
     const uint16_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_bool_int32_64(
+    bool* toptr,
+    const int32_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_bool_uint32_64(
     bool* toptr,
     const uint32_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_bool_int64_64(
+    bool* toptr,
+    const int64_t* fromptr,
+    const int64_t* offsets,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_bool_uint64_64(
     bool* toptr,
     const uint64_t* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_bool_float32_64(
     bool* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_bool_float64_64(
     bool* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_bool_complex64_64(
     bool* toptr,
     const float* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_bool_complex128_64(
     bool* toptr,
     const double* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_int32_bool_64(
     int32_t* toptr,
     const bool* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_int64_bool_64(
     int64_t* toptr,
     const bool* fromptr,
-    const int64_t* parents,
     const int64_t* offsets,
-    int64_t lenparents,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
@@ -3186,7 +3238,6 @@ extern "C" {
     int64_t length,
     const int64_t* offsets,
     int64_t offsetslength,
-    int64_t parentslength,
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
@@ -3196,7 +3247,6 @@ extern "C" {
     int64_t length,
     const int64_t* offsets,
     int64_t offsetslength,
-    int64_t parentslength,
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
@@ -3206,7 +3256,6 @@ extern "C" {
     int64_t length,
     const int64_t* offsets,
     int64_t offsetslength,
-    int64_t parentslength,
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
@@ -3216,7 +3265,6 @@ extern "C" {
     int64_t length,
     const int64_t* offsets,
     int64_t offsetslength,
-    int64_t parentslength,
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
@@ -3226,7 +3274,6 @@ extern "C" {
     int64_t length,
     const int64_t* offsets,
     int64_t offsetslength,
-    int64_t parentslength,
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
@@ -3236,7 +3283,6 @@ extern "C" {
     int64_t length,
     const int64_t* offsets,
     int64_t offsetslength,
-    int64_t parentslength,
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
@@ -3246,7 +3292,6 @@ extern "C" {
     int64_t length,
     const int64_t* offsets,
     int64_t offsetslength,
-    int64_t parentslength,
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
@@ -3256,7 +3301,6 @@ extern "C" {
     int64_t length,
     const int64_t* offsets,
     int64_t offsetslength,
-    int64_t parentslength,
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
@@ -3266,7 +3310,6 @@ extern "C" {
     int64_t length,
     const int64_t* offsets,
     int64_t offsetslength,
-    int64_t parentslength,
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
@@ -3276,7 +3319,6 @@ extern "C" {
     int64_t length,
     const int64_t* offsets,
     int64_t offsetslength,
-    int64_t parentslength,
     bool ascending,
     bool stable);
   EXPORT_SYMBOL ERROR
@@ -3286,7 +3328,6 @@ extern "C" {
     int64_t length,
     const int64_t* offsets,
     int64_t offsetslength,
-    int64_t parentslength,
     bool ascending,
     bool stable);
 

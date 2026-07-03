@@ -11,9 +11,11 @@ from agno.models.message import Message
 from agno.models.response import ToolExecution
 from agno.run.agent import RunCompletedEvent, RunContentEvent, RunOutput
 from agno.run.base import RunStatus
+from agno.run.team import TeamRunOutput
 from agno.session.agent import AgentSession
+from agno.session.team import TeamSession
 
-from mindroom.agent_storage import create_state_storage, get_agent_session
+from mindroom.agent_storage import create_state_storage, get_agent_session, get_team_session
 from mindroom.ai import _PreparedAgentRun, ai_response, stream_agent_response
 from mindroom.ai_runtime import (
     EMPTY_RESPONSE_NOTICE,
@@ -28,6 +30,7 @@ from mindroom.history import PreparedHistoryState
 from mindroom.history.runtime import ScopeSessionContext
 from mindroom.history.turn_recorder import TurnRecorder
 from mindroom.history.types import HistoryScope
+from tests.conftest import make_turn_context
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -88,6 +91,17 @@ def _completed_run(run_id: str, content: str | None) -> RunOutput:
         messages=[Message(role="assistant", content=content)],
         status=RunStatus.completed,
     )
+
+
+def _completed_team_run_output(run_id: str, content: str | None) -> TeamRunOutput:
+    output = TeamRunOutput(
+        run_id=run_id,
+        team_id="team_general",
+        session_id="session-1",
+        content=content,
+    )
+    output.status = RunStatus.completed
+    return output
 
 
 def test_is_empty_completed_run_detects_contentless_completed_runs() -> None:
@@ -156,6 +170,52 @@ def test_discard_empty_completed_run_removes_run_from_loaded_session_and_storage
         storage.close()
 
 
+def test_discard_empty_completed_team_run_removes_run_from_session_and_storage(tmp_path: Path) -> None:
+    """The TEAM-typed discard must purge the run from memory and persisted history."""
+    storage = create_state_storage(
+        "team_general",
+        tmp_path,
+        subdir="sessions",
+        session_table="team_general_sessions",
+    )
+    try:
+        session = TeamSession(
+            session_id="session-1",
+            team_id="team_general",
+            runs=[
+                _completed_team_run_output("run-good", "First response"),
+                _completed_team_run_output("run-empty", None),
+            ],
+            metadata={},
+            created_at=1,
+            updated_at=1,
+        )
+        storage.upsert_session(session)
+        scope_context = ScopeSessionContext(
+            scope=HistoryScope(kind="team", scope_id="team_general"),
+            storage=storage,
+            session=session,
+        )
+
+        discard_empty_completed_run(
+            scope_context=scope_context,
+            session_id="session-1",
+            run_id="run-empty",
+            session_type=SessionType.TEAM,
+            entity_name="team_general",
+            output_tokens=2,
+        )
+
+        assert session.runs is not None
+        assert [run.run_id for run in session.runs] == ["run-good"]
+        persisted = get_team_session(storage, "session-1")
+        assert persisted is not None
+        assert persisted.runs is not None
+        assert [run.run_id for run in persisted.runs] == ["run-good"]
+    finally:
+        storage.close()
+
+
 @pytest.mark.asyncio
 async def test_ai_response_retries_once_after_empty_completed_run(tmp_path: Path) -> None:
     """One empty completed response should trigger exactly one fresh model attempt."""
@@ -169,9 +229,8 @@ async def test_ai_response_retries_once_after_empty_completed_run(tmp_path: Path
         ]
 
         result = await ai_response(
-            agent_name="general",
+            make_turn_context("general", session_id="session-1"),
             prompt="test",
-            session_id="session-1",
             runtime_paths=_runtime_paths(tmp_path),
             config=_config(),
         )
@@ -195,9 +254,8 @@ async def test_ai_response_closes_spent_agent_state_dbs_before_empty_retry(tmp_p
         ]
 
         result = await ai_response(
-            agent_name="general",
+            make_turn_context("general", session_id="session-1"),
             prompt="test",
-            session_id="session-1",
             runtime_paths=_runtime_paths(tmp_path),
             config=_config(),
         )
@@ -219,9 +277,8 @@ async def test_ai_response_returns_fallback_notice_when_retry_is_also_empty(tmp_
         ]
 
         result = await ai_response(
-            agent_name="general",
+            make_turn_context("general", session_id="session-1"),
             prompt="test",
-            session_id="session-1",
             runtime_paths=_runtime_paths(tmp_path),
             config=_config(),
         )
@@ -245,9 +302,8 @@ async def test_ai_response_fallback_notice_stays_out_of_the_turn_recorder(tmp_pa
         ]
 
         result = await ai_response(
-            agent_name="general",
+            make_turn_context("general", session_id="session-1"),
             prompt="test",
-            session_id="session-1",
             runtime_paths=_runtime_paths(tmp_path),
             config=_config(),
             turn_recorder=recorder,
@@ -281,9 +337,8 @@ async def test_stream_agent_response_retries_once_after_empty_completed_stream(t
         chunks = [
             chunk
             async for chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session-1"),
                 prompt="test",
-                session_id="session-1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
             )
@@ -319,9 +374,8 @@ async def test_stream_agent_response_closes_spent_agent_state_dbs_before_empty_r
         chunks = [
             chunk
             async for chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session-1"),
                 prompt="test",
-                session_id="session-1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
             )
@@ -351,9 +405,8 @@ async def test_stream_agent_response_yields_fallback_notice_when_retry_is_also_e
         chunks = [
             chunk
             async for chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session-1"),
                 prompt="test",
-                session_id="session-1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
             )
@@ -385,9 +438,8 @@ async def test_stream_agent_response_fallback_notice_stays_out_of_the_turn_recor
         chunks = [
             chunk
             async for chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session-1"),
                 prompt="test",
-                session_id="session-1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
                 turn_recorder=recorder,

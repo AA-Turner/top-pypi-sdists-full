@@ -26,6 +26,7 @@ import html as _html_mod
 import logging
 from typing import Any
 
+from dazzle.core.ir import WhenEmpty
 from dazzle.http.runtime.workspace_context import WorkspaceRegionContext
 from dazzle.http.runtime.workspace_csv import _render_csv_response
 from dazzle.http.runtime.workspace_region_computes import compute_columns_for_persona
@@ -33,6 +34,7 @@ from dazzle.http.runtime.workspace_region_fetch import fetch_region_items
 from dazzle.http.runtime.workspace_region_orchestration import compute_region_render_inputs
 from dazzle.http.runtime.workspace_region_prelude import resolve_request_user_context
 from dazzle.http.runtime.workspace_region_render import render_region_html
+from dazzle.page.runtime.when_empty_resolver import resolve_when_empty
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +83,7 @@ def _build_region_response(
     fetched: Any,
     html_body: str,
     hx_target: str | None,
+    is_added_card: bool = False,
 ) -> Any:
     """Build the region-fetch HTTP response, stopping the poll when complete.
 
@@ -99,6 +102,34 @@ def _build_region_response(
     normal innerHTML body and the region simply keeps polling — a safe no-op.
     """
     from fastapi.responses import HTMLResponse
+
+    # #1494 (UX-maturity 3d): an empty region self-demotes per its resolved
+    # `when_empty` mode (declarative-over-htmx-4 — native OOB / HX-Reswap, no
+    # bespoke JS). Only when the fetch produced no rows; `message` (the default
+    # for primary content) falls through to the normal typed empty-state body.
+    # #1494: a picker-added card (`?added=1`) is exempt from the auto self-demote
+    # default — a user who explicitly adds a card should see its empty-state, not
+    # have it immediately collapse/vanish. An *explicit* author `when_empty:`
+    # still applies (their declared intent wins, even for an added card).
+    if hx_target and not getattr(fetched, "items", None):
+        mode = resolve_when_empty(ctx.ir_region)
+        if is_added_card and getattr(ctx.ir_region, "when_empty", None) is None:
+            mode = WhenEmpty.MESSAGE
+        if mode == WhenEmpty.SUPPRESS:
+            # Remove the whole card: htmx OOB-delete the addressable wrapper
+            # (`card-…`, derived from the body's `region-…` hx-target). The
+            # empty main body would swap into the now-doomed card-body — moot.
+            wrapper_id = "card-" + hx_target.removeprefix("region-")
+            return HTMLResponse(
+                content=(
+                    f'<div id="{_html_mod.escape(wrapper_id, quote=True)}" '
+                    f'hx-swap-oob="delete"></div>'
+                )
+            )
+        if mode == WhenEmpty.COLLAPSE:
+            # Drop the empty body, keep the card chrome (title): delete the
+            # hx-target (the `dz-card-body`) via the swap-override header.
+            return HTMLResponse(content="", headers={"HX-Reswap": "delete"})
 
     if hx_target and _region_polling_complete(ctx, fetched):
         display = str(getattr(ctx.ctx_region, "display", "") or "").lower()
@@ -166,4 +197,8 @@ async def _workspace_region_handler(
     html_body = await render_region_html(request, ctx, user_ctx, render_inputs, sort, dir)
 
     # #1399 slice 2: stop polling a finished region (htmx-native self-replace).
-    return _build_region_response(ctx, fetched, html_body, request.headers.get("hx-target"))
+    # #1494: `?added=1` marks a picker-added card → exempt from auto self-demote.
+    is_added_card = request.query_params.get("added") == "1"
+    return _build_region_response(
+        ctx, fetched, html_body, request.headers.get("hx-target"), is_added_card=is_added_card
+    )

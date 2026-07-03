@@ -32,6 +32,7 @@ from anyscale.commands.policy_commands import policy_cli
 from anyscale.commands.project_commands import project_cli
 from anyscale.commands.resource_quota_commands import resource_quota_cli
 from anyscale.commands.schedule_commands import schedule_cli
+from anyscale.commands.scheduler_commands import scheduler_cli
 from anyscale.commands.scim_commands import scim_cli
 from anyscale.commands.service_account_commands import service_account_cli
 from anyscale.commands.service_commands import service_cli
@@ -120,6 +121,7 @@ cli.add_command(version_cli)
 cli.add_command(job_cli)
 cli.add_command(job_queue_cli)
 cli.add_command(schedule_cli)
+cli.add_command(scheduler_cli)
 cli.add_command(service_cli)
 cli.add_command(cluster_cli)
 cli.add_command(workspace_cli_v2)

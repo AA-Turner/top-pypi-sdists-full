@@ -8,6 +8,7 @@ Provides read-only tools for analyzing Flow Designer flows:
 - Get action/logic detail with input/output variables
 """
 
+import hashlib
 import logging
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
@@ -639,6 +640,31 @@ def _flow_instance_label(node: Dict[str, Any]) -> str:
     return node.get("displayText") or node.get("label") or node.get("name", "")
 
 
+def _compact_triggers(
+    trigger_instances: List[Dict[str, Any]], label_map: Optional[Dict[str, str]] = None
+) -> List[Dict[str, Any]]:
+    """Compact a flow's raw trigger instances to {id, type, table, condition}.
+    A raw trigger instance is a big row of inputs + metadata; the caller almost
+    always wants only which table it watches and its decoded condition."""
+    out: List[Dict[str, Any]] = []
+    for t in trigger_instances or []:
+        inputs = t.get("inputs", []) or []
+        table = next(
+            (i.get("displayValue") or i.get("value") for i in inputs if i.get("name") == "table"),
+            "",
+        )
+        raw_cond = next((i.get("value") for i in inputs if i.get("name") == "condition"), "")
+        out.append(
+            {
+                "id": t.get("id"),
+                "type": t.get("type", ""),
+                "table": table,
+                "condition": _condition_to_text(raw_cond or "", label_map),
+            }
+        )
+    return out
+
+
 def _build_label_map(flow_data: Dict[str, Any]) -> Dict[str, str]:
     """uiUniqueIdentifier -> canvas label, so '{{<uiUID>.Record.field}}' pills
     resolve to the producing step's name instead of a raw uuid."""
@@ -653,10 +679,41 @@ def _build_label_map(flow_data: Dict[str, Any]) -> Dict[str, str]:
     return label_map
 
 
-def _humanize_input(name: str, value: Any, label_map: Optional[Dict[str, str]]) -> Any:
+# Inputs whose value is a full script/code body. In the STRUCTURE tree these
+# are stubbed (the body can be tens of KB and is rarely wanted when reading a
+# flow's shape); the full body stays available via read_action / sn_query.
+_SCRIPT_INPUT_NAMES = frozenset({"script", "source", "client_script", "server_script"})
+# Bodies shorter than this stay inline — a one-liner costs nothing and stubbing
+# it would be pure noise.
+_SCRIPT_STUB_MIN_CHARS = 120
+
+
+def _script_stub(value: str) -> str:
+    lines = value.count("\n") + 1
+    digest = hashlib.sha1(value.encode("utf-8", "replace")).hexdigest()[:8]
+    return (
+        f"«script: {lines} lines, {len(value)} chars, sha1:{digest} — omitted from "
+        "tree; fetch full body via read_action or sn_query»"
+    )
+
+
+def _humanize_input(
+    name: str,
+    value: Any,
+    label_map: Optional[Dict[str, str]],
+    include_scripts: bool = True,
+) -> Any:
     """Render an input value for the compact text tree: condition fields become
     decoded text, lone data pills become breadcrumbs, everything else verbatim.
-    With label_map=None this is a no-op (preserves raw/verbatim behavior)."""
+    With label_map=None conditions/pills stay raw (the get_detail contract).
+    Script bodies are stubbed unless include_scripts=True (see _SCRIPT_INPUT_NAMES)."""
+    if (
+        not include_scripts
+        and name in _SCRIPT_INPUT_NAMES
+        and isinstance(value, str)
+        and len(value) > _SCRIPT_STUB_MIN_CHARS
+    ):
+        return _script_stub(value)
     if label_map is None or not isinstance(value, str) or not value:
         return value
     if name in ("condition", "conditions"):
@@ -665,10 +722,15 @@ def _humanize_input(name: str, value: Any, label_map: Optional[Dict[str, str]]) 
     return _readable_pill(value, label_map) or value
 
 
-def _render_row_lines(row: Dict[str, Any], label_map: Optional[Dict[str, str]] = None) -> List[str]:
+def _render_row_lines(
+    row: Dict[str, Any],
+    label_map: Optional[Dict[str, str]] = None,
+    include_scripts: bool = True,
+) -> List[str]:
     """Render a single tree row to one or more text lines (no truncation).
     When label_map is provided, condition/pill values are decoded to human text;
-    otherwise values are emitted verbatim (the get_detail contract)."""
+    otherwise values are emitted verbatim (the get_detail contract). Script
+    bodies are stubbed unless include_scripts=True."""
     indent = "  " * int(row.get("depth") or 0)
     order = row.get("order", "")
     kind = row.get("kind", "")
@@ -683,14 +745,14 @@ def _render_row_lines(row: Dict[str, Any], label_map: Optional[Dict[str, str]] =
         head = f"[{order}] {indent}LOGIC {row.get('type','')}: {label}{marker}"
         lines.append(head)
         if row.get("condition"):
-            cond = _humanize_input("condition", row["condition"], label_map)
+            cond = _humanize_input("condition", row["condition"], label_map, include_scripts)
             lines.append(f"     {indent}  cond= {cond}")
         if row.get("connected_to"):
             lines.append(f"     {indent}  connected_to= {row['connected_to']}")
         if row.get("outputs_to_assign"):
             lines.append(f"     {indent}  outputs_to_assign= {row['outputs_to_assign']}")
         for k, v in (row.get("other_inputs") or {}).items():
-            lines.append(f"     {indent}  {k}= {_humanize_input(k, v, label_map)}")
+            lines.append(f"     {indent}  {k}= {_humanize_input(k, v, label_map, include_scripts)}")
     elif kind == "SUBFLOW":
         scope_part = f", scope={row['subflow_scope']}" if row.get("subflow_scope") else ""
         internal_part = (
@@ -703,7 +765,9 @@ def _render_row_lines(row: Dict[str, Any], label_map: Optional[Dict[str, str]] =
         )
         lines.append(head)
         for k, v in (row.get("inputs") or {}).items():
-            lines.append(f"     {indent}  in.{k}= {_humanize_input(k, v, label_map)}")
+            lines.append(
+                f"     {indent}  in.{k}= {_humanize_input(k, v, label_map, include_scripts)}"
+            )
     else:  # ACTION
         deleted_tag = " [DELETED]" if row.get("deleted") else ""
         head = (
@@ -712,7 +776,9 @@ def _render_row_lines(row: Dict[str, Any], label_map: Optional[Dict[str, str]] =
         )
         lines.append(head)
         for k, v in (row.get("inputs") or {}).items():
-            lines.append(f"     {indent}  in.{k}= {_humanize_input(k, v, label_map)}")
+            lines.append(
+                f"     {indent}  in.{k}= {_humanize_input(k, v, label_map, include_scripts)}"
+            )
         if row.get("outputs"):
             lines.append(f"     {indent}  out= {','.join(row['outputs'])}")
         if row.get("internal_name"):
@@ -728,6 +794,7 @@ def _render_tree_text(
     warnings: List[Dict[str, Any]],
     index: Dict[str, List[Dict[str, Any]]],
     label_map: Optional[Dict[str, str]] = None,
+    include_scripts: bool = True,
 ) -> str:
     """Compact text rendering — denser than JSON, never truncated.
 
@@ -781,49 +848,37 @@ def _render_tree_text(
         if index["branch_conditions"]:
             sections.append(f"  Branches ({len(index['branch_conditions'])}):")
             for b in index["branch_conditions"]:
-                cond = _humanize_input("condition", b["condition"], label_map)
+                cond = _humanize_input("condition", b["condition"], label_map, include_scripts)
                 sections.append(f"    [{b['order']}] {b.get('type','')}  cond= {cond}")
         sections.append("")
 
     sections.append("=== TREE ===")
     for row in tree:
-        sections.extend(_render_row_lines(row, label_map))
+        sections.extend(_render_row_lines(row, label_map, include_scripts))
 
     if orphans:
         sections.append("")
         sections.append("=== ORPHANS (missing parents) ===")
         for row in orphans:
-            sections.extend(_render_row_lines(row, label_map))
+            sections.extend(_render_row_lines(row, label_map, include_scripts))
 
     return "\n".join(sections)
 
 
-def render_flow_compact(flow_data: Dict[str, Any]) -> Dict[str, Any]:
+def render_flow_compact(flow_data: Dict[str, Any], include_scripts: bool = False) -> Dict[str, Any]:
     """Single context-safe flow/subflow view for checkout/read: compact meta +
     decoded trigger(s) + one indented TEXT tree (conditions decoded, data pills
     resolved to step labels). Reuses the canonical detail→summary→text pipeline —
     NO second tree-walker. A 142-node flow renders in ~18KB, not 130KB.
 
+    Script step bodies are stubbed by default (include_scripts=False) — reading a
+    flow's shape rarely needs the code, and a stubbed body cites how to fetch it.
+
     The on-disk checkout file still holds the full raw flow_data for round-trip
     save; only this returned view is compacted.
     """
     label_map = _build_label_map(flow_data)
-    triggers = []
-    for t in flow_data.get("triggerInstances", []) or []:
-        inputs = t.get("inputs", []) or []
-        table = next(
-            (i.get("displayValue") or i.get("value") for i in inputs if i.get("name") == "table"),
-            "",
-        )
-        raw_cond = next((i.get("value") for i in inputs if i.get("name") == "condition"), "")
-        triggers.append(
-            {
-                "id": t.get("id"),
-                "type": t.get("type", ""),
-                "table": table,
-                "condition": _condition_to_text(raw_cond or "", label_map),
-            }
-        )
+    triggers = _compact_triggers(flow_data.get("triggerInstances", []) or [], label_map)
 
     def _count(coll: str) -> int:
         return sum(1 for n in flow_data.get(coll, []) or [] if not n.get("deleted"))
@@ -842,6 +897,7 @@ def render_flow_compact(flow_data: Dict[str, Any]) -> Dict[str, Any]:
             summary.get("warnings", []),
             summary.get("index", {}),
             label_map=label_map,
+            include_scripts=include_scripts,
         )
     except FlowSummaryIntegrityError as e:
         tree = f"(structure summary unavailable — {e})"
@@ -1080,7 +1136,7 @@ def _build_summary_index(
     }
 
 
-def _build_flow_summary(structure: Dict[str, Any]) -> Dict[str, Any]:
+def _build_flow_summary(structure: Dict[str, Any], include_scripts: bool = False) -> Dict[str, Any]:
     """Flat tree summary (depth + full conditions) for analysis use cases.
 
     Works on processflow-shape structure (actions/logic/subflows with parent_ui_id).
@@ -1217,7 +1273,9 @@ def _build_flow_summary(structure: Dict[str, Any]) -> Dict[str, Any]:
         # Surface deleted-but-still-referenced logic so analyzers don't miss
         # silent dependencies. Keep raw entries — they may explain orphan parents.
         summary["deleted_flow_logic_instances"] = deleted_logic
-    summary["tree_text"] = _render_tree_text(tree, orphans, warnings, index)
+    summary["tree_text"] = _render_tree_text(
+        tree, orphans, warnings, index, include_scripts=include_scripts
+    )
     return summary
 
 
@@ -1617,7 +1675,12 @@ def get_flow_details(
                         _build_flow_summary(detail) if params.summary_format else detail
                     )
                 if params.include_triggers:
-                    result["triggers"] = detail["triggers"]
+                    # Compact by default; summary_format=False keeps the raw rows.
+                    result["triggers"] = (
+                        _compact_triggers(detail["triggers"], _build_label_map(pf_data))
+                        if params.summary_format
+                        else detail["triggers"]
+                    )
                 if params.include_executions_summary:
                     result["executions_summary"] = _fetch_execution_summary(
                         config, auth_manager, flow_id

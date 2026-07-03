@@ -19,7 +19,7 @@ if sys.platform == 'win32':
   ]
 else:
   extra_compile_args += [
-    '-std=c++17', '-O3', '-ffast-math', '-pthread'
+    '-std=c++17', '-O3', '-pthread',
   ]
 
 if sys.platform == 'darwin':
@@ -33,6 +33,9 @@ setuptools.setup(
     setuptools.Extension(
       'edt',
       sources=[ 'src/edt.pyx' ],
+      define_macros=[
+        ("NPY_NO_DEPRECATED_API", 1),
+      ],
       language='c++',
       include_dirs=[ 'src', str(NumpyImport()) ],
       extra_compile_args=extra_compile_args,

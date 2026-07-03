@@ -20,10 +20,10 @@ DOCUMENTATION = """
 ---
 module: purefb_fs
 version_added: "1.0.0"
-short_description:  Manage filesystemon Pure Storage FlashBlade`
+short_description:  Manage filesystemon Everpure FlashBlade`
 description:
-    - This module manages filesystems on Pure Storage FlashBlade.
-author: Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+    - This module manages filesystems on Everpure FlashBlade.
+author: Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -63,12 +63,8 @@ options:
     default: true
   nfs_rules:
     description:
-      - Define the NFS rules in operation.
-      - If not set at filesystem creation time it defaults to I(*(rw,no_root_squash))
-      - Supported binary options are ro/rw, secure/insecure, fileid_32bit/no_fileid_32bit,
-        root_squash/no_root_squash, all_squash/no_all_squash and atime/noatime
-      - Supported non-binary options are anonuid=#, anongid=#, sec=(sys|krb5)
-      - Superceeded by I(export_policy) if provided
+      - No longer valid
+      - Superceeded by I(export_policy)
     required: false
     type: str
   smb:
@@ -173,7 +169,6 @@ options:
   export_policy:
     description:
     - Name of NFS export policy to assign to filesystem
-    - Overrides I(nfs_rules)
     type: str
     version_added: "1.9.0"
   share_policy:
@@ -231,6 +226,15 @@ options:
     type: str
     default: ""
     version_added: "1.22.0"
+  realm:
+    description:
+    - Name of the realm to associate the filesystem with.
+    - Requires Purity//FB 4.6.1+ (REST API 2.19+).
+    - Can only be set at filesystem creation time.
+    - To move a filesystem to a different realm, the filesystem must be destroyed and recreated.
+    - If the realm has a QoS policy, the filesystem will inherit it unless overridden.
+    type: str
+    version_added: "1.25.0"
 extends_documentation_fragment:
     - purestorage.flashblade.purestorage.fb
 """
@@ -243,6 +247,27 @@ EXAMPLES = """
     state: present
     fb_url: 10.10.10.2
     api_token: T-55a68eb5-c785-4720-a2ca-8b03903bf641
+
+- name: Create new filesystem in realm
+  purestorage.flashblade.purefb_fs:
+    name: prod-fs
+    size: 5T
+    realm: production-realm
+    state: present
+    fb_url: 10.10.10.2
+    api_token: T-55a68eb5-c785-4720-a2ca-8b03903bf641
+  # Filesystem will be created as 'production-realm::prod-fs'
+
+- name: Modify filesystem that belongs to a realm
+  purestorage.flashblade.purefb_fs:
+    name: production-realm::prod-fs
+    size: 10T
+    nfsv4: false
+    state: present
+    fb_url: 10.10.10.2
+    api_token: T-55a68eb5-c785-4720-a2ca-8b03903bf641
+  # Note: Use full realm::filesystem name for modifications
+  # Realm association cannot be changed after creation
 
 - name: Delete filesystem named foo
   purestorage.flashblade.purefb_fs:
@@ -258,7 +283,7 @@ EXAMPLES = """
     fb_url: 10.10.10.2
     api_token: T-55a68eb5-c785-4720-a2ca-8b03903bf641
 
-- name: Eradicate filesystem named foo
+- name: the iss that ven thou hth ansible Eradicate filesystem named foo
   purestorage.flashblade.purefb_fs:
     name: foo
     state: absent
@@ -288,7 +313,6 @@ EXAMPLES = """
     nfsv4: true
     user_quota: 10K
     group_quota: 25M
-    nfs_rules: '10.21.200.0/24(ro)'
     snapshot: true
     fastremove: true
     hard_limit: true
@@ -324,28 +348,17 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
-
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_filesystem,
+    get_error_message,
+)
 
 EXPORT_POLICY_API_VERSION = "2.3"
 SMB_POLICY_API_VERSION = "2.10"
 CA_API_VERSION = "2.12"
 GOWNER_API_VERSION = "2.13"
 CONTEXT_API_VERSION = "2.17"
-
-
-def get_fs(module, blade):
-    """Return Filesystem or None"""
-    api_version = list(blade.get_versions().items)
-    if CONTEXT_API_VERSION in api_version:
-        res = blade.get_file_systems(
-            context_names=[module.params["context"]],
-            names=[module.params["name"]],
-        )
-    else:
-        res = blade.get_file_systems(names=[module.params["name"]])
-    if res.status_code == 200:
-        return list(res.items)[0]
-    return None
+REALM_API_VERSION = "2.19"
 
 
 def create_fs(module, blade):
@@ -353,8 +366,25 @@ def create_fs(module, blade):
     changed = True
     api_version = list(blade.get_versions().items)
     if not module.check_mode:
-        if not module.params["nfs_rules"]:
-            module.params["nfs_rules"] = "*(rw,no_root_squash)"
+        # Determine realm from either realm parameter or name prefix (realm::fs)
+        realm_name = None
+        if module.params.get("realm"):
+            realm_name = module.params["realm"]
+        elif "::" in module.params["name"]:
+            # Extract realm from name (e.g., "production::prod-fs" -> "production")
+            realm_name = module.params["name"].split("::")[0]
+
+        # Validate realm if present
+        if realm_name:
+            if REALM_API_VERSION not in api_version:
+                module.fail_json(
+                    msg="Realm support requires Purity//FB 4.6.1+ (REST API 2.19+)"
+                )
+            # Check realm exists
+            realm_check = blade.get_realms(destroyed=False, names=[realm_name])
+            if realm_check.status_code != 200:
+                module.fail_json(msg="Realm '{0}' does not exist".format(realm_name))
+
         if module.params["size"]:
             size = human_to_bytes(module.params["size"])
         else:
@@ -382,16 +412,20 @@ def create_fs(module, blade):
             module.fail_json(
                 msg="Cannot set access_control to smb or independent when SMB is not enabled."
             )
-        if module.params["smb"] and not (
-            module.params["nfsv3"] or module.params["nfsv4"]
-        ):
-            module.params["nfs_rules"] = ""
         if module.params["safeguard_acls"] and (
             module.params["access_control"] in ["mode-bits", "independent"]
         ):
             module.fail_json(
                 msg="ACL Safeguarding cannot be enabled if access_control is mode-bits or independent."
             )
+        # Determine if this is a realm filesystem
+        realm_name = None
+        if module.params.get("realm"):
+            realm_name = module.params["realm"]
+        elif "::" in module.params["name"]:
+            realm_name = module.params["name"].split("::")[0]
+
+        # Build FileSystemPost object
         fs_obj = FileSystemPost(
             provisioned=size,
             fast_remove_directory_enabled=module.params["fastremove"],
@@ -400,7 +434,6 @@ def create_fs(module, blade):
             nfs=Nfs(
                 v3_enabled=module.params["nfsv3"],
                 v4_1_enabled=module.params["nfsv4"],
-                rules=module.params["nfs_rules"],
             ),
             smb=SmbPost(enabled=module.params["smb"]),
             http=Http(enabled=module.params["http"]),
@@ -411,20 +444,30 @@ def create_fs(module, blade):
             default_user_quota=user_quota,
             default_group_quota=group_quota,
         )
+        # Construct filesystem name - if realm provided, prepend realm::
+        fs_name = module.params["name"]
+        if realm_name and "::" not in fs_name:
+            fs_name = "{0}::{1}".format(realm_name, fs_name)
+
+        # Build post_file_systems call with optional parameters
+        post_kwargs = {
+            "names": [fs_name],
+            "file_system": fs_obj,
+        }
+
+        # Add context if API supports it
         if CONTEXT_API_VERSION in api_version:
-            res = blade.post_file_systems(
-                names=[module.params["name"]],
-                file_system=fs_obj,
-                context_names=[module.params["context"]],
-            )
-        else:
-            res = blade.post_file_systems(
-                names=[module.params["name"]], file_system=fs_obj
-            )
+            post_kwargs["context_names"] = [module.params["context"]]
+
+        # Add default_exports=[""] for realm filesystems (empty string)
+        if realm_name:
+            post_kwargs["default_exports"] = ["''"]
+
+        res = blade.post_file_systems(**post_kwargs)
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create filesystem {0}. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    fs_name, get_error_message(res)
                 )
             )
         if module.params["policy"]:
@@ -443,24 +486,28 @@ def create_fs(module, blade):
             if CONTEXT_API_VERSION in api_version:
                 res = blade.post_policies_file_systems(
                     policy_names=[module.params["policy"]],
-                    member_names=[module.params["name"]],
+                    member_names=[fs_name],
                     context_names=[module.params["context"]],
                 )
             else:
                 res = blade.post_policies_file_systems(
                     policy_names=[module.params["policy"]],
-                    member_names=[module.params["name"]],
+                    member_names=[fs_name],
                 )
             if res.status_code != 200:
                 _delete_fs(module, blade)
                 module.fail_json(
                     msg="Failed to apply policy {0} when creating filesystem {1}. Error: {2}".format(
                         module.params["policy"],
-                        module.params["name"],
-                        res.errors[0].message,
+                        fs_name,
+                        get_error_message(res),
                     )
                 )
-        if EXPORT_POLICY_API_VERSION in api_version and module.params["export_policy"]:
+        if (
+            EXPORT_POLICY_API_VERSION in api_version
+            and module.params["export_policy"]
+            and (module.params["nfsv3"] or module.params["nfsv4"])
+        ):
             export_attr = FileSystemPatch(
                 nfs=NfsPatch(
                     export_policy=Reference(name=module.params["export_policy"])
@@ -468,24 +515,22 @@ def create_fs(module, blade):
             )
             if CONTEXT_API_VERSION in api_version:
                 res = blade.patch_file_systems(
-                    names=[module.params["name"]],
+                    names=[fs_name],
                     file_system=export_attr,
                     context_names=[module.params["context"]],
                 )
             else:
-                res = blade.patch_file_systems(
-                    names=[module.params["name"]], file_system=export_attr
-                )
+                res = blade.patch_file_systems(names=[fs_name], file_system=export_attr)
             if res.status_code != 200:
                 module.fail_json(
                     msg="Filesystem {0} created, but failed to assign export "
                     "policy {1}. Error: {2}".format(
-                        module.params["name"],
+                        fs_name,
                         module.params["export_policy"],
-                        res.errors[0].message,
+                        get_error_message(res),
                     )
                 )
-        if SMB_POLICY_API_VERSION in api_version:
+        if SMB_POLICY_API_VERSION in api_version and module.params["smb"]:
             if module.params["client_policy"]:
                 export_attr = FileSystemPatch(
                     smb=Smb(
@@ -494,21 +539,21 @@ def create_fs(module, blade):
                 )
                 if CONTEXT_API_VERSION in api_version:
                     res = blade.patch_file_systems(
-                        names=[module.params["name"]],
+                        names=[fs_name],
                         file_system=export_attr,
                         context_names=[module.params["context"]],
                     )
                 else:
                     res = blade.patch_file_systems(
-                        names=[module.params["name"]], file_system=export_attr
+                        names=[fs_name], file_system=export_attr
                     )
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Filesystem {0} created, but failed to assign client "
                         "policy {1}. Error: {2}".format(
-                            module.params["name"],
+                            fs_name,
                             module.params["client_policy"],
-                            res.errors[0].message,
+                            get_error_message(res),
                         )
                     )
             if module.params["share_policy"]:
@@ -517,22 +562,22 @@ def create_fs(module, blade):
                 )
                 if CONTEXT_API_VERSION in api_version:
                     res = blade.patch_file_systems(
-                        names=[module.params["name"]],
+                        names=[fs_name],
                         file_system=export_attr,
                         context_names=[module.params["context"]],
                     )
                 else:
                     res = blade.patch_file_systems(
-                        names=[module.params["name"]],
+                        names=[fs_name],
                         file_system=export_attr,
                     )
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Filesystem {0} created, but failed to assign share "
                         "policy {1}. Error: {2}".format(
-                            module.params["name"],
+                            fs_name,
                             module.params["share_policy"],
-                            res.errors[0].message,
+                            get_error_message(res),
                         )
                     )
             if CA_API_VERSION in api_version:
@@ -545,20 +590,18 @@ def create_fs(module, blade):
                 )
                 if CONTEXT_API_VERSION in api_version:
                     res = blade.patch_file_systems(
-                        names=[module.params["name"]],
+                        names=[fs_name],
                         file_system=ca_attr,
                         context_names=[module.params["context"]],
                     )
                 else:
-                    res = blade.patch_file_systems(
-                        names=[module.params["name"]], file_system=ca_attr
-                    )
+                    res = blade.patch_file_systems(names=[fs_name], file_system=ca_attr)
                 if res.status_code != 200:
                     module.fail_json(
-                        msg="Filesystem {0} created, but failed to set continuous availability"
+                        msg="Filesystem {0} created, but failed to set continuous availability. "
                         "Error: {1}".format(
-                            module.params["name"],
-                            res.errors[0].message,
+                            fs_name,
+                            get_error_message(res),
                         )
                     )
             if GOWNER_API_VERSION in api_version and module.params["group_ownership"]:
@@ -567,25 +610,23 @@ def create_fs(module, blade):
                 )
                 if CONTEXT_API_VERSION in api_version:
                     res = blade.patch_file_systems(
-                        names=[module.params["name"]],
+                        names=[fs_name],
                         file_system=go_attr,
                         context_names=[module.params["context"]],
                     )
                 else:
-                    res = blade.patch_file_systems(
-                        names=[module.params["name"]], file_system=go_attr
-                    )
+                    res = blade.patch_file_systems(names=[fs_name], file_system=go_attr)
                 if res.status_code != 200:
                     module.fail_json(
-                        msg="Filesystem {0} created, but failed to set group ownership"
+                        msg="Filesystem {0} created, but failed to set group ownership. "
                         "Error: {1}".format(
-                            module.params["name"],
-                            res.errors[0].message,
+                            fs_name,
+                            get_error_message(res),
                         )
                     )
             if CONTEXT_API_VERSION in api_version and module.params["storage_class"]:
                 res = blade.patch_file_systems(
-                    names=[module.params["name"]],
+                    names=[fs_name],
                     file_system=FileSystemPatch(
                         storage_class=StorageClassInfo(
                             name=module.params["storage_class"]
@@ -608,6 +649,16 @@ def modify_fs(module, blade):
     change_go = False
     change_sc = False
     mod_fs = False
+    # Determine if this is a realm filesystem
+    realm_name = None
+    if module.params.get("realm"):
+        realm_name = module.params["realm"]
+    elif "::" in module.params["name"]:
+        realm_name = module.params["name"].split("::")[0]
+    # Construct filesystem name - if realm provided, prepend realm::
+    fs_name = module.params["name"]
+    if realm_name and "::" not in fs_name:
+        fs_name = "{0}::{1}".format(realm_name, fs_name)
     api_version = list(blade.get_versions().items)
     if module.params["policy"] and module.params["policy_state"] == "present":
         if CONTEXT_API_VERSION in api_version:
@@ -624,33 +675,33 @@ def modify_fs(module, blade):
         if CONTEXT_API_VERSION in api_version:
             res = blade.get_policies_file_systems(
                 policy_names=[module.params["policy"]],
-                member_names=[module.params["name"]],
+                member_names=[fs_name],
                 context_names=[module.params["context"]],
             )
         else:
             res = blade.get_policies_file_systems(
                 policy_names=[module.params["policy"]],
-                member_names=[module.params["name"]],
+                member_names=[fs_name],
             )
-        if res.status_code != 200:
+        if res.status_code != 200 or getattr(res, "total_item_count", 0) == 0:
             if CONTEXT_API_VERSION in api_version:
-                res = blade.patch_policies_file_systems(
+                res = blade.post_policies_file_systems(
                     policy_names=[module.params["policy"]],
-                    member_names=[module.params["name"]],
+                    member_names=[fs_name],
                     context_names=[module.params["context"]],
                 )
             else:
-                res = blade.patch_policies_file_systems(
+                res = blade.post_policies_file_systems(
                     policy_names=[module.params["policy"]],
-                    member_names=[module.params["name"]],
+                    member_names=[fs_name],
                 )
             mod_fs = True
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to add filesystem {0} to policy {1}. Error: {2}".format(
-                        module.params["name"],
+                        fs_name,
                         module.params["policy"],
-                        res.errors[0].message,
+                        get_error_message(res),
                     )
                 )
     if module.params["policy"] and module.params["policy_state"] == "absent":
@@ -665,46 +716,45 @@ def modify_fs(module, blade):
             if CONTEXT_API_VERSION in api_version:
                 res = blade.get_policies_file_systems(
                     policy_names=[module.params["policy"]],
-                    member_names=[module.params["name"]],
+                    member_names=[fs_name],
                     context_names=[module.params["context"]],
                 )
             else:
                 res = blade.get_policies_file_systems(
                     policy_names=[module.params["policy"]],
-                    member_names=[module.params["name"]],
+                    member_names=[fs_name],
                 )
             if res.status_code == 200:
                 if CONTEXT_API_VERSION in api_version:
                     res = blade.delete_policies_file_systems(
                         policy_names=[module.params["policy"]],
-                        member_names=[module.params["name"]],
+                        member_names=[fs_name],
                         context_names=[module.params["context"]],
                     )
                 else:
                     res = blade.delete_policies_file_systems(
                         policy_names=[module.params["policy"]],
-                        member_names=[module.params["name"]],
+                        member_names=[fs_name],
                     )
                 mod_fs = True
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to remove filesystem {0} from policy {1}. Error: {2}".format(
-                            module.params["name"],
+                            fs_name,
                             module.params["policy"],
-                            res.errors[0].message,
+                            get_error_message(res),
                         )
                     )
     if module.params["user_quota"]:
         user_quota = human_to_bytes(module.params["user_quota"])
     if module.params["group_quota"]:
         group_quota = human_to_bytes(module.params["group_quota"])
-    fsys = get_fs(module, blade)
+    fsys = get_filesystem(module, blade)
     new_fsys = {
         "destroyed": fsys.destroyed,
         "provisioned": fsys.provisioned,
         "nfsv3": fsys.nfs.v3_enabled,
         "nfsv4": fsys.nfs.v4_1_enabled,
-        "nfs_rules": fsys.nfs.rules,
         "default_user_quota": fsys.default_user_quota,
         "default_group_quota": fsys.default_group_quota,
         "group_ownership": fsys.group_ownership,
@@ -733,10 +783,6 @@ def modify_fs(module, blade):
     if module.params["nfsv4"] != fsys.nfs.v4_1_enabled:
         new_fsys["nfsv4"] = module.params["nfsv4"]
         mod_fs = True
-    if module.params["nfs_rules"] is not None:
-        if sorted(fsys.nfs.rules) != sorted(module.params["nfs_rules"]):
-            new_fsys["nfs_rules"] = module.params["nfs_rules"]
-            mod_fs = True
     if module.params["user_quota"] and user_quota != fsys.default_user_quota:
         new_fsys["default_user_quota"] = user_quota
         mod_fs = True
@@ -780,17 +826,17 @@ def modify_fs(module, blade):
             # Demotion only allowed on filesystems in a replica-link
             if CONTEXT_API_VERSION in api_version:
                 res = blade.get_file_system_replica_links(
-                    local_file_system_names=[module.params["name"]],
+                    local_file_system_names=[fs_name],
                     context_names=[module.params["context"]],
                 )
             else:
                 res = blade.get_file_system_replica_links(
-                    local_file_system_names=[module.params["name"]]
+                    local_file_system_names=[fs_name]
                 )
             if res.status_code != 200:
                 module.fail_json(
                     msg="Filesystem {0} not demoted. Not in a replica-link".format(
-                        module.params["name"]
+                        fs_name
                     )
                 )
             new_fsys["requested_promotion_state"] = "demoted"
@@ -801,18 +847,18 @@ def modify_fs(module, blade):
             if CONTEXT_API_VERSION in api_version:
                 if new_fsys["destroyed"] != fsys.destroyed:
                     delres = blade.patch_file_systems(
-                        names=module.params["name"],
+                        names=[fs_name],
                         context_names=[module.params["context"]],
                         file_system=FileSystemPatch(destroyed=new_fsys["destroyed"]),
                     )
                     if delres.status_code != 200:
                         module.fail_json(
                             msg="Failed to update filesystem {0} deleted status. Error {1}".format(
-                                module.params["name"], res.errors[0].message
+                                fs_name, get_error_message(res)
                             )
                         )
                 res = blade.patch_file_systems(
-                    names=module.params["name"],
+                    names=[fs_name],
                     context_names=[module.params["context"]],
                     file_system=FileSystemPatch(
                         default_group_quota=new_fsys["default_group_quota"],
@@ -825,7 +871,6 @@ def modify_fs(module, blade):
                             safeguard_acls=new_fsys["safeguard_acls"],
                         ),
                         nfs=NfsPatch(
-                            rules=new_fsys["nfs_rules"],
                             v3_enabled=new_fsys["nfsv3"],
                             v4_1_enabled=new_fsys["nfsv4"],
                         ),
@@ -840,17 +885,17 @@ def modify_fs(module, blade):
             else:
                 if new_fsys["destroyed"] != fsys.destroyed:
                     delres = blade.patch_file_systems(
-                        names=module.params["name"],
+                        names=[fs_name],
                         file_system=FileSystemPatch(destroyed=new_fsys["destroyed"]),
                     )
                     if delres.status_code != 200:
                         module.fail_json(
                             msg="Failed to update filesystem {0} deleted status. Error {1}".format(
-                                module.params["name"], res.errors[0].message
+                                fs_name, get_error_message(res)
                             )
                         )
                 res = blade.patch_file_systems(
-                    names=module.params["name"],
+                    names=[fs_name],
                     file_system=FileSystemPatch(
                         default_group_quota=new_fsys["default_group_quota"],
                         default_user_quota=new_fsys["default_user_quota"],
@@ -862,7 +907,6 @@ def modify_fs(module, blade):
                             safeguard_acls=new_fsys["safeguard_acls"],
                         ),
                         nfs=NfsPatch(
-                            rules=new_fsys["nfs_rules"],
                             v3_enabled=new_fsys["nfsv3"],
                             v4_1_enabled=new_fsys["nfsv4"],
                         ),
@@ -877,21 +921,25 @@ def modify_fs(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to update filesystem {0}. Error {1}".format(
-                        module.params["name"], res.errors[0].message
+                        fs_name, get_error_message(res)
                     )
                 )
     if CONTEXT_API_VERSION in api_version:
         current_fs = list(
             blade.get_file_systems(
                 context_names=[module.params["context"]],
-                filter="name='" + module.params["name"] + "'",
+                filter="name='" + fs_name + "'",
             ).items
         )[0]
     else:
         current_fs = list(
-            blade.get_file_systems(filter="name='" + module.params["name"] + "'").items
+            blade.get_file_systems(filter="name='" + fs_name + "'").items
         )[0]
-    if EXPORT_POLICY_API_VERSION in api_version and module.params["export_policy"]:
+    if (
+        EXPORT_POLICY_API_VERSION in api_version
+        and module.params["export_policy"]
+        and (current_fs.nfs.v3_enabled or current_fs.nfs.v4_1_enabled)
+    ):
         change_export = False
         if (
             current_fs.nfs.export_policy.name
@@ -908,24 +956,26 @@ def modify_fs(module, blade):
             )
             if CONTEXT_API_VERSION in api_version:
                 res = blade.patch_file_systems(
-                    names=[module.params["name"]],
+                    names=[fs_name],
                     file_system=export_attr,
                     context_names=[module.params["context"]],
                 )
             else:
-                res = blade.patch_file_systems(
-                    names=[module.params["name"]], file_system=export_attr
-                )
+                res = blade.patch_file_systems(names=[fs_name], file_system=export_attr)
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to modify export policy {1} for "
                     "filesystem {0}. Error: {2}".format(
-                        module.params["name"],
+                        fs_name,
                         module.params["export_policy"],
-                        res.errors[0].message,
+                        get_error_message(res),
                     )
                 )
-    if SMB_POLICY_API_VERSION in api_version and module.params["client_policy"]:
+    if (
+        SMB_POLICY_API_VERSION in api_version
+        and module.params["client_policy"]
+        and current_fs.smb.enabled
+    ):
         if (
             current_fs.smb.client_policy.name
             and current_fs.smb.client_policy.name != module.params["client_policy"]
@@ -939,24 +989,26 @@ def modify_fs(module, blade):
             )
             if CONTEXT_API_VERSION in api_version:
                 res = blade.patch_file_systems(
-                    names=[module.params["name"]],
+                    names=[fs_name],
                     file_system=client_attr,
                     context_names=[module.params["context"]],
                 )
             else:
-                res = blade.patch_file_systems(
-                    names=[module.params["name"]], file_system=client_attr
-                )
+                res = blade.patch_file_systems(names=[fs_name], file_system=client_attr)
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to modify client policy {1} for "
                     "filesystem {0}. Error: {2}".format(
-                        module.params["name"],
+                        fs_name,
                         module.params["client_policy"],
-                        res.errors[0].message,
+                        get_error_message(res),
                     )
                 )
-    if SMB_POLICY_API_VERSION in api_version and module.params["share_policy"]:
+    if (
+        SMB_POLICY_API_VERSION in api_version
+        and module.params["share_policy"]
+        and current_fs.smb.enabled
+    ):
         if (
             current_fs.smb.share_policy.name
             and current_fs.smb.share_policy.name != module.params["share_policy"]
@@ -970,24 +1022,22 @@ def modify_fs(module, blade):
             )
             if CONTEXT_API_VERSION in api_version:
                 res = blade.patch_file_systems(
-                    names=[module.params["name"]],
+                    names=[fs_name],
                     file_system=share_attr,
                     context_names=[module.params["context"]],
                 )
             else:
-                res = blade.patch_file_systems(
-                    names=[module.params["name"]], file_system=share_attr
-                )
+                res = blade.patch_file_systems(names=[fs_name], file_system=share_attr)
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to modify share policy {1} for "
                     "filesystem {0}. Error: {2}".format(
-                        module.params["name"],
+                        fs_name,
                         module.params["share_policy"],
-                        res.errors[0].message,
+                        get_error_message(res),
                     )
                 )
-    if CA_API_VERSION in api_version:
+    if CA_API_VERSION in api_version and current_fs.smb.enabled:
         if (
             module.params["continuous_availability"]
             != current_fs.smb.continuous_availability_enabled
@@ -1003,20 +1053,18 @@ def modify_fs(module, blade):
             )
             if CONTEXT_API_VERSION in api_version:
                 res = blade.patch_file_systems(
-                    names=[module.params["name"]],
+                    names=[fs_name],
                     file_system=ca_attr,
                     context_names=[module.params["context"]],
                 )
             else:
-                res = blade.patch_file_systems(
-                    names=[module.params["name"]], file_system=ca_attr
-                )
+                res = blade.patch_file_systems(names=[fs_name], file_system=ca_attr)
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to modify continuous availability for "
                     "filesystem {0}. Error: {1}".format(
-                        module.params["name"],
-                        res.errors[0].message,
+                        fs_name,
+                        get_error_message(res),
                     )
                 )
     if GOWNER_API_VERSION in api_version:
@@ -1026,27 +1074,25 @@ def modify_fs(module, blade):
             go_attr = FileSystemPatch(group_ownership=module.params["group_ownership"])
             if CONTEXT_API_VERSION in api_version:
                 res = blade.patch_file_systems(
-                    names=[module.params["name"]],
+                    names=[fs_name],
                     file_system=go_attr,
                     context_names=[module.params["context"]],
                 )
             else:
-                res = blade.patch_file_systems(
-                    names=[module.params["name"]], file_system=go_attr
-                )
+                res = blade.patch_file_systems(names=[fs_name], file_system=go_attr)
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to modify group ownership for "
                     "filesystem {0}. Error: {1}".format(
-                        module.params["name"],
-                        res.errors[0].message,
+                        fs_name,
+                        get_error_message(res),
                     )
                 )
     if CONTEXT_API_VERSION in api_version and module.params["storage_class"]:
         if module.params["storage_class"] != current_fs.storage_class:
             change_sc = True
         res = blade.patch_file_systems(
-            names=[module.params["name"]],
+            names=[fs_name],
             file_system=FileSystemPatch(
                 storage_class=StorageClassInfo(name=module.params["storage_class"])
             ),
@@ -1071,8 +1117,18 @@ def modify_fs(module, blade):
 
 def _delete_fs(module, blade):
     """In module Delete Filesystem"""
+    # Determine if this is a realm filesystem
+    realm_name = None
+    if module.params.get("realm"):
+        realm_name = module.params["realm"]
+    elif "::" in module.params["name"]:
+        realm_name = module.params["name"].split("::")[0]
+    # Construct filesystem name - if realm provided, prepend realm::
+    fs_name = module.params["name"]
+    if realm_name and "::" not in fs_name:
+        fs_name = "{0}::{1}".format(realm_name, fs_name)
     res = blade.patch_file_systems(
-        name=module.params["name"],
+        names=[fs_name],
         file_system=FileSystemPatch(
             nfs=NfsPatch(v3_enabled=False, v4_1_enabled=False),
             smb=Smb(enabled=False),
@@ -1084,25 +1140,35 @@ def _delete_fs(module, blade):
     if res.status_code != 200:
         module.fail_json(
             msg="Failed to delete filesystem {0}. Error: {1}".format(
-                module.params["name"], res.errors[0].message
+                fs_name, get_error_message(res)
             )
         )
 
-    res = blade.delete_file_systems(name=module.params["name"])
+    res = blade.delete_file_systems(names=[fs_name])
     if res.status_code != 200:
         module.fail_json(
             msg="Failed to eradicate deleted filesystem {0}. Error: {1}".format(
-                module.params["name"], res.errors[0].message
+                fs_name, get_error_message(res)
             )
         )
 
 
 def delete_fs(module, blade):
     """Delete Filesystem"""
+    # Determine if this is a realm filesystem
+    realm_name = None
+    if module.params.get("realm"):
+        realm_name = module.params["realm"]
+    elif "::" in module.params["name"]:
+        realm_name = module.params["name"].split("::")[0]
+    # Construct filesystem name - if realm provided, prepend realm::
+    fs_name = module.params["name"]
+    if realm_name and "::" not in fs_name:
+        fs_name = "{0}::{1}".format(realm_name, fs_name)
     changed = True
     if not module.check_mode:
         res = blade.patch_file_systems(
-            names=[module.params["name"]],
+            names=[fs_name],
             file_system=FileSystemPatch(
                 nfs=NfsPatch(v3_enabled=False, v4_1_enabled=False),
                 smb=Smb(enabled=False),
@@ -1114,15 +1180,15 @@ def delete_fs(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to delete filesystem {0}. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    fs_name, get_error_message(res)
                 )
             )
         if module.params["eradicate"]:
-            res = blade.delete_file_systems(names=[module.params["name"]])
+            res = blade.delete_file_systems(names=[fs_name])
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to eradicate filesystem {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        fs_name, get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -1130,13 +1196,23 @@ def delete_fs(module, blade):
 
 def eradicate_fs(module, blade):
     """Eradicate Filesystem"""
+    # Determine if this is a realm filesystem
+    realm_name = None
+    if module.params.get("realm"):
+        realm_name = module.params["realm"]
+    elif "::" in module.params["name"]:
+        realm_name = module.params["name"].split("::")[0]
+    # Construct filesystem name - if realm provided, prepend realm::
+    fs_name = module.params["name"]
+    if realm_name and "::" not in fs_name:
+        fs_name = "{0}::{1}".format(realm_name, fs_name)
     changed = True
     if not module.check_mode:
         res = blade.delete_file_systems(names=[module.params["name"]])
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to eradicate filesystem {0}. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -1186,6 +1262,7 @@ def main():
             cancel_in_progress=dict(type="bool", default=False),
             context=dict(type="str", default=""),
             storage_class=dict(type="str"),
+            realm=dict(type="str"),
         )
     )
 
@@ -1193,7 +1270,20 @@ def main():
 
     state = module.params["state"]
     blade = get_system(module)
-    fsys = get_fs(module, blade)
+
+    # Check if filesystem exists
+    # If realm is provided and filesystem name doesn't include realm prefix,
+    # also check for realm::filesystem format
+    fsys = get_filesystem(module, blade)
+    if not fsys and module.params.get("realm") and "::" not in module.params["name"]:
+        # Try looking for realm::filesystem format
+        original_name = module.params["name"]
+        qualified_name = "{0}::{1}".format(module.params["realm"], original_name)
+        module.params["name"] = qualified_name
+        fsys = get_filesystem(module, blade)
+        # If not found with qualified name, restore original name for creation
+        if not fsys:
+            module.params["name"] = original_name
 
     if module.params["eradicate"] and state == "present":
         module.warn("Eradicate flag ignored without state=absent")

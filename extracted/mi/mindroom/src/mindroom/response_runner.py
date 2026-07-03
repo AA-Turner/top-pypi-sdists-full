@@ -13,7 +13,7 @@ from agno.session.team import TeamSession
 
 from mindroom.agent_run_context import append_knowledge_availability_enrichment
 from mindroom.agents import show_tool_calls_for_agent
-from mindroom.ai import ai_response, build_matrix_run_metadata, stream_agent_response
+from mindroom.ai import ResponseTurnContext, ai_response, build_matrix_run_metadata, stream_agent_response
 from mindroom.ai_run_metadata import ai_run_extra_content_from_metadata
 from mindroom.background_tasks import create_background_task
 from mindroom.constants import ATTACHMENT_IDS_KEY, ORIGINAL_SENDER_KEY, ROUTER_AGENT_NAME
@@ -43,7 +43,6 @@ from mindroom.post_response_effects import PostResponseEffectsSupport, ResponseO
 from mindroom.response_attempt import ResponseAttemptDeps, ResponseAttemptRequest, ResponseAttemptRunner
 from mindroom.response_terminal import (
     PendingVisibleResponse,
-    build_placeholder_terminal_stream_transport_outcome,
     build_terminal_stream_transport_outcome,
 )
 from mindroom.runtime_shutdown import GENERIC_SHUTDOWN, RuntimeShutdownIntent
@@ -92,12 +91,13 @@ if TYPE_CHECKING:
     from mindroom.constants import RuntimePaths
     from mindroom.conversation_resolver import ConversationResolver
     from mindroom.conversation_state_writer import ConversationStateWriter
-    from mindroom.history import CompactionOutcome, HistoryScope
+    from mindroom.history import HistoryScope
     from mindroom.hooks import EnrichmentItem, MessageEnvelope
     from mindroom.knowledge import KnowledgeAccessSupport
     from mindroom.matrix.client_visible_messages import ResolvedVisibleMessage
     from mindroom.matrix.identity import MatrixID
     from mindroom.message_target import MessageTarget
+    from mindroom.post_response_effects import PostResponseEffectsDeps
     from mindroom.response_payload_preparation import ResponsePayloadPreparation, ResponsePayloadPreparer
     from mindroom.stop import StopManager
     from mindroom.streaming import StreamInputChunk
@@ -283,6 +283,65 @@ class ResponseRequest:
 
 class PostLockRequestPreparationError(RuntimeError):
     """Raised when post-lock request preparation fails before generation starts."""
+
+
+@dataclass
+class _DeliveryProgress:
+    """Mutable pre/post-delivery state for one locked response turn."""
+
+    tracked_event_id: str | None = None
+    stage_started: bool = False
+    failure_reason: str | None = None
+    cancelled: bool = False
+    deferred_error: BaseException | None = None
+
+    def note_delivery_started(self, event_id: str | None) -> None:
+        """Mark visible delivery as begun, tracking the event carrying it."""
+        self.stage_started = True
+        self.track_event(event_id)
+
+    def note_task_cancelled(self, failure_reason: str) -> None:
+        """Record that the response task was cancelled before delivery settled."""
+        self.failure_reason = failure_reason
+        self.cancelled = True
+
+    def track_event(self, event_id: str | None) -> None:
+        """Remember the latest Matrix event a terminal note could edit."""
+        if event_id:
+            self.tracked_event_id = event_id
+
+
+@dataclass(frozen=True)
+class _ResponseGenerationOutcome:
+    """What one locked response generation produced, returned instead of out-params."""
+
+    delivery: FinalDeliveryOutcome
+    run_succeeded: bool
+
+
+@dataclass(frozen=True)
+class _NonStreamingGeneration:
+    """One non-streaming AI generation's artifacts, returned instead of out-params.
+
+    The streaming path keeps caller-owned collectors instead: its run-metadata
+    dict must be live while the delivery gateway snapshots extra_content, and
+    its artifacts must survive the raising StreamingDeliveryError exit.
+    """
+
+    response_text: str
+    tool_trace: list[ToolTraceEntry]
+    run_metadata_content: dict[str, Any]
+
+
+def _generation_outcome(
+    delivery: FinalDeliveryOutcome,
+    turn_recorder: TurnRecorder,
+) -> _ResponseGenerationOutcome:
+    """Assemble one generation outcome from the turn's recorder."""
+    return _ResponseGenerationOutcome(
+        delivery=delivery,
+        run_succeeded=turn_recorder.outcome == "completed",
+    )
 
 
 @dataclass(frozen=True)
@@ -800,6 +859,30 @@ class ResponseRunner:
         """Resolve the correlation id for one request."""
         return request.correlation_id or request.reply_to_event_id or request.response_envelope.source_event_id
 
+    def _agent_turn_context(
+        self,
+        request: ResponseRequest,
+        *,
+        runtime: _PreparedResponseRuntime,
+        run_id: str | None,
+        active_event_ids: set[str],
+        system_enrichment_items: Sequence[EnrichmentItem],
+    ) -> ResponseTurnContext:
+        """Build the per-turn identity context for one agent response."""
+        return ResponseTurnContext(
+            entity_label=self.deps.agent_name,
+            session_id=runtime.session_id,
+            run_id=run_id,
+            correlation_id=self._correlation_id_for_request(request),
+            reply_to_event_id=request.reply_to_event_id,
+            room_id=request.room_id,
+            thread_id=runtime.resolved_target.resolved_thread_id,
+            requester_id=request.user_id,
+            matrix_run_metadata=_materialize_matrix_run_metadata(request.matrix_run_metadata),
+            active_event_ids=frozenset(active_event_ids),
+            system_enrichment_items=tuple(system_enrichment_items),
+        )
+
     def _notify_sync_restart_cancelled(
         self,
         request: ResponseRequest,
@@ -825,6 +908,113 @@ class ResponseRunner:
         if cancel_source_from_failure_reason(delivery_failure_reason) != "sync_restart":
             return
         request.on_sync_restart_cancelled()
+
+    async def _begin_locked_turn(
+        self,
+        request: ResponseRequest,
+        *,
+        resolved_target: MessageTarget,
+    ) -> ResponseRequest:
+        """Run the shared post-lock request preparation for one locked turn."""
+        if request.on_lifecycle_lock_acquired is not None:
+            request.on_lifecycle_lock_acquired()
+        request = await self._prepare_request_after_lock(request)
+        request = self._request_with_locked_target(request, resolved_target)
+        if request.pipeline_timing is not None:
+            request.pipeline_timing.mark("thread_refresh_ready")
+        return request
+
+    async def _finalize_pre_delivery_terminal(
+        self,
+        *,
+        target: MessageTarget,
+        request: ResponseRequest,
+        response_kind: str,
+        response_envelope: MessageEnvelope,
+        correlation_id: str,
+        progress: _DeliveryProgress,
+        run_message_id: str | None,
+        terminal_status: Literal["cancelled", "error"],
+        failure_reason: str,
+    ) -> FinalDeliveryOutcome:
+        """Finalize one turn that terminated before a delivery outcome settled.
+
+        The real pending-visible shape decides what the gateway may touch: a
+        non-placeholder existing event (for example a prior answer being
+        regenerated) must never be treated as a redactable placeholder.
+        """
+        # Pre-delivery, a tracked event without an existing event can only be
+        # the attempt runner's freshly sent thinking placeholder (the local
+        # run_message_id is unassigned when the attempt raised), so classify
+        # it as the run message for placeholder cleanup instead of leaving
+        # "Thinking..." dangling.
+        placeholder_run_message_id = (
+            (run_message_id or progress.tracked_event_id) if request.existing_event_id is None else None
+        )
+        pending = PendingVisibleResponse(
+            tracked_event_id=progress.tracked_event_id,
+            run_message_id=placeholder_run_message_id,
+            existing_event_id=request.existing_event_id,
+            existing_event_is_placeholder=request.existing_event_is_placeholder,
+        )
+        if pending.terminal_event_id is None:
+            return FinalDeliveryOutcome(
+                terminal_status=terminal_status,
+                event_id=None,
+                failure_reason=failure_reason,
+            )
+        return await self.deps.delivery_gateway.finalize_streamed_response(
+            FinalizeStreamedResponseRequest(
+                target=target,
+                stream_transport_outcome=build_terminal_stream_transport_outcome(
+                    pending,
+                    terminal_status=terminal_status,
+                    failure_reason=failure_reason,
+                    placeholder_body=PROGRESS_PLACEHOLDER,
+                ),
+                initial_delivery_kind="edited" if request.existing_event_id else "sent",
+                response_kind=response_kind,
+                response_envelope=response_envelope,
+                correlation_id=correlation_id,
+                tool_trace=None,
+                extra_content=None,
+                existing_event_id=request.existing_event_id,
+                existing_event_is_placeholder=request.existing_event_is_placeholder,
+            ),
+        )
+
+    async def _finalize_locked_outcome(
+        self,
+        lifecycle: ResponseLifecycle,
+        final_delivery_outcome: FinalDeliveryOutcome,
+        *,
+        post_response_outcome: ResponseOutcome,
+        post_response_deps: PostResponseEffectsDeps | Callable[[], PostResponseEffectsDeps],
+    ) -> FinalDeliveryOutcome:
+        """Finalize the lifecycle, converting a late cancel into a terminal note first."""
+        try:
+            return await lifecycle.finalize(
+                final_delivery_outcome,
+                build_post_response_outcome=lambda _final_outcome: post_response_outcome,
+                post_response_deps=post_response_deps,
+            )
+        except asyncio.CancelledError as exc:
+            failure_reason = cancel_failure_reason(classify_cancel_source(exc))
+            cancelled_outcome = FinalDeliveryOutcome(
+                terminal_status="cancelled",
+                event_id=final_delivery_outcome.final_visible_event_id,
+                is_visible_response=final_delivery_outcome.final_visible_event_id is not None,
+                final_visible_body=final_delivery_outcome.final_visible_body,
+                failure_reason=failure_reason,
+                tool_trace=final_delivery_outcome.tool_trace,
+                extra_content=final_delivery_outcome.extra_content,
+            )
+            await lifecycle.finalize(
+                cancelled_outcome,  # lifecycle.finalize cancelled terminal outcome before re-raising
+                build_post_response_outcome=lambda _final_outcome: post_response_outcome,
+                post_response_deps=post_response_deps,
+            )
+            raise
 
     def _build_lifecycle(
         self,
@@ -925,12 +1115,7 @@ class ResponseRunner:
                 resolved_target=resolved_target,
                 response_kind="team",
             )
-        if request.on_lifecycle_lock_acquired is not None:
-            request.on_lifecycle_lock_acquired()
-        request = await self._prepare_request_after_lock(request)
-        request = self._request_with_locked_target(request, resolved_target)
-        if request.pipeline_timing is not None:
-            request.pipeline_timing.mark("thread_refresh_ready")
+        request = await self._begin_locked_turn(request, resolved_target=resolved_target)
         team_request = replace(team_request, request=request)
         requester_user_id = request.user_id or ""
         _memory_prompt, _memory_thread_history, prepared_prompt, model_thread_history = (
@@ -1036,13 +1221,25 @@ class ResponseRunner:
             raise RuntimeError(msg)
         response_run_id = str(uuid4())
         final_delivery_outcome: FinalDeliveryOutcome | None = None
-        compaction_outcomes: list[CompactionOutcome] = []
-        tracked_event_id: str | None = request.existing_event_id
-        delivery_stage_started = False
-        delivery_failure_reason: str | None = None
-        delivery_cancelled = False
+        team_run_metadata_content: dict[str, Any] = {}
+        progress = _DeliveryProgress(tracked_event_id=request.existing_event_id)
         matrix_run_metadata = _materialize_matrix_run_metadata(request.matrix_run_metadata)
         active_event_ids = self._active_response_event_ids(request.room_id)
+        # Team entries refine entity_label to the materialized team label and
+        # append the knowledge-availability enrichment before the turn runs.
+        team_turn_ctx = ResponseTurnContext(
+            entity_label=self.deps.agent_name,
+            session_id=session_id,
+            run_id=response_run_id,
+            correlation_id=resolved_correlation_id,
+            reply_to_event_id=request.reply_to_event_id,
+            room_id=request.room_id,
+            thread_id=resolved_target.resolved_thread_id,
+            requester_id=requester_user_id or execution_identity.requester_id,
+            matrix_run_metadata=matrix_run_metadata,
+            active_event_ids=frozenset(active_event_ids),
+            system_enrichment_items=tuple(request.system_enrichment_items),
+        )
         team_turn_recorder = self._build_turn_recorder(
             user_message=request.prompt,
             reply_to_event_id=request.reply_to_event_id,
@@ -1056,10 +1253,10 @@ class ResponseRunner:
         )
 
         async def generate_team_response(message_id: str | None) -> None:  # noqa: C901, PLR0912, PLR0915
-            nonlocal final_delivery_outcome, tracked_event_id, delivery_stage_started
+            nonlocal final_delivery_outcome
             delivery_request = self._request_for_delivery(delivery_request_base, message_id=message_id)
             if message_id is not None:
-                tracked_event_id = message_id
+                progress.track_event(message_id)
                 team_turn_recorder.set_response_event_id(message_id)
             compaction_lifecycle = self._build_compaction_lifecycle(
                 target=delivery_target,
@@ -1071,8 +1268,7 @@ class ResponseRunner:
                 team_turn_recorder.set_run_id(current_run_id)
 
             def _note_visible_response_event_id(response_event_id: str) -> None:
-                nonlocal tracked_event_id
-                tracked_event_id = response_event_id
+                progress.track_event(response_event_id)
                 team_turn_recorder.set_response_event_id(response_event_id)
 
             if use_streaming and (
@@ -1087,29 +1283,23 @@ class ResponseRunner:
                             message=model_message,
                             orchestrator=orchestrator,
                             execution_identity=tool_dispatch.execution_identity,
+                            ctx=team_turn_ctx,
                             mode=mode,
                             thread_history=model_thread_history,
                             model_name=model_name,
                             media=resolved_request.media,
                             show_tool_calls=show_tool_calls,
-                            session_id=session_id,
-                            run_id=response_run_id,
                             run_id_callback=_note_attempt_run_id,
                             user_id=requester_user_id,
-                            reply_to_event_id=request.reply_to_event_id,
                             current_timestamp_ms=request.current_timestamp_ms,
                             current_prompt_is_structured=request.current_prompt_is_structured,
-                            correlation_id=resolved_correlation_id,
-                            active_event_ids=active_event_ids,
                             response_sender_id=self.deps.matrix_full_id,
-                            compaction_outcomes_collector=compaction_outcomes,
+                            run_metadata_collector=team_run_metadata_content,
                             compaction_lifecycle=compaction_lifecycle,
                             configured_team_name=self.deps.agent_name
                             if self.deps.agent_name in self.deps.runtime.config.teams
                             else None,
-                            system_enrichment_items=request.system_enrichment_items,
                             reason_prefix=team_request.reason_prefix,
-                            matrix_run_metadata=matrix_run_metadata,
                             pipeline_timing=request.pipeline_timing,
                             turn_recorder=team_turn_recorder,
                         )
@@ -1120,7 +1310,7 @@ class ResponseRunner:
                     )
 
                     try:
-                        delivery_stage_started = True
+                        progress.note_delivery_started(None)
                         transport_outcome = await self.deps.delivery_gateway.deliver_stream(
                             StreamingDeliveryRequest(
                                 target=delivery_target,
@@ -1130,14 +1320,22 @@ class ResponseRunner:
                                 and delivery_request.existing_event_is_placeholder,
                                 header=None,
                                 show_tool_calls=show_tool_calls,
+                                # The live collector dict: the turn driver fills it
+                                # at terminal settle, before the stream's final
+                                # edit snapshots extra_content, so the ai_run
+                                # metadata lands on the wire (mirrors the agent
+                                # streaming path).
+                                extra_content=_merge_response_extra_content(
+                                    team_run_metadata_content,
+                                    request.attachment_ids,
+                                ),
                                 streaming_cls=ReplacementStreamingResponse,
                                 pipeline_timing=request.pipeline_timing,
                                 visible_event_id_callback=_note_visible_response_event_id,
                             ),
                         )
                         event_id = transport_outcome.last_physical_stream_event_id
-                        if event_id:
-                            tracked_event_id = event_id
+                        progress.track_event(event_id)
                     except asyncio.CancelledError:
                         await self._persist_interrupted_recorder_off_loop(
                             recorder=team_turn_recorder,
@@ -1146,7 +1344,7 @@ class ResponseRunner:
                             execution_identity=tool_dispatch.execution_identity,
                             run_id=response_run_id,
                             is_team=True,
-                            response_event_id=tracked_event_id,
+                            response_event_id=progress.tracked_event_id,
                         )
                         raise
                     finally:
@@ -1163,7 +1361,8 @@ class ResponseRunner:
                     correlation_id=resolved_correlation_id,
                     tool_trace=None,
                     extra_content=_merge_response_extra_content(
-                        ai_run_extra_content_from_metadata(team_turn_recorder.run_metadata),
+                        team_run_metadata_content
+                        or ai_run_extra_content_from_metadata(team_turn_recorder.run_metadata),
                         request.attachment_ids,
                     ),
                     existing_event_id=request.existing_event_id,
@@ -1187,27 +1386,21 @@ class ResponseRunner:
                                     message=model_message,
                                     orchestrator=orchestrator,
                                     execution_identity=tool_dispatch.execution_identity,
+                                    ctx=team_turn_ctx,
                                     thread_history=model_thread_history,
                                     model_name=model_name,
                                     media=resolved_request.media,
-                                    session_id=session_id,
-                                    run_id=response_run_id,
                                     run_id_callback=_note_attempt_run_id,
                                     user_id=requester_user_id,
-                                    reply_to_event_id=request.reply_to_event_id,
                                     current_timestamp_ms=request.current_timestamp_ms,
                                     current_prompt_is_structured=request.current_prompt_is_structured,
-                                    correlation_id=resolved_correlation_id,
-                                    active_event_ids=active_event_ids,
                                     response_sender_id=self.deps.matrix_full_id,
-                                    compaction_outcomes_collector=compaction_outcomes,
+                                    run_metadata_collector=team_run_metadata_content,
                                     compaction_lifecycle=compaction_lifecycle,
                                     configured_team_name=self.deps.agent_name
                                     if self.deps.agent_name in self.deps.runtime.config.teams
                                     else None,
-                                    system_enrichment_items=request.system_enrichment_items,
                                     reason_prefix=team_request.reason_prefix,
-                                    matrix_run_metadata=matrix_run_metadata,
                                     pipeline_timing=request.pipeline_timing,
                                     turn_recorder=team_turn_recorder,
                                 )
@@ -1225,7 +1418,7 @@ class ResponseRunner:
                                     execution_identity=tool_dispatch.execution_identity,
                                     run_id=response_run_id,
                                     is_team=True,
-                                    response_event_id=tracked_event_id,
+                                    response_event_id=progress.tracked_event_id,
                                 )
                                 raise
                     finally:
@@ -1261,7 +1454,7 @@ class ResponseRunner:
                         )
                     return
 
-                delivery_stage_started = True
+                progress.note_delivery_started(None)
                 try:
                     final_delivery_outcome = await self.deps.delivery_gateway.deliver_final(
                         FinalDeliveryRequest(
@@ -1274,7 +1467,8 @@ class ResponseRunner:
                             correlation_id=resolved_correlation_id,
                             tool_trace=None,
                             extra_content=_merge_response_extra_content(
-                                ai_run_extra_content_from_metadata(team_turn_recorder.run_metadata),
+                                team_run_metadata_content
+                                or ai_run_extra_content_from_metadata(team_turn_recorder.run_metadata),
                                 request.attachment_ids,
                             ),
                         ),
@@ -1287,7 +1481,7 @@ class ResponseRunner:
                         execution_identity=tool_dispatch.execution_identity,
                         run_id=response_run_id,
                         is_team=True,
-                        response_event_id=tracked_event_id,
+                        response_event_id=progress.tracked_event_id,
                     )
                     raise
                 if request.pipeline_timing is not None:
@@ -1305,11 +1499,6 @@ class ResponseRunner:
         run_message_id: str | None = None
         stream_transport_outcome: StreamTransportOutcome | None = None
 
-        def note_task_cancelled(failure_reason: str) -> None:
-            nonlocal delivery_failure_reason, delivery_cancelled
-            delivery_failure_reason = failure_reason
-            delivery_cancelled = True
-
         try:
             run_message_id = await self.run_cancellable_response(
                 target=delivery_target,
@@ -1319,10 +1508,10 @@ class ResponseRunner:
                 user_id=requester_user_id,
                 run_id=response_run_id,
                 pipeline_timing=request.pipeline_timing,
-                on_cancelled=note_task_cancelled,
+                on_cancelled=progress.note_task_cancelled,
             )
-            if tracked_event_id is None:
-                tracked_event_id = run_message_id
+            if progress.tracked_event_id is None:
+                progress.track_event(run_message_id)
         except StreamingDeliveryError as error:
             stream_transport_outcome = error.transport_outcome
             if stream_transport_outcome.terminal_status == "cancelled":
@@ -1337,8 +1526,7 @@ class ResponseRunner:
                 )
             else:
                 self.deps.logger.exception("Error in team streaming response", error=str(error.error))
-            if error.event_id:
-                tracked_event_id = error.event_id
+            progress.track_event(error.event_id)
             if self._record_stream_delivery_error(
                 recorder=team_turn_recorder,
                 accumulated_text=error.accumulated_text,
@@ -1351,7 +1539,7 @@ class ResponseRunner:
                     execution_identity=tool_dispatch.execution_identity,
                     run_id=response_run_id,
                     is_team=True,
-                    response_event_id=tracked_event_id,
+                    response_event_id=progress.tracked_event_id,
                 )
             final_delivery_outcome = await self.deps.delivery_gateway.finalize_streamed_response(
                 FinalizeStreamedResponseRequest(
@@ -1363,74 +1551,110 @@ class ResponseRunner:
                     correlation_id=resolved_correlation_id,
                     tool_trace=error.tool_trace if show_tool_calls else None,
                     extra_content=_merge_response_extra_content(
-                        ai_run_extra_content_from_metadata(team_turn_recorder.run_metadata),
+                        team_run_metadata_content
+                        or ai_run_extra_content_from_metadata(team_turn_recorder.run_metadata),
                         request.attachment_ids,
                     ),
                     existing_event_id=request.existing_event_id,
                     existing_event_is_placeholder=request.existing_event_is_placeholder,
                 ),
             )
-        except Exception as error:
-            if not delivery_stage_started:
+        except asyncio.CancelledError as error:
+            if progress.stage_started:
                 raise
-            tracked_event_id = tracked_event_id or run_message_id
-            delivery_failure_reason = str(error)
-            self._log_delivery_failure(response_kind="team", error=error)
-        if final_delivery_outcome is None and delivery_failure_reason is not None:
-            final_delivery_outcome = await self.deps.delivery_gateway.finalize_streamed_response(
-                FinalizeStreamedResponseRequest(
+            # Pre-delivery cancels previously propagated raw, leaving the
+            # placeholder dangling and skipping lifecycle finalization.
+            progress.note_task_cancelled(cancel_failure_reason(classify_cancel_source(error)))
+            final_delivery_outcome = await self._finalize_pre_delivery_terminal(
+                target=delivery_target,
+                request=request,
+                response_kind="team",
+                response_envelope=resolved_response_envelope,
+                correlation_id=resolved_correlation_id,
+                progress=progress,
+                run_message_id=run_message_id,
+                terminal_status="cancelled",
+                failure_reason=progress.failure_reason or "interrupted",
+            )
+            progress.deferred_error = error
+        except Exception as error:
+            if progress.stage_started:
+                # A failure after delivery started settles through the late
+                # fallback below instead of tripping the outcome assertion. Only
+                # record the reason when no outcome exists yet, so a settled
+                # sync-restart cancellation still registers its retry.
+                self._log_delivery_failure(response_kind="team", error=error)
+                if final_delivery_outcome is None:
+                    progress.failure_reason = progress.failure_reason or str(error) or "late_delivery_failure"
+            else:
+                progress.failure_reason = str(error) or "delivery_failed_before_start"
+                final_delivery_outcome = await self._finalize_pre_delivery_terminal(
                     target=delivery_target,
-                    stream_transport_outcome=build_terminal_stream_transport_outcome(
-                        PendingVisibleResponse(
-                            tracked_event_id=tracked_event_id,
-                            run_message_id=run_message_id if request.existing_event_id is None else None,
-                            existing_event_id=request.existing_event_id,
-                            existing_event_is_placeholder=request.existing_event_is_placeholder,
-                        ),
-                        terminal_status="cancelled" if delivery_cancelled else "error",
-                        failure_reason=delivery_failure_reason or "late_stream_delivery_failure",
-                        placeholder_body=PROGRESS_PLACEHOLDER,
-                    ),
-                    initial_delivery_kind="edited" if request.existing_event_id else "sent",
+                    request=request,
                     response_kind="team",
                     response_envelope=resolved_response_envelope,
                     correlation_id=resolved_correlation_id,
-                    tool_trace=None,
-                    extra_content=_merge_response_extra_content(
-                        ai_run_extra_content_from_metadata(team_turn_recorder.run_metadata),
-                        request.attachment_ids,
-                    ),
-                    existing_event_id=request.existing_event_id,
-                    existing_event_is_placeholder=request.existing_event_is_placeholder,
-                ),
-            )
+                    progress=progress,
+                    run_message_id=run_message_id,
+                    terminal_status="error",
+                    failure_reason=progress.failure_reason,
+                )
+                progress.deferred_error = error
+        if final_delivery_outcome is None and (progress.cancelled or progress.failure_reason is not None):
+            if progress.stage_started:
+                # Delivery began but never settled an outcome. Do not touch the
+                # tracked event: with an adopted thinking-message stream it can
+                # already hold the full streamed reply, and the placeholder-only
+                # cleanup in finalize_streamed_response would redact it.
+                final_delivery_outcome = FinalDeliveryOutcome(
+                    terminal_status="cancelled" if progress.cancelled else "error",
+                    event_id=None,
+                    failure_reason=progress.failure_reason or "interrupted",
+                )
+            else:
+                final_delivery_outcome = await self._finalize_pre_delivery_terminal(
+                    target=delivery_target,
+                    request=request,
+                    response_kind="team",
+                    response_envelope=resolved_response_envelope,
+                    correlation_id=resolved_correlation_id,
+                    progress=progress,
+                    run_message_id=run_message_id,
+                    terminal_status="cancelled" if progress.cancelled else "error",
+                    failure_reason=progress.failure_reason or "interrupted",
+                )
         assert final_delivery_outcome is not None
-        final_outcome = await lifecycle.finalize(
+        team_post_response_outcome = ResponseOutcome(
+            response_run_id=team_turn_recorder.run_id or response_run_id,
+            session_id=session_id,
+            session_type=SessionType.TEAM,
+            execution_identity=tool_dispatch.execution_identity,
+            run_succeeded=team_turn_recorder.outcome == "completed",
+            interactive_target=resolved_target,
+            thread_summary_room_id=(request.room_id if resolved_target.resolved_thread_id is not None else None),
+            thread_summary_thread_id=resolved_target.resolved_thread_id,
+            thread_summary_message_count_hint=thread_summary_message_count_hint(request.thread_history),
+            thread_summary_entity_name=self.deps.agent_name,
+            memory_prompt=_memory_prompt,
+            memory_thread_history=_memory_thread_history,
+        )
+        final_outcome = await self._finalize_locked_outcome(
+            lifecycle,
             final_delivery_outcome,
-            build_post_response_outcome=lambda _final_outcome: ResponseOutcome(
-                response_run_id=team_turn_recorder.run_id or response_run_id,
-                session_id=session_id,
-                session_type=SessionType.TEAM,
-                execution_identity=tool_dispatch.execution_identity,
-                interactive_target=resolved_target,
-                thread_summary_room_id=(request.room_id if resolved_target.resolved_thread_id is not None else None),
-                thread_summary_thread_id=resolved_target.resolved_thread_id,
-                thread_summary_message_count_hint=thread_summary_message_count_hint(request.thread_history),
-                thread_summary_entity_name=self.deps.agent_name,
-                memory_prompt=_memory_prompt,
-                memory_thread_history=_memory_thread_history,
-            ),
+            post_response_outcome=team_post_response_outcome,
             post_response_deps=lambda: self.deps.post_response_effects.build_deps(
                 room_id=request.room_id,
                 interactive_agent_name=self.deps.agent_name,
                 persist_response_event_id=persist_response_event_id,
             ),
         )
+        if progress.deferred_error is not None:
+            raise progress.deferred_error
         self._notify_sync_restart_cancelled(
             request,
             final_outcome,
-            delivery_cancelled=delivery_cancelled,
-            delivery_failure_reason=delivery_failure_reason,
+            delivery_cancelled=progress.cancelled,
+            delivery_failure_reason=progress.failure_reason,
         )
         return final_outcome.final_visible_event_id if final_outcome.mark_handled else None
 
@@ -1568,17 +1792,16 @@ class ResponseRunner:
         runtime: _PreparedResponseRuntime,
         active_event_ids: set[str],
         turn_recorder: TurnRecorder,
-        tool_trace: list[Any],
-        run_metadata_content: dict[str, Any],
-        compaction_outcomes: list[CompactionOutcome],
         attempt_run_id_collector: list[str],
         pipeline_timing: DispatchPipelineTiming | None = None,
-    ) -> str:
-        """Run one non-streaming AI request."""
+    ) -> _NonStreamingGeneration:
+        """Run one non-streaming AI request and return its artifacts by value."""
         compaction_lifecycle = self._build_compaction_lifecycle(
             target=runtime.resolved_target,
             request=request,
         )
+        tool_trace: list[ToolTraceEntry] = []
+        run_metadata_content: dict[str, Any] = {}
 
         def note_attempt_run_id(current_run_id: str) -> None:
             self.deps.stop_manager.update_run_id(request.existing_event_id, current_run_id)
@@ -1596,50 +1819,49 @@ class ResponseRunner:
                 request.system_enrichment_items,
                 knowledge_resolution.unavailable,
             )
-            matrix_run_metadata = _materialize_matrix_run_metadata(request.matrix_run_metadata)
             return await ai_response(
-                agent_name=self.deps.agent_name,
+                self._agent_turn_context(
+                    request,
+                    runtime=runtime,
+                    run_id=run_id,
+                    active_event_ids=active_event_ids,
+                    system_enrichment_items=system_enrichment_items,
+                ),
                 prompt=request.prompt,
-                session_id=runtime.session_id,
                 runtime_paths=self.deps.runtime_paths,
                 config=self.deps.runtime.config,
                 thread_history=request.thread_history,
                 model_prompt=runtime.model_prompt,
                 current_timestamp_ms=request.current_timestamp_ms,
                 current_prompt_is_structured=request.current_prompt_is_structured,
-                thread_id=runtime.resolved_target.resolved_thread_id,
-                room_id=request.room_id,
                 knowledge=knowledge_resolution.knowledge,
-                user_id=request.user_id,
-                run_id=run_id,
                 run_id_callback=note_attempt_run_id,
                 media=runtime.media_inputs,
-                reply_to_event_id=request.reply_to_event_id,
-                correlation_id=self._correlation_id_for_request(request),
-                active_event_ids=active_event_ids,
                 show_tool_calls=show_tool_calls,
                 collect_streamed_response=show_tool_calls,
                 tool_trace_collector=tool_trace,
                 run_metadata_collector=run_metadata_content,
                 execution_identity=runtime.tool_dispatch.execution_identity,
-                compaction_outcomes_collector=compaction_outcomes,
                 compaction_lifecycle=compaction_lifecycle,
                 refresh_scheduler=(
                     self.deps.runtime.orchestrator.knowledge_refresh_scheduler
                     if self.deps.runtime.orchestrator is not None
                     else None
                 ),
-                matrix_run_metadata=matrix_run_metadata,
-                system_enrichment_items=system_enrichment_items,
                 turn_recorder=turn_recorder,
                 pipeline_timing=pipeline_timing,
             )
 
         try:
             async with typing_indicator(self._client(), request.room_id):
-                return await self._run_in_tool_context(
+                response_text = await self._run_in_tool_context(
                     tool_dispatch=runtime.tool_dispatch,
                     operation=build_response_text,
+                )
+                return _NonStreamingGeneration(
+                    response_text=response_text,
+                    tool_trace=tool_trace,
+                    run_metadata_content=run_metadata_content,
                 )
         except asyncio.CancelledError:
             await self._persist_interrupted_recorder_off_loop(
@@ -1664,7 +1886,6 @@ class ResponseRunner:
         turn_recorder: TurnRecorder,
         tool_trace: list[Any],
         run_metadata_content: dict[str, Any],
-        compaction_outcomes: list[CompactionOutcome],
         attempt_run_id_collector: list[str],
         pipeline_timing: DispatchPipelineTiming | None = None,
     ) -> StreamTransportOutcome:
@@ -1690,39 +1911,33 @@ class ResponseRunner:
             request.system_enrichment_items,
             knowledge_resolution.unavailable,
         )
-        matrix_run_metadata = _materialize_matrix_run_metadata(request.matrix_run_metadata)
         response_stream = stream_agent_response(
-            agent_name=self.deps.agent_name,
+            self._agent_turn_context(
+                request,
+                runtime=runtime,
+                run_id=run_id,
+                active_event_ids=active_event_ids,
+                system_enrichment_items=system_enrichment_items,
+            ),
             prompt=request.prompt,
-            session_id=runtime.session_id,
             runtime_paths=self.deps.runtime_paths,
             config=self.deps.runtime.config,
             thread_history=request.thread_history,
             model_prompt=runtime.model_prompt,
             current_timestamp_ms=request.current_timestamp_ms,
             current_prompt_is_structured=request.current_prompt_is_structured,
-            thread_id=runtime.resolved_target.resolved_thread_id,
-            room_id=request.room_id,
             knowledge=knowledge_resolution.knowledge,
-            user_id=request.user_id,
-            run_id=run_id,
             run_id_callback=note_attempt_run_id,
             media=runtime.media_inputs,
-            reply_to_event_id=request.reply_to_event_id,
-            correlation_id=self._correlation_id_for_request(request),
-            active_event_ids=active_event_ids,
             show_tool_calls=self._show_tool_calls(),
             run_metadata_collector=run_metadata_content,
             execution_identity=runtime.tool_dispatch.execution_identity,
-            compaction_outcomes_collector=compaction_outcomes,
             compaction_lifecycle=compaction_lifecycle,
             refresh_scheduler=(
                 self.deps.runtime.orchestrator.knowledge_refresh_scheduler
                 if self.deps.runtime.orchestrator is not None
                 else None
             ),
-            matrix_run_metadata=matrix_run_metadata,
-            system_enrichment_items=system_enrichment_items,
             turn_recorder=turn_recorder,
             pipeline_timing=pipeline_timing,
         )
@@ -1783,11 +1998,9 @@ class ResponseRunner:
         *,
         run_id: str | None = None,
         response_kind: str = "ai",
-        compaction_outcomes_collector: list[CompactionOutcome] | None = None,
-        run_success_collector: list[bool] | None = None,
-        attempt_run_id_collector: list[str] | None = None,
         on_delivery_started: Callable[[str | None], None] | None = None,
-    ) -> FinalDeliveryOutcome:
+        attempt_run_id_collector: list[str] | None = None,
+    ) -> _ResponseGenerationOutcome:
         """Process a message and send a response without streaming."""
         if request.pipeline_timing is not None:
             request.pipeline_timing.mark("response_runtime_start")
@@ -1817,9 +2030,9 @@ class ResponseRunner:
             thread_id=runtime.resolved_target.resolved_thread_id,
             create_storage=history_storage_factory,
         )
-        tool_trace: list[Any] = []
-        compaction_outcomes: list[CompactionOutcome] = []
-        run_metadata_content: dict[str, Any] = {}
+        # The caller's list survives raising exit paths (cancellation, stream
+        # re-raises), unlike the returned outcome.
+        attempt_run_ids = attempt_run_id_collector if attempt_run_id_collector is not None else []
         active_event_ids = self._active_response_event_ids(request.room_id)
         turn_recorder = self._build_turn_recorder(
             user_message=request.prompt,
@@ -1827,18 +2040,18 @@ class ResponseRunner:
             matrix_run_metadata=_materialize_matrix_run_metadata(request.matrix_run_metadata),
         )
 
+        def build_outcome(delivery: FinalDeliveryOutcome) -> _ResponseGenerationOutcome:
+            return _generation_outcome(delivery, turn_recorder)
+
         try:
             try:
-                response_text = await self.generate_non_streaming_ai_response(
+                generation = await self.generate_non_streaming_ai_response(
                     request,
                     run_id=run_id,
                     runtime=runtime,
                     active_event_ids=active_event_ids,
                     turn_recorder=turn_recorder,
-                    tool_trace=tool_trace,
-                    run_metadata_content=run_metadata_content,
-                    compaction_outcomes=compaction_outcomes,
-                    attempt_run_id_collector=attempt_run_id_collector if attempt_run_id_collector is not None else [],
+                    attempt_run_id_collector=attempt_run_ids,
                     pipeline_timing=request.pipeline_timing,
                 )
             finally:
@@ -1854,29 +2067,33 @@ class ResponseRunner:
                 interrupted_message="Non-streaming response interrupted — traceback for diagnosis",
             )
             if request.existing_event_id:
-                return await self.deps.delivery_gateway.deliver_cancelled_visible_note(
-                    CancelledVisibleNoteRequest(
-                        target=runtime.resolved_target,
-                        event_id=request.existing_event_id,
-                        existing_event_is_placeholder=request.existing_event_is_placeholder,
-                        cancel_source=cancel_source,
-                        response_kind=response_kind,
-                        response_envelope=response_envelope,
-                        correlation_id=correlation_id,
+                return build_outcome(
+                    await self.deps.delivery_gateway.deliver_cancelled_visible_note(
+                        CancelledVisibleNoteRequest(
+                            target=runtime.resolved_target,
+                            event_id=request.existing_event_id,
+                            existing_event_is_placeholder=request.existing_event_is_placeholder,
+                            cancel_source=cancel_source,
+                            response_kind=response_kind,
+                            response_envelope=response_envelope,
+                            correlation_id=correlation_id,
+                        ),
                     ),
                 )
             failure_reason = cancel_failure_reason(cancel_source)
-            return FinalDeliveryOutcome(
-                terminal_status="cancelled",
-                event_id=None,
-                failure_reason=failure_reason,
+            return build_outcome(
+                FinalDeliveryOutcome(
+                    terminal_status="cancelled",
+                    event_id=None,
+                    failure_reason=failure_reason,
+                ),
             )
         except Exception as error:
             self.deps.logger.exception("Error in non-streaming response", error=str(error))
             raise
 
         response_extra_content = _merge_response_extra_content(
-            run_metadata_content,
+            generation.run_metadata_content,
             request.attachment_ids,
         )
         if on_delivery_started is not None:
@@ -1887,11 +2104,11 @@ class ResponseRunner:
                     target=runtime.resolved_target,
                     existing_event_id=request.existing_event_id,
                     existing_event_is_placeholder=request.existing_event_is_placeholder,
-                    response_text=response_text,
+                    response_text=generation.response_text,
                     response_kind=response_kind,
                     response_envelope=response_envelope,
                     correlation_id=correlation_id,
-                    tool_trace=tool_trace if self._show_tool_calls() else None,
+                    tool_trace=generation.tool_trace if self._show_tool_calls() else None,
                     extra_content=response_extra_content or None,
                 ),
             )
@@ -1909,25 +2126,17 @@ class ResponseRunner:
         if request.pipeline_timing is not None:
             request.pipeline_timing.mark_first_visible_reply("final")
             request.pipeline_timing.mark("response_complete")
-        if run_success_collector is not None:
-            run_success_collector.append(turn_recorder.outcome == "completed")
-        if compaction_outcomes_collector is not None:
-            compaction_outcomes_collector.extend(compaction_outcomes)
-        return delivery
+        return build_outcome(delivery)
 
-    async def process_and_respond_streaming(  # noqa: C901, PLR0912, PLR0915
+    async def process_and_respond_streaming(  # noqa: C901, PLR0915
         self,
         request: ResponseRequest,
         *,
         run_id: str | None = None,
         response_kind: str = "ai",
-        compaction_outcomes_collector: list[CompactionOutcome] | None = None,
-        run_success_collector: list[bool] | None = None,
-        attempt_run_id_collector: list[str] | None = None,
         on_delivery_started: Callable[[str | None], None] | None = None,
-        tool_trace_collector: list[Any] | None = None,
-        run_metadata_content_collector: dict[str, Any] | None = None,
-    ) -> FinalDeliveryOutcome:
+        attempt_run_id_collector: list[str] | None = None,
+    ) -> _ResponseGenerationOutcome:
         """Process a message and send a streamed response."""
         if request.pipeline_timing is not None:
             request.pipeline_timing.mark("response_runtime_start")
@@ -1957,16 +2166,25 @@ class ResponseRunner:
             thread_id=runtime.resolved_target.resolved_thread_id,
             create_storage=history_storage_factory,
         )
-        compaction_outcomes: list[CompactionOutcome] = []
-        run_metadata_content = run_metadata_content_collector if run_metadata_content_collector is not None else {}
+        # The streaming path keeps these caller-owned (unlike the non-streaming
+        # path's returned _NonStreamingGeneration): the metadata dict must stay
+        # live while the delivery gateway snapshots extra_content, and both
+        # must survive the raising StreamingDeliveryError exit below.
+        run_metadata_content: dict[str, Any] = {}
+        # The caller's list survives raising exit paths (cancellation, stream
+        # re-raises), unlike the returned outcome.
+        attempt_run_ids = attempt_run_id_collector if attempt_run_id_collector is not None else []
         active_event_ids = self._active_response_event_ids(request.room_id)
-        tool_trace = tool_trace_collector if tool_trace_collector is not None else []
+        tool_trace: list[Any] = []
         transport_outcome: StreamTransportOutcome | None = None
         turn_recorder = self._build_turn_recorder(
             user_message=request.prompt,
             reply_to_event_id=request.reply_to_event_id,
             matrix_run_metadata=_materialize_matrix_run_metadata(request.matrix_run_metadata),
         )
+
+        def build_outcome(delivery: FinalDeliveryOutcome) -> _ResponseGenerationOutcome:
+            return _generation_outcome(delivery, turn_recorder)
 
         try:
             try:
@@ -1978,8 +2196,7 @@ class ResponseRunner:
                     turn_recorder=turn_recorder,
                     tool_trace=tool_trace,
                     run_metadata_content=run_metadata_content,
-                    compaction_outcomes=compaction_outcomes,
-                    attempt_run_id_collector=attempt_run_id_collector if attempt_run_id_collector is not None else [],
+                    attempt_run_id_collector=attempt_run_ids,
                     pipeline_timing=request.pipeline_timing,
                 )
             finally:
@@ -2013,26 +2230,24 @@ class ResponseRunner:
                     is_team=False,
                     response_event_id=error.event_id,
                 )
-            if run_success_collector is not None:
-                run_success_collector.append(turn_recorder.outcome == "completed")
-            if compaction_outcomes_collector is not None:
-                compaction_outcomes_collector.extend(compaction_outcomes)
             response_extra_content = _merge_response_extra_content(
                 run_metadata_content,
                 request.attachment_ids,
             )
-            return await self.deps.delivery_gateway.finalize_streamed_response(
-                FinalizeStreamedResponseRequest(
-                    target=runtime.resolved_target,
-                    stream_transport_outcome=stream_transport_outcome,
-                    initial_delivery_kind="edited" if request.existing_event_id else "sent",
-                    response_kind=response_kind,
-                    response_envelope=response_envelope,
-                    correlation_id=correlation_id,
-                    tool_trace=error.tool_trace if self._show_tool_calls() else None,
-                    extra_content=response_extra_content,
-                    existing_event_id=request.existing_event_id,
-                    existing_event_is_placeholder=request.existing_event_is_placeholder,
+            return build_outcome(
+                await self.deps.delivery_gateway.finalize_streamed_response(
+                    FinalizeStreamedResponseRequest(
+                        target=runtime.resolved_target,
+                        stream_transport_outcome=stream_transport_outcome,
+                        initial_delivery_kind="edited" if request.existing_event_id else "sent",
+                        response_kind=response_kind,
+                        response_envelope=response_envelope,
+                        correlation_id=correlation_id,
+                        tool_trace=error.tool_trace if self._show_tool_calls() else None,
+                        extra_content=response_extra_content,
+                        existing_event_id=request.existing_event_id,
+                        existing_event_is_placeholder=request.existing_event_is_placeholder,
+                    ),
                 ),
             )
         except asyncio.CancelledError as exc:
@@ -2047,31 +2262,33 @@ class ResponseRunner:
             raise
         except Exception as error:
             self.deps.logger.exception("Error in streaming response", error=str(error))
-            return await self.deps.delivery_gateway.finalize_streamed_response(
-                FinalizeStreamedResponseRequest(
-                    target=runtime.resolved_target,
-                    stream_transport_outcome=build_terminal_stream_transport_outcome(
-                        PendingVisibleResponse(
-                            tracked_event_id=request.existing_event_id,
-                            run_message_id=None,
-                            existing_event_id=request.existing_event_id,
-                            existing_event_is_placeholder=request.existing_event_is_placeholder,
+            return build_outcome(
+                await self.deps.delivery_gateway.finalize_streamed_response(
+                    FinalizeStreamedResponseRequest(
+                        target=runtime.resolved_target,
+                        stream_transport_outcome=build_terminal_stream_transport_outcome(
+                            PendingVisibleResponse(
+                                tracked_event_id=request.existing_event_id,
+                                run_message_id=None,
+                                existing_event_id=request.existing_event_id,
+                                existing_event_is_placeholder=request.existing_event_is_placeholder,
+                            ),
+                            terminal_status="error",
+                            failure_reason=str(error),
+                            placeholder_body=PROGRESS_PLACEHOLDER,
                         ),
-                        terminal_status="error",
-                        failure_reason=str(error),
-                        placeholder_body=PROGRESS_PLACEHOLDER,
+                        initial_delivery_kind="edited" if request.existing_event_id else "sent",
+                        response_kind=response_kind,
+                        response_envelope=response_envelope,
+                        correlation_id=correlation_id,
+                        tool_trace=list(tool_trace) if self._show_tool_calls() else None,
+                        extra_content=_merge_response_extra_content(
+                            run_metadata_content,
+                            request.attachment_ids,
+                        ),
+                        existing_event_id=request.existing_event_id,
+                        existing_event_is_placeholder=request.existing_event_is_placeholder,
                     ),
-                    initial_delivery_kind="edited" if request.existing_event_id else "sent",
-                    response_kind=response_kind,
-                    response_envelope=response_envelope,
-                    correlation_id=correlation_id,
-                    tool_trace=list(tool_trace) if self._show_tool_calls() else None,
-                    extra_content=_merge_response_extra_content(
-                        run_metadata_content,
-                        request.attachment_ids,
-                    ),
-                    existing_event_id=request.existing_event_id,
-                    existing_event_is_placeholder=request.existing_event_is_placeholder,
                 ),
             )
 
@@ -2098,12 +2315,7 @@ class ResponseRunner:
         if request.pipeline_timing is not None:
             request.pipeline_timing.mark_first_visible_reply("final")
             request.pipeline_timing.mark("response_complete")
-
-        if run_success_collector is not None:
-            run_success_collector.append(turn_recorder.outcome == "completed")
-        if compaction_outcomes_collector is not None:
-            compaction_outcomes_collector.extend(compaction_outcomes)
-        return delivery
+        return build_outcome(delivery)
 
     async def generate_response(self, request: ResponseRequest) -> str | None:
         """Generate and send/edit an agent response with lifecycle locking."""
@@ -2128,12 +2340,7 @@ class ResponseRunner:
                 resolved_target=resolved_target,
                 response_kind="ai",
             )
-        if request.on_lifecycle_lock_acquired is not None:
-            request.on_lifecycle_lock_acquired()
-        request = await self._prepare_request_after_lock(request)
-        request = self._request_with_locked_target(request, resolved_target)
-        if request.pipeline_timing is not None:
-            request.pipeline_timing.mark("thread_refresh_ready")
+        request = await self._begin_locked_turn(request, resolved_target=resolved_target)
         memory_prompt, memory_thread_history, model_prompt_text, model_thread_history = (
             prepare_memory_and_model_context(
                 request.prompt,
@@ -2173,18 +2380,10 @@ class ResponseRunner:
         )
         self._note_pipeline_metadata(request, response_kind="agent", used_streaming=use_streaming)
         final_delivery_outcome: FinalDeliveryOutcome | None = None
-        compaction_outcomes: list[CompactionOutcome] = []
-        run_successes: list[bool] = []
-        response_run_id = str(uuid4())
-        tracked_event_id: str | None = request.existing_event_id
-        delivery_stage_started = False
-        delivery_failure_reason: str | None = None
-        delivery_cancelled = False
-        early_delivery_error: BaseException | None = None
-        tool_trace: list[Any] = []
-        run_metadata_content: dict[str, Any] = {}
+        generation: _ResponseGenerationOutcome | None = None
         attempt_run_ids: list[str] = []
-        request = self._request_with_locked_target(request, resolved_target)
+        response_run_id = str(uuid4())
+        progress = _DeliveryProgress(tracked_event_id=request.existing_event_id)
         resolved_correlation_id = self._correlation_id_for_request(request)
         resolved_response_envelope = request.response_envelope
         lifecycle = self._build_lifecycle(
@@ -2224,69 +2423,25 @@ class ResponseRunner:
             create_storage=lambda: self.deps.state_writer.create_storage(execution_identity),
         )
 
-        def note_delivery_started(event_id: str | None) -> None:
-            nonlocal delivery_stage_started, tracked_event_id
-            delivery_stage_started = True
-            if event_id:
-                tracked_event_id = event_id
-
-        def note_task_cancelled(failure_reason: str) -> None:
-            nonlocal delivery_failure_reason, delivery_cancelled
-            delivery_failure_reason = failure_reason
-            delivery_cancelled = True
-
-        async def finalize_pre_delivery_terminal_response(
-            event_id: str,
-            *,
-            terminal_status: Literal["cancelled", "error"],
-            failure_reason: str,
-        ) -> None:
-            nonlocal final_delivery_outcome
-            final_delivery_outcome = await self.deps.delivery_gateway.finalize_streamed_response(
-                FinalizeStreamedResponseRequest(
-                    target=resolved_target,
-                    stream_transport_outcome=build_placeholder_terminal_stream_transport_outcome(
-                        event_id,
-                        terminal_status=terminal_status,
-                        failure_reason=failure_reason,
-                        placeholder_body=PROGRESS_PLACEHOLDER,
-                    ),
-                    initial_delivery_kind="edited" if request.existing_event_id else "sent",
-                    response_kind="ai",
-                    response_envelope=resolved_response_envelope,
-                    correlation_id=resolved_correlation_id,
-                    tool_trace=None,
-                    extra_content=None,
-                    existing_event_id=request.existing_event_id,
-                    existing_event_is_placeholder=request.existing_event_is_placeholder,
-                ),
-            )
-
         async def generate(message_id: str | None) -> None:
-            nonlocal final_delivery_outcome, tracked_event_id
-            if message_id is not None:
-                tracked_event_id = message_id
+            nonlocal final_delivery_outcome, generation
+            progress.track_event(message_id)
             delivery_request = self._request_for_delivery(normalized_request, message_id=message_id)
             if use_streaming:
-                final_delivery_outcome = await self.process_and_respond_streaming(
+                generation = await self.process_and_respond_streaming(
                     delivery_request,
                     run_id=response_run_id,
-                    compaction_outcomes_collector=compaction_outcomes,
-                    run_success_collector=run_successes,
+                    on_delivery_started=progress.note_delivery_started,
                     attempt_run_id_collector=attempt_run_ids,
-                    on_delivery_started=note_delivery_started,
-                    tool_trace_collector=tool_trace,
-                    run_metadata_content_collector=run_metadata_content,
                 )
             else:
-                final_delivery_outcome = await self.process_and_respond(
+                generation = await self.process_and_respond(
                     delivery_request,
                     run_id=response_run_id,
-                    compaction_outcomes_collector=compaction_outcomes,
-                    run_success_collector=run_successes,
+                    on_delivery_started=progress.note_delivery_started,
                     attempt_run_id_collector=attempt_run_ids,
-                    on_delivery_started=note_delivery_started,
                 )
+            final_delivery_outcome = generation.delivery
 
         thinking_msg = None
         if not request.existing_event_id and not self._has_queued_forced_compaction(
@@ -2306,85 +2461,85 @@ class ResponseRunner:
                 user_id=request.user_id,
                 run_id=response_run_id,
                 pipeline_timing=request.pipeline_timing,
-                on_cancelled=note_task_cancelled,
+                on_cancelled=progress.note_task_cancelled,
             )
-            tracked_event_id = tracked_event_id or run_message_id
+            if progress.tracked_event_id is None:
+                progress.track_event(run_message_id)
         except asyncio.CancelledError as error:
-            if not delivery_stage_started:
-                delivery_failure_reason = cancel_failure_reason(classify_cancel_source(error))
-                delivery_cancelled = True
-                tracked_event_id = tracked_event_id or run_message_id
-                event_id = tracked_event_id or (
-                    request.existing_event_id if request.existing_event_is_placeholder else None
-                )
-                if event_id is not None:
-                    await finalize_pre_delivery_terminal_response(
-                        event_id,
-                        terminal_status="cancelled",
-                        failure_reason=delivery_failure_reason,
-                    )
-                else:
-                    final_delivery_outcome = FinalDeliveryOutcome(
-                        terminal_status="cancelled",
-                        event_id=None,
-                        failure_reason=delivery_failure_reason,
-                    )
-                early_delivery_error = error
-            else:
+            if progress.stage_started:
                 raise
+            progress.note_task_cancelled(cancel_failure_reason(classify_cancel_source(error)))
+            final_delivery_outcome = await self._finalize_pre_delivery_terminal(
+                target=resolved_target,
+                request=request,
+                response_kind="ai",
+                response_envelope=resolved_response_envelope,
+                correlation_id=resolved_correlation_id,
+                progress=progress,
+                run_message_id=run_message_id,
+                terminal_status="cancelled",
+                failure_reason=progress.failure_reason or "interrupted",
+            )
+            progress.deferred_error = error
         except Exception as error:
-            if not delivery_stage_started:
-                delivery_failure_reason = str(error) or "delivery_failed_before_start"
-                tracked_event_id = tracked_event_id or run_message_id
-                event_id = tracked_event_id or (
-                    request.existing_event_id if request.existing_event_is_placeholder else None
-                )
-                if event_id is not None:
-                    await finalize_pre_delivery_terminal_response(
-                        event_id,
-                        terminal_status="error",
-                        failure_reason=delivery_failure_reason,
-                    )
-                else:
-                    final_delivery_outcome = FinalDeliveryOutcome(
-                        terminal_status="error",
-                        event_id=None,
-                        failure_reason=delivery_failure_reason,
-                    )
-                early_delivery_error = error
-            else:
+            if progress.stage_started:
+                # A failure after delivery started settles through the late
+                # fallback below instead of tripping the outcome assertion. Only
+                # record the reason when no outcome exists yet, so a settled
+                # sync-restart cancellation still registers its retry.
                 self._log_delivery_failure(response_kind="ai", error=error)
-        if final_delivery_outcome is None and delivery_cancelled:
-            if not delivery_stage_started:
-                tracked_event_id = tracked_event_id or run_message_id
-                event_id = tracked_event_id or (
-                    request.existing_event_id if request.existing_event_is_placeholder else None
-                )
-                if event_id is not None:
-                    await finalize_pre_delivery_terminal_response(
-                        event_id,
-                        terminal_status="cancelled",
-                        failure_reason=delivery_failure_reason or "interrupted",
-                    )
-                else:
-                    final_delivery_outcome = FinalDeliveryOutcome(
-                        terminal_status="cancelled",
-                        event_id=None,
-                        failure_reason=delivery_failure_reason or "interrupted",
-                    )
+                if final_delivery_outcome is None:
+                    progress.failure_reason = progress.failure_reason or str(error) or "late_delivery_failure"
             else:
+                progress.failure_reason = str(error) or "delivery_failed_before_start"
+                final_delivery_outcome = await self._finalize_pre_delivery_terminal(
+                    target=resolved_target,
+                    request=request,
+                    response_kind="ai",
+                    response_envelope=resolved_response_envelope,
+                    correlation_id=resolved_correlation_id,
+                    progress=progress,
+                    run_message_id=run_message_id,
+                    terminal_status="error",
+                    failure_reason=progress.failure_reason,
+                )
+                progress.deferred_error = error
+        if final_delivery_outcome is None and (progress.cancelled or progress.failure_reason is not None):
+            if progress.stage_started:
+                # Delivery began but never settled an outcome. Do not touch the
+                # tracked event: with an adopted thinking-message stream it can
+                # already hold the full streamed reply, and the placeholder-only
+                # cleanup in finalize_streamed_response would redact it.
                 final_delivery_outcome = FinalDeliveryOutcome(
-                    terminal_status="cancelled",
+                    terminal_status="cancelled" if progress.cancelled else "error",
                     event_id=None,
-                    failure_reason=delivery_failure_reason or "interrupted",
+                    failure_reason=progress.failure_reason or "interrupted",
+                )
+            else:
+                final_delivery_outcome = await self._finalize_pre_delivery_terminal(
+                    target=resolved_target,
+                    request=request,
+                    response_kind="ai",
+                    response_envelope=resolved_response_envelope,
+                    correlation_id=resolved_correlation_id,
+                    progress=progress,
+                    run_message_id=run_message_id,
+                    terminal_status="cancelled" if progress.cancelled else "error",
+                    failure_reason=progress.failure_reason or "interrupted",
                 )
         assert final_delivery_outcome is not None
         post_response_outcome = ResponseOutcome(
+            # The live collector list also covers raising exit paths, where the
+            # returned generation outcome never materialized.
             response_run_id=attempt_run_ids[-1] if attempt_run_ids else response_run_id,
             session_id=session_id,
             session_type=self.deps.state_writer.session_type_for_scope(self.deps.state_writer.history_scope()),
             execution_identity=execution_identity,
-            run_succeeded=run_successes[-1] if run_successes else final_delivery_outcome.terminal_status == "completed",
+            run_succeeded=(
+                generation.run_succeeded
+                if generation is not None
+                else final_delivery_outcome.terminal_status == "completed"
+            ),
             interactive_target=resolved_target,
             thread_summary_room_id=(request.room_id if resolved_target.resolved_thread_id is not None else None),
             thread_summary_thread_id=resolved_target.resolved_thread_id,
@@ -2399,35 +2554,18 @@ class ResponseRunner:
             queue_memory_persistence=queue_memory_persistence,
             persist_response_event_id=persist_response_event_id,
         )
-        try:
-            final_outcome = await lifecycle.finalize(
-                final_delivery_outcome,
-                build_post_response_outcome=lambda _final_outcome: post_response_outcome,
-                post_response_deps=post_response_deps,
-            )
-        except asyncio.CancelledError as exc:
-            failure_reason = cancel_failure_reason(classify_cancel_source(exc))
-            cancelled_outcome = FinalDeliveryOutcome(
-                terminal_status="cancelled",
-                event_id=final_delivery_outcome.final_visible_event_id,
-                is_visible_response=final_delivery_outcome.final_visible_event_id is not None,
-                final_visible_body=final_delivery_outcome.final_visible_body,
-                failure_reason=failure_reason,
-                tool_trace=final_delivery_outcome.tool_trace,
-                extra_content=final_delivery_outcome.extra_content,
-            )
-            await lifecycle.finalize(
-                cancelled_outcome,  # lifecycle.finalize cancelled terminal outcome before re-raising
-                build_post_response_outcome=lambda _final_outcome: post_response_outcome,
-                post_response_deps=post_response_deps,
-            )
-            raise
-        if early_delivery_error is not None:
-            raise early_delivery_error
+        final_outcome = await self._finalize_locked_outcome(
+            lifecycle,
+            final_delivery_outcome,
+            post_response_outcome=post_response_outcome,
+            post_response_deps=post_response_deps,
+        )
+        if progress.deferred_error is not None:
+            raise progress.deferred_error
         self._notify_sync_restart_cancelled(
             request,
             final_outcome,
-            delivery_cancelled=delivery_cancelled,
-            delivery_failure_reason=delivery_failure_reason,
+            delivery_cancelled=progress.cancelled,
+            delivery_failure_reason=progress.failure_reason,
         )
         return final_outcome.final_visible_event_id if final_outcome.mark_handled else None

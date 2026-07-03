@@ -47,7 +47,7 @@ from mindroom.ai import (
     build_matrix_run_metadata,
     stream_agent_response,
 )
-from mindroom.ai_run_metadata import _serialize_metrics
+from mindroom.ai_run_metadata import _serialize_metrics, build_ai_run_metadata_content
 from mindroom.bot import AgentBot
 from mindroom.cancellation import USER_STOP_CANCEL_MSG
 from mindroom.config.agent import AgentConfig, AgentPrivateConfig, TeamConfig
@@ -108,6 +108,7 @@ from mindroom.response_runner import (
     ResponseRequest,
     ResponseRunner,
     ResponseRunnerDeps,
+    _NonStreamingGeneration,
     prepare_memory_and_model_context,
 )
 from mindroom.streaming import StreamingDeliveryError, strip_visible_tool_markers
@@ -128,7 +129,13 @@ from mindroom.tool_system.worker_routing import (
     tool_execution_identity,
 )
 from tests.conftest import bind_runtime_paths as _bind_runtime_paths
-from tests.conftest import make_event_cache_mock, make_visible_message, message_origin, request_envelope
+from tests.conftest import (
+    make_event_cache_mock,
+    make_turn_context,
+    make_visible_message,
+    message_origin,
+    request_envelope,
+)
 from tests.identity_helpers import fixture_entity_matrix_id, persist_entity_accounts
 
 if TYPE_CHECKING:
@@ -275,6 +282,107 @@ def test_serialize_metrics_preserves_zero_usage_fields_from_metrics() -> None:
         "input_tokens": 6,
         "cache_read_tokens": 46449,
     }
+
+
+def _metadata_config(provider: str, model_id: str) -> Config:
+    return Config(
+        agents={"general": AgentConfig(display_name="General")},
+        models={"default": ModelConfig(provider=provider, id=model_id, context_window=200_000)},
+    )
+
+
+def test_ai_run_metadata_prefers_provider_counters_over_estimate_for_cache_token_providers() -> None:
+    """Cache-token providers report context as raw input plus cache read/write, not the estimate."""
+    metadata = build_ai_run_metadata_content(
+        config=_metadata_config("vertexai_claude", "claude-sonnet-4-6"),
+        model_name="default",
+        run_id="run-1",
+        session_id="session-1",
+        status="completed",
+        model="claude-sonnet-4-6",
+        model_provider="google",
+        context_input_tokens=30_210,
+        context_raw_input_tokens=1_200,
+        context_cache_read_tokens=45_000,
+        context_cache_write_tokens=5_000,
+    )
+
+    context = metadata[AI_RUN_METADATA_KEY]["context"]
+    assert context["input_tokens"] == 51_200
+    assert context["cache_read_input_tokens"] == 45_000
+    assert context["cache_write_input_tokens"] == 5_000
+    assert context["uncached_input_tokens"] == 6_200
+    assert context["window_tokens"] == 200_000
+
+
+def test_ai_run_metadata_context_uses_raw_input_for_non_cache_token_providers() -> None:
+    """Providers whose input counter already includes cached tokens report raw input as the context."""
+    metadata = build_ai_run_metadata_content(
+        config=_metadata_config("openai", "test-model"),
+        model_name="default",
+        run_id="run-1",
+        session_id="session-1",
+        status="completed",
+        model="test-model",
+        model_provider="openai",
+        context_input_tokens=30_210,
+        context_raw_input_tokens=700,
+        context_cache_read_tokens=512,
+    )
+
+    context = metadata[AI_RUN_METADATA_KEY]["context"]
+    assert context["input_tokens"] == 700
+    assert context["cache_read_input_tokens"] == 512
+    assert context["uncached_input_tokens"] == 188
+    assert "cache_write_input_tokens" not in context
+
+
+def test_ai_run_metadata_context_falls_back_to_estimate_without_provider_counters() -> None:
+    """Without any provider usage counters, the pre-flight estimate still populates the context block."""
+    metadata = build_ai_run_metadata_content(
+        config=_metadata_config("anthropic", "claude-sonnet-4-6"),
+        model_name="default",
+        run_id="run-1",
+        session_id="session-1",
+        status="completed",
+        model="claude-sonnet-4-6",
+        model_provider="Anthropic",
+        context_input_tokens=30_210,
+        prepared_history=PreparedHistoryState(prepared_context_tokens=30_210),
+    )
+
+    context = metadata[AI_RUN_METADATA_KEY]["context"]
+    assert context["input_tokens"] == 30_210
+    assert context["window_tokens"] == 200_000
+    assert "cache_read_input_tokens" not in context
+    assert "cache_write_input_tokens" not in context
+    assert "uncached_input_tokens" not in context
+    assert metadata[AI_RUN_METADATA_KEY]["prepared_context"] == {"tokens": 30_210}
+
+
+def test_ai_run_metadata_context_regression_cached_prefix_sample() -> None:
+    """Regression: a 49,886-token cached prefix must not be reported as a 30,210-token context."""
+    metadata = build_ai_run_metadata_content(
+        config=_metadata_config("vertexai_claude", "claude-sonnet-4-6"),
+        model_name="default",
+        run_id="run-1",
+        session_id="session-1",
+        status="completed",
+        model="claude-sonnet-4-6",
+        model_provider="google",
+        metrics={"input_tokens": 3_277, "cache_read_tokens": 99_772, "cache_write_tokens": 49_886},
+        context_input_tokens=30_210,
+        context_raw_input_tokens=1_777,
+        context_cache_read_tokens=49_886,
+        context_cache_write_tokens=0,
+    )
+
+    context = metadata[AI_RUN_METADATA_KEY]["context"]
+    assert context["input_tokens"] == 51_663
+    assert context["cache_read_input_tokens"] == 49_886
+    assert context["uncached_input_tokens"] == 1_777
+    assert "cache_write_input_tokens" not in context
+    assert context["window_tokens"] == 200_000
 
 
 class _SessionStorage:
@@ -1331,12 +1439,12 @@ async def test_process_and_respond_streaming_emits_session_started_after_persist
 
         mock_stream.side_effect = fake_stream_agent_response
 
-        delivery = await coordinator.process_and_respond_streaming(
+        generation = await coordinator.process_and_respond_streaming(
             _response_request(prompt="Hello", user_id="@bob:localhost", thread_id="$thread-root"),
         )
 
-    assert delivery.event_id == "$terminal"
-    assert delivery.response_text == "Hello!"
+    assert generation.delivery.event_id == "$terminal"
+    assert generation.delivery.response_text == "Hello!"
     assert sequence == [
         "stream",
         "deliver:Hello!",
@@ -1392,12 +1500,12 @@ async def test_process_and_respond_streaming_persists_interrupted_history_when_d
 
         mock_stream.side_effect = fake_stream_agent_response
 
-        delivery = await coordinator.process_and_respond_streaming(
+        generation = await coordinator.process_and_respond_streaming(
             _response_request(prompt="Hello", user_id="@bob:localhost", thread_id="$thread-root"),
         )
 
-    assert delivery.event_id == "$terminal"
-    assert delivery.failure_reason == "boom"
+    assert generation.delivery.event_id == "$terminal"
+    assert generation.delivery.failure_reason == "boom"
     persisted_session = cast("AgentSession", storage.session)
     assert persisted_session is not None
     assert persisted_session.runs is not None
@@ -1459,12 +1567,12 @@ async def test_process_and_respond_streaming_persists_interrupted_history_when_m
 
         coordinator.deps.delivery_gateway.deliver_stream.side_effect = consume_delivery
 
-        delivery = await coordinator.process_and_respond_streaming(
+        generation = await coordinator.process_and_respond_streaming(
             _response_request(prompt="Hello", user_id="@bob:localhost", thread_id="$thread-root"),
             run_id="run-1",
         )
 
-    assert delivery.event_id == "$streamed"
+    assert generation.delivery.event_id == "$streamed"
     persisted_session = cast("AgentSession", storage.session)
     assert persisted_session is not None
     assert persisted_session.runs is not None
@@ -1550,11 +1658,11 @@ async def test_process_and_respond_streaming_delivery_failure_with_visible_tools
 
         mock_stream.side_effect = fake_stream_agent_response
 
-        delivery = await coordinator.process_and_respond_streaming(
+        generation = await coordinator.process_and_respond_streaming(
             _response_request(prompt="Hello", user_id="@bob:localhost", thread_id="$thread-root"),
         )
 
-    assert delivery.event_id == "$terminal"
+    assert generation.delivery.event_id == "$terminal"
     persisted_session = cast("AgentSession", storage.session)
     assert persisted_session is not None
     assert persisted_session.runs is not None
@@ -1627,15 +1735,15 @@ async def test_process_and_respond_emits_session_started_after_persisted_cancell
 
         mock_ai.side_effect = fake_ai_response
 
-        delivery = await coordinator.process_and_respond(
+        generation = await coordinator.process_and_respond(
             replace(
                 _response_request(prompt="Hello", user_id="@alice:localhost", thread_id="$thread-root"),
                 existing_event_id="$thinking",
             ),
         )
 
-    assert delivery.terminal_status == "cancelled"
-    assert _visible_response_event_id(delivery) == "$thinking"
+    assert generation.delivery.terminal_status == "cancelled"
+    assert _visible_response_event_id(generation.delivery) == "$thinking"
     assert sequence == [
         "ai",
         "started:!test:localhost:$thread-root:$thread-root",
@@ -2087,7 +2195,7 @@ async def test_generate_response_locked_returns_none_when_final_delivery_is_unha
         async def fake_generate_non_streaming(
             *_args: object,
             **kwargs: object,
-        ) -> str:
+        ) -> _NonStreamingGeneration:
             turn_recorder = cast("TurnRecorder", kwargs["turn_recorder"])
             turn_recorder.set_run_id("run-delivery-cancel")
             turn_recorder.record_completed(
@@ -2095,7 +2203,11 @@ async def test_generate_response_locked_returns_none_when_final_delivery_is_unha
                 assistant_text="Hello!",
                 completed_tools=[],
             )
-            return "Hello!"
+            return _NonStreamingGeneration(
+                response_text="Hello!",
+                tool_trace=[],
+                run_metadata_content={},
+            )
 
         _set_gateway_method(
             coordinator.deps.delivery_gateway,
@@ -2395,8 +2507,8 @@ async def test_process_and_respond_uses_resolved_thread_id_for_ai_logging_contex
             requester_id="@alice:localhost",
         )
 
-        async def fake_ai_response(*_args: object, **kwargs: object) -> str:
-            assert kwargs["thread_id"] == "$resolved-thread"
+        async def fake_ai_response(*args: object, **_kwargs: object) -> str:
+            assert args[0].thread_id == "$resolved-thread"
             return "Hello!"
 
         mock_ai.side_effect = fake_ai_response
@@ -2428,8 +2540,8 @@ async def test_process_and_respond_streaming_uses_resolved_thread_id_for_ai_logg
             requester_id="@alice:localhost",
         )
 
-        def fake_stream_agent_response(*_args: object, **kwargs: object) -> AsyncIterator[str]:
-            assert kwargs["thread_id"] == "$resolved-thread"
+        def fake_stream_agent_response(*args: object, **_kwargs: object) -> AsyncIterator[str]:
+            assert args[0].thread_id == "$resolved-thread"
 
             async def fake_stream() -> AsyncIterator[str]:
                 yield "Hello!"
@@ -2621,9 +2733,9 @@ async def test_generate_response_preserves_model_prompt_in_persisted_session(
     storage = _SessionStorage()
 
     async def fake_prepare_agent_and_prompt(
-        _agent_name: str,
-        prompt: str,
+        _ctx: object,
         *_args: object,
+        prompt: str,
         model_prompt: str | None = None,
         **_kwargs: object,
     ) -> _PreparedAgentRun:
@@ -2734,10 +2846,10 @@ async def test_generate_response_passes_resolved_correlation_id_to_ai_response(t
     runtime_paths = _runtime_paths(tmp_path)
     config = bind_runtime_paths(_config(), runtime_paths)
     bot = _make_bot(tmp_path, config=config, runtime_paths=runtime_paths)
-    seen_kwargs: dict[str, object] = {}
+    seen_ctx: list[object] = []
 
-    async def fake_ai_response(*_args: object, **kwargs: object) -> str:
-        seen_kwargs.update(kwargs)
+    async def fake_ai_response(*args: object, **_kwargs: object) -> str:
+        seen_ctx.append(args[0])
         return "Hello"
 
     with (
@@ -2764,8 +2876,10 @@ async def test_generate_response_passes_resolved_correlation_id_to_ai_response(t
             ),
         )
 
-    assert seen_kwargs["reply_to_event_id"] == "$original"
-    assert seen_kwargs["correlation_id"] == "$edit"
+    assert seen_ctx
+    ctx = seen_ctx[-1]
+    assert ctx.reply_to_event_id == "$original"
+    assert ctx.correlation_id == "$edit"
 
 
 @pytest.mark.asyncio
@@ -2779,9 +2893,9 @@ async def test_generate_response_preserves_retry_model_prompt(tmp_path: Path) ->
     seen_run_ids: list[str | None] = []
 
     async def fake_prepare_agent_and_prompt(
-        _agent_name: str,
-        prompt: str,
+        _ctx: object,
         *_args: object,
+        prompt: str,
         model_prompt: str | None = None,
         **_kwargs: object,
     ) -> _PreparedAgentRun:
@@ -2990,8 +3104,9 @@ async def test_generate_team_response_passes_resolved_correlation_id_to_team_res
             team_mode="coordinate",
         )
 
-    assert seen_kwargs["reply_to_event_id"] == "$original"
-    assert seen_kwargs["correlation_id"] == "$edit"
+    ctx = seen_kwargs["ctx"]
+    assert ctx.reply_to_event_id == "$original"
+    assert ctx.correlation_id == "$edit"
 
 
 @pytest.mark.asyncio
@@ -3071,7 +3186,7 @@ async def test_generate_team_response_preserves_retry_model_prompt(tmp_path: Pat
 
     async def fake_team_response(*_args: object, **kwargs: object) -> str:
         model_message = cast("str", kwargs["message"])
-        run_id = cast("str | None", kwargs.get("run_id"))
+        run_id = cast("str | None", kwargs["ctx"].run_id)
         seen_run_ids.append(run_id)
         run_id_callback = cast("Callable[[str], None]", kwargs["run_id_callback"])
         if run_id is not None:
@@ -3270,7 +3385,7 @@ async def test_generate_team_response_helper_streaming_emits_session_started_aft
 
         def fake_team_response_stream(*_args: object, **kwargs: object) -> AsyncIterator[str]:
             async def fake_stream() -> AsyncIterator[str]:
-                session_id = kwargs["session_id"]
+                session_id = kwargs["ctx"].session_id
                 assert isinstance(session_id, str)
                 storage.session = TeamSession(
                     session_id=session_id,
@@ -3302,6 +3417,75 @@ async def test_generate_team_response_helper_streaming_emits_session_started_aft
         "deliver:Team hello",
         "started:team:ultimate:!test:localhost:$thread-root:$thread-root",
     ]
+
+
+@pytest.mark.asyncio
+async def test_generate_team_response_helper_streaming_delivery_carries_live_metadata_collector(
+    tmp_path: Path,
+) -> None:
+    """The team streaming delivery request carries the live metadata collector.
+
+    The turn driver fills the collector at terminal settle, before the
+    stream's final edit snapshots extra_content; without the live dict the
+    ai_run payload never reaches Matrix in streaming mode (the finalize
+    happy path sends no extra edit).
+    """
+    runtime_paths = _runtime_paths(tmp_path)
+    config = bind_runtime_paths(_config_with_team(), runtime_paths)
+    bot = MagicMock(spec=AgentBot)
+    bot.logger = MagicMock()
+    bot.stop_manager = MagicMock()
+    bot.stop_manager.remove_stop_button = AsyncMock()
+    bot.client = AsyncMock()
+    bot.agent_name = "ultimate"
+    bot.storage_path = tmp_path
+    bot.config = config
+    bot.runtime_paths = runtime_paths
+    bot._knowledge_access_support = _knowledge_access_support()
+
+    captured_extra_content: list[object] = []
+
+    with (
+        patch("mindroom.response_runner.should_use_streaming", new=AsyncMock(return_value=True)),
+        patch("mindroom.response_runner.team_response_stream") as mock_team_stream,
+    ):
+        coordinator = _build_response_runner(
+            bot,
+            config=config,
+            runtime_paths=runtime_paths,
+            storage_path=tmp_path,
+            requester_id="@alice:localhost",
+            message_target=MessageTarget.resolve("!test:localhost", "$thread-root", "$user_msg"),
+            orchestrator=_team_orchestrator(config, runtime_paths),
+        )
+
+        async def consume_delivery(request: object) -> StreamTransportOutcome:
+            async for _chunk in request.response_stream:
+                pass
+            # Snapshot after stream exhaustion, like the real final edit.
+            captured_extra_content.append(request.extra_content)
+            return _stream_outcome("$team-final", "Team hello")
+
+        coordinator.deps.delivery_gateway.deliver_stream.side_effect = consume_delivery
+
+        def fake_team_response_stream(*_args: object, **kwargs: object) -> AsyncIterator[str]:
+            async def fake_stream() -> AsyncIterator[str]:
+                collector = kwargs["run_metadata_collector"]
+                assert isinstance(collector, dict)
+                collector["io.mindroom.ai_run"] = {"usage": {"output_tokens": 5}}
+                yield "Team hello"
+
+            return fake_stream()
+
+        mock_team_stream.side_effect = fake_team_response_stream
+
+        await coordinator.generate_team_response_helper(
+            _response_request(prompt="Hello", user_id="@alice:localhost", thread_id="$thread-root"),
+            team_agents=[fixture_entity_matrix_id("general", "localhost", runtime_paths)],
+            team_mode="coordinate",
+        )
+
+    assert captured_extra_content == [{"io.mindroom.ai_run": {"usage": {"output_tokens": 5}}}]
 
 
 @pytest.mark.asyncio
@@ -3806,10 +3990,15 @@ async def test_generate_team_response_helper_preserves_visible_stream_on_late_fi
 
 
 @pytest.mark.asyncio
-async def test_generate_team_response_helper_routes_placeholder_only_late_failure_through_cleanup_boundary(
+async def test_generate_team_response_helper_settles_late_failure_without_finalize(
     tmp_path: Path,
 ) -> None:
-    """Raw late team failures after sending only Thinking... should use the placeholder cleanup path."""
+    """Raw late team failures settle a bare terminal error without finalize.
+
+    Mirrors the agent arm: the tracked event must not be routed through the
+    placeholder-only cleanup, because an adopted thinking-message stream can
+    already hold the full streamed reply under the same event id.
+    """
     runtime_paths = _runtime_paths(tmp_path)
     config = bind_runtime_paths(_config_with_team(), runtime_paths)
     bot = _make_bot(tmp_path, config=config, runtime_paths=runtime_paths, agent_name="ultimate")
@@ -3852,7 +4041,7 @@ async def test_generate_team_response_helper_routes_placeholder_only_late_failur
         )
 
     assert resolution is None
-    coordinator.deps.delivery_gateway.finalize_streamed_response.assert_awaited_once()
+    coordinator.deps.delivery_gateway.finalize_streamed_response.assert_not_awaited()
     coordinator.deps.delivery_gateway.deps.response_hooks.emit_cancelled_response.assert_awaited_once()
 
 
@@ -4048,7 +4237,7 @@ async def test_generate_team_response_helper_emits_session_started_after_persist
 
         async def fake_team_response(*_args: object, **kwargs: object) -> str:
             cancel_message = "cancel"
-            session_id = kwargs["session_id"]
+            session_id = kwargs["ctx"].session_id
             assert isinstance(session_id, str)
             storage.session = TeamSession(
                 session_id=session_id,
@@ -4143,7 +4332,7 @@ async def test_generate_team_response_helper_streaming_emits_session_started_aft
         def fake_team_response_stream(*_args: object, **kwargs: object) -> AsyncIterator[str]:
             async def fake_stream() -> AsyncIterator[str]:
                 cancel_message = "cancel"
-                session_id = kwargs["session_id"]
+                session_id = kwargs["ctx"].session_id
                 assert isinstance(session_id, str)
                 storage.session = TeamSession(
                     session_id=session_id,
@@ -4209,7 +4398,7 @@ async def test_generate_team_response_helper_uses_persisted_team_scope_for_sessi
         )
 
         async def fake_team_response(*_args: object, **kwargs: object) -> str:
-            session_id = kwargs["session_id"]
+            session_id = kwargs["ctx"].session_id
             assert isinstance(session_id, str)
             storage.session = TeamSession(
                 session_id=session_id,
@@ -4483,7 +4672,7 @@ class TestUserIdPassthrough:
             )
 
             mock_ai.assert_called_once()
-            assert mock_ai.call_args.kwargs["user_id"] == "@alice:localhost"
+            assert mock_ai.call_args.args[0].requester_id == "@alice:localhost"
             assert callable(mock_ai.call_args.kwargs["run_id_callback"])
 
     @pytest.mark.asyncio
@@ -4538,7 +4727,7 @@ class TestUserIdPassthrough:
             )
 
             mock_stream.assert_called_once()
-            assert mock_stream.call_args.kwargs["user_id"] == "@bob:localhost"
+            assert mock_stream.call_args.args[0].requester_id == "@bob:localhost"
             assert callable(mock_stream.call_args.kwargs["run_id_callback"])
 
     @pytest.mark.asyncio
@@ -4689,12 +4878,10 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
 
             await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1", requester_id="@user:localhost"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
-                user_id="@user:localhost",
             )
 
             mock_agent.arun.assert_called_once()
@@ -4717,12 +4904,10 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
 
             await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1", run_id="run-123"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
-                run_id="run-123",
             )
 
             mock_agent.arun.assert_called_once()
@@ -4746,7 +4931,7 @@ class TestUserIdPassthrough:
             patch("mindroom.ai.create_agent", return_value=mock_agent) as mock_create_agent,
         ):
             prepared_run = await _prepare_agent_and_prompt(
-                agent_name="general",
+                make_turn_context("general"),
                 prompt="test",
                 runtime_paths=runtime_paths,
                 config=config,
@@ -4797,12 +4982,14 @@ class TestUserIdPassthrough:
             ) as mock_prepare_execution,
         ):
             prepared_run = await _prepare_agent_and_prompt(
-                agent_name="general",
+                make_turn_context(
+                    "general",
+                    system_enrichment_items=(EnrichmentItem(key="k", text="v", cache_policy="stable"),),
+                ),
                 prompt="raw prompt",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=config,
                 model_prompt="model metadata",
-                system_enrichment_items=(EnrichmentItem(key="k", text="v", cache_policy="stable"),),
             )
 
         agent = prepared_run.agent
@@ -4820,6 +5007,49 @@ class TestUserIdPassthrough:
         assert mock_agent.additional_context == "existing context\n\nsession preamble\n\nsystem enrichment"
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("include_openai_compat_guidance", "expected_sender"),
+        [(True, None), (False, "@alice:example.com")],
+    )
+    async def test_prepare_agent_and_prompt_derives_current_sender_from_requester(
+        self,
+        tmp_path: Path,
+        include_openai_compat_guidance: bool,
+        expected_sender: str | None,
+    ) -> None:
+        """OpenAI-compatible preparation suppresses the Matrix sender; Matrix turns keep it."""
+        config = _config()
+        mock_agent = MagicMock()
+        prepared_execution = _PreparedExecutionContext(
+            messages=(Message(role="user", content="prepared prompt"),),
+            unseen_event_ids=[],
+            prepared_history=PreparedHistoryState(),
+        )
+
+        with (
+            patch(
+                "mindroom.ai.build_memory_prompt_parts",
+                new_callable=AsyncMock,
+                return_value=MemoryPromptParts(),
+            ),
+            patch("mindroom.ai.create_agent", return_value=mock_agent),
+            patch(
+                "mindroom.ai.prepare_agent_execution_context",
+                new=AsyncMock(return_value=prepared_execution),
+            ) as mock_prepare_execution,
+        ):
+            await _prepare_agent_and_prompt(
+                make_turn_context("general", requester_id="@alice:example.com"),
+                prompt="test",
+                runtime_paths=_runtime_paths(tmp_path),
+                config=config,
+                include_openai_compat_guidance=include_openai_compat_guidance,
+            )
+
+        assert mock_prepare_execution.await_args is not None
+        assert mock_prepare_execution.await_args.kwargs["current_sender_id"] == expected_sender
+
+    @pytest.mark.asyncio
     async def test_ai_response_passes_config_path_to_prepare_agent(self, tmp_path: Path) -> None:
         """Non-streaming replies should build agents against the orchestrator-owned config file."""
         config_path = tmp_path / "custom-config.yaml"
@@ -4835,15 +5065,14 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
 
             await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path, config_path=config_path),
                 config=_config(),
                 include_openai_compat_guidance=True,
             )
 
-        assert mock_prepare.call_args.args[2].config_path == config_path
+        assert mock_prepare.await_args.kwargs["runtime_paths"].config_path == config_path
         assert mock_prepare.await_args.kwargs["include_openai_compat_guidance"] is True
 
     @pytest.mark.asyncio
@@ -4861,16 +5090,15 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
 
             await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1", requester_id="user-123"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
-                user_id="user-123",
                 include_openai_compat_guidance=True,
             )
 
-        assert mock_prepare.await_args.kwargs["current_sender_id"] is None
+        prepare_ctx = mock_prepare.await_args.args[0]
+        assert prepare_ctx.requester_id == "user-123"
         assert mock_prepare.await_args.kwargs["include_openai_compat_guidance"] is True
 
     @pytest.mark.asyncio
@@ -4888,15 +5116,15 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
 
             await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1", requester_id="@alice:example.com"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
-                user_id="@alice:example.com",
             )
 
-        assert mock_prepare.await_args.kwargs["current_sender_id"] == "@alice:example.com"
+        prepare_ctx = mock_prepare.await_args.args[0]
+        assert prepare_ctx.requester_id == "@alice:example.com"
+        assert mock_prepare.await_args.kwargs.get("include_openai_compat_guidance", False) is False
 
     @pytest.mark.asyncio
     async def test_ai_response_passes_raw_prompt_separately_from_model_prompt(self, tmp_path: Path) -> None:
@@ -4913,15 +5141,14 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
 
             await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="raw prompt",
                 model_prompt="model metadata",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
             )
 
-        assert mock_prepare.await_args.args[1] == "raw prompt"
+        assert mock_prepare.await_args.kwargs["prompt"] == "raw prompt"
         assert mock_prepare.await_args.kwargs["model_prompt"] == "model metadata"
 
     @pytest.mark.asyncio
@@ -4942,16 +5169,15 @@ class TestUserIdPassthrough:
             _ = [
                 chunk
                 async for chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path, config_path=config_path),
                     config=_config(),
                     include_openai_compat_guidance=True,
                 )
             ]
 
-        assert mock_prepare.call_args.args[2].config_path == config_path
+        assert mock_prepare.await_args.kwargs["runtime_paths"].config_path == config_path
         assert mock_prepare.await_args.kwargs["include_openai_compat_guidance"] is True
 
     @pytest.mark.asyncio
@@ -4971,17 +5197,16 @@ class TestUserIdPassthrough:
             _ = [
                 chunk
                 async for chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1", requester_id="user-123"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
-                    user_id="user-123",
                     include_openai_compat_guidance=True,
                 )
             ]
 
-        assert mock_prepare.await_args.kwargs["current_sender_id"] is None
+        prepare_ctx = mock_prepare.await_args.args[0]
+        assert prepare_ctx.requester_id == "user-123"
         assert mock_prepare.await_args.kwargs["include_openai_compat_guidance"] is True
 
     @pytest.mark.asyncio
@@ -5001,16 +5226,15 @@ class TestUserIdPassthrough:
             _ = [
                 chunk
                 async for chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1", requester_id="@alice:example.com"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
-                    user_id="@alice:example.com",
                 )
             ]
 
-        assert mock_prepare.await_args.kwargs["current_sender_id"] == "@alice:example.com"
+        prepare_ctx = mock_prepare.await_args.args[0]
+        assert prepare_ctx.requester_id == "@alice:example.com"
 
     @pytest.mark.asyncio
     async def test_stream_agent_response_passes_user_id_to_agent_arun(self, tmp_path: Path) -> None:
@@ -5033,12 +5257,10 @@ class TestUserIdPassthrough:
             _chunks = [
                 chunk
                 async for chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1", requester_id="@user:localhost"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
-                    user_id="@user:localhost",
                 )
             ]
 
@@ -5065,12 +5287,10 @@ class TestUserIdPassthrough:
             _chunks = [
                 chunk
                 async for chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1", run_id="run-456"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
-                    run_id="run-456",
                 )
             ]
 
@@ -5103,9 +5323,8 @@ class TestUserIdPassthrough:
 
             with pytest.raises(asyncio.CancelledError):
                 await ai_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
                 )
@@ -5144,12 +5363,10 @@ class TestUserIdPassthrough:
 
             with pytest.raises(asyncio.CancelledError):
                 await ai_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1", correlation_id="e1", reply_to_event_id="e1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
-                    reply_to_event_id="e1",
                     show_tool_calls=False,
                 )
 
@@ -5212,12 +5429,10 @@ class TestUserIdPassthrough:
 
             with pytest.raises(asyncio.CancelledError):
                 await ai_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1", correlation_id="e1", reply_to_event_id="e1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
-                    reply_to_event_id="e1",
                     show_tool_calls=False,
                 )
 
@@ -5266,12 +5481,10 @@ class TestUserIdPassthrough:
 
             with pytest.raises(asyncio.CancelledError):
                 await ai_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1", correlation_id="e1", reply_to_event_id="e1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
-                    reply_to_event_id="e1",
                     show_tool_calls=False,
                 )
 
@@ -5325,12 +5538,10 @@ class TestUserIdPassthrough:
 
             with pytest.raises(asyncio.CancelledError):
                 await ai_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1", correlation_id="e1", reply_to_event_id="e1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
-                    reply_to_event_id="e1",
                     show_tool_calls=False,
                     turn_recorder=recorder,
                 )
@@ -5362,9 +5573,8 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
 
             response = await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
             )
@@ -5380,9 +5590,8 @@ class TestUserIdPassthrough:
             return_value="friendly-error",
         ) as mock_friendly_error:
             response = await ai_response(
-                agent_name="ultimate",
+                make_turn_context("ultimate", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config_with_team(),
             )
@@ -5403,9 +5612,8 @@ class TestUserIdPassthrough:
             chunks = [
                 chunk
                 async for chunk in stream_agent_response(
-                    agent_name="ultimate",
+                    make_turn_context("ultimate", session_id="session1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config_with_team(),
                 )
@@ -5436,9 +5644,8 @@ class TestUserIdPassthrough:
         with patch("mindroom.ai._prepare_agent_and_prompt", new_callable=AsyncMock) as mock_prepare:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
                 media=MediaInputs(files=[pdf_file, zip_file]),
@@ -5470,9 +5677,8 @@ class TestUserIdPassthrough:
             _chunks = [
                 _chunk
                 async for _chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
                     media=MediaInputs(files=[pdf_file, zip_file]),
@@ -5516,9 +5722,8 @@ class TestUserIdPassthrough:
         with patch("mindroom.ai._prepare_agent_and_prompt", new_callable=AsyncMock) as mock_prepare:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             response = await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
                 media=MediaInputs(files=[document_file]),
@@ -5574,17 +5779,15 @@ class TestUserIdPassthrough:
                 _prepared_prompt_result(second_agent),
             ]
             first_response = await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
                 media=MediaInputs(audio=[audio_input], images=[image_input]),
             )
             second_response = await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test again",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
                 media=MediaInputs(audio=[audio_input], images=[image_input]),
@@ -5653,10 +5856,9 @@ class TestUserIdPassthrough:
         ):
             mock_prepare.return_value = _prepared_prompt_result(mock_agent, prompt=prepared_prompt)
             response = await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="raw prompt",
                 model_prompt="expanded prompt",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
                 media=MediaInputs(files=[document_file]),
@@ -5664,7 +5866,7 @@ class TestUserIdPassthrough:
 
         assert response == "Recovered response"
         mock_prepare.assert_awaited_once()
-        assert mock_prepare.await_args.args[1] == "raw prompt"
+        assert mock_prepare.await_args.kwargs["prompt"] == "raw prompt"
         assert mock_prepare.await_args.kwargs["model_prompt"] == "expanded prompt"
         assert len(logged_contexts) == 2
         assert logged_contexts[0]["agent_id"] == "general"
@@ -5728,12 +5930,10 @@ class TestUserIdPassthrough:
         ):
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             response = await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1", run_id="run-123"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
-                run_id="run-123",
                 run_id_callback=callback_run_ids.append,
                 media=MediaInputs(audio=[MagicMock(name="audio_input")]),
             )
@@ -5774,16 +5974,19 @@ class TestUserIdPassthrough:
 
             with pytest.raises(asyncio.CancelledError):
                 await ai_response(
-                    agent_name="general",
+                    make_turn_context(
+                        "general",
+                        session_id="session1",
+                        run_id="run-123",
+                        correlation_id="$event:localhost",
+                        reply_to_event_id="$event:localhost",
+                        room_id="!room:localhost",
+                        thread_id="$thread:localhost",
+                        requester_id="@alice:localhost",
+                    ),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
-                    room_id="!room:localhost",
-                    thread_id="$thread:localhost",
-                    user_id="@alice:localhost",
-                    reply_to_event_id="$event:localhost",
-                    run_id="run-123",
                     run_id_callback=callback_run_ids.append,
                     media=MediaInputs(audio=[MagicMock(name="audio_input")]),
                 )
@@ -5839,9 +6042,8 @@ class TestUserIdPassthrough:
             chunks = [
                 chunk
                 async for chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
                     media=MediaInputs(files=[document_file]),
@@ -5903,10 +6105,9 @@ class TestUserIdPassthrough:
             chunks = [
                 chunk
                 async for chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1"),
                     prompt="raw prompt",
                     model_prompt="expanded prompt",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
                     media=MediaInputs(files=[document_file]),
@@ -5915,7 +6116,7 @@ class TestUserIdPassthrough:
 
         assert any(isinstance(chunk, RunContentEvent) and chunk.content == "Recovered stream" for chunk in chunks)
         mock_prepare.assert_awaited_once()
-        assert mock_prepare.await_args.args[1] == "raw prompt"
+        assert mock_prepare.await_args.kwargs["prompt"] == "raw prompt"
         assert mock_prepare.await_args.kwargs["model_prompt"] == "expanded prompt"
         assert len(logged_contexts) == 2
         assert logged_contexts[0]["agent_id"] == "general"
@@ -6014,15 +6215,18 @@ class TestUserIdPassthrough:
             chunks = [
                 chunk
                 async for chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context(
+                        "general",
+                        session_id="session1",
+                        correlation_id="$reply:example.com",
+                        reply_to_event_id="$reply:example.com",
+                        room_id="!room:example.com",
+                        thread_id="$thread:example.com",
+                    ),
                     prompt="raw prompt",
                     model_prompt="expanded prompt",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=config,
-                    room_id="!room:example.com",
-                    thread_id="$thread:example.com",
-                    reply_to_event_id="$reply:example.com",
                 )
             ]
 
@@ -6073,12 +6277,10 @@ class TestUserIdPassthrough:
             chunks = [
                 chunk
                 async for chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1", run_id="run-456"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
-                    run_id="run-456",
                     run_id_callback=callback_run_ids.append,
                     media=MediaInputs(audio=[MagicMock(name="audio_input")]),
                 )
@@ -6129,12 +6331,10 @@ class TestUserIdPassthrough:
                 _chunks = [
                     chunk
                     async for chunk in stream_agent_response(
-                        agent_name="general",
+                        make_turn_context("general", session_id="session1", run_id="run-456"),
                         prompt="test",
-                        session_id="session1",
                         runtime_paths=_runtime_paths(tmp_path),
                         config=_config(),
-                        run_id="run-456",
                         run_id_callback=callback_run_ids.append,
                         media=MediaInputs(audio=[MagicMock(name="audio_input")]),
                     )
@@ -6241,9 +6441,8 @@ class TestUserIdPassthrough:
         ):
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             response = await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
                 media=MediaInputs(files=[document_file]),
@@ -6295,9 +6494,8 @@ class TestUserIdPassthrough:
             chunks = [
                 chunk
                 async for chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
                     media=MediaInputs(files=[document_file]),
@@ -6372,9 +6570,8 @@ class TestUserIdPassthrough:
             chunks = [
                 chunk
                 async for chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
                 )
@@ -6402,9 +6599,8 @@ class TestUserIdPassthrough:
 
             # Call without user_id
             await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
             )
@@ -6436,9 +6632,8 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             tool_trace: list[object] = []
             response = await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
                 show_tool_calls=False,
@@ -6500,12 +6695,10 @@ class TestUserIdPassthrough:
             tool_trace: list[object] = []
             run_ids: list[str] = []
             response = await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1", run_id="run-1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
-                run_id="run-1",
                 model_prompt="test\n\nUse attachment att_1.",
                 run_id_callback=run_ids.append,
                 show_tool_calls=False,
@@ -6516,7 +6709,7 @@ class TestUserIdPassthrough:
         assert mock_prepare.await_count == 2
         assert mock_prepare.await_args_list[0].kwargs["model_prompt"] == "test\n\nUse attachment att_1."
         assert mock_prepare.await_args_list[1].kwargs["model_prompt"] == "Use attachment att_1."
-        assert "Continue the same task" in mock_prepare.await_args_list[1].args[1]
+        assert "Continue the same task" in mock_prepare.await_args_list[1].kwargs["prompt"]
         first_agent.arun.assert_awaited_once()
         second_agent.arun.assert_awaited_once()
         assert run_ids[0] == "run-1"
@@ -6588,12 +6781,10 @@ class TestUserIdPassthrough:
 
             with pytest.raises(asyncio.CancelledError):
                 await ai_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1", run_id="run-1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
-                    run_id="run-1",
                     show_tool_calls=False,
                     turn_recorder=recorder,
                 )
@@ -6654,12 +6845,10 @@ class TestUserIdPassthrough:
             chunks = [
                 chunk
                 async for chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1", run_id="run-1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
-                    run_id="run-1",
                     model_prompt="test\n\nUse attachment att_1.",
                     run_id_callback=run_ids.append,
                     show_tool_calls=False,
@@ -6670,7 +6859,7 @@ class TestUserIdPassthrough:
         assert mock_prepare.await_count == 2
         assert mock_prepare.await_args_list[0].kwargs["model_prompt"] == "test\n\nUse attachment att_1."
         assert mock_prepare.await_args_list[1].kwargs["model_prompt"] == "Use attachment att_1."
-        assert "Continue the same task" in mock_prepare.await_args_list[1].args[1]
+        assert "Continue the same task" in mock_prepare.await_args_list[1].kwargs["prompt"]
         first_agent.arun.assert_called_once()
         second_agent.arun.assert_called_once()
         assert run_ids[0] == "run-1"
@@ -6741,12 +6930,10 @@ class TestUserIdPassthrough:
 
             with pytest.raises(asyncio.CancelledError):
                 async for _chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1", run_id="run-1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
-                    run_id="run-1",
                     show_tool_calls=False,
                     turn_recorder=recorder,
                 ):
@@ -6794,9 +6981,8 @@ class TestUserIdPassthrough:
         with patch("mindroom.ai._prepare_agent_and_prompt", new_callable=AsyncMock) as mock_prepare:
             mock_prepare.side_effect = prepared_runs
             response = await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
             )
@@ -6847,9 +7033,8 @@ class TestUserIdPassthrough:
             chunks = [
                 chunk
                 async for chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
                     show_tool_calls=False,
@@ -6903,9 +7088,8 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent, prepared_context_tokens=1500)
             run_metadata: dict[str, object] = {}
             await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=config,
                 run_metadata_collector=run_metadata,
@@ -6919,9 +7103,13 @@ class TestUserIdPassthrough:
         assert payload["usage"]["cache_read_tokens"] == 640
         assert payload["usage"]["cache_write_tokens"] == 32
         assert payload["usage"]["reasoning_tokens"] == 24
-        assert payload["context"]["input_tokens"] == 1500
+        assert payload["context"]["input_tokens"] == 800
+        assert payload["context"]["cache_read_input_tokens"] == 640
+        assert payload["context"]["uncached_input_tokens"] == 160
+        assert payload["context"]["cache_write_input_tokens"] == 32
         assert payload["context"]["window_tokens"] == 2000
         assert "utilization_pct" not in payload["context"]
+        assert payload["prepared_context"] == {"tokens": 1500}
         assert payload["tools"]["count"] == 0
 
     @pytest.mark.asyncio
@@ -6955,10 +7143,13 @@ class TestUserIdPassthrough:
         ):
             mock_prepare.return_value = _prepared_prompt_result(mock_agent, prepared_context_tokens=1234)
             await ai_response(
-                agent_name="general",
+                make_turn_context(
+                    "general",
+                    session_id="session1",
+                    correlation_id="$event",
+                    reply_to_event_id="$event",
+                ),
                 prompt="test",
-                session_id="session1",
-                reply_to_event_id="$event",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
                 turn_recorder=recorder,
@@ -7005,9 +7196,8 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             run_metadata: dict[str, object] = {}
             await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=config,
                 run_metadata_collector=run_metadata,
@@ -7121,9 +7311,8 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             run_metadata: dict[str, object] = {}
             async for _chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=config,
                 run_metadata_collector=run_metadata,
@@ -7164,9 +7353,8 @@ class TestUserIdPassthrough:
         with patch("mindroom.ai._prepare_agent_and_prompt", new_callable=AsyncMock) as mock_prepare:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             async for _chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
                 turn_recorder=recorder,
@@ -7203,9 +7391,8 @@ class TestUserIdPassthrough:
         with patch("mindroom.ai._prepare_agent_and_prompt", new_callable=AsyncMock) as mock_prepare:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             async for _chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
                 turn_recorder=recorder,
@@ -7242,9 +7429,8 @@ class TestUserIdPassthrough:
         with patch("mindroom.ai._prepare_agent_and_prompt", new_callable=AsyncMock) as mock_prepare:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             async for _chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
                 turn_recorder=recorder,
@@ -7288,10 +7474,8 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent, runtime_model_name="large")
             run_metadata: dict[str, object] = {}
             await ai_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1", room_id="!test:localhost"),
                 prompt="test",
-                session_id="session1",
-                room_id="!test:localhost",
                 runtime_paths=runtime_paths,
                 config=config,
                 run_metadata_collector=run_metadata,
@@ -7354,10 +7538,8 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent, runtime_model_name="large")
             run_metadata: dict[str, object] = {}
             async for _chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1", room_id="!test:localhost"),
                 prompt="test",
-                session_id="session1",
-                room_id="!test:localhost",
                 runtime_paths=runtime_paths,
                 config=config,
                 run_metadata_collector=run_metadata,
@@ -7389,10 +7571,13 @@ class TestUserIdPassthrough:
         with patch("mindroom.ai._prepare_agent_and_prompt", new_callable=AsyncMock) as mock_prepare:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent, prepared_context_tokens=5678)
             async for _chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context(
+                    "general",
+                    session_id="session1",
+                    correlation_id="$event",
+                    reply_to_event_id="$event",
+                ),
                 prompt="test",
-                session_id="session1",
-                reply_to_event_id="$event",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
                 turn_recorder=recorder,
@@ -7441,9 +7626,8 @@ class TestUserIdPassthrough:
             run_metadata: dict[str, object] = {}
             with pytest.raises(asyncio.CancelledError):
                 async for _chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=config,
                     run_metadata_collector=run_metadata,
@@ -7507,12 +7691,10 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             with pytest.raises(asyncio.CancelledError):
                 async for _chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1", correlation_id="e1", reply_to_event_id="e1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
-                    reply_to_event_id="e1",
                     show_tool_calls=False,
                 ):
                     pass
@@ -7588,12 +7770,10 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             with pytest.raises(asyncio.CancelledError):
                 async for _chunk in stream_agent_response(
-                    agent_name="general",
+                    make_turn_context("general", session_id="session1", correlation_id="e1", reply_to_event_id="e1"),
                     prompt="test",
-                    session_id="session1",
                     runtime_paths=_runtime_paths(tmp_path),
                     config=_config(),
-                    reply_to_event_id="e1",
                     show_tool_calls=False,
                 ):
                     pass
@@ -7634,12 +7814,10 @@ class TestUserIdPassthrough:
 
         async def consume_stream() -> None:
             async for _chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1", correlation_id="e1", reply_to_event_id="e1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=_config(),
-                reply_to_event_id="e1",
                 show_tool_calls=False,
             ):
                 first_chunk_seen.set()
@@ -7704,9 +7882,8 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             run_metadata: dict[str, object] = {}
             async for _chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=config,
                 run_metadata_collector=run_metadata,
@@ -7757,9 +7934,8 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             run_metadata: dict[str, object] = {}
             async for _chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=config,
                 run_metadata_collector=run_metadata,
@@ -7772,11 +7948,11 @@ class TestUserIdPassthrough:
         assert payload["usage"]["total_tokens"] == 15
 
     @pytest.mark.asyncio
-    async def test_stream_agent_response_uses_prepared_context_estimate_for_context(
+    async def test_stream_agent_response_prefers_latest_request_counters_over_estimate(
         self,
         tmp_path: Path,
     ) -> None:
-        """Streaming context metadata should use the prepared full-context estimate when available."""
+        """Streaming context metadata should prefer real request counters over the prepared estimate."""
         mock_agent = MagicMock()
         mock_agent.model = MagicMock()
         mock_agent.model.__class__.__name__ = "OpenAIChat"
@@ -7817,9 +7993,8 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent, prepared_context_tokens=900)
             run_metadata: dict[str, object] = {}
             async for _chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=config,
                 run_metadata_collector=run_metadata,
@@ -7833,11 +8008,12 @@ class TestUserIdPassthrough:
         assert payload["usage"]["total_tokens"] == 890
         assert payload["usage"]["cache_read_tokens"] == 576
         assert payload["usage"]["reasoning_tokens"] == 48
-        assert payload["context"]["input_tokens"] == 900
+        assert payload["context"]["input_tokens"] == 120
         assert payload["context"]["cache_read_input_tokens"] == 64
-        assert payload["context"]["uncached_input_tokens"] == 836
+        assert payload["context"]["uncached_input_tokens"] == 56
         assert "cached_input_tokens" not in payload["context"]
         assert payload["context"]["window_tokens"] == 1000
+        assert payload["prepared_context"] == {"tokens": 900}
 
     @pytest.mark.asyncio
     async def test_stream_agent_response_does_not_backfill_latest_context_cache_from_usage(
@@ -7882,9 +8058,8 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             run_metadata: dict[str, object] = {}
             async for _chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=config,
                 run_metadata_collector=run_metadata,
@@ -7950,9 +8125,8 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent, prepared_context_tokens=900)
             run_metadata: dict[str, object] = {}
             async for _chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=config,
                 run_metadata_collector=run_metadata,
@@ -7964,7 +8138,8 @@ class TestUserIdPassthrough:
         assert payload["usage"]["input_tokens"] == 820
         assert payload["usage"]["output_tokens"] == 70
         assert payload["usage"]["total_tokens"] == 890
-        assert payload["context"]["input_tokens"] == 900
+        assert payload["context"]["input_tokens"] == 120
+        assert payload["prepared_context"] == {"tokens": 900}
 
     @pytest.mark.asyncio
     async def test_stream_agent_response_context_counts_latest_anthropic_cache_tokens(self, tmp_path: Path) -> None:
@@ -8009,9 +8184,8 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             run_metadata: dict[str, object] = {}
             async for _chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=config,
                 run_metadata_collector=run_metadata,
@@ -8071,9 +8245,8 @@ class TestUserIdPassthrough:
             mock_prepare.return_value = _prepared_prompt_result(mock_agent)
             run_metadata: dict[str, object] = {}
             async for _chunk in stream_agent_response(
-                agent_name="general",
+                make_turn_context("general", session_id="session1"),
                 prompt="test",
-                session_id="session1",
                 runtime_paths=_runtime_paths(tmp_path),
                 config=config,
                 run_metadata_collector=run_metadata,

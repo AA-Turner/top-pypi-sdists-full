@@ -77,6 +77,9 @@ class TestYq(unittest.TestCase):
         self.assertEqual(self.run_yq("foo:\n bar: 1\n baz: {bat: 3}", ["-y", ".foo.baz.bat"]), "3\n...\n")
         self.assertEqual(self.run_yq("[aaaaaaaaaa bbb]", ["-y", "."]), "- aaaaaaaaaa bbb\n")
         self.assertEqual(self.run_yq("[aaaaaaaaaa bbb]", ["-y", "-w", "8", "."]), "- aaaaaaaaaa\n  bbb\n")
+        long_string = " ".join(["word"] * 30)
+        self.assertEqual(self.run_yq(f'["{long_string}"]', ["-y", "--width", "0", "."]), f"- {long_string}\n")
+        self.assertEqual(self.run_yq(f'["{long_string}"]', ["-Y", "--width", "0", "."]), f'- "{long_string}"\n')
         self.assertEqual(self.run_yq('{"понедельник": 1}', ['.["понедельник"]']), "")
         self.assertEqual(self.run_yq('{"понедельник": 1}', ["-y", '.["понедельник"]']), "1\n...\n")
         self.assertEqual(self.run_yq("- понедельник\n- вторник\n", ["-y", "."]), "- понедельник\n- вторник\n")
@@ -129,6 +132,14 @@ class TestYq(unittest.TestCase):
             for arg in "--from-file", "-f":
                 tf2.seek(0)
                 self.assertEqual(self.run_yq("", ["-y", arg, tf.name, self.fd_path(tf2)]), "1\n...\n")
+
+    def test_yq_long_null_input_passthrough(self):
+        from unittest import mock
+
+        unusable_tty_input = mock.Mock()
+        unusable_tty_input.isatty = mock.Mock(return_value=True)
+
+        self.assertEqual(self.run_yq(unusable_tty_input, ["--null-input", "-y", "."]), "null\n...\n")
 
     @unittest.skipIf(subprocess.check_output(["jq", "--version"]) < b"jq-1.6", "Test options introduced in jq 1.6")
     def test_jq16_arg_passthrough(self):
@@ -209,6 +220,12 @@ class TestYq(unittest.TestCase):
             self.run_yq("", ["-i", "-t", '.GLOBAL.version="1.0.1"', tf.name], input_format="toml")
             self.assertEqual(tf.read(), b'[GLOBAL]\nversion = "1.0.1"\n')
 
+        with tempfile.NamedTemporaryFile() as tf:
+            tf.write(b'# top\nversion = "1.0.0" # keep\n')
+            tf.seek(0)
+            self.run_yq("", ["-i", "-T", '.version="1.0.1"', tf.name], input_format="toml")
+            self.assertEqual(tf.read(), b'# top\nversion = "1.0.1" # keep\n')
+
     def test_explicit_doc_markers(self):
         test_doc = os.path.join(os.path.dirname(__file__), "doc.yml")
         self.assertTrue(self.run_yq("", ["-y", ".", test_doc]).startswith("yaml_struct"))
@@ -268,6 +285,45 @@ class TestYq(unittest.TestCase):
         self.assertEqual(self.run_yq("[foo]\nbar = 1", ["-t", ".foo"], input_format="toml"), "bar = 1\n")
         self.assertEqual(self.run_yq("[foo]\nbar = 2020-02-20", ["."], input_format="toml"), "")
 
+    def test_tomlq_roundtrip(self):
+        toml_doc = (
+            "# top\n"
+            "a = 1_000 # a\n"
+            "b = 'old' # b\n"
+            "arr = [1,  2, 3] # arr\n"
+            'inline = { x = 1,  y = "z" } # inline\n'
+            "\n"
+            "[foo] # table\n"
+            "bar = 2 # bar\n"
+            "baz = 'x'\n"
+        )
+        self.assertEqual(self.run_yq(toml_doc, ["-T", "."], input_format="toml"), toml_doc)
+        self.assertEqual(
+            self.run_yq(toml_doc, ["-T", '.a=2000 | .b="new" | .foo.bar=3'], input_format="toml"),
+            "# top\n"
+            "a = 2000 # a\n"
+            "b = 'new' # b\n"
+            "arr = [1,  2, 3] # arr\n"
+            'inline = { x = 1,  y = "z" } # inline\n'
+            "\n"
+            "[foo] # table\n"
+            "bar = 3 # bar\n"
+            "baz = 'x'\n",
+        )
+        self.assertEqual(
+            self.run_yq(toml_doc, ["-T", '.arr[1]=9 | .inline.y="zz"'], input_format="toml"),
+            "# top\n"
+            "a = 1_000 # a\n"
+            "b = 'old' # b\n"
+            "arr = [1,  9, 3] # arr\n"
+            'inline = { x = 1,  y = "zz" } # inline\n'
+            "\n"
+            "[foo] # table\n"
+            "bar = 2 # bar\n"
+            "baz = 'x'\n",
+        )
+        self.assertEqual(self.run_yq(toml_doc, ["-T", ".foo"], input_format="toml"), "bar = 2 # bar\nbaz = 'x'\n")
+
     def test_abbrev_opt_collisions(self):
         with tempfile.TemporaryFile() as tf, tempfile.TemporaryFile() as tf2:
             self.assertEqual(
@@ -318,14 +374,48 @@ class TestYq(unittest.TestCase):
 
         self.assertEqual(self.run_yq("+12345", ["-y", "."]), "12345\n...\n")
 
-    def test_yaml_1_1_octals(self):
-        self.assertEqual(self.run_yq("on: -012345", ["-y", "."]), "'on': -5349\n")
+    def test_yaml_1_1_output_quotes(self):
+        self.assertEqual(self.run_yq("on: -012345", ["-y", "."]), "'on': -12345\n")
         self.assertEqual(self.run_yq("on: '0900'", ["-y", "."]), "'on': '0900'\n")
+        self.assertEqual(self.run_yq("a: abc\nb: cba\n", ["-y", '.a="23695230e640"']), "a: '23695230e640'\nb: cba\n")
 
-    @unittest.expectedFailure
-    def test_yaml_1_2_octals(self):
-        """YAML 1.2 octals not yet implemented"""
+        numeric_strings = [
+            "0",
+            "7",
+            "08",
+            "+9",
+            "-9",
+            "0o10",
+            "0x10",
+            "1.0",
+            "1.0e10",
+            "1e10",
+            "1e+10",
+            "1e-10",
+            "23695230e640",
+            ".5",
+            ".inf",
+            ".nan",
+        ]
+        yaml_doc = "".join("- '{}'\n".format(value) for value in numeric_strings)
+        self.assertEqual(self.run_yq(yaml_doc, ["-y", "."]), yaml_doc)
+
+    def test_yaml_1_2_leading_zero_integers(self):
         self.assertEqual(self.run_yq("on: -012345", ["-y", "--yml-out-ver=1.2", "."]), "on: -12345\n")
+
+        literals = []
+        expected_values = []
+        for sign in "", "+", "-":
+            for width in 1, 2, 3:
+                for value in range(10):
+                    literals.append("{}{:0{}d}".format(sign, value, width))
+                    expected_values.append(-value if sign == "-" else value)
+        yaml_doc = "".join("- {}\n".format(literal) for literal in literals)
+        expected = "".join("- {}\n".format(value) for value in expected_values)
+        self.assertEqual(self.run_yq(yaml_doc, ["-y", "--yml-out-ver=1.2", "."]), expected)
+
+        self.assertEqual(self.run_yq("octal: 0o10", ["-y", "--yml-out-ver=1.2", "."]), "octal: 8\n")
+        self.assertEqual(self.run_yq("'08'", ["-y", "--yml-out-ver=1.2", "."]), "'08'\n")
 
 
 if __name__ == "__main__":

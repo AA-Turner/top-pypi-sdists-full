@@ -885,6 +885,37 @@ rds.DatabaseInstance(self, "InstanceWithCustomizedSecret",
 )
 ```
 
+### RDS-managed master password
+
+You can enable RDS to manage the master password in AWS Secrets Manager by setting `manageMasterUserPassword` to `true`. When enabled, RDS creates and manages the secret automatically, and you can only specify the `username` and optionally an `encryptionKey` in the credentials:
+
+```python
+# vpc: ec2.Vpc
+# kms_key: kms.Key
+
+
+# Database cluster with RDS-managed password
+rds.DatabaseCluster(self, "Cluster",
+    engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_3_01_0),
+    writer=rds.ClusterInstance.serverless_v2("writer"),
+    vpc=vpc,
+    manage_master_user_password=True,
+    credentials=rds.Credentials.from_username("admin",
+        encryption_key=kms_key
+    )
+)
+
+# Database instance with RDS-managed password
+rds.DatabaseInstance(self, "Instance",
+    engine=rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_16_3),
+    vpc=vpc,
+    manage_master_user_password=True,
+    credentials=rds.Credentials.from_username("postgres")
+)
+```
+
+**Note**: When `manageMasterUserPassword` is enabled, you cannot use other credential properties like `password`, `secret`, `secretName`, `excludeCharacters`, `replicaRegions`, or `usernameAsString`. Only `username` and `encryptionKey` are allowed. The `secret` property exposes a read-only reference to the secret that RDS created, not a CDK-owned secret — `addToResourcePolicy()` is a no-op, so use `secret.grantRead(grantee)` to grant access.
+
 ### Snapshot credentials
 
 As noted above, Databases created with `DatabaseInstanceFromSnapshot` or `ServerlessClusterFromSnapshot` will not create user and auto-generated password by default because it's not possible to change the master username for a snapshot. Instead, they will use the existing username and password from the snapshot. You can still generate a new password - to generate a secret similarly to the other constructs, pass in credentials with `fromGeneratedSecret()` or `fromGeneratedPassword()`.
@@ -22272,7 +22303,7 @@ class Credentials(
            }
 
         :param secret: The secret where the credentials are stored.
-        :param username: The username defined in the secret. If specified the username will be referenced as a string and not a dynamic reference to the username field in the secret. This allows to replace the secret without replacing the instance or cluster.
+        :param username: The username defined in the secret. If specified the username will be referenced as a string and not a dynamic reference to the username field in the secret. This allows you to replace the secret without replacing the instance or cluster.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__39c55ae8f65a3beac8dae1c49ac23bb44000c0daf3586e919d9b0d331dbc31a3)
@@ -23005,19 +23036,20 @@ class DatabaseClusterEngine(
 
         # vpc: ec2.Vpc
         
-        
-        cluster = rds.ServerlessCluster(self, "AnotherCluster",
-            engine=rds.DatabaseClusterEngine.AURORA_POSTGRESQL,
-            copy_tags_to_snapshot=True,  # whether to save the cluster tags when creating the snapshot. Default is 'true'
-            parameter_group=rds.ParameterGroup.from_parameter_group_name(self, "ParameterGroup", "default.aurora-postgresql11"),
-            vpc=vpc,
-            scaling=rds.ServerlessScalingOptions(
-                auto_pause=Duration.minutes(10),  # default is to pause after 5 minutes of idle time
-                min_capacity=rds.AuroraCapacityUnit.ACU_8,  # default is 2 Aurora capacity units (ACUs)
-                max_capacity=rds.AuroraCapacityUnit.ACU_32,  # default is 16 Aurora capacity units (ACUs)
-                timeout=Duration.seconds(100),  # default is 5 minutes
-                timeout_action=rds.TimeoutAction.FORCE_APPLY_CAPACITY_CHANGE
-            )
+        cluster = rds.DatabaseCluster(self, "Database",
+            engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_3_01_0),
+            credentials=rds.Credentials.from_generated_secret("clusteradmin"),  # Optional - will default to 'admin' username and generated password
+            writer=rds.ClusterInstance.provisioned("writer",
+                publicly_accessible=False
+            ),
+            readers=[
+                rds.ClusterInstance.provisioned("reader1", promotion_tier=1),
+                rds.ClusterInstance.serverless_v2("reader2")
+            ],
+            vpc_subnets=ec2.SubnetSelection(
+                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+            ),
+            vpc=vpc
         )
     '''
 
@@ -23136,6 +23168,7 @@ class DatabaseClusterEngine(
         "instance_props": "instanceProps",
         "instances": "instances",
         "instance_update_behaviour": "instanceUpdateBehaviour",
+        "manage_master_user_password": "manageMasterUserPassword",
         "monitoring_interval": "monitoringInterval",
         "monitoring_role": "monitoringRole",
         "network_type": "networkType",
@@ -23198,6 +23231,7 @@ class DatabaseClusterFromSnapshotProps:
         instance_props: typing.Optional[typing.Union["InstanceProps", typing.Dict[builtins.str, typing.Any]]] = None,
         instances: typing.Optional[jsii.Number] = None,
         instance_update_behaviour: typing.Optional["InstanceUpdateBehaviour"] = None,
+        manage_master_user_password: typing.Optional[builtins.bool] = None,
         monitoring_interval: typing.Optional["_Duration_4839e8c3"] = None,
         monitoring_role: typing.Optional["_IRole_235f5d8e"] = None,
         network_type: typing.Optional["NetworkType"] = None,
@@ -23257,6 +23291,7 @@ class DatabaseClusterFromSnapshotProps:
         :param instance_props: (deprecated) Settings for the individual instances that are launched.
         :param instances: (deprecated) How many replicas/instances to create. Has to be at least 1. Default: 2
         :param instance_update_behaviour: The ordering of updates for instances. Default: InstanceUpdateBehaviour.BULK
+        :param manage_master_user_password: Whether to use RDS native integration with AWS Secrets Manager for master user password management. When enabled, RDS generates and manages the master user password in Secrets Manager. This is supported when restoring from snapshots, allowing migration to RDS-managed passwords. Default: false
         :param monitoring_interval: The interval between points when Amazon RDS collects enhanced monitoring metrics. If you enable ``enableClusterLevelEnhancedMonitoring``, this property is applied to the cluster, otherwise it is applied to the instances. Default: - no enhanced monitoring
         :param monitoring_role: Role that will be used to manage DB monitoring. If you enable ``enableClusterLevelEnhancedMonitoring``, this property is applied to the cluster, otherwise it is applied to the instances. Default: - A role is automatically created for you
         :param network_type: The network type of the DB instance. Default: - IPV4
@@ -23335,6 +23370,7 @@ class DatabaseClusterFromSnapshotProps:
             check_type(argname="argument instance_props", value=instance_props, expected_type=type_hints["instance_props"])
             check_type(argname="argument instances", value=instances, expected_type=type_hints["instances"])
             check_type(argname="argument instance_update_behaviour", value=instance_update_behaviour, expected_type=type_hints["instance_update_behaviour"])
+            check_type(argname="argument manage_master_user_password", value=manage_master_user_password, expected_type=type_hints["manage_master_user_password"])
             check_type(argname="argument monitoring_interval", value=monitoring_interval, expected_type=type_hints["monitoring_interval"])
             check_type(argname="argument monitoring_role", value=monitoring_role, expected_type=type_hints["monitoring_role"])
             check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
@@ -23420,6 +23456,8 @@ class DatabaseClusterFromSnapshotProps:
             self._values["instances"] = instances
         if instance_update_behaviour is not None:
             self._values["instance_update_behaviour"] = instance_update_behaviour
+        if manage_master_user_password is not None:
+            self._values["manage_master_user_password"] = manage_master_user_password
         if monitoring_interval is not None:
             self._values["monitoring_interval"] = monitoring_interval
         if monitoring_role is not None:
@@ -23807,6 +23845,20 @@ class DatabaseClusterFromSnapshotProps:
         '''
         result = self._values.get("instance_update_behaviour")
         return typing.cast(typing.Optional["InstanceUpdateBehaviour"], result)
+
+    @builtins.property
+    def manage_master_user_password(self) -> typing.Optional[builtins.bool]:
+        '''Whether to use RDS native integration with AWS Secrets Manager for master user password management.
+
+        When enabled, RDS generates and manages the master user password in Secrets Manager.
+        This is supported when restoring from snapshots, allowing migration to RDS-managed passwords.
+
+        :default: false
+
+        :see: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html
+        '''
+        result = self._values.get("manage_master_user_password")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def monitoring_interval(self) -> typing.Optional["_Duration_4839e8c3"]:
@@ -24222,6 +24274,7 @@ class DatabaseClusterLookupOptions:
         "instance_props": "instanceProps",
         "instances": "instances",
         "instance_update_behaviour": "instanceUpdateBehaviour",
+        "manage_master_user_password": "manageMasterUserPassword",
         "monitoring_interval": "monitoringInterval",
         "monitoring_role": "monitoringRole",
         "network_type": "networkType",
@@ -24283,6 +24336,7 @@ class DatabaseClusterProps:
         instance_props: typing.Optional[typing.Union["InstanceProps", typing.Dict[builtins.str, typing.Any]]] = None,
         instances: typing.Optional[jsii.Number] = None,
         instance_update_behaviour: typing.Optional["InstanceUpdateBehaviour"] = None,
+        manage_master_user_password: typing.Optional[builtins.bool] = None,
         monitoring_interval: typing.Optional["_Duration_4839e8c3"] = None,
         monitoring_role: typing.Optional["_IRole_235f5d8e"] = None,
         network_type: typing.Optional["NetworkType"] = None,
@@ -24341,6 +24395,7 @@ class DatabaseClusterProps:
         :param instance_props: (deprecated) Settings for the individual instances that are launched.
         :param instances: (deprecated) How many replicas/instances to create. Has to be at least 1. Default: 2
         :param instance_update_behaviour: The ordering of updates for instances. Default: InstanceUpdateBehaviour.BULK
+        :param manage_master_user_password: Whether to use RDS native integration with AWS Secrets Manager for master user password management. When enabled, RDS generates and manages the master user password in Secrets Manager. Cannot be used together with credentials containing a password. Default: false
         :param monitoring_interval: The interval between points when Amazon RDS collects enhanced monitoring metrics. If you enable ``enableClusterLevelEnhancedMonitoring``, this property is applied to the cluster, otherwise it is applied to the instances. Default: - no enhanced monitoring
         :param monitoring_role: Role that will be used to manage DB monitoring. If you enable ``enableClusterLevelEnhancedMonitoring``, this property is applied to the cluster, otherwise it is applied to the instances. Default: - A role is automatically created for you
         :param network_type: The network type of the DB instance. Default: - IPV4
@@ -24427,6 +24482,7 @@ class DatabaseClusterProps:
             check_type(argname="argument instance_props", value=instance_props, expected_type=type_hints["instance_props"])
             check_type(argname="argument instances", value=instances, expected_type=type_hints["instances"])
             check_type(argname="argument instance_update_behaviour", value=instance_update_behaviour, expected_type=type_hints["instance_update_behaviour"])
+            check_type(argname="argument manage_master_user_password", value=manage_master_user_password, expected_type=type_hints["manage_master_user_password"])
             check_type(argname="argument monitoring_interval", value=monitoring_interval, expected_type=type_hints["monitoring_interval"])
             check_type(argname="argument monitoring_role", value=monitoring_role, expected_type=type_hints["monitoring_role"])
             check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
@@ -24511,6 +24567,8 @@ class DatabaseClusterProps:
             self._values["instances"] = instances
         if instance_update_behaviour is not None:
             self._values["instance_update_behaviour"] = instance_update_behaviour
+        if manage_master_user_password is not None:
+            self._values["manage_master_user_password"] = manage_master_user_password
         if monitoring_interval is not None:
             self._values["monitoring_interval"] = monitoring_interval
         if monitoring_role is not None:
@@ -24875,6 +24933,20 @@ class DatabaseClusterProps:
         '''
         result = self._values.get("instance_update_behaviour")
         return typing.cast(typing.Optional["InstanceUpdateBehaviour"], result)
+
+    @builtins.property
+    def manage_master_user_password(self) -> typing.Optional[builtins.bool]:
+        '''Whether to use RDS native integration with AWS Secrets Manager for master user password management.
+
+        When enabled, RDS generates and manages the master user password in Secrets Manager.
+        Cannot be used together with credentials containing a password.
+
+        :default: false
+
+        :see: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html
+        '''
+        result = self._values.get("manage_master_user_password")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def monitoring_interval(self) -> typing.Optional["_Duration_4839e8c3"]:
@@ -46289,6 +46361,7 @@ class DatabaseClusterFromSnapshot(
         instance_props: typing.Optional[typing.Union["InstanceProps", typing.Dict[builtins.str, typing.Any]]] = None,
         instances: typing.Optional[jsii.Number] = None,
         instance_update_behaviour: typing.Optional["InstanceUpdateBehaviour"] = None,
+        manage_master_user_password: typing.Optional[builtins.bool] = None,
         monitoring_interval: typing.Optional["_Duration_4839e8c3"] = None,
         monitoring_role: typing.Optional["_IRole_235f5d8e"] = None,
         network_type: typing.Optional["NetworkType"] = None,
@@ -46349,6 +46422,7 @@ class DatabaseClusterFromSnapshot(
         :param instance_props: (deprecated) Settings for the individual instances that are launched.
         :param instances: (deprecated) How many replicas/instances to create. Has to be at least 1. Default: 2
         :param instance_update_behaviour: The ordering of updates for instances. Default: InstanceUpdateBehaviour.BULK
+        :param manage_master_user_password: Whether to use RDS native integration with AWS Secrets Manager for master user password management. When enabled, RDS generates and manages the master user password in Secrets Manager. This is supported when restoring from snapshots, allowing migration to RDS-managed passwords. Default: false
         :param monitoring_interval: The interval between points when Amazon RDS collects enhanced monitoring metrics. If you enable ``enableClusterLevelEnhancedMonitoring``, this property is applied to the cluster, otherwise it is applied to the instances. Default: - no enhanced monitoring
         :param monitoring_role: Role that will be used to manage DB monitoring. If you enable ``enableClusterLevelEnhancedMonitoring``, this property is applied to the cluster, otherwise it is applied to the instances. Default: - A role is automatically created for you
         :param network_type: The network type of the DB instance. Default: - IPV4
@@ -46411,6 +46485,7 @@ class DatabaseClusterFromSnapshot(
             instance_props=instance_props,
             instances=instances,
             instance_update_behaviour=instance_update_behaviour,
+            manage_master_user_password=manage_master_user_password,
             monitoring_interval=monitoring_interval,
             monitoring_role=monitoring_role,
             network_type=network_type,
@@ -46923,6 +46998,21 @@ class DatabaseClusterFromSnapshot(
             type_hints = typing.get_type_hints(_typecheckingstub__e63eb6f34d67d73fbb22731ad6edbec3ecbfe466c66956a480d7c6261891a5ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hasServerlessInstance", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="manageMasterUserPassword")
+    def _manage_master_user_password(self) -> typing.Optional[builtins.bool]:
+        return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "manageMasterUserPassword"))
+
+    @_manage_master_user_password.setter
+    def _manage_master_user_password(
+        self,
+        value: typing.Optional[builtins.bool],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c1025675f0d49982145eff3773dee461a23e8e225ec6eea2a3d20ccec58d56de)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "manageMasterUserPassword", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.implements(IDatabaseInstance)
@@ -48110,6 +48200,21 @@ class DatabaseInstanceFromSnapshot(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableIamAuthentication", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="manageMasterUserPassword")
+    def _manage_master_user_password(self) -> typing.Optional[builtins.bool]:
+        return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "manageMasterUserPassword"))
+
+    @_manage_master_user_password.setter
+    def _manage_master_user_password(
+        self,
+        value: typing.Optional[builtins.bool],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8be43cdc634d5c1560932c59a79e8cf966b3b55ad6998af59bb9984982c237a6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "manageMasterUserPassword", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_rds.DatabaseInstanceFromSnapshotProps",
@@ -49186,6 +49291,7 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
         "timezone": "timezone",
         "character_set_name": "characterSetName",
         "credentials": "credentials",
+        "manage_master_user_password": "manageMasterUserPassword",
         "storage_encrypted": "storageEncrypted",
         "storage_encryption_key": "storageEncryptionKey",
     },
@@ -49248,6 +49354,7 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
         timezone: typing.Optional[builtins.str] = None,
         character_set_name: typing.Optional[builtins.str] = None,
         credentials: typing.Optional["Credentials"] = None,
+        manage_master_user_password: typing.Optional[builtins.bool] = None,
         storage_encrypted: typing.Optional[builtins.bool] = None,
         storage_encryption_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
     ) -> None:
@@ -49307,6 +49414,7 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
         :param timezone: The time zone of the instance. This is currently supported only by Microsoft Sql Server. Default: - RDS default timezone
         :param character_set_name: For supported engines, specifies the character set to associate with the DB instance. Default: - RDS default character set name
         :param credentials: Credentials for the administrative user. Default: - A username of 'admin' (or 'postgres' for PostgreSQL) and SecretsManager-generated password
+        :param manage_master_user_password: Whether to use RDS native integration with AWS Secrets Manager for master user password management. When enabled, RDS generates and manages the master user password in Secrets Manager. Cannot be used together with credentials containing a password. Default: false
         :param storage_encrypted: Indicates whether the DB instance is encrypted. Default: - true if storageEncryptionKey has been provided, false otherwise
         :param storage_encryption_key: The KMS key that's used to encrypt the DB instance. Default: - default master key if storageEncrypted is true, no key otherwise
 
@@ -49392,6 +49500,7 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
             check_type(argname="argument timezone", value=timezone, expected_type=type_hints["timezone"])
             check_type(argname="argument character_set_name", value=character_set_name, expected_type=type_hints["character_set_name"])
             check_type(argname="argument credentials", value=credentials, expected_type=type_hints["credentials"])
+            check_type(argname="argument manage_master_user_password", value=manage_master_user_password, expected_type=type_hints["manage_master_user_password"])
             check_type(argname="argument storage_encrypted", value=storage_encrypted, expected_type=type_hints["storage_encrypted"])
             check_type(argname="argument storage_encryption_key", value=storage_encryption_key, expected_type=type_hints["storage_encryption_key"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -49502,6 +49611,8 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
             self._values["character_set_name"] = character_set_name
         if credentials is not None:
             self._values["credentials"] = credentials
+        if manage_master_user_password is not None:
+            self._values["manage_master_user_password"] = manage_master_user_password
         if storage_encrypted is not None:
             self._values["storage_encrypted"] = storage_encrypted
         if storage_encryption_key is not None:
@@ -50110,6 +50221,20 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
         '''
         result = self._values.get("credentials")
         return typing.cast(typing.Optional["Credentials"], result)
+
+    @builtins.property
+    def manage_master_user_password(self) -> typing.Optional[builtins.bool]:
+        '''Whether to use RDS native integration with AWS Secrets Manager for master user password management.
+
+        When enabled, RDS generates and manages the master user password in Secrets Manager.
+        Cannot be used together with credentials containing a password.
+
+        :default: false
+
+        :see: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html
+        '''
+        result = self._values.get("manage_master_user_password")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def storage_encrypted(self) -> typing.Optional[builtins.bool]:
@@ -51014,6 +51139,7 @@ class DatabaseCluster(
         instance_props: typing.Optional[typing.Union["InstanceProps", typing.Dict[builtins.str, typing.Any]]] = None,
         instances: typing.Optional[jsii.Number] = None,
         instance_update_behaviour: typing.Optional["InstanceUpdateBehaviour"] = None,
+        manage_master_user_password: typing.Optional[builtins.bool] = None,
         monitoring_interval: typing.Optional["_Duration_4839e8c3"] = None,
         monitoring_role: typing.Optional["_IRole_235f5d8e"] = None,
         network_type: typing.Optional["NetworkType"] = None,
@@ -51073,6 +51199,7 @@ class DatabaseCluster(
         :param instance_props: (deprecated) Settings for the individual instances that are launched.
         :param instances: (deprecated) How many replicas/instances to create. Has to be at least 1. Default: 2
         :param instance_update_behaviour: The ordering of updates for instances. Default: InstanceUpdateBehaviour.BULK
+        :param manage_master_user_password: Whether to use RDS native integration with AWS Secrets Manager for master user password management. When enabled, RDS generates and manages the master user password in Secrets Manager. Cannot be used together with credentials containing a password. Default: false
         :param monitoring_interval: The interval between points when Amazon RDS collects enhanced monitoring metrics. If you enable ``enableClusterLevelEnhancedMonitoring``, this property is applied to the cluster, otherwise it is applied to the instances. Default: - no enhanced monitoring
         :param monitoring_role: Role that will be used to manage DB monitoring. If you enable ``enableClusterLevelEnhancedMonitoring``, this property is applied to the cluster, otherwise it is applied to the instances. Default: - A role is automatically created for you
         :param network_type: The network type of the DB instance. Default: - IPV4
@@ -51134,6 +51261,7 @@ class DatabaseCluster(
             instance_props=instance_props,
             instances=instances,
             instance_update_behaviour=instance_update_behaviour,
+            manage_master_user_password=manage_master_user_password,
             monitoring_interval=monitoring_interval,
             monitoring_role=monitoring_role,
             network_type=network_type,
@@ -51725,6 +51853,21 @@ class DatabaseCluster(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hasServerlessInstance", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="manageMasterUserPassword")
+    def _manage_master_user_password(self) -> typing.Optional[builtins.bool]:
+        return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "manageMasterUserPassword"))
+
+    @_manage_master_user_password.setter
+    def _manage_master_user_password(
+        self,
+        value: typing.Optional[builtins.bool],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1bab167cfccee2dada461be55cf9b69c5f3389dca1fe040d61295a99c8992835)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "manageMasterUserPassword", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.implements(IDatabaseInstance)
 class DatabaseInstance(
@@ -51760,6 +51903,7 @@ class DatabaseInstance(
         *,
         character_set_name: typing.Optional[builtins.str] = None,
         credentials: typing.Optional["Credentials"] = None,
+        manage_master_user_password: typing.Optional[builtins.bool] = None,
         storage_encrypted: typing.Optional[builtins.bool] = None,
         storage_encryption_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
         engine: "IInstanceEngine",
@@ -51820,6 +51964,7 @@ class DatabaseInstance(
         :param id: -
         :param character_set_name: For supported engines, specifies the character set to associate with the DB instance. Default: - RDS default character set name
         :param credentials: Credentials for the administrative user. Default: - A username of 'admin' (or 'postgres' for PostgreSQL) and SecretsManager-generated password
+        :param manage_master_user_password: Whether to use RDS native integration with AWS Secrets Manager for master user password management. When enabled, RDS generates and manages the master user password in Secrets Manager. Cannot be used together with credentials containing a password. Default: false
         :param storage_encrypted: Indicates whether the DB instance is encrypted. Default: - true if storageEncryptionKey has been provided, false otherwise
         :param storage_encryption_key: The KMS key that's used to encrypt the DB instance. Default: - default master key if storageEncrypted is true, no key otherwise
         :param engine: The database engine.
@@ -51882,6 +52027,7 @@ class DatabaseInstance(
         props = DatabaseInstanceProps(
             character_set_name=character_set_name,
             credentials=credentials,
+            manage_master_user_password=manage_master_user_password,
             storage_encrypted=storage_encrypted,
             storage_encryption_key=storage_encryption_key,
             engine=engine,
@@ -52142,6 +52288,21 @@ class DatabaseInstance(
             type_hints = typing.get_type_hints(_typecheckingstub__84d6de235f7d15c552af4bc77a663d18a20524641c0cf9a49a093c712f276687)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableIamAuthentication", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="manageMasterUserPassword")
+    def _manage_master_user_password(self) -> typing.Optional[builtins.bool]:
+        return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "manageMasterUserPassword"))
+
+    @_manage_master_user_password.setter
+    def _manage_master_user_password(
+        self,
+        value: typing.Optional[builtins.bool],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ccc29ecaf0a9438f8c150309927251e0c916d2da53f4a6aab74ad1d3e3c70a1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "manageMasterUserPassword", value) # pyright: ignore[reportArgumentType]
 
 
 __all__ = [
@@ -55293,6 +55454,7 @@ def _typecheckingstub__1e44b5aef872ca17869a17181382f06cd0166bdbe07e2c33701d3bf1e
     instance_props: typing.Optional[typing.Union[InstanceProps, typing.Dict[builtins.str, typing.Any]]] = None,
     instances: typing.Optional[jsii.Number] = None,
     instance_update_behaviour: typing.Optional[InstanceUpdateBehaviour] = None,
+    manage_master_user_password: typing.Optional[builtins.bool] = None,
     monitoring_interval: typing.Optional[_Duration_4839e8c3] = None,
     monitoring_role: typing.Optional[_IRole_235f5d8e] = None,
     network_type: typing.Optional[NetworkType] = None,
@@ -55361,6 +55523,7 @@ def _typecheckingstub__a32e21c90ab65d3cfdb3b7ef2a0d741ba1528ec8824cd1817d1e485b4
     instance_props: typing.Optional[typing.Union[InstanceProps, typing.Dict[builtins.str, typing.Any]]] = None,
     instances: typing.Optional[jsii.Number] = None,
     instance_update_behaviour: typing.Optional[InstanceUpdateBehaviour] = None,
+    manage_master_user_password: typing.Optional[builtins.bool] = None,
     monitoring_interval: typing.Optional[_Duration_4839e8c3] = None,
     monitoring_role: typing.Optional[_IRole_235f5d8e] = None,
     network_type: typing.Optional[NetworkType] = None,
@@ -56676,6 +56839,7 @@ def _typecheckingstub__d1a2e259091e12a41b0f5818df495769518e049ebcc89ed340ffc7ba4
     instance_props: typing.Optional[typing.Union[InstanceProps, typing.Dict[builtins.str, typing.Any]]] = None,
     instances: typing.Optional[jsii.Number] = None,
     instance_update_behaviour: typing.Optional[InstanceUpdateBehaviour] = None,
+    manage_master_user_password: typing.Optional[builtins.bool] = None,
     monitoring_interval: typing.Optional[_Duration_4839e8c3] = None,
     monitoring_role: typing.Optional[_IRole_235f5d8e] = None,
     network_type: typing.Optional[NetworkType] = None,
@@ -56728,6 +56892,12 @@ def _typecheckingstub__09168f249a61eb2955070eb4f6d8bb0e27f0b93823b959b2f8d4144b9
     pass
 
 def _typecheckingstub__e63eb6f34d67d73fbb22731ad6edbec3ecbfe466c66956a480d7c6261891a5ec(
+    value: typing.Optional[builtins.bool],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c1025675f0d49982145eff3773dee461a23e8e225ec6eea2a3d20ccec58d56de(
     value: typing.Optional[builtins.bool],
 ) -> None:
     """Type checking stubs"""
@@ -56926,6 +57096,12 @@ def _typecheckingstub__461242b933d96c2475c414109a3d51cfd19b6d911ac2c0e37cb8b34f3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8be43cdc634d5c1560932c59a79e8cf966b3b55ad6998af59bb9984982c237a6(
+    value: typing.Optional[builtins.bool],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f06d86058a0a7538eb7dbf55de032c8cf05f7fa7b4ab5d5c1d47f761783eaed2(
     *,
     vpc: _IVpc_f30d5663,
@@ -57043,6 +57219,7 @@ def _typecheckingstub__23675ebe667ec40ba6afd82bf8b65d901cc9a4bfc79be222b108037d5
     timezone: typing.Optional[builtins.str] = None,
     character_set_name: typing.Optional[builtins.str] = None,
     credentials: typing.Optional[Credentials] = None,
+    manage_master_user_password: typing.Optional[builtins.bool] = None,
     storage_encrypted: typing.Optional[builtins.bool] = None,
     storage_encryption_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
 ) -> None:
@@ -57236,6 +57413,7 @@ def _typecheckingstub__c6184cbbefaa372690b9776dafecbf5857cf9bfbab91d1666aad22c56
     instance_props: typing.Optional[typing.Union[InstanceProps, typing.Dict[builtins.str, typing.Any]]] = None,
     instances: typing.Optional[jsii.Number] = None,
     instance_update_behaviour: typing.Optional[InstanceUpdateBehaviour] = None,
+    manage_master_user_password: typing.Optional[builtins.bool] = None,
     monitoring_interval: typing.Optional[_Duration_4839e8c3] = None,
     monitoring_role: typing.Optional[_IRole_235f5d8e] = None,
     network_type: typing.Optional[NetworkType] = None,
@@ -57321,12 +57499,19 @@ def _typecheckingstub__fa163739e67c44827c5ffd010e81181ab3a57ccec6514d860c3261ddb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1bab167cfccee2dada461be55cf9b69c5f3389dca1fe040d61295a99c8992835(
+    value: typing.Optional[builtins.bool],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cb12c4cf0f41b623c75db1c295b846314e730919538b33740190672329dcfeeb(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     character_set_name: typing.Optional[builtins.str] = None,
     credentials: typing.Optional[Credentials] = None,
+    manage_master_user_password: typing.Optional[builtins.bool] = None,
     storage_encrypted: typing.Optional[builtins.bool] = None,
     storage_encryption_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
     engine: IInstanceEngine,
@@ -57407,6 +57592,12 @@ def _typecheckingstub__09072f248828e95dccb09fe6723aecd466e1768368d87e2eb12a3d0a2
     pass
 
 def _typecheckingstub__84d6de235f7d15c552af4bc77a663d18a20524641c0cf9a49a093c712f276687(
+    value: typing.Optional[builtins.bool],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ccc29ecaf0a9438f8c150309927251e0c916d2da53f4a6aab74ad1d3e3c70a1(
     value: typing.Optional[builtins.bool],
 ) -> None:
     """Type checking stubs"""

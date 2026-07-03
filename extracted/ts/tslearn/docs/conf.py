@@ -80,9 +80,10 @@ sphinx_gallery_conf = {
     'doc_module': ('tslearn',),
     'subsection_order': ["examples/metrics", "examples/neighbors",
                          "examples/clustering", "examples/classification",
-                         "examples/autodiff", "examples/misc"].index,
+                         "examples/forecasting", "examples/autodiff", "examples/misc"].index,
     'within_subsection_order': "FileNameSortKey",
     'image_scrapers': (matplotlib_svg_scraper,),
+    'matplotlib_animations': True,
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -96,7 +97,6 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'tslearn'
-copyright = u'2025, Romain Tavenard'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

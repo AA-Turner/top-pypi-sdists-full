@@ -19,6 +19,14 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '9171614':{'en': 'Parasia, Madhya Pradesh'},
+ '9171615':{'en': 'Parasia, Madhya Pradesh'},
+ '9171616':{'en': 'Parasia, Madhya Pradesh'},
+ '9171617':{'en': 'Parasia, Madhya Pradesh'},
+ '9171622':{'en': 'Chhindwara, Madhya Pradesh'},
+ '9171623':{'en': 'Chhindwara, Madhya Pradesh'},
+ '9171624':{'en': 'Chhindwara, Madhya Pradesh'},
+ '9171625':{'en': 'Chhindwara, Madhya Pradesh'},
  '9171626':{'en': 'Chhindwara, Madhya Pradesh'},
  '9171627':{'en': 'Chhindwara, Madhya Pradesh'},
  '9171642':{'en': 'Pandhurna, Madhya Pradesh'},

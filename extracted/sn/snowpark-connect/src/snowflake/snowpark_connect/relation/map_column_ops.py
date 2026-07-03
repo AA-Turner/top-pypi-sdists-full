@@ -97,6 +97,7 @@ from snowflake.snowpark_connect.utils.expression_transformer import (
 from snowflake.snowpark_connect.utils.identifiers import (
     split_fully_qualified_spark_name,
 )
+from snowflake.snowpark_connect.utils.telemetry import telemetry
 from snowflake.snowpark_connect.utils.udtf_helper import create_apply_udtf_in_sproc
 from snowflake.snowpark_connect.utils.udtf_utils import (
     process_dependencies_string_array,
@@ -1184,6 +1185,52 @@ def map_with_columns_renamed(
     return result_container
 
 
+def _resolve_column_types(
+    new_snowpark_columns: list[str],
+    snowpark_name_to_type: dict[str, FieldType | None],
+    input_container: DataFrameContainer,
+    input_df: snowpark.DataFrame,
+    plan_id: int | None,
+) -> list[FieldType | None]:
+    """Build the snowpark_column_types list for a withColumn result.
+
+    When a Snowpark column name is present in the column map but absent from
+    both input_df.schema.fields and the new with_columns_types, dict.get()
+    returns Python None.  That None silently propagates through
+    _create_schema_from_types → set_schema_getter → ExpressionTyper, eventually
+    crashing as 'NoneType' object has no attribute 'simple_string' inside the
+    `case "in":` handler.
+
+    Diagnostic only: emit a telemetry event when None is detected so we can
+    confirm in production whether/where this occurs, then return the types
+    unchanged (including the None) so the original behavior is preserved while
+    we gather data before attempting a patch.
+    """
+    col_types = []
+    for n in new_snowpark_columns:
+        ft = snowpark_name_to_type.get(n)
+        if ft is None:
+            spark_name = next(
+                (
+                    c.spark_name
+                    for c in input_container.column_map.columns
+                    if c.snowpark_name == n
+                ),
+                n,
+            )
+            telemetry.send_null_type_fallback_telemetry(
+                data={
+                    "spark_column_name": spark_name,
+                    "snowpark_column_name": n,
+                    "in_schema": any(f.name == n for f in input_df.schema.fields),
+                },
+                plan_id=plan_id,
+                source="map_with_columns",
+            )
+        col_types.append(ft)
+    return col_types
+
+
 def map_with_columns(
     rel: relation_proto.Relation,
 ) -> DataFrameContainer:
@@ -1344,9 +1391,13 @@ def map_with_columns(
         dataframe=result,
         spark_column_names=new_spark_columns,
         snowpark_column_names=new_snowpark_columns,
-        snowpark_column_types=[
-            snowpark_name_to_type.get(n) for n in new_snowpark_columns
-        ],
+        snowpark_column_types=_resolve_column_types(
+            new_snowpark_columns,
+            snowpark_name_to_type,
+            input_container,
+            input_df,
+            rel.common.plan_id,
+        ),
         column_metadata=column_metadata,
         column_qualifiers=qualifiers,
         parent_column_name_map=input_container.column_map,

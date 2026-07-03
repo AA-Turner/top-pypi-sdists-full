@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: 2sio
-Version: 1.79.27
-Summary: Python client for 2s — the (most) everything API. Pay-per-call AI-agent data APIs, settled in USDC on Base or Solana via x402.
+Version: 1.80.0
+Summary: Python client for 2s.io — 575+ pay-per-call tools for AI agents: ground-truth data, AI gateway, agent infra (storage, locks, queues, watchers). x402 USDC on Base/Solana, no API keys, upto usage billing, free trials.
 Project-URL: Homepage, https://2s.io
 Project-URL: Source, https://github.com/2s-io/sdk
 Project-URL: Issues, https://github.com/2s-io/sdk/issues
@@ -27,7 +27,10 @@ Description-Content-Type: text/markdown
 
 # 2sio (Python)
 
-**Python client for [2s.io](https://2s.io) — the (most) everything API. Pay-per-call AI-agent data APIs on Base or Solana via x402.**
+**Python client for [2s.io](https://2s.io) — 575+ pay-per-call tools for AI agents: more ground-truth data than any other x402 API, a full AI gateway (chat, image, multi-model consensus), and agent infrastructure (wallet-scoped storage, locks, queues, schedules, watchers). USDC on Base or Solana via x402.**
+
+**upto billing (2s exclusive):** AI endpoints also accept the x402 `upto` scheme — authorize the quoted max, get settled for your **actual usage** (a real on-chain example settled at 1/42nd of the quote). Exact-scheme calls work unchanged.
+
 
 ```bash
 pip install 2sio

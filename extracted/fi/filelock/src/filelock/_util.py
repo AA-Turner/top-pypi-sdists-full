@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 import stat
 import sys
 from errno import EACCES, EISDIR
@@ -19,8 +20,12 @@ def raise_on_not_writable_file(filename: str) -> None:
     :raises OSError: as if the file was opened for writing.
 
     """
-    try:  # use stat to do exists + can write to check without race condition
-        file_stat = os.stat(filename)  # noqa: PTH116
+    try:  # use lstat to do exists + can write to check without race condition
+        # lstat, not stat: a hostile symlink planted at the lock path would otherwise make this check inspect the
+        # link target, so an attacker could turn a contended acquire into a misleading PermissionError /
+        # IsADirectoryError and probe the target's attributes. The actual open uses O_NOFOLLOW and refuses the
+        # symlink anyway, so reading the link itself here keeps the handling consistent with the rest of the module.
+        file_stat = os.lstat(filename)
     except OSError:
         return  # swallow does not exist or other errors
 
@@ -61,6 +66,12 @@ def break_lock_file(lock_file: str, mtime_before: float, ino_before: int) -> Non
     be unlinked; the inode is the reliable identity, mirroring the token re-check in the soft read/write marker break.
     ``lstat`` is used so a hostile symlink swapped in after the decision is not followed.
 
+    The break name carries a random token so it is unguessable and unique per attempt. Without it two breakers in the
+    same process share ``<lock>.break.<pid>``, and a second break can rename a freshly recreated live lock onto that
+    path in the window between the re-verify ``lstat`` above and the ``unlink`` below, so we would delete a live lock
+    the inode check just approved. A private name means nobody else can target our break path, matching the soft
+    read/write marker break.
+
     :param lock_file: path to the lock file to break.
     :param mtime_before: modification time observed when the lock was judged stale.
     :param ino_before: inode number observed when the lock was judged stale.
@@ -68,7 +79,7 @@ def break_lock_file(lock_file: str, mtime_before: float, ino_before: int) -> Non
     :raises OSError: if the rename fails (e.g. the file vanished or is not owned in a sticky directory).
 
     """
-    break_path = f"{lock_file}.break.{os.getpid()}"
+    break_path = f"{lock_file}.break.{os.getpid()}.{secrets.token_hex(16)}"
     Path(lock_file).rename(break_path)
     try:
         st_after = os.lstat(break_path)

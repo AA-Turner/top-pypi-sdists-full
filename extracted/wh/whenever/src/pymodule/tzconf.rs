@@ -35,14 +35,17 @@ pub(crate) fn _clear_tz_cache_by_keys(state: &mut State, keys_obj: PyObj) -> PyR
             k.cast_allow_subclass::<PyStr>()
                 .ok_or_type_err("key must be a string")?
                 .as_str()?
-                // FUTURE: We should be able to use string slices here, but
-                // making this work with lifetimes requires a bit of work.
-                // Since this isn't performance critical, we leave it for now.
+                // We use String here since &str would borrow from the PyStr temporary,
+                // which doesn't survive the iteration. The performance impact is negligible.
                 .to_string(),
         );
     }
     state.tz_store.clear_only(&keys);
     Ok(none())
+}
+
+pub(crate) fn _get_tzpath(state: &mut State) -> PyReturn {
+    state.tz_store.get_paths_as_pytuple()
 }
 
 pub(crate) fn reset_system_tz(state: &mut State) -> PyReturn {

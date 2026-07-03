@@ -11,6 +11,7 @@ import unittest
 from pymarc import (
     Field,
     Indicators,
+    Leader,
     MARCReader,
     MARCWriter,
     RawField,
@@ -25,7 +26,7 @@ class MARC8Test(unittest.TestCase):
         with open("test/marc8.dat", "rb") as fh:
             reader = MARCReader(fh, to_unicode=False)
             r = next(reader)
-            self.assertEqual(type(r), Record)
+            assert isinstance(r, Record)
             self.assertIsInstance(r["240"], RawField)
             utitle = r["240"]["a"]
             self.assertEqual(type(utitle), bytes)
@@ -35,7 +36,7 @@ class MARC8Test(unittest.TestCase):
         with open("test/marc8.dat", "rb") as fh:
             reader = MARCReader(fh, to_unicode=True)
             r = next(reader)
-            self.assertEqual(type(r), Record)
+            assert isinstance(r, Record)
             utitle = r["240"]["a"]
             self.assertEqual(type(utitle), str)
             self.assertEqual(utitle, "De la solitude \xe0 la communaut\xe9.")
@@ -44,7 +45,7 @@ class MARC8Test(unittest.TestCase):
         with open("test/1251.dat", "rb") as fh:
             reader = MARCReader(fh, file_encoding="cp1251")
             r = next(reader)
-            self.assertEqual(type(r), Record)
+            assert isinstance(r, Record)
             utitle = r["245"]["a"]
             self.assertEqual(type(utitle), str)
             self.assertEqual(utitle, "Основы гидравлического расчета инженерных сетей")
@@ -55,7 +56,7 @@ class MARC8Test(unittest.TestCase):
             try:
                 r = next(reader)
                 r = next(reader)
-                self.assertEqual(type(r), Record)
+                assert isinstance(r, Record)
                 utitle = r["245"]["a"]
                 self.assertEqual(type(utitle), str)
                 self.assertEqual(utitle, "Психологический тренинг с подростками")
@@ -66,6 +67,7 @@ class MARC8Test(unittest.TestCase):
         with open("test/bad_eacc_encoding.dat", "rb") as fh:
             reader = MARCReader(fh, to_unicode=True, hide_utf8_warnings=True)
             record = next(reader)
+            assert isinstance(record, Record)
             self.assertEqual(len(record["880"]["a"]), 12)
             self.assertTrue(record["880"]["a"].endswith(" "))
 
@@ -73,7 +75,7 @@ class MARC8Test(unittest.TestCase):
         with open("test/bad_marc8_escape.dat", "rb") as fh:
             reader = MARCReader(fh, to_unicode=True)
             r = next(reader)
-            self.assertEqual(type(r), Record)
+            assert isinstance(r, Record)
             upublisher = r["260"]["b"]
             self.assertEqual(type(upublisher), str)
             self.assertEqual(upublisher, "La Soci\xe9t\x1b,")
@@ -84,7 +86,7 @@ class MARC8Test(unittest.TestCase):
             records = list(reader)
             self.assertEqual(len(records), 1)
             r = records[0]
-            self.assertIsInstance(r, Record)
+            assert isinstance(r, Record)
             self.assertIsInstance(r["240"], RawField)
 
         with tempfile.TemporaryFile() as fh:
@@ -94,7 +96,7 @@ class MARC8Test(unittest.TestCase):
 
             reader = MARCReader(fh, to_unicode=False)
             r = next(reader)
-            self.assertEqual(type(r), Record)
+            assert isinstance(r, Record)
             self.assertIsInstance(r["240"], RawField)
             utitle = r["240"]["a"]
             self.assertEqual(type(utitle), bytes)
@@ -122,7 +124,7 @@ class MARC8Test(unittest.TestCase):
         record.add_field(
             Field("245", Indicators("1", "0"), [Subfield(code="a", value=chr(0x1234))])
         )
-        record.leader = "         a              "
+        record.leader = Leader("         a              ")
         with open("test/foo", "wb") as fh:
             writer = MARCWriter(fh)
             writer.write(record)
@@ -130,6 +132,7 @@ class MARC8Test(unittest.TestCase):
         with open("test/foo", "rb") as fh:
             reader = MARCReader(fh, to_unicode=True)
             record = next(reader)
+            assert isinstance(record, Record)
             self.assertEqual(record["245"]["a"], chr(0x1234))
 
         os.remove("test/foo")
@@ -138,7 +141,7 @@ class MARC8Test(unittest.TestCase):
         with open("test/utf8_with_leader_flag.dat", "rb") as fh:
             reader = MARCReader(fh, to_unicode=False)
             record = next(reader)
-            self.assertEqual(type(record), Record)
+            assert isinstance(record, Record)
             utitle = record["240"]["a"]
             self.assertEqual(type(utitle), bytes)
             self.assertEqual(utitle, b"De la solitude a\xcc\x80 la communaute\xcc\x81.")
@@ -146,7 +149,7 @@ class MARC8Test(unittest.TestCase):
         with open("test/utf8_with_leader_flag.dat", "rb") as fh:
             reader = MARCReader(fh, to_unicode=True)
             record = next(reader)
-            self.assertEqual(type(record), Record)
+            assert isinstance(record, Record)
             utitle = record["240"]["a"]
             self.assertEqual(type(utitle), str)
             self.assertEqual(
@@ -158,7 +161,7 @@ class MARC8Test(unittest.TestCase):
         with open("test/utf8_without_leader_flag.dat", "rb") as fh:
             reader = MARCReader(fh, to_unicode=False)
             record = next(reader)
-            self.assertEqual(type(record), Record)
+            assert isinstance(record, Record)
             utitle = record["240"]["a"]
             self.assertEqual(type(utitle), bytes)
             self.assertEqual(utitle, b"De la solitude a\xcc\x80 la communaute\xcc\x81.")
@@ -166,7 +169,7 @@ class MARC8Test(unittest.TestCase):
         with open("test/utf8_without_leader_flag.dat", "rb") as fh:
             reader = MARCReader(fh, to_unicode=True, hide_utf8_warnings=True)
             record = next(reader)
-            self.assertEqual(type(record), Record)
+            assert isinstance(record, Record)
             utitle = record["240"]["a"]
             self.assertEqual(type(utitle), str)
             # unless you force utf-8 characters will get lost and
@@ -179,7 +182,7 @@ class MARC8Test(unittest.TestCase):
                 fh, to_unicode=True, force_utf8=True, hide_utf8_warnings=True
             )
             record = next(reader)
-            self.assertEqual(type(record), Record)
+            assert isinstance(record, Record)
             utitle = record["240"]["a"]
             self.assertEqual(type(utitle), str)
             self.assertEqual(

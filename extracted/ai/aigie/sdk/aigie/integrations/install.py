@@ -1,8 +1,7 @@
 """Single install loop for FrameworkAdapter-backed integrations.
 
-One pass installs both surfaces — tracing and autonomous — for every
-adapter registered via ``@register_adapter``. Called once from
-:meth:`Aigie.initialize` after the autonomous runtime is constructed.
+One pass installs the tracing surface for every adapter registered via
+``@register_adapter``. Called once from :meth:`Aigie.initialize`.
 
 Legacy frameworks that have not migrated to the FrameworkAdapter ABC
 keep their per-framework ``enable_*()`` path in
@@ -28,15 +27,15 @@ _ADAPTER_PACKAGES: tuple[str, ...] = (
     "aigie.integrations.langgraph",
     "aigie.integrations.langchain",
     "aigie.integrations.claude_agent_sdk",
+    "aigie.integrations.strands",
 )
 
 
-def install_framework_adapters(*, aigie: Any = None, runtime: Any = None) -> None:
-    """Install every registered FrameworkAdapter on both surfaces.
+def install_framework_adapters(*, aigie: Any = None) -> None:
+    """Install every registered FrameworkAdapter's tracing surface.
 
     ``aigie`` enables the tracing surface (an emitter is built and passed).
-    ``runtime`` enables the autonomous surface. Either or both may be
-    ``None`` — the adapter only installs the surfaces it received.
+    When ``None`` the adapter receives no emitter and installs nothing.
     """
     for pkg in _ADAPTER_PACKAGES:
         try:
@@ -44,8 +43,10 @@ def install_framework_adapters(*, aigie: Any = None, runtime: Any = None) -> Non
         except Exception as exc:  # noqa: BLE001
             logger.debug("adapter import skipped (%s): %s", pkg, exc)
 
-    from aigie.autonomous import adapters as _registry
+    from aigie.integrations import _base as _registry
     from aigie.tracing.emitter import TraceEmitter
+
+    coordinator = getattr(aigie, "_rewind_coordinator", None)
 
     for framework in sorted(_registry.registered_frameworks()):
         adapter = _registry.get(framework)
@@ -58,6 +59,6 @@ def install_framework_adapters(*, aigie: Any = None, runtime: Any = None) -> Non
         # aigie._buffer, so wire output is unchanged.
         emitter = TraceEmitter(aigie) if aigie is not None else None
         try:
-            adapter.install(runtime=runtime, emitter=emitter)
+            adapter.install(emitter=emitter, coordinator=coordinator)
         except Exception as exc:  # noqa: BLE001
             logger.warning("FrameworkAdapter.install failed for %s: %s", framework, exc)

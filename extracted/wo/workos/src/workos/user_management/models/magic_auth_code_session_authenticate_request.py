@@ -28,6 +28,8 @@ class MagicAuthCodeSessionAuthenticateRequest:
     """A unique identifier for the device."""
     user_agent: Optional[str] = None
     """The user agent string from the user's browser."""
+    radar_auth_attempt_id: Optional[str] = None
+    """The ID of an existing Radar authentication attempt to associate with this authentication."""
 
     @classmethod
     def from_dict(
@@ -47,6 +49,7 @@ class MagicAuthCodeSessionAuthenticateRequest:
                 ip_address=data.get("ip_address"),
                 device_id=data.get("device_id"),
                 user_agent=data.get("user_agent"),
+                radar_auth_attempt_id=data.get("radar_auth_attempt_id"),
             )
         except (KeyError, ValueError) as e:
             _raise_deserialize_error("MagicAuthCodeSessionAuthenticateRequest", e)
@@ -67,4 +70,6 @@ class MagicAuthCodeSessionAuthenticateRequest:
             result["device_id"] = self.device_id
         if self.user_agent is not None:
             result["user_agent"] = self.user_agent
+        if self.radar_auth_attempt_id is not None:
+            result["radar_auth_attempt_id"] = self.radar_auth_attempt_id
         return result

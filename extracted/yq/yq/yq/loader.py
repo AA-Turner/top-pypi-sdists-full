@@ -1,6 +1,7 @@
 import re
 from base64 import b64encode
 from hashlib import sha224
+from typing import Any, Dict, List, Pattern, TypedDict
 
 import yaml
 from yaml.tokens import (
@@ -13,14 +14,17 @@ from yaml.tokens import (
     ValueToken,
 )
 
-try:
-    from yaml import CSafeLoader as default_loader
-except ImportError:
-    from yaml import SafeLoader as default_loader  # type: ignore
+default_loader: Any = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
+
+class ResolverSpec(TypedDict):
+    tag: str
+    regexp: Pattern[str]
+    start_chars: List[str]
 
 
 # Note the 1.1 resolver is modified from the default and only safe for use in dumping, not loading.
-core_resolvers = {
+core_resolvers: Dict[str, List[ResolverSpec]] = {
     "1.1": [
         {
             "tag": "tag:yaml.org,2002:bool",
@@ -35,8 +39,9 @@ core_resolvers = {
         {
             "tag": "tag:yaml.org,2002:float",
             "regexp": re.compile(
-                r"""^(?:[-+]?(?:[0-9][0-9_]*)\.[0-9_]*(?:[eE][-+][0-9]+)?
-            |\.[0-9_]+(?:[eE][-+][0-9]+)?
+                r"""^(?:[-+]?(?:[0-9][0-9_]*)\.[0-9_]*(?:[eE][-+]?[0-9]+)?
+            |[-+]?[0-9][0-9_]*(?:[eE][-+]?[0-9]+)
+            |\.[0-9_]+(?:[eE][-+]?[0-9]+)?
             |[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*
             |[-+]?\.(?:inf|Inf|INF)
             |\.(?:nan|NaN|NAN))$""",
@@ -49,6 +54,7 @@ core_resolvers = {
             # Line 2 of regexp modified to match all decimal digits, not just 0-7, to induce quoting of string scalars
             "regexp": re.compile(
                 r"""^(?:[-+]?0b[0-1_]+
+            |[-+]?0o[0-7]+
             |[-+]?0[0-9_]+
             |[-+]?(?:0|[1-9][0-9_]*)
             |[-+]?0x[0-9a-fA-F_]+
@@ -108,7 +114,11 @@ core_resolvers = {
     ],
 }
 
-merge_resolver = {"tag": "tag:yaml.org,2002:merge", "regexp": re.compile(r"^(?:<<)$"), "start_chars": ["<"]}
+merge_resolver: ResolverSpec = {
+    "tag": "tag:yaml.org,2002:merge",
+    "regexp": re.compile(r"^(?:<<)$"),
+    "start_chars": ["<"],
+}
 
 
 def set_yaml_grammar(resolver, grammar_version="1.2", expand_merge_keys=True):
@@ -119,9 +129,23 @@ def set_yaml_grammar(resolver, grammar_version="1.2", expand_merge_keys=True):
         resolvers.append(merge_resolver)
     resolver.yaml_implicit_resolvers = {}
     for r in resolvers:
-        for start_char in r["start_chars"]:  # type: ignore
+        for start_char in r["start_chars"]:
             resolver.yaml_implicit_resolvers.setdefault(start_char, [])
             resolver.yaml_implicit_resolvers[start_char].append((r["tag"], r["regexp"]))
+
+
+def construct_yaml_1_2_int(loader, node):
+    value = loader.construct_scalar(node).replace("_", "")
+    sign = +1
+    if value[0] == "-":
+        sign = -1
+    if value[0] in "+-":
+        value = value[1:]
+    if value.startswith("0o"):
+        return sign * int(value[2:], 8)
+    if value.startswith("0x"):
+        return sign * int(value[2:], 16)
+    return sign * int(value, 10)
 
 
 def hash_key(key):
@@ -199,6 +223,7 @@ def get_loader(use_annotations=False, expand_aliases=True, expand_merge_keys=Tru
     loader_class = default_loader if expand_aliases else CustomLoader
     loader_class.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, construct_mapping)
     loader_class.add_constructor(yaml.resolver.BaseResolver.DEFAULT_SEQUENCE_TAG, construct_sequence)
+    loader_class.add_constructor("tag:yaml.org,2002:int", construct_yaml_1_2_int)
     loader_class.add_multi_constructor("", parse_unknown_tags)
     loader_class.yaml_constructors.pop("tag:yaml.org,2002:binary", None)
     loader_class.yaml_constructors.pop("tag:yaml.org,2002:set", None)

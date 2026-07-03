@@ -35,12 +35,16 @@ from dazzle.render.fragment.primitives import (
     Card,
     CardPicker,
     CohortStripRegion,
+    ColorField,
+    ColumnVisibilityMenu,
     Combobox,
     ConfirmGate,
     CreateButton,
     CsvExportButton,
     DashboardCard,
     DashboardGrid,
+    DataListScroll,
+    DatePickerField,
     DateRangePicker,
     DayTimelineRegion,
     DetailGrid,
@@ -54,6 +58,7 @@ from dazzle.render.fragment.primitives import (
     FilterBar,
     FormSection,
     FormStack,
+    FormStepper,
     Fragment,
     Funnel,
     Grid,
@@ -68,10 +73,12 @@ from dazzle.render.fragment.primitives import (
     KanbanRegion,
     LazyTabPanel,
     Link,
+    ListFilterBar,
     ListRegion,
     MetricsGrid,
     MetricTile,
     Modal,
+    MoneyField,
     NavGroup,
     NavItem,
     Page,
@@ -84,12 +91,17 @@ from dazzle.render.fragment.primitives import (
     Radar,
     RefPicker,
     Region,
+    RelatedGroup,
+    RichTextField,
     Row,
     SearchBox,
+    SearchSelect,
     Sequence,
     Sidebar,
     Skeleton,
     SkipLink,
+    SlideOver,
+    SliderField,
     SortHeader,
     Sparkline,
     Split,
@@ -100,6 +112,7 @@ from dazzle.render.fragment.primitives import (
     Surface,
     Table,
     Tabs,
+    TagsField,
     TaskInboxRegion,
     Text,
     Timeline,
@@ -107,6 +120,7 @@ from dazzle.render.fragment.primitives import (
     Toolbar,
     Topbar,
     Tree,
+    WidgetCombobox,
     WorkspaceContextSelector,
     WorkspaceDrawer,
     WorkspaceShell,
@@ -240,6 +254,12 @@ class FragmentRenderer(
             # Data
             case Table():
                 return self._emit_table(fragment, ctx)
+            case DataListScroll():
+                return self._emit_data_list_scroll(fragment, ctx)
+            case ColumnVisibilityMenu():
+                return self._emit_column_visibility_menu(fragment, ctx)
+            case RelatedGroup():
+                return self._emit_related_group(fragment, ctx)
             case KPI():
                 return self._emit_kpi(fragment, ctx)
             case BarChart():
@@ -345,8 +365,12 @@ class FragmentRenderer(
                 return self._emit_dashboard_card(fragment, ctx)
             case AddCardRow():
                 return self._emit_add_card_row(fragment, ctx)
+            case SlideOver():
+                return self._emit_slide_over(fragment, ctx)
             case FilterBar():
                 return self._emit_filter_bar(fragment, ctx)
+            case ListFilterBar():
+                return self._emit_list_filter_bar(fragment, ctx)
             case SortHeader():
                 return self._emit_sort_header(fragment, ctx)
             case CsvExportButton():
@@ -358,12 +382,30 @@ class FragmentRenderer(
                 return self._emit_form_stack(fragment, ctx)
             case FormSection():
                 return self._emit_form_section(fragment, ctx)
+            case FormStepper():
+                return self._emit_form_stepper(fragment, ctx)
             case Field():
                 return self._emit_field(fragment, ctx)
             case Combobox():
                 return self._emit_combobox(fragment, ctx)
             case RefPicker():
                 return self._emit_ref_picker(fragment, ctx)
+            case SearchSelect():
+                return self._emit_search_select(fragment, ctx)
+            case MoneyField():
+                return self._emit_money(fragment, ctx)
+            case WidgetCombobox():
+                return self._emit_widget_combobox(fragment, ctx)
+            case TagsField():
+                return self._emit_tags_field(fragment, ctx)
+            case DatePickerField():
+                return self._emit_date_picker(fragment, ctx)
+            case ColorField():
+                return self._emit_color_field(fragment, ctx)
+            case SliderField():
+                return self._emit_slider_field(fragment, ctx)
+            case RichTextField():
+                return self._emit_rich_text(fragment, ctx)
             case FileUpload():
                 return self._emit_file_upload(fragment, ctx)
             case Submit():

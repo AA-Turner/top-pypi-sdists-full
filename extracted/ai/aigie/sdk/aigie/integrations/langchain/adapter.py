@@ -1,7 +1,6 @@
 """LangChain FrameworkAdapter (L3).
 
-Tracing-only (empty ``capabilities()``, mirrors ``claude_agent_sdk``): plain
-LangChain exposes no mutable mid-run state for workflow-domain interventions.
+Tracing-only: plain LangChain exposes no mutable mid-run state.
 """
 
 from __future__ import annotations
@@ -9,14 +8,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, ClassVar
 
-from aigie.autonomous.adapters import (
-    ActionType,
-    ApplyResult,
-    ApplyStatus,
-    FrameworkAdapter,
-    SpanContext,
-    register_adapter,
-)
+from aigie.integrations._base import FrameworkAdapter, register_adapter
 from aigie.integrations.langchain._runtime import clear_runtime, set_runtime
 from aigie.integrations.langchain.error_conversion import to_kytte_error
 from aigie.integrations.langchain.event_classifier import LangChainEventClassifier
@@ -25,8 +17,7 @@ from aigie.tracing.error_enricher import KytteErrorEnricher
 from aigie.tracing.errors import KytteError
 
 if TYPE_CHECKING:
-    from aigie.autonomous.interventions.base import WorkflowIntervention
-    from aigie.autonomous.runtime import AutonomousRuntime
+    from aigie.rewind.coordinator import RewindCoordinator
     from aigie.tracing.emitter import TraceEmitter
 
 logger = logging.getLogger(__name__)
@@ -46,10 +37,9 @@ class LangChainAdapter(FrameworkAdapter):
     def extract_error(self, span: dict) -> KytteError | None:
         return to_kytte_error(span)
 
-    def _install_autonomous(self, runtime: AutonomousRuntime) -> None:
-        return  # no autonomous surface — see capabilities()
-
-    def _install_tracing(self, emitter: TraceEmitter) -> None:
+    def _install_tracing(
+        self, emitter: TraceEmitter, *, coordinator: RewindCoordinator | None = None
+    ) -> None:
         self._emitter = emitter
         emitter.register_span_complete_hook(KytteErrorEnricher(self.extract_error))
         # callback is constructed no-arg by langchain_core — pass emitter via the holder.
@@ -66,19 +56,6 @@ class LangChainAdapter(FrameworkAdapter):
 
     def event_classifier(self) -> LangChainEventClassifier:
         return self._classifier
-
-    _CAPABILITIES: ClassVar[frozenset[ActionType]] = frozenset()
-
-    @classmethod
-    def capabilities(cls) -> frozenset[ActionType]:
-        return cls._CAPABILITIES
-
-    def apply(self, intervention: WorkflowIntervention, ctx: SpanContext) -> ApplyResult:
-        return ApplyResult(
-            status=ApplyStatus.SKIPPED,
-            reason=f"unsupported_action:{intervention.action_type.name}",
-            observed={},
-        )
 
 
 __all__ = ["LangChainAdapter"]

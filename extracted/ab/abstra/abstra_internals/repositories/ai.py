@@ -18,6 +18,7 @@ from abstra_internals.contracts_generated import (
     CloudApiCliAiV2QueuePostRequest,
     CloudApiCliAiV2QueueRemoveRequest,
     CloudApiCliAiV2StreamRequest,
+    CloudApiCliCaptchaSolvePostRequestBody,
 )
 from abstra_internals.credentials import resolve_headers
 from abstra_internals.environment import REQUEST_TIMEOUT
@@ -112,6 +113,13 @@ class AIRepository(ABC):
     def run_agent(
         self,
         body: CloudApiCliAgentsPostRequestBody,
+    ) -> dict[str, Any]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def solve_captcha(
+        self,
+        body: CloudApiCliCaptchaSolvePostRequestBody,
     ) -> dict[str, Any]:
         raise NotImplementedError()
 
@@ -266,6 +274,34 @@ class ProductionAIRepository(AIRepository):
             return response.json()
         except json.JSONDecodeError:
             raise Exception(f"Error parsing agent response: {response.text}")
+
+    def solve_captcha(
+        self,
+        body: CloudApiCliCaptchaSolvePostRequestBody,
+    ) -> dict[str, Any]:
+        response = self.client.post(
+            endpoint="/captcha/solve",
+            json=body.to_dict(),
+            timeout=180,
+        )
+
+        if not response.ok:
+            try:
+                payload = response.json()
+                detail = payload.get("error") if isinstance(payload, dict) else None
+            except ValueError:
+                detail = None
+            if not detail:
+                detail = response.text or response.reason
+            raise requests.HTTPError(
+                f"{response.status_code} {response.reason}: {detail}",
+                response=response,
+            )
+
+        try:
+            return response.json()
+        except json.JSONDecodeError:
+            raise Exception(f"Error parsing captcha response: {response.text}")
 
 
 class LocalAIRepository(AIRepository):
@@ -481,6 +517,36 @@ class LocalAIRepository(AIRepository):
             # raise_for_status() drops the response body — bad UX when cloud-api
             # returns a meaningful {"error": "...", "code": "..."} (e.g. for
             # consumption blocking). Surface the actual message.
+            try:
+                payload = response.json()
+                detail = payload.get("error") if isinstance(payload, dict) else None
+            except ValueError:
+                detail = None
+            if not detail:
+                detail = response.text or response.reason
+            raise requests.HTTPError(
+                f"{response.status_code} {response.reason}: {detail}",
+                response=response,
+            )
+
+        return response.json()
+
+    def solve_captcha(
+        self,
+        body: CloudApiCliCaptchaSolvePostRequestBody,
+    ) -> dict[str, Any]:
+        headers = resolve_headers()
+        if headers is None:
+            raise Exception("You must be logged in to solve a captcha")
+
+        response = self.client.post(
+            "/captcha/solve",
+            headers=headers,
+            json=body.to_dict(),
+            timeout=180,
+        )
+
+        if not response.ok:
             try:
                 payload = response.json()
                 detail = payload.get("error") if isinstance(payload, dict) else None

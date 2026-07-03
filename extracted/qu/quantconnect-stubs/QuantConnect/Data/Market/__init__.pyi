@@ -90,6 +90,30 @@ class BaseContract(System.Object, QuantConnect.Data.ISymbolProvider, metaclass=a
         ...
 
     @property
+    def value(self) -> float:
+        """
+        Value representation of this contract, mimicking BaseData.value.
+        Aliases last_price.
+        """
+        ...
+
+    @property
+    def price(self) -> float:
+        """
+        Alias of value as price, mimicking BaseData.price.
+        Aliases last_price.
+        """
+        ...
+
+    @property
+    def close(self) -> float:
+        """
+        Closing price of this contract, mimicking TradeBar.close.
+        Aliases last_price.
+        """
+        ...
+
+    @property
     def volume(self) -> int:
         """Gets the last volume this contract traded at"""
         ...

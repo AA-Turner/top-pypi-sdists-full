@@ -30,8 +30,9 @@ class ComputeStack(object):
     """
     VM = "VM"
     K8S = "K8S"
+    KUBERAY = "KUBERAY"
 
-    allowable_values = [VM, K8S]  # noqa: E501
+    allowable_values = [VM, K8S, KUBERAY]  # noqa: E501
 
     """
     Attributes:

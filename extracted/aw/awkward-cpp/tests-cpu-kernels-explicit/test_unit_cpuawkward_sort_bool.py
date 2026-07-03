@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-06-08 AT 11:28:09
+# AUTO GENERATED ON 2026-07-02 AT 19:33:43
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -22,12 +22,11 @@ def test_unit_cpuawkward_sort_bool_1():
     offsets = []
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     offsetslength = 0
-    parentslength = 0
     length = 1
     ascending = True
     stable = True
     funcC = getattr(lib, 'awkward_sort_bool')
-    ret_pass = funcC(toptr, fromptr, length, offsets, offsetslength, parentslength, ascending, stable)
+    ret_pass = funcC(toptr, fromptr, length, offsets, offsetslength, ascending, stable)
     pytest_toptr = []
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -40,12 +39,11 @@ def test_unit_cpuawkward_sort_bool_2():
     offsets = [0, 3, 3, 7]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     offsetslength = 4
-    parentslength = 7
     length = 7
     ascending = True
     stable = True
     funcC = getattr(lib, 'awkward_sort_bool')
-    ret_pass = funcC(toptr, fromptr, length, offsets, offsetslength, parentslength, ascending, stable)
+    ret_pass = funcC(toptr, fromptr, length, offsets, offsetslength, ascending, stable)
     pytest_toptr = [1, 1, 1, 0, 1, 1, 1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -58,12 +56,11 @@ def test_unit_cpuawkward_sort_bool_3():
     offsets = [0, 3, 3, 7]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     offsetslength = 4
-    parentslength = 7
     length = 7
     ascending = False
     stable = True
     funcC = getattr(lib, 'awkward_sort_bool')
-    ret_pass = funcC(toptr, fromptr, length, offsets, offsetslength, parentslength, ascending, stable)
+    ret_pass = funcC(toptr, fromptr, length, offsets, offsetslength, ascending, stable)
     pytest_toptr = [1, 1, 1, 1, 1, 1, 0]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -76,12 +73,11 @@ def test_unit_cpuawkward_sort_bool_4():
     offsets = [0, 3, 3, 7]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     offsetslength = 4
-    parentslength = 7
     length = 7
     ascending = True
     stable = False
     funcC = getattr(lib, 'awkward_sort_bool')
-    ret_pass = funcC(toptr, fromptr, length, offsets, offsetslength, parentslength, ascending, stable)
+    ret_pass = funcC(toptr, fromptr, length, offsets, offsetslength, ascending, stable)
     pytest_toptr = [1, 1, 1, 0, 1, 1, 1]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -94,12 +90,11 @@ def test_unit_cpuawkward_sort_bool_5():
     offsets = [0, 3, 3, 7]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
     offsetslength = 4
-    parentslength = 7
     length = 7
     ascending = False
     stable = False
     funcC = getattr(lib, 'awkward_sort_bool')
-    ret_pass = funcC(toptr, fromptr, length, offsets, offsetslength, parentslength, ascending, stable)
+    ret_pass = funcC(toptr, fromptr, length, offsets, offsetslength, ascending, stable)
     pytest_toptr = [1, 1, 1, 1, 1, 1, 0]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str

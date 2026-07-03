@@ -972,7 +972,7 @@ class EdgeFunction(
     def is_bound_to_vpc(self) -> builtins.bool:
         '''Whether or not this Lambda function was bound to a VPC.
 
-        If this is is ``false``, trying to access the ``connections`` object will fail.
+        If this is ``false``, trying to access the ``connections`` object will fail.
         '''
         return typing.cast(builtins.bool, jsii.get(self, "isBoundToVpc"))
 

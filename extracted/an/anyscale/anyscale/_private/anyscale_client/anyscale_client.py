@@ -2176,23 +2176,25 @@ class AnyscaleClient(AnyscaleClientInterface):
         compute_config_id: Optional[str] = None,
         cluster_environment_build_id: Optional[str] = None,
         idle_timeout_minutes: Optional[int] = None,
+        priority: Optional[int] = None,
     ):
         workspace = self.get_workspace(id=workspace_id)
         if not workspace:
             raise ValueError(f"Workspace '{workspace_id}' not found.")
 
+        # Name and priority go through the workspaces JSON-patch API.
+        patch_ops: List[Dict[str, Any]] = []
         if name:
-            # Update the workspace name with workspaces patch API
+            patch_ops.append({"op": "replace", "path": "/name", "value": name})
+        if priority is not None:
+            patch_ops.append({"op": "replace", "path": "/priority", "value": priority})
+        if patch_ops:
             self._internal_api_client.patch_workspace_api_v2_experimental_workspaces_workspace_id_patch(
-                workspace_id=workspace_id,
-                json_patch_operation=[
-                    {"op": "replace", "path": "/name", "value": name,},
-                ],
+                workspace_id=workspace_id, json_patch_operation=patch_ops,
             )
 
         if compute_config_id or cluster_environment_build_id or idle_timeout_minutes:
-            # Use the internal session API to update cluster config and idle timeout
-            # This matches what the UI does and is more efficient than the external API
+            # Cluster config and idle timeout go through the internal session API (matches the UI).
             self._internal_api_client.put_session_cluster_config_with_session_idle_timeout_api_v2_sessions_session_id_cluster_config_with_session_idle_timeout_put(
                 session_id=workspace.cluster_id,
                 compute_template_id=compute_config_id,

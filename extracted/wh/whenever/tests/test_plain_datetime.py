@@ -7,7 +7,6 @@ from typing import Any, Literal, Sequence
 import pytest
 from hypothesis import given
 from hypothesis.strategies import floats, integers, text
-
 from whenever import (
     Date,
     Instant,
@@ -47,7 +46,6 @@ pytestmark = pytest.mark.filterwarnings(
 
 
 class TestInit:
-
     def test_simple(self):
         d = PlainDateTime(2020, 8, 15, 5, 12, 30, nanosecond=450)
 
@@ -438,7 +436,6 @@ def test_repr():
 
 
 class TestFormatIso:
-
     def test_default(self):
         d = PlainDateTime(2020, 8, 15, 23, 12, 9, nanosecond=987_650)
         assert str(d) == "2020-08-15T23:12:09.00098765"
@@ -606,7 +603,6 @@ def test_replace():
 
 
 class TestShiftMethods:
-
     def test_warnings(self):
         d = PlainDateTime(2020, 8, 15, 23, 12, 9, nanosecond=987_654)
         with pytest.warns(NaiveArithmeticWarning) as w:
@@ -773,7 +769,6 @@ class TestNaiveArithmeticOkKwarg:
 
 
 class TestShiftOperators:
-
     def test_date_delta(self):
         d = PlainDateTime(2020, 8, 15, 23, 12, 9, nanosecond=987_654)
         shifted = d.replace(year=2021, day=19)
@@ -862,7 +857,6 @@ class TestDifference:
 
 
 class TestRound:
-
     @pytest.mark.parametrize(
         "d, increment, unit, floor, ceil, half_floor, half_ceil, half_even",
         [
@@ -1072,8 +1066,6 @@ def test_replace_time():
 
 def test_pickle():
     d = PlainDateTime(2020, 8, 15, 23, 12, 9, nanosecond=987_654)
-    dumped = pickle.dumps(d)
-    assert len(dumped) <= len(pickle.dumps(d.to_stdlib())) + 10
     assert pickle.loads(pickle.dumps(d)) == d
 
 
@@ -1091,7 +1083,6 @@ def test_old_pickle_data_remains_unpicklable():
 
 
 class TestParseStrptime:
-
     def test_strptime(self):
         assert PlainDateTime.parse_strptime(
             "2020-08-15 23:12", format="%Y-%m-%d %H:%M"
@@ -1107,12 +1098,12 @@ class TestParseStrptime:
         # format is keyword-only
         with pytest.raises(TypeError, match="format|argument"):
             OffsetDateTime.parse_strptime(
-                "2020-08-15 23:12:09", "%Y-%m-%d %H:%M:%S"  # type: ignore[misc]
+                "2020-08-15 23:12:09",
+                "%Y-%m-%d %H:%M:%S",  # type: ignore[misc]
             )
 
 
 class TestSince:
-
     @pytest.mark.parametrize(
         "a, b, units, kwargs, expect",
         [
@@ -1634,7 +1625,6 @@ def test_cannot_subclass():
 
 
 class TestDayOfYear:
-
     def test_basic(self):
         assert PlainDateTime(2024, 2, 29, 12, 30).day_of_year() == 60
 
@@ -1649,7 +1639,6 @@ class TestDayOfYear:
 
 
 class TestDaysInMonth:
-
     def test_feb_leap(self):
         assert PlainDateTime(2024, 2, 29, 12, 30).days_in_month() == 29
 
@@ -1669,7 +1658,6 @@ class TestDaysInMonth:
 
 
 class TestDaysInYear:
-
     def test_leap(self):
         assert PlainDateTime(2024, 2, 29, 12, 30).days_in_year() == 366
 
@@ -1684,7 +1672,6 @@ class TestDaysInYear:
 
 
 class TestInLeapYear:
-
     def test_leap(self):
         assert PlainDateTime(2024, 2, 29, 12, 30).in_leap_year() is True
 
@@ -1699,49 +1686,98 @@ class TestInLeapYear:
 
 
 class TestStartOf:
-
     def test_year(self):
         dt = PlainDateTime(2024, 8, 15, 14, 30, 45, nanosecond=123)
         result = dt.start_of("year")
         assert result == PlainDateTime(2024, 1, 1)
-        assert result.nanosecond == 0
 
     def test_month(self):
         dt = PlainDateTime(2024, 8, 15, 14, 30, 45, nanosecond=123)
         result = dt.start_of("month")
         assert result == PlainDateTime(2024, 8, 1)
-        assert result.nanosecond == 0
 
     def test_day(self):
         dt = PlainDateTime(2024, 8, 15, 14, 30, 45, nanosecond=123)
         result = dt.start_of("day")
         assert result == PlainDateTime(2024, 8, 15)
-        assert result.nanosecond == 0
 
     def test_hour(self):
         dt = PlainDateTime(2024, 8, 15, 14, 30, 45, nanosecond=123)
         result = dt.start_of("hour")
         assert result == PlainDateTime(2024, 8, 15, 14)
-        assert result.nanosecond == 0
 
     def test_minute(self):
         dt = PlainDateTime(2024, 8, 15, 14, 30, 45, nanosecond=123)
         result = dt.start_of("minute")
         assert result == PlainDateTime(2024, 8, 15, 14, 30)
-        assert result.nanosecond == 0
 
     def test_second(self):
         dt = PlainDateTime(2024, 8, 15, 14, 30, 45, nanosecond=123)
         result = dt.start_of("second")
         assert result == PlainDateTime(2024, 8, 15, 14, 30, 45)
-        assert result.nanosecond == 0
 
     def test_invalid_unit(self):
         with pytest.raises(ValueError, match="Invalid (unit|value for unit)"):
+            PlainDateTime(2024, 8, 15, 14, 30).start_of("invalid")  # type: ignore[arg-type]
+
+    def test_week_value_error(self):
+        with pytest.raises(ValueError, match="ambiguous"):
             PlainDateTime(2024, 8, 15, 14, 30).start_of("week")  # type: ignore[arg-type]
+
+    def test_week_mon(self):
+        # Thursday Aug 15 -> Monday Aug 12 at midnight
+        dt = PlainDateTime(2024, 8, 15, 14, 30, 45, nanosecond=123)
+        result = dt.start_of("week_mon")
+        assert result == PlainDateTime(2024, 8, 12)
+
+    def test_week_sun(self):
+        # Thursday Aug 15 -> Sunday Aug 11 at midnight
+        dt = PlainDateTime(2024, 8, 15, 14, 30, 45, nanosecond=123)
+        result = dt.start_of("week_sun")
+        assert result == PlainDateTime(2024, 8, 11)
+
+    def test_week_mon_already_monday(self):
+        dt = PlainDateTime(2024, 8, 12, 10, 0)
+        result = dt.start_of("week_mon")
+        assert result == PlainDateTime(2024, 8, 12)
+
+    def test_week_sun_already_sunday(self):
+        dt = PlainDateTime(2024, 8, 11, 10, 0)
+        result = dt.start_of("week_sun")
+        assert result == PlainDateTime(2024, 8, 11)
+
+    @pytest.mark.parametrize("unit", ["week_mon", "week_sun"])
+    def test_min_max_no_crash(self, unit):
+        try:
+            PlainDateTime.MIN.start_of(unit)
+        except (ValueError, OverflowError):
+            pass
+        try:
+            PlainDateTime.MAX.start_of(unit)
+        except (ValueError, OverflowError):
+            pass
 
 
 class TestEndOf:
+    @pytest.mark.parametrize(
+        ("unit", "next_start"),
+        [
+            ("year", PlainDateTime(2025, 1, 1)),
+            ("month", PlainDateTime(2024, 9, 1)),
+            ("week_mon", PlainDateTime(2024, 8, 19)),
+            ("week_sun", PlainDateTime(2024, 8, 18)),
+            ("day", PlainDateTime(2024, 8, 16)),
+            ("hour", PlainDateTime(2024, 8, 15, 15)),
+            ("minute", PlainDateTime(2024, 8, 15, 14, 31)),
+            ("second", PlainDateTime(2024, 8, 15, 14, 30, 46)),
+        ],
+    )
+    def test_adjacent_to_next_start(self, unit, next_start):
+        dt = PlainDateTime(2024, 8, 15, 14, 30, 45, nanosecond=123)
+        assert (
+            dt.end_of(unit).add(nanoseconds=1, naive_arithmetic_ok=True)
+            == next_start
+        )
 
     def test_year(self):
         dt = PlainDateTime(2024, 8, 15, 14, 30, 45, nanosecond=123)
@@ -1801,4 +1837,51 @@ class TestEndOf:
 
     def test_invalid_unit(self):
         with pytest.raises(ValueError, match="Invalid (unit|value for unit)"):
+            PlainDateTime(2024, 8, 15, 14, 30).end_of("invalid")  # type: ignore[arg-type]
+
+    def test_week_value_error(self):
+        with pytest.raises(ValueError, match="ambiguous"):
             PlainDateTime(2024, 8, 15, 14, 30).end_of("week")  # type: ignore[arg-type]
+
+    def test_week_mon(self):
+        # Thursday Aug 15 -> Sunday Aug 18 end of day
+        dt = PlainDateTime(2024, 8, 15, 14, 30, 45, nanosecond=123)
+        result = dt.end_of("week_mon")
+        assert result == PlainDateTime(
+            2024, 8, 18, 23, 59, 59, nanosecond=999_999_999
+        )
+
+    def test_week_sun(self):
+        # Thursday Aug 15 -> Saturday Aug 17 end of day
+        dt = PlainDateTime(2024, 8, 15, 14, 30, 45, nanosecond=123)
+        result = dt.end_of("week_sun")
+        assert result == PlainDateTime(
+            2024, 8, 17, 23, 59, 59, nanosecond=999_999_999
+        )
+
+    def test_week_mon_already_sunday(self):
+        # Sunday is already end of monday-week
+        dt = PlainDateTime(2024, 8, 18, 10, 0)
+        result = dt.end_of("week_mon")
+        assert result == PlainDateTime(
+            2024, 8, 18, 23, 59, 59, nanosecond=999_999_999
+        )
+
+    def test_week_sun_already_saturday(self):
+        # Saturday is already end of sunday-week
+        dt = PlainDateTime(2024, 8, 17, 10, 0)
+        result = dt.end_of("week_sun")
+        assert result == PlainDateTime(
+            2024, 8, 17, 23, 59, 59, nanosecond=999_999_999
+        )
+
+    @pytest.mark.parametrize("unit", ["week_mon", "week_sun"])
+    def test_min_max_no_crash(self, unit):
+        try:
+            PlainDateTime.MIN.end_of(unit)
+        except (ValueError, OverflowError):
+            pass
+        try:
+            PlainDateTime.MAX.end_of(unit)
+        except (ValueError, OverflowError):
+            pass

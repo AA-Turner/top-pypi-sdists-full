@@ -8,10 +8,17 @@ on:
 
 env:
   PY_COLORS: "1"
-  # These compiler flags force the tests to fail if arrays are
+  # The -fsanitize=alignment -fno-sanitize-recover=alignment compiler
+  # flags force the tests to fail if arrays are
   # accessed at the C level from an unaligned location.
-  TEST_CFLAGS: "-fsanitize=alignment -fno-sanitize-recover=alignment"
-  LATEST_CFITSIO_VER: "-4.6.3"
+  # The -ffp-contract=off flag ensures we do not use FMA instructions on
+  # ARM systems so that lossy floating point compression is reproducible.
+  TEST_CFLAGS: "-fsanitize=alignment -fno-sanitize-recover=alignment -ffp-contract=off"
+  LATEST_CFITSIO_VER: "-4.6.4"
+
+defaults:
+  run:
+    shell: bash -leo pipefail {0}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -23,81 +30,117 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os:
+          - ubuntu-latest
+          - macos-latest
         config:
           # 3.44 is the last version that did not support uint64
-          - { pyver: "3.8", npver: "1", cftsver: "3440"}
+          - { pyver: "3.10", npver: "1", cftsver: "3440", doslow: "--slow", ft: "", cf: ""}
           # python 3 string writing fails on all 3.* builds
           # so test first 4.* release
-          - { pyver: "3.8", npver: "1", cftsver: "-4.0.0"}
+          - { pyver: "3.10", npver: "1", cftsver: "-4.0.0", doslow: "", ft: "", cf: ""}
           # 4.1.0 is the first version for which tests pass for uint64
-          - { pyver: "3.8", npver: "1", cftsver: "-4.1.0"}
-          - { pyver: "3.8", npver: "1", cftsver: "latest"}
-          - { pyver: "3.13", npver: "2.3.0", cftsver: "latest"}
+          - { pyver: "3.10", npver: "1", cftsver: "-4.1.0", doslow: "", ft: "", cf: ""}
+          # 4.4.0 is first version for which tests pass for compressed
+          # binary tables that exceed 2**32 bytes
+          - { pyver: "3.10", npver: "1", cftsver: "-4.4.0", doslow: "--slow", ft: "", cf: ""}
+          - { pyver: "3.10", npver: "1", cftsver: "latest", doslow: "--slow", ft: "", cf: ""}
+          - { pyver: "3.14", npver: "2", cftsver: "latest", doslow: "", ft: "python-gil", cf: "--enable-reentrant"}
+          - { pyver: "3.14", npver: "2", cftsver: "latest", doslow: "", ft: "python-freethreading", cf: ""}
+          - { pyver: "3.14", npver: "2", cftsver: "latest", doslow: "", ft: "python-freethreading", cf: "--enable-reentrant"}
 
     runs-on: ${{ matrix.os }}
     env:
       PIP_OPTIONS: "--no-cache-dir --no-deps --no-build-isolation -v"
 
     steps:
-      - uses: actions/checkout@v5
+      - name: free disk space
+        if: matrix.os == 'ubuntu-latest'
+        uses: endersonmenezes/free-disk-space@v3
+        with:
+          remove_android: true
+          remove_dotnet: true
+          remove_haskell: true
+          rm_cmd: "rmz"
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           fetch-depth: 0
           fetch-tags: true
 
-      - uses: conda-incubator/setup-miniconda@835234971496cad1653abb28a638a281cf32541f  # v3.2.0
+      - uses: mamba-org/setup-micromamba@d7c9bd84e824b79d2af72a2d4196c7f4300d3476  #v3.0.0
         with:
-          python-version: ${{ matrix.config.pyver }}
-          channels: conda-forge
-          channel-priority: strict
-          show-channel-urls: true
-          miniforge-version: latest
+          environment-name: fitsio-dev
+          environment-file: environment.yml
+          condarc: |
+            channels:
+            - conda-forge
+            show_channel_urls: true
+            channel_priority: strict
+            always_yes: true
+          create-args: >-
+            python=${{ matrix.config.pyver }}
+            numpy=${{ matrix.config.npver }}
+            ${{ matrix.config.ft }}
 
-      - name: install conda deps
-        shell: bash -l {0}
+      - name: set parallel testing flags
         run: |
-          conda install \
-            numpy=${{ matrix.config.npver }} \
-            "setuptools-scm>=8" \
-            wget \
-            make \
-            pytest \
-            setuptools
-          conda list
+          if [[ "${{ matrix.config.pyver }}" == "3.14" ]]; then
+            echo "PRP_FLAGS=--parallel-threads 4 --iterations 4 --ignore-gil-enabled" >> ${GITHUB_ENV}
+          fi
 
-      - name: build external cfitsio
-        shell: bash -l {0}
+      - name: set cfitsio config flags and version
         run: |
-          export CFLAGS="${CFLAGS} ${TEST_CFLAGS}"
-
-          mkdir -p cfitsio-external-build
-          cd cfitsio-external-build
-          rm -rf *
-
           if [[ "${{ matrix.config.cftsver }}" == "latest" ]]; then
             cftsver=${LATEST_CFITSIO_VER}
           else
             cftsver="${{ matrix.config.cftsver }}"
           fi
 
+          echo "CFITSIO_VER=${cftsver}" >> ${GITHUB_ENV}
+
           if [[ "${{ matrix.config.cftsver }}" == *3* ]]; then
-            config_flags=""
+            config_flags="${{ matrix.config.cf }}"
           else
-            config_flags="--without-fortran --disable-shared"
+            config_flags="--without-fortran --disable-shared ${{ matrix.config.cf }}"
           fi
 
-          cfitsio_name=cfitsio${cftsver}
-          wget https://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/${cfitsio_name}.tar.gz
+          echo "CFITSIO_CONFIG_FLAGS=${config_flags}" >> ${GITHUB_ENV}
+
+      - name: build external cfitsio
+        run: |
+          export CFLAGS="${CFLAGS} ${TEST_CFLAGS} -fPIC"
+
+          mkdir -p cfitsio-external-build
+          cd cfitsio-external-build
+          rm -rf *
+
+          cfitsio_name=cfitsio${CFITSIO_VER}
+
+          set +e
+          worked="false"
+          for itr in {1..5}; do
+            wget https://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/${cfitsio_name}.tar.gz || false
+            if [[ "$?" == "0" ]]; then
+              worked="true"
+              break
+            fi
+          done
+          set -e
+
+          if [[ "${worked}" != "true" ]]; then
+            exit 1
+          fi
+
           cfitsio_dir=`tar -tzf ${cfitsio_name}.tar.gz | sed -n "1,1p" | cut -f1 -d"/"`
           tar -xzvf ${cfitsio_name}.tar.gz
           cd ${cfitsio_dir}
-          CFLAGS="-fPIC" ./configure --prefix=$HOME/cfitsio-static-install ${config_flags}
+          ./configure --prefix=$HOME/cfitsio-static-install ${CFITSIO_CONFIG_FLAGS}
           make install -j 4
           cd ..
           cd ..
 
       - name: test non-bundled build
-        shell: bash -l {0}
         run: |
           export CFLAGS="${CFLAGS} ${TEST_CFLAGS}"
 
@@ -105,7 +148,7 @@ jobs:
             --config-settings="--global-option=--use-system-fitsio" \
             --config-settings="--global-option=--system-fitsio-includedir=$HOME/cfitsio-static-install/include" \
             --config-settings="--global-option=--system-fitsio-libdir=$HOME/cfitsio-static-install/lib"
-          pytest -vv fitsio
+
           python -c "import fitsio; assert not fitsio.cfitsio_has_bzip2_support()"
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             python -c "import fitsio; assert not fitsio.cfitsio_has_curl_support()"
@@ -113,45 +156,47 @@ jobs:
             python -c "import fitsio; assert fitsio.cfitsio_has_curl_support()"
           fi
 
+          pytest -vv --durations=20 ${PRP_FLAGS} fitsio
+
       - name: install bzip2 on linux
-        shell: bash -l {0}
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get install libbz2-dev
 
       - name: build external cfitsio w/ bzip2
-        shell: bash -l {0}
         run: |
-          export CFLAGS="${CFLAGS} ${TEST_CFLAGS}"
+          export CFLAGS="${CFLAGS} ${TEST_CFLAGS} -fPIC"
 
           mkdir -p cfitsio-external-build
           cd cfitsio-external-build
           rm -rf *
 
-          if [[ "${{ matrix.config.cftsver }}" == "latest" ]]; then
-            cftsver=${LATEST_CFITSIO_VER}
-          else
-            cftsver="${{ matrix.config.cftsver }}"
+          cfitsio_name=cfitsio${CFITSIO_VER}
+
+          set +e
+          worked="false"
+          for itr in {1..5}; do
+            wget https://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/${cfitsio_name}.tar.gz || false
+            if [[ "$?" == "0" ]]; then
+              worked="true"
+              break
+            fi
+          done
+          set -e
+
+          if [[ "${worked}" != "true" ]]; then
+            exit 1
           fi
 
-          if [[ "${{ matrix.config.cftsver }}" == *3440* ]]; then
-            config_flags="--with-bzip2"
-          else
-            config_flags="--without-fortran --disable-shared --with-bzip2"
-          fi
-
-          cfitsio_name=cfitsio${cftsver}
-          wget https://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/${cfitsio_name}.tar.gz
           cfitsio_dir=`tar -tzf ${cfitsio_name}.tar.gz | sed -n "1,1p" | cut -f1 -d"/"`
           tar -xzvf ${cfitsio_name}.tar.gz
           cd ${cfitsio_dir}
-          CFLAGS="-fPIC" ./configure --prefix=$HOME/cfitsio-static-install ${config_flags}
+          ./configure --prefix=$HOME/cfitsio-static-install ${CFITSIO_CONFIG_FLAGS} --with-bzip2
           make install -j 4
           cd ..
           cd ..
 
       - name: test non-bundled build w/ env vars w/ bzip2
-        shell: bash -l {0}
         run: |
           export CFLAGS="${CFLAGS} ${TEST_CFLAGS}"
 
@@ -162,10 +207,12 @@ jobs:
           export FITSIO_SYSTEM_FITSIO_INCLUDEDIR=$HOME/cfitsio-static-install/include
           export FITSIO_SYSTEM_FITSIO_LIBDIR=$HOME/cfitsio-static-install/lib
           pip install ${PIP_OPTIONS} -e .
-          pytest -vv fitsio
+
           python -c "import fitsio; assert fitsio.cfitsio_has_bzip2_support()"
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             python -c "import fitsio; assert not fitsio.cfitsio_has_curl_support()"
           else
             python -c "import fitsio; assert fitsio.cfitsio_has_curl_support()"
           fi
+
+          pytest -vv --durations=20 ${{ matrix.config.doslow }} ${PRP_FLAGS} fitsio

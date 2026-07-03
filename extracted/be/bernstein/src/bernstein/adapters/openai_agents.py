@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from bernstein.adapters.base import DEFAULT_TIMEOUT_SECONDS, SpawnResult, build_worker_cmd
 from bernstein.adapters.env_isolation import build_filtered_env
+from bernstein.adapters.openai_agents_runner import validate_api_key_env_name
 from bernstein.adapters.plugin_sdk import (
     AdapterCapability,
     AdapterPluginInfo,
@@ -95,6 +96,13 @@ class OpenAIAgentsAdapter(PluginAdapter):
     # ``rate_limit_exceeded`` / ``insufficient_quota`` error codes.
     rate_limit_provider = "openai"
 
+    # The runner writes its own heartbeat files, but it runs inside a
+    # per-session worktree and cannot derive the orchestrator project
+    # root on its own.  This flag tells the spawner to inject a
+    # ``heartbeat_dir`` key (the orchestrator-root heartbeat directory
+    # the HeartbeatMonitor polls) into the per-spawn ``mcp_config``.
+    consumes_heartbeat_dir = True
+
     def plugin_info(self) -> AdapterPluginInfo:
         """Return metadata for the ``bernstein agents`` listing."""
         return AdapterPluginInfo(
@@ -110,6 +118,7 @@ class OpenAIAgentsAdapter(PluginAdapter):
                 AdapterCapability.MULTI_MODEL,
                 AdapterCapability.RATE_LIMIT_DETECTION,
                 AdapterCapability.STRUCTURED_OUTPUT,
+                AdapterCapability.SUPPORTS_SAMPLING_PARAMS,
             ),
         )
 
@@ -172,7 +181,11 @@ class OpenAIAgentsAdapter(PluginAdapter):
             workdir: Worktree root for sandbox constraint.
             model_config: Model/effort selection.
             session_id: Bernstein session ID for log correlation.
-            mcp_config: Optional MCP servers and sandbox provider choice.
+            mcp_config: Optional MCP servers, sandbox provider choice,
+                sampling/endpoint overrides (``temperature``, ``top_p``,
+                ``top_k``, ``base_url``, ``api_key_env``), the tool source
+                selector (``tool_source``), and the spawner-injected
+                ``heartbeat_dir``.
             timeout_seconds: Hard timeout forwarded to the runner.
             task_scope: "small" | "medium" | "large".
             budget_multiplier: Retry multiplier applied to the scope budget.
@@ -182,32 +195,71 @@ class OpenAIAgentsAdapter(PluginAdapter):
             Plain dict ready for ``json.dumps``.
         """
         sandbox_provider = _DEFAULT_SANDBOX_PROVIDER
+        tool_source = "gateway"
         tools: list[dict[str, Any]] = []
         mcp_servers: dict[str, Any] = {}
+        overrides: dict[str, Any] = {}
         if mcp_config:
             provider = mcp_config.get("sandbox_provider")
             if isinstance(provider, str) and provider:
                 sandbox_provider = provider
+            # ``tool_source: "builtin"`` opts into the runner's
+            # workdir-sandboxed builtins.  Any other value keeps the default
+            # MCP-gateway path, so the manifest stays byte-identical for
+            # runs that do not request builtins.
+            raw_tool_source = mcp_config.get("tool_source")
+            if raw_tool_source == "builtin":
+                tool_source = "builtin"
             raw_tools: object = mcp_config.get("tools")
             if isinstance(raw_tools, list):
                 tools = [cast("dict[str, Any]", t) for t in cast("list[Any]", raw_tools) if isinstance(t, dict)]
             raw_servers: object = mcp_config.get("mcpServers")
             if isinstance(raw_servers, dict):
                 mcp_servers = cast("dict[str, Any]", raw_servers)
+            # Optional sampling/endpoint overrides.  Absent keys are not
+            # serialized so the runner's defaults (None) apply and the
+            # manifest stays byte-identical to pre-override builds.
+            for float_key in ("temperature", "top_p"):
+                float_value = mcp_config.get(float_key)
+                if isinstance(float_value, (int, float)) and not isinstance(float_value, bool):
+                    overrides[float_key] = float(float_value)
+            top_k = mcp_config.get("top_k")
+            if isinstance(top_k, int) and not isinstance(top_k, bool):
+                overrides["top_k"] = top_k
+            max_tokens = mcp_config.get("max_tokens")
+            if isinstance(max_tokens, int) and not isinstance(max_tokens, bool):
+                overrides["max_tokens"] = max_tokens
+            for str_key in ("base_url", "api_key_env"):
+                str_value = mcp_config.get(str_key)
+                if isinstance(str_value, str) and str_value:
+                    overrides[str_key] = str_value
+            # Heartbeat delivery target injected by the spawner: the
+            # orchestrator-root directory the HeartbeatMonitor polls.
+            # ``workdir`` is a per-session worktree under default
+            # isolation, so the runner cannot derive this path itself.
+            heartbeat_dir = mcp_config.get("heartbeat_dir")
+            if isinstance(heartbeat_dir, str) and heartbeat_dir:
+                overrides["heartbeat_dir"] = heartbeat_dir
 
-        return {
+        # ``max_tokens`` from ``mcp_config`` (mode-profile override) wins; the
+        # model_config value is only the fallback when the override is absent.
+        # It is applied here on the RIGHT of the merge so an ``overrides``
+        # value survives, matching the other sampling overrides above.
+        overrides.setdefault("max_tokens", int(getattr(model_config, "max_tokens", 200_000)))
+
+        return overrides | {
             "session_id": session_id,
             "prompt": prompt,
             "workdir": str(workdir),
             "model": str(getattr(model_config, "model", "")),
             "effort": str(getattr(model_config, "effort", "high")),
-            "max_tokens": int(getattr(model_config, "max_tokens", 200_000)),
             "timeout_seconds": timeout_seconds,
             "task_scope": task_scope,
             "budget_multiplier": budget_multiplier,
             "system_addendum": system_addendum,
             "sandbox_provider": sandbox_provider,
             "tools": tools,
+            "tool_source": tool_source,
             "mcp_servers": mcp_servers,
         }
 
@@ -259,9 +311,18 @@ class OpenAIAgentsAdapter(PluginAdapter):
         )
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
-        if not os.environ.get("OPENAI_API_KEY"):
+        # ``api_key_env`` overrides which env var holds the key; only its
+        # NAME is ever recorded, never the value.  The name is validated
+        # BEFORE it widens the filtered environment below so a repo-carried
+        # config cannot forward arbitrary host variables to the runner.
+        api_key_env_override = manifest.get("api_key_env")
+        if api_key_env_override is not None:
+            validate_api_key_env_name(str(api_key_env_override))
+        api_key_env = str(api_key_env_override or "OPENAI_API_KEY")
+        if not os.environ.get(api_key_env):
             logger.warning(
-                "OpenAIAgentsAdapter: OPENAI_API_KEY is not set - spawn will fail",
+                "OpenAIAgentsAdapter: %s is not set - spawn will fail",
+                api_key_env,
             )
 
         cmd = [*self._runner_command(), "--manifest", str(manifest_path)]
@@ -278,7 +339,12 @@ class OpenAIAgentsAdapter(PluginAdapter):
             model=str(getattr(model_config, "model", "")),
         )
 
-        env = build_filtered_env(list(_OPENAI_CREDENTIAL_KEYS))
+        env_keys = list(_OPENAI_CREDENTIAL_KEYS)
+        if api_key_env not in env_keys:
+            # Pass the override key through the filtered env so the runner
+            # can resolve it by name.
+            env_keys.append(api_key_env)
+        env = build_filtered_env(env_keys)
         preexec_fn = self._get_preexec_fn()
         with log_path.open("w") as log_file:
             try:

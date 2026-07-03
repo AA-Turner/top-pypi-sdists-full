@@ -211,10 +211,34 @@ def _set_remote_url(remote_url: str):
 
 
 def _set_server_tcp_port(server_port: int):
-    """Set server and client URLs from a TCP port."""
+    """Set server and client URLs from a TCP port.
+
+    By default the gRPC server binds IPv4 loopback (``127.0.0.1``) only, so the
+    port is not reachable from outside the host/pod. A client that resolves
+    ``localhost`` to IPv6 ``::1`` first will be refused there and fall straight
+    back to ``127.0.0.1`` — we deliberately do NOT bind ``[::1]``, because an
+    IPv6 loopback socket on a host with a degraded IPv6 stack can hang
+    connections instead of refusing them.
+
+    Set ``SAS_SERVER_GRPC_BIND_HOST`` to bind a different address (e.g.
+    ``0.0.0.0`` for all IPv4, ``[::]`` for all interfaces) only when a
+    deployment genuinely needs cross-host access on a trusted, isolated network
+    — note the listener has no TLS and no authentication.
+    """
     global _server_url, _client_url
     _check_port_is_free(server_port)
-    _server_url = f"[::]:{server_port}"
+    bind_host = os.environ.get("SAS_SERVER_GRPC_BIND_HOST") or "127.0.0.1"
+    # Warn only for a genuinely non-loopback bind, which exposes a listener with
+    # no TLS or authentication beyond the host.
+    if bind_host not in ("127.0.0.1", "::1", "[::1]", "localhost"):
+        logger.warning(
+            "Binding the Snowpark Connect gRPC server to '%s' via "
+            "SAS_SERVER_GRPC_BIND_HOST. This listener has no TLS and no "
+            "authentication; only widen the bind on a trusted, isolated "
+            "network.",
+            bind_host,
+        )
+    _server_url = f"{bind_host}:{server_port}"
     _client_url = f"sc://127.0.0.1:{server_port}"
 
 

@@ -8,6 +8,7 @@
 
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import { getCacheDir, getPlatformTag } from "./config.js";
@@ -25,21 +26,132 @@ export interface LicenseInfo {
 }
 
 /**
- * Resolve the license key: explicit param > env var > file > undefined.
+ * Source of a resolved license key.  Determines whether env injection
+ * into the child browser process is needed.
+ *
+ * - ``param`` / ``custom_file`` -> must inject (binary can't see these).
+ * - ``env`` -> already in parent ``os.environ``, child inherits naturally.
+ * - ``default_file`` -> binary reads ``~/.cloakbrowser/license.key`` directly.
+ * - ``none`` / ``undefined`` -> no key.
  */
-export function resolveLicenseKey(licenseKey?: string): string | undefined {
+export type LicenseKeySource =
+  | "param"
+  | "env"
+  | "default_file"
+  | "custom_file"
+  | "none";
+
+/**
+ * Like ``resolveLicenseKey`` but also returns the source for env-injection
+ * decisions.  Internal; consumers should use ``resolveLicenseKey`` or
+ * ``buildLaunchEnv``.
+ */
+export function resolveLicenseKeyWithSource(
+  licenseKey?: string,
+): { key: string | undefined; source: LicenseKeySource } {
   const trimmed = licenseKey?.trim();
-  if (trimmed) return trimmed;
+  if (trimmed) return { key: trimmed, source: "param" };
+
   const envKey = (process.env.CLOAKBROWSER_LICENSE_KEY ?? "").trim();
-  if (envKey) return envKey;
+  if (envKey) return { key: envKey, source: "env" };
+
   try {
-    const keyFile = path.join(getCacheDir(), "license.key");
+    const cacheDir = getCacheDir();
+    const keyFile = path.join(cacheDir, "license.key");
     const content = fs.readFileSync(keyFile, "utf-8").trim();
-    if (content) return content;
+    if (content) {
+      const defaultCache = path.join(os.homedir(), ".cloakbrowser");
+      // Symlink-safe comparison via resolve()
+      const source =
+        path.resolve(cacheDir) === path.resolve(defaultCache)
+          ? "default_file"
+          : "custom_file";
+      return { key: content, source };
+    }
   } catch {
     // File doesn't exist or unreadable
   }
-  return undefined;
+
+  return { key: undefined, source: "none" };
+}
+
+/**
+ * Resolve the license key: explicit param > env var > file > undefined.
+ */
+export function resolveLicenseKey(licenseKey?: string): string | undefined {
+  return resolveLicenseKeyWithSource(licenseKey).key;
+}
+
+/**
+ * Build a child-process env dict with any needed license key injection.
+ *
+ * The Pro binary reads ``CLOAKBROWSER_LICENSE_KEY`` from its own process
+ * environment at startup.  This helper merges the resolved key into the
+ * child process env dict **only** when injection is necessary:
+ *
+ * * **param** / **custom_file** source -> inject into child env.
+ * * **env** source -> child inherits from parent (no injection).
+ * * **default_file** source -> binary reads the file directly (no injection),
+ *   unless a custom userEnv is passed (Playwright replaces the child env and
+ *   can drop HOME, hiding the file), in which case the key is injected.
+ *
+ * When *userEnv* is provided it is used as the base (Playwright replaces
+ * the child env entirely when ``env`` is set), with the key injected only
+ * when needed.
+ *
+ * Returns ``undefined`` when no injection is needed and no custom userEnv
+ * was given — Playwright treats ``env=undefined`` as "inherit parent env".
+ */
+export function buildLaunchEnv(
+  licenseKey?: string,
+  userEnv?: Record<string, string | undefined>,
+): Record<string, string> | undefined {
+  const { key, source } = resolveLicenseKeyWithSource(licenseKey);
+
+  // Normalize the custom env once so every return path behaves identically:
+  // drop undefined values (Playwright's env is typed string→string).
+  const baseEnv = userEnv
+    ? (Object.fromEntries(
+        Object.entries(userEnv).filter(([, v]) => v !== undefined),
+      ) as Record<string, string>)
+    : undefined;
+
+  // Default file: binary reads it directly — no env injection needed,
+  // UNLESS the caller passes a custom env. Playwright replaces (not merges)
+  // the child env, which can drop HOME and hide the file from the binary,
+  // so inject the key too in that case (fall through to the merge below).
+  if (source === "default_file" && !baseEnv) {
+    return undefined;
+  }
+
+  // No key at all: pass through the custom env or undefined.
+  if (source === "none" || key === undefined) {
+    return baseEnv;
+  }
+
+  // Env source, no custom user env: child inherits parent env, which
+  // already has CLOAKBROWSER_LICENSE_KEY.
+  if (source === "env" && !baseEnv) {
+    return undefined;
+  }
+
+  // Build the merged env dict.
+  const merged: Record<string, string> = {};
+
+  if (baseEnv) {
+    Object.assign(merged, baseEnv);
+  } else {
+    for (const [k, v] of Object.entries(process.env)) {
+      if (v !== undefined) merged[k] = v;
+    }
+  }
+
+  // For param/custom_file this is THE injection into the child env.
+  // For env source with a custom userEnv this ensures the key persists
+  // through the user's env override (Playwright replaces, not merges).
+  merged.CLOAKBROWSER_LICENSE_KEY = key;
+
+  return merged;
 }
 
 /**

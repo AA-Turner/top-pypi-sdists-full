@@ -1070,11 +1070,11 @@ class COO(SparseArray, NDArrayOperatorsMixin):  # lgtm [py/missing-equals]
         if order not in {"C", None}:
             raise NotImplementedError("The `order` parameter is not supported")
 
-        if self.shape == shape:
-            return self
-        if any(d == -1 for d in shape):
+        if -1 in shape:
             extra = int(self.size / np.prod([d for d in shape if d != -1]))
             shape = tuple([d if d != -1 else extra for d in shape])
+        if self.shape == shape:
+            return self
 
         if self.size != reduce(operator.mul, shape, 1):
             raise ValueError(f"cannot reshape array of size {self.size} into shape {shape}")
@@ -1131,7 +1131,7 @@ class COO(SparseArray, NDArrayOperatorsMixin):  # lgtm [py/missing-equals]
         >>> s.squeeze(axis=1).shape
         (2, 2, 1)
         """
-        squeezable_dims = tuple([d for d in range(self.ndim) if self.shape[d] == 1])
+        squeezable_dims = tuple(d for d in range(self.ndim) if self.shape[d] == 1)
 
         if axis is None:
             axis = squeezable_dims
@@ -1141,6 +1141,8 @@ class COO(SparseArray, NDArrayOperatorsMixin):  # lgtm [py/missing-equals]
             axis = tuple(axis)
         else:
             raise ValueError(f"Invalid axis parameter: `{axis}`.")
+
+        axis = normalize_axis(axis, self.ndim)
 
         for d in axis:
             if d not in squeezable_dims:

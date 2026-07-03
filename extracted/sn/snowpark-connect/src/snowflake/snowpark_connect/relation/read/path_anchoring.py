@@ -736,11 +736,37 @@ def compute_non_recursive_pattern(
     target directory (no subdirectory descent). Non-dir paths produce no
     branch (file/glob kinds already name specific files).
 
-    Pattern: ``(.*/)?{escaped_prefix}({hive}/)*[^_.][^/]*$`` where ``{hive}``
-    is :data:`_HIVE_PARTITION_DIR_PATTERN`. Zero ``{hive}/`` repetitions
-    matches depth-0 files; one or more match Hive-partitioned layouts at
-    any depth while still rejecting arbitrary non-partition nesting such
-    as ``sub/nested/file.csv`` (segments without ``=`` are not matched).
+    The regex emitted for a prefixed dir is an alternation of two branches
+    (SNOW-3707457)::
+
+        (?:(.*/)?{escaped_prefix}{hive_tail})|(?:{hive_tail})
+
+    where ``{hive_tail}`` is ``({_HIVE_PARTITION_DIR_PATTERN}/)*[^_.][^/]*$``.
+    Zero ``{hive}/`` repetitions match depth-0 files; one or more match
+    Hive-partitioned layouts while still rejecting arbitrary non-partition
+    nesting such as ``sub/nested/file.csv`` (segments without ``=`` are not
+    matched).
+
+    The two branches exist because Snowflake's ``LIST`` / staged-``SELECT``
+    ``PATTERN`` matching scope is **not consistent across deployments**, and
+    nothing SCOS can observe (stage type, ``LIST`` row shape, version)
+    distinguishes them:
+
+      * Full-path scope: ``PATTERN`` is matched against the full
+        stage-relative path (e.g. ``stage_name/dir/file`` for internal
+        stages, or the full ``s3://bucket/.../file`` URL for external ones).
+        The prefixed branch is required here; the bare ``{hive_tail}`` branch
+        is inert because a real path always carries a leading stage/bucket
+        component it cannot full-match.
+      * Listed-dir scope: ``PATTERN`` is matched against the path *relative
+        to the listed directory* (just ``file`` / ``part=1/file``). Here the
+        prefixed branch matches nothing (the prefix never appears) and the
+        bare ``{hive_tail}`` branch carries the read.
+
+    Emitting both makes the depth-0 read return the right rows under either
+    scope while still enforcing depth-0 in both (a nested ``sub/file``
+    relative path cannot full-match ``{hive_tail}`` because ``[^/]`` will not
+    cross ``/``). Verified live on two deployments that scope oppositely.
 
     Stage-root reads (no dir prefix) reduce to ``(.*/)?[^_.][^/]*$`` and
     have a known limitation: with no fixed prefix to anchor on, the
@@ -750,7 +776,8 @@ def compute_non_recursive_pattern(
     when files live directly at the stage root (the common case) but
     cannot strictly enforce depth-0 against arbitrary nested layouts at
     the root. Users wanting strict depth-0 should pass an explicit
-    subdirectory.
+    subdirectory. No separate relative branch is added for stage-root reads
+    because the prefix-less full-path branch already permits relative paths.
 
     Metadata sidecars (``_SUCCESS``, ``.crc``) are excluded via
     ``[^_.]``.
@@ -761,7 +788,9 @@ def compute_non_recursive_pattern(
     in :func:`compute_anchor_pattern` -- producing a regex that silently
     excludes the user's data is worse than producing none at all).
     """
+    hive_tail = f"({_HIVE_PARTITION_DIR_PATTERN}/)*[^_.][^/]*$"
     branches: list[str] = []
+    saw_prefixed_dir = False
     for path, cls in zip(clean_source_paths, classifications):
         if cls.kind != "dir":
             continue
@@ -769,11 +798,17 @@ def compute_non_recursive_pattern(
         if _dir_prefix_unsafe_for_depth0_pattern(prefix):
             return None
         escaped_prefix = re.escape(prefix)
-        branches.append(
-            f"(.*/)?{escaped_prefix}({_HIVE_PARTITION_DIR_PATTERN}/)*[^_.][^/]*$"
-        )
+        branches.append(f"(.*/)?{escaped_prefix}{hive_tail}")
+        if escaped_prefix:
+            saw_prefixed_dir = True
     if not branches:
         return None
+    # SNOW-3707457: deployments that match PATTERN relative to the listed
+    # directory need the prefix-less branch to return any rows. Added once
+    # (it is prefix-independent) and only when at least one dir carried a
+    # non-empty prefix -- stage-root branches already subsume it.
+    if saw_prefixed_dir:
+        branches.append(hive_tail)
     if len(branches) == 1:
         return branches[0]
     return "|".join(f"(?:{b})" for b in branches)

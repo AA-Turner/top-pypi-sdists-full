@@ -42,13 +42,19 @@ from bernstein.core.orchestration.preflight import (
     gemini_has_auth,
     preflight_checks,
 )
-from bernstein.core.seed import NotifyConfig, SeedConfig, parse_seed
+from bernstein.core.seed import (
+    NotifyConfig,
+    SeedConfig,
+    github_backlog_sync_enabled,
+    parse_seed,
+)
 from bernstein.core.server_launch import (
     BootstrapResult,
     _build_codebase_index,
     _clean_stale_runtime,
     _discover_catalog,
     _inject_manager_task,
+    _inject_worker_task,
     _is_alive,
     _read_pid,
     _resolve_auth_token,
@@ -325,6 +331,66 @@ def _load_secrets_provider(seed: Any) -> None:
         raise SystemExit(1) from sec_exc
 
 
+def _maybe_sync_github_backlog(seed: Any, workdir: Path) -> int:
+    """Pull open GitHub issues into the backlog only when explicitly enabled.
+
+    Auto-sync is opt-in (``github.sync_backlog`` in bernstein.yaml, or the
+    ``BERNSTEIN_SYNC_GITHUB_BACKLOG`` env override). When it is off (the
+    default) no issues are synced and ``0`` is returned. This keeps a seeded
+    goal from being silently displaced by every open issue in the repo.
+
+    Returns:
+        Number of issues synced (``0`` when disabled or on any failure).
+    """
+    if not github_backlog_sync_enabled(seed):
+        logger.debug("GitHub backlog auto-sync disabled (github.sync_backlog off); skipping")
+        return 0
+    try:
+        from bernstein.core.github import sync_github_issues_to_backlog
+
+        return sync_github_issues_to_backlog(workdir)
+    except Exception as exc:
+        logger.debug("GitHub issue sync skipped: %s", exc)
+        return 0
+
+
+def _warn_if_goal_shadowed_by_backlog(
+    seed: Any,
+    *,
+    backlog_count: int,
+    prior_session: Any,
+    gh_synced: int,
+) -> None:
+    """Emit a LOUD warning when a seeded goal is dropped for a non-empty backlog.
+
+    Precedence at bootstrap is: resume prior session, else run the backlog,
+    else inject the seed goal. So a seeded goal never runs while the backlog is
+    non-empty. That is intentional for people who rely on backlog runs, but it
+    used to happen silently. Here we name the precedence and how to force the
+    goal so the operator is never surprised.
+    """
+    goal = str(getattr(seed, "goal", "") or "").strip()
+    if not goal or backlog_count <= 0 or prior_session is not None:
+        return
+    console.print(
+        "[bold yellow]WARNING[/bold yellow] seeded goal is being ignored: "
+        f"the backlog is non-empty ({backlog_count} task(s)), and the backlog "
+        "takes precedence over the goal at bootstrap."
+    )
+    console.print(
+        "[yellow]  precedence:[/yellow] prior session > backlog > seed goal. "
+        "To run the goal instead, start from an empty backlog (clear "
+        ".sdd/backlog/open/) or narrow the run with the BERNSTEIN_TASK_FILTER "
+        "sentinel so no backlog task matches."
+    )
+    if gh_synced > 0:
+        console.print(
+            "[yellow]  note:[/yellow] this backlog was just auto-synced from "
+            f"GitHub ({gh_synced} issue(s)); if you meant to run the goal, "
+            "disable github.sync_backlog (it is opt-in and off by default)."
+        )
+
+
 def _sync_and_plan_tasks(
     seed: Any,
     workdir: Path,
@@ -332,6 +398,7 @@ def _sync_and_plan_tasks(
     server_url: str,
     auth_token: str | None,
     force_fresh: bool,
+    worker_role: str | None = None,
 ) -> tuple[int, str, Any]:
     """Sync backlog to server, import workflows, and determine planning mode.
 
@@ -342,14 +409,11 @@ def _sync_and_plan_tasks(
     from bernstein.core.sync import sync_backlog_to_server
 
     # Sync open GitHub Issues into .sdd/backlog/open/ before server sync.
-    try:
-        from bernstein.core.github import sync_github_issues_to_backlog
-
-        gh_count = sync_github_issues_to_backlog(workdir)
-        if gh_count > 0:
-            console.print(f"  [dim]github[/dim]  synced {gh_count} issue(s) to backlog")
-    except Exception as exc:
-        logger.debug("GitHub issue sync skipped: %s", exc)
+    # Opt-in only (github.sync_backlog / BERNSTEIN_SYNC_GITHUB_BACKLOG);
+    # off by default so it cannot silently displace a seeded goal.
+    gh_count = _maybe_sync_github_backlog(seed, workdir)
+    if gh_count > 0:
+        console.print(f"  [dim]github[/dim]  synced {gh_count} issue(s) to backlog")
 
     _resume = seed.session.resume
     _stale_minutes = seed.session.stale_after_minutes
@@ -380,20 +444,38 @@ def _sync_and_plan_tasks(
     except Exception as _wf_exc:
         logger.debug("Workflow import skipped: %s", _wf_exc)
 
+    _warn_if_goal_shadowed_by_backlog(
+        seed,
+        backlog_count=backlog_count,
+        prior_session=prior_session,
+        gh_synced=gh_count,
+    )
+
     manager_task_id = ""
     if prior_session is not None:
         console.print(f"  [dim]resume[/dim]  {len(prior_session.completed_task_ids)} done previously")
     elif backlog_count > 0:
         console.print(f"  [dim]tasks[/dim]   {backlog_count} from backlog")
     else:
-        manager_task_id = _inject_manager_task(
-            seed,
-            workdir,
-            port,
-            server_url=server_url,
-            auth_token=auth_token,
-        )
-        console.print("  [dim]plan[/dim]    manager agent will decompose goal")
+        if worker_role:
+            manager_task_id = _inject_worker_task(
+                seed,
+                workdir,
+                port,
+                role=worker_role,
+                server_url=server_url,
+                auth_token=auth_token,
+            )
+            console.print(f"  [dim]plan[/dim]    single {worker_role} agent will work the goal directly")
+        else:
+            manager_task_id = _inject_manager_task(
+                seed,
+                workdir,
+                port,
+                server_url=server_url,
+                auth_token=auth_token,
+            )
+            console.print("  [dim]plan[/dim]    manager agent will decompose goal")
 
     return backlog_count, manager_task_id, prior_session
 
@@ -409,6 +491,7 @@ def bootstrap_from_seed(
     cli: str | None = None,
     model: str | None = None,
     ab_test: bool = False,
+    worker_role: str | None = None,
 ) -> BootstrapResult:
     """Full bootstrap: parse seed -> init .sdd -> start server -> plan -> orchestrate.
 
@@ -467,7 +550,7 @@ def bootstrap_from_seed(
     effective_cells = cells if cells is not None else seed.cells
 
     # 2. Workspace + catalog + index (silent - errors logged, not printed)
-    ensure_sdd(workdir)
+    ensure_sdd(workdir, model=seed.model or "opus")
     _clean_stale_runtime(workdir)
     _discover_catalog(workdir)
     _index_codebase_with_timeout(workdir)
@@ -521,6 +604,7 @@ def bootstrap_from_seed(
         server_url,
         auth_token,
         force_fresh,
+        worker_role=worker_role,
     )
 
     # Cost estimate (single compact line)
@@ -547,8 +631,9 @@ def bootstrap_from_seed(
         cluster_enabled=cluster_enabled,
         ab_test=ab_test,
         adapter=_resolved_adapter,
+        model=getattr(seed, "model", None) or None,
     )
-    _start_watchdog(workdir, port)
+    _start_watchdog(workdir, port, adapter=_resolved_adapter, model=getattr(seed, "model", None) or None)
     console.print(f"  [dim]agents[/dim]  spawning (max {seed.max_agents})")
 
     result = BootstrapResult(
@@ -573,12 +658,16 @@ def bootstrap_from_seed(
     return result
 
 
-def _start_watchdog(workdir: Path, port: int) -> int:
+def _start_watchdog(workdir: Path, port: int, adapter: str | None = None, model: str | None = None) -> int:
     """Launch the watchdog as a background process.
 
     Args:
         workdir: Project root.
         port: Task server port.
+        adapter: Resolved CLI adapter override (e.g. ``mock`` from ``--idle``).
+            Threaded through so a watchdog-triggered spawner restart doesn't
+            silently drop back to the default ``claude`` adapter.
+        model: ``--model`` override to preserve across spawner restarts.
 
     Returns:
         PID of the watchdog process.
@@ -586,16 +675,22 @@ def _start_watchdog(workdir: Path, port: int) -> int:
     pid_path = workdir / ".sdd" / "runtime" / "watchdog.pid"
     log_path = workdir / ".sdd" / "runtime" / "watchdog.log"
 
+    argv = [
+        sys.executable,
+        "-m",
+        "bernstein.core.bootstrap",
+        "--watchdog",
+        "--port",
+        str(port),
+    ]
+    if adapter:
+        argv.extend(["--adapter", adapter])
+    if model:
+        argv.extend(["--model", model])
+
     log_fh = log_path.open("w")
     proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "bernstein.core.bootstrap",
-            "--watchdog",
-            "--port",
-            str(port),
-        ],
+        argv,
         stdout=log_fh,
         stderr=subprocess.STDOUT,
         start_new_session=True,
@@ -665,7 +760,13 @@ def _watchdog_check_process(
     return None, restarts, give_up_logged
 
 
-def run_watchdog(workdir: Path, port: int, poll_s: float = 5.0) -> None:
+def run_watchdog(
+    workdir: Path,
+    port: int,
+    poll_s: float = 5.0,
+    adapter: str | None = None,
+    model: str | None = None,
+) -> None:
     """Monitor the server and orchestrator, restarting them if they die.
 
     This blocks forever and should be run as a background daemon.
@@ -682,6 +783,9 @@ def run_watchdog(workdir: Path, port: int, poll_s: float = 5.0) -> None:
         workdir: Project root directory.
         port: Task server port.
         poll_s: Seconds between health checks.
+        adapter: Resolved CLI adapter override to preserve across
+            watchdog-triggered spawner restarts (see ``_restart_spawner``).
+        model: ``--model`` override to preserve across spawner restarts.
     """
     server_pid_path = workdir / ".sdd" / "runtime" / "server.pid"
     spawner_pid_path = workdir / ".sdd" / "runtime" / "spawner.pid"
@@ -720,7 +824,7 @@ def run_watchdog(workdir: Path, port: int, poll_s: float = 5.0) -> None:
             cur_server_pid = _read_pid(server_pid_path)
             if cur_server_pid is None or not _is_alive(cur_server_pid):
                 return -1  # signal: skip restart
-            return _start_spawner(workdir, port)
+            return _start_spawner(workdir, port, adapter=adapter, model=model)
 
         spawner_alive_since, spawner_restarts, spawner_give_up_logged = _watchdog_check_process(
             name="Orchestrator",
@@ -798,14 +902,11 @@ def _goal_sync_and_plan(
     from bernstein.core.sync import sync_backlog_to_server
 
     # Sync open GitHub Issues into .sdd/backlog/open/ before server sync.
-    try:
-        from bernstein.core.github import sync_github_issues_to_backlog
-
-        gh_count = sync_github_issues_to_backlog(workdir)
-        if gh_count > 0:
-            console.print(f"[green]{icons.arrow_right}[/green] Synced {gh_count} GitHub issue(s) to backlog")
-    except Exception as exc:
-        logger.debug("GitHub issue sync skipped: %s", exc)
+    # Opt-in only (github.sync_backlog / BERNSTEIN_SYNC_GITHUB_BACKLOG);
+    # off by default so it cannot silently displace a seeded goal.
+    gh_count = _maybe_sync_github_backlog(seed, workdir)
+    if gh_count > 0:
+        console.print(f"[green]{icons.arrow_right}[/green] Synced {gh_count} GitHub issue(s) to backlog")
 
     # An explicit ``tasks`` payload (typically from ``--plan_file <yaml>``)
     # is an intentional re-run signal: the operator told us exactly which
@@ -835,6 +936,16 @@ def _goal_sync_and_plan(
             backlog_count += _wf_imported
     except Exception as _wf_exc:
         logger.debug("Workflow import skipped: %s", _wf_exc)
+
+    # An explicit ``tasks`` payload is an intentional operator signal and wins
+    # over the seed goal on purpose, so only warn on the plain goal path.
+    if not tasks:
+        _warn_if_goal_shadowed_by_backlog(
+            seed,
+            backlog_count=backlog_count,
+            prior_session=prior_session,
+            gh_synced=gh_count,
+        )
 
     manager_task_id = ""
     if prior_session is not None:
@@ -963,7 +1074,7 @@ def _bootstrap_from_goal_impl(
 
     # Initialise workspace
     with Status("[bold]Creating workspace...[/bold]", console=console):
-        created = ensure_sdd(workdir)
+        created = ensure_sdd(workdir, model=model or "opus")
         if first_run and not (workdir / "bernstein.yaml").exists():
             auto_write_bernstein_yaml(workdir)
         _clean_stale_runtime(workdir)
@@ -1058,8 +1169,9 @@ def _bootstrap_from_goal_impl(
             cells=cells,
             ab_test=ab_test,
             adapter=_resolved_adapter,
+            model=model,
         )
-        _start_watchdog(workdir, port)
+        _start_watchdog(workdir, port, adapter=_resolved_adapter, model=model)
     console.print(f"[green]{_icons.arrow_right}[/green] Spawning agents (PID {spawner_pid})")
 
     console.print("\n[bold green]Dashboard ready.[/bold green] Use [bold]bernstein stop[/bold] to stop.")
@@ -1078,6 +1190,8 @@ if __name__ == "__main__":
     _parser = _argparse.ArgumentParser()
     _parser.add_argument("--watchdog", action="store_true")
     _parser.add_argument("--port", type=int, default=8052)
+    _parser.add_argument("--adapter", type=str, default=None)
+    _parser.add_argument("--model", type=str, default=None)
     _args = _parser.parse_args()
 
     if _args.watchdog:
@@ -1090,7 +1204,7 @@ if __name__ == "__main__":
                 level=logging.INFO,
                 format="%(asctime)s %(levelname)s %(name)s: %(message)s",
             )
-        run_watchdog(Path.cwd(), _args.port)
+        run_watchdog(Path.cwd(), _args.port, adapter=_args.adapter, model=_args.model)
 
 
 # ---------------------------------------------------------------------------

@@ -19050,7 +19050,7 @@ class Workflow(
         id: builtins.str,
         workflow_arn: builtins.str,
     ) -> "IWorkflow":
-        '''(experimental) Import an workflow from it's name.
+        '''(experimental) Import a workflow from its name.
 
         :param scope: -
         :param id: -

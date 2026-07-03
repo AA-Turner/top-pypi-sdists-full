@@ -2130,11 +2130,15 @@ from ..interfaces.aws_lambda import (
     IFunctionRef as _IFunctionRef_2601eb33,
     ILayerVersionPermissionRef as _ILayerVersionPermissionRef_f0d52f2d,
     ILayerVersionRef as _ILayerVersionRef_45d18037,
+    IMicrovmImageRef as _IMicrovmImageRef_bc5383eb,
+    INetworkConnectorRef as _INetworkConnectorRef_7b73568a,
     IPermissionRef as _IPermissionRef_e4f0f745,
     IUrlRef as _IUrlRef_54a89375,
     IVersionRef as _IVersionRef_4fdb94ad,
     LayerVersionPermissionReference as _LayerVersionPermissionReference_743fb6e1,
     LayerVersionReference as _LayerVersionReference_e97cf2a7,
+    MicrovmImageReference as _MicrovmImageReference_f71c4129,
+    NetworkConnectorReference as _NetworkConnectorReference_51c12c23,
     PermissionReference as _PermissionReference_fd31327c,
     UrlReference as _UrlReference_4ae6d27d,
     VersionReference as _VersionReference_91666182,
@@ -5483,7 +5487,8 @@ class CfnCapacityProvider(
             explicit_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             mode: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
+            '''Configuration that defines how tags are propagated to managed resources.
+
             :param explicit_tags: 
             :param mode: The mode for tag propagation.
 
@@ -12459,6 +12464,7 @@ class CfnLayerVersion(
                 s3_key="s3Key",
         
                 # the properties below are optional
+                s3_object_storage_mode="s3ObjectStorageMode",
                 s3_object_version="s3ObjectVersion"
             ),
         
@@ -12688,6 +12694,7 @@ class CfnLayerVersion(
         name_mapping={
             "s3_bucket": "s3Bucket",
             "s3_key": "s3Key",
+            "s3_object_storage_mode": "s3ObjectStorageMode",
             "s3_object_version": "s3ObjectVersion",
         },
     )
@@ -12697,12 +12704,14 @@ class CfnLayerVersion(
             *,
             s3_bucket: builtins.str,
             s3_key: builtins.str,
+            s3_object_storage_mode: typing.Optional[builtins.str] = None,
             s3_object_version: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A ZIP archive that contains the contents of an `Lambda layer <https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html>`_ .
 
             :param s3_bucket: The Amazon S3 bucket of the layer archive.
             :param s3_key: The Amazon S3 key of the layer archive.
+            :param s3_object_storage_mode: Specifies whether Lambda should copy the deployment package to its internal storage (COPY) or reference it directly from your S3 bucket (REFERENCE).
             :param s3_object_version: For versioned objects, the version of the layer archive object to use.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-layerversion-content.html
@@ -12719,6 +12728,7 @@ class CfnLayerVersion(
                     s3_key="s3Key",
                 
                     # the properties below are optional
+                    s3_object_storage_mode="s3ObjectStorageMode",
                     s3_object_version="s3ObjectVersion"
                 )
             '''
@@ -12726,11 +12736,14 @@ class CfnLayerVersion(
                 type_hints = typing.get_type_hints(_typecheckingstub__33591b9aaf2c8e26d04a24fc6ce5bb8493831eb29a3c0a1fafded14881bc2eb1)
                 check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
                 check_type(argname="argument s3_key", value=s3_key, expected_type=type_hints["s3_key"])
+                check_type(argname="argument s3_object_storage_mode", value=s3_object_storage_mode, expected_type=type_hints["s3_object_storage_mode"])
                 check_type(argname="argument s3_object_version", value=s3_object_version, expected_type=type_hints["s3_object_version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "s3_bucket": s3_bucket,
                 "s3_key": s3_key,
             }
+            if s3_object_storage_mode is not None:
+                self._values["s3_object_storage_mode"] = s3_object_storage_mode
             if s3_object_version is not None:
                 self._values["s3_object_version"] = s3_object_version
 
@@ -12753,6 +12766,15 @@ class CfnLayerVersion(
             result = self._values.get("s3_key")
             assert result is not None, "Required property 's3_key' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def s3_object_storage_mode(self) -> typing.Optional[builtins.str]:
+            '''Specifies whether Lambda should copy the deployment package to its internal storage (COPY) or reference it directly from your S3 bucket (REFERENCE).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-layerversion-content.html#cfn-lambda-layerversion-content-s3objectstoragemode
+            '''
+            result = self._values.get("s3_object_storage_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def s3_object_version(self) -> typing.Optional[builtins.str]:
@@ -13123,6 +13145,7 @@ class CfnLayerVersionProps:
                     s3_key="s3Key",
             
                     # the properties below are optional
+                    s3_object_storage_mode="s3ObjectStorageMode",
                     s3_object_version="s3ObjectVersion"
                 ),
             
@@ -13225,6 +13248,2042 @@ class CfnLayerVersionProps:
 
     def __repr__(self) -> str:
         return "CfnLayerVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IMicrovmImageRef_bc5383eb, _ITaggableV2_4e6798f8)
+class CfnMicrovmImage(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.CfnMicrovmImage",
+):
+    '''Resource Type definition for AWS::Lambda::MicrovmImage.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html
+    :cloudformationResource: AWS::Lambda::MicrovmImage
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_lambda as lambda_
+        
+        cfn_microvm_image = lambda_.CfnMicrovmImage(self, "MyCfnMicrovmImage",
+            additional_os_capabilities=["additionalOsCapabilities"],
+            base_image_arn="baseImageArn",
+            base_image_version="baseImageVersion",
+            build_role_arn="buildRoleArn",
+            code_artifact=lambda.CfnMicrovmImage.CodeArtifactProperty(
+                uri="uri"
+            ),
+            cpu_configurations=[lambda.CfnMicrovmImage.CpuConfigurationProperty(
+                architecture="architecture"
+            )],
+            description="description",
+            egress_network_connectors=["egressNetworkConnectors"],
+            environment_variables=[lambda.CfnMicrovmImage.EnvironmentVariableProperty(
+                key="key",
+                value="value"
+            )],
+            hooks=lambda.CfnMicrovmImage.HooksProperty(
+                microvm_hooks=lambda.CfnMicrovmImage.MicrovmHooksProperty(
+                    resume="resume",
+                    resume_timeout_in_seconds=123,
+                    run="run",
+                    run_timeout_in_seconds=123,
+                    suspend="suspend",
+                    suspend_timeout_in_seconds=123,
+                    terminate="terminate",
+                    terminate_timeout_in_seconds=123
+                ),
+                microvm_image_hooks=lambda.CfnMicrovmImage.MicrovmImageHooksProperty(
+                    ready="ready",
+                    ready_timeout_in_seconds=123,
+                    validate="validate",
+                    validate_timeout_in_seconds=123
+                ),
+                port=123
+            ),
+            logging=lambda.CfnMicrovmImage.LoggingProperty(
+                cloud_watch=lambda.CfnMicrovmImage.CloudWatchLoggingProperty(
+                    log_group="logGroup",
+                    log_stream="logStream"
+                ),
+                disabled=False
+            ),
+            name="name",
+            resources=[lambda.CfnMicrovmImage.ResourcesProperty(
+                minimum_memory_in_mi_b=123
+            )],
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        additional_os_capabilities: typing.Sequence[builtins.str],
+        base_image_arn: builtins.str,
+        base_image_version: builtins.str,
+        build_role_arn: builtins.str,
+        code_artifact: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrovmImage.CodeArtifactProperty", typing.Dict[builtins.str, typing.Any]]],
+        cpu_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrovmImage.CpuConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        description: builtins.str,
+        egress_network_connectors: typing.Sequence[builtins.str],
+        environment_variables: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrovmImage.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        hooks: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrovmImage.HooksProperty", typing.Dict[builtins.str, typing.Any]]],
+        logging: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrovmImage.LoggingProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        resources: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrovmImage.ResourcesProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Lambda::MicrovmImage``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param additional_os_capabilities: 
+        :param base_image_arn: ARN of the base MicroVM image.
+        :param base_image_version: Specific version of the base MicroVM image to use.
+        :param build_role_arn: ARN of the IAM build role.
+        :param code_artifact: 
+        :param cpu_configurations: 
+        :param description: Human-readable description of the MicroVM image and its purpose.
+        :param egress_network_connectors: 
+        :param environment_variables: Environment variables to set in the container during the snapshot build.
+        :param hooks: 
+        :param logging: 
+        :param name: Unique name for the MicroVM image within the account.
+        :param resources: 
+        :param tags: Key-value pairs to associate with the MicroVM image for organization and management.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__899e308eb263a9bdf1c5dc94a93b5bf4807c8fcd81419dbddfbd008076756614)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnMicrovmImageProps(
+            additional_os_capabilities=additional_os_capabilities,
+            base_image_arn=base_image_arn,
+            base_image_version=base_image_version,
+            build_role_arn=build_role_arn,
+            code_artifact=code_artifact,
+            cpu_configurations=cpu_configurations,
+            description=description,
+            egress_network_connectors=egress_network_connectors,
+            environment_variables=environment_variables,
+            hooks=hooks,
+            logging=logging,
+            name=name,
+            resources=resources,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnMicrovmImage")
+    @builtins.classmethod
+    def is_cfn_microvm_image(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMicrovmImage.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3765b519dd178583c524037bbe13dc10e2c1554b06a8ab96da0feb4cb93d9b8d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMicrovmImage", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__13639c4ea62ebb9e832c26087f6561c13dfdce2ebf95d00ee704a76301533958)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__06bbd6398f5a8b5597e4dacdbb137cd7c7f3dbed2a7d09ebf28011f43c2b17e6)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''Timestamp when the MicroVM image was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrImageArn")
+    def attr_image_arn(self) -> builtins.str:
+        '''ARN of the MicroVM image.
+
+        :cloudformationAttribute: ImageArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrImageArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLatestActiveImageVersion")
+    def attr_latest_active_image_version(self) -> builtins.str:
+        '''The latest active version of the MicroVM image.
+
+        :cloudformationAttribute: LatestActiveImageVersion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLatestActiveImageVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLatestFailedImageVersion")
+    def attr_latest_failed_image_version(self) -> builtins.str:
+        '''The latest failed version of the MicroVM image.
+
+        :cloudformationAttribute: LatestFailedImageVersion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLatestFailedImageVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''Timestamp when the MicroVM image was updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="microvmImageRef")
+    def microvm_image_ref(self) -> "_MicrovmImageReference_f71c4129":
+        '''A reference to a MicrovmImage resource.'''
+        return typing.cast("_MicrovmImageReference_f71c4129", jsii.get(self, "microvmImageRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="additionalOsCapabilities")
+    def additional_os_capabilities(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "additionalOsCapabilities"))
+
+    @additional_os_capabilities.setter
+    def additional_os_capabilities(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__73b67884b2853a75d9f6073fcb4f613b14501e414b3de75f83d70118fc5cf7d1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "additionalOsCapabilities", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="baseImageArn")
+    def base_image_arn(self) -> builtins.str:
+        '''ARN of the base MicroVM image.'''
+        return typing.cast(builtins.str, jsii.get(self, "baseImageArn"))
+
+    @base_image_arn.setter
+    def base_image_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb2cf0d81e3ce1e112e3c8dbf37dbc7df16ffd00414594544c85a870d2c92b3d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "baseImageArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="baseImageVersion")
+    def base_image_version(self) -> builtins.str:
+        '''Specific version of the base MicroVM image to use.'''
+        return typing.cast(builtins.str, jsii.get(self, "baseImageVersion"))
+
+    @base_image_version.setter
+    def base_image_version(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__50586801df2231e309c89a02d786868c5b7b86cf49499246d166fe9bed9b1570)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "baseImageVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="buildRoleArn")
+    def build_role_arn(self) -> builtins.str:
+        '''ARN of the IAM build role.'''
+        return typing.cast(builtins.str, jsii.get(self, "buildRoleArn"))
+
+    @build_role_arn.setter
+    def build_role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad445c2de49ee956421b9e531719c0ac47aa576b0ea76f0a49e25e135c858791)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "buildRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="codeArtifact")
+    def code_artifact(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.CodeArtifactProperty"]:
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.CodeArtifactProperty"], jsii.get(self, "codeArtifact"))
+
+    @code_artifact.setter
+    def code_artifact(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.CodeArtifactProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a1d0b7191ad54781db02d2c2862eb298b0fa5291dc289878bab50e0d6f9bd8ff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "codeArtifact", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="cpuConfigurations")
+    def cpu_configurations(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.CpuConfigurationProperty"]]]:
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.CpuConfigurationProperty"]]], jsii.get(self, "cpuConfigurations"))
+
+    @cpu_configurations.setter
+    def cpu_configurations(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.CpuConfigurationProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1db0461515e50340ab925b870fffbc9ee36bd1f352ddc14c8fc7cdc3539cdfb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cpuConfigurations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> builtins.str:
+        '''Human-readable description of the MicroVM image and its purpose.'''
+        return typing.cast(builtins.str, jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1073db4403feafcd12163cbd4c984cae9b361a84b2487d7dfedb27316baaa4b9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="egressNetworkConnectors")
+    def egress_network_connectors(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "egressNetworkConnectors"))
+
+    @egress_network_connectors.setter
+    def egress_network_connectors(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d80a42c37670d1c85628134167f8007fd0181301e21abddbdf9ce4a63f413fa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "egressNetworkConnectors", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentVariables")
+    def environment_variables(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.EnvironmentVariableProperty"]]]:
+        '''Environment variables to set in the container during the snapshot build.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.EnvironmentVariableProperty"]]], jsii.get(self, "environmentVariables"))
+
+    @environment_variables.setter
+    def environment_variables(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.EnvironmentVariableProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad1febd470710e8683bebd26824cebedd36e8e9295c1186eb4b07bce29a2f883)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "environmentVariables", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="hooks")
+    def hooks(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.HooksProperty"]:
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.HooksProperty"], jsii.get(self, "hooks"))
+
+    @hooks.setter
+    def hooks(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.HooksProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a370c68aca91dfe2232081e25eb00d54b8b7f377c8f9ab2a4255e2c597b800f7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "hooks", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="logging")
+    def logging(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.LoggingProperty"]:
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.LoggingProperty"], jsii.get(self, "logging"))
+
+    @logging.setter
+    def logging(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.LoggingProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bd147f7456b4a7009b229505262498c8b7fce6e6f366e7dfa49f5b522b4ca173)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "logging", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''Unique name for the MicroVM image within the account.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__98ef73c7424c19873d82ed271dad0108d58482ee44fec6b52475ff9e7dd62954)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resources")
+    def resources(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.ResourcesProperty"]]]:
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.ResourcesProperty"]]], jsii.get(self, "resources"))
+
+    @resources.setter
+    def resources(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.ResourcesProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7550de8f03211fb14a321e507c5cc7671daef2e6b47f49cd5c4d64ac352cdb14)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resources", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key-value pairs to associate with the MicroVM image for organization and management.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8387ef5a5536d107c2a4faa8e446cc8ceab0845cbe6e5df1ee6944924d6d0e09)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnMicrovmImage.CloudWatchLoggingProperty",
+        jsii_struct_bases=[],
+        name_mapping={"log_group": "logGroup", "log_stream": "logStream"},
+    )
+    class CloudWatchLoggingProperty:
+        def __init__(
+            self,
+            *,
+            log_group: typing.Optional[builtins.str] = None,
+            log_stream: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param log_group: 
+            :param log_stream: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-cloudwatchlogging.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                cloud_watch_logging_property = lambda.CfnMicrovmImage.CloudWatchLoggingProperty(
+                    log_group="logGroup",
+                    log_stream="logStream"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2e6fa8938f47e6dac92225346c3e25b2a9b6aa3bae3c6dc92805c597d1ae0763)
+                check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
+                check_type(argname="argument log_stream", value=log_stream, expected_type=type_hints["log_stream"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if log_group is not None:
+                self._values["log_group"] = log_group
+            if log_stream is not None:
+                self._values["log_stream"] = log_stream
+
+        @builtins.property
+        def log_group(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-cloudwatchlogging.html#cfn-lambda-microvmimage-cloudwatchlogging-loggroup
+            '''
+            result = self._values.get("log_group")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def log_stream(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-cloudwatchlogging.html#cfn-lambda-microvmimage-cloudwatchlogging-logstream
+            '''
+            result = self._values.get("log_stream")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CloudWatchLoggingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnMicrovmImage.CodeArtifactProperty",
+        jsii_struct_bases=[],
+        name_mapping={"uri": "uri"},
+    )
+    class CodeArtifactProperty:
+        def __init__(self, *, uri: builtins.str) -> None:
+            '''
+            :param uri: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-codeartifact.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                code_artifact_property = lambda.CfnMicrovmImage.CodeArtifactProperty(
+                    uri="uri"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__230d4d9494de43df0a7b34479ceb57429ca11b1bdab0c6cb99bc130a1ace2a1a)
+                check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "uri": uri,
+            }
+
+        @builtins.property
+        def uri(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-codeartifact.html#cfn-lambda-microvmimage-codeartifact-uri
+            '''
+            result = self._values.get("uri")
+            assert result is not None, "Required property 'uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CodeArtifactProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnMicrovmImage.CpuConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"architecture": "architecture"},
+    )
+    class CpuConfigurationProperty:
+        def __init__(self, *, architecture: builtins.str) -> None:
+            '''
+            :param architecture: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-cpuconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                cpu_configuration_property = lambda.CfnMicrovmImage.CpuConfigurationProperty(
+                    architecture="architecture"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e0944e08191c19219c7cfde2804a0c7224b8210bd4d817fb72af57210acb6d98)
+                check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "architecture": architecture,
+            }
+
+        @builtins.property
+        def architecture(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-cpuconfiguration.html#cfn-lambda-microvmimage-cpuconfiguration-architecture
+            '''
+            result = self._values.get("architecture")
+            assert result is not None, "Required property 'architecture' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CpuConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnMicrovmImage.EnvironmentVariableProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class EnvironmentVariableProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-environmentvariable.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                environment_variable_property = lambda.CfnMicrovmImage.EnvironmentVariableProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3870a8a65bf24bbd60516818a0101c3500b29256075015956b37adc309c83694)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-environmentvariable.html#cfn-lambda-microvmimage-environmentvariable-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-environmentvariable.html#cfn-lambda-microvmimage-environmentvariable-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EnvironmentVariableProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnMicrovmImage.HooksProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "microvm_hooks": "microvmHooks",
+            "microvm_image_hooks": "microvmImageHooks",
+            "port": "port",
+        },
+    )
+    class HooksProperty:
+        def __init__(
+            self,
+            *,
+            microvm_hooks: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrovmImage.MicrovmHooksProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            microvm_image_hooks: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrovmImage.MicrovmImageHooksProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            port: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param microvm_hooks: 
+            :param microvm_image_hooks: 
+            :param port: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-hooks.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                hooks_property = lambda.CfnMicrovmImage.HooksProperty(
+                    microvm_hooks=lambda.CfnMicrovmImage.MicrovmHooksProperty(
+                        resume="resume",
+                        resume_timeout_in_seconds=123,
+                        run="run",
+                        run_timeout_in_seconds=123,
+                        suspend="suspend",
+                        suspend_timeout_in_seconds=123,
+                        terminate="terminate",
+                        terminate_timeout_in_seconds=123
+                    ),
+                    microvm_image_hooks=lambda.CfnMicrovmImage.MicrovmImageHooksProperty(
+                        ready="ready",
+                        ready_timeout_in_seconds=123,
+                        validate="validate",
+                        validate_timeout_in_seconds=123
+                    ),
+                    port=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d75fcdb9506113f73488487df738970980c9cc00268619436d009bf6d160a66f)
+                check_type(argname="argument microvm_hooks", value=microvm_hooks, expected_type=type_hints["microvm_hooks"])
+                check_type(argname="argument microvm_image_hooks", value=microvm_image_hooks, expected_type=type_hints["microvm_image_hooks"])
+                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if microvm_hooks is not None:
+                self._values["microvm_hooks"] = microvm_hooks
+            if microvm_image_hooks is not None:
+                self._values["microvm_image_hooks"] = microvm_image_hooks
+            if port is not None:
+                self._values["port"] = port
+
+        @builtins.property
+        def microvm_hooks(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.MicrovmHooksProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-hooks.html#cfn-lambda-microvmimage-hooks-microvmhooks
+            '''
+            result = self._values.get("microvm_hooks")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.MicrovmHooksProperty"]], result)
+
+        @builtins.property
+        def microvm_image_hooks(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.MicrovmImageHooksProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-hooks.html#cfn-lambda-microvmimage-hooks-microvmimagehooks
+            '''
+            result = self._values.get("microvm_image_hooks")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.MicrovmImageHooksProperty"]], result)
+
+        @builtins.property
+        def port(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-hooks.html#cfn-lambda-microvmimage-hooks-port
+            '''
+            result = self._values.get("port")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HooksProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnMicrovmImage.LoggingProperty",
+        jsii_struct_bases=[],
+        name_mapping={"cloud_watch": "cloudWatch", "disabled": "disabled"},
+    )
+    class LoggingProperty:
+        def __init__(
+            self,
+            *,
+            cloud_watch: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrovmImage.CloudWatchLoggingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            disabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''
+            :param cloud_watch: 
+            :param disabled: Default: - false
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-logging.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                logging_property = lambda.CfnMicrovmImage.LoggingProperty(
+                    cloud_watch=lambda.CfnMicrovmImage.CloudWatchLoggingProperty(
+                        log_group="logGroup",
+                        log_stream="logStream"
+                    ),
+                    disabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d2a7cb1df4810578c48a9f1cacd162b212873905323bf2c0b3a175cff20dd47a)
+                check_type(argname="argument cloud_watch", value=cloud_watch, expected_type=type_hints["cloud_watch"])
+                check_type(argname="argument disabled", value=disabled, expected_type=type_hints["disabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if cloud_watch is not None:
+                self._values["cloud_watch"] = cloud_watch
+            if disabled is not None:
+                self._values["disabled"] = disabled
+
+        @builtins.property
+        def cloud_watch(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.CloudWatchLoggingProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-logging.html#cfn-lambda-microvmimage-logging-cloudwatch
+            '''
+            result = self._values.get("cloud_watch")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.CloudWatchLoggingProperty"]], result)
+
+        @builtins.property
+        def disabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :default: - false
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-logging.html#cfn-lambda-microvmimage-logging-disabled
+            '''
+            result = self._values.get("disabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LoggingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnMicrovmImage.MicrovmHooksProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "resume": "resume",
+            "resume_timeout_in_seconds": "resumeTimeoutInSeconds",
+            "run": "run",
+            "run_timeout_in_seconds": "runTimeoutInSeconds",
+            "suspend": "suspend",
+            "suspend_timeout_in_seconds": "suspendTimeoutInSeconds",
+            "terminate": "terminate",
+            "terminate_timeout_in_seconds": "terminateTimeoutInSeconds",
+        },
+    )
+    class MicrovmHooksProperty:
+        def __init__(
+            self,
+            *,
+            resume: typing.Optional[builtins.str] = None,
+            resume_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+            run: typing.Optional[builtins.str] = None,
+            run_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+            suspend: typing.Optional[builtins.str] = None,
+            suspend_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+            terminate: typing.Optional[builtins.str] = None,
+            terminate_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param resume: 
+            :param resume_timeout_in_seconds: 
+            :param run: 
+            :param run_timeout_in_seconds: 
+            :param suspend: 
+            :param suspend_timeout_in_seconds: 
+            :param terminate: 
+            :param terminate_timeout_in_seconds: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmhooks.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                microvm_hooks_property = lambda.CfnMicrovmImage.MicrovmHooksProperty(
+                    resume="resume",
+                    resume_timeout_in_seconds=123,
+                    run="run",
+                    run_timeout_in_seconds=123,
+                    suspend="suspend",
+                    suspend_timeout_in_seconds=123,
+                    terminate="terminate",
+                    terminate_timeout_in_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ede8804110952862280d3bc6c6990a0c16d0366c4364cbb47a96484a72736c64)
+                check_type(argname="argument resume", value=resume, expected_type=type_hints["resume"])
+                check_type(argname="argument resume_timeout_in_seconds", value=resume_timeout_in_seconds, expected_type=type_hints["resume_timeout_in_seconds"])
+                check_type(argname="argument run", value=run, expected_type=type_hints["run"])
+                check_type(argname="argument run_timeout_in_seconds", value=run_timeout_in_seconds, expected_type=type_hints["run_timeout_in_seconds"])
+                check_type(argname="argument suspend", value=suspend, expected_type=type_hints["suspend"])
+                check_type(argname="argument suspend_timeout_in_seconds", value=suspend_timeout_in_seconds, expected_type=type_hints["suspend_timeout_in_seconds"])
+                check_type(argname="argument terminate", value=terminate, expected_type=type_hints["terminate"])
+                check_type(argname="argument terminate_timeout_in_seconds", value=terminate_timeout_in_seconds, expected_type=type_hints["terminate_timeout_in_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if resume is not None:
+                self._values["resume"] = resume
+            if resume_timeout_in_seconds is not None:
+                self._values["resume_timeout_in_seconds"] = resume_timeout_in_seconds
+            if run is not None:
+                self._values["run"] = run
+            if run_timeout_in_seconds is not None:
+                self._values["run_timeout_in_seconds"] = run_timeout_in_seconds
+            if suspend is not None:
+                self._values["suspend"] = suspend
+            if suspend_timeout_in_seconds is not None:
+                self._values["suspend_timeout_in_seconds"] = suspend_timeout_in_seconds
+            if terminate is not None:
+                self._values["terminate"] = terminate
+            if terminate_timeout_in_seconds is not None:
+                self._values["terminate_timeout_in_seconds"] = terminate_timeout_in_seconds
+
+        @builtins.property
+        def resume(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmhooks.html#cfn-lambda-microvmimage-microvmhooks-resume
+            '''
+            result = self._values.get("resume")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def resume_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmhooks.html#cfn-lambda-microvmimage-microvmhooks-resumetimeoutinseconds
+            '''
+            result = self._values.get("resume_timeout_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def run(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmhooks.html#cfn-lambda-microvmimage-microvmhooks-run
+            '''
+            result = self._values.get("run")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def run_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmhooks.html#cfn-lambda-microvmimage-microvmhooks-runtimeoutinseconds
+            '''
+            result = self._values.get("run_timeout_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def suspend(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmhooks.html#cfn-lambda-microvmimage-microvmhooks-suspend
+            '''
+            result = self._values.get("suspend")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def suspend_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmhooks.html#cfn-lambda-microvmimage-microvmhooks-suspendtimeoutinseconds
+            '''
+            result = self._values.get("suspend_timeout_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def terminate(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmhooks.html#cfn-lambda-microvmimage-microvmhooks-terminate
+            '''
+            result = self._values.get("terminate")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def terminate_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmhooks.html#cfn-lambda-microvmimage-microvmhooks-terminatetimeoutinseconds
+            '''
+            result = self._values.get("terminate_timeout_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MicrovmHooksProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnMicrovmImage.MicrovmImageHooksProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "ready": "ready",
+            "ready_timeout_in_seconds": "readyTimeoutInSeconds",
+            "validate": "validate",
+            "validate_timeout_in_seconds": "validateTimeoutInSeconds",
+        },
+    )
+    class MicrovmImageHooksProperty:
+        def __init__(
+            self,
+            *,
+            ready: typing.Optional[builtins.str] = None,
+            ready_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+            validate: typing.Optional[builtins.str] = None,
+            validate_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param ready: 
+            :param ready_timeout_in_seconds: 
+            :param validate: 
+            :param validate_timeout_in_seconds: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmimagehooks.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                microvm_image_hooks_property = lambda.CfnMicrovmImage.MicrovmImageHooksProperty(
+                    ready="ready",
+                    ready_timeout_in_seconds=123,
+                    validate="validate",
+                    validate_timeout_in_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0f9aa5fb5becab86b39d38266771c63a4dc7a03ebd62a2ab8c657e9758c7d71f)
+                check_type(argname="argument ready", value=ready, expected_type=type_hints["ready"])
+                check_type(argname="argument ready_timeout_in_seconds", value=ready_timeout_in_seconds, expected_type=type_hints["ready_timeout_in_seconds"])
+                check_type(argname="argument validate", value=validate, expected_type=type_hints["validate"])
+                check_type(argname="argument validate_timeout_in_seconds", value=validate_timeout_in_seconds, expected_type=type_hints["validate_timeout_in_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ready is not None:
+                self._values["ready"] = ready
+            if ready_timeout_in_seconds is not None:
+                self._values["ready_timeout_in_seconds"] = ready_timeout_in_seconds
+            if validate is not None:
+                self._values["validate"] = validate
+            if validate_timeout_in_seconds is not None:
+                self._values["validate_timeout_in_seconds"] = validate_timeout_in_seconds
+
+        @builtins.property
+        def ready(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmimagehooks.html#cfn-lambda-microvmimage-microvmimagehooks-ready
+            '''
+            result = self._values.get("ready")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def ready_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmimagehooks.html#cfn-lambda-microvmimage-microvmimagehooks-readytimeoutinseconds
+            '''
+            result = self._values.get("ready_timeout_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def validate(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmimagehooks.html#cfn-lambda-microvmimage-microvmimagehooks-validate
+            '''
+            result = self._values.get("validate")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def validate_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmimagehooks.html#cfn-lambda-microvmimage-microvmimagehooks-validatetimeoutinseconds
+            '''
+            result = self._values.get("validate_timeout_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MicrovmImageHooksProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnMicrovmImage.ResourcesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"minimum_memory_in_mib": "minimumMemoryInMiB"},
+    )
+    class ResourcesProperty:
+        def __init__(self, *, minimum_memory_in_mib: jsii.Number) -> None:
+            '''
+            :param minimum_memory_in_mib: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-resources.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                resources_property = lambda.CfnMicrovmImage.ResourcesProperty(
+                    minimum_memory_in_mi_b=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__48b0c393c6a69d9fa28eb7ac029630b4a8e1b4a91457e7cbb8dba8330916f4c6)
+                check_type(argname="argument minimum_memory_in_mib", value=minimum_memory_in_mib, expected_type=type_hints["minimum_memory_in_mib"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "minimum_memory_in_mib": minimum_memory_in_mib,
+            }
+
+        @builtins.property
+        def minimum_memory_in_mib(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-resources.html#cfn-lambda-microvmimage-resources-minimummemoryinmib
+            '''
+            result = self._values.get("minimum_memory_in_mib")
+            assert result is not None, "Required property 'minimum_memory_in_mib' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ResourcesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.CfnMicrovmImageProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "additional_os_capabilities": "additionalOsCapabilities",
+        "base_image_arn": "baseImageArn",
+        "base_image_version": "baseImageVersion",
+        "build_role_arn": "buildRoleArn",
+        "code_artifact": "codeArtifact",
+        "cpu_configurations": "cpuConfigurations",
+        "description": "description",
+        "egress_network_connectors": "egressNetworkConnectors",
+        "environment_variables": "environmentVariables",
+        "hooks": "hooks",
+        "logging": "logging",
+        "name": "name",
+        "resources": "resources",
+        "tags": "tags",
+    },
+)
+class CfnMicrovmImageProps:
+    def __init__(
+        self,
+        *,
+        additional_os_capabilities: typing.Sequence[builtins.str],
+        base_image_arn: builtins.str,
+        base_image_version: builtins.str,
+        build_role_arn: builtins.str,
+        code_artifact: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrovmImage.CodeArtifactProperty", typing.Dict[builtins.str, typing.Any]]],
+        cpu_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrovmImage.CpuConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        description: builtins.str,
+        egress_network_connectors: typing.Sequence[builtins.str],
+        environment_variables: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrovmImage.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        hooks: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrovmImage.HooksProperty", typing.Dict[builtins.str, typing.Any]]],
+        logging: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrovmImage.LoggingProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        resources: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrovmImage.ResourcesProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMicrovmImage``.
+
+        :param additional_os_capabilities: 
+        :param base_image_arn: ARN of the base MicroVM image.
+        :param base_image_version: Specific version of the base MicroVM image to use.
+        :param build_role_arn: ARN of the IAM build role.
+        :param code_artifact: 
+        :param cpu_configurations: 
+        :param description: Human-readable description of the MicroVM image and its purpose.
+        :param egress_network_connectors: 
+        :param environment_variables: Environment variables to set in the container during the snapshot build.
+        :param hooks: 
+        :param logging: 
+        :param name: Unique name for the MicroVM image within the account.
+        :param resources: 
+        :param tags: Key-value pairs to associate with the MicroVM image for organization and management.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            cfn_microvm_image_props = lambda.CfnMicrovmImageProps(
+                additional_os_capabilities=["additionalOsCapabilities"],
+                base_image_arn="baseImageArn",
+                base_image_version="baseImageVersion",
+                build_role_arn="buildRoleArn",
+                code_artifact=lambda.CfnMicrovmImage.CodeArtifactProperty(
+                    uri="uri"
+                ),
+                cpu_configurations=[lambda.CfnMicrovmImage.CpuConfigurationProperty(
+                    architecture="architecture"
+                )],
+                description="description",
+                egress_network_connectors=["egressNetworkConnectors"],
+                environment_variables=[lambda.CfnMicrovmImage.EnvironmentVariableProperty(
+                    key="key",
+                    value="value"
+                )],
+                hooks=lambda.CfnMicrovmImage.HooksProperty(
+                    microvm_hooks=lambda.CfnMicrovmImage.MicrovmHooksProperty(
+                        resume="resume",
+                        resume_timeout_in_seconds=123,
+                        run="run",
+                        run_timeout_in_seconds=123,
+                        suspend="suspend",
+                        suspend_timeout_in_seconds=123,
+                        terminate="terminate",
+                        terminate_timeout_in_seconds=123
+                    ),
+                    microvm_image_hooks=lambda.CfnMicrovmImage.MicrovmImageHooksProperty(
+                        ready="ready",
+                        ready_timeout_in_seconds=123,
+                        validate="validate",
+                        validate_timeout_in_seconds=123
+                    ),
+                    port=123
+                ),
+                logging=lambda.CfnMicrovmImage.LoggingProperty(
+                    cloud_watch=lambda.CfnMicrovmImage.CloudWatchLoggingProperty(
+                        log_group="logGroup",
+                        log_stream="logStream"
+                    ),
+                    disabled=False
+                ),
+                name="name",
+                resources=[lambda.CfnMicrovmImage.ResourcesProperty(
+                    minimum_memory_in_mi_b=123
+                )],
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4f9f4de1d348fa0e4c466ea2b1c8dfaee65b51d7905ab79a520d0320e4fcda07)
+            check_type(argname="argument additional_os_capabilities", value=additional_os_capabilities, expected_type=type_hints["additional_os_capabilities"])
+            check_type(argname="argument base_image_arn", value=base_image_arn, expected_type=type_hints["base_image_arn"])
+            check_type(argname="argument base_image_version", value=base_image_version, expected_type=type_hints["base_image_version"])
+            check_type(argname="argument build_role_arn", value=build_role_arn, expected_type=type_hints["build_role_arn"])
+            check_type(argname="argument code_artifact", value=code_artifact, expected_type=type_hints["code_artifact"])
+            check_type(argname="argument cpu_configurations", value=cpu_configurations, expected_type=type_hints["cpu_configurations"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument egress_network_connectors", value=egress_network_connectors, expected_type=type_hints["egress_network_connectors"])
+            check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
+            check_type(argname="argument hooks", value=hooks, expected_type=type_hints["hooks"])
+            check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "additional_os_capabilities": additional_os_capabilities,
+            "base_image_arn": base_image_arn,
+            "base_image_version": base_image_version,
+            "build_role_arn": build_role_arn,
+            "code_artifact": code_artifact,
+            "cpu_configurations": cpu_configurations,
+            "description": description,
+            "egress_network_connectors": egress_network_connectors,
+            "environment_variables": environment_variables,
+            "hooks": hooks,
+            "logging": logging,
+            "name": name,
+            "resources": resources,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def additional_os_capabilities(self) -> typing.List[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html#cfn-lambda-microvmimage-additionaloscapabilities
+        '''
+        result = self._values.get("additional_os_capabilities")
+        assert result is not None, "Required property 'additional_os_capabilities' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def base_image_arn(self) -> builtins.str:
+        '''ARN of the base MicroVM image.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html#cfn-lambda-microvmimage-baseimagearn
+        '''
+        result = self._values.get("base_image_arn")
+        assert result is not None, "Required property 'base_image_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def base_image_version(self) -> builtins.str:
+        '''Specific version of the base MicroVM image to use.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html#cfn-lambda-microvmimage-baseimageversion
+        '''
+        result = self._values.get("base_image_version")
+        assert result is not None, "Required property 'base_image_version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def build_role_arn(self) -> builtins.str:
+        '''ARN of the IAM build role.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html#cfn-lambda-microvmimage-buildrolearn
+        '''
+        result = self._values.get("build_role_arn")
+        assert result is not None, "Required property 'build_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def code_artifact(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.CodeArtifactProperty"]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html#cfn-lambda-microvmimage-codeartifact
+        '''
+        result = self._values.get("code_artifact")
+        assert result is not None, "Required property 'code_artifact' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.CodeArtifactProperty"], result)
+
+    @builtins.property
+    def cpu_configurations(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.CpuConfigurationProperty"]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html#cfn-lambda-microvmimage-cpuconfigurations
+        '''
+        result = self._values.get("cpu_configurations")
+        assert result is not None, "Required property 'cpu_configurations' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.CpuConfigurationProperty"]]], result)
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''Human-readable description of the MicroVM image and its purpose.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html#cfn-lambda-microvmimage-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def egress_network_connectors(self) -> typing.List[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html#cfn-lambda-microvmimage-egressnetworkconnectors
+        '''
+        result = self._values.get("egress_network_connectors")
+        assert result is not None, "Required property 'egress_network_connectors' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def environment_variables(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.EnvironmentVariableProperty"]]]:
+        '''Environment variables to set in the container during the snapshot build.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html#cfn-lambda-microvmimage-environmentvariables
+        '''
+        result = self._values.get("environment_variables")
+        assert result is not None, "Required property 'environment_variables' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.EnvironmentVariableProperty"]]], result)
+
+    @builtins.property
+    def hooks(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.HooksProperty"]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html#cfn-lambda-microvmimage-hooks
+        '''
+        result = self._values.get("hooks")
+        assert result is not None, "Required property 'hooks' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.HooksProperty"], result)
+
+    @builtins.property
+    def logging(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.LoggingProperty"]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html#cfn-lambda-microvmimage-logging
+        '''
+        result = self._values.get("logging")
+        assert result is not None, "Required property 'logging' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.LoggingProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Unique name for the MicroVM image within the account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html#cfn-lambda-microvmimage-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resources(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.ResourcesProperty"]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html#cfn-lambda-microvmimage-resources
+        '''
+        result = self._values.get("resources")
+        assert result is not None, "Required property 'resources' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMicrovmImage.ResourcesProperty"]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key-value pairs to associate with the MicroVM image for organization and management.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html#cfn-lambda-microvmimage-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMicrovmImageProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _INetworkConnectorRef_7b73568a, _ITaggableV2_4e6798f8)
+class CfnNetworkConnector(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.CfnNetworkConnector",
+):
+    '''Resource Type definition for AWS::Lambda::NetworkConnector.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-networkconnector.html
+    :cloudformationResource: AWS::Lambda::NetworkConnector
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_lambda as lambda_
+        
+        cfn_network_connector = lambda_.CfnNetworkConnector(self, "MyCfnNetworkConnector",
+            configuration=lambda.CfnNetworkConnector.ConfigProperty(
+                vpc_egress_configuration=lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
+                    associated_compute_resource_types=["associatedComputeResourceTypes"],
+                    subnet_ids=["subnetIds"],
+        
+                    # the properties below are optional
+                    network_protocol="networkProtocol",
+                    security_group_ids=["securityGroupIds"]
+                )
+            ),
+        
+            # the properties below are optional
+            name="name",
+            operator_role="operatorRole",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnNetworkConnector.ConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: typing.Optional[builtins.str] = None,
+        operator_role: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Lambda::NetworkConnector``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param configuration: The network configuration for the connector. Specify a VpcEgressConfiguration to enable outbound traffic routing through your VPC.
+        :param name: A unique name for the network connector within your account and Region. Must be 1 to 64 alphanumeric characters, hyphens, or underscores.
+        :param operator_role: The ARN of the IAM role that Lambda assumes to manage elastic network interfaces in your VPC. This role must have permissions for ec2:CreateNetworkInterface and related describe operations.
+        :param tags: A list of tags to apply to the network connector. Use tags to categorize network connectors for cost allocation, access control, or operational management.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bbf065926588d2955e12a92786b58843623b524ee70468018b0c029f7ef56c37)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnNetworkConnectorProps(
+            configuration=configuration,
+            name=name,
+            operator_role=operator_role,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForNetworkConnector")
+    @builtins.classmethod
+    def arn_for_network_connector(
+        cls,
+        resource: "_INetworkConnectorRef_7b73568a",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea90d81607596efabd4b184cf203f65f1304b8c21653d5a86b1cec312ccfe617)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForNetworkConnector", [resource]))
+
+    @jsii.member(jsii_name="isCfnNetworkConnector")
+    @builtins.classmethod
+    def is_cfn_network_connector(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnNetworkConnector.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38c75017e2ce0ee5c55854a25498461f4df3b11c2e052ab2a8b069e1f28869aa)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnNetworkConnector", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__50d6750a43f740ae8ee3a86cbc7cfebd2087d4d51ea53c1f4bb0235228c39ac0)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21d9ef13b1ad08cbe3d86b893ee91fb0e8608c4ee4389d3b6b0ef06ec99038ea)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the network connector.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The current state of the network connector.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="networkConnectorRef")
+    def network_connector_ref(self) -> "_NetworkConnectorReference_51c12c23":
+        '''A reference to a NetworkConnector resource.'''
+        return typing.cast("_NetworkConnectorReference_51c12c23", jsii.get(self, "networkConnectorRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configuration")
+    def configuration(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnNetworkConnector.ConfigProperty"]:
+        '''The network configuration for the connector.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnNetworkConnector.ConfigProperty"], jsii.get(self, "configuration"))
+
+    @configuration.setter
+    def configuration(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnNetworkConnector.ConfigProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dfc8e696fb0ee0f415397707730b45d1d0f809d1a6313e0ce9ef52d32a7b9e3b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''A unique name for the network connector within your account and Region.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e492b6e4c43724c00af34090e5a1be82bf25627247cb912b1a98677510fb768)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="operatorRole")
+    def operator_role(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the IAM role that Lambda assumes to manage elastic network interfaces in your VPC.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "operatorRole"))
+
+    @operator_role.setter
+    def operator_role(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fec27575a2f48f670994562e26910313d860f29630053eec6f212def84a096f9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "operatorRole", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags to apply to the network connector.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__08c9842522f15a6f6a8ae9d20fc9f6e28644666c11690e1f7655d4bc34d1b5af)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnNetworkConnector.ConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"vpc_egress_configuration": "vpcEgressConfiguration"},
+    )
+    class ConfigProperty:
+        def __init__(
+            self,
+            *,
+            vpc_egress_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnNetworkConnector.VpcEgressConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The network configuration for the connector.
+
+            Specify a VpcEgressConfiguration to enable outbound traffic routing through your VPC.
+
+            :param vpc_egress_configuration: The VPC egress configuration for the network connector. Specifies the subnets, security groups, and network protocol for routing outbound traffic through your VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-config.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                config_property = lambda.CfnNetworkConnector.ConfigProperty(
+                    vpc_egress_configuration=lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
+                        associated_compute_resource_types=["associatedComputeResourceTypes"],
+                        subnet_ids=["subnetIds"],
+                
+                        # the properties below are optional
+                        network_protocol="networkProtocol",
+                        security_group_ids=["securityGroupIds"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1a4ab03b7d01c2d07c49b6b445a7655f06fda1ecc5e3e79d6d2c916b16da1392)
+                check_type(argname="argument vpc_egress_configuration", value=vpc_egress_configuration, expected_type=type_hints["vpc_egress_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "vpc_egress_configuration": vpc_egress_configuration,
+            }
+
+        @builtins.property
+        def vpc_egress_configuration(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnNetworkConnector.VpcEgressConfigurationProperty"]:
+            '''The VPC egress configuration for the network connector.
+
+            Specifies the subnets, security groups, and network protocol for routing outbound traffic through your VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-config.html#cfn-lambda-networkconnector-config-vpcegressconfiguration
+            '''
+            result = self._values.get("vpc_egress_configuration")
+            assert result is not None, "Required property 'vpc_egress_configuration' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnNetworkConnector.VpcEgressConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnNetworkConnector.VpcEgressConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "associated_compute_resource_types": "associatedComputeResourceTypes",
+            "subnet_ids": "subnetIds",
+            "network_protocol": "networkProtocol",
+            "security_group_ids": "securityGroupIds",
+        },
+    )
+    class VpcEgressConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            associated_compute_resource_types: typing.Sequence[builtins.str],
+            subnet_ids: typing.Sequence[builtins.str],
+            network_protocol: typing.Optional[builtins.str] = None,
+            security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The VPC egress configuration for the network connector.
+
+            Specifies the subnets, security groups, and network protocol for routing outbound traffic through your VPC.
+
+            :param associated_compute_resource_types: The types of Lambda compute resources that can use this connector. Currently, only MicroVm is supported.
+            :param subnet_ids: The IDs of the VPC subnets where Lambda provisions elastic network interfaces (ENIs). Specify 1 to 16 subnets. All subnets must be in the same VPC.
+            :param network_protocol: The network protocol for the connector. Specify IPv4 for IPv4-only networking, or DualStack for both IPv4 and IPv6.
+            :param security_group_ids: The IDs of the VPC security groups to attach to the ENIs. Specify 0 to 5 security groups. All security groups must be in the same VPC as the subnets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                vpc_egress_configuration_property = lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
+                    associated_compute_resource_types=["associatedComputeResourceTypes"],
+                    subnet_ids=["subnetIds"],
+                
+                    # the properties below are optional
+                    network_protocol="networkProtocol",
+                    security_group_ids=["securityGroupIds"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3fc56694727efe6f010831a4021c9e2946b305d97a58cfe4a799743dc5c08428)
+                check_type(argname="argument associated_compute_resource_types", value=associated_compute_resource_types, expected_type=type_hints["associated_compute_resource_types"])
+                check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+                check_type(argname="argument network_protocol", value=network_protocol, expected_type=type_hints["network_protocol"])
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "associated_compute_resource_types": associated_compute_resource_types,
+                "subnet_ids": subnet_ids,
+            }
+            if network_protocol is not None:
+                self._values["network_protocol"] = network_protocol
+            if security_group_ids is not None:
+                self._values["security_group_ids"] = security_group_ids
+
+        @builtins.property
+        def associated_compute_resource_types(self) -> typing.List[builtins.str]:
+            '''The types of Lambda compute resources that can use this connector.
+
+            Currently, only MicroVm is supported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html#cfn-lambda-networkconnector-vpcegressconfiguration-associatedcomputeresourcetypes
+            '''
+            result = self._values.get("associated_compute_resource_types")
+            assert result is not None, "Required property 'associated_compute_resource_types' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def subnet_ids(self) -> typing.List[builtins.str]:
+            '''The IDs of the VPC subnets where Lambda provisions elastic network interfaces (ENIs).
+
+            Specify 1 to 16 subnets. All subnets must be in the same VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html#cfn-lambda-networkconnector-vpcegressconfiguration-subnetids
+            '''
+            result = self._values.get("subnet_ids")
+            assert result is not None, "Required property 'subnet_ids' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def network_protocol(self) -> typing.Optional[builtins.str]:
+            '''The network protocol for the connector.
+
+            Specify IPv4 for IPv4-only networking, or DualStack for both IPv4 and IPv6.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html#cfn-lambda-networkconnector-vpcegressconfiguration-networkprotocol
+            '''
+            result = self._values.get("network_protocol")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The IDs of the VPC security groups to attach to the ENIs.
+
+            Specify 0 to 5 security groups. All security groups must be in the same VPC as the subnets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html#cfn-lambda-networkconnector-vpcegressconfiguration-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VpcEgressConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.CfnNetworkConnectorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration": "configuration",
+        "name": "name",
+        "operator_role": "operatorRole",
+        "tags": "tags",
+    },
+)
+class CfnNetworkConnectorProps:
+    def __init__(
+        self,
+        *,
+        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnNetworkConnector.ConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: typing.Optional[builtins.str] = None,
+        operator_role: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnNetworkConnector``.
+
+        :param configuration: The network configuration for the connector. Specify a VpcEgressConfiguration to enable outbound traffic routing through your VPC.
+        :param name: A unique name for the network connector within your account and Region. Must be 1 to 64 alphanumeric characters, hyphens, or underscores.
+        :param operator_role: The ARN of the IAM role that Lambda assumes to manage elastic network interfaces in your VPC. This role must have permissions for ec2:CreateNetworkInterface and related describe operations.
+        :param tags: A list of tags to apply to the network connector. Use tags to categorize network connectors for cost allocation, access control, or operational management.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-networkconnector.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            cfn_network_connector_props = lambda.CfnNetworkConnectorProps(
+                configuration=lambda.CfnNetworkConnector.ConfigProperty(
+                    vpc_egress_configuration=lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
+                        associated_compute_resource_types=["associatedComputeResourceTypes"],
+                        subnet_ids=["subnetIds"],
+            
+                        # the properties below are optional
+                        network_protocol="networkProtocol",
+                        security_group_ids=["securityGroupIds"]
+                    )
+                ),
+            
+                # the properties below are optional
+                name="name",
+                operator_role="operatorRole",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__13c3602e926bb6c4f3993a62282fa5b7d0a913ca8404e3cc7cf6086cebf2f1a6)
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument operator_role", value=operator_role, expected_type=type_hints["operator_role"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration": configuration,
+        }
+        if name is not None:
+            self._values["name"] = name
+        if operator_role is not None:
+            self._values["operator_role"] = operator_role
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def configuration(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnNetworkConnector.ConfigProperty"]:
+        '''The network configuration for the connector.
+
+        Specify a VpcEgressConfiguration to enable outbound traffic routing through your VPC.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-networkconnector.html#cfn-lambda-networkconnector-configuration
+        '''
+        result = self._values.get("configuration")
+        assert result is not None, "Required property 'configuration' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnNetworkConnector.ConfigProperty"], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''A unique name for the network connector within your account and Region.
+
+        Must be 1 to 64 alphanumeric characters, hyphens, or underscores.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-networkconnector.html#cfn-lambda-networkconnector-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def operator_role(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the IAM role that Lambda assumes to manage elastic network interfaces in your VPC.
+
+        This role must have permissions for ec2:CreateNetworkInterface and related describe operations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-networkconnector.html#cfn-lambda-networkconnector-operatorrole
+        '''
+        result = self._values.get("operator_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags to apply to the network connector.
+
+        Use tags to categorize network connectors for cost allocation, access control, or operational management.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-networkconnector.html#cfn-lambda-networkconnector-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnNetworkConnectorProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -22131,7 +24190,7 @@ class IFunction(
     def is_bound_to_vpc(self) -> builtins.bool:
         '''Whether or not this Lambda function was bound to a VPC.
 
-        If this is is ``false``, trying to access the ``connections`` object will fail.
+        If this is ``false``, trying to access the ``connections`` object will fail.
         '''
         ...
 
@@ -22603,7 +24662,7 @@ class _IFunctionProxy(
     def is_bound_to_vpc(self) -> builtins.bool:
         '''Whether or not this Lambda function was bound to a VPC.
 
-        If this is is ``false``, trying to access the ``connections`` object will fail.
+        If this is ``false``, trying to access the ``connections`` object will fail.
         '''
         return typing.cast(builtins.bool, jsii.get(self, "isBoundToVpc"))
 
@@ -32626,7 +34685,7 @@ class FunctionBase(
     def is_bound_to_vpc(self) -> builtins.bool:
         '''Whether or not this Lambda function was bound to a VPC.
 
-        If this is is ``false``, trying to access the ``connections`` object will fail.
+        If this is ``false``, trying to access the ``connections`` object will fail.
         '''
         return typing.cast(builtins.bool, jsii.get(self, "isBoundToVpc"))
 
@@ -33471,7 +35530,7 @@ class SingletonFunction(
     def is_bound_to_vpc(self) -> builtins.bool:
         '''Whether or not this Lambda function was bound to a VPC.
 
-        If this is is ``false``, trying to access the ``connections`` object will fail.
+        If this is ``false``, trying to access the ``connections`` object will fail.
 
         :inheritdoc: true
         '''
@@ -35283,6 +37342,10 @@ __all__ = [
     "CfnLayerVersionPermission",
     "CfnLayerVersionPermissionProps",
     "CfnLayerVersionProps",
+    "CfnMicrovmImage",
+    "CfnMicrovmImageProps",
+    "CfnNetworkConnector",
+    "CfnNetworkConnectorProps",
     "CfnParametersCode",
     "CfnParametersCodeProps",
     "CfnPermission",
@@ -36955,6 +39018,7 @@ def _typecheckingstub__33591b9aaf2c8e26d04a24fc6ce5bb8493831eb29a3c0a1fafded1488
     *,
     s3_bucket: builtins.str,
     s3_key: builtins.str,
+    s3_object_storage_mode: typing.Optional[builtins.str] = None,
     s3_object_version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -37032,6 +39096,315 @@ def _typecheckingstub__d1c808c735498f09b3f095efa70316f156f6c9dea123c1056d187add7
     description: typing.Optional[builtins.str] = None,
     layer_name: typing.Optional[builtins.str] = None,
     license_info: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__899e308eb263a9bdf1c5dc94a93b5bf4807c8fcd81419dbddfbd008076756614(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    additional_os_capabilities: typing.Sequence[builtins.str],
+    base_image_arn: builtins.str,
+    base_image_version: builtins.str,
+    build_role_arn: builtins.str,
+    code_artifact: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrovmImage.CodeArtifactProperty, typing.Dict[builtins.str, typing.Any]]],
+    cpu_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrovmImage.CpuConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    description: builtins.str,
+    egress_network_connectors: typing.Sequence[builtins.str],
+    environment_variables: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrovmImage.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    hooks: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrovmImage.HooksProperty, typing.Dict[builtins.str, typing.Any]]],
+    logging: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrovmImage.LoggingProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    resources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrovmImage.ResourcesProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3765b519dd178583c524037bbe13dc10e2c1554b06a8ab96da0feb4cb93d9b8d(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13639c4ea62ebb9e832c26087f6561c13dfdce2ebf95d00ee704a76301533958(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06bbd6398f5a8b5597e4dacdbb137cd7c7f3dbed2a7d09ebf28011f43c2b17e6(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73b67884b2853a75d9f6073fcb4f613b14501e414b3de75f83d70118fc5cf7d1(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb2cf0d81e3ce1e112e3c8dbf37dbc7df16ffd00414594544c85a870d2c92b3d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50586801df2231e309c89a02d786868c5b7b86cf49499246d166fe9bed9b1570(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad445c2de49ee956421b9e531719c0ac47aa576b0ea76f0a49e25e135c858791(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1d0b7191ad54781db02d2c2862eb298b0fa5291dc289878bab50e0d6f9bd8ff(
+    value: typing.Union[_IResolvable_da3f097b, CfnMicrovmImage.CodeArtifactProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1db0461515e50340ab925b870fffbc9ee36bd1f352ddc14c8fc7cdc3539cdfb(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMicrovmImage.CpuConfigurationProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1073db4403feafcd12163cbd4c984cae9b361a84b2487d7dfedb27316baaa4b9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d80a42c37670d1c85628134167f8007fd0181301e21abddbdf9ce4a63f413fa(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad1febd470710e8683bebd26824cebedd36e8e9295c1186eb4b07bce29a2f883(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMicrovmImage.EnvironmentVariableProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a370c68aca91dfe2232081e25eb00d54b8b7f377c8f9ab2a4255e2c597b800f7(
+    value: typing.Union[_IResolvable_da3f097b, CfnMicrovmImage.HooksProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd147f7456b4a7009b229505262498c8b7fce6e6f366e7dfa49f5b522b4ca173(
+    value: typing.Union[_IResolvable_da3f097b, CfnMicrovmImage.LoggingProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98ef73c7424c19873d82ed271dad0108d58482ee44fec6b52475ff9e7dd62954(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7550de8f03211fb14a321e507c5cc7671daef2e6b47f49cd5c4d64ac352cdb14(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMicrovmImage.ResourcesProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8387ef5a5536d107c2a4faa8e446cc8ceab0845cbe6e5df1ee6944924d6d0e09(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e6fa8938f47e6dac92225346c3e25b2a9b6aa3bae3c6dc92805c597d1ae0763(
+    *,
+    log_group: typing.Optional[builtins.str] = None,
+    log_stream: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__230d4d9494de43df0a7b34479ceb57429ca11b1bdab0c6cb99bc130a1ace2a1a(
+    *,
+    uri: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e0944e08191c19219c7cfde2804a0c7224b8210bd4d817fb72af57210acb6d98(
+    *,
+    architecture: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3870a8a65bf24bbd60516818a0101c3500b29256075015956b37adc309c83694(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d75fcdb9506113f73488487df738970980c9cc00268619436d009bf6d160a66f(
+    *,
+    microvm_hooks: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrovmImage.MicrovmHooksProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    microvm_image_hooks: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrovmImage.MicrovmImageHooksProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    port: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d2a7cb1df4810578c48a9f1cacd162b212873905323bf2c0b3a175cff20dd47a(
+    *,
+    cloud_watch: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrovmImage.CloudWatchLoggingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    disabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ede8804110952862280d3bc6c6990a0c16d0366c4364cbb47a96484a72736c64(
+    *,
+    resume: typing.Optional[builtins.str] = None,
+    resume_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+    run: typing.Optional[builtins.str] = None,
+    run_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+    suspend: typing.Optional[builtins.str] = None,
+    suspend_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+    terminate: typing.Optional[builtins.str] = None,
+    terminate_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f9aa5fb5becab86b39d38266771c63a4dc7a03ebd62a2ab8c657e9758c7d71f(
+    *,
+    ready: typing.Optional[builtins.str] = None,
+    ready_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+    validate: typing.Optional[builtins.str] = None,
+    validate_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__48b0c393c6a69d9fa28eb7ac029630b4a8e1b4a91457e7cbb8dba8330916f4c6(
+    *,
+    minimum_memory_in_mib: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f9f4de1d348fa0e4c466ea2b1c8dfaee65b51d7905ab79a520d0320e4fcda07(
+    *,
+    additional_os_capabilities: typing.Sequence[builtins.str],
+    base_image_arn: builtins.str,
+    base_image_version: builtins.str,
+    build_role_arn: builtins.str,
+    code_artifact: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrovmImage.CodeArtifactProperty, typing.Dict[builtins.str, typing.Any]]],
+    cpu_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrovmImage.CpuConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    description: builtins.str,
+    egress_network_connectors: typing.Sequence[builtins.str],
+    environment_variables: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrovmImage.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    hooks: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrovmImage.HooksProperty, typing.Dict[builtins.str, typing.Any]]],
+    logging: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrovmImage.LoggingProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    resources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrovmImage.ResourcesProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbf065926588d2955e12a92786b58843623b524ee70468018b0c029f7ef56c37(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnNetworkConnector.ConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: typing.Optional[builtins.str] = None,
+    operator_role: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea90d81607596efabd4b184cf203f65f1304b8c21653d5a86b1cec312ccfe617(
+    resource: _INetworkConnectorRef_7b73568a,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38c75017e2ce0ee5c55854a25498461f4df3b11c2e052ab2a8b069e1f28869aa(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50d6750a43f740ae8ee3a86cbc7cfebd2087d4d51ea53c1f4bb0235228c39ac0(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21d9ef13b1ad08cbe3d86b893ee91fb0e8608c4ee4389d3b6b0ef06ec99038ea(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dfc8e696fb0ee0f415397707730b45d1d0f809d1a6313e0ce9ef52d32a7b9e3b(
+    value: typing.Union[_IResolvable_da3f097b, CfnNetworkConnector.ConfigProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e492b6e4c43724c00af34090e5a1be82bf25627247cb912b1a98677510fb768(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fec27575a2f48f670994562e26910313d860f29630053eec6f212def84a096f9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08c9842522f15a6f6a8ae9d20fc9f6e28644666c11690e1f7655d4bc34d1b5af(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1a4ab03b7d01c2d07c49b6b445a7655f06fda1ecc5e3e79d6d2c916b16da1392(
+    *,
+    vpc_egress_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnNetworkConnector.VpcEgressConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3fc56694727efe6f010831a4021c9e2946b305d97a58cfe4a799743dc5c08428(
+    *,
+    associated_compute_resource_types: typing.Sequence[builtins.str],
+    subnet_ids: typing.Sequence[builtins.str],
+    network_protocol: typing.Optional[builtins.str] = None,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13c3602e926bb6c4f3993a62282fa5b7d0a913ca8404e3cc7cf6086cebf2f1a6(
+    *,
+    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnNetworkConnector.ConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: typing.Optional[builtins.str] = None,
+    operator_role: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

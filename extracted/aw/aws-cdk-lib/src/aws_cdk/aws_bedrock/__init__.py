@@ -10617,6 +10617,8 @@ class CfnDataSource(
         # The values are placeholders you should change.
         from aws_cdk import aws_bedrock as bedrock
         
+        # connector_parameters: Any
+        
         cfn_data_source = bedrock.CfnDataSource(self, "MyCfnDataSource",
             data_source_configuration=bedrock.CfnDataSource.DataSourceConfigurationProperty(
                 type="type",
@@ -10645,6 +10647,26 @@ class CfnDataSource(
                                     inclusion_filters=["inclusionFilters"]
                                 )]
                             )
+                        )
+                    )
+                ),
+                managed_knowledge_base_connector_configuration=bedrock.CfnDataSource.ManagedKnowledgeBaseConnectorConfigurationProperty(
+                    connector_parameters=connector_parameters,
+                    deletion_protection_configuration=bedrock.CfnDataSource.DeletionProtectionConfigurationProperty(
+                        deletion_protection_status="deletionProtectionStatus",
+        
+                        # the properties below are optional
+                        deletion_protection_threshold=123
+                    ),
+                    media_extraction_configuration=bedrock.CfnDataSource.MediaExtractionConfigurationProperty(
+                        audio_extraction_configuration=bedrock.CfnDataSource.AudioExtractionConfigurationProperty(
+                            audio_extraction_status="audioExtractionStatus"
+                        ),
+                        image_extraction_configuration=bedrock.CfnDataSource.ImageExtractionConfigurationProperty(
+                            image_extraction_status="imageExtractionStatus"
+                        ),
+                        video_extraction_configuration=bedrock.CfnDataSource.VideoExtractionConfigurationProperty(
+                            video_extraction_status="videoExtractionStatus"
                         )
                     )
                 ),
@@ -11075,6 +11097,58 @@ class CfnDataSource(
             type_hints = typing.get_type_hints(_typecheckingstub__033990e14b671fe96b02a12658cd4beadf8bae975b4e0c94984d3e41913522c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vectorIngestionConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSource.AudioExtractionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"audio_extraction_status": "audioExtractionStatus"},
+    )
+    class AudioExtractionConfigurationProperty:
+        def __init__(self, *, audio_extraction_status: builtins.str) -> None:
+            '''Configuration for audio extraction.
+
+            :param audio_extraction_status: Indicates whether a feature is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-audioextractionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                audio_extraction_configuration_property = bedrock.CfnDataSource.AudioExtractionConfigurationProperty(
+                    audio_extraction_status="audioExtractionStatus"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1d9b06aef9b8a7bafada610c82ba1ce8e14571251dc527fba0f5f4461b3f01f1)
+                check_type(argname="argument audio_extraction_status", value=audio_extraction_status, expected_type=type_hints["audio_extraction_status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "audio_extraction_status": audio_extraction_status,
+            }
+
+        @builtins.property
+        def audio_extraction_status(self) -> builtins.str:
+            '''Indicates whether a feature is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-audioextractionconfiguration.html#cfn-bedrock-datasource-audioextractionconfiguration-audioextractionstatus
+            '''
+            result = self._values.get("audio_extraction_status")
+            assert result is not None, "Required property 'audio_extraction_status' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AudioExtractionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSource.BedrockDataAutomationConfigurationProperty",
@@ -12003,6 +12077,7 @@ class CfnDataSource(
         name_mapping={
             "type": "type",
             "confluence_configuration": "confluenceConfiguration",
+            "managed_knowledge_base_connector_configuration": "managedKnowledgeBaseConnectorConfiguration",
             "s3_configuration": "s3Configuration",
             "salesforce_configuration": "salesforceConfiguration",
             "share_point_configuration": "sharePointConfiguration",
@@ -12015,6 +12090,7 @@ class CfnDataSource(
             *,
             type: builtins.str,
             confluence_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataSource.ConfluenceDataSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            managed_knowledge_base_connector_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataSource.ManagedKnowledgeBaseConnectorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataSource.S3DataSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             salesforce_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataSource.SalesforceDataSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             share_point_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataSource.SharePointDataSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -12024,6 +12100,7 @@ class CfnDataSource(
 
             :param type: The type of data source.
             :param confluence_configuration: The configuration information to connect to Confluence as your data source. .. epigraph:: Confluence data source connector is in preview release and is subject to change.
+            :param managed_knowledge_base_connector_configuration: Configuration for managed knowledge base connector data sources.
             :param s3_configuration: The configuration information to connect to Amazon S3 as your data source.
             :param salesforce_configuration: The configuration information to connect to Salesforce as your data source. .. epigraph:: Salesforce data source connector is in preview release and is subject to change.
             :param share_point_configuration: The configuration information to connect to SharePoint as your data source. .. epigraph:: SharePoint data source connector is in preview release and is subject to change.
@@ -12037,6 +12114,8 @@ class CfnDataSource(
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
+                
+                # connector_parameters: Any
                 
                 data_source_configuration_property = bedrock.CfnDataSource.DataSourceConfigurationProperty(
                     type="type",
@@ -12065,6 +12144,26 @@ class CfnDataSource(
                                         inclusion_filters=["inclusionFilters"]
                                     )]
                                 )
+                            )
+                        )
+                    ),
+                    managed_knowledge_base_connector_configuration=bedrock.CfnDataSource.ManagedKnowledgeBaseConnectorConfigurationProperty(
+                        connector_parameters=connector_parameters,
+                        deletion_protection_configuration=bedrock.CfnDataSource.DeletionProtectionConfigurationProperty(
+                            deletion_protection_status="deletionProtectionStatus",
+                
+                            # the properties below are optional
+                            deletion_protection_threshold=123
+                        ),
+                        media_extraction_configuration=bedrock.CfnDataSource.MediaExtractionConfigurationProperty(
+                            audio_extraction_configuration=bedrock.CfnDataSource.AudioExtractionConfigurationProperty(
+                                audio_extraction_status="audioExtractionStatus"
+                            ),
+                            image_extraction_configuration=bedrock.CfnDataSource.ImageExtractionConfigurationProperty(
+                                image_extraction_status="imageExtractionStatus"
+                            ),
+                            video_extraction_configuration=bedrock.CfnDataSource.VideoExtractionConfigurationProperty(
+                                video_extraction_status="videoExtractionStatus"
                             )
                         )
                     ),
@@ -12158,6 +12257,7 @@ class CfnDataSource(
                 type_hints = typing.get_type_hints(_typecheckingstub__a2e1b0c807d6904904c91cc13a2f47ee5db24090758446e26a864b57b3d36117)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument confluence_configuration", value=confluence_configuration, expected_type=type_hints["confluence_configuration"])
+                check_type(argname="argument managed_knowledge_base_connector_configuration", value=managed_knowledge_base_connector_configuration, expected_type=type_hints["managed_knowledge_base_connector_configuration"])
                 check_type(argname="argument s3_configuration", value=s3_configuration, expected_type=type_hints["s3_configuration"])
                 check_type(argname="argument salesforce_configuration", value=salesforce_configuration, expected_type=type_hints["salesforce_configuration"])
                 check_type(argname="argument share_point_configuration", value=share_point_configuration, expected_type=type_hints["share_point_configuration"])
@@ -12167,6 +12267,8 @@ class CfnDataSource(
             }
             if confluence_configuration is not None:
                 self._values["confluence_configuration"] = confluence_configuration
+            if managed_knowledge_base_connector_configuration is not None:
+                self._values["managed_knowledge_base_connector_configuration"] = managed_knowledge_base_connector_configuration
             if s3_configuration is not None:
                 self._values["s3_configuration"] = s3_configuration
             if salesforce_configuration is not None:
@@ -12200,6 +12302,17 @@ class CfnDataSource(
             '''
             result = self._values.get("confluence_configuration")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataSource.ConfluenceDataSourceConfigurationProperty"]], result)
+
+        @builtins.property
+        def managed_knowledge_base_connector_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataSource.ManagedKnowledgeBaseConnectorConfigurationProperty"]]:
+            '''Configuration for managed knowledge base connector data sources.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-datasourceconfiguration.html#cfn-bedrock-datasource-datasourceconfiguration-managedknowledgebaseconnectorconfiguration
+            '''
+            result = self._values.get("managed_knowledge_base_connector_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataSource.ManagedKnowledgeBaseConnectorConfigurationProperty"]], result)
 
         @builtins.property
         def s3_configuration(
@@ -12265,6 +12378,84 @@ class CfnDataSource(
 
         def __repr__(self) -> str:
             return "DataSourceConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSource.DeletionProtectionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "deletion_protection_status": "deletionProtectionStatus",
+            "deletion_protection_threshold": "deletionProtectionThreshold",
+        },
+    )
+    class DeletionProtectionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            deletion_protection_status: builtins.str,
+            deletion_protection_threshold: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Configuration for deletion protection.
+
+            :param deletion_protection_status: Indicates whether a feature is enabled or disabled.
+            :param deletion_protection_threshold: Threshold for deletion protection. Default: - 15
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-deletionprotectionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                deletion_protection_configuration_property = bedrock.CfnDataSource.DeletionProtectionConfigurationProperty(
+                    deletion_protection_status="deletionProtectionStatus",
+                
+                    # the properties below are optional
+                    deletion_protection_threshold=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__701a7d7156ee961c53b4826af99c739bd232cbc19bff4b975d46ed7183930612)
+                check_type(argname="argument deletion_protection_status", value=deletion_protection_status, expected_type=type_hints["deletion_protection_status"])
+                check_type(argname="argument deletion_protection_threshold", value=deletion_protection_threshold, expected_type=type_hints["deletion_protection_threshold"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "deletion_protection_status": deletion_protection_status,
+            }
+            if deletion_protection_threshold is not None:
+                self._values["deletion_protection_threshold"] = deletion_protection_threshold
+
+        @builtins.property
+        def deletion_protection_status(self) -> builtins.str:
+            '''Indicates whether a feature is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-deletionprotectionconfiguration.html#cfn-bedrock-datasource-deletionprotectionconfiguration-deletionprotectionstatus
+            '''
+            result = self._values.get("deletion_protection_status")
+            assert result is not None, "Required property 'deletion_protection_status' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def deletion_protection_threshold(self) -> typing.Optional[jsii.Number]:
+            '''Threshold for deletion protection.
+
+            :default: - 15
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-deletionprotectionconfiguration.html#cfn-bedrock-datasource-deletionprotectionconfiguration-deletionprotectionthreshold
+            '''
+            result = self._values.get("deletion_protection_threshold")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DeletionProtectionConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -12531,6 +12722,58 @@ class CfnDataSource(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSource.ImageExtractionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"image_extraction_status": "imageExtractionStatus"},
+    )
+    class ImageExtractionConfigurationProperty:
+        def __init__(self, *, image_extraction_status: builtins.str) -> None:
+            '''Configuration for image extraction.
+
+            :param image_extraction_status: Indicates whether a feature is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-imageextractionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                image_extraction_configuration_property = bedrock.CfnDataSource.ImageExtractionConfigurationProperty(
+                    image_extraction_status="imageExtractionStatus"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__68ae186303803f33da607d80033333851e8bebb8690049095247fcb4a4885a9b)
+                check_type(argname="argument image_extraction_status", value=image_extraction_status, expected_type=type_hints["image_extraction_status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "image_extraction_status": image_extraction_status,
+            }
+
+        @builtins.property
+        def image_extraction_status(self) -> builtins.str:
+            '''Indicates whether a feature is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-imageextractionconfiguration.html#cfn-bedrock-datasource-imageextractionconfiguration-imageextractionstatus
+            '''
+            result = self._values.get("image_extraction_status")
+            assert result is not None, "Required property 'image_extraction_status' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ImageExtractionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSource.IntermediateStorageProperty",
         jsii_struct_bases=[],
         name_mapping={"s3_location": "s3Location"},
@@ -12587,6 +12830,217 @@ class CfnDataSource(
 
         def __repr__(self) -> str:
             return "IntermediateStorageProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSource.ManagedKnowledgeBaseConnectorConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "connector_parameters": "connectorParameters",
+            "deletion_protection_configuration": "deletionProtectionConfiguration",
+            "media_extraction_configuration": "mediaExtractionConfiguration",
+        },
+    )
+    class ManagedKnowledgeBaseConnectorConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            connector_parameters: typing.Any = None,
+            deletion_protection_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataSource.DeletionProtectionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            media_extraction_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataSource.MediaExtractionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration for managed knowledge base connector data sources.
+
+            :param connector_parameters: Connector-specific parameters.
+            :param deletion_protection_configuration: Configuration for deletion protection.
+            :param media_extraction_configuration: Configuration for media extraction settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-managedknowledgebaseconnectorconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                # connector_parameters: Any
+                
+                managed_knowledge_base_connector_configuration_property = bedrock.CfnDataSource.ManagedKnowledgeBaseConnectorConfigurationProperty(
+                    connector_parameters=connector_parameters,
+                    deletion_protection_configuration=bedrock.CfnDataSource.DeletionProtectionConfigurationProperty(
+                        deletion_protection_status="deletionProtectionStatus",
+                
+                        # the properties below are optional
+                        deletion_protection_threshold=123
+                    ),
+                    media_extraction_configuration=bedrock.CfnDataSource.MediaExtractionConfigurationProperty(
+                        audio_extraction_configuration=bedrock.CfnDataSource.AudioExtractionConfigurationProperty(
+                            audio_extraction_status="audioExtractionStatus"
+                        ),
+                        image_extraction_configuration=bedrock.CfnDataSource.ImageExtractionConfigurationProperty(
+                            image_extraction_status="imageExtractionStatus"
+                        ),
+                        video_extraction_configuration=bedrock.CfnDataSource.VideoExtractionConfigurationProperty(
+                            video_extraction_status="videoExtractionStatus"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__45435566cce8b48ac864402fbea540f888df5912d79f285c8ca26834a55b0db1)
+                check_type(argname="argument connector_parameters", value=connector_parameters, expected_type=type_hints["connector_parameters"])
+                check_type(argname="argument deletion_protection_configuration", value=deletion_protection_configuration, expected_type=type_hints["deletion_protection_configuration"])
+                check_type(argname="argument media_extraction_configuration", value=media_extraction_configuration, expected_type=type_hints["media_extraction_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if connector_parameters is not None:
+                self._values["connector_parameters"] = connector_parameters
+            if deletion_protection_configuration is not None:
+                self._values["deletion_protection_configuration"] = deletion_protection_configuration
+            if media_extraction_configuration is not None:
+                self._values["media_extraction_configuration"] = media_extraction_configuration
+
+        @builtins.property
+        def connector_parameters(self) -> typing.Any:
+            '''Connector-specific parameters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-managedknowledgebaseconnectorconfiguration.html#cfn-bedrock-datasource-managedknowledgebaseconnectorconfiguration-connectorparameters
+            '''
+            result = self._values.get("connector_parameters")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def deletion_protection_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataSource.DeletionProtectionConfigurationProperty"]]:
+            '''Configuration for deletion protection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-managedknowledgebaseconnectorconfiguration.html#cfn-bedrock-datasource-managedknowledgebaseconnectorconfiguration-deletionprotectionconfiguration
+            '''
+            result = self._values.get("deletion_protection_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataSource.DeletionProtectionConfigurationProperty"]], result)
+
+        @builtins.property
+        def media_extraction_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataSource.MediaExtractionConfigurationProperty"]]:
+            '''Configuration for media extraction settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-managedknowledgebaseconnectorconfiguration.html#cfn-bedrock-datasource-managedknowledgebaseconnectorconfiguration-mediaextractionconfiguration
+            '''
+            result = self._values.get("media_extraction_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataSource.MediaExtractionConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedKnowledgeBaseConnectorConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSource.MediaExtractionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "audio_extraction_configuration": "audioExtractionConfiguration",
+            "image_extraction_configuration": "imageExtractionConfiguration",
+            "video_extraction_configuration": "videoExtractionConfiguration",
+        },
+    )
+    class MediaExtractionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            audio_extraction_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataSource.AudioExtractionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            image_extraction_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataSource.ImageExtractionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            video_extraction_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataSource.VideoExtractionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration for media extraction settings.
+
+            :param audio_extraction_configuration: Configuration for audio extraction.
+            :param image_extraction_configuration: Configuration for image extraction.
+            :param video_extraction_configuration: Configuration for video extraction.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-mediaextractionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                media_extraction_configuration_property = bedrock.CfnDataSource.MediaExtractionConfigurationProperty(
+                    audio_extraction_configuration=bedrock.CfnDataSource.AudioExtractionConfigurationProperty(
+                        audio_extraction_status="audioExtractionStatus"
+                    ),
+                    image_extraction_configuration=bedrock.CfnDataSource.ImageExtractionConfigurationProperty(
+                        image_extraction_status="imageExtractionStatus"
+                    ),
+                    video_extraction_configuration=bedrock.CfnDataSource.VideoExtractionConfigurationProperty(
+                        video_extraction_status="videoExtractionStatus"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ff5b0ea4fc4605cb62ffd46990f9f85fe38384e586ba512d594c7498307f0082)
+                check_type(argname="argument audio_extraction_configuration", value=audio_extraction_configuration, expected_type=type_hints["audio_extraction_configuration"])
+                check_type(argname="argument image_extraction_configuration", value=image_extraction_configuration, expected_type=type_hints["image_extraction_configuration"])
+                check_type(argname="argument video_extraction_configuration", value=video_extraction_configuration, expected_type=type_hints["video_extraction_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if audio_extraction_configuration is not None:
+                self._values["audio_extraction_configuration"] = audio_extraction_configuration
+            if image_extraction_configuration is not None:
+                self._values["image_extraction_configuration"] = image_extraction_configuration
+            if video_extraction_configuration is not None:
+                self._values["video_extraction_configuration"] = video_extraction_configuration
+
+        @builtins.property
+        def audio_extraction_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataSource.AudioExtractionConfigurationProperty"]]:
+            '''Configuration for audio extraction.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-mediaextractionconfiguration.html#cfn-bedrock-datasource-mediaextractionconfiguration-audioextractionconfiguration
+            '''
+            result = self._values.get("audio_extraction_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataSource.AudioExtractionConfigurationProperty"]], result)
+
+        @builtins.property
+        def image_extraction_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataSource.ImageExtractionConfigurationProperty"]]:
+            '''Configuration for image extraction.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-mediaextractionconfiguration.html#cfn-bedrock-datasource-mediaextractionconfiguration-imageextractionconfiguration
+            '''
+            result = self._values.get("image_extraction_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataSource.ImageExtractionConfigurationProperty"]], result)
+
+        @builtins.property
+        def video_extraction_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataSource.VideoExtractionConfigurationProperty"]]:
+            '''Configuration for video extraction.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-mediaextractionconfiguration.html#cfn-bedrock-datasource-mediaextractionconfiguration-videoextractionconfiguration
+            '''
+            result = self._values.get("video_extraction_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataSource.VideoExtractionConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaExtractionConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -14292,6 +14746,58 @@ class CfnDataSource(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSource.VideoExtractionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"video_extraction_status": "videoExtractionStatus"},
+    )
+    class VideoExtractionConfigurationProperty:
+        def __init__(self, *, video_extraction_status: builtins.str) -> None:
+            '''Configuration for video extraction.
+
+            :param video_extraction_status: Indicates whether a feature is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-videoextractionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                video_extraction_configuration_property = bedrock.CfnDataSource.VideoExtractionConfigurationProperty(
+                    video_extraction_status="videoExtractionStatus"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9eb5da8e09733b5bee1f44068654f5131a4278bbbe58df24071d2972957a194a)
+                check_type(argname="argument video_extraction_status", value=video_extraction_status, expected_type=type_hints["video_extraction_status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "video_extraction_status": video_extraction_status,
+            }
+
+        @builtins.property
+        def video_extraction_status(self) -> builtins.str:
+            '''Indicates whether a feature is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-videoextractionconfiguration.html#cfn-bedrock-datasource-videoextractionconfiguration-videoextractionstatus
+            '''
+            result = self._values.get("video_extraction_status")
+            assert result is not None, "Required property 'video_extraction_status' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VideoExtractionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSource.WebCrawlerConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -14722,6 +15228,8 @@ class CfnDataSourceProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_bedrock as bedrock
             
+            # connector_parameters: Any
+            
             cfn_data_source_props = bedrock.CfnDataSourceProps(
                 data_source_configuration=bedrock.CfnDataSource.DataSourceConfigurationProperty(
                     type="type",
@@ -14750,6 +15258,26 @@ class CfnDataSourceProps:
                                         inclusion_filters=["inclusionFilters"]
                                     )]
                                 )
+                            )
+                        )
+                    ),
+                    managed_knowledge_base_connector_configuration=bedrock.CfnDataSource.ManagedKnowledgeBaseConnectorConfigurationProperty(
+                        connector_parameters=connector_parameters,
+                        deletion_protection_configuration=bedrock.CfnDataSource.DeletionProtectionConfigurationProperty(
+                            deletion_protection_status="deletionProtectionStatus",
+            
+                            # the properties below are optional
+                            deletion_protection_threshold=123
+                        ),
+                        media_extraction_configuration=bedrock.CfnDataSource.MediaExtractionConfigurationProperty(
+                            audio_extraction_configuration=bedrock.CfnDataSource.AudioExtractionConfigurationProperty(
+                                audio_extraction_status="audioExtractionStatus"
+                            ),
+                            image_extraction_configuration=bedrock.CfnDataSource.ImageExtractionConfigurationProperty(
+                                image_extraction_status="imageExtractionStatus"
+                            ),
+                            video_extraction_configuration=bedrock.CfnDataSource.VideoExtractionConfigurationProperty(
+                                video_extraction_status="videoExtractionStatus"
                             )
                         )
                     ),
@@ -30359,6 +30887,31 @@ class CfnKnowledgeBase(
                 kendra_knowledge_base_configuration=bedrock.CfnKnowledgeBase.KendraKnowledgeBaseConfigurationProperty(
                     kendra_index_arn="kendraIndexArn"
                 ),
+                managed_knowledge_base_configuration=bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseConfigurationProperty(
+                    embedding_model_arn="embeddingModelArn",
+        
+                    # the properties below are optional
+                    embedding_model_configuration=bedrock.CfnKnowledgeBase.EmbeddingModelConfigurationProperty(
+                        bedrock_embedding_model_configuration=bedrock.CfnKnowledgeBase.BedrockEmbeddingModelConfigurationProperty(
+                            audio=[bedrock.CfnKnowledgeBase.AudioConfigurationProperty(
+                                segmentation_configuration=bedrock.CfnKnowledgeBase.AudioSegmentationConfigurationProperty(
+                                    fixed_length_duration=123
+                                )
+                            )],
+                            dimensions=123,
+                            embedding_data_type="embeddingDataType",
+                            video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
+                                segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
+                                    fixed_length_duration=123
+                                )
+                            )]
+                        )
+                    ),
+                    embedding_model_type="embeddingModelType",
+                    server_side_encryption_configuration=bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty(
+                        kms_key_arn="kmsKeyArn"
+                    )
+                ),
                 sql_knowledge_base_configuration=bedrock.CfnKnowledgeBase.SqlKnowledgeBaseConfigurationProperty(
                     type="type",
         
@@ -31287,6 +31840,7 @@ class CfnKnowledgeBase(
         name_mapping={
             "type": "type",
             "kendra_knowledge_base_configuration": "kendraKnowledgeBaseConfiguration",
+            "managed_knowledge_base_configuration": "managedKnowledgeBaseConfiguration",
             "sql_knowledge_base_configuration": "sqlKnowledgeBaseConfiguration",
             "vector_knowledge_base_configuration": "vectorKnowledgeBaseConfiguration",
         },
@@ -31297,6 +31851,7 @@ class CfnKnowledgeBase(
             *,
             type: builtins.str,
             kendra_knowledge_base_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnKnowledgeBase.KendraKnowledgeBaseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            managed_knowledge_base_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnKnowledgeBase.ManagedKnowledgeBaseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             sql_knowledge_base_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnKnowledgeBase.SqlKnowledgeBaseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             vector_knowledge_base_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnKnowledgeBase.VectorKnowledgeBaseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -31306,6 +31861,7 @@ class CfnKnowledgeBase(
 
             :param type: The type of data that the data source is converted into for the knowledge base.
             :param kendra_knowledge_base_configuration: Settings for an Amazon Kendra knowledge base.
+            :param managed_knowledge_base_configuration: Contains details about the model used to create vector embeddings for a managed knowledge base.
             :param sql_knowledge_base_configuration: Specifies configurations for a knowledge base connected to an SQL database.
             :param vector_knowledge_base_configuration: Contains details about the model that's used to convert the data source into vector embeddings.
 
@@ -31324,6 +31880,31 @@ class CfnKnowledgeBase(
                     # the properties below are optional
                     kendra_knowledge_base_configuration=bedrock.CfnKnowledgeBase.KendraKnowledgeBaseConfigurationProperty(
                         kendra_index_arn="kendraIndexArn"
+                    ),
+                    managed_knowledge_base_configuration=bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseConfigurationProperty(
+                        embedding_model_arn="embeddingModelArn",
+                
+                        # the properties below are optional
+                        embedding_model_configuration=bedrock.CfnKnowledgeBase.EmbeddingModelConfigurationProperty(
+                            bedrock_embedding_model_configuration=bedrock.CfnKnowledgeBase.BedrockEmbeddingModelConfigurationProperty(
+                                audio=[bedrock.CfnKnowledgeBase.AudioConfigurationProperty(
+                                    segmentation_configuration=bedrock.CfnKnowledgeBase.AudioSegmentationConfigurationProperty(
+                                        fixed_length_duration=123
+                                    )
+                                )],
+                                dimensions=123,
+                                embedding_data_type="embeddingDataType",
+                                video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
+                                    segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
+                                        fixed_length_duration=123
+                                    )
+                                )]
+                            )
+                        ),
+                        embedding_model_type="embeddingModelType",
+                        server_side_encryption_configuration=bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty(
+                            kms_key_arn="kmsKeyArn"
+                        )
                     ),
                     sql_knowledge_base_configuration=bedrock.CfnKnowledgeBase.SqlKnowledgeBaseConfigurationProperty(
                         type="type",
@@ -31427,6 +32008,7 @@ class CfnKnowledgeBase(
                 type_hints = typing.get_type_hints(_typecheckingstub__f2ca26f28cc4cf3a289e62f58643faf6a7d98ea3e55e7ff4f0f77530fa0294b4)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument kendra_knowledge_base_configuration", value=kendra_knowledge_base_configuration, expected_type=type_hints["kendra_knowledge_base_configuration"])
+                check_type(argname="argument managed_knowledge_base_configuration", value=managed_knowledge_base_configuration, expected_type=type_hints["managed_knowledge_base_configuration"])
                 check_type(argname="argument sql_knowledge_base_configuration", value=sql_knowledge_base_configuration, expected_type=type_hints["sql_knowledge_base_configuration"])
                 check_type(argname="argument vector_knowledge_base_configuration", value=vector_knowledge_base_configuration, expected_type=type_hints["vector_knowledge_base_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -31434,6 +32016,8 @@ class CfnKnowledgeBase(
             }
             if kendra_knowledge_base_configuration is not None:
                 self._values["kendra_knowledge_base_configuration"] = kendra_knowledge_base_configuration
+            if managed_knowledge_base_configuration is not None:
+                self._values["managed_knowledge_base_configuration"] = managed_knowledge_base_configuration
             if sql_knowledge_base_configuration is not None:
                 self._values["sql_knowledge_base_configuration"] = sql_knowledge_base_configuration
             if vector_knowledge_base_configuration is not None:
@@ -31459,6 +32043,17 @@ class CfnKnowledgeBase(
             '''
             result = self._values.get("kendra_knowledge_base_configuration")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnKnowledgeBase.KendraKnowledgeBaseConfigurationProperty"]], result)
+
+        @builtins.property
+        def managed_knowledge_base_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnKnowledgeBase.ManagedKnowledgeBaseConfigurationProperty"]]:
+            '''Contains details about the model used to create vector embeddings for a managed knowledge base.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-knowledgebaseconfiguration.html#cfn-bedrock-knowledgebase-knowledgebaseconfiguration-managedknowledgebaseconfiguration
+            '''
+            result = self._values.get("managed_knowledge_base_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnKnowledgeBase.ManagedKnowledgeBaseConfigurationProperty"]], result)
 
         @builtins.property
         def sql_knowledge_base_configuration(
@@ -31490,6 +32085,190 @@ class CfnKnowledgeBase(
 
         def __repr__(self) -> str:
             return "KnowledgeBaseConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "embedding_model_arn": "embeddingModelArn",
+            "embedding_model_configuration": "embeddingModelConfiguration",
+            "embedding_model_type": "embeddingModelType",
+            "server_side_encryption_configuration": "serverSideEncryptionConfiguration",
+        },
+    )
+    class ManagedKnowledgeBaseConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            embedding_model_arn: builtins.str,
+            embedding_model_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnKnowledgeBase.EmbeddingModelConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            embedding_model_type: typing.Optional[builtins.str] = None,
+            server_side_encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Contains details about the model used to create vector embeddings for a managed knowledge base.
+
+            :param embedding_model_arn: The ARN of the model used to create vector embeddings for the knowledge base.
+            :param embedding_model_configuration: The embeddings model configuration details for the vector model used in Knowledge Base.
+            :param embedding_model_type: The type of embedding model to use for the managed knowledge base.
+            :param server_side_encryption_configuration: Contains details about the server-side encryption for the managed knowledge base.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-managedknowledgebaseconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                managed_knowledge_base_configuration_property = bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseConfigurationProperty(
+                    embedding_model_arn="embeddingModelArn",
+                
+                    # the properties below are optional
+                    embedding_model_configuration=bedrock.CfnKnowledgeBase.EmbeddingModelConfigurationProperty(
+                        bedrock_embedding_model_configuration=bedrock.CfnKnowledgeBase.BedrockEmbeddingModelConfigurationProperty(
+                            audio=[bedrock.CfnKnowledgeBase.AudioConfigurationProperty(
+                                segmentation_configuration=bedrock.CfnKnowledgeBase.AudioSegmentationConfigurationProperty(
+                                    fixed_length_duration=123
+                                )
+                            )],
+                            dimensions=123,
+                            embedding_data_type="embeddingDataType",
+                            video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
+                                segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
+                                    fixed_length_duration=123
+                                )
+                            )]
+                        )
+                    ),
+                    embedding_model_type="embeddingModelType",
+                    server_side_encryption_configuration=bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty(
+                        kms_key_arn="kmsKeyArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__563d2f2b85a2a3de24c4c5fb28fcd2d585c62ac79aa7b626b07236138f0f8812)
+                check_type(argname="argument embedding_model_arn", value=embedding_model_arn, expected_type=type_hints["embedding_model_arn"])
+                check_type(argname="argument embedding_model_configuration", value=embedding_model_configuration, expected_type=type_hints["embedding_model_configuration"])
+                check_type(argname="argument embedding_model_type", value=embedding_model_type, expected_type=type_hints["embedding_model_type"])
+                check_type(argname="argument server_side_encryption_configuration", value=server_side_encryption_configuration, expected_type=type_hints["server_side_encryption_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "embedding_model_arn": embedding_model_arn,
+            }
+            if embedding_model_configuration is not None:
+                self._values["embedding_model_configuration"] = embedding_model_configuration
+            if embedding_model_type is not None:
+                self._values["embedding_model_type"] = embedding_model_type
+            if server_side_encryption_configuration is not None:
+                self._values["server_side_encryption_configuration"] = server_side_encryption_configuration
+
+        @builtins.property
+        def embedding_model_arn(self) -> builtins.str:
+            '''The ARN of the model used to create vector embeddings for the knowledge base.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-managedknowledgebaseconfiguration.html#cfn-bedrock-knowledgebase-managedknowledgebaseconfiguration-embeddingmodelarn
+            '''
+            result = self._values.get("embedding_model_arn")
+            assert result is not None, "Required property 'embedding_model_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def embedding_model_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnKnowledgeBase.EmbeddingModelConfigurationProperty"]]:
+            '''The embeddings model configuration details for the vector model used in Knowledge Base.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-managedknowledgebaseconfiguration.html#cfn-bedrock-knowledgebase-managedknowledgebaseconfiguration-embeddingmodelconfiguration
+            '''
+            result = self._values.get("embedding_model_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnKnowledgeBase.EmbeddingModelConfigurationProperty"]], result)
+
+        @builtins.property
+        def embedding_model_type(self) -> typing.Optional[builtins.str]:
+            '''The type of embedding model to use for the managed knowledge base.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-managedknowledgebaseconfiguration.html#cfn-bedrock-knowledgebase-managedknowledgebaseconfiguration-embeddingmodeltype
+            '''
+            result = self._values.get("embedding_model_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def server_side_encryption_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty"]]:
+            '''Contains details about the server-side encryption for the managed knowledge base.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-managedknowledgebaseconfiguration.html#cfn-bedrock-knowledgebase-managedknowledgebaseconfiguration-serversideencryptionconfiguration
+            '''
+            result = self._values.get("server_side_encryption_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedKnowledgeBaseConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"kms_key_arn": "kmsKeyArn"},
+    )
+    class ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            kms_key_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Contains details about the server-side encryption for the managed knowledge base.
+
+            :param kms_key_arn: The ARN of the AWS KMS key used to encrypt the managed knowledge base.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-managedknowledgebaseserversideencryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                managed_knowledge_base_server_side_encryption_configuration_property = bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty(
+                    kms_key_arn="kmsKeyArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__521fcb248201dfe2c74cbada354f6f1b442d4db763e871065d37a22005258afa)
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if kms_key_arn is not None:
+                self._values["kms_key_arn"] = kms_key_arn
+
+        @builtins.property
+        def kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the AWS KMS key used to encrypt the managed knowledge base.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-managedknowledgebaseserversideencryptionconfiguration.html#cfn-bedrock-knowledgebase-managedknowledgebaseserversideencryptionconfiguration-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -34942,6 +35721,31 @@ class CfnKnowledgeBaseProps:
                     # the properties below are optional
                     kendra_knowledge_base_configuration=bedrock.CfnKnowledgeBase.KendraKnowledgeBaseConfigurationProperty(
                         kendra_index_arn="kendraIndexArn"
+                    ),
+                    managed_knowledge_base_configuration=bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseConfigurationProperty(
+                        embedding_model_arn="embeddingModelArn",
+            
+                        # the properties below are optional
+                        embedding_model_configuration=bedrock.CfnKnowledgeBase.EmbeddingModelConfigurationProperty(
+                            bedrock_embedding_model_configuration=bedrock.CfnKnowledgeBase.BedrockEmbeddingModelConfigurationProperty(
+                                audio=[bedrock.CfnKnowledgeBase.AudioConfigurationProperty(
+                                    segmentation_configuration=bedrock.CfnKnowledgeBase.AudioSegmentationConfigurationProperty(
+                                        fixed_length_duration=123
+                                    )
+                                )],
+                                dimensions=123,
+                                embedding_data_type="embeddingDataType",
+                                video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
+                                    segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
+                                        fixed_length_duration=123
+                                    )
+                                )]
+                            )
+                        ),
+                        embedding_model_type="embeddingModelType",
+                        server_side_encryption_configuration=bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty(
+                            kms_key_arn="kmsKeyArn"
+                        )
                     ),
                     sql_knowledge_base_configuration=bedrock.CfnKnowledgeBase.SqlKnowledgeBaseConfigurationProperty(
                         type="type",
@@ -42944,6 +43748,13 @@ def _typecheckingstub__033990e14b671fe96b02a12658cd4beadf8bae975b4e0c94984d3e419
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1d9b06aef9b8a7bafada610c82ba1ce8e14571251dc527fba0f5f4461b3f01f1(
+    *,
+    audio_extraction_status: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d1c9cf855ebecb64cb9a92684072efa631cc07e2bded88aa0e8cfa6319f97834(
     *,
     parsing_modality: typing.Optional[builtins.str] = None,
@@ -43031,10 +43842,19 @@ def _typecheckingstub__a2e1b0c807d6904904c91cc13a2f47ee5db24090758446e26a864b57b
     *,
     type: builtins.str,
     confluence_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.ConfluenceDataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    managed_knowledge_base_connector_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.ManagedKnowledgeBaseConnectorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.S3DataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     salesforce_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.SalesforceDataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     share_point_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.SharePointDataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     web_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.WebDataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__701a7d7156ee961c53b4826af99c739bd232cbc19bff4b975d46ed7183930612(
+    *,
+    deletion_protection_status: builtins.str,
+    deletion_protection_threshold: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -43069,9 +43889,34 @@ def _typecheckingstub__a3a29631db955251086144f75baf14ef472ef7bbe42761f323c0edfce
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__68ae186303803f33da607d80033333851e8bebb8690049095247fcb4a4885a9b(
+    *,
+    image_extraction_status: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5bdd915748b8cf592aa9f03cf95eac889f69f61263bafe87a0ba9aa14454585f(
     *,
     s3_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45435566cce8b48ac864402fbea540f888df5912d79f285c8ca26834a55b0db1(
+    *,
+    connector_parameters: typing.Any = None,
+    deletion_protection_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DeletionProtectionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    media_extraction_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.MediaExtractionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff5b0ea4fc4605cb62ffd46990f9f85fe38384e586ba512d594c7498307f0082(
+    *,
+    audio_extraction_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.AudioExtractionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    image_extraction_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.ImageExtractionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    video_extraction_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.VideoExtractionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -43233,6 +44078,13 @@ def _typecheckingstub__37255db3e7cacfdeadc2d28bfe7938fd13ab4a2cd72190024a531eddf
     context_enrichment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.ContextEnrichmentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     custom_transformation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.CustomTransformationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     parsing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.ParsingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9eb5da8e09733b5bee1f44068654f5131a4278bbbe58df24071d2972957a194a(
+    *,
+    video_extraction_status: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -44948,8 +45800,26 @@ def _typecheckingstub__f2ca26f28cc4cf3a289e62f58643faf6a7d98ea3e55e7ff4f0f77530f
     *,
     type: builtins.str,
     kendra_knowledge_base_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.KendraKnowledgeBaseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    managed_knowledge_base_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.ManagedKnowledgeBaseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sql_knowledge_base_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.SqlKnowledgeBaseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vector_knowledge_base_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.VectorKnowledgeBaseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__563d2f2b85a2a3de24c4c5fb28fcd2d585c62ac79aa7b626b07236138f0f8812(
+    *,
+    embedding_model_arn: builtins.str,
+    embedding_model_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.EmbeddingModelConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    embedding_model_type: typing.Optional[builtins.str] = None,
+    server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__521fcb248201dfe2c74cbada354f6f1b442d4db763e871065d37a22005258afa(
+    *,
+    kms_key_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

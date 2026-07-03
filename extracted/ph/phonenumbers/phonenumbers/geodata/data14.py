@@ -19,6 +19,14 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '61899298':{'en': 'Coorow West'},
+ '61899299':{'en': 'Coorow West'},
+ '61899300':{'en': 'Coorow West'},
+ '618993009':{'en': 'Cue'},
+ '61899301':{'en': 'Eneabba'},
+ '618993018':{'en': 'Denham'},
+ '618993019':{'en': 'Dongara'},
+ '61899302':{'en': 'Eneabba North'},
  '618993028':{'en': 'Eneabba'},
  '61899303':{'en': 'Eneabba South'},
  '618993039':{'en': 'Exmouth'},
@@ -10011,12 +10019,4 @@ data = {
  '86130824':{'en': 'Shenyang, Liaoning', 'zh': u('\u8fbd\u5b81\u7701\u6c88\u9633\u5e02')},
  '861308250':{'en': 'Changzhou, Jiangsu', 'zh': u('\u6c5f\u82cf\u7701\u5e38\u5dde\u5e02')},
  '861308251':{'en': 'Changzhou, Jiangsu', 'zh': u('\u6c5f\u82cf\u7701\u5e38\u5dde\u5e02')},
- '861308252':{'en': 'Suzhou, Jiangsu', 'zh': u('\u6c5f\u82cf\u7701\u82cf\u5dde\u5e02')},
- '861308253':{'en': 'Lianyungang, Jiangsu', 'zh': u('\u6c5f\u82cf\u7701\u8fde\u4e91\u6e2f\u5e02')},
- '861308254':{'en': 'Nanjing, Jiangsu', 'zh': u('\u6c5f\u82cf\u7701\u5357\u4eac\u5e02')},
- '861308255':{'en': 'Nanjing, Jiangsu', 'zh': u('\u6c5f\u82cf\u7701\u5357\u4eac\u5e02')},
- '861308256':{'en': 'Yangzhou, Jiangsu', 'zh': u('\u6c5f\u82cf\u7701\u626c\u5dde\u5e02')},
- '861308257':{'en': 'Yangzhou, Jiangsu', 'zh': u('\u6c5f\u82cf\u7701\u626c\u5dde\u5e02')},
- '861308258':{'en': 'Suqian, Jiangsu', 'zh': u('\u6c5f\u82cf\u7701\u5bbf\u8fc1\u5e02')},
- '861308259':{'en': 'Yancheng, Jiangsu', 'zh': u('\u6c5f\u82cf\u7701\u76d0\u57ce\u5e02')},
 }

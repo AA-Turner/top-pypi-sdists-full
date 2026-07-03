@@ -1,58 +1,71 @@
-# pylint: disable=too-many-lines
 """
-This module contains the QtInteractor and BackgroundPlotter.
+This module contains the QtInteractor, BackgroundPlotter, and MultiPlotter.
 
 Diagram
 ^^^^^^^
+
+Inheritance:
 
 .. code-block:: none
 
     BackgroundPlotter
     +-- QtInteractor
         |-- QVTKRenderWindowInteractor
-        |   +-- QWidget
+        |   +-- QWidget  (the default QVTKRWIBaseClass; QGLWidget or
+        |                 QOpenGLWidget can be selected via vtkmodules.qt)
         +-- BasePlotter
 
     MainWindow
     +-- QMainWindow
+
+Composition (no inheritance):
+
+.. code-block:: none
+
+    MultiPlotter
+    |-- _window: MainWindow
+    +-- _plotters: list[BackgroundPlotter | None]  (an nrows-by-ncols grid)
 
 Implementation
 ^^^^^^^^^^^^^^
 
 .. code-block:: none
 
-    BackgroundPlotter.__init__(...)
-    |-- self.app_window = MainWindow()
-    |-- self.frame = QFrame(parent=self.app_window)
+    BackgroundPlotter.__init__(...) -> None
+    |-- self.app_window: MainWindow = app_window_class(title=...)
+    |-- self.frame: QFrame = QFrame(parent=self.app_window)
     +-- QtInteractor.__init__(parent=self.frame)
-        |-- QVTKRenderWindowInteractor.__init__(parent=parent)
-        |   +-- QWidget.__init__(parent, flags)
-        |-- BasePlotter.__init__(...)
-        +-- self.ren_win = self.GetRenderWindow()
+        |-- with _no_base_plotter_init():
+        |   +-- QVTKRenderWindowInteractor.__init__(parent=parent)
+        |       +-- QWidget.__init__(parent, wflags)
+        |-- BasePlotter.__init__(**kwargs)
+        +-- self.ren_win: vtkRenderWindow = self.GetRenderWindow()
 
-Because ``QVTKRenderWindowInteractor`` calls ``QWidget.__init__``, this will
-actually trigger ``BasePlotter.__init__`` to be called with no arguments.
-This cannot be solved (at least) because using ``super()`` because
-``QVTKRenderWindowInteractor.__init__`` does not use ``super()``, and also it
-might not be fixable because Qt is doing something in ``QWidget`` which is
-probably entirely separate from the Python ``super()`` process.
-We fix this by internally by temporarily monkey-patching
-``BasePlotter.__init__`` with a no-op ``__init__``.
+Because ``QVTKRenderWindowInteractor.__init__`` calls ``QWidget.__init__``
+and the Qt bindings continue the cooperative ``super()`` chain past the Qt
+classes, this triggers a spurious ``BasePlotter.__init__`` call with no
+arguments. This cannot be solved by using ``super()`` because
+``QVTKRenderWindowInteractor.__init__`` does not use ``super()``, and the
+chaining happens inside Qt's ``QWidget`` initialization, outside of our
+control. We therefore temporarily monkey-patch ``BasePlotter.__init__`` with
+a no-op during the ``QVTKRenderWindowInteractor.__init__`` call (see
+``_no_base_plotter_init``), then call ``BasePlotter.__init__`` explicitly
+with the real arguments.
 """  # noqa: D404
 
-from __future__ import annotations
-
+from collections.abc import Callable
+from collections.abc import Generator
 import contextlib
 from functools import wraps
 import logging
 import os
 import platform
 import time
-from typing import TYPE_CHECKING
 from typing import Any
+from typing import cast
 import warnings
 
-import numpy as np  # type: ignore  # noqa: PGH003
+import numpy as np
 import pyvista
 from pyvista import global_theme
 
@@ -70,7 +83,6 @@ except ImportError:  # PV < 0.40
     from pyvista.utilities import threaded
 from qtpy import QtCore
 from qtpy import QtGui
-from qtpy.QtCore import QSize
 from qtpy.QtCore import QTimer
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import QAction
@@ -79,6 +91,7 @@ from qtpy.QtWidgets import QFrame
 from qtpy.QtWidgets import QGestureEvent
 from qtpy.QtWidgets import QGridLayout
 from qtpy.QtWidgets import QMenuBar
+from qtpy.QtWidgets import QPinchGesture
 from qtpy.QtWidgets import QToolBar
 from qtpy.QtWidgets import QVBoxLayout
 from qtpy.QtWidgets import QWidget
@@ -94,11 +107,8 @@ from .utils import _create_menu_bar
 from .utils import _setup_application
 from .utils import _setup_ipython
 from .utils import _setup_off_screen
+from .utils import _setup_terminal_output_fix
 from .window import MainWindow
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-    from collections.abc import Generator
 
 LOG = logging.getLogger("pyvistaqt")
 LOG.setLevel(logging.CRITICAL)
@@ -147,11 +157,12 @@ def pad_image(arr: np.ndarray, max_size: int = 400) -> np.ndarray:
 @contextlib.contextmanager
 def _no_base_plotter_init() -> Generator[None, None, None]:
     init = BasePlotter.__init__
-    BasePlotter.__init__ = lambda *args, **kwargs: None  # noqa: ARG005
+    # Deliberately monkeypatch BasePlotter.__init__ to a no-op for the duration.
+    BasePlotter.__init__ = lambda *args, **kwargs: None  # noqa: ARG005  # ty: ignore[invalid-assignment]
     try:
         yield
     finally:
-        BasePlotter.__init__ = init
+        BasePlotter.__init__ = init  # ty: ignore[invalid-assignment]
 
 
 class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
@@ -189,17 +200,13 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
 
     """
 
-    # pylint: disable=too-many-instance-attributes
-    # pylint: disable=too-many-statements
-
     # Signals must be class attributes
     render_signal = Signal()
     key_press_event_signal = Signal(vtkGenericRenderWindowInteractor, str)
 
-    # pylint: disable=too-many-arguments
     def __init__(  # noqa: C901, PLR0912, PLR0913
         self,
-        parent: MainWindow = None,
+        parent: QWidget | None = None,
         title: str | None = None,
         off_screen: bool | None = None,  # noqa: FBT001
         multi_samples: int | None = None,
@@ -209,10 +216,9 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         auto_update: float | bool = 5.0,  # noqa: FBT001
         **kwargs: Any,  # noqa: ANN401
     ) -> None:
-        # pylint: disable=too-many-branches
         """Initialize Qt interactor."""
         LOG.debug("QtInteractor init start")
-        self.url: QtCore.QUrl = None
+        self._url: QtCore.QUrl | None = None
 
         # Cannot use super() here because
         # QVTKRenderWindowInteractor silently swallows all kwargs
@@ -250,7 +256,7 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         self.key_press_event_signal.connect(super().key_press_event)
 
         self.background_color = global_theme.background
-        if self.title:
+        if title:
             self.setWindowTitle(title)
 
         if off_screen is None:
@@ -290,7 +296,7 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
             self.iren: Any = None
         else:
             self.iren = RenderWindowInteractor(self, interactor=self.ren_win.GetInteractor())
-            self.iren.interactor.RemoveObservers("MouseMoveEvent")  # slows window update?
+            self.iren.interactor.RemoveObservers("MouseMoveEvent")  # slows window update?  # ty: ignore[unresolved-attribute]
             self.iren.initialize()
             self.enable_trackball_style()
 
@@ -301,7 +307,7 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
 
     def gesture_event(self, event: QGestureEvent) -> bool:
         """Handle gesture events."""
-        pinch = event.gesture(QtCore.Qt.PinchGesture)
+        pinch = cast("QPinchGesture", event.gesture(QtCore.Qt.GestureType.PinchGesture))
         if pinch:
             self.camera.Zoom(pinch.scaleFactor())
             event.accept()
@@ -313,7 +319,7 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         self.key_press_event_signal.emit(obj, event)
 
     @wraps(BasePlotter.render)
-    def _render(self, *args: Any, **kwargs: Any) -> BasePlotter.render:  # noqa: ANN401
+    def _render(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         """Wrap ``BasePlotter.render``."""
         return BasePlotter.render(self, *args, **kwargs)
 
@@ -374,7 +380,6 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         for view_index in other_views:
             other_plotter.renderers[view_index].camera = renderer.camera
 
-    # pylint: disable=invalid-name
     def dragEnterEvent(self, event: QtGui.QDragEnterEvent) -> None:  # noqa: N802
         """
         Event is called when something is dropped onto the vtk window.
@@ -391,21 +396,20 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         except OSError as exception:  # pragma: no cover
             warnings.warn(f"Exception when dragging files: {exception!s}")  # noqa: B028
 
-    # pylint: disable=invalid-name,useless-return
-    def dropEvent(self, event: QtCore.QEvent) -> None:  # noqa: N802
+    def dropEvent(self, event: QtGui.QDropEvent) -> None:  # noqa: N802
         """Event is called after dragEnterEvent."""
         try:
             for url in event.mimeData().urls():
-                self.url = url
-                filename = self.url.path()
+                self._url = url
+                filename = self._url.path()
                 if os.path.isfile(filename):  # noqa: PTH113
                     self.add_mesh(pyvista.read(filename))
         except OSError as exception:  # pragma: no cover
             warnings.warn(f"Exception when dropping files: {exception!s}")  # noqa: B028
 
-    def close(self) -> None:
-        """Quit application."""
-        if self._closed:
+    def close(self) -> None:  # ty: ignore[invalid-method-override]
+        """Quit application (intentionally returns None, unlike QWidget.close)."""
+        if getattr(self, "_closed", True):  # if it doesn't exist, error during init
             return
         if hasattr(self, "render_timer"):
             self.render_timer.stop()
@@ -415,9 +419,7 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         QVTKRenderWindowInteractor.close(self)
         # Qt LeaveEvent requires _Iren so we use _FakeIren instead of None
         # to resolve the ref to vtkGenericRenderWindowInteractor
-        self._Iren = (  # pylint: disable=invalid-name,attribute-defined-outside-init
-            _FakeEventHandler()
-        )
+        self._Iren = _FakeEventHandler()
         for key in ("_RenderWindow", "renderer"):
             with contextlib.suppress(AttributeError):
                 setattr(self, key, None)
@@ -501,14 +503,8 @@ class BackgroundPlotter(QtInteractor):
 
     """
 
-    # pylint: disable=too-many-ancestors
-    # pylint: disable=too-many-instance-attributes
-    # pylint: disable=too-many-statements
-
     ICON_TIME_STEP = 5.0
 
-    # pylint: disable=too-many-arguments
-    # pylint: disable=too-many-locals
     def __init__(  # noqa: PLR0913, PLR0915
         self,
         show: bool = True,  # noqa: FBT001, FBT002
@@ -523,7 +519,6 @@ class BackgroundPlotter(QtInteractor):
         app_window_class: type[MainWindow] | None = None,
         **kwargs: Any,  # noqa: ANN401
     ) -> None:
-        # pylint: disable=too-many-branches
         """Initialize the qt plotter."""
         # avoid recursion of the close() function by setting
         # self._closed=True until the BasePlotter.__init__
@@ -542,26 +537,27 @@ class BackgroundPlotter(QtInteractor):
 
         # toolbar
         LOG.debug("BackgroundPlotter init toolbar")
-        self._view_action: QAction = None
-        self.default_camera_tool_bar: QToolBar = None
+        self._view_action: QAction | None = None
+        self.default_camera_tool_bar: QToolBar | None = None
         self.saved_camera_positions: list | None = None
-        self.saved_cameras_tool_bar: QToolBar = None
+        self.saved_cameras_tool_bar: QToolBar | None = None
         # menu bar
         LOG.debug("BackgroundPlotter init menubar")
-        self.main_menu: QMenuBar = None
-        self._edl_action: QAction = None
-        self._menu_close_action: QAction = None
-        self._parallel_projection_action: QAction = None
+        self.main_menu: QMenuBar | None = None
+        self._edl_action: QAction | None = None
+        self._menu_close_action: QAction | None = None
+        self._parallel_projection_action: QAction | None = None
         # editor
         self.editor: Editor | None = None
-        self._editor_action: QAction = None
+        self._editor_action: QAction | None = None
 
         self.active = True
         self.counters: list[Counter] = []
         self.allow_quit_keypress = allow_quit_keypress
 
         if window_size is None:
-            window_size = global_theme.window_size
+            theme_size = global_theme.window_size
+            window_size = (theme_size[0], theme_size[1])
 
         # Remove notebook argument in case user passed it
         kwargs.pop("notebook", None)
@@ -570,6 +566,7 @@ class BackgroundPlotter(QtInteractor):
         self.ipython = _setup_ipython()
         LOG.debug("BackgroundPlotter init setup app")
         self.app = _setup_application(app)
+        _setup_terminal_output_fix(self.app)
         LOG.debug("BackgroundPlotter init setup offscreen")
         self.off_screen = _setup_off_screen(off_screen)
         if app_window_class is None:
@@ -577,7 +574,7 @@ class BackgroundPlotter(QtInteractor):
         LOG.debug("BackgroundPlotter init app window class %s", app_window_class)
         self.app_window = app_window_class(title=kwargs.get("title", global_theme.title))
         self.frame = QFrame(parent=self.app_window)
-        self.frame.setFrameStyle(QFrame.NoFrame)
+        self.frame.setFrameStyle(QFrame.Shape.NoFrame)
         vlayout = QVBoxLayout()
         LOG.debug("BackgroundPlotter init super")
         super().__init__(parent=self.frame, off_screen=off_screen, **kwargs)
@@ -702,11 +699,14 @@ class BackgroundPlotter(QtInteractor):
             fmt_str = "Format_RGB"
             fmt_str += ("A8" if img.shape[2] == 4 else "") + "888"
             fmt = getattr(QtGui.QImage, fmt_str)
-            img = QtGui.QPixmap.fromImage(QtGui.QImage(img.copy(), img.shape[1], img.shape[0], fmt))
-        # Currently no way to check if str/path is actually correct (want to
-        # allow resource paths and the like so os.path.isfile is no good)
-        # and icon.isNull() returns False even if the path is bogus.
-        self.app.setWindowIcon(QtGui.QIcon(img))
+            pixmap = QtGui.QPixmap.fromImage(QtGui.QImage(img.copy(), img.shape[1], img.shape[0], fmt))
+            icon = QtGui.QIcon(pixmap)
+        else:
+            # Currently no way to check if str/path is actually correct (want to
+            # allow resource paths and the like so os.path.isfile is no good)
+            # and icon.isNull() returns False even if the path is bogus.
+            icon = QtGui.QIcon(img)
+        self.app.setWindowIcon(icon)
 
     def _qt_screenshot(self, show: bool = True) -> FileDialog:  # noqa: FBT001, FBT002
         return FileDialog(
@@ -725,10 +725,27 @@ class BackgroundPlotter(QtInteractor):
         available at https://kitware.github.io/vtk-js/examples/OfflineLocalView.html
 
         """
-        try:
-            callback = self.export_vtksz
+        # On pyvista >= 0.49 the trame integration moved to the
+        # ``trame-pyvista`` plugin and ``Plotter.export_vtksz`` is a
+        # deprecated proxy that errors when the plugin is missing.
+        # Force-load the plugin so ``self.trame`` resolves; the Qt
+        # super-classes shadow ``BasePlotter.__getattr__`` so the lazy
+        # entry-point loader does not run on attribute access alone.
+        import contextlib  # noqa: PLC0415
+
+        with contextlib.suppress(ImportError):
+            import trame_pyvista  # noqa: F401, PLC0415
+
+        trame = getattr(self, "trame", None)
+        if trame is not None and hasattr(trame, "export_vtksz"):
+            # pyvista >= 0.49 (trame-pyvista). ``filename`` is keyword-only
+            # on trame-pyvista 0.1.0, so wrap the FileDialog callback.
+            callback = lambda fn: trame.export_vtksz(filename=fn)  # noqa: E731
             ext = "vtksz"
-        except AttributeError:
+        elif hasattr(self, "export_vtksz"):
+            callback = self.export_vtksz  # pyvista 0.40 - 0.48
+            ext = "vtksz"
+        else:
             callback = self.export_vtkjs  # pre-v0.40
             ext = "vtkjs"
 
@@ -757,7 +774,7 @@ class BackgroundPlotter(QtInteractor):
         return the_size.width(), the_size.height()
 
     @window_size.setter
-    def window_size(self, window_size: QSize) -> None:
+    def window_size(self, window_size: tuple[int, int]) -> None:
         """Set the render window size."""
         self.app_window.setBaseSize(*window_size)
         self.app_window.resize(*window_size)
@@ -796,17 +813,15 @@ class BackgroundPlotter(QtInteractor):
     def save_camera_position(self) -> None:
         """Save camera position to saved camera menu for recall."""
         if self.saved_camera_positions is not None:
-            # pylint: disable=attribute-defined-outside-init
             self.camera_position: Any
             self.saved_camera_positions.append(self.camera_position)
             ncam = len(self.saved_camera_positions)
         if self.camera_position is not None:
             camera_position: Any = self.camera_position[:]  # py2.7 copy compatibility
 
-        if hasattr(self, "saved_cameras_tool_bar"):
+        if self.saved_cameras_tool_bar is not None:
 
             def load_camera_position() -> None:
-                # pylint: disable=attribute-defined-outside-init
                 self.camera_position = camera_position
 
             self.saved_cameras_tool_bar.addAction(f"Cam {ncam}", load_camera_position)
@@ -815,7 +830,7 @@ class BackgroundPlotter(QtInteractor):
 
     def clear_camera_positions(self) -> None:
         """Clear all camera positions."""
-        if hasattr(self, "saved_cameras_tool_bar"):
+        if self.saved_cameras_tool_bar is not None:
             for action in self.saved_cameras_tool_bar.actions():
                 if action.text() not in [SAVE_CAM_BUTTON_TEXT, CLEAR_CAMS_BUTTON_TEXT]:
                     self.saved_cameras_tool_bar.removeAction(action)
@@ -945,9 +960,6 @@ class MultiPlotter:
 
     """
 
-    # pylint: disable=too-many-instance-attributes
-    # pylint: disable=too-many-arguments
-
     def __init__(  # noqa: PLR0913
         self,
         app: QApplication | None = None,
@@ -1037,8 +1049,6 @@ class MultiPlotter:
 
 
 class _FakeEventHandler:
-    # pylint: disable=too-few-public-methods
-
     def _noop(self, *args: tuple, **kwargs: dict) -> None:
         pass
 

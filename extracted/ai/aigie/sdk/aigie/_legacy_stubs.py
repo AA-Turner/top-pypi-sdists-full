@@ -72,7 +72,7 @@ class ErrorDetector:
     """Minimal text-pattern error detector.
 
     Autonomous remediation was deleted; the detector retains just enough
-    behavior to mark spans/traces as failed when a Claude response carries
+    behavior to mark spans and traces as failed when a Claude response carries
     a content-level API error (e.g. ``"API Error: 400 ..."``).
     """
 
@@ -340,7 +340,6 @@ class AgentExecutionError(Exception):
 # Aliases used by various framework integrations
 AgnoExecutionError = AgentExecutionError
 DSPyExecutionError = AgentExecutionError
-StrandsExecutionError = AgentExecutionError
 ConversationError = AgentExecutionError
 QueryError = AgentExecutionError
 CrewExecutionError = AgentExecutionError

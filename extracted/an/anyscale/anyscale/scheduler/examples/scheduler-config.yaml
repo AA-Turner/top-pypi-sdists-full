@@ -25,6 +25,8 @@ resource_flavors:
       CapacityReservationSpecification:
         CapacityReservationTarget:
           CapacityReservationId: cr-xxxx
+  # No selector: matches any instance. Used by the `default` queue's catch-all flavor.
+  - name: any
 
 # Resource queues — where requests land.
 resource_queues:
@@ -52,8 +54,12 @@ resource_queues:
         flavors:
           - name: ondemand
             resources:
+              # Omit nominal_quota for unlimited quota; an explicit 0 blocks the resource.
               - name: gpu
                 nominal_quota: 8
+          # Omit `resources` (or any covered resource) for unlimited quota on those resources;
+          # this flavor admits unthrottled while still pinning workloads to its name.
+          - name: any
 
 # Scheduling rules — route incoming requests using structured label selectors.
 # `selector` is a list of match expressions; all must match.

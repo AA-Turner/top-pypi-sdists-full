@@ -125,14 +125,13 @@ class HybridColumnMap:
             name_parts = split_fully_qualified_spark_name(column_name)
             alias_column_name = name_parts[0]
 
-            # Check if it's an alias to an existing aggregate expression
-            if alias_column_name in self.aggregate_aliases:
-                # Use the aggregated context to get the alias
-                return map_expression(
-                    exp, self.aggregated_column_map, self.aggregated_typer
-                )
-
-            # Check if it's a grouping column
+            # Check if it's a grouping column FIRST. A SELECT alias may shadow a
+            # real grouping column (e.g. ``SELECT avg(bonus) AS dept, dept ...
+            # GROUP BY dept ORDER BY dept``). Spark resolves the GROUP BY/ORDER BY
+            # reference to the underlying grouping column, not the shadowing alias
+            # (Lateral Column Alias disambiguation). Checking grouping columns
+            # before aliases avoids an otherwise-ambiguous lookup in the
+            # aggregated map, which contains both same-named output columns.
             if self.is_grouping_column(column_name):
                 # Try aggregated context first (for cases where grouping columns are included)
                 try:
@@ -141,8 +140,16 @@ class HybridColumnMap:
                     )
                 except Exception:
                     # Fall back to input context if grouping columns were excluded
-                    # This handles the exclude_grouping_columns=True case
+                    # (exclude_grouping_columns=True) or if the aggregated lookup
+                    # is ambiguous because an alias shadows the grouping column.
                     return map_expression(exp, self.input_column_map, self.input_typer)
+
+            # Check if it's an alias to an existing aggregate expression
+            if alias_column_name in self.aggregate_aliases:
+                # Use the aggregated context to get the alias
+                return map_expression(
+                    exp, self.aggregated_column_map, self.aggregated_typer
+                )
 
             # Try input context first (for base columns used in new aggregates)
             try:

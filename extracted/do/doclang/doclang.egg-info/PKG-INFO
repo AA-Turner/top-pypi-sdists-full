@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: doclang
-Version: 0.7.0
+Version: 0.7.1
 Summary: DocLang reference toolkit
 Author: DocLang Project
 License-Expression: Apache-2.0
@@ -17,14 +17,16 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Text Processing :: Markup :: XML
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: lxml>=6.0.2
-Requires-Dist: saxonche>=12.9.0
 Requires-Dist: typer>=0.15.1
+Provides-Extra: schematron-saxon
+Requires-Dist: saxonche>=12.9.0; extra == "schematron-saxon"
 Dynamic: license-file
 
 <p align="center">
@@ -55,10 +57,14 @@ directory.
 
 ## Reference Toolkit
 
-You can install the toolkit from PyPI:
+The commands below illustrate basic scenarios. For advanced installation and usage options
+(minimal install, platform notes, custom Schematron backends, Python API), see the
+[toolkit README](https://github.com/doclang-project/doclang/blob/main/doclang/README.md).
+
+### Installation
 
 ```bash
-pip install doclang
+pip install "doclang[schematron-saxon]"
 ```
 
 ### Validation
@@ -72,8 +78,6 @@ doclang validate -n my_document.dclg
 ```bash
 doclang pack my_document.dclg
 ```
-
-For more details, see the [doclang/README.md](https://github.com/doclang-project/doclang/blob/main/doclang/README.md).
 
 ## Citation
 

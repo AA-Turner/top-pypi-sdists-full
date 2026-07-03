@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: momepy
-Version: 0.11.0
+Version: 1.0.0
 Summary: Urban Morphology Measuring Toolkit
 Author-email: Martin Fleischmann <martin@martinfleischmann.net>
 Maintainer: momepy contributors
@@ -13,21 +13,30 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: geopandas>=0.14.0
-Requires-Dist: libpysal>=4.12.0
-Requires-Dist: networkx>=3.2
+Requires-Dist: geopandas>=1.1
+Requires-Dist: libpysal>=4.12.1
+Requires-Dist: networkx>=3.4
+Requires-Dist: numpy>=2.0
 Requires-Dist: packaging
-Requires-Dist: pandas>=2.0
-Requires-Dist: shapely>=2
-Requires-Dist: tqdm>=4.65
+Requires-Dist: pandas>=2.3
+Requires-Dist: shapely>=2.1
+Requires-Dist: tqdm>=4.67
 Provides-Extra: plus
-Requires-Dist: numba; extra == "plus"
+Requires-Dist: esda; extra == "plus"
 Requires-Dist: inequality; extra == "plus"
 Requires-Dist: mapclassify; extra == "plus"
-Requires-Dist: esda; extra == "plus"
+Requires-Dist: numba>=0.60; extra == "plus"
+Requires-Dist: osmnx; extra == "plus"
+Requires-Dist: rioxarray; extra == "plus"
+Requires-Dist: neatnet; extra == "plus"
+Provides-Extra: tests
+Requires-Dist: codecov; extra == "tests"
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest-cov; extra == "tests"
+Requires-Dist: pytest-doctestplus; extra == "tests"
 Dynamic: license-file
 
 Momepy (Morphological Measuring in Python) is a library for

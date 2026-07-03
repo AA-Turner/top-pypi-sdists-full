@@ -45,6 +45,22 @@ async def test_open_connection_error(monkeypatch: pytest.MonkeyPatch) -> None:
         await t.open()
 
 
+async def test_open_respects_connect_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """open() must give up after connect_timeout when the connection never completes."""
+
+    async def never_connects(*_args: object, **_kwargs: object) -> tuple[None, None]:
+        await asyncio.sleep(10)
+        return None, None
+
+    loop = asyncio.get_running_loop()
+    monkeypatch.setattr(loop, "create_connection", never_connects)
+
+    t = AsyncTcpTransport("host", port=1234, connect_timeout=0.05)
+    with pytest.raises(TimeoutError):
+        await t.open()
+    assert not t.is_open()
+
+
 async def test_is_open_false_when_not_connected() -> None:
     """Test is_open returns False when not connected."""
     t = AsyncTcpTransport("host", port=1234)
@@ -122,8 +138,8 @@ async def test_protocol_transaction_id_wraparound() -> None:
     protocol = ModbusTcpProtocol(on_connection_lost=lambda _: None, timeout=10.0)
 
     protocol._next_transaction_id = 0xFFFF
-    tid1 = await protocol._get_next_transaction_id()
-    tid2 = await protocol._get_next_transaction_id()
+    tid1 = protocol._get_next_transaction_id()
+    tid2 = protocol._get_next_transaction_id()
     assert tid1 == 0xFFFF
     assert tid2 == 0
 
@@ -169,6 +185,31 @@ async def test_protocol_data_received_complete_frame() -> None:
     result = future.result()
     assert hasattr(result, "transaction_id")
     assert result.transaction_id == 1
+
+
+async def test_protocol_data_received_out_of_range_length_resyncs() -> None:
+    """A frame with an out-of-range length must not stall the parser.
+
+    Modbus TCP caps the MBAP length field at 254. A larger value means the buffer
+    is misaligned; the parser must discard it and recover instead of waiting
+    forever for bytes that never arrive, which would desync the connection.
+    """
+    protocol = ModbusTcpProtocol(on_connection_lost=lambda _: None, timeout=10.0)
+    protocol.connection_made(MagicMock(spec=asyncio.WriteTransport))
+
+    future: asyncio.Future[_ModbusMessage] = asyncio.get_event_loop().create_future()
+    protocol._pending_requests[1] = future
+
+    # Header with protocol id 0 but an absurd length (5000), followed by some bytes.
+    protocol.data_received(struct.pack(">HHHB", 1, 0x0000, 5000, 1) + b"\x03\x02\x00\x0a")
+    assert not future.done()  # bogus frame is not delivered
+
+    # A real response for the same transaction id must still be parsed.
+    protocol.data_received(struct.pack(">HHHB", 1, 0x0000, 3, 1) + b"\x03\x99")
+    await asyncio.sleep(0.01)
+
+    assert future.done()
+    assert future.result().pdu_bytes == b"\x03\x99"
 
 
 async def test_protocol_data_received_unexpected_transaction_id() -> None:
@@ -376,6 +417,40 @@ async def test_on_connection_lost_with_error() -> None:
     with patch("tmodbus.transport.async_tcp.logger") as log:
         t._on_connection_lost(test_error)
         log.error.assert_called()
+
+
+async def test_on_connection_lost_user_callback_invoked() -> None:
+    """The user-supplied on_connection_lost callback fires with the causing exception."""
+    calls: list[Exception | None] = []
+    t = AsyncTcpTransport("host", port=1234, on_connection_lost=calls.append)
+    t._transport = MagicMock()
+    t._protocol = MagicMock()
+
+    test_error = RuntimeError("boom")
+    t._on_connection_lost(test_error)
+
+    # Callback receives the exception, and it is called after the transport is torn down,
+    # so the transport already reports itself as closed.
+    assert calls == [test_error]
+    assert not t.is_open()
+
+
+async def test_on_connection_lost_user_callback_error_swallowed() -> None:
+    """A raising on_connection_lost callback must not break protocol teardown."""
+
+    def boom(_exc: Exception | None) -> None:
+        msg = "callback failed"
+        raise ValueError(msg)
+
+    t = AsyncTcpTransport("host", port=1234, on_connection_lost=boom)
+    t._transport = MagicMock()
+    t._protocol = MagicMock()
+
+    # Should not raise despite the callback blowing up.
+    t._on_connection_lost(None)
+
+    assert t._transport is None
+    assert t._protocol is None
 
 
 async def test_close_closes_transport() -> None:

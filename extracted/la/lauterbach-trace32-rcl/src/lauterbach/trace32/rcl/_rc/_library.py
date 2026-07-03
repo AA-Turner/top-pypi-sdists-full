@@ -211,7 +211,6 @@ class Library:
         while read_ptr < msg_len:
             identifier = rbuffer[read_ptr : read_ptr + 2]
             if identifier == b"EM":  # error message
-
                 err_msg_len = int.from_bytes(rbuffer[read_ptr + 2 : read_ptr + 4], byteorder="little")
                 read_ptr += 4
 
@@ -220,7 +219,6 @@ class Library:
                 read_ptr += err_msg_len
 
             elif identifier == b"EC":  # error code
-
                 # err_code_len probably can be fixed to 2, transmission of length maby be omitted that way
                 err_code_len = int.from_bytes(rbuffer[read_ptr + 2 : read_ptr + 4], byteorder="little")
                 read_ptr += 4
@@ -230,7 +228,6 @@ class Library:
                 read_ptr += err_code_len
 
             elif identifier == b"PL":  # payload
-
                 payload_len = int.from_bytes(rbuffer[read_ptr + 2 : read_ptr + 4], byteorder="little")
                 read_ptr += 4
 
@@ -307,7 +304,6 @@ class Library:
                 payload,
             )
         else:
-
             send_data = struct.pack(
                 "<BBBB{}s{}x".format(payload_length, payload_length % 2),
                 msg_len,
@@ -944,7 +940,7 @@ class Library:
                 result = self.generic_api_call(
                     rapi_cmd=RAPI_CMD_DEVICE_SPECIFIC,
                     opt_arg=RAPI_DSCMD_STATE_SETNOTIFIER,
-                    payload=event_mask_value.from_bytes(2, byteorder="little"),
+                    payload=event_mask_value.to_bytes(2, byteorder="little"),
                 )
         except ApiError as e:
             raise ApiNotificationEnableFail() from e

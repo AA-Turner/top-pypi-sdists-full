@@ -59,7 +59,8 @@ class ResourceQuotaSpec(object):
         self.discriminator = None
 
         self.name = name
-        self.nominal_quota = nominal_quota
+        if nominal_quota is not None:
+            self.nominal_quota = nominal_quota
         if lending_limit is not None:
             self.lending_limit = lending_limit
         if borrowing_limit is not None:
@@ -106,8 +107,6 @@ class ResourceQuotaSpec(object):
         :param nominal_quota: The nominal_quota of this ResourceQuotaSpec.  # noqa: E501
         :type: float
         """
-        if self.local_vars_configuration.client_side_validation and nominal_quota is None:  # noqa: E501
-            raise ValueError("Invalid value for `nominal_quota`, must not be `None`")  # noqa: E501
         if (self.local_vars_configuration.client_side_validation and
                 nominal_quota is not None and nominal_quota < 0.0):  # noqa: E501
             raise ValueError("Invalid value for `nominal_quota`, must be a value greater than or equal to `0.0`")  # noqa: E501

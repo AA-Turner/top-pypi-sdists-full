@@ -10,11 +10,28 @@ import subprocess
 import sys
 import threading
 import tokenize as _tokenize_mod
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
 
 from abstra_internals.settings import Settings
+
+
+def _path_to_uri(path) -> str:
+    return Path(path).as_uri()
+
+
+def _uri_to_path(uri: str) -> str:
+    """Filesystem path from a ``file://`` URI, cross-platform.
+
+    Stripping the ``file://`` prefix is WRONG on Windows: ``file:///C:/x`` would
+    become ``/C:/x``. url2pathname maps it back to ``C:\\x`` (and to ``/x`` on
+    POSIX)."""
+    from urllib.parse import unquote, urlparse
+    from urllib.request import url2pathname
+
+    return url2pathname(unquote(urlparse(uri).path))
 
 
 class Position(BaseModel):
@@ -474,8 +491,8 @@ unsupported-operation = "error"
                     f.write(self._PYREFLY_CONFIG)
             except OSError:
                 pass
-            self._uri = "file://" + self._temp_path
-            self._root_uri = "file://" + self._root_path
+            self._uri = _path_to_uri(self._temp_path)
+            self._root_uri = _path_to_uri(self._root_path)
 
     def _ensure_running(self):
         self._resolve_paths()
@@ -642,10 +659,10 @@ unsupported-operation = "error"
             self._last_code = code
 
     def _resolve_uri(self, uri: str) -> str:
-        _, _, root_path = self._assert_paths()
+        self._assert_paths()
         if uri == self._uri:
             return "self"
-        prefix = "file://" + root_path + "/"
+        prefix = (self._root_uri or "") + "/"
         if uri.startswith(prefix):
             relative = uri[len(prefix) :]
             # Pyrefly extracts bundled typeshed in CWD — treat as external
@@ -687,14 +704,27 @@ unsupported-operation = "error"
 
     def get_diagnostics(self, code: str, timeout: float = 5.0) -> list:
         """Sync document and wait for fresh diagnostics from Pyrefly."""
+        diagnostics, _ = self.get_diagnostics_checked(code, timeout)
+        return diagnostics
+
+    def get_diagnostics_checked(
+        self, code: str, timeout: float = 5.0
+    ) -> Tuple[list, bool]:
+        """Like get_diagnostics, but also reports whether Pyrefly answered.
+
+        ``responded`` is False when the publishDiagnostics notification never
+        arrived within ``timeout`` (server dead, unreachable or mute) — so a
+        caller looping over many files can stop hammering a server that will
+        only ever cost a full timeout per file."""
         self._ensure_running()
         uri = self._assert_paths()[0]
         with self._op_lock:
             self._sync_document(code)
             event = self._diagnostics_events.get(uri)
+        responded = True
         if event:
-            event.wait(timeout)
-        return self._diagnostics.get(uri, [])
+            responded = event.wait(timeout)
+        return self._diagnostics.get(uri, []), responded
 
     def get_cached_diagnostics(self) -> list:
         """Return last-known diagnostics without syncing or waiting.
@@ -809,7 +839,7 @@ unsupported-operation = "error"
         try:
             self._notify(
                 "workspace/didChangeWatchedFiles",
-                {"changes": [{"uri": "file://" + abs_path, "type": change_type}]},
+                {"changes": [{"uri": _path_to_uri(abs_path), "type": change_type}]},
             )
         except Exception:
             pass
@@ -821,7 +851,7 @@ unsupported-operation = "error"
         """
         if not file_uri.startswith("file://"):
             return None
-        file_path = os.path.realpath(file_uri[len("file://") :])
+        file_path = os.path.realpath(_uri_to_path(file_uri))
         if not file_path.endswith((".py", ".pyi")):
             return None
         try:
@@ -879,6 +909,15 @@ def get_diagnostics(code: str) -> list:
         return _lsp.get_diagnostics(code)
     except Exception:
         return []
+
+
+def get_diagnostics_checked(code: str) -> Tuple[List[dict], bool]:
+    """Module wrapper: returns (diagnostics, responded). ``responded`` is False
+    when Pyrefly did not answer within the timeout (dead/unreachable/mute)."""
+    try:
+        return _lsp.get_diagnostics_checked(code)
+    except Exception:
+        return [], False
 
 
 def get_cached_diagnostics() -> list:

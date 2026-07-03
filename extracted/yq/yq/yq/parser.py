@@ -1,7 +1,7 @@
 import argparse
 import subprocess
 import sys
-from typing import Union
+from typing import Dict, Union
 
 try:
     from .version import version as __version__
@@ -9,7 +9,7 @@ except ImportError:
     __version__ = "0.0.0"
 
 # jq arguments that consume positionals must be listed here to avoid our parser mistaking them for our positionals
-jq_arg_spec = {
+jq_arg_spec: Dict[str, Union[int, str]] = {
     "--indent": 1,
     "-f": 1,
     "--from-file": 1,
@@ -25,7 +25,7 @@ jq_arg_spec = {
 
 
 class Parser(argparse.ArgumentParser):
-    def print_help(self):
+    def print_help(self, *args, **kwargs):
         yq_help = argparse.ArgumentParser.format_help(self).splitlines()
         print("\n".join(["usage: {} [options] <jq filter> [input file...]".format(self.prog)] + yq_help[2:] + [""]))
         sys.stdout.flush()
@@ -40,7 +40,7 @@ def get_parser(program_name, description):
     yaml_output_help, yaml_roundtrip_help, width_help, indentless_help, grammar_help = [argparse.SUPPRESS] * 5
     explicit_start_help, explicit_end_help = [argparse.SUPPRESS] * 2
     xml_output_help, xml_item_depth_help, xml_dtd_help, xml_root_help, xml_force_list_help = [argparse.SUPPRESS] * 5
-    toml_output_help = argparse.SUPPRESS
+    toml_output_help = toml_roundtrip_help = argparse.SUPPRESS
 
     if program_name == "yq":
         current_language = "YAML"
@@ -51,7 +51,7 @@ def get_parser(program_name, description):
             "in their enclosing mappings and sequences while in JSON. This option "
             "is incompatible with jq filters that do not expect these extra items."
         )
-        width_help = "When using --yaml-output, specify string wrap width"
+        width_help = "When using --yaml-output, specify string wrap width (0 disables wrapping)"
         indentless_help = "When using --yaml-output, indent block style lists (sequences) with 0 spaces instead of 2"
         grammar_help = (
             "When using --yaml-output, specify output grammar (the default is 1.1 and will be changed "
@@ -70,6 +70,10 @@ def get_parser(program_name, description):
     elif program_name == "tomlq":
         current_language = "TOML"
         toml_output_help = "Transcode jq JSON output back into TOML and emit it"
+        toml_roundtrip_help = (
+            "Transcode jq JSON output back into TOML and emit it. Preserve TOML comments, whitespace, "
+            "and other formatting metadata by representing them as extra items while in JSON."
+        )
     else:
         raise Exception("Unknown program name")
 
@@ -116,11 +120,18 @@ def get_parser(program_name, description):
     parser.add_argument(
         "--toml-output", "-t", dest="output_format", action="store_const", const="toml", help=toml_output_help
     )
+    parser.add_argument(
+        "--toml-roundtrip",
+        "-T",
+        dest="output_format",
+        action="store_const",
+        const="annotated_toml",
+        help=toml_roundtrip_help,
+    )
     parser.add_argument("--in-place", "-i", action="store_true", help="Edit files in place (no backup - use caution)")
     parser.add_argument("--version", action="version", version="%(prog)s {version}".format(version=__version__))
 
-    for arg in jq_arg_spec:
-        nargs: Union[int, str] = jq_arg_spec[arg]  # type: ignore
+    for arg, nargs in jq_arg_spec.items():
         parser.add_argument(arg, nargs=nargs, dest=arg, action="append", help=argparse.SUPPRESS)
 
     parser.add_argument("jq_filter", nargs="?")

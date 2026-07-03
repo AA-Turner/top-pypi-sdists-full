@@ -1,8 +1,8 @@
 SHELL=/bin/bash
 
 lint:
-	ruff $$(dirname */__init__.py)
-	mypy --install-types --non-interactive --check-untyped-defs $$(dirname */__init__.py)
+	ruff check $$(dirname */__init__.py)
+	mypy --install-types --non-interactive $$(dirname */__init__.py)
 
 test:
 	python ./test/test.py -v
@@ -18,7 +18,7 @@ install:
 	-rm -rf dist
 	python -m pip install build
 	python -m build
-	python -m pip install --upgrade $$(echo dist/*.whl)[tests]
+	python -m pip install --upgrade $$(echo dist/*.whl)[test]
 
 .PHONY: test lint release docs
 
