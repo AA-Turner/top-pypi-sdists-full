@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from skylos.contracts import load_contract
 from skylos.verify_change import (
     build_verify_change_response,
     parse_line_range,
@@ -54,6 +55,111 @@ def test_build_verify_change_response_filters_to_ai_findings(tmp_path):
     assert finding["range"]["file"] == "app.py"
     assert finding["range"]["start_line"] == 2
     assert finding["suggested_fix"]
+
+
+def test_build_verify_change_response_preserves_finding_metadata(tmp_path):
+    manifest = tmp_path / "package.json"
+    manifest.write_text('{"dependencies": {"ghost": "1.0.0"}}\n')
+    result = {
+        "ai_defects": [
+            {
+                "rule_id": "SKY-D222",
+                "vibe_category": "dependency_hallucination",
+                "ai_likelihood": "high",
+                "severity": "CRITICAL",
+                "file": str(manifest),
+                "line": 1,
+                "message": "Hallucinated dependency.",
+                "metadata": {
+                    "dependency_truth_state": "missing_package",
+                    "dependency_source": "manifest",
+                },
+            },
+        ],
+    }
+
+    payload = build_verify_change_response(result, project_root=tmp_path)
+
+    assert payload["findings"][0]["metadata"] == {
+        "dependency_truth_state": "missing_package",
+        "dependency_source": "manifest",
+    }
+
+
+def test_build_verify_change_response_attaches_evidence_contract(tmp_path):
+    manifest = tmp_path / "package.json"
+    manifest.write_text('{"dependencies": {"ghost": "1.0.0"}}\n')
+    result = {
+        "ai_defects": [
+            {
+                "rule_id": "SKY-D222",
+                "vibe_category": "dependency_hallucination",
+                "ai_likelihood": "high",
+                "severity": "CRITICAL",
+                "file": str(manifest),
+                "line": 1,
+                "message": "Hallucinated dependency.",
+                "metadata": {
+                    "evidence_contract": {
+                        "proof_state": "unknown",
+                        "source": "package manifest",
+                        "sink": "dependency installer",
+                        "symbol": "ghost@1.0.0",
+                        "trace": "package.json:1",
+                    }
+                },
+            },
+        ],
+    }
+
+    payload = build_verify_change_response(result, project_root=tmp_path)
+
+    contract = payload["findings"][0]["evidence_contract"]
+    assert contract["proof_state"] == "incomplete"
+    assert contract["sources"] == ["package manifest"]
+    assert contract["sinks"] == ["dependency installer"]
+    assert "ghost@1.0.0" in contract["symbols"]
+    assert "package.json:1" in contract["traces"]
+    assert any(
+        "must not be treated as verified" in limitation
+        for limitation in contract["limitations"]
+    )
+
+
+def test_build_verify_change_response_keeps_diff_backed_ai_rules(tmp_path):
+    app = tmp_path / ".github" / "workflows" / "ci.yml"
+    app.parent.mkdir(parents=True)
+    app.write_text("permissions: write-all\n", encoding="utf-8")
+
+    payload = build_verify_change_response(
+        {
+            "ai_defects": [
+                {
+                    "rule_id": "SKY-A103",
+                    "vibe_category": "ci_permission_expansion",
+                    "severity": "HIGH",
+                    "file": str(app),
+                    "line": 1,
+                    "message": "CI permissions expanded.",
+                },
+                {
+                    "rule_id": "SKY-A104",
+                    "vibe_category": "public_api_surface_drift",
+                    "severity": "MEDIUM",
+                    "file": str(app),
+                    "line": 1,
+                    "message": "Public CLI flag removed.",
+                },
+            ],
+        },
+        project_root=tmp_path,
+    )
+
+    assert payload["status"] == "fail"
+    assert {finding["rule_id"] for finding in payload["findings"]} == {
+        "SKY-A103",
+        "SKY-A104",
+    }
 
 
 def test_build_verify_change_response_applies_rule_defaults(tmp_path):
@@ -124,6 +230,191 @@ def test_build_verify_change_response_applies_version_hallucination_defaults(tmp
     assert finding["ai_likelihood"] == "high"
 
 
+@pytest.mark.parametrize(
+    ("finding", "clause"),
+    [
+        (
+            {
+                "rule_id": "SKY-L012",
+                "simple_name": "verify_enterprise_auth",
+                "message": "Call to verify_enterprise_auth() is never defined.",
+            },
+            "ai.phantom_symbols.names",
+        ),
+        (
+            {
+                "rule_id": "SKY-L023",
+                "simple_name": "tenant_admin_required",
+                "message": "Decorator is never defined.",
+            },
+            "ai.phantom_symbols.decorators",
+        ),
+        (
+            {
+                "rule_id": "SKY-D222",
+                "message": "Package does not exist.",
+                "metadata": {"package_name": "ghostpkg", "package_version": "1.0.0"},
+            },
+            "ai.dependencies.reject_nonexistent_packages",
+        ),
+        (
+            {
+                "rule_id": "SKY-D225",
+                "message": "Version does not exist.",
+                "metadata": {"package_name": "ghostpkg", "package_version": "9.9.9"},
+            },
+            "ai.dependencies.reject_impossible_versions",
+        ),
+        (
+            {
+                "rule_id": "SKY-D224",
+                "message": "Installed API does not accept keyword argument 'timeout'.",
+            },
+            "ai.api_surface.reject_unknown_kwargs",
+        ),
+        (
+            {
+                "rule_id": "SKY-D224",
+                "message": "Installed API does not expose this member.",
+            },
+            "ai.api_surface.reject_unknown_members",
+        ),
+        (
+            {
+                "rule_id": "SKY-A102",
+                "message": "High-risk code changed without tests.",
+            },
+            "tests.high_risk_changes_require_tests",
+        ),
+        (
+            {
+                "rule_id": "SKY-A105",
+                "message": "Route is missing a contract-required guard decorator.",
+            },
+            "security.routes.require_any_decorator",
+        ),
+    ],
+)
+def test_build_verify_change_response_adds_contract_metadata(
+    tmp_path, finding, clause
+):
+    app = tmp_path / "app.py"
+    app.write_text("pass\n", encoding="utf-8")
+    contract_file = tmp_path / "ai-contract.yml"
+    contract_file.write_text(
+        "version: 1\n"
+        "id: enterprise-auth-contract\n"
+        "ai:\n"
+        "  phantom_symbols:\n"
+        "    names: [verify_enterprise_auth]\n"
+        "    decorators: [tenant_admin_required]\n"
+        "  dependencies:\n"
+        "    reject_nonexistent_packages: true\n"
+        "    reject_impossible_versions: true\n"
+        "  api_surface:\n"
+        "    reject_unknown_members: true\n"
+        "    reject_unknown_kwargs: true\n"
+        "security:\n"
+        "  routes:\n"
+        "    paths: [apps/api/**]\n"
+        "    require_any_decorator: [login_required]\n"
+        "tests:\n"
+        "  high_risk_changes_require_tests: true\n",
+        encoding="utf-8",
+    )
+    contract = load_contract(contract_file)
+    finding = {
+        "severity": "HIGH",
+        "file": str(app),
+        "line": 1,
+        **finding,
+    }
+
+    payload = build_verify_change_response(
+        {"ai_defects": [finding]},
+        project_root=tmp_path,
+        contract=contract,
+    )
+
+    normalized = payload["findings"][0]
+    assert normalized["contract_id"] == "enterprise-auth-contract"
+    assert normalized["contract_clause"] == clause
+    assert normalized["contract_path"] == str(contract.path)
+    assert normalized["contract_reason"]
+
+
+def test_build_verify_change_response_skips_unmatched_contract_metadata(tmp_path):
+    app = tmp_path / "app.py"
+    app.write_text("pass\n", encoding="utf-8")
+    contract_file = tmp_path / "ai-contract.yml"
+    contract_file.write_text(
+        "version: 1\n"
+        "ai:\n"
+        "  phantom_symbols:\n"
+        "    names: [verify_enterprise_auth]\n",
+        encoding="utf-8",
+    )
+    contract = load_contract(contract_file)
+
+    payload = build_verify_change_response(
+        {
+            "ai_defects": [
+                {
+                    "rule_id": "SKY-L012",
+                    "severity": "HIGH",
+                    "file": str(app),
+                    "line": 1,
+                    "simple_name": "validate_token",
+                    "message": "Call to validate_token() is never defined.",
+                }
+            ]
+        },
+        project_root=tmp_path,
+        contract=contract,
+    )
+
+    assert "contract_clause" not in payload["findings"][0]
+
+
+def test_build_verify_change_response_skips_suspicious_dependency_contract_metadata(
+    tmp_path,
+):
+    app = tmp_path / "app.py"
+    app.write_text("pass\n", encoding="utf-8")
+    contract_file = tmp_path / "ai-contract.yml"
+    contract_file.write_text(
+        "version: 1\n"
+        "ai:\n"
+        "  dependencies:\n"
+        "    reject_nonexistent_packages: true\n",
+        encoding="utf-8",
+    )
+    contract = load_contract(contract_file)
+
+    payload = build_verify_change_response(
+        {
+            "ai_defects": [
+                {
+                    "rule_id": "SKY-D222",
+                    "severity": "HIGH",
+                    "file": str(app),
+                    "line": 1,
+                    "message": "Suspicious existing PyPI dependency.",
+                    "metadata": {
+                        "package_name": "reqeusts",
+                        "package_version": "1.0.0",
+                        "dependency_truth_state": "suspicious_existing",
+                    },
+                }
+            ]
+        },
+        project_root=tmp_path,
+        contract=contract,
+    )
+
+    assert "contract_clause" not in payload["findings"][0]
+
+
 def test_build_verify_change_response_skips_dependency_import_defaults(tmp_path):
     app = tmp_path / "app.py"
     app.write_text("import requests\n", encoding="utf-8")
@@ -142,6 +433,94 @@ def test_build_verify_change_response_skips_dependency_import_defaults(tmp_path)
     payload = build_verify_change_response(result, project_root=tmp_path)
 
     assert payload["findings"] == []
+
+
+def test_build_verify_change_response_includes_security_only_when_requested(tmp_path):
+    app = tmp_path / "app.py"
+    app.write_text("pickle.loads(request.data)\n", encoding="utf-8")
+    result = {
+        "danger": [
+            {
+                "rule_id": "SKY-D205",
+                "severity": "CRITICAL",
+                "file": str(app),
+                "line": 1,
+                "message": "Untrusted deserialization via pickle.loads",
+            }
+        ]
+    }
+
+    default_payload = build_verify_change_response(result, project_root=tmp_path)
+    security_payload = build_verify_change_response(
+        result,
+        project_root=tmp_path,
+        include_security_findings=True,
+    )
+
+    assert default_payload["findings"] == []
+    assert security_payload["findings"][0]["rule_id"] == "SKY-D205"
+    assert security_payload["findings"][0]["category"] == "security"
+    assert security_payload["findings"][0]["severity"] == "CRITICAL"
+
+
+def test_build_verify_change_response_includes_missing_auth_and_swallowed_errors(tmp_path):
+    app = tmp_path / "app.py"
+    app.write_text("pass\n", encoding="utf-8")
+    result = {
+        "quality": [
+            {
+                "rule_id": "SKY-F102",
+                "severity": "MEDIUM",
+                "file": str(app),
+                "line": 4,
+                "message": "Mutating route has no obvious auth guard.",
+            },
+            {
+                "rule_id": "SKY-L030",
+                "severity": "MEDIUM",
+                "file": str(app),
+                "line": 9,
+                "message": "Catching broad 'Exception' with a trivial handler.",
+            },
+        ]
+    }
+
+    payload = build_verify_change_response(result, project_root=tmp_path)
+
+    rule_ids = [finding["rule_id"] for finding in payload["findings"]]
+    assert rule_ids == ["SKY-F102", "SKY-L030"]
+    assert payload["findings"][0]["vibe_category"] == "missing_auth_guard"
+    assert payload["findings"][1]["vibe_category"] == "swallowed_error"
+
+
+def test_build_verify_change_response_includes_missing_auth_and_swallowed_vibes(tmp_path):
+    app = tmp_path / "app.py"
+    app.write_text("pass\n", encoding="utf-8")
+    result = {
+        "quality": [
+            {
+                "rule_id": "CUSTOM-AUTH",
+                "vibe_category": "missing_auth_guard",
+                "severity": "MEDIUM",
+                "file": str(app),
+                "line": 4,
+                "message": "Mutating route has no obvious auth guard.",
+            },
+            {
+                "rule_id": "CUSTOM-ASYNC",
+                "vibe_category": "swallowed_error",
+                "severity": "MEDIUM",
+                "file": str(app),
+                "line": 9,
+                "message": "Catching broad 'Exception' with a trivial handler.",
+            },
+        ]
+    }
+
+    payload = build_verify_change_response(result, project_root=tmp_path)
+
+    rule_ids = [finding["rule_id"] for finding in payload["findings"]]
+    assert rule_ids == ["CUSTOM-AUTH", "CUSTOM-ASYNC"]
 
 
 def test_build_verify_change_response_filters_target_file_and_range(tmp_path):
@@ -255,6 +634,307 @@ def test_verify_change_path_can_include_dependency_hallucinations(tmp_path):
     assert seen["kwargs"]["changed_files"] == [str(app)]
 
 
+def test_verify_change_path_can_include_security_findings(tmp_path):
+    app = tmp_path / "app.py"
+    app.write_text("pickle.loads(request.data)\n", encoding="utf-8")
+    seen = {}
+
+    def fake_analyze(*_args, **kwargs):
+        seen["kwargs"] = kwargs
+        return json.dumps(
+            {
+                "danger": [
+                    {
+                        "rule_id": "SKY-D205",
+                        "severity": "CRITICAL",
+                        "file": str(app),
+                        "line": 1,
+                        "message": "Untrusted deserialization via pickle.loads",
+                    }
+                ]
+            }
+        )
+
+    payload = verify_change_path(
+        app,
+        include_security_findings=True,
+        analyze_func=fake_analyze,
+    )
+
+    assert payload["status"] == "fail"
+    assert payload["findings"][0]["rule_id"] == "SKY-D205"
+    assert payload["findings"][0]["category"] == "security"
+    assert seen["kwargs"]["enable_ai_defects"] is True
+    assert seen["kwargs"]["enable_dependency_hallucinations"] is False
+    assert seen["kwargs"]["enable_danger"] is True
+    assert seen["kwargs"]["changed_files"] == [str(app)]
+
+
+def test_verify_change_path_contract_enables_project_vibe_override(tmp_path):
+    app = tmp_path / "app.py"
+    app.write_text("def handler(request):\n    return verify_enterprise_auth(request)\n")
+    contract = tmp_path / ".skylos" / "ai-contract.yml"
+    contract.parent.mkdir()
+    contract.write_text(
+        "version: 1\n"
+        "ai:\n"
+        "  phantom_symbols:\n"
+        "    names: [verify_enterprise_auth]\n",
+        encoding="utf-8",
+    )
+
+    payload = verify_change_path(app, contract_path=contract)
+
+    assert payload["status"] == "fail"
+    contract_finding = next(
+        finding
+        for finding in payload["findings"]
+        if finding["rule_id"] == "SKY-L012"
+        and finding["vibe_category"] == "hallucinated_reference"
+    )
+    assert contract_finding["contract_clause"] == "ai.phantom_symbols.names"
+    assert contract_finding["contract_path"] == str(contract.resolve())
+    assert (
+        "verify_enterprise_auth" in contract_finding["contract_reason"]
+    )
+    assert any(
+        finding["rule_id"] == "SKY-L012"
+        and finding["vibe_category"] == "hallucinated_reference"
+        for finding in payload["findings"]
+    )
+
+
+def test_verify_change_path_auto_discovers_default_contract_from_parent(tmp_path):
+    app = tmp_path / "src" / "app.py"
+    app.parent.mkdir()
+    app.write_text("def handler(request):\n    return verify_enterprise_auth(request)\n")
+    contract = tmp_path / ".skylos" / "ai-contract.yml"
+    contract.parent.mkdir()
+    contract.write_text(
+        "version: 1\n"
+        "ai:\n"
+        "  phantom_symbols:\n"
+        "    names: [verify_enterprise_auth]\n",
+        encoding="utf-8",
+    )
+    seen = {}
+
+    def fake_analyze(*_args, **kwargs):
+        seen["kwargs"] = kwargs
+        return json.dumps({})
+
+    payload = verify_change_path(app, analyze_func=fake_analyze)
+
+    assert payload["status"] == "pass"
+    assert seen["kwargs"]["project_config_overrides"] == {
+        "vibe": {"extra_phantom_names": ["verify_enterprise_auth"]}
+    }
+
+
+def test_verify_change_path_can_disable_auto_discovered_contract(tmp_path):
+    app = tmp_path / "src" / "app.py"
+    app.parent.mkdir()
+    app.write_text("import requests\n")
+    contract = tmp_path / ".skylos" / "ai-contract.yml"
+    contract.parent.mkdir()
+    contract.write_text(
+        "version: 1\n"
+        "ai:\n"
+        "  dependencies:\n"
+        "    reject_impossible_versions: true\n",
+        encoding="utf-8",
+    )
+    seen = {}
+
+    def fake_analyze(*_args, **kwargs):
+        seen["kwargs"] = kwargs
+        return json.dumps({})
+
+    payload = verify_change_path(
+        app,
+        contract_enabled=False,
+        analyze_func=fake_analyze,
+    )
+
+    assert payload["status"] == "pass"
+    assert seen["kwargs"]["enable_dependency_hallucinations"] is False
+    assert "project_config_overrides" not in seen["kwargs"]
+
+
+def test_verify_change_path_rejects_explicit_contract_when_disabled(tmp_path):
+    app = tmp_path / "app.py"
+    app.write_text("pass\n")
+    contract = tmp_path / ".skylos" / "ai-contract.yml"
+    contract.parent.mkdir()
+    contract.write_text("version: 1\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="contracts are disabled"):
+        verify_change_path(app, contract_path=contract, contract_enabled=False)
+
+
+def test_verify_change_path_resolves_relative_contract_from_cwd_for_file_target(
+    tmp_path, monkeypatch
+):
+    app_dir = tmp_path / "src"
+    app_dir.mkdir()
+    app = app_dir / "app.py"
+    app.write_text("def handler(request):\n    return verify_enterprise_auth(request)\n")
+    contract = tmp_path / ".skylos" / "ai-contract.yml"
+    contract.parent.mkdir()
+    contract.write_text(
+        "version: 1\n"
+        "ai:\n"
+        "  phantom_symbols:\n"
+        "    names: [verify_enterprise_auth]\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    payload = verify_change_path(app, contract_path=".skylos/ai-contract.yml")
+
+    assert payload["status"] == "fail"
+    assert any(finding["rule_id"] == "SKY-L012" for finding in payload["findings"])
+
+
+def test_verify_change_path_contract_options_pass_to_analyzer(tmp_path):
+    app = tmp_path / "app.py"
+    app.write_text("import requests\n")
+    contract = tmp_path / "ai-contract.yml"
+    contract.write_text(
+        "version: 1\n"
+        "ai:\n"
+        "  phantom_symbols:\n"
+        "    names: [verify_enterprise_auth]\n"
+        "  dependencies:\n"
+        "    reject_impossible_versions: true\n",
+        encoding="utf-8",
+    )
+    seen = {}
+
+    def fake_analyze(*_args, **kwargs):
+        seen["kwargs"] = kwargs
+        return json.dumps({})
+
+    payload = verify_change_path(app, contract_path=contract, analyze_func=fake_analyze)
+
+    assert payload["status"] == "pass"
+    assert seen["kwargs"]["enable_dependency_hallucinations"] is True
+    assert seen["kwargs"]["project_config_overrides"] == {
+        "vibe": {"extra_phantom_names": ["verify_enterprise_auth"]}
+    }
+
+
+def test_verify_change_path_contract_routes_require_guard_decorator(tmp_path):
+    app = tmp_path / "apps" / "api" / "routes.py"
+    app.parent.mkdir(parents=True)
+    app.write_text(
+        "from flask import Flask\n"
+        "app = Flask(__name__)\n\n"
+        "@app.route('/admin')\n"
+        "def admin():\n"
+        "    return {}\n",
+        encoding="utf-8",
+    )
+    contract = tmp_path / ".skylos" / "ai-contract.yml"
+    contract.parent.mkdir()
+    contract.write_text(
+        "version: 1\n"
+        "security:\n"
+        "  routes:\n"
+        "    paths: [apps/api/**]\n"
+        "    require_any_decorator: [login_required]\n",
+        encoding="utf-8",
+    )
+
+    payload = verify_change_path(
+        tmp_path,
+        contract_path=contract,
+        analyze_func=lambda *_args, **_kwargs: {},
+    )
+
+    assert payload["status"] == "fail"
+    finding = next(
+        finding
+        for finding in payload["findings"]
+        if finding["rule_id"] == "SKY-A105"
+    )
+    assert finding["vibe_category"] == "missing_contract_guardrail"
+    assert finding["contract_clause"] == "security.routes.require_any_decorator"
+    assert finding["range"]["file"] == "apps/api/routes.py"
+    assert "@login_required" in finding["message"]
+
+
+def test_verify_change_path_contract_routes_accept_custom_guard_decorator(tmp_path):
+    app = tmp_path / "apps" / "api" / "routes.py"
+    app.parent.mkdir(parents=True)
+    app.write_text(
+        "from flask import Flask\n"
+        "app = Flask(__name__)\n\n"
+        "def tenant_admin_required(fn):\n"
+        "    return fn\n\n"
+        "@app.route('/admin')\n"
+        "@tenant_admin_required\n"
+        "def admin():\n"
+        "    return {}\n",
+        encoding="utf-8",
+    )
+    contract = tmp_path / ".skylos" / "ai-contract.yml"
+    contract.parent.mkdir()
+    contract.write_text(
+        "version: 1\n"
+        "security:\n"
+        "  routes:\n"
+        "    paths: [apps/api/**]\n"
+        "    require_any_decorator: [tenant_admin_required]\n",
+        encoding="utf-8",
+    )
+
+    payload = verify_change_path(
+        tmp_path,
+        contract_path=contract,
+        analyze_func=lambda *_args, **_kwargs: {},
+    )
+
+    assert not any(
+        finding["rule_id"] == "SKY-A105"
+        for finding in payload["findings"]
+    )
+
+
+def test_verify_change_path_contract_routes_respect_path_scope(tmp_path):
+    app = tmp_path / "tools" / "routes.py"
+    app.parent.mkdir(parents=True)
+    app.write_text(
+        "from flask import Flask\n"
+        "app = Flask(__name__)\n\n"
+        "@app.route('/admin')\n"
+        "def admin():\n"
+        "    return {}\n",
+        encoding="utf-8",
+    )
+    contract = tmp_path / ".skylos" / "ai-contract.yml"
+    contract.parent.mkdir()
+    contract.write_text(
+        "version: 1\n"
+        "security:\n"
+        "  routes:\n"
+        "    paths: [apps/api/**]\n"
+        "    require_any_decorator: [login_required]\n",
+        encoding="utf-8",
+    )
+
+    payload = verify_change_path(
+        tmp_path,
+        contract_path=contract,
+        analyze_func=lambda *_args, **_kwargs: {},
+    )
+
+    assert not any(
+        finding["rule_id"] == "SKY-A105"
+        for finding in payload["findings"]
+    )
+
+
 def test_verify_change_path_uses_target_file_for_changed_files(tmp_path):
     app = tmp_path / "src" / "app.py"
     app.parent.mkdir()
@@ -291,6 +971,39 @@ def test_verify_change_stdin_payload_uses_manifest_file_for_schema():
     assert payload["target"]["file"] == "src/app.py"
     assert payload["target"]["range"] == {"start_line": 2, "end_line": 2}
     assert any(f["range"]["file"] == "src/app.py" for f in payload["findings"])
+
+
+def test_verify_change_stdin_payload_discovers_contract_from_manifest_path(tmp_path):
+    app = tmp_path / "src" / "app.py"
+    app.parent.mkdir()
+    contract = tmp_path / ".skylos" / "ai-contract.yml"
+    contract.parent.mkdir()
+    contract.write_text(
+        "version: 1\n"
+        "ai:\n"
+        "  phantom_symbols:\n"
+        "    names: [verify_enterprise_auth]\n",
+        encoding="utf-8",
+    )
+    seen = {}
+
+    def fake_analyze(*_args, **kwargs):
+        seen["kwargs"] = kwargs
+        return json.dumps({})
+
+    payload = verify_change_stdin_payload(
+        {
+            "path": str(tmp_path),
+            "file": "src/app.py",
+            "code": "def handler(request):\n    return verify_enterprise_auth(request)\n",
+        },
+        analyze_func=fake_analyze,
+    )
+
+    assert payload["status"] == "pass"
+    assert seen["kwargs"]["project_config_overrides"] == {
+        "vibe": {"extra_phantom_names": ["verify_enterprise_auth"]}
+    }
 
 
 def test_verify_change_stdin_payload_rejects_absolute_manifest_file():

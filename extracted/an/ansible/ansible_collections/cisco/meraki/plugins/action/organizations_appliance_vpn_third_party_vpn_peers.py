@@ -48,7 +48,7 @@ class OrganizationsApplianceVpnThirdPartyVpnpeers(object):
         self.meraki = meraki
         self.new_object = dict(
             peers=params.get("peers"),
-            organizationId=params.get("organizationId"),
+            organization_id=params.get("organizationId"),
         )
 
     def get_all_params(self, name=None, id=None):

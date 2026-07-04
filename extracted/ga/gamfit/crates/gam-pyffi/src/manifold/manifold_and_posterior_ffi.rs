@@ -1470,25 +1470,27 @@ fn difference_smooth_json_impl(model_bytes: &[u8], request_json: &str) -> Result
         if template.contains_key(name) {
             continue;
         }
-        if column
-            .get("kind")
-            .and_then(|raw| raw.as_str())
-            .is_some_and(|kind| kind == "categorical")
-        {
-            let value = column
-                .get("levels")
-                .and_then(|raw| raw.as_array())
-                .and_then(|values| values.first())
-                .and_then(json_value_to_row_string)
-                .unwrap_or_else(|| "0".to_string());
-            template.insert(name.clone(), value);
-        } else {
-            let value = ranges
-                .get(idx)
-                .map(|(a, b)| 0.5 * (a + b))
-                .filter(|value| value.is_finite())
-                .unwrap_or(0.0);
-            template.insert(name.clone(), value.to_string());
+        match column.get("kind").and_then(|raw| raw.as_str()) {
+            Some("categorical") => {
+                let value = column
+                    .get("levels")
+                    .and_then(|raw| raw.as_array())
+                    .and_then(|values| values.first())
+                    .and_then(json_value_to_row_string)
+                    .unwrap_or_else(|| "0".to_string());
+                template.insert(name.clone(), value);
+            }
+            Some("binary") => {
+                template.insert(name.clone(), "0".to_string());
+            }
+            _ => {
+                let value = ranges
+                    .get(idx)
+                    .map(|(a, b)| 0.5 * (a + b))
+                    .filter(|value| value.is_finite())
+                    .unwrap_or(0.0);
+                template.insert(name.clone(), value.to_string());
+            }
         }
     }
 
@@ -2497,7 +2499,7 @@ fn curvature_inference_json_impl(
     // the model's own family. We replace the materialized (default-κ) spec with
     // the FITTED spec so the V_p oracle profiles around κ̂ — only κ moves.
     let dataset = dataset_with_inferred_schema(headers, rows)?;
-    let (fit_config, _table_kind) = parse_fit_config(None)?;
+    let fit_config = postfit_standard_materialization_config(&model)?;
     let materialized = materialize(&formula, &dataset, &fit_config)?;
     let standard = match materialized.request {
         FitRequest::Standard(request) => request,
@@ -2586,7 +2588,7 @@ fn smooth_term_lr_inference_json_impl(
     }
 
     let dataset = dataset_with_inferred_schema(headers, rows)?;
-    let (fit_config, _table_kind) = parse_fit_config(None)?;
+    let fit_config = postfit_standard_materialization_config(&model)?;
     let materialized = materialize(&formula, &dataset, &fit_config)?;
     let standard = match materialized.request {
         FitRequest::Standard(request) => request,
@@ -2632,6 +2634,13 @@ fn smooth_term_lr_inference_json_impl(
     let payload = SmoothTermLrPayload { smooth_terms };
     serde_json::to_string(&payload)
         .map_err(|err| format!("failed to serialize smooth-term LR inference: {err}"))
+}
+
+fn postfit_standard_materialization_config(model: &FittedModel) -> Result<FitConfig, String> {
+    let (mut fit_config, _table_kind) = parse_fit_config(None)?;
+    fit_config.weight_column = model.weight_column.clone();
+    fit_config.offset_column = model.offset_column.clone();
+    Ok(fit_config)
 }
 
 fn check_json_impl(

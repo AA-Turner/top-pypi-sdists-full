@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True, order=True)
@@ -32,7 +32,6 @@ class Route:
         Optional constructor for a Route with more permissive input types.
 
         Example:
-
             Route.new(
                 heads={"foo"},
                 middle=["bar", "baz"],
@@ -52,7 +51,6 @@ class Route:
         Optional constructor for a Route with a single chain.
 
         Example:
-
             Route.single_chained("foo", "bar", "baz")
 
         """
@@ -89,7 +87,6 @@ class PackageDependency:
         Optional constructor for a PackageDependency with more permissive input types.
 
         Example:
-
             PackageDependency.new(
                 importer="foo",
                 imported="bar",

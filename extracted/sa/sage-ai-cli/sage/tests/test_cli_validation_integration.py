@@ -106,13 +106,13 @@ class TestCLIValidationPipeline:
 
     def test_execute_request_with_validation_exists(self):
         """The validation wrapper must exist."""
-        from sage.main import _execute_request_with_validation
+        from sage.cli_core import _execute_request_with_validation
 
         assert callable(_execute_request_with_validation)
 
     def test_validation_checks_file_reads(self):
         """Analysis requests should validate file read sufficiency."""
-        from sage.main import _execute_request_with_validation
+        from sage.cli_core import _execute_request_with_validation
 
         # Mock LLM that returns generic advice without reading files
         with patch("sage.main._call_llm") as mock_llm:
@@ -144,7 +144,7 @@ Here are 10 improvements for your codebase:
 
     def test_validation_detects_tool_descriptions(self):
         """Should detect when model describes tools instead of executing."""
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         # Response that only describes tools
         descriptive = """
@@ -200,7 +200,7 @@ However, based on my analysis:
 
     def test_analysis_claiming_no_context_without_reads(self):
         """Analysis that claims lack of context without reading files should be invalid."""
-        from sage.main import _validate_analysis_response
+        from sage.cli_core import _validate_analysis_response
 
         # Response that admits lack of context but provides advice anyway
         response = """
@@ -228,7 +228,7 @@ However, here are some general suggestions:
 
     def test_analysis_with_reads_is_valid(self):
         """Analysis with actual file reads should be valid."""
-        from sage.main import _validate_analysis_response
+        from sage.cli_core import _validate_analysis_response
 
         response = """
 Based on reading backend/app.py and backend/config.py:
@@ -259,7 +259,7 @@ class TestGroundingFailureLoop:
 
     def test_repeated_grounding_violations_trigger_loop(self):
         """Multiple grounding violations should trigger failure loop."""
-        from sage.main import FailureLoopDetector
+        from sage.cli_core import FailureLoopDetector
 
         detector = FailureLoopDetector(max_identical_errors=3)
 
@@ -275,7 +275,7 @@ class TestGroundingFailureLoop:
 
     def test_validation_failures_tracked(self):
         """Validation failures should be tracked for loop detection."""
-        from sage.main import FailureLoopDetector
+        from sage.cli_core import FailureLoopDetector
 
         detector = FailureLoopDetector()
 
@@ -325,7 +325,7 @@ class TestStreamingRejectionFlow:
 
     def test_rejection_feeds_failure_loop_detector(self):
         """Streaming rejections should be recorded in failure loop detector."""
-        from sage.main import FailureLoopDetector
+        from sage.cli_core import FailureLoopDetector
 
         detector = FailureLoopDetector(max_identical_errors=3)
 
@@ -350,7 +350,7 @@ class TestParsingContract:
     def test_main_uses_shell_parser(self):
         """main._parse_test_output should be from shell.py, not redefined."""
         from sage.core.shell import parse_test_output
-        from sage.main import _parse_test_output
+        from sage.cli_core import _parse_test_output
 
         # Verify they produce the same results
         test_output = "===== 5 passed, 2 failed in 3.1s ====="
@@ -390,7 +390,7 @@ class TestRecoveryPrompts:
 
     def test_recovery_prompt_constants_exist(self):
         """Recovery prompt constants should exist for streaming rejection."""
-        from sage.main import _TOOL_FORMAT_RECOVERY_PROMPT
+        from sage.cli_core import _TOOL_FORMAT_RECOVERY_PROMPT
 
         assert _TOOL_FORMAT_RECOVERY_PROMPT is not None
         assert len(_TOOL_FORMAT_RECOVERY_PROMPT) > 50  # Non-trivial prompt

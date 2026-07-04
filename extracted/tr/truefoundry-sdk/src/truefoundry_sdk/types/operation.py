@@ -9,7 +9,7 @@ T_Result = typing.TypeVar("T_Result")
 
 class Operation(enum.StrEnum):
     """
-    An enumeration.
+    Operation the signed URLs should permit (READ or WRITE).
     """
 
     READ = "READ"

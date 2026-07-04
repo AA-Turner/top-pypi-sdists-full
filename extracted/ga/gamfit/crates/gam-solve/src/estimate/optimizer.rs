@@ -632,60 +632,64 @@ where
                 );
             }
             let problem = OuterProblem::new(k)
-            .with_gradient(Derivative::Analytic)
-            .with_hessian(if analytic_outer_hessian_available {
-                DeclaredHessianForm::Either
-            } else {
-                DeclaredHessianForm::Unavailable
-            })
-            .with_prefer_gradient_only(prefer_gradient_only)
-            .with_continuation_prewarm(continuation_prewarm)
-            .with_barrier(
-                crate::estimate::reml::reml_outer_engine::BarrierConfig::from_constraints(
-                    fit_linear_constraints.as_ref(),
-                ),
-            )
-            .with_tolerance(reml_tol)
-            .with_max_iter(reml_max_iter)
-            .with_seed_config(reml_seed_config)
-            .with_screening_cap(Arc::clone(&reml_state.screening_max_inner_iterations))
-            .with_outer_inner_cap(reml_inner_progress_feedback(&reml_state))
-            // n-scaled absolute gradient floor for EVERY family (#1082).
-            //
-            // The REML/LAML profiled criterion is a sum over n rows
-            // (deviance / −2·loglik + the penalty/logdet terms), so it and its
-            // ∂/∂logλ gradient inherit an O(n) scale for Poisson, NB, binomial,
-            // Tweedie, beta — exactly as for Gaussian-identity. The previous gate
-            // restricted `with_objective_scale` to the Gaussian-identity arm on
-            // the (incorrect) premise that only that criterion is O(n). For a
-            // non-Gaussian tensor/cyclic/CI/badhealth fit at n≈1.5k–5k the fixed
-            // `abs = tol ≈ 1e-6` gradient floor is then orders of magnitude below
-            // the n-scaled gradient's converged residual: the relative-from-seed
-            // test declares convergence iters earlier, but the binding abs floor
-            // keeps the outer optimizer chasing sub-floor log-λ changes, paying a
-            // full k²·n·p² LAML-Hessian assembly per phantom iteration until it
-            // exhausts the iteration budget — the #1082 outer-loop "cycling"
-            // timeout. Lifting the floor to ~n·1e-9 (the same calibration the
-            // spatial/custom-family outer already uses via `with_problem_size`,
-            // #1053/#1066/#1069) lets the loop terminate as soon as the relative
-            // reduction is met, for every family, while the relative-to-cost
-            // component still owns the actual convergence decision. ARC σ and the
-            // initial trust radius stay Gaussian-gated: those exploit the
-            // Gaussian profile being quadratic-in-log-λ, which is family-specific.
-            .with_objective_scale(Some(n_obs as f64))
-            .with_problem_size(n_obs, x_o.ncols())
-            .with_arc_initial_regularization(if gaussian_identity { Some(0.25) } else { None })
-            .with_operator_initial_trust_radius(if gaussian_identity { Some(4.0) } else { None })
-            .with_rho_bound(crate::estimate::RHO_BOUND)
-            // Make the outer smoothing-parameter search invariant to the order
-            // the smooth terms / tensor margins were written (#1538/#1539). The
-            // structural keys label each ρ-coordinate by its placement-
-            // independent penalty content, so the optimizer canonicalizes the
-            // coordinate layout and resolves the flat double-penalty REML valley
-            // identically for `s(x)+s(z)` vs `s(z)+s(x)` and `te(x,z)` vs
-            // `te(z,x)`. `None` (coordinate count not matching ρ-dim) leaves the
-            // native-order path unchanged.
-            .with_rho_canonical_keys(canon_keys.clone());
+                .with_gradient(Derivative::Analytic)
+                .with_hessian(if analytic_outer_hessian_available {
+                    DeclaredHessianForm::Either
+                } else {
+                    DeclaredHessianForm::Unavailable
+                })
+                .with_prefer_gradient_only(prefer_gradient_only)
+                .with_continuation_prewarm(continuation_prewarm)
+                .with_barrier(
+                    crate::estimate::reml::reml_outer_engine::BarrierConfig::from_constraints(
+                        fit_linear_constraints.as_ref(),
+                    ),
+                )
+                .with_tolerance(reml_tol)
+                .with_max_iter(reml_max_iter)
+                .with_seed_config(reml_seed_config)
+                .with_screening_cap(Arc::clone(&reml_state.screening_max_inner_iterations))
+                .with_outer_inner_cap(reml_inner_progress_feedback(&reml_state))
+                // n-scaled absolute gradient floor for EVERY family (#1082).
+                //
+                // The REML/LAML profiled criterion is a sum over n rows
+                // (deviance / −2·loglik + the penalty/logdet terms), so it and its
+                // ∂/∂logλ gradient inherit an O(n) scale for Poisson, NB, binomial,
+                // Tweedie, beta — exactly as for Gaussian-identity. The previous gate
+                // restricted `with_objective_scale` to the Gaussian-identity arm on
+                // the (incorrect) premise that only that criterion is O(n). For a
+                // non-Gaussian tensor/cyclic/CI/badhealth fit at n≈1.5k–5k the fixed
+                // `abs = tol ≈ 1e-6` gradient floor is then orders of magnitude below
+                // the n-scaled gradient's converged residual: the relative-from-seed
+                // test declares convergence iters earlier, but the binding abs floor
+                // keeps the outer optimizer chasing sub-floor log-λ changes, paying a
+                // full k²·n·p² LAML-Hessian assembly per phantom iteration until it
+                // exhausts the iteration budget — the #1082 outer-loop "cycling"
+                // timeout. Lifting the floor to ~n·1e-9 (the same calibration the
+                // spatial/custom-family outer already uses via `with_problem_size`,
+                // #1053/#1066/#1069) lets the loop terminate as soon as the relative
+                // reduction is met, for every family, while the relative-to-cost
+                // component still owns the actual convergence decision. ARC σ and the
+                // initial trust radius stay Gaussian-gated: those exploit the
+                // Gaussian profile being quadratic-in-log-λ, which is family-specific.
+                .with_objective_scale(Some(n_obs as f64))
+                .with_problem_size(n_obs, x_o.ncols())
+                .with_arc_initial_regularization(if gaussian_identity { Some(0.25) } else { None })
+                .with_operator_initial_trust_radius(if gaussian_identity {
+                    Some(4.0)
+                } else {
+                    None
+                })
+                .with_rho_bound(crate::estimate::RHO_BOUND)
+                // Make the outer smoothing-parameter search invariant to the order
+                // the smooth terms / tensor margins were written (#1538/#1539). The
+                // structural keys label each ρ-coordinate by its placement-
+                // independent penalty content, so the optimizer canonicalizes the
+                // coordinate layout and resolves the flat double-penalty REML valley
+                // identically for `s(x)+s(z)` vs `s(z)+s(x)` and `te(x,z)` vs
+                // `te(z,x)`. `None` (coordinate count not matching ρ-dim) leaves the
+                // native-order path unchanged.
+                .with_rho_canonical_keys(canon_keys.clone());
             let problem = if let Some(h) = heuristic_lambdas {
                 problem.with_heuristic_lambdas(h.to_vec())
             } else {
@@ -924,10 +928,10 @@ where
 
             let obj = problem.build_objective_with_screening_proxy(
                 &mut reml_state,
-                |state: &mut &mut crate::estimate::reml::RemlState<'_>,
-                 rho: &Array1<f64>| { state.compute_cost(rho) },
-                |state: &mut &mut crate::estimate::reml::RemlState<'_>,
-                 rho: &Array1<f64>| {
+                |state: &mut &mut crate::estimate::reml::RemlState<'_>, rho: &Array1<f64>| {
+                    state.compute_cost(rho)
+                },
+                |state: &mut &mut crate::estimate::reml::RemlState<'_>, rho: &Array1<f64>| {
                     outer_eval_idx.fetch_add(1, Ordering::Relaxed);
                     state.compute_outer_eval_with_order(
                         rho,
@@ -944,17 +948,17 @@ where
                     outer_eval_idx.fetch_add(1, Ordering::Relaxed);
                     state.compute_outer_eval_with_order(rho, order)
                 },
+                Some(|state: &mut &mut crate::estimate::reml::RemlState<'_>| {
+                    state.reset_outer_seed_state()
+                }),
                 Some(
-                    |state: &mut &mut crate::estimate::reml::RemlState<'_>| {
-                        state.reset_outer_seed_state()
+                    |state: &mut &mut crate::estimate::reml::RemlState<'_>, rho: &Array1<f64>| {
+                        state.compute_efs_steps(rho)
                     },
                 ),
-                Some(
-                    |state: &mut &mut crate::estimate::reml::RemlState<'_>,
-                     rho: &Array1<f64>| { state.compute_efs_steps(rho) },
-                ),
-                |state: &mut &mut crate::estimate::reml::RemlState<'_>,
-                 rho: &Array1<f64>| { state.compute_screening_proxy(rho) },
+                |state: &mut &mut crate::estimate::reml::RemlState<'_>, rho: &Array1<f64>| {
+                    state.compute_screening_proxy(rho)
+                },
             );
             // Standard REML's eval closure publishes
             // `inner_beta_hint = state.current_original_basis_beta()` on
@@ -1056,8 +1060,7 @@ where
                         sumsq.sqrt()
                     };
                     let seed_cost_trustworthy = seed_grad_norm.is_finite()
-                        && seed_grad_norm
-                            <= crate::rho_optimizer::FLAT_VALLEY_STALL_GRAD_CEILING;
+                        && seed_grad_norm <= crate::rho_optimizer::FLAT_VALLEY_STALL_GRAD_CEILING;
                     if seed_cost_trustworthy {
                         log::info!(
                             "[OUTER] #1371 release-and-rerank: certified ρ cost {cost_converged:.6e} \
@@ -1643,7 +1646,9 @@ where
                         // COLD-confirm the group's best candidate on BOTH axes (the
                         // warm probes ran off each other's inner warm starts — the
                         // #1074 lesson): pure REML strictly down AND total EDF not up.
-                        let Some((cand, _)) = group_best else { continue };
+                        let Some((cand, _)) = group_best else {
+                            continue;
+                        };
                         reml_state.reset_outer_seed_state();
                         let cold_pen = reml_state.compute_cost(&cand);
                         let cold_pure = cold_pen.as_ref().ok().and_then(|&c| {
@@ -1716,7 +1721,9 @@ where
                                 group_best = Some((probe, c));
                             }
                         }
-                        let Some((cand, _)) = group_best else { continue };
+                        let Some((cand, _)) = group_best else {
+                            continue;
+                        };
                         reml_state.reset_outer_seed_state();
                         let cold_pen = reml_state.compute_cost(&cand);
                         let cold_pure = cold_pen.as_ref().ok().and_then(|&c| {
@@ -1921,22 +1928,22 @@ where
                 );
             }
             let problem = OuterProblem::new(theta_dim)
-            .with_gradient(Derivative::Analytic)
-            .with_hessian(DeclaredHessianForm::Either)
-            .with_prefer_gradient_only(prefer_gradient_only)
-            .with_continuation_prewarm(continuation_prewarm)
-            .with_psi_dim(mixture_dim + sas_dim)
-            .with_barrier(
-                crate::estimate::reml::reml_outer_engine::BarrierConfig::from_constraints(
-                    fit_linear_constraints.as_ref(),
-                ),
-            )
-            .with_tolerance(reml_tol)
-            .with_max_iter(reml_max_iter)
-            .with_seed_config(reml_seed_config_mix)
-            .with_screening_cap(Arc::clone(&reml_state.screening_max_inner_iterations))
-            .with_outer_inner_cap(reml_inner_progress_feedback(&reml_state))
-            .with_rho_bound(crate::estimate::RHO_BOUND);
+                .with_gradient(Derivative::Analytic)
+                .with_hessian(DeclaredHessianForm::Either)
+                .with_prefer_gradient_only(prefer_gradient_only)
+                .with_continuation_prewarm(continuation_prewarm)
+                .with_psi_dim(mixture_dim + sas_dim)
+                .with_barrier(
+                    crate::estimate::reml::reml_outer_engine::BarrierConfig::from_constraints(
+                        fit_linear_constraints.as_ref(),
+                    ),
+                )
+                .with_tolerance(reml_tol)
+                .with_max_iter(reml_max_iter)
+                .with_seed_config(reml_seed_config_mix)
+                .with_screening_cap(Arc::clone(&reml_state.screening_max_inner_iterations))
+                .with_outer_inner_cap(reml_inner_progress_feedback(&reml_state))
+                .with_rho_bound(crate::estimate::RHO_BOUND);
             let problem = if let Some(h) = heuristic_theta_ref {
                 problem.with_heuristic_lambdas(h.to_vec())
             } else {
@@ -1952,64 +1959,63 @@ where
                 None => problem,
             };
             // Shared helper: parse theta into rho + link params, update link state.
-            let apply_link_theta =
-                |state: &mut &mut crate::estimate::reml::RemlState<'_>,
-                 theta: &Array1<f64>|
-                 -> Result<Array1<f64>, EstimationError> {
-                    let rho = theta.slice(s![..k]).to_owned();
-                    let mut cfg_eval = cfg.clone();
-                    if use_mixture {
-                        let mix_rho = theta.slice(s![k..(k + mixture_dim)]).to_owned();
-                        cfg_eval.link_kind = InverseLink::Mixture(
-                            state_fromspec(&MixtureLinkSpec {
-                                components: mixspec.components.clone(),
-                                initial_rho: mix_rho,
+            let apply_link_theta = |state: &mut &mut crate::estimate::reml::RemlState<'_>,
+                                    theta: &Array1<f64>|
+             -> Result<Array1<f64>, EstimationError> {
+                let rho = theta.slice(s![..k]).to_owned();
+                let mut cfg_eval = cfg.clone();
+                if use_mixture {
+                    let mix_rho = theta.slice(s![k..(k + mixture_dim)]).to_owned();
+                    cfg_eval.link_kind = InverseLink::Mixture(
+                        state_fromspec(&MixtureLinkSpec {
+                            components: mixspec.components.clone(),
+                            initial_rho: mix_rho,
+                        })
+                        .map_err(|e| {
+                            EstimationError::InvalidInput(format!(
+                                "invalid blended inverse link: {e}"
+                            ))
+                        })?,
+                    );
+                }
+                if use_sas {
+                    let epsilon = if use_beta_logistic {
+                        theta[k]
+                    } else {
+                        let (v, _) = sas_effective_epsilon(theta[k]);
+                        v
+                    };
+                    let delta_like = theta[k + 1];
+                    cfg_eval.link_kind = if use_beta_logistic {
+                        InverseLink::BetaLogistic(
+                            state_from_beta_logisticspec(SasLinkSpec {
+                                initial_epsilon: epsilon,
+                                initial_log_delta: delta_like,
                             })
                             .map_err(|e| {
                                 EstimationError::InvalidInput(format!(
-                                    "invalid blended inverse link: {e}"
+                                    "invalid Beta-Logistic link: {e}"
                                 ))
                             })?,
-                        );
-                    }
-                    if use_sas {
-                        let epsilon = if use_beta_logistic {
-                            theta[k]
-                        } else {
-                            let (v, _) = sas_effective_epsilon(theta[k]);
-                            v
-                        };
-                        let delta_like = theta[k + 1];
-                        cfg_eval.link_kind = if use_beta_logistic {
-                            InverseLink::BetaLogistic(
-                                state_from_beta_logisticspec(SasLinkSpec {
-                                    initial_epsilon: epsilon,
-                                    initial_log_delta: delta_like,
-                                })
-                                .map_err(|e| {
-                                    EstimationError::InvalidInput(format!(
-                                        "invalid Beta-Logistic link: {e}"
-                                    ))
-                                })?,
-                            )
-                        } else {
-                            InverseLink::Sas(
-                                state_from_sasspec(SasLinkSpec {
-                                    initial_epsilon: epsilon,
-                                    initial_log_delta: delta_like,
-                                })
-                                .map_err(|e| {
-                                    EstimationError::InvalidInput(format!("invalid SAS link: {e}"))
-                                })?,
-                            )
-                        };
-                    }
-                    state.set_link_states(
-                        cfg_eval.link_kind.mixture_state().cloned(),
-                        cfg_eval.link_kind.sas_state().copied(),
-                    );
-                    Ok(rho)
-                };
+                        )
+                    } else {
+                        InverseLink::Sas(
+                            state_from_sasspec(SasLinkSpec {
+                                initial_epsilon: epsilon,
+                                initial_log_delta: delta_like,
+                            })
+                            .map_err(|e| {
+                                EstimationError::InvalidInput(format!("invalid SAS link: {e}"))
+                            })?,
+                        )
+                    };
+                }
+                state.set_link_states(
+                    cfg_eval.link_kind.mixture_state().cloned(),
+                    cfg_eval.link_kind.sas_state().copied(),
+                );
+                Ok(rho)
+            };
 
             // SAS ridge/barrier cost correction (shared between cost_fn, eval_fn, efs_fn).
             let sas_ridge_cost = |theta: &Array1<f64>| -> f64 {
@@ -2036,7 +2042,16 @@ where
             |state: &mut &mut crate::estimate::reml::RemlState<'_>,
              theta: &Array1<f64>| {
                 let rho = apply_link_theta(state, theta)?;
-                let cost = state.compute_cost(&rho)? + sas_ridge_cost(theta);
+                // Route the cost through the SAME link-ext evaluator the gradient
+                // closure uses (value-only), so both see the #1876 inner-KKT
+                // envelope correction `Ṽ = V − ½·rᵀH⁻¹r`. Using the plain
+                // `compute_cost` here would report the raw capped-β̂ value `V`
+                // while the gradient closure reports `∇Ṽ`, desyncing the outer
+                // trust-region ratio test on any first-order-capped inner solve.
+                let value_mode =
+                    crate::estimate::reml::reml_outer_engine::EvalMode::ValueOnly;
+                let result = state.evaluate_unified_with_link_ext(&rho, value_mode)?;
+                let cost = result.cost + sas_ridge_cost(theta);
                 Ok(cost)
             },
             |state: &mut &mut crate::estimate::reml::RemlState<'_>,
@@ -2174,8 +2189,7 @@ where
             // installs the converged mixture/SAS link state onto `reml_state`
             // and returns the smoothing-only ρ block.
             let guard_rho = {
-                let mut state_ref: &mut crate::estimate::reml::RemlState<'_> =
-                    &mut reml_state;
+                let mut state_ref: &mut crate::estimate::reml::RemlState<'_> = &mut reml_state;
                 apply_link_theta(&mut state_ref, &outer_result.rho)?
             };
             run_outer_inner_cap_guard(
@@ -2963,15 +2977,23 @@ where
         // certificate runs against the SAME objective the fit converged on, so
         // its criterion is the fit's own bit-for-bit (no retain/rebuild). Absent
         // when there are no smoothing parameters or the outer Hessian is
-        // unavailable; never fatal. Superseded intermediate fits skip this block
-        // and the caller must refit with a live objective before returning that
-        // model. When the certificate reads Escalate, the auto-selected escalation
-        // tier (quadrature for K≤4, NUTS over ρ for K≤16, honest Unavailable
-        // beyond) runs at this same live seam.
-        if !opts.skip_rho_posterior_inference {
-            (rho_posterior_certificate, rho_posterior_escalation) =
-                reml_state.rho_posterior_inference(&final_rho, None);
-        }
+        // unavailable; never fatal.
+        //
+        // The Tier-0 certificate is CHEAP (a handful of outer-criterion
+        // evaluations) so it is emitted regardless of `skip_rho_posterior_inference`
+        // whenever it is available (#1810) — the standard formula/CLI fit surfaces
+        // its ρ-posterior certificate by default. Only the EXPENSIVE escalation
+        // tiers (Tier-1 quadrature / Tier-2 NUTS over ρ) are gated by the flag:
+        // interactive formula/CLI fits keep `skip_rho_posterior_inference = true`
+        // so a fit that fails to certify plug-in never turns into a sampler
+        // benchmark, while lower-level callers that opt in (`skip = false`) get
+        // the auto-selected escalation tier (quadrature for K≤4, NUTS over ρ for
+        // K≤16, honest Unavailable beyond) at this same live seam.
+        (rho_posterior_certificate, rho_posterior_escalation) = reml_state.rho_posterior_inference(
+            &final_rho,
+            !opts.skip_rho_posterior_inference,
+            None,
+        );
 
         // Standard errors: prefer the diagonal of the full inverse when
         // available; otherwise use the factorised Hessian from the EDF pass
@@ -3093,12 +3115,6 @@ where
 
     let pirls_status = pirls_res.status;
     let likelihood_scale_field = pirls_res.likelihood.scale;
-    let log_likelihood = crate::pirls::calculate_loglikelihood_omitting_constants(
-        y_o.view(),
-        &pirls_res.finalmu,
-        &pirls_res.likelihood,
-        w_o.view(),
-    );
 
     // Report the fitted dispersion parameter on the family variant for the two
     // families whose *reporting log-likelihood kernel* reads it from the family
@@ -3139,13 +3155,41 @@ where
         }
         _ => {}
     }
+    // The fully-normalized reporting kernel (#2096) reads a CONCRETE dispersion
+    // `φ = σ̂²` for Gaussian off `likelihood.scale`. A profiled Gaussian carries
+    // only the `ProfiledGaussian` marker (`fixed_phi() == None`), which the
+    // kernel maps to NaN by contract (the #1583 no-silent-`φ=1` rule) — so the
+    // reported `log_likelihood` (and the AIC built from it) came out NaN for
+    // every Gaussian fit. Resolve the profiled residual scale `σ̂²` (the
+    // `standard_deviation` computed above, floored like `cov_scale`) into the
+    // reporting spec here. This is a REPORTING-only substitution: the persisted
+    // `likelihood_scale` field below stays `ProfiledGaussian` so downstream
+    // consumers still see that the scale was profiled, not user-fixed.
+    let reporting_scale = match (&reported_family.response, likelihood_scale_field) {
+        (ResponseFamily::Gaussian, LikelihoodScaleMetadata::ProfiledGaussian) => {
+            LikelihoodScaleMetadata::FixedDispersion {
+                phi: (standard_deviation * standard_deviation).max(f64::MIN_POSITIVE),
+            }
+        }
+        _ => likelihood_scale_field,
+    };
+    let reported_likelihood = GlmLikelihoodSpec {
+        spec: reported_family.clone(),
+        scale: reporting_scale,
+    };
+    let log_likelihood = crate::pirls::calculate_loglikelihood(
+        y_o.view(),
+        &pirls_res.finalmu,
+        &reported_likelihood,
+        w_o.view(),
+    );
 
     let result = ExternalOptimResult {
         beta: beta_orig_internal,
         lambdas: lambdas.to_owned(),
         likelihood_family: reported_family,
         likelihood_scale: likelihood_scale_field,
-        log_likelihood_normalization: LogLikelihoodNormalization::OmittingResponseConstants,
+        log_likelihood_normalization: LogLikelihoodNormalization::Full,
         log_likelihood,
         standard_deviation,
         iterations: iters,
@@ -3357,5 +3401,173 @@ mod blended_mixture_link_solve_tests {
             vb += db * db;
         }
         cov / (va.sqrt() * vb.sqrt())
+    }
+}
+
+#[cfg(test)]
+mod reported_loglikelihood_normalization_tests {
+    //! End-to-end regression coverage for issue #2096.
+    //!
+    //! `optimize_external_design` populates the user-facing
+    //! `ExternalOptimResult::log_likelihood` — the number that surfaces as
+    //! `Model.summary()["log_likelihood"]` and feeds the conditional/corrected
+    //! AIC. Before #2096 that field was wired to the REML building-block kernel
+    //! `calculate_loglikelihood_omitting_constants`, which drops the Poisson
+    //! count normalizer `−Σ lnΓ(y+1)`. On count data that makes the reported
+    //! log-likelihood POSITIVE — impossible for a probability mass — and, because
+    //! different families drop different normalizers, non-comparable across
+    //! families (breaking any AIC built from it).
+    //!
+    //! The fix routes the reporting field through the fully-normalized
+    //! `calculate_loglikelihood` kernel and tags it
+    //! `LogLikelihoodNormalization::Full`. This test fits a small Poisson GAM
+    //! surface through the real optimizer and asserts the reported field is a
+    //! proper (negative) log-mass — the direct, field-level symptom of #2096,
+    //! distinct from the kernel-level checks in
+    //! `crate::pirls::tests::reporting_loglikelihood_tests`.
+
+    use super::optimize_external_design;
+    use crate::estimate::external_options::ExternalOptimOptions;
+    use gam_problem::{
+        InverseLink, LikelihoodSpec, LogLikelihoodNormalization, ResponseFamily, StandardLink,
+    };
+    use gam_terms::smooth::BlockwisePenalty;
+    use ndarray::{Array1, Array2};
+
+    fn poisson_opts() -> ExternalOptimOptions {
+        ExternalOptimOptions {
+            family: LikelihoodSpec::new(
+                ResponseFamily::Poisson,
+                InverseLink::Standard(StandardLink::Log),
+            ),
+            latent_cloglog: None,
+            mixture_link: None,
+            optimize_mixture: false,
+            sas_link: None,
+            optimize_sas: false,
+            compute_inference: false,
+            skip_rho_posterior_inference: true,
+            max_iter: 200,
+            tol: 1e-9,
+            nullspace_dims: vec![2],
+            linear_constraints: None,
+            firth_bias_reduction: None,
+            penalty_shrinkage_floor: None,
+            rho_prior: Default::default(),
+            kronecker_penalty_system: None,
+            kronecker_factored: None,
+            persist_warm_start_disk: false,
+        }
+    }
+
+    #[test]
+    fn poisson_reported_loglikelihood_is_a_negative_log_mass() {
+        // Deterministic log-linear count data: μᵢ = exp(1.5 + 0.4·xᵢ), yᵢ =
+        // round(μᵢ). Means run from ≈3 to ≈30, so the omitting-constants kernel
+        // Σ(y·ln μ − μ) the buggy field used is strongly POSITIVE, while the
+        // fully-normalized kernel (which subtracts Σ lnΓ(y+1)) is negative. A
+        // near-perfect fit keeps the two far apart, making the sign check sharp.
+        let n = 40usize;
+        let mut design = Array2::<f64>::zeros((n, 2));
+        let mut y = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            let xi = -3.0 + 6.0 * (i as f64) / ((n - 1) as f64);
+            let mu = (1.5 + 0.4 * xi).exp();
+            design[[i, 0]] = 1.0;
+            design[[i, 1]] = xi;
+            y[i] = mu.round().max(1.0);
+        }
+        let w = Array1::<f64>::ones(n);
+        let offset = Array1::<f64>::zeros(n);
+        let penalty = BlockwisePenalty::new(0..2, Array2::<f64>::zeros((2, 2)));
+
+        let result = optimize_external_design(
+            y.view(),
+            w.view(),
+            design,
+            offset.view(),
+            vec![penalty],
+            &poisson_opts(),
+        )
+        .expect("Poisson solve on clean log-linear count data must converge");
+
+        assert!(
+            result.log_likelihood.is_finite(),
+            "reported Poisson log-likelihood must be finite, got {}",
+            result.log_likelihood
+        );
+        // #2096: a count model's reported log-likelihood is a log probability
+        // mass and MUST be ≤ 0. The pre-fix omitting-constants field was large
+        // and positive (≈ +1100 on the issue's data) because it dropped
+        // −Σ lnΓ(y+1).
+        assert!(
+            result.log_likelihood <= 0.0,
+            "reported Poisson log-likelihood must be a negative log-mass (#2096), \
+             got {}",
+            result.log_likelihood
+        );
+        // The paired normalization tag must advertise the fully-normalized kernel,
+        // so downstream AIC/elpd consumers know the count normalizer is included.
+        assert_eq!(
+            result.log_likelihood_normalization,
+            LogLikelihoodNormalization::Full,
+            "reporting field must be tagged fully-normalized (#2096)"
+        );
+    }
+
+    fn gaussian_opts() -> ExternalOptimOptions {
+        ExternalOptimOptions {
+            family: LikelihoodSpec::new(
+                ResponseFamily::Gaussian,
+                InverseLink::Standard(StandardLink::Identity),
+            ),
+            ..poisson_opts()
+        }
+    }
+
+    #[test]
+    fn gaussian_reported_loglikelihood_is_finite() {
+        // #2096 follow-through: the reporting field switched to the
+        // fully-normalized Gaussian kernel, which reads a CONCRETE dispersion
+        // `φ = σ̂²` from `likelihood.scale`. If the reporting site ships the
+        // unresolved `ProfiledGaussian` marker (fixed_phi() == None), the kernel
+        // returns NaN — every Gaussian summary().log_likelihood / AIC becomes
+        // NaN. This asserts the profiled σ̂² is resolved into the reported scale.
+        let n = 40usize;
+        let mut design = Array2::<f64>::zeros((n, 2));
+        let mut y = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            let xi = -3.0 + 6.0 * (i as f64) / ((n - 1) as f64);
+            design[[i, 0]] = 1.0;
+            design[[i, 1]] = xi;
+            // Deterministic near-linear signal with a small deterministic wiggle
+            // so RSS > 0 and σ̂² is strictly positive.
+            y[i] = 0.7 + 1.3 * xi + 0.05 * (3.0 * xi).sin();
+        }
+        let w = Array1::<f64>::ones(n);
+        let offset = Array1::<f64>::zeros(n);
+        let penalty = BlockwisePenalty::new(0..2, Array2::<f64>::zeros((2, 2)));
+
+        let result = optimize_external_design(
+            y.view(),
+            w.view(),
+            design,
+            offset.view(),
+            vec![penalty],
+            &gaussian_opts(),
+        )
+        .expect("Gaussian solve on clean near-linear data must converge");
+
+        assert!(
+            result.log_likelihood.is_finite(),
+            "reported Gaussian log-likelihood must be finite (the profiled σ̂² \
+             must be resolved into the reported scale), got {}",
+            result.log_likelihood
+        );
+        assert_eq!(
+            result.log_likelihood_normalization,
+            LogLikelihoodNormalization::Full,
+            "Gaussian reporting field must be tagged fully-normalized"
+        );
     }
 }

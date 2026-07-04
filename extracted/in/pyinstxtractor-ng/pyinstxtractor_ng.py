@@ -5,7 +5,7 @@ E-mail : extremecoders(at)hotmail(dot)com
 Web    : https://0xec.blogspot.com
 Url    : https://github.com/pyinstxtractor/pyinstxtractor-ng
 
-This script extracts a pyinstaller generated executable file. 
+This script extracts a pyinstaller generated executable file.
 Uses the xdis library to unmarshal code objects, hence you should
 be able to decompile an executable from any Python version without
 being restricted to use the same version of Python for running the
@@ -27,8 +27,10 @@ from Crypto.Util import Counter
 
 from xdis.unmarshal import load_code
 
+
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
+
 
 def pycHeader2Magic(header):
     header = bytearray(header)
@@ -198,7 +200,11 @@ class PyInstArchive:
                 name = name.decode("utf-8").rstrip("\0")
             except UnicodeDecodeError:
                 newName = str(uniquename())
-                print('[!] Warning: File name {0} contains invalid bytes. Using random name {1}'.format(name, newName))
+                print(
+                    "[!] Warning: File name {0} contains invalid bytes. Using random name {1}".format(
+                        name, newName
+                    )
+                )
                 name = newName
 
             # Prevent writing outside the extraction directory
@@ -242,6 +248,17 @@ class PyInstArchive:
         with open(nm, "wb") as f:
             f.write(data)
 
+    def _ensureUnique(self, fileName, ext=""):
+        if os.path.exists(fileName + ext):
+            newName = fileName + "_" + str(uniquename())
+            print(
+                "[!] Warning: {0} already exists, saving as {1}".format(
+                    fileName + ext, newName + ext
+                )
+            )
+            return newName
+        return fileName
+
     def extractFiles(self, one_dir):
         print("[+] Beginning extraction...please standby")
         extractionDir = os.path.join(
@@ -261,7 +278,9 @@ class PyInstArchive:
                 try:
                     data = zlib.decompress(data)
                 except zlib.error as e:
-                    eprint(f"[!] Error: Failed to decompress CArchive entry {entry.name}: {e}")
+                    eprint(
+                        f"[!] Error: Failed to decompress CArchive entry {entry.name}: {e}"
+                    )
                     continue
                 # Malware may tamper with the uncompressed size
                 # Comment out the assertion in such a case
@@ -284,6 +303,7 @@ class PyInstArchive:
                 # Entry point are expected to be python scripts
                 print("[+] Possible entry point: {0}.pyc".format(entry.name))
 
+                entry.name = self._ensureUnique(entry.name, ".pyc")
                 if self.pycMagic == b"\0" * 4:
                     # if we don't have the pyc header yet, fix them in a later pass
                     self.barePycList.append(entry.name + ".pyc")
@@ -293,6 +313,8 @@ class PyInstArchive:
                 # M -> ARCHIVE_ITEM_PYPACKAGE
                 # m -> ARCHIVE_ITEM_PYMODULE
                 # packages and modules are pyc files with their header intact
+
+                entry.name = self._ensureUnique(entry.name, ".pyc")
 
                 # From PyInstaller 5.3 and above pyc headers are no longer stored
                 # https://github.com/pyinstaller/pyinstaller/commit/a97fdf
@@ -326,6 +348,7 @@ class PyInstArchive:
                         self.cryptoKeyFileData = data
 
             else:
+                entry.name = self._ensureUnique(entry.name)
                 self._writeRawData(entry.name, data)
 
                 if entry.typeCmprsData == b"z" or entry.typeCmprsData == b"Z":
@@ -395,7 +418,7 @@ class PyInstArchive:
         elif aes_mode == "cfb":
             # Pyinstaller < 4.0 uses AES in CFB mode
             cipher = AES.new(key, AES.MODE_CFB, iv)
-            return cipher.decrypt(ct[CRYPT_BLOCK_SIZE:])            
+            return cipher.decrypt(ct[CRYPT_BLOCK_SIZE:])
 
     def _extractPyz(self, name, one_dir):
         if one_dir == True:
@@ -468,7 +491,7 @@ class PyInstArchive:
                     os.makedirs(fileDir)
 
                 if length == 0:
-                    print('[!] Warning: Empty file {0}'.format(filePath))
+                    print("[!] Warning: Empty file {0}".format(filePath))
                     self._writePyc(filePath, b"")
                     continue
 
@@ -498,7 +521,7 @@ class PyInstArchive:
                             )
                             open(filePath + ".encrypted", "wb").write(data_copy)
                             continue
-                
+
                 self._writePyc(filePath, data)
 
     def printInfo(self):
@@ -512,38 +535,43 @@ class PyInstArchive:
         pi_ver = "2.0" if self.pyinstVer == 20 else "2.1+"
         print(f"[+] PyInstaller generation: {pi_ver}")
         print(f"[+] CArchive files: {len(self.tocList)}")
-        
+
         # PYZ presence
         has_pyz = any(entry.typeCmprsData in (b"z", b"Z") for entry in self.tocList)
         print(f"[+] PYZ archive present: {'Yes' if has_pyz else 'No'}")
-        
+
         # Encryption presence
         encrypted = "Yes" if self.cryptoKeyFileData else "No"
         print(f"[+] Encrypted: {encrypted}")
-        
+
         # Packages vs scripts
-        num_packages = sum(1 for e in self.tocList if e.typeCmprsData == b'M')
-        num_scripts = sum(1 for e in self.tocList if e.typeCmprsData == b's')
+        num_packages = sum(1 for e in self.tocList if e.typeCmprsData == b"M")
+        num_scripts = sum(1 for e in self.tocList if e.typeCmprsData == b"s")
         print(f"[+] Packages: {num_packages}, Python scripts: {num_scripts}")
-    
+
         # Entry points
-        entry_points = [entry.name for entry in self.tocList if entry.typeCmprsData == b"s"]
-        print(f"[+] Entry points: {', '.join(entry_points) if entry_points else 'None'}")
-    
+        entry_points = [
+            entry.name for entry in self.tocList if entry.typeCmprsData == b"s"
+        ]
+        print(
+            f"[+] Entry points: {', '.join(entry_points) if entry_points else 'None'}"
+        )
+
         # Top 5 largest files
-        largest_files = sorted(self.tocList, key=lambda x: x.uncmprsdDataSize, reverse=True)[:5]
+        largest_files = sorted(
+            self.tocList, key=lambda x: x.uncmprsdDataSize, reverse=True
+        )[:5]
         print("[+] Top 5 largest files:")
         for f in largest_files:
             print(f"    {f.name:<40} {f.uncmprsdDataSize:>12,} bytes")
-        
+
         # Total sizes
         total_cmprsd = sum(entry.cmprsdDataSize for entry in self.tocList)
         total_uncmprsd = sum(entry.uncmprsdDataSize for entry in self.tocList)
         print(f"[+] Total compressed size:   {total_cmprsd:,} bytes")
         print(f"[+] Total uncompressed size: {total_uncmprsd:,} bytes")
-        
-        print("==============================================\n")
 
+        print("==============================================\n")
 
 
 def main():
@@ -555,7 +583,12 @@ def main():
         help="One directory mode, extracts the pyz in the same directory as the executable",
         action="store_true",
     )
-    parser.add_argument("-i","--info",help="Shows archive information only without extracting",action="store_true")
+    parser.add_argument(
+        "-i",
+        "--info",
+        help="Shows archive information only without extracting",
+        action="store_true",
+    )
     args = parser.parse_args()
 
     arch = PyInstArchive(args.filename)

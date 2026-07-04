@@ -28,32 +28,66 @@ impl SkillCatalog {
         scope: Option<SkillScope>,
         limit: Option<usize>,
     ) -> Vec<SkillSummary> {
-        // ── 1. Pre-filter by tags/dcc (AND semantics) ──
-        let mut prefiltered: Vec<SkillEntry> = self
-            .entries
-            .iter()
-            .filter(|entry| {
-                let meta = &entry.value().metadata;
+        // ── 0. dcc shard fast-path (PIP-2470) ──
+        //
+        // When `dcc` is specified, use the per-dcc shard to narrow the
+        // entry scan to only skills in the matching shard.  If the shard
+        // doesn't exist (no skills for that dcc), return early.
+        let dcc_key = dcc
+            .filter(|d| !d.is_empty())
+            .map(|d| d.to_ascii_lowercase());
 
-                if !tags.is_empty() {
-                    for tag in tags {
-                        if !meta.tags.iter().any(|t| t.eq_ignore_ascii_case(tag)) {
+        // ── 1. Pre-filter by tags/dcc (AND semantics) ──
+        let mut prefiltered: Vec<SkillEntry> = match &dcc_key {
+            Some(key) => {
+                let shard = self.dcc_shards.get(key);
+                let Some(shard) = shard else {
+                    return Vec::new();
+                };
+                self.entries
+                    .iter()
+                    .filter(|entry| {
+                        // Fast shard membership check before inspecting metadata.
+                        if !shard.contains(entry.key()) {
                             return false;
                         }
-                    }
-                }
+                        let meta = &entry.value().metadata;
 
-                if let Some(dcc_filter) = dcc
-                    && !dcc_filter.is_empty()
-                    && !meta.dcc.eq_ignore_ascii_case(dcc_filter)
-                {
-                    return false;
-                }
+                        if !tags.is_empty() {
+                            for tag in tags {
+                                if !meta.tags.iter().any(|t| t.eq_ignore_ascii_case(tag)) {
+                                    return false;
+                                }
+                            }
+                        }
 
-                true
-            })
-            .map(|entry| entry.value().clone())
-            .collect();
+                        // dcc filter already satisfied by shard membership.
+                        true
+                    })
+                    .map(|entry| entry.value().clone())
+                    .collect()
+            }
+            None => {
+                // No dcc filter: scan all entries (existing path).
+                self.entries
+                    .iter()
+                    .filter(|entry| {
+                        let meta = &entry.value().metadata;
+
+                        if !tags.is_empty() {
+                            for tag in tags {
+                                if !meta.tags.iter().any(|t| t.eq_ignore_ascii_case(tag)) {
+                                    return false;
+                                }
+                            }
+                        }
+
+                        true
+                    })
+                    .map(|entry| entry.value().clone())
+                    .collect()
+            }
+        };
 
         // ── 2. No query → deterministic order, no ranking ──
         let q_trim = query.map(str::trim).unwrap_or("");
@@ -85,20 +119,46 @@ impl SkillCatalog {
                         | scoring::LAYER_EXAMPLE
                 )
             });
-            let metas: Vec<&SkillMetadata> = prefiltered.iter().map(|e| &e.metadata).collect();
-            let scopes: Vec<SkillScope> = prefiltered.iter().map(|e| e.scope).collect();
+
+            // ── 3a. Inverted-index candidate pruning (PIP-2469) ──
+            //
+            // Build or rebuild the inverted index if stale. When the index
+            // is available, extract only the subset of prefiltered entries
+            // that intersect the query's posting lists — BM25 scoring then
+            // only visits those candidates instead of the full prefiltered
+            // set. If the index is not available (first call or after a
+            // mutation that hasn't been rebuilt yet), fall back to the
+            // existing linear scan.
+            let (candidate_entries, _candidate_indices): (Vec<&SkillEntry>, Vec<usize>) =
+                self.prune_with_index(q_trim, &prefiltered);
+            let candidate_count = candidate_entries.len();
+            let total_count = prefiltered.len();
+            if candidate_count < total_count {
+                tracing::debug!(
+                    "search_skills inverted index pruned {total_count} → {candidate_count} entries"
+                );
+            }
+
+            let metas: Vec<&SkillMetadata> =
+                candidate_entries.iter().map(|e| &e.metadata).collect();
+            let scopes: Vec<SkillScope> = candidate_entries.iter().map(|e| e.scope).collect();
             let path_sources: Vec<scoring::SkillPathSource> =
-                prefiltered.iter().map(|e| e.path_source).collect();
-            let scored = scoring::score_skills(
+                candidate_entries.iter().map(|e| e.path_source).collect();
+            let fields: Vec<&scoring::FieldTokens> =
+                candidate_entries.iter().map(|e| &e.field_tokens).collect();
+            let doc_lens: Vec<usize> = candidate_entries.iter().map(|e| e.doc_len).collect();
+            let scored = scoring::score_skills_with_tokens(
                 q_trim,
                 &metas,
                 &scopes,
                 layer_filter_explicit,
                 Some(&path_sources),
+                &fields,
+                &doc_lens,
             );
             scored
                 .into_iter()
-                .map(|s| helpers::skill_entry_to_summary(&prefiltered[s.index]))
+                .map(|s| helpers::skill_entry_to_summary(candidate_entries[s.index]))
                 .collect()
         };
 

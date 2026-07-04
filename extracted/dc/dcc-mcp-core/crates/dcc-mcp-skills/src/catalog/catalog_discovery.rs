@@ -19,6 +19,53 @@ fn dependency_state_for(
 }
 
 impl SkillCatalog {
+    // ── dcc_type shard helpers ──
+
+    /// Insert a skill name into the per-dcc shard for its dcc type.
+    pub(crate) fn shard_insert(&self, name: &str, dcc: &str) {
+        let key = dcc.to_ascii_lowercase();
+        self.dcc_shards
+            .entry(key)
+            .or_default()
+            .insert(name.to_string());
+    }
+
+    /// Remove a skill name from the per-dcc shard for its dcc type.
+    pub(crate) fn shard_remove(&self, name: &str, dcc: &str) {
+        let key = dcc.to_ascii_lowercase();
+        if let Some(shard) = self.dcc_shards.get(&key) {
+            shard.remove(name);
+            // Clean up empty shards to avoid unbounded growth.
+            if shard.is_empty() {
+                drop(shard);
+                self.dcc_shards.remove(&key);
+            }
+        }
+    }
+
+    /// Move a skill name from an old dcc shard to a new one (used on
+    /// metadata update / rediscover).
+    pub(crate) fn shard_move(&self, name: &str, old_dcc: &str, new_dcc: &str) {
+        if old_dcc.eq_ignore_ascii_case(new_dcc) {
+            return;
+        }
+        self.shard_remove(name, old_dcc);
+        self.shard_insert(name, new_dcc);
+    }
+
+    /// Rebuild all dcc shards from the current entries. Used when
+    /// initialising or repairing consistency.
+    #[allow(dead_code)]
+    pub(crate) fn shard_rebuild_all(&self) {
+        self.dcc_shards.clear();
+        for entry in self.entries.iter() {
+            let e = entry.value();
+            self.shard_insert(&e.metadata.name, &e.metadata.dcc);
+        }
+    }
+
+    // ── dependency state ──
+
     pub(crate) fn refresh_dependency_states(&self) {
         let names: std::collections::HashSet<String> = self
             .entries
@@ -52,6 +99,8 @@ impl SkillCatalog {
             after_unload_hook: RwLock::new(None),
             after_group_change_hook: RwLock::new(None),
             active_groups: DashSet::new(),
+            inverted_index: RwLock::new(IndexGuard::default()),
+            dcc_shards: DashMap::new(),
         }
     }
 
@@ -74,6 +123,8 @@ impl SkillCatalog {
             after_unload_hook: RwLock::new(None),
             after_group_change_hook: RwLock::new(None),
             active_groups: DashSet::new(),
+            inverted_index: RwLock::new(IndexGuard::default()),
+            dcc_shards: DashMap::new(),
         }
     }
 
@@ -229,22 +280,27 @@ impl SkillCatalog {
         let mut new_count = 0;
         for (skill, path_source) in result.skills {
             let name = skill.name.clone();
+            let dcc = skill.dcc.clone();
             self.skipped.remove(&name);
             if !self.entries.contains_key(&name) {
                 self.entries.insert(
-                    name,
-                    SkillEntry {
-                        metadata: skill,
-                        state: SkillState::Discovered,
-                        registered_tools: Vec::new(),
-                        scope: SkillScope::Repo,
+                    name.clone(),
+                    SkillEntry::new(
+                        skill,
+                        SkillState::Discovered,
+                        Vec::new(),
+                        SkillScope::Repo,
                         path_source,
-                    },
+                    ),
                 );
+                self.shard_insert(&name, &dcc);
                 new_count += 1;
             }
         }
         self.refresh_dependency_states();
+        if new_count > 0 {
+            self.inverted_index.write().invalidate();
+        }
 
         if !result.skipped.is_empty() {
             self.record_skipped_diagnostics(&result.skipped, SkillScope::Repo);
@@ -283,25 +339,31 @@ impl SkillCatalog {
 
         for (skill, path_source) in result.skills {
             let name = skill.name.clone();
+            let dcc = skill.dcc.clone();
             self.skipped.remove(&name);
             seen.insert(name.clone());
             if let Some(mut entry) = self.entries.get_mut(&name) {
+                let old_dcc = entry.metadata.dcc.clone();
                 entry.metadata = skill;
                 entry.path_source = path_source;
+                entry.refresh_tokens();
                 if entry.state != SkillState::Loaded {
                     entry.state = SkillState::Discovered;
                 }
+                // Update shard if dcc changed.
+                self.shard_move(&name, &old_dcc, &dcc);
             } else {
                 self.entries.insert(
-                    name,
-                    SkillEntry {
-                        metadata: skill,
-                        state: SkillState::Discovered,
-                        registered_tools: Vec::new(),
-                        scope: SkillScope::Repo,
+                    name.clone(),
+                    SkillEntry::new(
+                        skill,
+                        SkillState::Discovered,
+                        Vec::new(),
+                        SkillScope::Repo,
                         path_source,
-                    },
+                    ),
                 );
+                self.shard_insert(&name, &dcc);
                 added += 1;
             }
         }
@@ -318,6 +380,10 @@ impl SkillCatalog {
             }
         }
         self.refresh_dependency_states();
+
+        if added + removed > 0 {
+            self.inverted_index.write().invalidate();
+        }
 
         if !result.skipped.is_empty() {
             self.record_skipped_diagnostics(&result.skipped, SkillScope::Repo);
@@ -340,25 +406,32 @@ impl SkillCatalog {
     /// Add a single skill to the catalog (e.g. from SkillWatcher).
     pub fn add_skill(&self, metadata: SkillMetadata) {
         let name = metadata.name.clone();
+        let dcc = metadata.dcc.clone();
         self.skipped.remove(&name);
         if let Some(mut entry) = self.entries.get_mut(&name) {
             if entry.state != SkillState::Loaded {
+                let old_dcc = entry.metadata.dcc.clone();
                 entry.metadata = metadata;
+                entry.refresh_tokens();
                 entry.state = SkillState::Discovered;
+                // Update shard if dcc changed.
+                self.shard_move(&name, &old_dcc, &dcc);
             }
         } else {
             self.entries.insert(
-                name,
-                SkillEntry {
+                name.clone(),
+                SkillEntry::new(
                     metadata,
-                    state: SkillState::Discovered,
-                    registered_tools: Vec::new(),
-                    scope: SkillScope::Repo,
-                    path_source: Default::default(),
-                },
+                    SkillState::Discovered,
+                    Vec::new(),
+                    SkillScope::Repo,
+                    Default::default(),
+                ),
             );
+            self.shard_insert(&name, &dcc);
         }
         self.refresh_dependency_states();
+        self.inverted_index.write().invalidate();
     }
 
     /// Discover skills from paths grouped by [`SkillScope`].
@@ -392,23 +465,28 @@ impl SkillCatalog {
 
             for skill in result.skills {
                 let name = skill.name.clone();
+                let dcc = skill.dcc.clone();
                 self.skipped.remove(&name);
                 if !self.entries.contains_key(&name) {
                     self.entries.insert(
-                        name,
-                        SkillEntry {
-                            metadata: skill,
-                            state: SkillState::Discovered,
-                            registered_tools: Vec::new(),
-                            scope: *scope,
-                            path_source: Default::default(),
-                        },
+                        name.clone(),
+                        SkillEntry::new(
+                            skill,
+                            SkillState::Discovered,
+                            Vec::new(),
+                            *scope,
+                            Default::default(),
+                        ),
                     );
+                    self.shard_insert(&name, &dcc);
                     total_new += 1;
                 }
             }
         }
         self.refresh_dependency_states();
+        if total_new > 0 {
+            self.inverted_index.write().invalidate();
+        }
         tracing::info!(
             "SkillCatalog::discover_scoped: {} new skill(s) across {} scope(s)",
             total_new,

@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "fabric-dw"
 dynamic = ["version"]
 requires-python = ">=3.11"
-description = "Python CLI + MCP server for administering Microsoft Fabric Data Warehouses and SQL Analytics Endpoints"
+description = "Python CLI and MCP server for Microsoft Fabric Data Warehouses and SQL Analytics Endpoints: administer, query, optimize, and secure them from your terminal or your AI agent"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Sam Debruyn", email = "sam@debruyn.dev" }]
@@ -90,7 +90,7 @@ dev = [
     "pytest-randomly",
     "pytest-cov",
     "ruff>=0.15,<0.16",
-    "ty==0.0.51",
+    "ty==0.0.55",
     "types-pyyaml>=6.0",
     "pytest-socket>=0.8.0",
 ]

@@ -13,6 +13,8 @@ class AiGatewayGetGatewayConfigRequestType(enum.StrEnum):
     GATEWAY_LOAD_BALANCING_CONFIG = "gateway-load-balancing-config"
     GATEWAY_GUARDRAILS_CONFIG = "gateway-guardrails-config"
     GATEWAY_BUDGET_CONFIG = "gateway-budget-config"
+    TENANT_BUDGET_CONFIG = "tenant-budget-config"
+    TEAM_BUDGET_CONFIG = "team-budget-config"
     GATEWAY_OTEL_CONFIG = "gateway-otel-config"
     GATEWAY_GLOBAL_SETTINGS = "gateway-global-settings"
     GATEWAY_DATA_ACCESS_CONFIG = "gateway-data-access-config"
@@ -35,6 +37,8 @@ class AiGatewayGetGatewayConfigRequestType(enum.StrEnum):
         gateway_load_balancing_config: typing.Callable[[], T_Result],
         gateway_guardrails_config: typing.Callable[[], T_Result],
         gateway_budget_config: typing.Callable[[], T_Result],
+        tenant_budget_config: typing.Callable[[], T_Result],
+        team_budget_config: typing.Callable[[], T_Result],
         gateway_otel_config: typing.Callable[[], T_Result],
         gateway_global_settings: typing.Callable[[], T_Result],
         gateway_data_access_config: typing.Callable[[], T_Result],
@@ -51,6 +55,10 @@ class AiGatewayGetGatewayConfigRequestType(enum.StrEnum):
             return gateway_guardrails_config()
         if self is AiGatewayGetGatewayConfigRequestType.GATEWAY_BUDGET_CONFIG:
             return gateway_budget_config()
+        if self is AiGatewayGetGatewayConfigRequestType.TENANT_BUDGET_CONFIG:
+            return tenant_budget_config()
+        if self is AiGatewayGetGatewayConfigRequestType.TEAM_BUDGET_CONFIG:
+            return team_budget_config()
         if self is AiGatewayGetGatewayConfigRequestType.GATEWAY_OTEL_CONFIG:
             return gateway_otel_config()
         if self is AiGatewayGetGatewayConfigRequestType.GATEWAY_GLOBAL_SETTINGS:

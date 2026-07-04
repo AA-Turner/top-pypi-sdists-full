@@ -279,7 +279,7 @@ h2{color:#4ade80;font-size:24px;margin-bottom:8px}p{color:#888}</style>
         # User switched accounts! Stop any running bridge daemon.
         try:
             from sage.core.sms_bridge import SMS_PID_FILE
-            from sage.main import _sms_terminate_process
+            from sage.cli_core import _sms_terminate_process
             if SMS_PID_FILE.exists():
                 pid = int(SMS_PID_FILE.read_text().strip())
                 _sms_terminate_process(pid)
@@ -320,7 +320,7 @@ def logout() -> None:
         if SMS_PID_FILE.exists():
             pid_str = SMS_PID_FILE.read_text().strip()
             if pid_str.isdigit():
-                from sage.main import _sms_terminate_process
+                from sage.cli_core import _sms_terminate_process
                 _sms_terminate_process(int(pid_str))
     except Exception:
         pass

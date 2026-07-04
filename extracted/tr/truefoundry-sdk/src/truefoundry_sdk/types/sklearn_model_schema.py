@@ -8,11 +8,11 @@ from .infer_method_name import InferMethodName
 
 
 class SklearnModelSchema(UniversalBaseModel):
-    infer_method_name: InferMethodName = pydantic.Field()
     """
-    Name of the method used for inference
+    Scikit Learn Model Schema
     """
 
+    infer_method_name: InferMethodName
     inputs: typing.List[typing.Dict[str, typing.Any]] = pydantic.Field()
     """
     Schema of the input

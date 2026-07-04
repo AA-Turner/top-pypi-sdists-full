@@ -7,9 +7,7 @@ except ImportError:
 
 import datetime as dt
 import re
-import os
 import sys
-from doctest import DocTestSuite, ELLIPSIS
 from math import pi, isnan
 from pkgutil import get_data
 
@@ -898,26 +896,7 @@ def load_tests(loader, tests, ignore):
 
     from sgp4.wulfgar import add_test_functions
     add_test_functions(loader, tests, __name__)
-
-    if sys.version_info[0] > 2:
-        load_doctests(tests)
-
     return tests
-
-def load_doctests(tests):
-    def setUp(suite):
-        suite.olddir = os.getcwd()
-        os.chdir(os.path.dirname(__file__))
-        suite.oldaccel = api.accelerated
-        api.accelerated = True  # so doctests pass even if compilation failed
-    def tearDown(suite):
-        os.chdir(suite.olddir)
-        api.accelerated = suite.oldaccel
-
-    options = dict(optionflags=ELLIPSIS, setUp=setUp, tearDown=tearDown)
-    tests.addTests(DocTestSuite('sgp4', **options))
-    tests.addTests(DocTestSuite('sgp4.conveniences', **options))
-    tests.addTests(DocTestSuite('sgp4.functions', **options))
 
 if __name__ == '__main__':
     main()

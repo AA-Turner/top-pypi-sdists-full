@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tablestore"
-version = "6.4.6"
+version = "6.4.7"
 description = "Aliyun TableStore(OTS) SDK"
 readme = "README.md"
 license = "Apache License 2.0"
@@ -25,6 +25,7 @@ aiohttp = ">=3.8"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"
+pytest-xdist = "^3.6.1"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
@@ -33,9 +34,21 @@ log_cli = true
 log_cli_level = "WARNING"
 
 [tool.coverage.run]
+# Collect coverage across pytest-xdist workers (each runs in its own process).
+# The CI job drives coverage via `coverage run --branch -m pytest` then combines,
+# so:
+#   branch   -> match the job's --branch (else combine fails: branch vs statement)
+#   parallel -> each process writes its own .coverage.* file for later combine
+# Workers are measured via the committed hook .aoneci/covhook/sitecustomize.py,
+# which pre_test_commands puts on PYTHONPATH (with COVERAGE_PROCESS_START set) so
+# coverage.process_startup() runs in every subprocess.
+branch = true
+parallel = true
+source = ["."]
 omit = [
     "tests/*",
     "tablestore/protobuf/*",
+    ".aoneci/covhook/*",
 ]
 
 [build-system]

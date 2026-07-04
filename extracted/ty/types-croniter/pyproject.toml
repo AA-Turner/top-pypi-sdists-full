@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-croniter"
-version = "6.2.2.20260518"
+version = "6.2.3.20260704"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for croniter"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`croniter`](https://github.com/pallets-eco/croniter) package. It can be used by type checkers
 to check code that uses `croniter`. This version of
 `types-croniter` aims to provide accurate annotations for
-`croniter==6.2.2`.
+`croniter==6.2.3`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -26,10 +26,10 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.409
+* [pyright](https://github.com/microsoft/pyright) 1.1.411
 
 It was generated from typeshed commit
-[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
+[`323d5a44bd2ec5278b14a7f66c9aa5dd6189cb05`](https://github.com/python/typeshed/commit/323d5a44bd2ec5278b14a7f66c9aa5dd6189cb05).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

@@ -277,7 +277,7 @@ def sms_start(
     ] = False,
 ) -> None:
     """Start the bridge daemon in the background — requires sage login."""
-    from sage.main import _sms_process_alive
+    from sage.cli_core import _sms_process_alive
     import shutil
     import os
     import subprocess as _sp
@@ -419,7 +419,7 @@ def sms_start(
 @sms_app.command("stop")
 def sms_stop() -> None:
     """Stop the running bridge daemon on this computer."""
-    from sage.main import _sms_process_alive, _sms_terminate_process
+    from sage.cli_core import _sms_process_alive, _sms_terminate_process
     from sage.core.sms_bridge import SMS_PID_FILE
 
     if not SMS_PID_FILE.exists():
@@ -530,7 +530,7 @@ def sms_test_imessage(
 @sms_app.command("status")
 def sms_status() -> None:
     """Show this computer's bridge status and your account-wide devices/contacts."""
-    from sage.main import _sms_backend, _sms_process_alive
+    from sage.cli_core import _sms_backend, _sms_process_alive
     from sage.core.sms_bridge import SMSConfig, SMS_PID_FILE
 
     cfg = SMSConfig.load()
@@ -570,7 +570,7 @@ def sms_status() -> None:
 @sms_app.command("devices")
 def sms_devices() -> None:
     """List all computers registered to your SAGE account."""
-    from sage.main import _sms_backend
+    from sage.cli_core import _sms_backend
     try:
         be = _sms_backend()
         computers = be.list_computers()
@@ -597,7 +597,7 @@ def sms_unregister(
     computer_id: Annotated[str, typer.Argument(help="computer_id from `sage sms devices`")],
 ) -> None:
     """Remove a computer from your account (run sage sms devices to find the ID)."""
-    from sage.main import _sms_backend
+    from sage.cli_core import _sms_backend
     import httpx as _httpx
     try:
         be = _sms_backend()
@@ -618,7 +618,7 @@ def sms_unregister(
 @sms_app.command("test")
 def sms_test() -> None:
     """Verify bridge connectivity and trigger a test announcement to all contacts."""
-    from sage.main import _sms_backend
+    from sage.cli_core import _sms_backend
     from sage.core.sms_bridge import SMSConfig
 
     cfg = SMSConfig.load()
@@ -949,7 +949,7 @@ def sms_diagnose() -> None:
     glance whether SMS, iMessage, KDE Connect, and the bridge inbox are all
     wired up correctly.
     """
-    from sage.main import _sms_backend, _sms_process_alive
+    from sage.cli_core import _sms_backend, _sms_process_alive
     import platform
     import shutil as _sh
     from sage.core.sms_bridge import (
@@ -1236,7 +1236,7 @@ sms_app.add_typer(sms_contacts_app, name="contacts")
 @sms_contacts_app.command("list")
 def sms_contacts_list() -> None:
     """List all phone contacts authorized to send commands to your SAGE computers."""
-    from sage.main import _sms_backend
+    from sage.cli_core import _sms_backend
     try:
         contacts = _sms_backend().list_contacts()
     except RuntimeError as exc:
@@ -1293,7 +1293,7 @@ def sms_contacts_add(
       - apple   → iMessage from this Mac (when Apple ID is linked)
       - android → KDE Connect SMS via paired Android phone
     """
-    from sage.main import _sms_backend
+    from sage.cli_core import _sms_backend
     import re as _re
     raw = email.strip()
     is_phone = bool(_re.match(r"^[\+\d\s\-\(\)]+$", raw)) and len(_re.sub(r"\D", "", raw)) >= 7
@@ -1351,7 +1351,7 @@ def sms_contacts_remove(
     before being sent (e.g. "+1 (408) 507-3140", "408-507-3140", "4085073140"
     all match the same contact).
     """
-    from sage.main import _sms_backend
+    from sage.cli_core import _sms_backend
     import httpx as _httpx
     import re as _re
 
@@ -1383,7 +1383,7 @@ def sms_contacts_clear(
     force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation prompt")] = False,
 ) -> None:
     """Remove ALL authorized contacts from this account."""
-    from sage.main import _sms_backend
+    from sage.cli_core import _sms_backend
 
     try:
         be = _sms_backend()

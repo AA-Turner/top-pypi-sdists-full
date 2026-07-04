@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 dependencies = [
     "packaging>=23.2",
@@ -30,6 +31,7 @@ dependencies = [
 
 [project.urls]
 changelog = "https://pep621.readthedocs.io/en/stable/changelog.html"
+documentation = "https://pep621.readthedocs.io/en/stable/"
 homepage = "https://github.com/pypa/pyproject-metadata"
 
 [dependency-groups]
@@ -66,6 +68,7 @@ testpaths = ["tests"]
 [tool.mypy]
 strict = true
 warn_unreachable = false
+python_version = "3.10"
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 files = ["pyproject_metadata", "tests", "noxfile.py"]
 
@@ -114,6 +117,9 @@ report.show_missing = true
 report.exclude_also = [
     "if typing.TYPE_CHECKING:",
 ]
+
+[tool.uv]
+exclude-newer = "7 days"
 
 [tool.repo-review]
 ignore = ["PC140"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.6.21
+Version: 2.6.22
 Summary: The programming language for agentic software.
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License:                                  Apache License
@@ -436,6 +436,8 @@ Requires-Dist: neo4j; extra == "neo4j"
 Provides-Extra: telegram
 Requires-Dist: pyTelegramBotAPI>=4.32.0; extra == "telegram"
 Requires-Dist: aiohttp; extra == "telegram"
+Provides-Extra: twelvelabs
+Requires-Dist: twelvelabs>=1.2.8; extra == "twelvelabs"
 Provides-Extra: sql
 Requires-Dist: sqlalchemy; extra == "sql"
 Provides-Extra: postgres
@@ -589,6 +591,7 @@ Requires-Dist: agno[redshift]; extra == "tools"
 Requires-Dist: agno[reportlab]; extra == "tools"
 Requires-Dist: agno[trafilatura]; extra == "tools"
 Requires-Dist: agno[neo4j]; extra == "tools"
+Requires-Dist: agno[twelvelabs]; extra == "tools"
 Provides-Extra: storage
 Requires-Dist: agno[sql]; extra == "storage"
 Requires-Dist: agno[postgres]; extra == "storage"

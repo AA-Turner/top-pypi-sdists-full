@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_syslog_servers
-short_description: Resource module for networks _syslog _servers
+short_description: Resource module for networks _syslogservers
 description:
-  - Manage operation update of the resource networks _syslog _servers.
+  - Manage operation update of the resource networks _syslogservers.
   - Update the syslog servers for a network.
 version_added: '1.0.0'
 extends_documentation_fragment:

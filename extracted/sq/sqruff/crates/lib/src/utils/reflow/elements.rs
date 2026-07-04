@@ -132,6 +132,15 @@ impl ReflowPoint {
         indent
     }
 
+    pub(crate) fn get_indent_segment_vals(&self, exclude_block_indents: bool) -> Vec<isize> {
+        self.segments
+            .iter()
+            .filter(|seg| seg.is_type(SyntaxKind::Indent))
+            .filter(|seg| !(exclude_block_indents && seg.block_uuid().is_some()))
+            .map(|seg| seg.indent_val() as isize)
+            .collect()
+    }
+
     pub(crate) fn num_newlines(&self) -> usize {
         self.segments
             .iter()
@@ -260,16 +269,16 @@ impl ReflowPoint {
 
                 let new_indent = SegmentBuilder::whitespace(tables.next_id(), desired_indent);
 
-                let (last_newline_idx, last_newline) = self
-                    .segments
-                    .iter()
-                    .enumerate()
-                    .rev()
-                    .find(|(_, it)| {
+                let Some((last_newline_idx, last_newline)) =
+                    self.segments.iter().enumerate().rev().find(|(_, it)| {
                         it.is_type(SyntaxKind::Newline)
-                            && it.get_position_marker().unwrap().is_literal()
+                            && it
+                                .get_position_marker()
+                                .is_some_and(|marker| marker.is_literal())
                     })
-                    .unwrap();
+                else {
+                    return (Vec::new(), self.clone());
+                };
 
                 let mut new_segments = self.segments[..=last_newline_idx].to_vec();
                 new_segments.push(new_indent.clone());
@@ -427,6 +436,18 @@ impl ReflowPoint {
         anchor_on: &'static str,
     ) -> (Vec<LintResult>, ReflowPoint) {
         let mut existing_results = lint_results;
+
+        // Leave spacing untouched when it lives entirely inside an unparsable
+        // section. Since we couldn't parse that section we don't understand its
+        // tokens, so reformatting it is unsafe - e.g. splitting `>=` into `> =`
+        // when the right-hand side fails to parse (issue #2624).
+        if let (Some(prev_block), Some(next_block)) = (prev_block, next_block)
+            && prev_block.within_unparsable()
+            && next_block.within_unparsable()
+        {
+            return (existing_results, self.clone());
+        }
+
         let (pre_constraint, post_constraint, strip_newlines) =
             determine_constraints(prev_block, next_block, strip_newlines);
 
@@ -655,6 +676,26 @@ impl ReflowBlock {
         self.segment.class_types()
     }
 
+    /// True if the block contains only whitespace/indent/placeholder/loop.
+    pub fn is_all_unrendered(&self) -> bool {
+        matches!(
+            self.segment.get_type(),
+            SyntaxKind::Whitespace
+                | SyntaxKind::Placeholder
+                | SyntaxKind::Newline
+                | SyntaxKind::Indent
+                | SyntaxKind::TemplateLoop
+        )
+    }
+
+    /// Whether this block sits inside an unparsable section.
+    pub fn within_unparsable(&self) -> bool {
+        self.depth_info
+            .stack_class_types
+            .iter()
+            .any(|types| types.contains(SyntaxKind::Unparsable))
+    }
+
     pub fn stack_spacing_configs(&self) -> &IntMap<u64, Spacing> {
         &self.stack_spacing_configs
     }
@@ -820,3 +861,74 @@ impl PartialEq<ReflowBlock> for ReflowElement {
 }
 
 pub type ReflowSequenceType = Vec<ReflowElement>;
+
+#[cfg(test)]
+mod tests {
+    use sqruff_lib_core::dialects::syntax::SyntaxKind;
+    use sqruff_lib_core::parser::markers::PositionMarker;
+    use sqruff_lib_core::parser::segments::{SegmentBuilder, Tables};
+    use sqruff_lib_core::templaters::{
+        RawFileSlice, TemplateSliceKind, TemplatedFile, TemplatedFileSlice,
+    };
+
+    use super::ReflowPoint;
+
+    #[test]
+    fn indent_to_leaves_non_literal_newline_unchanged() {
+        let templated_file = TemplatedFile::new(
+            "{{ source('connection', 'table') }}".to_string(),
+            "model.sql".to_string(),
+            Some("\n".to_string()),
+            Some(vec![TemplatedFileSlice::new(
+                TemplateSliceKind::Templated,
+                0..34,
+                0..1,
+            )]),
+            Some(vec![RawFileSlice::new(
+                "{{ source('connection', 'table') }}".to_string(),
+                TemplateSliceKind::Templated,
+                0,
+                None,
+                None,
+            )]),
+        )
+        .unwrap();
+        let marker = PositionMarker::new(0..34, 0..1, templated_file, Some(1), Some(1));
+        let newline = SegmentBuilder::token(0, "\n", SyntaxKind::Newline)
+            .with_position(marker)
+            .finish();
+        let point = ReflowPoint::new(vec![newline]);
+        let tables = Tables::default();
+
+        let (results, new_point) = point.indent_to(
+            &tables,
+            "    ",
+            None,
+            Some(SegmentBuilder::keyword(1, "select")),
+            None,
+            None,
+        );
+
+        assert!(results.is_empty());
+        assert_eq!(new_point, point);
+    }
+
+    #[test]
+    fn indent_to_leaves_markerless_newline_unchanged() {
+        let newline = SegmentBuilder::newline(0, "\n");
+        let point = ReflowPoint::new(vec![newline]);
+        let tables = Tables::default();
+
+        let (results, new_point) = point.indent_to(
+            &tables,
+            "    ",
+            None,
+            Some(SegmentBuilder::keyword(1, "select")),
+            None,
+            None,
+        );
+
+        assert!(results.is_empty());
+        assert_eq!(new_point, point);
+    }
+}

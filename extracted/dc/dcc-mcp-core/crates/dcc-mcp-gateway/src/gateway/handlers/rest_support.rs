@@ -16,6 +16,7 @@ pub(super) struct RestResponseMetadata {
     pub(super) index_generation: Option<String>,
     search_id: Option<String>,
     ranker_version: Option<String>,
+    search_cache_hit: bool,
 }
 
 impl RestResponseMetadata {
@@ -31,6 +32,7 @@ impl RestResponseMetadata {
             index_generation: None,
             search_id: None,
             ranker_version: None,
+            search_cache_hit: false,
         }
     }
 
@@ -51,6 +53,12 @@ impl RestResponseMetadata {
         self
     }
 
+    /// Mark this response as served from the search cache (PIP-2471).
+    pub(super) fn with_search_cache_hit(mut self, hit: bool) -> Self {
+        self.search_cache_hit = hit;
+        self
+    }
+
     pub(super) fn insert_body_fields(&self, value: &mut Value) {
         if let Some(obj) = value.as_object_mut() {
             obj.entry("request_id".to_string())
@@ -68,6 +76,10 @@ impl RestResponseMetadata {
             if let Some(ranker_version) = self.ranker_version.as_deref() {
                 obj.entry("ranker_version".to_string())
                     .or_insert_with(|| json!(ranker_version));
+            }
+            if self.search_cache_hit {
+                obj.entry("search_cache".to_string())
+                    .or_insert_with(|| json!("hit"));
             }
         }
     }
@@ -187,12 +199,16 @@ pub(super) fn search_response_with_metadata(
     body: &Value,
     hits: Vec<Value>,
     metadata: &RestResponseMetadata,
+    semantic: Option<Value>,
 ) -> Response {
     let total = hits.len();
     let mut legacy = json!({
         "total": total,
         "hits": hits,
     });
+    if let Some(ref sem) = semantic {
+        legacy["semantic"] = sem.clone();
+    }
     metadata.insert_body_fields(&mut legacy);
     let mut compact = compact_search_payload(
         total,
@@ -201,6 +217,9 @@ pub(super) fn search_response_with_metadata(
             .map(Vec::as_slice)
             .unwrap_or_default(),
     );
+    if let Some(ref sem) = semantic {
+        compact["semantic"] = sem.clone();
+    }
     metadata.insert_body_fields(&mut compact);
     negotiated_response_with_metadata(
         headers,

@@ -2,16 +2,18 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_topology_link_layer_info
-short_description: Information module for networks _topology _link _layer
+short_description: Information module for networks _topology _linklayer
 description:
-  - Get all networks _topology _link _layer. - > List the LLDP and CDP information
-    for all discovered devices and connections in a network. At least one MX or MS
-    device must be in the network in order to build the topology.
+  - Information module for Networks Topology Linklayer Info.
+  - Get all networks _topology _linklayer.
+  - >
+    List the LLDP and CDP information for all discovered devices and connections in
+    a network. At least one MX or MS device must be in the network in order to build
+    the topology.
 version_added: '1.0.0'
 extends_documentation_fragment:
   - cisco.meraki.module_info
@@ -22,6 +24,7 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Topology Linklayer Info.
       - NetworkId path parameter. Network ID.
     type: str
 requirements:
@@ -39,7 +42,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all networks _topology _link _layer
+- name: Get all networks _topology _linklayer
   cisco.meraki.networks_topology_link_layer_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

@@ -34,7 +34,7 @@ class TestToolDescriptionVsExecution:
         READ:/SEARCH:/RUN: commands at line start, even with preamble.
         This test verifies that PURE descriptions (no actual executions) are flagged.
         """
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         # This response ONLY describes tools but never executes them
         # (no READ: at start of line, just prose description)
@@ -57,7 +57,7 @@ Then I will analyze the architecture and provide recommendations.
         The implementation allows responses that explain what they're doing
         as long as they actually execute the tools.
         """
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         # Has preamble BUT also has actual READ: commands
         response_with_preamble = """
@@ -78,7 +78,7 @@ Then I will analyze the architecture.
 
     def test_direct_execution_not_flagged(self):
         """Direct tool execution at start should NOT be flagged."""
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         execution_response = """READ: ai-platform/backend/app.py
 READ: ai-platform/backend/config.py
@@ -102,7 +102,7 @@ class TestRepetitiveFillerDetection:
 
     def test_repetitive_logging_pattern_detected(self):
         """The 'Implement basic logging for X' pattern should be caught."""
-        from sage.main import _detect_repetitive_filler
+        from sage.cli_core import _detect_repetitive_filler
 
         filler_response = """
 1. Implement basic logging for debugging information.
@@ -121,7 +121,7 @@ class TestRepetitiveFillerDetection:
 
     def test_varied_content_allowed(self):
         """Legitimate varied recommendations should pass."""
-        from sage.main import _detect_repetitive_filler
+        from sage.cli_core import _detect_repetitive_filler
 
         varied_response = """
 1. Fix authentication bypass in terminal WebSocket (P0, security)
@@ -191,7 +191,7 @@ class TestPhantomImplementationDetection:
 
     def test_implementation_claim_without_files_rejected(self):
         """Claiming 'I've implemented' without FILE: blocks should fail."""
-        from sage.main import _validate_implementation_claim
+        from sage.cli_core import _validate_implementation_claim
 
         phantom_response = """
 I've implemented the model registry with the following features:
@@ -209,7 +209,7 @@ The implementation is complete and ready for testing.
 
     def test_implementation_with_files_accepted(self):
         """Implementation claims WITH FILE: blocks should pass."""
-        from sage.main import _validate_implementation_claim
+        from sage.cli_core import _validate_implementation_claim
 
         real_implementation = """
 I've implemented the model registry:
@@ -241,7 +241,7 @@ class TestFailureLoopDetection:
 
     def test_repeated_errors_trigger_loop_detection(self):
         """Same error 3+ times should trigger loop detection."""
-        from sage.main import _FailureLoopDetector
+        from sage.cli_core import _FailureLoopDetector
 
         detector = _FailureLoopDetector(max_identical_errors=3)
 
@@ -258,7 +258,7 @@ class TestFailureLoopDetection:
 
     def test_varied_errors_no_loop(self):
         """Different errors should not trigger loop detection."""
-        from sage.main import _FailureLoopDetector
+        from sage.cli_core import _FailureLoopDetector
 
         detector = _FailureLoopDetector(max_identical_errors=3)
 
@@ -271,7 +271,7 @@ class TestFailureLoopDetection:
 
     def test_reset_clears_history(self):
         """Reset should clear error history."""
-        from sage.main import _FailureLoopDetector
+        from sage.cli_core import _FailureLoopDetector
 
         detector = _FailureLoopDetector(max_identical_errors=3)
 
@@ -298,7 +298,7 @@ class TestModeBoundaryEnforcement:
 
     def test_validate_readonly_mode_rejects_implementation_verbs(self):
         """Analysis mode should reject implementation language."""
-        from sage.main import _validate_readonly_mode
+        from sage.cli_core import _validate_readonly_mode
 
         implementation_response = """
 1. Implement the new authentication system
@@ -383,7 +383,7 @@ class TestContextGatheringValidation:
 
     def test_large_recommendations_without_reads_rejected(self):
         """50+ recommendations with 0 files read should be rejected."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         # Generate 50+ numbered items
         recommendations = "\n".join([f"{i}. Fix issue {i}" for i in range(1, 55)])
@@ -401,7 +401,7 @@ class TestContextGatheringValidation:
 
     def test_proportional_reads_accepted(self):
         """Recommendations with proportional file reads should pass."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         recommendations = "\n".join([f"{i}. Fix issue {i}" for i in range(1, 25)])
 
@@ -424,7 +424,7 @@ class TestCompletionClaimValidation:
 
     def test_completion_without_evidence_rejected(self):
         """Saying 'Done!' without FILE:/RUN:/RESULT: should fail."""
-        from sage.main import _validate_completion_claim
+        from sage.cli_core import _validate_completion_claim
 
         no_evidence_response = """
 I have completed all the requested tasks.
@@ -437,7 +437,7 @@ All done! The implementation is ready for review.
 
     def test_completion_with_file_accepted(self):
         """Completion with FILE: blocks should pass."""
-        from sage.main import _validate_completion_claim
+        from sage.cli_core import _validate_completion_claim
 
         with_evidence = """
 Done! I've implemented the fix.
@@ -454,7 +454,7 @@ def fix():
 
     def test_completion_with_run_accepted(self):
         """Completion with RUN: commands should pass."""
-        from sage.main import _validate_completion_claim
+        from sage.cli_core import _validate_completion_claim
 
         with_run = """
 All done! Tests are passing.
@@ -477,7 +477,7 @@ class TestFileWriteVerification:
 
     def test_write_creates_file(self, tmp_path: Path):
         """_write_file should create the file and verify it exists."""
-        from sage.main import _write_file
+        from sage.cli_core import _write_file
 
         content = "print('hello world')"
 
@@ -503,7 +503,7 @@ class TestFileWriteVerification:
 
     def test_write_verifies_content(self, tmp_path: Path):
         """Written content should match what was requested."""
-        from sage.main import _write_file
+        from sage.cli_core import _write_file
 
         content = """
 def complex_function():
@@ -532,7 +532,7 @@ class TestTDDComplianceValidation:
 
     def test_tdd_claim_without_test_files_rejected(self):
         """Claiming TDD but no test files written should be caught."""
-        from sage.main import _validate_tdd_compliance
+        from sage.cli_core import _validate_tdd_compliance
 
         tdd_claim_no_tests = """
 Following TDD principles, I've implemented the feature.
@@ -556,7 +556,7 @@ Tests first - the implementation is complete!
 
     def test_tdd_with_tests_accepted(self):
         """TDD with actual test files should pass."""
-        from sage.main import _validate_tdd_compliance
+        from sage.cli_core import _validate_tdd_compliance
 
         tdd_with_tests = """
 Following TDD principles:

@@ -348,6 +348,136 @@ class TestTablesRead:
             result = runner.invoke(cli, ["-w", WS_GUID, "tables", "read", WH_GUID, "dbo.missing"])
         assert result.exit_code != 0
 
+    # -- time-travel options --
+
+    def test_read_with_as_of_passes_datetime_to_service(
+        self, runner: CliRunner, cache_env: Path
+    ) -> None:
+        """--as-of is parsed and threaded to the service as a datetime."""
+        _ = cache_env
+        mock_read = AsyncMock(return_value=ResultSet(columns=["id"], rows=[(1,)]))
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(AsyncMock()),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch("fabric_dw.services.tables.read_table", new=mock_read),
+        ):
+            result = runner.invoke(
+                cli,
+                [
+                    "-w",
+                    WS_GUID,
+                    "tables",
+                    "read",
+                    WH_GUID,
+                    "dbo.sales",
+                    "--as-of",
+                    "2024-03-15T10:30:00",
+                ],
+            )
+        assert result.exit_code == 0, result.output
+        _, kwargs = mock_read.call_args
+        assert kwargs.get("as_of") is not None
+        assert isinstance(kwargs["as_of"], datetime)
+
+    def test_read_with_ago_passes_datetime_to_service(
+        self, runner: CliRunner, cache_env: Path
+    ) -> None:
+        """--ago is parsed into a datetime and threaded to the service."""
+        _ = cache_env
+        mock_read = AsyncMock(return_value=ResultSet(columns=["id"], rows=[(1,)]))
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(AsyncMock()),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch("fabric_dw.services.tables.read_table", new=mock_read),
+        ):
+            result = runner.invoke(
+                cli,
+                ["-w", WS_GUID, "tables", "read", WH_GUID, "dbo.sales", "--ago", "1h"],
+            )
+        assert result.exit_code == 0, result.output
+        _, kwargs = mock_read.call_args
+        assert kwargs.get("as_of") is not None
+        assert isinstance(kwargs["as_of"], datetime)
+
+    def test_read_with_both_as_of_and_ago_exits_nonzero(
+        self, runner: CliRunner, cache_env: Path
+    ) -> None:
+        """--as-of and --ago together exit nonzero (mutually exclusive)."""
+        _ = cache_env
+        result = runner.invoke(
+            cli,
+            [
+                "-w",
+                WS_GUID,
+                "tables",
+                "read",
+                WH_GUID,
+                "dbo.sales",
+                "--as-of",
+                "2024-01-01T00:00:00",
+                "--ago",
+                "1h",
+            ],
+        )
+        assert result.exit_code != 0
+
+    def test_read_both_error_names_as_of_and_ago(self, runner: CliRunner, cache_env: Path) -> None:
+        """Error for --as-of + --ago names both options correctly (not --since)."""
+        _ = cache_env
+        result = runner.invoke(
+            cli,
+            [
+                "-w",
+                WS_GUID,
+                "tables",
+                "read",
+                WH_GUID,
+                "dbo.sales",
+                "--as-of",
+                "2024-01-01T00:00:00",
+                "--ago",
+                "1h",
+            ],
+        )
+        assert result.exit_code != 0
+        assert "--as-of" in result.output
+        assert "--ago" in result.output
+        assert "--since" not in result.output
+
+    def test_read_without_time_travel_passes_none_as_of(
+        self, runner: CliRunner, cache_env: Path
+    ) -> None:
+        """Without --as-of or --ago, service is called with as_of=None."""
+        _ = cache_env
+        mock_read = AsyncMock(return_value=ResultSet(columns=["id"], rows=[(1,)]))
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(AsyncMock()),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch("fabric_dw.services.tables.read_table", new=mock_read),
+        ):
+            result = runner.invoke(cli, ["-w", WS_GUID, "tables", "read", WH_GUID, "dbo.sales"])
+        assert result.exit_code == 0, result.output
+        _, kwargs = mock_read.call_args
+        assert kwargs.get("as_of") is None
+
 
 # ===========================================================================
 # tables count
@@ -431,6 +561,516 @@ class TestTablesCount:
             ),
         ):
             result = runner.invoke(cli, ["-w", WS_GUID, "tables", "count", WH_GUID, "dbo.missing"])
+        assert result.exit_code != 0
+
+    def test_count_with_as_of_passes_datetime_to_service(
+        self, runner: CliRunner, cache_env: Path
+    ) -> None:
+        """--as-of is parsed into a datetime and threaded to count_table_rows."""
+        _ = cache_env
+        mock_count = AsyncMock(
+            return_value=TableRowCount(schema_name="dbo", name="sales", row_count=5)
+        )
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(AsyncMock()),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch("fabric_dw.services.tables.count_table_rows", new=mock_count),
+        ):
+            result = runner.invoke(
+                cli,
+                [
+                    "-w",
+                    WS_GUID,
+                    "tables",
+                    "count",
+                    WH_GUID,
+                    "dbo.sales",
+                    "--as-of",
+                    "2024-03-15T10:30:00",
+                ],
+            )
+        assert result.exit_code == 0, result.output
+        _, kwargs = mock_count.call_args
+        assert kwargs.get("as_of") is not None
+        assert isinstance(kwargs["as_of"], datetime)
+
+    def test_count_with_ago_passes_datetime_to_service(
+        self, runner: CliRunner, cache_env: Path
+    ) -> None:
+        """--ago is parsed into a datetime and threaded to count_table_rows."""
+        _ = cache_env
+        mock_count = AsyncMock(
+            return_value=TableRowCount(schema_name="dbo", name="sales", row_count=3)
+        )
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(AsyncMock()),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch("fabric_dw.services.tables.count_table_rows", new=mock_count),
+        ):
+            result = runner.invoke(
+                cli,
+                ["-w", WS_GUID, "tables", "count", WH_GUID, "dbo.sales", "--ago", "1h"],
+            )
+        assert result.exit_code == 0, result.output
+        _, kwargs = mock_count.call_args
+        assert kwargs.get("as_of") is not None
+        assert isinstance(kwargs["as_of"], datetime)
+
+    def test_count_with_both_as_of_and_ago_exits_nonzero(
+        self, runner: CliRunner, cache_env: Path
+    ) -> None:
+        """--as-of and --ago together exit nonzero (mutually exclusive)."""
+        _ = cache_env
+        result = runner.invoke(
+            cli,
+            [
+                "-w",
+                WS_GUID,
+                "tables",
+                "count",
+                WH_GUID,
+                "dbo.sales",
+                "--as-of",
+                "2024-01-01T00:00:00",
+                "--ago",
+                "1h",
+            ],
+        )
+        assert result.exit_code != 0
+        assert "--as-of" in result.output
+        assert "--ago" in result.output
+        assert "--since" not in result.output
+
+    def test_count_without_time_travel_passes_none_as_of(
+        self, runner: CliRunner, cache_env: Path
+    ) -> None:
+        """Without --as-of or --ago, service is called with as_of=None."""
+        _ = cache_env
+        mock_count = AsyncMock(
+            return_value=TableRowCount(schema_name="dbo", name="sales", row_count=0)
+        )
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(AsyncMock()),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch("fabric_dw.services.tables.count_table_rows", new=mock_count),
+        ):
+            result = runner.invoke(cli, ["-w", WS_GUID, "tables", "count", WH_GUID, "dbo.sales"])
+        assert result.exit_code == 0, result.output
+        _, kwargs = mock_count.call_args
+        assert kwargs.get("as_of") is None
+
+
+# ===========================================================================
+# tables export
+# ===========================================================================
+
+
+class TestTablesExport:
+    def test_export_exits_zero_parquet(
+        self, runner: CliRunner, cache_env: Path, tmp_path: Path
+    ) -> None:
+        _ = cache_env
+        output = tmp_path / "out.parquet"
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(AsyncMock()),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch(
+                "fabric_dw.services.tables.export_table",
+                new=AsyncMock(return_value=42),
+            ),
+        ):
+            result = runner.invoke(
+                cli,
+                ["-w", WS_GUID, "tables", "export", WH_GUID, "dbo.sales", "--output", str(output)],
+            )
+        assert result.exit_code == 0, result.output
+        assert "42 row(s)" in result.output
+
+    def test_export_format_inferred_from_extension_csv(
+        self, runner: CliRunner, cache_env: Path, tmp_path: Path
+    ) -> None:
+        _ = cache_env
+        output = tmp_path / "out.csv"
+        mock_export = AsyncMock(return_value=5)
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(AsyncMock()),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch("fabric_dw.services.tables.export_table", new=mock_export),
+        ):
+            result = runner.invoke(
+                cli,
+                ["-w", WS_GUID, "tables", "export", WH_GUID, "dbo.sales", "--output", str(output)],
+            )
+        assert result.exit_code == 0, result.output
+        # Positional signature: (target, schema, table_name, output, fmt, ...)
+        call_args = mock_export.call_args[0]
+        assert call_args[4] == "csv"
+
+    def test_export_format_flag_overrides_extension(
+        self, runner: CliRunner, cache_env: Path, tmp_path: Path
+    ) -> None:
+        _ = cache_env
+        output = tmp_path / "out.csv"
+        mock_export = AsyncMock(return_value=3)
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(AsyncMock()),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch("fabric_dw.services.tables.export_table", new=mock_export),
+        ):
+            result = runner.invoke(
+                cli,
+                [
+                    "-w",
+                    WS_GUID,
+                    "tables",
+                    "export",
+                    WH_GUID,
+                    "dbo.sales",
+                    "--output",
+                    str(output),
+                    "--format",
+                    "parquet",
+                ],
+            )
+        assert result.exit_code == 0, result.output
+        call_args = mock_export.call_args[0]
+        # Positional signature: (target, schema, table_name, output, fmt, ...)
+        assert call_args[4] == "parquet"
+
+    def test_export_unknown_extension_without_format_fails(
+        self, runner: CliRunner, cache_env: Path, tmp_path: Path
+    ) -> None:
+        _ = cache_env
+        output = tmp_path / "out.xyz"
+        result = runner.invoke(
+            cli,
+            ["-w", WS_GUID, "tables", "export", WH_GUID, "dbo.sales", "--output", str(output)],
+        )
+        assert result.exit_code != 0
+
+    def test_export_no_overwrite_fails_when_file_exists(
+        self, runner: CliRunner, cache_env: Path, tmp_path: Path
+    ) -> None:
+        _ = cache_env
+        output = tmp_path / "out.parquet"
+        output.write_bytes(b"x")  # file already exists
+        result = runner.invoke(
+            cli,
+            [
+                "-w",
+                WS_GUID,
+                "tables",
+                "export",
+                WH_GUID,
+                "dbo.sales",
+                "--output",
+                str(output),
+                "--no-overwrite",
+            ],
+        )
+        assert result.exit_code != 0
+        assert "already exists" in result.output
+
+    def test_export_default_overwrites_existing_file(
+        self, runner: CliRunner, cache_env: Path, tmp_path: Path
+    ) -> None:
+        _ = cache_env
+        output = tmp_path / "out.parquet"
+        output.write_bytes(b"old")
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(AsyncMock()),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch("fabric_dw.services.tables.export_table", new=AsyncMock(return_value=1)),
+        ):
+            result = runner.invoke(
+                cli,
+                [
+                    "-w",
+                    WS_GUID,
+                    "tables",
+                    "export",
+                    WH_GUID,
+                    "dbo.sales",
+                    "--output",
+                    str(output),
+                ],
+            )
+        assert result.exit_code == 0, result.output
+
+    def test_export_limit_threads_through(
+        self, runner: CliRunner, cache_env: Path, tmp_path: Path
+    ) -> None:
+        _ = cache_env
+        output = tmp_path / "out.parquet"
+        mock_export = AsyncMock(return_value=10)
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(AsyncMock()),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch("fabric_dw.services.tables.export_table", new=mock_export),
+        ):
+            result = runner.invoke(
+                cli,
+                [
+                    "-w",
+                    WS_GUID,
+                    "tables",
+                    "export",
+                    WH_GUID,
+                    "dbo.sales",
+                    "--output",
+                    str(output),
+                    "--limit",
+                    "100",
+                ],
+            )
+        assert result.exit_code == 0, result.output
+        _, kwargs = mock_export.call_args
+        assert kwargs.get("limit") == 100
+
+    def test_export_as_of_passes_datetime(
+        self, runner: CliRunner, cache_env: Path, tmp_path: Path
+    ) -> None:
+        _ = cache_env
+        output = tmp_path / "out.parquet"
+        mock_export = AsyncMock(return_value=1)
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(AsyncMock()),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch("fabric_dw.services.tables.export_table", new=mock_export),
+        ):
+            result = runner.invoke(
+                cli,
+                [
+                    "-w",
+                    WS_GUID,
+                    "tables",
+                    "export",
+                    WH_GUID,
+                    "dbo.sales",
+                    "--output",
+                    str(output),
+                    "--as-of",
+                    "2024-03-15T10:30:00",
+                ],
+            )
+        assert result.exit_code == 0, result.output
+        _, kwargs = mock_export.call_args
+        assert kwargs.get("as_of") is not None
+        assert isinstance(kwargs["as_of"], datetime)
+
+    def test_export_ago_and_as_of_mutually_exclusive(
+        self, runner: CliRunner, cache_env: Path, tmp_path: Path
+    ) -> None:
+        _ = cache_env
+        output = tmp_path / "out.parquet"
+        result = runner.invoke(
+            cli,
+            [
+                "-w",
+                WS_GUID,
+                "tables",
+                "export",
+                WH_GUID,
+                "dbo.sales",
+                "--output",
+                str(output),
+                "--as-of",
+                "2024-01-01T00:00:00",
+                "--ago",
+                "1h",
+            ],
+        )
+        assert result.exit_code != 0
+
+    def test_export_json_flag_emits_status_object(
+        self, runner: CliRunner, cache_env: Path, tmp_path: Path
+    ) -> None:
+        _ = cache_env
+        output = tmp_path / "out.parquet"
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(AsyncMock()),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch("fabric_dw.services.tables.export_table", new=AsyncMock(return_value=7)),
+        ):
+            result = runner.invoke(
+                cli,
+                [
+                    "-w",
+                    WS_GUID,
+                    "--json",
+                    "tables",
+                    "export",
+                    WH_GUID,
+                    "dbo.sales",
+                    "--output",
+                    str(output),
+                ],
+            )
+        assert result.exit_code == 0, result.output
+        parsed = json.loads(result.output)
+        assert parsed["status"] == "exported"
+        assert parsed["rows"] == 7
+        assert "output" in parsed
+
+    def test_export_bad_qualified_name_exits_nonzero(
+        self, runner: CliRunner, cache_env: Path, tmp_path: Path
+    ) -> None:
+        _ = cache_env
+        output = tmp_path / "out.parquet"
+        result = runner.invoke(
+            cli,
+            ["-w", WS_GUID, "tables", "export", WH_GUID, "nodot", "--output", str(output)],
+        )
+        assert result.exit_code != 0
+
+    def test_export_fabric_error_exits_nonzero(
+        self, runner: CliRunner, cache_env: Path, tmp_path: Path
+    ) -> None:
+        _ = cache_env
+        output = tmp_path / "out.parquet"
+        from fabric_dw.exceptions import NotFoundError  # noqa: PLC0415
+
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(AsyncMock()),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch(
+                "fabric_dw.services.tables.export_table",
+                new=AsyncMock(side_effect=NotFoundError("table not found")),
+            ),
+        ):
+            result = runner.invoke(
+                cli,
+                [
+                    "-w",
+                    WS_GUID,
+                    "tables",
+                    "export",
+                    WH_GUID,
+                    "dbo.missing",
+                    "--output",
+                    str(output),
+                ],
+            )
+        assert result.exit_code != 0
+
+    def test_export_output_required(self, runner: CliRunner, cache_env: Path) -> None:
+        _ = cache_env
+        result = runner.invoke(
+            cli,
+            ["-w", WS_GUID, "tables", "export", WH_GUID, "dbo.sales"],
+        )
+        assert result.exit_code != 0
+
+    def test_export_limit_zero_rejected(
+        self, runner: CliRunner, cache_env: Path, tmp_path: Path
+    ) -> None:
+        """--limit 0 must fail with a usage error (IntRange min=1)."""
+        _ = cache_env
+        output = tmp_path / "out.parquet"
+        result = runner.invoke(
+            cli,
+            [
+                "-w",
+                WS_GUID,
+                "tables",
+                "export",
+                WH_GUID,
+                "dbo.sales",
+                "--output",
+                str(output),
+                "--limit",
+                "0",
+            ],
+        )
+        assert result.exit_code != 0
+
+    def test_export_limit_negative_rejected(
+        self, runner: CliRunner, cache_env: Path, tmp_path: Path
+    ) -> None:
+        """--limit -1 must fail with a usage error (IntRange min=1)."""
+        _ = cache_env
+        output = tmp_path / "out.parquet"
+        result = runner.invoke(
+            cli,
+            [
+                "-w",
+                WS_GUID,
+                "tables",
+                "export",
+                WH_GUID,
+                "dbo.sales",
+                "--output",
+                str(output),
+                "--limit",
+                "-1",
+            ],
+        )
         assert result.exit_code != 0
 
 
@@ -1460,6 +2100,196 @@ class TestTablesRename:
             result = runner.invoke(
                 cli,
                 ["-w", WS_GUID, "tables", "rename", WH_GUID, "dbo.sales", "--new-name", "sales_v2"],
+            )
+        assert result.exit_code != 0
+
+
+class TestTablesTransfer:
+    def test_transfer_exits_zero(self, runner: CliRunner, cache_env: Path) -> None:
+        _ = cache_env
+        mock_http = AsyncMock()
+        moved = Table(
+            schema_name="archive",
+            name="sales",
+            qualified_name="archive.sales",
+            created=_NOW,
+            modified=_NOW,
+        )
+        mock_transfer = AsyncMock(return_value=moved)
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(mock_http),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch(
+                "fabric_dw.services.tables.transfer_table",
+                new=mock_transfer,
+            ),
+        ):
+            result = runner.invoke(
+                cli,
+                [
+                    "-w",
+                    WS_GUID,
+                    "--json",
+                    "tables",
+                    "transfer",
+                    WH_GUID,
+                    "dbo.sales",
+                    "--target-schema",
+                    "archive",
+                ],
+            )
+        assert result.exit_code == 0
+        mock_transfer.assert_awaited_once()
+        args, kwargs = mock_transfer.call_args
+        # service is called positionally: target, qualified_name, target_schema
+        assert args[1] == "dbo.sales"
+        assert args[2] == "archive"
+        assert kwargs["kind"] == _make_item_entry().kind
+        parsed = json.loads(result.output)
+        assert parsed["name"] == "sales"
+        assert parsed["schema_name"] == "archive"
+
+    def test_transfer_missing_target_schema_fails(self, runner: CliRunner, cache_env: Path) -> None:
+        _ = cache_env
+        result = runner.invoke(cli, ["-w", WS_GUID, "tables", "transfer", WH_GUID, "dbo.sales"])
+        assert result.exit_code != 0
+
+    def test_transfer_undotted_qualified_name_fails_before_io(
+        self, runner: CliRunner, cache_env: Path
+    ) -> None:
+        """An undotted QUALIFIED_NAME must yield a UsageError before any I/O is performed."""
+        _ = cache_env
+        result = runner.invoke(
+            cli,
+            ["-w", WS_GUID, "tables", "transfer", WH_GUID, "nodot", "--target-schema", "archive"],
+        )
+        assert result.exit_code != 0
+        assert "table" in result.output.lower() or "Usage" in result.output
+
+    def test_transfer_sql_endpoint_rejected(self, runner: CliRunner, cache_env: Path) -> None:
+        """SQL Endpoint items must be rejected by the service-layer guard."""
+        _ = cache_env
+        mock_http = AsyncMock()
+        mock_transfer = AsyncMock(side_effect=ItemKindError("read-only"))
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(mock_http),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_sql_endpoint_entry())),
+            ),
+            patch(
+                "fabric_dw.services.tables.transfer_table",
+                new=mock_transfer,
+            ),
+        ):
+            result = runner.invoke(
+                cli,
+                [
+                    "-w",
+                    WS_GUID,
+                    "tables",
+                    "transfer",
+                    SE_GUID,
+                    "dbo.sales",
+                    "--target-schema",
+                    "archive",
+                ],
+            )
+        assert result.exit_code != 0
+        assert "read-only" in result.output
+        # The CLI must forward kind=SQL_ENDPOINT — the rejection is enforced
+        # by the service-layer guard, not faked by the CLI hardcoding WAREHOUSE.
+        _, kwargs = mock_transfer.call_args
+        assert kwargs["kind"] == _make_sql_endpoint_entry().kind
+
+    def test_transfer_reserved_target_schema_returns_nonzero(
+        self, runner: CliRunner, cache_env: Path
+    ) -> None:
+        """--target-schema sys / information_schema must surface as a non-zero CLI exit.
+
+        Exercises the CLI's ValueError -> ClickException conversion for the
+        reserved-system-schema rejection raised by the shared
+        _alter_schema_transfer helper (acceptance criterion for this feature,
+        already covered 4x via parametrize at the service layer in
+        TestTransferTable.test_rejects_reserved_target_schema).
+        """
+        _ = cache_env
+        mock_http = AsyncMock()
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(mock_http),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch(
+                "fabric_dw.services.tables.transfer_table",
+                new=AsyncMock(
+                    side_effect=ValueError(
+                        "Target schema 'sys' is a reserved system schema and cannot be "
+                        "an ALTER SCHEMA TRANSFER target"
+                    )
+                ),
+            ),
+        ):
+            result = runner.invoke(
+                cli,
+                [
+                    "-w",
+                    WS_GUID,
+                    "tables",
+                    "transfer",
+                    WH_GUID,
+                    "dbo.sales",
+                    "--target-schema",
+                    "sys",
+                ],
+            )
+        assert result.exit_code != 0
+        assert "reserved system schema" in result.output
+
+    def test_transfer_permission_denied_returns_nonzero(
+        self, runner: CliRunner, cache_env: Path
+    ) -> None:
+        _ = cache_env
+        mock_http = AsyncMock()
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(mock_http),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch(
+                "fabric_dw.services.tables.transfer_table",
+                new=AsyncMock(side_effect=PermissionDeniedError("no permission")),
+            ),
+        ):
+            result = runner.invoke(
+                cli,
+                [
+                    "-w",
+                    WS_GUID,
+                    "tables",
+                    "transfer",
+                    WH_GUID,
+                    "dbo.sales",
+                    "--target-schema",
+                    "archive",
+                ],
             )
         assert result.exit_code != 0
 
@@ -2851,6 +3681,10 @@ class TestTablesClusterBy:
                 new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
             ),
             patch("fabric_dw.services.tables.recluster_table", new=mock_recluster),
+            patch(
+                "fabric_dw.services.tables.get_table_dependents",
+                new=AsyncMock(return_value=[]),
+            ),
         ):
             result = runner.invoke(
                 cli,
@@ -2884,6 +3718,10 @@ class TestTablesClusterBy:
                 new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
             ),
             patch("fabric_dw.services.tables.recluster_table", new=mock_recluster),
+            patch(
+                "fabric_dw.services.tables.get_table_dependents",
+                new=AsyncMock(return_value=[]),
+            ),
         ):
             result = runner.invoke(
                 cli,
@@ -2922,6 +3760,10 @@ class TestTablesClusterBy:
                 new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
             ),
             patch("fabric_dw.services.tables.recluster_table", new=mock_recluster),
+            patch(
+                "fabric_dw.services.tables.get_table_dependents",
+                new=AsyncMock(return_value=[]),
+            ),
         ):
             result = runner.invoke(
                 cli,
@@ -2947,6 +3789,10 @@ class TestTablesClusterBy:
                 "fabric_dw.services.tables.recluster_table",
                 new=AsyncMock(side_effect=ItemKindError("clustering")),
             ),
+            patch(
+                "fabric_dw.services.tables.get_table_dependents",
+                new=AsyncMock(return_value=[]),
+            ),
         ):
             result = runner.invoke(
                 cli,
@@ -2954,8 +3800,10 @@ class TestTablesClusterBy:
             )
         assert result.exit_code != 0
 
-    def test_always_prints_warning(self, runner: CliRunner, cache_env: Path) -> None:
-        """The dependent-views warning is emitted when the swap proceeds; not --verbose gated."""
+    def test_warning_emitted_when_table_has_dependents(
+        self, runner: CliRunner, cache_env: Path
+    ) -> None:
+        """The dependent-views warning is emitted when the table has dependents (#957)."""
         _ = cache_env
         mock_http = AsyncMock()
         mock_recluster = AsyncMock(return_value=_make_table())
@@ -2969,6 +3817,10 @@ class TestTablesClusterBy:
                 new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
             ),
             patch("fabric_dw.services.tables.recluster_table", new=mock_recluster),
+            patch(
+                "fabric_dw.services.tables.get_table_dependents",
+                new=AsyncMock(return_value=["dbo.v_sales_summary"]),
+            ),
         ):
             result = runner.invoke(
                 cli,
@@ -2980,7 +3832,37 @@ class TestTablesClusterBy:
         # default on the runner fixture).
         assert "WARNING" in result.output
         assert "CTAS-swap" in result.output
+        assert "dbo.v_sales_summary" in result.output
         assert "sp_rename" not in result.output
+
+    def test_no_warning_when_table_has_no_dependents(
+        self, runner: CliRunner, cache_env: Path
+    ) -> None:
+        """No dependent-views warning when the table has zero dependents (#957)."""
+        _ = cache_env
+        mock_http = AsyncMock()
+        mock_recluster = AsyncMock(return_value=_make_table())
+        with (
+            patch(
+                "fabric_dw.cli.commands.tables.build_http_client",
+                new=_make_http_cm(mock_http),
+            ),
+            patch(
+                "fabric_dw.cli.commands.tables.build_sql_target",
+                new=AsyncMock(return_value=(_make_sql_target(), _make_item_entry())),
+            ),
+            patch("fabric_dw.services.tables.recluster_table", new=mock_recluster),
+            patch(
+                "fabric_dw.services.tables.get_table_dependents",
+                new=AsyncMock(return_value=[]),
+            ),
+        ):
+            result = runner.invoke(
+                cli,
+                ["-w", WS_GUID, "--yes", "tables", "cluster-by", WH_GUID, "dbo.sales"],
+            )
+        assert result.exit_code == 0, result.output
+        assert "CTAS-swap" not in result.output
 
 
 # ===========================================================================

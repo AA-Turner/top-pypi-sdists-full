@@ -12,7 +12,7 @@ from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
-from ..errors.unprocessable_entity_error import UnprocessableEntityError
+from ..errors.not_found_error import NotFoundError
 from ..types.artifact_version import ArtifactVersion
 from ..types.empty_response import EmptyResponse
 from ..types.file_info import FileInfo
@@ -33,6 +33,123 @@ OMIT = typing.cast(typing.Any, ...)
 class RawArtifactVersionsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
+
+    def list(
+        self,
+        *,
+        limit: typing.Optional[int] = 100,
+        offset: typing.Optional[int] = 0,
+        tag: typing.Optional[str] = None,
+        fqn: typing.Optional[str] = None,
+        artifact_id: typing.Optional[str] = None,
+        ml_repo_id: typing.Optional[str] = None,
+        name: typing.Optional[str] = None,
+        version: typing.Optional[int] = None,
+        run_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        run_steps: typing.Optional[typing.Union[float, typing.Sequence[float]]] = None,
+        include_internal_metadata: typing.Optional[bool] = False,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[ArtifactVersion, ListArtifactVersionsResponse]:
+        """
+        List artifact versions with optional filtering by tag, FQN, artifact ID, ML Repo, name, version, run IDs, or run steps.
+
+        Parameters
+        ----------
+        limit : typing.Optional[int]
+            Number of items per page
+
+        offset : typing.Optional[int]
+            Number of items to skip
+
+        tag : typing.Optional[str]
+            Tag to filter artifact versions by.
+
+        fqn : typing.Optional[str]
+            Fully Qualified Name uniquely identifying the artifact version.
+
+        artifact_id : typing.Optional[str]
+            Identifier of the artifact whose versions to list.
+
+        ml_repo_id : typing.Optional[str]
+            Identifier of the ML Repo the artifact versions belong to.
+
+        name : typing.Optional[str]
+            Name of the artifact version.
+
+        version : typing.Optional[int]
+            Version number (positive integer) to filter by.
+
+        run_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Run IDs to filter artifact versions by.
+
+        run_steps : typing.Optional[typing.Union[float, typing.Sequence[float]]]
+            Run steps to filter artifact versions by.
+
+        include_internal_metadata : typing.Optional[bool]
+            Whether to include internal metadata in the response.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SyncPager[ArtifactVersion, ListArtifactVersionsResponse]
+            List of artifact versions matching the query with pagination information
+        """
+        offset = offset if offset is not None else 0
+
+        _response = self._client_wrapper.httpx_client.request(
+            "api/svc/v1/artifact-versions",
+            method="GET",
+            params={
+                "limit": limit,
+                "offset": offset,
+                "tag": tag,
+                "fqn": fqn,
+                "artifact_id": artifact_id,
+                "ml_repo_id": ml_repo_id,
+                "name": name,
+                "version": version,
+                "run_ids": run_ids,
+                "run_steps": run_steps,
+                "include_internal_metadata": include_internal_metadata,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _parsed_response = typing.cast(
+                    ListArtifactVersionsResponse,
+                    parse_obj_as(
+                        type_=ListArtifactVersionsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                _items = _parsed_response.data
+                _has_next = len(_items or []) > 0
+                _get_next = lambda: self.list(
+                    limit=limit,
+                    offset=offset + len(_items or []),
+                    tag=tag,
+                    fqn=fqn,
+                    artifact_id=artifact_id,
+                    ml_repo_id=ml_repo_id,
+                    name=name,
+                    version=version,
+                    run_ids=run_ids,
+                    run_steps=run_steps,
+                    include_internal_metadata=include_internal_metadata,
+                    request_options=request_options,
+                )
+                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def apply_tags(
         self,
@@ -65,7 +182,7 @@ class RawArtifactVersionsClient:
             Empty response indicating successful tag application
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/ml/v1/artifact-versions/tags",
+            "api/svc/v1/artifact-versions/tags",
             method="PUT",
             json={
                 "artifact_version_id": artifact_version_id,
@@ -88,251 +205,6 @@ class RawArtifactVersionsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def get(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[GetArtifactVersionResponse]:
-        """
-        Get an artifact version by its ID.
-
-        Parameters
-        ----------
-        id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[GetArtifactVersionResponse]
-            The artifact version data
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/ml/v1/artifact-versions/{encode_path_param(id)}",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    GetArtifactVersionResponse,
-                    parse_obj_as(
-                        type_=GetArtifactVersionResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def delete(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[EmptyResponse]:
-        """
-        Delete an artifact version by its ID.
-
-        Parameters
-        ----------
-        id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[EmptyResponse]
-            Empty response indicating successful deletion
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/ml/v1/artifact-versions/{encode_path_param(id)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    EmptyResponse,
-                    parse_obj_as(
-                        type_=EmptyResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def list(
-        self,
-        *,
-        tag: typing.Optional[str] = None,
-        fqn: typing.Optional[str] = None,
-        artifact_id: typing.Optional[str] = None,
-        ml_repo_id: typing.Optional[str] = None,
-        name: typing.Optional[str] = None,
-        version: typing.Optional[int] = None,
-        run_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
-        run_steps: typing.Optional[typing.Union[int, typing.Sequence[int]]] = None,
-        offset: typing.Optional[int] = 0,
-        limit: typing.Optional[int] = 100,
-        include_internal_metadata: typing.Optional[bool] = False,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[ArtifactVersion, ListArtifactVersionsResponse]:
-        """
-        List artifact versions with optional filtering by tag, FQN, artifact ID, ML Repo, name, version, run IDs, or run steps.
-
-        Parameters
-        ----------
-        tag : typing.Optional[str]
-            Tag to filter artifact versions by
-
-        fqn : typing.Optional[str]
-            Fully qualified name to filter artifact versions by (format: '{artifact_type}:{tenant_name}/{ml_repo_name}/{artifact_name}' or '{artifact_type}:{tenant_name}/{ml_repo_name}/{artifact_name}:{version}')
-
-        artifact_id : typing.Optional[str]
-            ID of the artifact to filter versions by
-
-        ml_repo_id : typing.Optional[str]
-            ID of the ML Repo to filter artifact versions by
-
-        name : typing.Optional[str]
-            Name of the artifact to filter versions by
-
-        version : typing.Optional[int]
-            Version number (positive integer) or 'latest' to filter by specific version
-
-        run_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            List of run IDs to filter artifact versions by
-
-        run_steps : typing.Optional[typing.Union[int, typing.Sequence[int]]]
-            List of run step numbers to filter artifact versions by
-
-        offset : typing.Optional[int]
-            Number of artifact versions to skip for pagination
-
-        limit : typing.Optional[int]
-            Maximum number of artifact versions to return
-
-        include_internal_metadata : typing.Optional[bool]
-            Whether to include internal metadata in the response
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        SyncPager[ArtifactVersion, ListArtifactVersionsResponse]
-            List of artifact versions matching the query with pagination information
-        """
-        offset = offset if offset is not None else 0
-
-        _response = self._client_wrapper.httpx_client.request(
-            "api/ml/v1/artifact-versions",
-            method="GET",
-            params={
-                "tag": tag,
-                "fqn": fqn,
-                "artifact_id": artifact_id,
-                "ml_repo_id": ml_repo_id,
-                "name": name,
-                "version": version,
-                "run_ids": run_ids,
-                "run_steps": run_steps,
-                "offset": offset,
-                "limit": limit,
-                "include_internal_metadata": include_internal_metadata,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
-                    ListArtifactVersionsResponse,
-                    parse_obj_as(
-                        type_=ListArtifactVersionsResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                _items = _parsed_response.data
-                _has_next = True
-                _get_next = lambda: self.list(
-                    tag=tag,
-                    fqn=fqn,
-                    artifact_id=artifact_id,
-                    ml_repo_id=ml_repo_id,
-                    name=name,
-                    version=version,
-                    run_ids=run_ids,
-                    run_steps=run_steps,
-                    offset=offset + len(_items or []),
-                    limit=limit,
-                    include_internal_metadata=include_internal_metadata,
-                    request_options=request_options,
-                )
-                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -356,13 +228,13 @@ class RawArtifactVersionsClient:
         Parameters
         ----------
         id : str
-            ID of the artifact version to get signed URLs for
+            Identifier of the artifact version to generate signed URLs for.
 
         paths : typing.Sequence[str]
-            List of relative file paths within the artifact version to get signed URLs for
+            Paths of the files to generate signed URLs for.
 
         operation : Operation
-            Operation type for the signed URL (e.g., 'READ' or 'WRITE')
+            Operation the signed URLs should permit (READ or WRITE).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -373,7 +245,7 @@ class RawArtifactVersionsClient:
             List of signed URLs for the requested file paths
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/ml/v1/artifact-versions/signed-urls",
+            "api/svc/v1/artifact-versions/signed-urls",
             method="POST",
             json={
                 "id": id,
@@ -396,17 +268,6 @@ class RawArtifactVersionsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -417,7 +278,7 @@ class RawArtifactVersionsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def create_multi_part_upload(
-        self, *, id: str, path: str, num_parts: int, request_options: typing.Optional[RequestOptions] = None
+        self, *, id: str, path: str, num_parts: float, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[MultiPartUploadResponse]:
         """
         Create a multipart upload for large files in an artifact version.
@@ -425,13 +286,13 @@ class RawArtifactVersionsClient:
         Parameters
         ----------
         id : str
-            ID of the artifact version to upload files to
+            Identifier of the artifact version to upload to.
 
         path : str
-            Relative path within the artifact version where the file should be uploaded
+            Path of the file relative to the artifact version storage root.
 
-        num_parts : int
-            Number of parts to split the upload into for multipart upload
+        num_parts : float
+            Number of parts the file will be split into for the multipart upload.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -442,7 +303,7 @@ class RawArtifactVersionsClient:
             Multipart upload information including signed URLs for each part
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/ml/v1/artifact-versions/signed-urls/multipart",
+            "api/svc/v1/artifact-versions/signed-urls/multipart",
             method="POST",
             json={
                 "id": id,
@@ -465,80 +326,6 @@ class RawArtifactVersionsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def stage(
-        self, *, manifest: StageArtifactRequestManifest, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[StageArtifactResponse]:
-        """
-        Stage an artifact version for upload, returning storage location and version ID.
-
-        Parameters
-        ----------
-        manifest : StageArtifactRequestManifest
-            Manifest containing metadata for the artifact to be staged (model or generic artifact)
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[StageArtifactResponse]
-            Staging information including version ID, storage root, and artifact ID
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/ml/v1/artifact-versions/stage",
-            method="POST",
-            json={
-                "manifest": convert_and_respect_annotation_metadata(
-                    object_=manifest, annotation=StageArtifactRequestManifest, direction="write"
-                ),
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    StageArtifactResponse,
-                    parse_obj_as(
-                        type_=StageArtifactResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -553,7 +340,7 @@ class RawArtifactVersionsClient:
         *,
         id: str,
         path: typing.Optional[str] = OMIT,
-        limit: typing.Optional[int] = OMIT,
+        limit: typing.Optional[float] = OMIT,
         page_token: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[FileInfo, ListFilesResponse]:
@@ -563,13 +350,13 @@ class RawArtifactVersionsClient:
         Parameters
         ----------
         id : str
-            ID of the artifact version to list files from
+            Identifier of the artifact version to list files for.
 
         path : typing.Optional[str]
-            Relative path within the artifact version to list files from (defaults to root)
+            Path within the artifact version to list files under.
 
-        limit : typing.Optional[int]
-            Maximum number of files/directories to return
+        limit : typing.Optional[float]
+            Maximum number of files to return.
 
         page_token : typing.Optional[str]
             Token to retrieve the next page of results
@@ -583,7 +370,7 @@ class RawArtifactVersionsClient:
             List of files and directories with pagination information
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/ml/v1/artifact-versions/files",
+            "api/svc/v1/artifact-versions/files",
             method="POST",
             json={
                 "id": id,
@@ -620,17 +407,58 @@ class RawArtifactVersionsClient:
                         request_options=request_options,
                     )
                 return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def stage(
+        self, *, manifest: StageArtifactRequestManifest, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[StageArtifactResponse]:
+        """
+        Stage an artifact version for upload, returning storage location and version ID.
+
+        Parameters
+        ----------
+        manifest : StageArtifactRequestManifest
+            Manifest containing metadata for the artifact to be staged (model or generic artifact)
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[StageArtifactResponse]
+            Staging information including version ID, storage root, and artifact ID
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/svc/v1/artifact-versions/stage",
+            method="POST",
+            json={
+                "manifest": convert_and_respect_annotation_metadata(
+                    object_=manifest, annotation=StageArtifactRequestManifest, direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    StageArtifactResponse,
+                    parse_obj_as(
+                        type_=StageArtifactResponse,  # type: ignore
+                        object_=_response.json(),
                     ),
                 )
+                return HttpResponse(response=_response, data=_data)
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -649,7 +477,7 @@ class RawArtifactVersionsClient:
         Parameters
         ----------
         id : str
-            ID of the staged artifact version to mark as failed
+            Identifier of the staged artifact version to mark as failed.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -660,7 +488,7 @@ class RawArtifactVersionsClient:
             Empty response indicating successful failure marking
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/ml/v1/artifact-versions/mark-stage-failure",
+            "api/svc/v1/artifact-versions/mark-stage-failure",
             method="POST",
             json={
                 "id": id,
@@ -681,8 +509,105 @@ class RawArtifactVersionsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def get(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[GetArtifactVersionResponse]:
+        """
+        Get an artifact version by its ID.
+
+        Parameters
+        ----------
+        id : str
+            Artifact version ID
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[GetArtifactVersionResponse]
+            The artifact version data
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/svc/v1/artifact-versions/{encode_path_param(id)}",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    GetArtifactVersionResponse,
+                    parse_obj_as(
+                        type_=GetArtifactVersionResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def delete(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[EmptyResponse]:
+        """
+        Delete an artifact version by its ID.
+
+        Parameters
+        ----------
+        id : str
+            Artifact version ID
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[EmptyResponse]
+            Empty response indicating successful deletion
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/svc/v1/artifact-versions/{encode_path_param(id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    EmptyResponse,
+                    parse_obj_as(
+                        type_=EmptyResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -705,6 +630,126 @@ class RawArtifactVersionsClient:
 class AsyncRawArtifactVersionsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
+
+    async def list(
+        self,
+        *,
+        limit: typing.Optional[int] = 100,
+        offset: typing.Optional[int] = 0,
+        tag: typing.Optional[str] = None,
+        fqn: typing.Optional[str] = None,
+        artifact_id: typing.Optional[str] = None,
+        ml_repo_id: typing.Optional[str] = None,
+        name: typing.Optional[str] = None,
+        version: typing.Optional[int] = None,
+        run_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        run_steps: typing.Optional[typing.Union[float, typing.Sequence[float]]] = None,
+        include_internal_metadata: typing.Optional[bool] = False,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[ArtifactVersion, ListArtifactVersionsResponse]:
+        """
+        List artifact versions with optional filtering by tag, FQN, artifact ID, ML Repo, name, version, run IDs, or run steps.
+
+        Parameters
+        ----------
+        limit : typing.Optional[int]
+            Number of items per page
+
+        offset : typing.Optional[int]
+            Number of items to skip
+
+        tag : typing.Optional[str]
+            Tag to filter artifact versions by.
+
+        fqn : typing.Optional[str]
+            Fully Qualified Name uniquely identifying the artifact version.
+
+        artifact_id : typing.Optional[str]
+            Identifier of the artifact whose versions to list.
+
+        ml_repo_id : typing.Optional[str]
+            Identifier of the ML Repo the artifact versions belong to.
+
+        name : typing.Optional[str]
+            Name of the artifact version.
+
+        version : typing.Optional[int]
+            Version number (positive integer) to filter by.
+
+        run_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Run IDs to filter artifact versions by.
+
+        run_steps : typing.Optional[typing.Union[float, typing.Sequence[float]]]
+            Run steps to filter artifact versions by.
+
+        include_internal_metadata : typing.Optional[bool]
+            Whether to include internal metadata in the response.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncPager[ArtifactVersion, ListArtifactVersionsResponse]
+            List of artifact versions matching the query with pagination information
+        """
+        offset = offset if offset is not None else 0
+
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/svc/v1/artifact-versions",
+            method="GET",
+            params={
+                "limit": limit,
+                "offset": offset,
+                "tag": tag,
+                "fqn": fqn,
+                "artifact_id": artifact_id,
+                "ml_repo_id": ml_repo_id,
+                "name": name,
+                "version": version,
+                "run_ids": run_ids,
+                "run_steps": run_steps,
+                "include_internal_metadata": include_internal_metadata,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _parsed_response = typing.cast(
+                    ListArtifactVersionsResponse,
+                    parse_obj_as(
+                        type_=ListArtifactVersionsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                _items = _parsed_response.data
+                _has_next = len(_items or []) > 0
+
+                async def _get_next():
+                    return await self.list(
+                        limit=limit,
+                        offset=offset + len(_items or []),
+                        tag=tag,
+                        fqn=fqn,
+                        artifact_id=artifact_id,
+                        ml_repo_id=ml_repo_id,
+                        name=name,
+                        version=version,
+                        run_ids=run_ids,
+                        run_steps=run_steps,
+                        include_internal_metadata=include_internal_metadata,
+                        request_options=request_options,
+                    )
+
+                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def apply_tags(
         self,
@@ -737,7 +782,7 @@ class AsyncRawArtifactVersionsClient:
             Empty response indicating successful tag application
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/ml/v1/artifact-versions/tags",
+            "api/svc/v1/artifact-versions/tags",
             method="PUT",
             json={
                 "artifact_version_id": artifact_version_id,
@@ -760,254 +805,6 @@ class AsyncRawArtifactVersionsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def get(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[GetArtifactVersionResponse]:
-        """
-        Get an artifact version by its ID.
-
-        Parameters
-        ----------
-        id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[GetArtifactVersionResponse]
-            The artifact version data
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/ml/v1/artifact-versions/{encode_path_param(id)}",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    GetArtifactVersionResponse,
-                    parse_obj_as(
-                        type_=GetArtifactVersionResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def delete(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[EmptyResponse]:
-        """
-        Delete an artifact version by its ID.
-
-        Parameters
-        ----------
-        id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[EmptyResponse]
-            Empty response indicating successful deletion
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/ml/v1/artifact-versions/{encode_path_param(id)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    EmptyResponse,
-                    parse_obj_as(
-                        type_=EmptyResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def list(
-        self,
-        *,
-        tag: typing.Optional[str] = None,
-        fqn: typing.Optional[str] = None,
-        artifact_id: typing.Optional[str] = None,
-        ml_repo_id: typing.Optional[str] = None,
-        name: typing.Optional[str] = None,
-        version: typing.Optional[int] = None,
-        run_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
-        run_steps: typing.Optional[typing.Union[int, typing.Sequence[int]]] = None,
-        offset: typing.Optional[int] = 0,
-        limit: typing.Optional[int] = 100,
-        include_internal_metadata: typing.Optional[bool] = False,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[ArtifactVersion, ListArtifactVersionsResponse]:
-        """
-        List artifact versions with optional filtering by tag, FQN, artifact ID, ML Repo, name, version, run IDs, or run steps.
-
-        Parameters
-        ----------
-        tag : typing.Optional[str]
-            Tag to filter artifact versions by
-
-        fqn : typing.Optional[str]
-            Fully qualified name to filter artifact versions by (format: '{artifact_type}:{tenant_name}/{ml_repo_name}/{artifact_name}' or '{artifact_type}:{tenant_name}/{ml_repo_name}/{artifact_name}:{version}')
-
-        artifact_id : typing.Optional[str]
-            ID of the artifact to filter versions by
-
-        ml_repo_id : typing.Optional[str]
-            ID of the ML Repo to filter artifact versions by
-
-        name : typing.Optional[str]
-            Name of the artifact to filter versions by
-
-        version : typing.Optional[int]
-            Version number (positive integer) or 'latest' to filter by specific version
-
-        run_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            List of run IDs to filter artifact versions by
-
-        run_steps : typing.Optional[typing.Union[int, typing.Sequence[int]]]
-            List of run step numbers to filter artifact versions by
-
-        offset : typing.Optional[int]
-            Number of artifact versions to skip for pagination
-
-        limit : typing.Optional[int]
-            Maximum number of artifact versions to return
-
-        include_internal_metadata : typing.Optional[bool]
-            Whether to include internal metadata in the response
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncPager[ArtifactVersion, ListArtifactVersionsResponse]
-            List of artifact versions matching the query with pagination information
-        """
-        offset = offset if offset is not None else 0
-
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/ml/v1/artifact-versions",
-            method="GET",
-            params={
-                "tag": tag,
-                "fqn": fqn,
-                "artifact_id": artifact_id,
-                "ml_repo_id": ml_repo_id,
-                "name": name,
-                "version": version,
-                "run_ids": run_ids,
-                "run_steps": run_steps,
-                "offset": offset,
-                "limit": limit,
-                "include_internal_metadata": include_internal_metadata,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
-                    ListArtifactVersionsResponse,
-                    parse_obj_as(
-                        type_=ListArtifactVersionsResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                _items = _parsed_response.data
-                _has_next = True
-
-                async def _get_next():
-                    return await self.list(
-                        tag=tag,
-                        fqn=fqn,
-                        artifact_id=artifact_id,
-                        ml_repo_id=ml_repo_id,
-                        name=name,
-                        version=version,
-                        run_ids=run_ids,
-                        run_steps=run_steps,
-                        offset=offset + len(_items or []),
-                        limit=limit,
-                        include_internal_metadata=include_internal_metadata,
-                        request_options=request_options,
-                    )
-
-                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -1031,13 +828,13 @@ class AsyncRawArtifactVersionsClient:
         Parameters
         ----------
         id : str
-            ID of the artifact version to get signed URLs for
+            Identifier of the artifact version to generate signed URLs for.
 
         paths : typing.Sequence[str]
-            List of relative file paths within the artifact version to get signed URLs for
+            Paths of the files to generate signed URLs for.
 
         operation : Operation
-            Operation type for the signed URL (e.g., 'READ' or 'WRITE')
+            Operation the signed URLs should permit (READ or WRITE).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1048,7 +845,7 @@ class AsyncRawArtifactVersionsClient:
             List of signed URLs for the requested file paths
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/ml/v1/artifact-versions/signed-urls",
+            "api/svc/v1/artifact-versions/signed-urls",
             method="POST",
             json={
                 "id": id,
@@ -1071,17 +868,6 @@ class AsyncRawArtifactVersionsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -1092,7 +878,7 @@ class AsyncRawArtifactVersionsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def create_multi_part_upload(
-        self, *, id: str, path: str, num_parts: int, request_options: typing.Optional[RequestOptions] = None
+        self, *, id: str, path: str, num_parts: float, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[MultiPartUploadResponse]:
         """
         Create a multipart upload for large files in an artifact version.
@@ -1100,13 +886,13 @@ class AsyncRawArtifactVersionsClient:
         Parameters
         ----------
         id : str
-            ID of the artifact version to upload files to
+            Identifier of the artifact version to upload to.
 
         path : str
-            Relative path within the artifact version where the file should be uploaded
+            Path of the file relative to the artifact version storage root.
 
-        num_parts : int
-            Number of parts to split the upload into for multipart upload
+        num_parts : float
+            Number of parts the file will be split into for the multipart upload.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1117,7 +903,7 @@ class AsyncRawArtifactVersionsClient:
             Multipart upload information including signed URLs for each part
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/ml/v1/artifact-versions/signed-urls/multipart",
+            "api/svc/v1/artifact-versions/signed-urls/multipart",
             method="POST",
             json={
                 "id": id,
@@ -1140,80 +926,6 @@ class AsyncRawArtifactVersionsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def stage(
-        self, *, manifest: StageArtifactRequestManifest, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[StageArtifactResponse]:
-        """
-        Stage an artifact version for upload, returning storage location and version ID.
-
-        Parameters
-        ----------
-        manifest : StageArtifactRequestManifest
-            Manifest containing metadata for the artifact to be staged (model or generic artifact)
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[StageArtifactResponse]
-            Staging information including version ID, storage root, and artifact ID
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/ml/v1/artifact-versions/stage",
-            method="POST",
-            json={
-                "manifest": convert_and_respect_annotation_metadata(
-                    object_=manifest, annotation=StageArtifactRequestManifest, direction="write"
-                ),
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    StageArtifactResponse,
-                    parse_obj_as(
-                        type_=StageArtifactResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -1228,7 +940,7 @@ class AsyncRawArtifactVersionsClient:
         *,
         id: str,
         path: typing.Optional[str] = OMIT,
-        limit: typing.Optional[int] = OMIT,
+        limit: typing.Optional[float] = OMIT,
         page_token: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[FileInfo, ListFilesResponse]:
@@ -1238,13 +950,13 @@ class AsyncRawArtifactVersionsClient:
         Parameters
         ----------
         id : str
-            ID of the artifact version to list files from
+            Identifier of the artifact version to list files for.
 
         path : typing.Optional[str]
-            Relative path within the artifact version to list files from (defaults to root)
+            Path within the artifact version to list files under.
 
-        limit : typing.Optional[int]
-            Maximum number of files/directories to return
+        limit : typing.Optional[float]
+            Maximum number of files to return.
 
         page_token : typing.Optional[str]
             Token to retrieve the next page of results
@@ -1258,7 +970,7 @@ class AsyncRawArtifactVersionsClient:
             List of files and directories with pagination information
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/ml/v1/artifact-versions/files",
+            "api/svc/v1/artifact-versions/files",
             method="POST",
             json={
                 "id": id,
@@ -1298,17 +1010,58 @@ class AsyncRawArtifactVersionsClient:
                         )
 
                 return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def stage(
+        self, *, manifest: StageArtifactRequestManifest, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[StageArtifactResponse]:
+        """
+        Stage an artifact version for upload, returning storage location and version ID.
+
+        Parameters
+        ----------
+        manifest : StageArtifactRequestManifest
+            Manifest containing metadata for the artifact to be staged (model or generic artifact)
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[StageArtifactResponse]
+            Staging information including version ID, storage root, and artifact ID
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/svc/v1/artifact-versions/stage",
+            method="POST",
+            json={
+                "manifest": convert_and_respect_annotation_metadata(
+                    object_=manifest, annotation=StageArtifactRequestManifest, direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    StageArtifactResponse,
+                    parse_obj_as(
+                        type_=StageArtifactResponse,  # type: ignore
+                        object_=_response.json(),
                     ),
                 )
+                return AsyncHttpResponse(response=_response, data=_data)
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -1327,7 +1080,7 @@ class AsyncRawArtifactVersionsClient:
         Parameters
         ----------
         id : str
-            ID of the staged artifact version to mark as failed
+            Identifier of the staged artifact version to mark as failed.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1338,7 +1091,7 @@ class AsyncRawArtifactVersionsClient:
             Empty response indicating successful failure marking
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/ml/v1/artifact-versions/mark-stage-failure",
+            "api/svc/v1/artifact-versions/mark-stage-failure",
             method="POST",
             json={
                 "id": id,
@@ -1359,8 +1112,105 @@ class AsyncRawArtifactVersionsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[GetArtifactVersionResponse]:
+        """
+        Get an artifact version by its ID.
+
+        Parameters
+        ----------
+        id : str
+            Artifact version ID
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[GetArtifactVersionResponse]
+            The artifact version data
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/svc/v1/artifact-versions/{encode_path_param(id)}",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    GetArtifactVersionResponse,
+                    parse_obj_as(
+                        type_=GetArtifactVersionResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def delete(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[EmptyResponse]:
+        """
+        Delete an artifact version by its ID.
+
+        Parameters
+        ----------
+        id : str
+            Artifact version ID
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[EmptyResponse]
+            Empty response indicating successful deletion
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/svc/v1/artifact-versions/{encode_path_param(id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    EmptyResponse,
+                    parse_obj_as(
+                        type_=EmptyResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,

@@ -15,14 +15,17 @@ The ``mutable_schema_target`` fixture is parametrized over two targets:
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
+from datetime import UTC, datetime
 
 import pytest
 
-from fabric_dw.exceptions import NotFoundError
+from fabric_dw.exceptions import FabricError, NotFoundError
 from fabric_dw.models import View
+from fabric_dw.services import schemas as schemas_svc
 from fabric_dw.services import views
-from fabric_dw.sql import SqlTarget
+from fabric_dw.sql import SqlTarget, run_query
 
 pytestmark = pytest.mark.integration
 
@@ -292,6 +295,53 @@ async def test_rename_view_creates_new_and_removes_old(
             await views.drop_view(sql_target, schema, new_name)
 
 
+async def test_transfer_view_roundtrip(
+    mutable_schema_target: tuple[SqlTarget, str],
+) -> None:
+    """Create a view, transfer it to a second schema, assert old gone / new present.
+
+    Runs on both targets (Data Warehouse and SQL Analytics Endpoint) via the
+    parametrized mutable_schema_target fixture, since transfer_view applies no
+    DW-only guard.
+    """
+    sql_target, schema = mutable_schema_target
+    view_name = "pytest_views_transfer_dst"
+    select_body = "SELECT 42 AS the_answer"
+    target_schema_name = f"{schema}_target"
+
+    await schemas_svc.create_schema(sql_target, target_schema_name)
+    try:
+        created = await views.create_view(sql_target, schema, view_name, select_body)
+        assert isinstance(created, View)
+        assert created.schema_name == schema
+
+        moved = await views.transfer_view(sql_target, f"{schema}.{view_name}", target_schema_name)
+        assert isinstance(moved, View)
+        assert moved.name == view_name
+        assert moved.schema_name == target_schema_name
+        assert moved.qualified_name == f"{target_schema_name}.{view_name}"
+        # Documented caveat (see the "Definition text is not rewritten" admonition
+        # in docs/commands/views.md): ALTER SCHEMA TRANSFER does not rewrite the
+        # schema name stored in sys.sql_modules.definition, so moved.definition
+        # may still reference the OLD schema in its CREATE ... AS header, even
+        # though qualified_name above correctly reports the NEW schema. This is
+        # not asserted as a hard failure -- it documents the caveat in-place.
+
+        all_views = await views.list_views(sql_target)
+        in_target = {v.name for v in all_views if v.schema_name == target_schema_name}
+        in_source = {v.name for v in all_views if v.schema_name == schema}
+        assert view_name in in_target, f"{view_name!r} not found in {target_schema_name!r}"
+        assert view_name not in in_source, f"{view_name!r} still present in {schema!r}"
+
+    finally:
+        with contextlib.suppress(Exception):
+            await views.drop_view(sql_target, schema, view_name)
+        with contextlib.suppress(Exception):
+            await views.drop_view(sql_target, target_schema_name, view_name)
+        with contextlib.suppress(Exception):
+            await schemas_svc.delete_schema(sql_target, target_schema_name, cascade=True)
+
+
 async def test_count_view_rows_returns_nonnegative_int(
     mutable_schema_target: tuple[SqlTarget, str],
 ) -> None:
@@ -306,6 +356,123 @@ async def test_count_view_rows_returns_nonnegative_int(
         assert isinstance(count, int)
         assert count >= 0
         assert count == 2
+    finally:
+        with contextlib.suppress(Exception):
+            await views.drop_view(sql_target, schema, view_name)
+
+
+# ---------------------------------------------------------------------------
+# Time-travel: read_view and count_view_rows with as_of
+# ---------------------------------------------------------------------------
+#
+# Both functions are tested with a server-side timestamp captured AFTER the view
+# is created to avoid client/server clock skew.
+#
+# Caveats (expected server-side errors, not bugs):
+#   - A timestamp before the underlying view was created errors server-side.
+#   - A timestamp outside the configured retention window errors server-side.
+#   - A freshly-created view may have no committed version visible at the
+#     captured timestamp (Fabric distributed compute flush latency); the tests
+#     skip rather than fail in that case.
+
+# Fragments from SQL engine error messages that mean no committed history exists
+# at the requested timestamp.
+_TIME_TRAVEL_SKIP_FRAGMENTS = (
+    ("no version",),
+    ("history",),
+    ("at time",),
+    ("point in time",),
+    ("timestamp",),
+)
+
+
+def _is_time_travel_unavailable(exc: BaseException) -> bool:
+    """Return True when *exc* means no committed history exists at the requested timestamp."""
+    msg = str(exc).lower()
+    return any(all(frag in msg for frag in frags) for frags in _TIME_TRAVEL_SKIP_FRAGMENTS)
+
+
+def _get_server_ts(sql_target: SqlTarget) -> datetime:
+    """Return a UTC-aware server-side timestamp via SYSUTCDATETIME()."""
+    _, rows = run_query(sql_target, "SELECT SYSUTCDATETIME() AS ts")
+    raw = rows[0][0]
+    if isinstance(raw, datetime):
+        return raw.replace(tzinfo=UTC) if raw.tzinfo is None else raw.astimezone(UTC)
+    parsed = datetime.fromisoformat(str(raw))
+    return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed.astimezone(UTC)
+
+
+async def test_read_view_with_as_of_succeeds_or_skips(
+    mutable_schema_target: tuple[SqlTarget, str],
+) -> None:
+    """read_view with as_of set to a server-side post-creation timestamp succeeds or skips.
+
+    Creates a view, captures a server-side timestamp after the DDL commit, then
+    calls read_view with as_of.  Proves the OPTION (FOR TIMESTAMP AS OF ...)
+    clause is syntactically and semantically accepted by Fabric end-to-end.
+
+    A freshly-created view may have no committed history at the captured
+    timestamp (Fabric distributed compute flush latency); the test skips in that
+    case rather than failing, because the rejection is expected server behavior,
+    not a code bug.
+    """
+    sql_target, schema = mutable_schema_target
+    view_name = "pytest_views_timetravel_read"
+    select_body = "SELECT 1 AS id, 'alpha' AS label UNION ALL SELECT 2, 'beta'"
+
+    try:
+        await views.create_view(sql_target, schema, view_name, select_body)
+
+        # Capture a server-side timestamp AFTER the DDL commit to ensure the
+        # as_of is >= the view creation time from the server's perspective.
+        as_of: datetime = await asyncio.to_thread(_get_server_ts, sql_target)
+
+        try:
+            cols, rows = await views.read_view(sql_target, schema, view_name, count=10, as_of=as_of)
+        except Exception as exc:
+            if _is_time_travel_unavailable(exc) or isinstance(exc, FabricError):
+                pytest.skip(
+                    f"No committed history at {as_of.isoformat()} for a freshly-created "
+                    f"view (expected on distributed compute): {exc}"
+                )
+            raise
+        assert "id" in cols
+        assert "label" in cols
+        assert len(rows) == 2
+    finally:
+        with contextlib.suppress(Exception):
+            await views.drop_view(sql_target, schema, view_name)
+
+
+async def test_count_view_rows_with_as_of_succeeds_or_skips(
+    mutable_schema_target: tuple[SqlTarget, str],
+) -> None:
+    """count_view_rows with as_of set to a server-side post-creation timestamp succeeds or skips.
+
+    Same freshly-created-view caveat as test_read_view_with_as_of_succeeds_or_skips.
+    When the server does have committed history at the timestamp, the call must
+    return the correct row count.
+    """
+    sql_target, schema = mutable_schema_target
+    view_name = "pytest_views_timetravel_count"
+    select_body = "SELECT 1 AS id UNION ALL SELECT 2 UNION ALL SELECT 3"
+
+    try:
+        await views.create_view(sql_target, schema, view_name, select_body)
+
+        as_of: datetime = await asyncio.to_thread(_get_server_ts, sql_target)
+
+        try:
+            count = await views.count_view_rows(sql_target, schema, view_name, as_of=as_of)
+        except Exception as exc:
+            if _is_time_travel_unavailable(exc) or isinstance(exc, FabricError):
+                pytest.skip(
+                    f"No committed history at {as_of.isoformat()} for a freshly-created "
+                    f"view (expected on distributed compute): {exc}"
+                )
+            raise
+        assert isinstance(count, int)
+        assert count == 3
     finally:
         with contextlib.suppress(Exception):
             await views.drop_view(sql_target, schema, view_name)

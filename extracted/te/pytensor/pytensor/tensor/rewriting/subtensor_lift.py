@@ -4,6 +4,7 @@ from typing import cast
 import numpy as np
 from numpy.lib.array_utils import normalize_axis_index, normalize_axis_tuple
 
+from pytensor.assumptions.core import UNIQUE_INDICES, check_assumption
 from pytensor.compile import optdb
 from pytensor.graph import (
     Constant,
@@ -214,8 +215,8 @@ def _lift_subtensor_non_axis(
         return None
 
 
-def _index_provably_smaller(idx, val_static_dim) -> bool:
-    # Per-axis check: non-repeating indices can't expand a single axis.
+def _index_provably_not_larger(idx, val_static_dim, fgraph=None) -> bool:
+    # Per-axis check: an index that can't repeat a position can't enlarge that axis.
     # Does not account for cross-axis broadcast expansion from outer indexing.
     if isinstance(idx, slice) or idx.ndim == 0:
         return True
@@ -225,11 +226,13 @@ def _index_provably_smaller(idx, val_static_dim) -> bool:
         return True
     if _constant_has_unique_indices(idx):
         return True
+    if check_assumption(fgraph, idx, UNIQUE_INDICES):
+        return True
     if isinstance(idx.owner_op, ARange):
         return True
     if isinstance(idx.owner_op, Reshape | DimShuffle):
         # Views that don't add dimensions
-        if _index_provably_smaller(idx.owner.inputs[0], val_static_dim):
+        if _index_provably_not_larger(idx.owner.inputs[0], val_static_dim, fgraph):
             return True
 
     # Fallback to static shape analysis
@@ -351,7 +354,7 @@ def local_subtensor_of_batch_dims(fgraph, node):
                 continue
             if inp.type.broadcastable[axis]:
                 continue
-            if not _index_provably_smaller(idx, inp.type.shape[axis]):
+            if not _index_provably_not_larger(idx, inp.type.shape[axis], fgraph):
                 return None
 
     batch_ndim = (
@@ -742,7 +745,7 @@ def lift_subtensor_through_alloc(fgraph, node):
     dangerous_index_reaches_val = any(
         not val.type.broadcastable[axis]
         # Per-axis check; doesn't account for net effect across all axes.
-        and not _index_provably_smaller(idx, val.type.shape[axis])
+        and not _index_provably_not_larger(idx, val.type.shape[axis], fgraph)
         for axis, idx in enumerate(val_indexer)
     )
 
@@ -1060,14 +1063,10 @@ def local_subtensor_of_join(fgraph, node):
         # Join involves a full_copy, so we don't want to do it twice
         return None
 
-    join_axis, *join_components = join_var.owner.inputs
-
-    # Rewrite only works when the join axis is a constant along a non-indexed dimension
-    if not isinstance(join_axis, Constant):
-        return None
+    join_components = join_var.owner.inputs
 
     [old_out] = node.outputs
-    axis = normalize_axis_index(join_axis.data, join_components[0].type.ndim)
+    axis = join_var.owner.op.axis
     idx_tuple = indices_from_subtensor(idx, node.op.idx_list)
     if _axis_is_indexed_by_basic_index(idx_tuple, axis):
         return _lift_subtensor_non_axis(
@@ -1104,12 +1103,6 @@ def local_subtensor_shape_constant(fgraph, node):
 
         TensorConstant{1}
 
-    TODO: Something like `local_shape_to_shape_i` should be a general
-    canonicalization, and not a `ShapeFeature`-dependent rewrite.  If that were
-    the case, we could change this to only operate on `Shape_i`\s.
-    Currently, we're not handling them because they should only appear when
-    `ShapeFeature` is present, and it will also simplify/remove them.
-
     """
 
     shape = node.inputs[0]
@@ -1130,7 +1123,7 @@ def local_subtensor_shape_constant(fgraph, node):
         return False
 
     try:
-        shape_parts = shape_arg.type.broadcastable[idx_val]
+        shape_parts = shape_arg.type.shape[idx_val]
     except IndexError:
         # An out-of-bounds index here is an error in the source graph
         # (e.g. ``scalar.shape[0]``), but it should fail at runtime rather
@@ -1138,10 +1131,10 @@ def local_subtensor_shape_constant(fgraph, node):
         return False
 
     if isinstance(shape_parts, Iterable):
-        if all(shape_parts):
-            return [as_tensor([1] * len(shape_parts), dtype=np.int64, ndim=1)]
-    elif shape_parts:
-        return [as_tensor(1, dtype=np.int64)]
+        if all(s is not None for s in shape_parts):
+            return [as_tensor(list(shape_parts), dtype=np.int64, ndim=1)]
+    elif shape_parts is not None:
+        return [as_tensor(shape_parts, dtype=np.int64)]
 
 
 @node_rewriter([Subtensor])

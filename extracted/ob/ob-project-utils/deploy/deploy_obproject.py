@@ -1248,23 +1248,26 @@ def register_assets():
 
 
 def git_log():
-    # Format: SHA | Timestamp | Author | Subject | Body
-    format_str = "%H|%aI|%ae|%s|%b"
+    # `-z` = NUL between commits, %x1f = separator between fields.
+    # Neither can appear in commit content, unlike `|` + newline.
+    FS = "\x1f"
+    format_str = FS.join(["%H", "%aI", "%ae", "%s", "%b"])
     result = subprocess.run(
-        ["git", "log", "-20", f"--pretty=format:{format_str}"],
+        ["git", "log", "-z", "-20", f"--pretty=format:{format_str}"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
         check=True,
     )
 
-    # Get commit URL from CI environment
     ci_urls = get_ci_urls()
     repo = ci_urls.get("commit_url", "https://no-commit-url/")
 
     commits = []
-    for line in result.stdout.split("\n"):
-        parts = line.split("|", 4)
+    for record in result.stdout.split("\x00"):
+        if not record:
+            continue
+        parts = record.split(FS, 4)
         if len(parts) < 5:
             continue
         sha, timestamp, email, title, body = parts
@@ -1272,7 +1275,6 @@ def git_log():
         commit = {
             "commit_sha": sha,
             "commit_link": f"{repo}{sha}",
-            # "container_image": f"some.container:image:{sha}",  # Placeholder logic
             "owner": email,
             "pr_description": body.strip().replace("\n", " "),
             "pr_title": title.strip(),

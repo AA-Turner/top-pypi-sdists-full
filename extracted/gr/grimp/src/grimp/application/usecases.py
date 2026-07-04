@@ -2,18 +2,20 @@
 Use cases handle application logic.
 """
 
-from typing import cast
-import itertools
-from collections.abc import Sequence, Iterable
+from __future__ import annotations
 
-from .scanning import scan_imports
+import itertools
+from collections.abc import Iterable, Sequence
+from typing import cast
+
+from ..application.graph import ImportGraph
 from ..application.ports import caching
 from ..application.ports.filesystem import AbstractFileSystem, BasicFileSystem
-from ..application.graph import ImportGraph
 from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage, ModuleFile
 from ..application.ports.packagefinder import AbstractPackageFinder
 from ..domain.valueobjects import DirectImport, Module
 from .config import settings
+from .scanning import scan_imports
 
 
 class NotSupplied:
@@ -21,8 +23,8 @@ class NotSupplied:
 
 
 def build_graph(
-    package_name,
-    *additional_package_names,
+    package_name: str,
+    *additional_package_names: str,
     include_external_packages: bool = False,
     exclude_type_checking_imports: bool = False,
     cache_dir: str | type[NotSupplied] | None = NotSupplied,
@@ -31,13 +33,13 @@ def build_graph(
     Build and return an import graph for the supplied package name(s).
 
     Args:
-        - package_name: the name of the top level package for which to build the graph.
-        - additional_package_names: tuple of additional packages to build the graph from.
-        - include_external_packages: whether to include any external packages in the graph.
-        - exclude_type_checking_imports: whether to exclude imports made in type checking guards.
-        - cache_dir: The directory to use for caching the graph.
-    Examples:
+        package_name: the name of the top level package for which to build the graph.
+        additional_package_names: tuple of additional packages to build the graph from.
+        include_external_packages: whether to include any external packages in the graph.
+        exclude_type_checking_imports: whether to exclude imports made in type checking guards.
+        cache_dir: The directory to use for caching the graph.
 
+    Examples:
         # Single package.
         graph = build_graph("mypackage")
         graph = build_graph("mypackage", include_external_packages=True)
@@ -53,7 +55,7 @@ def build_graph(
 
     found_packages = _find_packages(
         file_system=file_system,
-        package_names=[package_name] + list(additional_package_names),
+        package_names=[package_name, *additional_package_names],
     )
 
     imports_by_module = _scan_packages(
@@ -99,13 +101,15 @@ def _validate_package_names_are_strings(
 ) -> Sequence[str]:
     for name in package_names:
         if not isinstance(name, str):
-            raise TypeError(f"Package names must be strings, got {name.__class__.__name__}.")
-    return cast(Sequence[str], package_names)
+            msg = f"Package names must be strings, got {name.__class__.__name__}."
+            raise TypeError(msg)
+    return cast("Sequence[str]", package_names)
 
 
 def _scan_packages(
     found_packages: set[FoundPackage],
     file_system: BasicFileSystem,
+    *,
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
     cache_dir: str | type[NotSupplied] | None,

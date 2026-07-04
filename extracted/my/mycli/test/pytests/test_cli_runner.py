@@ -47,7 +47,7 @@ class DummyMyCli:
 
 def default_config() -> dict[str, Any]:
     return {
-        'main': {'use_keyring': 'false', 'my_cnf_transition_done': 'true'},
+        'main': {'use_keyring': 'false'},
         'connection': {'default_keepalive_ticks': 0},
         'alias_dsn': {},
         'init-commands': {},
@@ -58,7 +58,6 @@ def default_config() -> dict[str, Any]:
 def make_cli_args() -> main.CliArgs:
     cli_args = main.CliArgs()
     cli_args.format = None
-    cli_args.ssh_config_path = '/dev/null'
     return cli_args
 
 
@@ -72,6 +71,31 @@ def run_with_client(
     monkeypatch.setattr(cli_runner.sys.stderr, 'isatty', lambda: False)
     cli_runner.run_from_cli_args(cli_args, lambda **_kwargs: client)
     return client
+
+
+def test_expand_dsn_alias_env_var_returns_none() -> None:
+    assert cli_runner.expand_dsn_alias_env_var(None, 'prod') is None
+
+
+def test_split_dsn_netloc_handles_user_without_password() -> None:
+    assert cli_runner.split_dsn_netloc('user@host:3306') == ('user', None, 'host', '3306')
+
+
+def test_split_dsn_netloc_handles_empty_host() -> None:
+    assert cli_runner.split_dsn_netloc('user:pass@') == ('user', 'pass', None, None)
+
+
+def test_split_dsn_netloc_handles_bracketed_ipv6_host() -> None:
+    assert cli_runner.split_dsn_netloc('user:pass@[::1]:3306') == ('user', 'pass', '::1', '3306')
+
+
+def test_expand_dsn_alias_env_vars_rejects_non_integer_port(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('MYCLI_TEST_DSN_PORT', 'not-an-int')
+
+    with pytest.raises(cli_runner.DsnAliasEnvVarError) as excinfo:
+        cli_runner.expand_dsn_alias_env_vars('mysql://user:pass@host:${MYCLI_TEST_DSN_PORT}/db', 'prod')
+
+    assert str(excinfo.value) == 'Port in DSN alias prod must be an integer.'
 
 
 def test_run_from_cli_args_checkup_exits_zero(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -118,31 +142,24 @@ def test_run_from_cli_args_rejects_conflicting_format_flags(
     assert secho_calls == [(message, {'err': True, 'fg': 'red'})]
 
 
-def test_run_from_cli_args_uses_deprecated_mysql_unix_port_and_database_alias(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_run_from_cli_args_treats_database_as_dsn_alias(monkeypatch: pytest.MonkeyPatch) -> None:
     cli_args = make_cli_args()
     cli_args.database = 'prod'
     client = DummyMyCli(
         config={
             **default_config(),
-            'alias_dsn': {'prod': 'mysql://dsn_user:dsn_pass@dsn_host:3307/dsn_db'},
+            'alias_dsn': {'prod': 'mysql://u:p@h/db'},
         }
     )
-    secho_calls: list[str] = []
-    monkeypatch.setenv('MYSQL_UNIX_PORT', '/tmp/mysql.sock')
-    monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **_kwargs: secho_calls.append(text))
 
     run_with_client(monkeypatch, cli_args, client)
 
     assert client.dsn_alias == 'prod'
-    assert client.connect_calls[-1]['database'] == 'dsn_db'
-    assert client.connect_calls[-1]['user'] == 'dsn_user'
-    assert client.connect_calls[-1]['passwd'] == 'dsn_pass'
-    assert client.connect_calls[-1]['host'] == 'dsn_host'
-    assert client.connect_calls[-1]['port'] == 3307
-    assert client.connect_calls[-1]['socket'] == '/tmp/mysql.sock'
-    assert any('MYSQL_UNIX_PORT environment variable is deprecated' in call for call in secho_calls)
+    connect_call = client.connect_calls[-1]
+    assert connect_call['user'] == 'u'
+    assert connect_call['passwd'] == 'p'
+    assert connect_call['host'] == 'h'
+    assert connect_call['database'] == 'db'
 
 
 def test_run_from_cli_args_leaves_dsn_alias_env_vars_disabled_by_default(
@@ -276,6 +293,62 @@ def test_run_from_cli_args_reports_missing_dsn(monkeypatch: pytest.MonkeyPatch) 
             {'err': True, 'fg': 'red'},
         )
     ]
+
+
+def test_run_from_cli_args_rejects_unknown_positional_dsn_scheme(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.database = 'ssh://user@example.com/db'
+    secho_calls: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **kwargs: secho_calls.append((text, kwargs)))
+
+    with pytest.raises(SystemExit) as excinfo:
+        run_with_client(monkeypatch, cli_args, DummyMyCli())
+
+    assert excinfo.value.code == 1
+    assert secho_calls == [
+        (
+            'Error: Unknown connection scheme provided for DSN URI (ssh://)',
+            {'err': True, 'fg': 'red'},
+        )
+    ]
+
+
+def test_run_from_cli_args_rejects_unknown_alias_dsn_scheme(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'legacy_ssh'
+    client = DummyMyCli(
+        config={
+            **default_config(),
+            'alias_dsn': {'legacy_ssh': 'ssh://user@example.com/db'},
+        }
+    )
+    secho_calls: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **kwargs: secho_calls.append((text, kwargs)))
+
+    with pytest.raises(SystemExit) as excinfo:
+        run_with_client(monkeypatch, cli_args, client)
+
+    assert excinfo.value.code == 1
+    assert secho_calls == [
+        (
+            'Error: Unknown connection scheme provided for DSN URI (ssh://)',
+            {'err': True, 'fg': 'red'},
+        )
+    ]
+
+
+def test_run_from_cli_args_accepts_mysql_plus_dsn_scheme(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'mysql+pymysql://user:pass@host:3306/db'
+    client = DummyMyCli()
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['user'] == 'user'
+    assert client.connect_calls[-1]['passwd'] == 'pass'
+    assert client.connect_calls[-1]['host'] == 'host'
+    assert client.connect_calls[-1]['port'] == 3306
+    assert client.connect_calls[-1]['database'] == 'db'
 
 
 def test_run_from_cli_args_maps_dsn_ssl_parameters(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cartoboost
-Version: 0.2.38
+Version: 0.2.40
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -13,30 +13,46 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Dist: numpy>=1.23
+Requires-Dist: chronos-forecasting>=1.5 ; extra == 'chronos'
 Requires-Dist: duckdb>=1.0 ; extra == 'duckdb'
 Requires-Dist: shap>=0.49.1,<0.50 ; extra == 'explain'
+Requires-Dist: chronos-forecasting>=1.5 ; extra == 'foundation'
+Requires-Dist: timesfm>=1.2 ; extra == 'foundation'
+Requires-Dist: uni2ts>=1.2 ; python_full_version < '3.13' and extra == 'foundation'
+Requires-Dist: nixtla>=0.6 ; extra == 'foundation'
+Requires-Dist: tabpfn>=2.0 ; extra == 'foundation'
 Requires-Dist: h3>=4.0 ; extra == 'h3'
 Requires-Dist: holidays>=0.50,<0.99 ; extra == 'holidays'
+Requires-Dist: uni2ts>=1.2 ; python_full_version < '3.13' and extra == 'moirai'
 Requires-Dist: onnx>=1.16 ; extra == 'onnx'
 Requires-Dist: optuna>=4.0 ; extra == 'optuna'
 Requires-Dist: polars>=1.0 ; extra == 'polars'
 Requires-Dist: s2sphere>=0.2 ; extra == 's2'
 Requires-Dist: scikit-learn>=1.2 ; extra == 'sklearn'
+Requires-Dist: tabpfn>=2.0 ; extra == 'tabpfn'
 Requires-Dist: tensorboardx>=2.6 ; extra == 'tensorboard'
+Requires-Dist: nixtla>=0.6 ; extra == 'timegpt'
+Requires-Dist: timesfm>=1.2 ; extra == 'timesfm'
 Requires-Dist: geopandas>=1.0 ; extra == 'visualization'
 Requires-Dist: matplotlib>=3.7 ; extra == 'visualization'
 Requires-Dist: pydeck>=0.9 ; extra == 'visualization'
 Requires-Dist: shapely>=2.0 ; extra == 'visualization'
+Provides-Extra: chronos
 Provides-Extra: duckdb
 Provides-Extra: explain
+Provides-Extra: foundation
 Provides-Extra: h3
 Provides-Extra: holidays
+Provides-Extra: moirai
 Provides-Extra: onnx
 Provides-Extra: optuna
 Provides-Extra: polars
 Provides-Extra: s2
 Provides-Extra: sklearn
+Provides-Extra: tabpfn
 Provides-Extra: tensorboard
+Provides-Extra: timegpt
+Provides-Extra: timesfm
 Provides-Extra: visualization
 License-File: LICENSE
 Summary: Rust-backed spatial boosting for tabular modeling and forecasting.

@@ -65,7 +65,7 @@ class TestValidatorIgnoresThinking:
 
     def test_response_with_only_thinking_then_real_tool_is_not_flagged(self):
         """The exact failure mode from the user's sage log."""
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
         # Mimics qwen3-coder-next output: long thinking trace, then a real READ.
         response = (
             "<think>\n"
@@ -85,7 +85,7 @@ class TestValidatorIgnoresThinking:
 
     def test_response_describes_code_ignores_thinking(self):
         """`_response_describes_code_without_file_blocks` must also ignore thinking."""
-        from sage.main import _response_describes_code_without_file_blocks
+        from sage.cli_core import _response_describes_code_without_file_blocks
         response = (
             "<think>I'll write the LRU cache class with O(1) operations.</think>\n"
             "FILE: lru_cache.py\n"
@@ -98,7 +98,7 @@ class TestValidatorIgnoresThinking:
 
     def test_extract_tool_commands_skips_thinking_block_mentions(self):
         """Commands mentioned only inside thinking should not be extracted."""
-        from sage.main import _extract_tool_commands
+        from sage.cli_core import _extract_tool_commands
         response = (
             "<think>\n"
             "I should probably run RUN: pytest first to see what fails.\n"

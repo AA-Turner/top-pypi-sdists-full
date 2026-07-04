@@ -5,7 +5,7 @@ __author__ = "Sergio J. Rey <srey@asu.edu>, Levi John Wolf <levi.john.wolf@gmail
 
 
 import copy
-from warnings import warn
+import warnings
 
 import numpy as np
 import scipy.sparse as sp
@@ -34,23 +34,6 @@ class KNN(W):
     """
     Creates nearest neighbor weights matrix based on k nearest
     neighbors.
-
-    Parameters
-    ----------
-    kdtree      : object
-                  PySAL KDTree or ArcKDTree where KDtree.data is array (n,k)
-                  n observations on k characteristics used to measure
-                  distances between the n objects
-    k           : int
-                  number of nearest neighbors
-    p           : float
-                  Minkowski p-norm distance metric parameter:
-                  1<=p<=infinity
-                  2: Euclidean distance
-                  1: Manhattan distance
-                  Ignored if the KDTree is an ArcKDTree
-    ids         : list
-                  identifiers to attach to each observation
 
     Returns
     -------
@@ -115,13 +98,41 @@ class KNN(W):
         distance_metric="euclidean",
         **kwargs,
     ):
+        """Create nearest-neighbor weights.
+
+        Parameters
+        ----------
+        data : object
+            PySAL KDTree or ArcKDTree where ``KDTree.data`` is an ``(n, k)`` array.
+        k : int, default 2
+            Number of nearest neighbors.
+        p : float, default 2
+            Minkowski p-norm distance metric parameter. Ignored if the tree uses
+            arc distance.
+        ids : list, optional
+            Identifiers to attach to each observation.
+        radius : float, optional
+            If supplied, arc distances will be calculated based on the radius.
+        distance_metric : str, default "euclidean"
+            Distance metric used when building a KDTree from raw coordinates.
+        **kwargs
+            Additional keyword arguments passed to :class:`libpysal.weights.W`.
+        """
         if radius is not None:
             distance_metric = "arc"
         if isKDTree(data):
             self.kdtree = data
             self.data = self.kdtree.data
         else:
-            self.kdtree = KDTree(data, radius=radius, distance_metric=distance_metric)
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    category=FutureWarning,
+                    message="The KDTree class is deprecated",
+                )
+                self.kdtree = KDTree(
+                    data, radius=radius, distance_metric=distance_metric
+                )
             self.data = self.kdtree.data
         self.k = k
         self.p = p
@@ -153,26 +164,37 @@ class KNN(W):
         W.__init__(self, neighbors, id_order=ids, **kwargs)
 
     @classmethod
-    def from_shapefile(cls, filepath, *args, **kwargs):
+    def from_shapefile(
+        cls,
+        filepath,
+        k=2,
+        p=2,
+        ids=None,
+        radius=None,
+        distance_metric="euclidean",
+        **kwargs,
+    ):
         """
         Nearest neighbor weights from a shapefile.
 
         Parameters
         ----------
-        data       : string
-                     shapefile containing attribute data.
-        k          : int
-                     number of nearest neighbors
-        p          : float
-                     Minkowski p-norm distance metric parameter:
-                     1<=p<=infinity
-                     2: Euclidean distance
-                     1: Manhattan distance
-        ids        : list
-                     identifiers to attach to each observation
-        radius     : float
-                     If supplied arc_distances will be calculated
-                     based on the given radius. p will be ignored.
+        filepath : str
+            Shapefile containing attribute data.
+        k : int
+            number of nearest neighbors
+        p : float
+            Minkowski p-norm distance metric parameter:
+            1<=p<=infinity
+            2: Euclidean distance
+            1: Manhattan distance
+        ids : list
+            identifiers to attach to each observation
+        radius : float
+            If supplied arc_distances will be calculated
+            based on the given radius. p will be ignored.
+        distance_metric : str, default "euclidean"
+            Distance metric used when building the KDTree.
 
         Returns
         -------
@@ -212,7 +234,15 @@ class KNN(W):
         --------
         :class:`libpysal.weights.weights.W`
         """
-        return cls(get_points_array_from_shapefile(filepath), *args, **kwargs)
+        return cls(
+            get_points_array_from_shapefile(filepath),
+            k=k,
+            p=p,
+            ids=ids,
+            radius=radius,
+            distance_metric=distance_metric,
+            **kwargs,
+        )
 
     @classmethod
     def from_array(cls, array, *args, **kwargs):
@@ -347,7 +377,7 @@ class KNN(W):
             data = self.kdtree
             ids = self.id_order
         elif (new_data is None) and (new_ids is not None):
-            warn("Remapping ids must be done using w.remap_ids", stacklevel=2)
+            warnings.warn("Remapping ids must be done using w.remap_ids", stacklevel=2)
         if k is None:
             k = self.k
         if p is None:
@@ -362,81 +392,6 @@ class KNN(W):
 class Kernel(W):
     """
     Spatial weights based on kernel functions.
-
-    Parameters
-    ----------
-    data        : array
-                  (n,k) or KDTree where KDtree.data is array (n,k)
-                  n observations on k characteristics used to measure
-                  distances between the n objects
-    bandwidth   : float
-                  or array-like (optional)
-                  the bandwidth :math:`h_i` for the kernel.
-    fixed       : bool
-                  If True then :math:`h_i=h \\forall i`. If False then
-                  bandwidth is adaptive across observations.
-    k           : int
-                  the number of nearest neighbors to use for determining
-                  bandwidth. For fixed bandwidth, :math:`h_i=max(dknn) \\forall i`
-                  where :math:`dknn` is a vector of k-nearest neighbor
-                  distances (the distance to the kth nearest neighbor for each
-                  observation).  For adaptive bandwidths, :math:`h_i=dknn_i`
-    diagonal    : boolean
-                  If true, set diagonal weights = 1.0, if false (default),
-                  diagonals weights are set to value according to kernel
-                  function.
-    function    : {'triangular','uniform','quadratic','quartic','gaussian'}
-                  kernel function defined as follows with
-
-                  .. math::
-
-                      z_{i,j} = d_{i,j}/h_i
-
-                  triangular
-
-                  .. math::
-
-                      K(z) = (1 - |z|) \\ if |z| \\le 1
-
-                  uniform
-
-                  .. math::
-
-                      K(z) = 1/2 \\ if |z| \\le 1
-
-                  quadratic
-
-                  .. math::
-
-                      K(z) = (3/4)(1-z^2) \\ if |z| \\le 1
-
-                  quartic
-
-                  .. math::
-
-                      K(z) = (15/16)(1-z^2)^2 \\ if |z| \\le 1
-
-                  gaussian
-
-                  .. math::
-
-                      K(z) = (2\\pi)^{(-1/2)} exp(-z^2 / 2)
-    eps         : float
-                  adjustment to ensure knn distance range is closed on the
-                  knnth observations
-    normalize   : bool
-                  If True (default) Gaussian kernel is normalized to integrate to 1.
-                  If False K(0)=1.
-
-
-    Attributes
-    ----------
-    weights : dict
-              Dictionary keyed by id with a list of weights for each neighbor
-    neighbors : dict
-                of lists of neighbors keyed by observation id
-    bandwidth : array
-                array of bandwidths
 
     Examples
     --------
@@ -537,6 +492,75 @@ class Kernel(W):
         normalize=True,
         **kwargs,
     ):
+        """Create kernel-based weights.
+
+        Parameters
+        ----------
+        data : array
+            (n,k) or KDTree where KDtree.data is array (n,k)
+            n observations on k characteristics used to measure
+            distances between the n objects
+        bandwidth : float
+            or array-like (optional)
+            the bandwidth :math:`h_i` for the kernel.
+        fixed : bool
+            If True then :math:`h_i=h \\forall i`. If False then
+            bandwidth is adaptive across observations.
+        k : int
+            the number of nearest neighbors to use for determining
+            bandwidth. For fixed bandwidth, :math:`h_i=max(dknn) \\forall i`
+            where :math:`dknn` is a vector of k-nearest neighbor
+            distances (the distance to the kth nearest neighbor for each
+            observation).  For adaptive bandwidths, :math:`h_i=dknn_i`
+        diagonal : boolean
+            If true, set diagonal weights = 1.0, if false (default),
+            diagonals weights are set to value according to kernel
+            function.
+        function : {'triangular','uniform','quadratic','quartic','gaussian'}
+            kernel function defined as follows with
+
+            .. math::
+
+                z_{i,j} = d_{i,j}/h_i
+
+            triangular
+
+            .. math::
+
+                K(z) = (1 - |z|) \\ if |z| \\le 1
+
+            uniform
+
+            .. math::
+
+                K(z) = 1/2 \\ if |z| \\le 1
+
+            quadratic
+
+            .. math::
+
+                K(z) = (3/4)(1-z^2) \\ if |z| \\le 1
+
+            quartic
+
+            .. math::
+
+                K(z) = (15/16)(1-z^2)^2 \\ if |z| \\le 1
+
+            gaussian
+
+            .. math::
+
+                K(z) = (2\\pi)^{(-1/2)} exp(-z^2 / 2)
+        eps : float
+            adjustment to ensure knn distance range is closed on the
+            knnth observations
+        normalize : bool
+            If True (default) Gaussian kernel is normalized to integrate to 1.
+            If False K(0)=1.
+        **kwargs
+            Additional keyword arguments passed to :class:`libpysal.weights.W`.
+        """
         self._normalize = normalize
         if radius is not None:
             distance_metric = "arc"
@@ -545,7 +569,15 @@ class Kernel(W):
             self.data = self.kdtree.data
             data = self.data
         else:
-            self.kdtree = KDTree(data, distance_metric=distance_metric, radius=radius)
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    category=FutureWarning,
+                    message="The KDTree class is deprecated",
+                )
+                self.kdtree = KDTree(
+                    data, distance_metric=distance_metric, radius=radius
+                )
             self.data = self.kdtree.data
         self.k = k + 1
         self.function = function.lower()
@@ -575,10 +607,10 @@ class Kernel(W):
 
         Parameters
         ----------
-        shapefile   : string
-                      shapefile name with shp suffix
-        idVariable  : string
-                      name of column in shapefile's DBF to use for ids
+        filepath : str
+            Shapefile name with shp suffix.
+        idVariable  : str
+            Name of column in shapefile's DBF to use for ids.
 
         Returns
         -------
@@ -717,49 +749,6 @@ class DistanceBand(W):
     """
     Spatial weights based on distance band.
 
-    Parameters
-    ----------
-    data        : array
-                  (n,k) or KDTree where KDtree.data is array (n,k)
-                  n observations on k characteristics used to measure
-                  distances between the n objects
-    threshold  : float
-                 distance band
-    p          : float
-                 DEPRECATED: use `distance_metric`
-                 Minkowski p-norm distance metric parameter:
-                 1<=p<=infinity
-                 2: Euclidean distance
-                 1: Manhattan distance
-    binary     : boolean
-                 If true w_{ij}=1 if d_{i,j}<=threshold, otherwise w_{i,j}=0
-                 If false wij=dij^{alpha}
-    alpha      : float
-                 distance decay parameter for weight (default -1.0)
-                 if alpha is positive the weights will not decline with
-                 distance. If binary is True, alpha is ignored
-    ids         : list
-                  values to use for keys of the neighbors and weights dicts
-    build_sp    : boolean
-                  DEPRECATED
-                  True to build sparse distance matrix and false to build dense
-                  distance matrix; significant speed gains may be obtained
-                  dending on the sparsity of the of distance_matrix and
-                  threshold that is applied
-    silent      : boolean
-                  By default libpysal will print a warning if the
-                  dataset contains any disconnected observations or
-                  islands. To silence this warning set this
-                  parameter to True.
-
-    Attributes
-    ----------
-    weights : dict
-              of neighbor weights keyed by observation id
-
-    neighbors : dict
-                of neighbors keyed by observation id
-
     Examples
     --------
     >>> import libpysal
@@ -817,8 +806,51 @@ class DistanceBand(W):
         distance_metric="euclidean",
         radius=None,
     ):
-        """Casting to floats is a work around for a bug in scipy.spatial.
-        See detail in pysal issue #126.
+        """Create distance-band weights.
+
+        Parameters
+        ----------
+        data : array
+            (n,k) or KDTree where KDtree.data is array (n,k)
+            n observations on k characteristics used to measure
+            distances between the n objects
+        threshold : float
+            distance band
+        p : float
+            DEPRECATED: use `distance_metric`
+            Minkowski p-norm distance metric parameter:
+            1<=p<=infinity
+            2: Euclidean distance
+            1: Manhattan distance
+        binary : boolean
+            If true w_{ij}=1 if d_{i,j}<=threshold, otherwise w_{i,j}=0
+            If false wij=dij^{alpha}
+        alpha : float
+            distance decay parameter for weight (default -1.0)
+            if alpha is positive the weights will not decline with
+            distance. If binary is True, alpha is ignored
+        ids : list
+            values to use for keys of the neighbors and weights dicts
+        build_sp : boolean
+            DEPRECATED
+            True to build sparse distance matrix and false to build dense
+            distance matrix; significant speed gains may be obtained
+            dending on the sparsity of the of distance_matrix and
+            threshold that is applied
+        silence_warnings : boolean
+            By default libpysal will print a warning if the
+            dataset contains any disconnected observations or
+            islands. To silence this warning set this
+            parameter to True.
+        distance_metric : str, default "euclidean"
+            Distance metric used when building the KDTree.
+        radius : float, optional
+            Radius used for arc distance calculations.
+
+        Notes
+        -----
+        Casting to floats is a workaround for a bug in ``scipy.spatial``.
+        See pysal issue #126.
         """
         if ids is not None:
             ids = list(ids)
@@ -840,9 +872,15 @@ class DistanceBand(W):
                     data = np.asarray(data)
                     if data.dtype.kind != "f":
                         data = data.astype(float)
-                    self.kdtree = KDTree(
-                        data, distance_metric=distance_metric, radius=radius
-                    )
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings(
+                            "ignore",
+                            category=FutureWarning,
+                            message="The KDTree class is deprecated",
+                        )
+                        self.kdtree = KDTree(
+                            data, distance_metric=distance_metric, radius=radius
+                        )
                     self.data = self.kdtree.data
                 except:  # noqa: E722
                     raise ValueError("Could not make array from data") from None
@@ -863,10 +901,12 @@ class DistanceBand(W):
 
         Parameters
         ----------
-        shapefile   : string
-                      shapefile name with shp suffix
-        idVariable  : string
-                      name of column in shapefile's DBF to use for ids
+        filepath : str
+            Shapefile name with shp suffix.
+        threshold : float
+            Distance band.
+        idVariable : str
+            Name of column in shapefile's DBF to use for ids.
 
         Returns
         -------

@@ -767,6 +767,130 @@ class Geocif:
         self.logger.info("Writing input file to disk")
         self.df_inputs.to_csv(file_path, index=False)
 
+    def _merge_season_features_if_missing(
+        self, df: pd.DataFrame, country: str, crop: str
+    ) -> pd.DataFrame:
+        """Attach region-static phenology features to a wide ML dataframe.
+
+        Reads ``season_length_dekads`` + ``season_start_month`` per region
+        from the raw geoprepare crop_t0 CSV
+        (``{dir_output}/crop_t{floor}/{country}/{country}_{crop}_s{N}.csv``)
+        and joins them onto the wide ML dataframe by Region (case- and
+        underscore-normalized).
+
+        Called from ``_execute_single_pass`` / ``_execute_multi_step``
+        AFTER the pivot in ``_prepare_ml_dataframe``. An earlier attempt
+        in ``read_data`` operating on the long-format ``self.df_inputs``
+        (0.4.793/0.4.794) was silently dropped by the pivot, since the
+        CID pivot only preserves indicator × stage columns.
+
+        No-op paths:
+        1. Columns already present on ``df`` — indices_runner in a
+           future release may preserve these during CID aggregation, at
+           which point this method becomes a passthrough.
+        2. Source CSV missing (crop_t0 not populated) — logs a warning,
+           does not fail. Downstream ML runs without the two features.
+        3. Source CSV lacks the columns (pre-geoprepare-0.6.282) — same
+           behavior as (2). Fix: re-run geomerge to regenerate.
+
+        The features are region-STATIC (do not vary year-to-year), so a
+        deduplicated per-region lookup is joined onto every row of the
+        wide dataframe. Groups A/B in Kenya emit ``(20, 4)`` vs
+        ``(12, 3)`` — a continuous encoding of phenology group identity
+        that TabPFN / CatBoost / etc. can split on without seeing the
+        raw region name.
+        """
+        if "season_length_dekads" in df.columns:
+            return df
+
+        try:
+            from geocif.indices_runner import get_input_file_path, get_seasons
+            input_dir = get_input_file_path(
+                country, self.parser, data_source="harvest"
+            )
+            growing_seasons = get_seasons(country, self.parser, crop=crop)
+        except Exception as e:
+            self.logger.warning(
+                f"season-feature merge: could not resolve crop_t0 dir/seasons "
+                f"for {country}: {e}. Skipping."
+            )
+            return df
+
+        country_lower = country.lower().replace(" ", "_")
+        crop_lower = crop.lower().replace(" ", "_")
+
+        # Try each configured growing-season CSV; the features can differ
+        # between seasons (e.g. long-rains vs short-rains phenology) but
+        # for single-season configs (like Kenya current) there's just one.
+        src = None
+        for gs in growing_seasons:
+            candidate = input_dir / f"{country_lower}_{crop_lower}_s{gs}.csv"
+            if candidate.exists():
+                src = candidate
+                break
+
+        if src is None:
+            self.logger.warning(
+                f"season-feature merge: no crop_t0 CSV found for {country} "
+                f"{crop} at growing_seasons={growing_seasons} in {input_dir}; "
+                f"skipping."
+            )
+            return df
+
+        try:
+            df_src = pd.read_csv(
+                src,
+                engine="pyarrow",
+                usecols=["region", "season_length_dekads", "season_start_month"],
+            )
+        except (ValueError, KeyError) as e:
+            # Pre-0.6.282 crop_t0 CSV — the two columns don't exist yet.
+            self.logger.warning(
+                f"season-feature merge: {src.name} lacks the new columns "
+                f"({e}); re-run geomerge to populate. Skipping."
+            )
+            return df
+
+        # Dedup per region — features are region-static.
+        df_src = (
+            df_src.dropna(subset=["season_length_dekads"])
+                  .drop_duplicates(subset=["region"])
+        )
+        if df_src.empty:
+            self.logger.warning(
+                f"season-feature merge: no non-NaN season rows in {src.name}; "
+                f"skipping."
+            )
+            return df
+
+        def _norm(s):
+            return str(s).lower().replace(" ", "_").replace("-", "_")
+
+        df_src["_join_key"] = df_src["region"].map(_norm)
+        df["_join_key"] = df["Region"].map(_norm)
+
+        before = len(df)
+        df = df.merge(
+            df_src[["_join_key", "season_length_dekads", "season_start_month"]],
+            on="_join_key",
+            how="left",
+        )
+        df = df.drop(columns=["_join_key"])
+
+        n_matched = int(df["season_length_dekads"].notna().sum())
+        n_unmatched_regions = int(
+            df.loc[
+                df["season_length_dekads"].isna(), "Region"
+            ].nunique()
+        )
+        self.logger.info(
+            f"season-feature merge: attached to {n_matched}/{before} rows "
+            f"for {country} {crop} "
+            f"({df_src['region'].nunique()} source regions; "
+            f"{n_unmatched_regions} unmatched region name(s))"
+        )
+        return df
+
     def read_data_pooled(self, countries: list, crop: str, season: int):
         """Read and concatenate data from multiple countries for the same crop.
 
@@ -891,6 +1015,13 @@ class Geocif:
         """Original single-run pipeline — all stages as features."""
         df = self._prepare_ml_dataframe()
         df = self._add_lat_lon_to_data(df)
+
+        # Attach region-static phenology features onto the wide df AFTER
+        # the CID pivot (long → wide) in _prepare_ml_dataframe. Doing
+        # this in read_data operates on the long-format df_inputs and
+        # gets silently dropped by the pivot. No-op if already present
+        # or if the source crop_t0 CSV can't be read.
+        df = self._merge_season_features_if_missing(df, self.country, self.crop)
 
         self._run_spatial_autocorrelation_if_enabled()
         self._run_cluster_analysis(df)
@@ -1029,6 +1160,9 @@ class Geocif:
                 "Starting Stage": 0,
                 "Ending Stage": 0,
                 "Stage Name": stage_name,
+                # Pre/In-season labels are already calendar-order human
+                # readable ("Pre-Season (init Feb)") — display == raw.
+                "Stage Window Display": stage_name,
             }
             self._current_step_label = f"[{label_prefix} {step_idx + 1}/{len(init_months)}]"
             self.logger.info(
@@ -1215,6 +1349,11 @@ class Geocif:
                     df["Country"].astype(str) + " " + df["Region"].astype(str)
                 ).str.lower()
                 df = df.merge(cached_latlon, on="Country Region", how="left")
+
+            # Attach region-static phenology features onto the wide df.
+            # No-op if already present or if the source crop_t0 CSV can't
+            # be read. See _merge_season_features_if_missing docstring.
+            df = self._merge_season_features_if_missing(df, self.country, self.crop)
 
             if step_idx == 0:
                 self._run_spatial_autocorrelation_if_enabled()
@@ -3775,6 +3914,16 @@ class Geocif:
             "Stage_ID": np.full(shp, self.stage_info["Stage_ID"]),
             "Stage Range": np.full(shp, self.stage_info["Stage Range"]),
             "Stage Name": np.full(shp, self.stage_info["Stage Name"]),
+            # Calendar-order human-readable label emitted alongside the
+            # (load-bearing) reverse-cumulative Stage Name. See
+            # stages.get_stage_information_dict for details.
+            "Stage Window Display": np.full(
+                shp,
+                self.stage_info.get(
+                    "Stage Window Display",
+                    self.stage_info["Stage Name"],
+                ),
+            ),
             "Starting Stage": np.full(shp, self.stage_info["Starting Stage"]),
             "Ending Stage": np.full(shp, self.stage_info["Ending Stage"]),
             "Model": np.full(shp, self.model_name),
@@ -4476,6 +4625,13 @@ class ModelTrainer:
         fitters = {
             "catboost": CatBoostFitter(self.obj),
             "tabpfn": TabPFNFitter(self.obj),
+            # tabpfn_phe is a Post-Hoc Ensembling wrapper around TabPFN
+            # (AutoTabPFNRegressor from tabpfn_extensions) — same sklearn
+            # .fit(X, y) API, so it can safely route through TabPFNFitter
+            # without a dedicated fitter class. NOT named "auto_tabpfn"
+            # because the wrapper-prefix regex in trainers.py strips
+            # "auto_" and would route that name to the plain tabpfn branch.
+            "tabpfn_phe": TabPFNFitter(self.obj),
             "tabicl": TabICLFitter(self.obj),
             "tabicl_ft": TabICLFTFitter(self.obj),
             "tabpfn_ft": TabPFNFTFitter(self.obj),

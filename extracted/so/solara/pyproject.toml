@@ -11,13 +11,13 @@ license = {file = "LICENSE"}
 requires-python = ">=3.8"
 classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["description"]
-version = "1.57.6"
+version = "1.58.0"
 packages = [
     { include = "solara" }
 ]
 dependencies = [
-    "solara-ui[all]==1.57.6",
-    "solara-server[starlette,dev]==1.57.6"
+    "solara-ui[all]==1.58.0",
+    "solara-server[starlette,dev]==1.58.0"
 ]
 
 [project.urls]
@@ -32,8 +32,12 @@ all = [
     "solara[dev]"
 ]
 
+redis = [
+    "solara-ui[redis]"
+]
+
 assets = [
-    "solara-assets==1.57.6"
+    "solara-assets==1.58.0"
 ]
 
 documentation = [
@@ -55,7 +59,7 @@ documentation = [
 
 # for backwards compatibility to support solara[pytest]
 pytest = [
-    "pytest-ipywidgets[all]==1.57.6"
+    "pytest-ipywidgets[all]==1.58.0"
 ]
 
 # for backwards compatibility to support solara[dev]
@@ -81,6 +85,7 @@ dev = [
     "pytest-mock",
     "pytest-cov",
     "pytest-timeout",
+    "fakeredis[lua]",  # in-process redis (with Lua) for the state-backend contract + failover tests
     "pre-commit",
     "ruff",
     "bump2version",

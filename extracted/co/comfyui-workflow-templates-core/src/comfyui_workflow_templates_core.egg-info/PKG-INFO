@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comfyui-workflow-templates-core
-Version: 0.3.266
+Version: 0.3.267
 Summary: Core helpers for ComfyUI workflow templates
 License-Expression: MIT
 Requires-Python: >=3.9

@@ -9,22 +9,27 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 class UsageCodeSnippet(UniversalBaseModel):
     display_name: str = pydantic.Field()
     """
-    Display name for the code snippet (e.g., 'Python', 'JavaScript')
+    Display name of the usage code snippet.
     """
 
     language: str = pydantic.Field()
     """
-    Programming language of the code snippet (e.g., 'python', 'javascript')
+    Programming language of the usage code snippet.
     """
 
     libraries: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    List of libraries/frameworks used in the code snippet
+    Libraries required to run the usage code snippet.
     """
 
     code: str = pydantic.Field()
     """
-    Code snippet demonstrating how to use the prompt version
+    Source code of the usage code snippet.
+    """
+
+    icon: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Icon representing the usage code snippet.
     """
 
     if IS_PYDANTIC_V2:

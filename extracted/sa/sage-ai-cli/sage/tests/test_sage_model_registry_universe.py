@@ -7,7 +7,7 @@ import re
 import pytest
 
 from sage.config import load_config
-from sage.main import _build_router
+from sage.cli_core import _build_router
 from sage.tests.registered_sage_model_ids import collect_all_sage_model_identifiers
 
 _PREFIX_RE = re.compile(r"^[a-z_][a-z0-9_]*:(.+)$")

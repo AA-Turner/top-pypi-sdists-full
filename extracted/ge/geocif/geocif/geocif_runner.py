@@ -189,6 +189,12 @@ def ensure_db_tables(inputs, logger, parser):
         ('"Stage_ID"', "TEXT"),
         ('"Stage Range"', "TEXT"),
         ('"Stage Name"', "TEXT"),
+        # Calendar-order human-readable label (Tier 2a — added 0.4.788).
+        # MUST be in the pre-create schema because the DataFrame written
+        # by _build_results_dataframe includes it; without this column the
+        # INSERT fails with "table has no column named Stage Window
+        # Display" and every row is dropped (empty DB — cf. 0.4.788 regression).
+        ('"Stage Window Display"', "TEXT"),
         ('"Starting Stage"', "BIGINT"),
         ('"Ending Stage"', "BIGINT"),
         ('"Model"', "TEXT"),

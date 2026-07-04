@@ -421,7 +421,7 @@ def _should_use_multistep_pipeline(
     is_local_model: bool = False,
 ) -> bool:
     """Route complex local tasks into a model-driven multistep pipeline."""
-    from sage.main import _get_current_classification, _should_seed_recursive_analysis_context
+    from sage.cli_core import _get_current_classification, _should_seed_recursive_analysis_context
     if not is_local_model:
         return False
 
@@ -443,7 +443,7 @@ def _should_use_seeded_synthesis_only(
     seeded_full_file_coverage_context: str,
 ) -> bool:
     """Use synthesis-only for broad local analysis when SAGE already read the repo."""
-    from sage.main import _should_seed_recursive_analysis_context
+    from sage.cli_core import _should_seed_recursive_analysis_context
     return bool(
         classification
         and classification.read_only
@@ -459,7 +459,7 @@ def _should_skip_ai_orchestration(
     is_local: bool,
 ) -> bool:
     """Skip pre-analysis orchestration when SAGE already gathered broad local evidence."""
-    from sage.main import _should_seed_recursive_analysis_context
+    from sage.cli_core import _should_seed_recursive_analysis_context
     return bool(
         is_local
         and classification
@@ -875,7 +875,7 @@ def _build_multistep_phase_prompts(
     cwd: Path | None = None,
 ) -> list[tuple[str, str]]:
     """Build phase prompts so the model owns planning and task reasoning."""
-    from sage.main import _get_current_classification
+    from sage.cli_core import _get_current_classification
     effective_classification = classification or _get_current_classification()
 
     # Informational tasks get a direct, two-phase research and response path (P3-71)
@@ -1096,7 +1096,7 @@ def _build_tool_followup_prompt(
     cwd: Path | None = None,
 ) -> str:
     """Build a mode-aware follow-up prompt after READ/SEARCH/RUN commands."""
-    from sage.main import _get_current_classification, _get_current_task_prompt, _tool_context_needs_more_investigation
+    from sage.cli_core import _get_current_classification, _get_current_task_prompt, _tool_context_needs_more_investigation
     effective_classification = classification or _get_current_classification()
 
     if effective_classification and effective_classification.read_only:
@@ -1467,7 +1467,7 @@ def _expand_prompt(user_input: str) -> str:
     Detects the type of request and adds specific guidance so that smaller
     models can produce high-quality results comparable to larger models.
     """
-    from sage.main import _get_current_classification
+    from sage.cli_core import _get_current_classification
     lower = user_input.lower().strip()
 
     # ── Multi-item fix / "fix all" requests → task-list workflow ─────────────

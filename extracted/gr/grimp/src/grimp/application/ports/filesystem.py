@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import abc
 from collections.abc import Iterator
 from typing import Protocol
@@ -12,7 +13,7 @@ class AbstractFileSystem(abc.ABC):
     @property
     @abc.abstractmethod
     def sep(self) -> str:
-        """
+        r"""
         Return the file separator for the FileSystem.
 
         E.G. '/' for UNIX systems and '\\' for Windows systems

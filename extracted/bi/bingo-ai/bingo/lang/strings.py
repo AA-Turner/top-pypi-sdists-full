@@ -1899,6 +1899,12 @@ _STRINGS.update({
                                   "zh": "⚠️  检测到无限循环 — '{name}' 重复出现 {n} 次以上。疑似使用TOP 1查询而无游标分页。",
                                   "en": "⚠️  Infinite loop detected — '{name}' repeated {n}+ times. Likely TOP 1 query without cursor pagination."},
 
+    # v3.6.6: WAF 차단 응답 루프 오탐 방지
+    # WAF가 여러 페이로드를 동일한 403 HTML로 차단할 때 무한루프로 오탐되던 문제 수정
+    "loop_fp_waf_block":        {"ko": "⚡ 루프 오탐 스킵: '{name}'은 WAF 차단 응답 — SQL 데이터 루프 아님.",
+                                  "zh": "⚡ 跳过循环误报: '{name}'是WAF拦截响应 — 不是SQL数据无限循环。",
+                                  "en": "⚡ Loop false-positive skipped: '{name}' is WAF block response — not SQL data loop."},
+
     # ── XSS 반사 중복 제거 / XSS Reflection Deduplication (v2.9.4) ─────
     "xss_reflect_dedup_fix":    {"ko": "필수 수정 — XSS 반사 위치를 중복 제거 없이 출력하고 있습니다.\nseen_ctx = set() 으로 고유 컨텍스트만 출력하세요.",
                                   "zh": "强制修复 — XSS反射位置输出没有去重。\n请使用 seen_ctx = set() 仅输出唯一上下文。",
@@ -2003,9 +2009,9 @@ _STRINGS.update({
                                   "en": ("⚡ [bold]Loop paused[/bold] — type a hint to keep going\n"
                                          "   (press Enter or Ctrl+C again → stop completely)")},
 
-    "stream_interrupted":       {"ko": "⏸ 스트리밍 중단됨 — 힌트를 입력하거나 Enter로 루프를 멈춥니다",
-                                  "zh": "⏸ 流式传输已中断 — 输入提示或按 Enter 停止循环",
-                                  "en": "⏸ Streaming interrupted — type a hint or press Enter to stop the loop"},
+    "stream_interrupted":       {"ko": "⏸ 응답 중단됨",
+                                  "zh": "⏸ 已中断",
+                                  "en": "⏸ Interrupted"},
 
     # ── v3.2.99: Ctrl+C 즉시 반응 관련 ─────────────────────────────────────
     "ctrl_c_killing_procs":     {"ko": "⚡ 실행 중인 스크립트 즉시 종료 중...",
@@ -5310,9 +5316,9 @@ _STRINGS.update({
         "en": "🧬 Nuclei context detected — use /recon nuclei <target> for auto template vulnerability scan",
     },
     "recon_help_title": {
-        "ko": "🔍  Recon 모듈 스위트 (v3.5.22) — 정보수집 / 자산수집",
-        "zh": "🔍  侦察模块套件 (v3.5.22) — 信息收集 / 资产收集",
-        "en": "🔍  Recon Module Suite (v3.5.22) — Info Gathering / Asset Collection",
+        "ko": "🔍  Recon 모듈 스위트 (v3.6.6) — 정보수집 / 자산수집",
+        "zh": "🔍  侦察模块套件 (v3.6.6) — 信息收集 / 资产收集",
+        "en": "🔍  Recon Module Suite (v3.6.6) — Info Gathering / Asset Collection",
     },
     "recon_help_passive": {
         "ko": "  /recon passive <domain>   — Passive 수집 (crt.sh/BGPView/Shodan/FOFA/Dorks)",
@@ -5354,17 +5360,141 @@ _STRINGS.update({
         "zh": "未知Recon子命令。输入 /recon 查看帮助",
         "en": "Unknown Recon subcommand. Use /recon for help",
     },
+    # ── /tools-ext ──────────────────────────────────────────────────
+    "tools_ext_no_tools": {
+        "ko": "정의된 외부 도구 없음. bingo/tools_ext/builtin/ 에 YAML 파일을 추가하세요",
+        "zh": "未定义外部工具。请在 bingo/tools_ext/builtin/ 添加 YAML 文件",
+        "en": "No external tools defined. Add YAML files to bingo/tools_ext/builtin/",
+    },
+    "tools_ext_run_usage": {
+        "ko": "사용법: /tools-ext run <도구명> [인자...]",
+        "zh": "用法: /tools-ext run <工具名> [参数...]",
+        "en": "Usage: /tools-ext run <tool_name> [args...]",
+    },
+    "tools_ext_reloaded": {
+        "ko": "외부 도구 목록을 새로 불러왔습니다.",
+        "zh": "外部工具已重新加载。",
+        "en": "External tools reloaded.",
+    },
+    "tools_ext_usage": {
+        "ko": "사용법: /tools-ext [list|run <이름>|reload]",
+        "zh": "用法: /tools-ext [list|run <名称>|reload]",
+        "en": "Usage: /tools-ext [list|run <name>|reload]",
+    },
+    # v3.6.3 — 오탐 방지 규칙 관련 경고 메시지
+    "sqli_warn_error_fp": {
+        "ko": "⚠️ [오탐주의] 'error' 문자열 단독 = SQL 오류 아님. 실제 SQL 문법 오류 패턴 확인 필요.",
+        "zh": "⚠️ [误报警告] 单独 'error' 字符串 ≠ SQL 错误。需确认真实 SQL 语法错误模式。",
+        "en": "⚠️ [FP-WARN] Bare 'error' string ≠ SQL error. Verify actual SQL syntax error pattern.",
+    },
+    "sqli_warn_mysql_baseline": {
+        "ko": "⚠️ [오탐주의] 'mysql' 키워드가 베이스라인에도 존재 — 인젝션 신호로 사용 불가.",
+        "zh": "⚠️ [误报警告] 'mysql' 关键字在基线响应中已存在 — 不可用作注入信号。",
+        "en": "⚠️ [FP-WARN] 'mysql' keyword present in baseline — cannot use as injection signal.",
+    },
+    "sqli_warn_union_reflection": {
+        "ko": "⚠️ [오탐주의] UNION 응답 크기 선형 증가 = 반사(Reflection). sentinel 값으로 재검증 필요.",
+        "zh": "⚠️ [误报警告] UNION 响应大小线性增长 = 反射(Reflection)。需用 sentinel 值重新验证。",
+        "en": "⚠️ [FP-WARN] UNION response size grows linearly = payload reflection. Re-verify with sentinel.",
+    },
+    "sqli_warn_sleep_no_delay": {
+        "ko": "⚠️ [오탐주의] SLEEP 실제 지연 미확인 — WAF가 SLEEP 함수 차단 중일 수 있음.",
+        "zh": "⚠️ [误报警告] SLEEP 实际延迟未确认 — WAF 可能正在拦截 SLEEP 函数。",
+        "en": "⚠️ [FP-WARN] SLEEP delay not confirmed — WAF may be blocking SLEEP execution.",
+    },
+    "proxy_err_socks": {
+        "ko": "⚠️ [PROXY-ERROR] SOCKS 프록시 연결 실패 (Tor 미실행 또는 설정 오류). IP 차단 아님.",
+        "zh": "⚠️ [PROXY-ERROR] SOCKS 代理连接失败（Tor 未运行或配置错误），不是 IP 封锁。",
+        "en": "⚠️ [PROXY-ERROR] SOCKS proxy connection failed (Tor not running or misconfigured). Not an IP ban.",
+    },
+    "sqli_escalate_blocked": {
+        "ko": "⚠️ 신뢰 신호 부족 — 에스컬레이션 보류. 신뢰 가능한 SQLi 신호 2개 이상 필요.",
+        "zh": "⚠️ 可信信号不足 — 暂停升级。需要至少 2 个可信 SQLi 信号。",
+        "en": "⚠️ Insufficient reliable signals — escalation paused. Need 2+ confirmed SQLi signals.",
+    },
+    "credential_fp_login_form": {
+        "ko": "[-] 로그인 폼 존재 = 정상 기능. 실제 인증 우회 확인 없이 credential 취약점 생성 안 함.",
+        "zh": "[-] 登录表单存在 = 正常功能。未实际确认身份验证绕过，不生成 credential 漏洞。",
+        "en": "[-] Login form exists = normal feature. No credential finding without confirmed auth bypass.",
+    },
+    "idor_fp_public_access": {
+        "ko": "[-] 공개 게시물 순차 접근 = 정상 동작. 인가 경계 교차 확인 없이 IDOR 생성 안 함.",
+        "zh": "[-] 顺序访问公开帖子 = 正常行为。未确认授权边界越界，不生成 IDOR 漏洞。",
+        "en": "[-] Sequential access to public posts = normal behavior. No IDOR finding without auth boundary test.",
+    },
+    # ── v3.6.4 Pentest-Lyan Integration Keys ──
+    "threat_model_12dim_header": {
+        "ko": "[위협모델] 12차원 위협 식별 프레임워크 적용 중",
+        "zh": "[威胁建模] 正在应用 12 维威胁识别框架",
+        "en": "[ThreatModel] Applying 12-dimension threat identification framework",
+    },
+    "threat_model_dim_irrelevant": {
+        "ko": "  · [{dim}] 해당 기능과 무관 — 건너뜀",
+        "zh": "  · [{dim}] 与当前功能无关 — 跳过",
+        "en": "  · [{dim}] Not relevant to this feature — skipped",
+    },
+    "threat_model_dim_candidate": {
+        "ko": "  · [{dim}] 잠재 위협 발견: {threat_name} — 이유: {reason}",
+        "zh": "  · [{dim}] 潜在威胁: {threat_name} — 原因: {reason}",
+        "en": "  · [{dim}] Potential threat: {threat_name} — reason: {reason}",
+    },
+    "coverage_note_required": {
+        "ko": "[커버리지 노트] 테스트 종료 전 3개 항목 필수 기록 — 입력면/행동면/미배제 공격면",
+        "zh": "[覆盖率笔记] 测试结束前必须记录 3 项 — 输入面/行为面/未排除攻击面",
+        "en": "[CoverageNote] Before closing test, record 3 items — input/behavior/unruled-out surface",
+    },
+    "coverage_unruled_out": {
+        "ko": "  ⚠️ 미배제 공격면: {surfaces}",
+        "zh": "  ⚠️ 未排除攻击面: {surfaces}",
+        "en": "  ⚠️ Unruled-out surface: {surfaces}",
+    },
+    "g3_evidence_missing": {
+        "ko": "[-] 증거 불충분 → [SUSPECTED ⚠️] 강등. 누락 항목: {missing}",
+        "zh": "[-] 证据不足 → 降级为 [SUSPECTED ⚠️]。缺少: {missing}",
+        "en": "[-] Insufficient evidence → demoted to [SUSPECTED ⚠️]. Missing: {missing}",
+    },
+    "g3_info_not_vuln": {
+        "ko": "[INFO] 설정 관찰 항목 — 취약점 번호 부여 안 함: {item}",
+        "zh": "[INFO] 配置观察项 — 不赋予漏洞编号: {item}",
+        "en": "[INFO] Config observation — no vuln ID assigned: {item}",
+    },
+    "cross_role_start": {
+        "ko": "[크로스롤] victim 자원 ID 수집 → attacker 세션으로 교차 접근 테스트 시작",
+        "zh": "[跨角色] 收集 victim 资源 ID → 使用 attacker 会话开始交叉访问测试",
+        "en": "[CrossRole] Collecting victim resource IDs → starting cross-access test with attacker session",
+    },
+    "cross_role_confirmed": {
+        "ko": "[크로스롤] CONFIRMED — attacker가 victim 자원({rid}) 접근 성공. 실제 데이터 확인됨.",
+        "zh": "[跨角色] 已确认 — attacker 成功访问 victim 资源 ({rid})。已验证实际数据。",
+        "en": "[CrossRole] CONFIRMED — attacker accessed victim resource ({rid}). Real data verified.",
+    },
+    "cross_role_not_vuln": {
+        "ko": "[크로스롤] 안전 — attacker 요청 403/401 또는 빈 응답. 권한 경계 정상.",
+        "zh": "[跨角色] 安全 — attacker 请求返回 403/401 或空响应。权限边界正常。",
+        "en": "[CrossRole] Safe — attacker request returned 403/401 or empty. Auth boundary enforced.",
+    },
+    "cross_role_skip_no_account": {
+        "ko": "[크로스롤] 계정 부족 — 크로스롤 검증 생략. 단일 계정으로 진행.",
+        "zh": "[跨角色] 账户不足 — 跳过跨角色验证。使用单账户继续。",
+        "en": "[CrossRole] Insufficient accounts — cross-role check skipped. Proceeding with single account.",
+    },
+    "victim_id_hardcode_blocked": {
+        "ko": "[-] victim ID 하드코딩 금지. 반드시 실제 계정에서 ID를 추출할 것.",
+        "zh": "[-] 禁止硬编码 victim ID。必须从真实账户中提取 ID。",
+        "en": "[-] Hardcoding victim IDs is forbidden. Must extract IDs from real accounts.",
+    },
 })
 
 
-def get_slash_commands(lang: str = "en") -> list[tuple[str, str]]:
+def get_strings(lang: str = "en") -> dict:
+    """특정 언어의 모든 문자열 반환"""
+    if lang not in SUPPORTED_LANGS:
+        lang = "en"
+    return {k: v.get(lang, v.get("en", "")) for k, v in _STRINGS.items()}
+
+
+def get_slash_commands(lang: str = "en") -> list:
     """슬래시 자동완성 명령어 목록 (현재 언어 기준)"""
     if lang not in SUPPORTED_LANGS:
         lang = "en"
-    return [(cmd, desc[lang]) for cmd, desc in _SLASH_DESC.items()]
-
-
-def get_strings(lang: str = "en") -> dict:
-    if lang not in SUPPORTED_LANGS:
-        lang = "en"
-    return {k: v[lang] for k, v in _STRINGS.items()}
+    return [(cmd, desc.get(lang, desc.get("en", ""))) for cmd, desc in _SLASH_DESC.items()]

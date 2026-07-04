@@ -3,8 +3,9 @@
 //! path can call it in release builds.
 
 use super::SaeAtomBasisKind;
-use gam_linalg::faer_ndarray::FaerSvd;
-use ndarray::{Array1, Array2, Array3, ArrayView2};
+use faer::Side;
+use gam_linalg::faer_ndarray::{FaerEigh, FaerSvd};
+use ndarray::{Array1, Array2, Array3, ArrayView1, ArrayView2};
 
 /// Residual-norm floor below which the surplus atom's second phase axis is
 /// treated as collinear with the first (a degenerate 2-plane). Since both
@@ -20,73 +21,416 @@ const SURPLUS_DIR_FLOOR: f64 = 1.0e-6;
 /// `0.0`, leaving the original `atom_idx / k_atoms` offset bit-for-bit.
 const GOLDEN_RATIO_CONJUGATE: f64 = 0.618_033_988_749_894_9;
 
-/// Deterministic generic 2-plane for an OVERCOMPLETE (#1893) SURPLUS periodic
-/// atom, i.e. one whose index outruns the available disjoint PC pairs. Builds
-/// two pseudo-random combinations of ALL principal directions (a random 2-plane
-/// in the PC span) and Gram-Schmidt orthogonalizes the second against the first.
+/// Explicit memory budget for the topology-aware seed's dense graph-Laplacian
+/// eigensolve. The subsample size is *derived* from this budget rather than
+/// fixed to a tuned point count (#2065): the seed builds two dense `m×m` f64
+/// matrices — the symmetric normalized Laplacian and its eigenvectors — so the
+/// largest `m` that fits `B` bytes is `sqrt(B / 16)`. At the default 256 MiB
+/// this yields `m = 4096` (the historical value), but now as a stated resource
+/// choice whose O(m³) eigensolve cost is bounded by the budget, not by a fudge.
+const TOPOLOGY_SEED_LAPLACIAN_BUDGET_BYTES: usize = 256 << 20;
+
+/// Largest subsample size whose two dense f64 `m×m` matrices fit
+/// [`TOPOLOGY_SEED_LAPLACIAN_BUDGET_BYTES`] (`16·m²` bytes total).
+fn topology_seed_max_points() -> usize {
+    let m = ((TOPOLOGY_SEED_LAPLACIAN_BUDGET_BYTES / 16) as f64).sqrt() as usize;
+    m.max(4)
+}
+
+/// Neighborhood degree `k` for the topology seed's kNN graph, *derived* from the
+/// atom's intrinsic dimension and the sample size rather than a tuned scalar
+/// (#2065). Two independent requirements set the floor:
+///   * geometric faithfulness — the graph Laplacian approximates the
+///     Laplace–Beltrami operator only if each node links its full local tangent
+///     star, i.e. `≥ 2d+1` neighbours span a `d`-simplex neighborhood; and
+///   * connectivity — a kNN graph on `n` points is connected with high
+///     probability only for `k ≳ log₂ n` (Penrose, random geometric graphs).
+/// Take the larger so the harmonic coordinates are both faithful and connected.
+/// (For the default full subsample `m = 4096`, `d ≤ 2` ⇒ `k = 12`, unchanged.)
+fn topology_seed_knn(n_points: usize, d_atom: usize) -> usize {
+    let tangent_floor = 2 * d_atom + 1;
+    let connectivity_floor = (n_points.max(2) as f64).log2().ceil() as usize;
+    tangent_floor.max(connectivity_floor).max(2)
+}
+
+fn is_curved_kind(kind: &SaeAtomBasisKind) -> bool {
+    matches!(
+        kind,
+        SaeAtomBasisKind::Periodic | SaeAtomBasisKind::Torus | SaeAtomBasisKind::Sphere
+    )
+}
+
+fn topology_seed_subsample(n_obs: usize) -> Vec<usize> {
+    let cap = topology_seed_max_points();
+    if n_obs <= cap {
+        return (0..n_obs).collect();
+    }
+    let mut rows = Vec::with_capacity(cap);
+    for i in 0..cap {
+        rows.push(i * n_obs / cap);
+    }
+    rows
+}
+
+fn squared_distance_rows(z: ArrayView2<'_, f64>, a: usize, b: usize) -> f64 {
+    let mut acc = 0.0;
+    for c in 0..z.ncols() {
+        let d = z[[a, c]] - z[[b, c]];
+        acc += d * d;
+    }
+    acc
+}
+
+/// Topology-aware deterministic initialization for curved atom charts.
 ///
-/// `pc_pair_offset` (the #976 multi-start retry index) is folded into the
-/// splitmix64 weight key via a base-`k_atoms` mix of `(atom_idx, pc_pair_offset)`,
-/// so the SAME surplus atom lands on a DIFFERENT random plane on each reseed
-/// retry (distinct basins by construction) while every `(atom, retry)` key stays
-/// distinct and `pc_pair_offset == 0` reproduces the original key bit-for-bit.
-///
-/// Returns `(dir1, dir2, two_dimensional)`. When the orthogonalized residual
-/// falls below [`SURPLUS_DIR_FLOOR`] the random combination was essentially
-/// collinear (or the effective PC span is 1-D), so `two_dimensional` is `false`
-/// and the caller must fall back to the 1-D span phase path rather than feed an
-/// `atan2` a degenerate plane that collapses to two phase points.
+/// The issue asks for persistent-cohomology harmonic coordinates.  In the core
+/// build we avoid a heavyweight dependency and compute the same object needed by
+/// the optimizer seed: low-energy harmonic coordinates on a symmetric kNN graph
+/// built from a bounded deterministic subsample.  The first non-constant graph
+/// Laplacian eigenfunctions are the discrete harmonic representatives; reading
+/// their phases gives circle/torus coordinates, while normalizing the first
+/// three gives a sphere chart.  If the graph is too small/degenerate this returns
+/// `Ok(None)` and the caller falls back to the older PCA seed.
+fn topology_curved_seed_initial_coords(
+    z: ArrayView2<'_, f64>,
+    basis_kinds: &[SaeAtomBasisKind],
+    atom_dim: &[usize],
+    pc_pair_offset: usize,
+) -> Result<Option<Array3<f64>>, String> {
+    if !basis_kinds.iter().any(is_curved_kind) || z.nrows() < 4 || z.ncols() == 0 {
+        return Ok(None);
+    }
+    for ((row, col), &value) in z.indexed_iter() {
+        if !value.is_finite() {
+            return Err(format!(
+                "sae_pca_seed: Z must be finite; Z[{row}, {col}] = {value}"
+            ));
+        }
+    }
+    let rows = topology_seed_subsample(z.nrows());
+    let m = rows.len();
+    if m < 4 {
+        return Ok(None);
+    }
+    let d_max = atom_dim.iter().copied().max().unwrap_or(1).max(1);
+    // Neighborhood degree derived from intrinsic dimension + connectivity
+    // (#2065), capped at the subsample size.
+    let k = topology_seed_knn(m, d_max).min(m - 1);
+    let mut w = Array2::<f64>::zeros((m, m));
+    for (ia, &ra) in rows.iter().enumerate() {
+        let mut dists = Vec::with_capacity(m - 1);
+        for (ib, &rb) in rows.iter().enumerate() {
+            if ia != ib {
+                dists.push((squared_distance_rows(z, ra, rb), ib));
+            }
+        }
+        dists.sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+        let scale = dists[k.saturating_sub(1)].0.max(1.0e-24);
+        for &(dist2, ib) in dists.iter().take(k) {
+            let wij = (-dist2 / scale).exp().max(1.0e-12);
+            if wij > w[[ia, ib]] {
+                w[[ia, ib]] = wij;
+            }
+            if wij > w[[ib, ia]] {
+                w[[ib, ia]] = wij;
+            }
+        }
+    }
+    let mut lap = Array2::<f64>::zeros((m, m));
+    for i in 0..m {
+        let deg: f64 = w.row(i).sum();
+        if deg <= 0.0 || !deg.is_finite() {
+            return Ok(None);
+        }
+        lap[[i, i]] = 1.0;
+        let inv_sqrt = 1.0 / deg.sqrt();
+        for j in 0..m {
+            if i != j && w[[i, j]] != 0.0 {
+                let deg_j: f64 = w.row(j).sum();
+                lap[[i, j]] = -w[[i, j]] * inv_sqrt / deg_j.sqrt();
+            }
+        }
+    }
+    let (evals, evecs) = lap
+        .eigh(Side::Lower)
+        .map_err(|err| format!("topology_seed: graph Laplacian eigensolve failed: {err:?}"))?;
+    if evals.len() < 3 {
+        return Ok(None);
+    }
+    let mut out = Array3::<f64>::zeros((basis_kinds.len(), z.nrows(), d_max));
+    // Inverse-distance interpolation onto out-of-subsample rows uses the `d+1`
+    // nearest subsample points — the vertices of a barycentric simplex for a
+    // `d`-dimensional atom chart — derived from the atom dimension rather than a
+    // hardcoded 3-NN (#2065). Bounded by the subsample size `m`.
+    let interp_k = (d_max + 1).max(2).min(m);
+    let interp = |sample_values: &Array1<f64>, row: usize| -> f64 {
+        if let Some(pos) = rows.iter().position(|&r| r == row) {
+            return sample_values[pos];
+        }
+        let mut best: Vec<(f64, usize)> = vec![(f64::INFINITY, 0usize); interp_k];
+        for (i, &r) in rows.iter().enumerate() {
+            let d = squared_distance_rows(z, row, r);
+            if d < best[interp_k - 1].0 {
+                best[interp_k - 1] = (d, i);
+                best.sort_by(|a, b| a.0.total_cmp(&b.0));
+            }
+        }
+        let mut num = 0.0;
+        let mut den = 0.0;
+        for (d, i) in best {
+            let ww = 1.0 / d.max(1.0e-24);
+            num += ww * sample_values[i];
+            den += ww;
+        }
+        num / den
+    };
+    // Harmonic chart functions: graph-Laplacian eigenvectors, excluding the
+    // constant Fiedler-0 column. Each is a function over the `m` subsample rows.
+    let harmonic: Vec<ArrayView1<'_, f64>> = (1..evecs.ncols()).map(|c| evecs.column(c)).collect();
+    let n_harm = harmonic.len();
+    let starts = topology_seed_harmonic_starts(basis_kinds, atom_dim);
+    for atom_idx in 0..basis_kinds.len() {
+        let d = atom_dim[atom_idx];
+        let kind = &basis_kinds[atom_idx];
+        let need = topology_seed_chart_need(kind, d);
+        if need == 0 || n_harm == 0 {
+            continue;
+        }
+        // #1893 UNIVERSAL overcomplete seeding on the topology-seed path (which
+        // previously returned early with a wrap that gave every sphere / flat atom
+        // an IDENTICAL chart, and every surplus circle / torus atom a duplicate
+        // pair). An atom takes a DISJOINT harmonic window `[start, start+need)`
+        // only when that window fits the available harmonics and no reseed rotation
+        // is requested; otherwise it gets a DISTINCT atom-keyed generic combination
+        // of ALL harmonics, so K ≫ p atoms never share a chart and a co-collapse
+        // reseed (retry > 0) lands every atom on a different basin. Atom 0 at
+        // retry 0 keeps its original leading-harmonic window bit-for-bit.
+        let start = starts[atom_idx];
+        let canonical = pc_pair_offset == 0 && start + need <= n_harm;
+        let fns: Vec<Array1<f64>> = if canonical {
+            (0..need).map(|i| harmonic[start + i].to_owned()).collect()
+        } else {
+            generic_ortho_combos(&harmonic, atom_idx, pc_pair_offset, basis_kinds.len(), need)
+        };
+        if fns.is_empty() {
+            continue;
+        }
+        match kind {
+            SaeAtomBasisKind::Periodic => {
+                if fns.len() < 2 {
+                    continue;
+                }
+                for row in 0..z.nrows() {
+                    let phase =
+                        interp(&fns[1], row).atan2(interp(&fns[0], row)) / std::f64::consts::TAU;
+                    out[[atom_idx, row, 0]] = phase - phase.floor();
+                }
+                // Axes beyond the leading circle are flat coordinates, mirroring the
+                // linear PCA Periodic seed's `1..d` min-max branch: a periodic atom of
+                // intrinsic dim `d > 1` is one phase plane plus `d − 1` Euclidean axes.
+                // The phase consumed `fns[0..2]`, so the flat axes read the NEXT
+                // harmonics (`fns[axis + 1]`). Without this the topology seed left
+                // every axis past 0 at zero, collapsing a `d > 1` seed to rank 1 (so a
+                // higher latent dim was a bit-for-bit no-op).
+                for axis in 1..d {
+                    let Some(values) = fns.get(axis + 1) else {
+                        break;
+                    };
+                    let (lo, hi) = values
+                        .iter()
+                        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
+                            (lo.min(v), hi.max(v))
+                        });
+                    let span = hi - lo;
+                    if span > 0.0 && span.is_finite() {
+                        for row in 0..z.nrows() {
+                            out[[atom_idx, row, axis]] = (interp(values, row) - lo) / span - 0.5;
+                        }
+                    }
+                }
+            }
+            SaeAtomBasisKind::Torus => {
+                for axis in 0..d {
+                    let (Some(a), Some(b)) = (fns.get(2 * axis), fns.get(2 * axis + 1)) else {
+                        break;
+                    };
+                    for row in 0..z.nrows() {
+                        let phase = interp(b, row).atan2(interp(a, row)) / std::f64::consts::TAU;
+                        out[[atom_idx, row, axis]] = phase - phase.floor();
+                    }
+                }
+            }
+            SaeAtomBasisKind::Sphere => {
+                if fns.len() < 3 {
+                    continue;
+                }
+                for row in 0..z.nrows() {
+                    let x = interp(&fns[0], row);
+                    let y = interp(&fns[1], row);
+                    let zz = interp(&fns[2], row);
+                    let norm = (x * x + y * y + zz * zz).sqrt().max(1.0e-24);
+                    if d >= 1 {
+                        out[[atom_idx, row, 0]] = (zz / norm).clamp(-1.0, 1.0).asin();
+                    }
+                    if d >= 2 {
+                        out[[atom_idx, row, 1]] = y.atan2(x);
+                    }
+                }
+            }
+            _ => {
+                for axis in 0..d {
+                    let Some(values) = fns.get(axis) else {
+                        break;
+                    };
+                    let (lo, hi) = values
+                        .iter()
+                        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
+                            (lo.min(v), hi.max(v))
+                        });
+                    let span = hi - lo;
+                    if span > 0.0 && span.is_finite() {
+                        for row in 0..z.nrows() {
+                            out[[atom_idx, row, axis]] = (interp(values, row) - lo) / span - 0.5;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(Some(out))
+}
+
+// Chart functions needed by one atom in the topology-seed path: one phase plane
+// per circle axis, a 3-frame for the sphere, and one coordinate per flat axis.
+fn topology_seed_chart_need(kind: &SaeAtomBasisKind, d: usize) -> usize {
+    match kind {
+        // Two harmonics for the leading phase plane, plus one flat harmonic per
+        // extra axis so a `d > 1` periodic atom's Euclidean axes are seeded (not
+        // left at zero). `d == 1` keeps the historical need of 2.
+        SaeAtomBasisKind::Periodic => 2 + d.max(1).saturating_sub(1),
+        SaeAtomBasisKind::Torus => 2 * d.max(1),
+        SaeAtomBasisKind::Sphere => 3,
+        _ => d.max(1),
+    }
+}
+
+fn topology_seed_harmonic_starts(
+    basis_kinds: &[SaeAtomBasisKind],
+    atom_dim: &[usize],
+) -> Vec<usize> {
+    let mut next = 0usize;
+    let mut starts = Vec::with_capacity(basis_kinds.len());
+    for (kind, &d) in basis_kinds.iter().zip(atom_dim.iter()) {
+        starts.push(next);
+        next = next.saturating_add(topology_seed_chart_need(kind, d));
+    }
+    starts
+}
+
+/// splitmix64 → pseudo-random weight in `[-1, 1]`, keyed deterministically. No
+/// RNG crate: reproducible run-to-run and across thread/device counts.
+fn splitmix_unit(mut z: u64) -> f64 {
+    z = z.wrapping_add(0x9E3779B97F4A7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+    z ^= z >> 31;
+    (z as f64 / u64::MAX as f64) * 2.0 - 1.0
+}
+
+/// Deterministic distinct XOR salt per chart-function slot. Slots 0 and 1 keep the
+/// exact salts the original two-direction [`surplus_phase_plane`] used, so its
+/// output (and every pinned offset-0 contract) is preserved bit-for-bit; higher
+/// slots (needed for torus `2d`-planes, sphere 3-frames, and `d`-axis flat charts)
+/// get a splitmix-derived salt so all `m` combinations stay mutually distinct.
+fn slot_salt(slot: usize) -> u64 {
+    match slot {
+        0 => 0,
+        1 => 0xD1B54A32D192ED03,
+        _ => {
+            let mut z = (slot as u64).wrapping_mul(0x9E3779B97F4A7C15) ^ 0xA0761D6478BD642F;
+            z = (z ^ (z >> 32)).wrapping_mul(0xE7037ED1A0B428DB);
+            z ^ (z >> 29)
+        }
+    }
+}
+
+/// Atom-keyed generic orthonormal combinations of `sources` — the universal
+/// overcomplete (#1893, K ≫ p) seeding primitive shared by every basis kind and
+/// every seed path (linear PCA + topology-curved) so surplus atoms never share a
+/// chart. Each source is one equal-length direction (a `vt` principal-direction
+/// row in feature space, or a graph-Laplacian eigenfunction over the topology
+/// subsample). Forms `m` splitmix64-weighted combinations keyed by
+/// `(atom_idx, retry, k_atoms)` — distinct per atom and per multi-start retry —
+/// then Gram-Schmidt orthonormalizes them with the [`SURPLUS_DIR_FLOOR`]
+/// collinearity floor. The returned `Vec` is shorter than `m` only when the source
+/// span's rank is below `m` (a genuinely low-rank residual); callers treat a short
+/// return as "this axis/frame is unavailable" and fall back or skip. Linear span,
+/// so the Welch bound applies: for K ≫ p the planes cannot be mutually orthogonal,
+/// but they are pairwise DISTINCT (the goal is non-duplication, not orthogonality).
+fn generic_ortho_combos(
+    sources: &[ArrayView1<'_, f64>],
+    atom_idx: usize,
+    retry: usize,
+    k_atoms: usize,
+    m: usize,
+) -> Vec<Array1<f64>> {
+    if sources.is_empty() || m == 0 {
+        return Vec::new();
+    }
+    let len = sources[0].len();
+    // Base-`k_atoms` mix of (atom_idx, retry) before the `<< 20` spread. At
+    // `retry == 0` slot 0 reduces to `(atom_idx << 20) ^ pc` — the original
+    // surplus-plane key, bit-for-bit — so the first attempt is unchanged.
+    let base = ((atom_idx as u64) + (retry as u64) * (k_atoms as u64)) << 20;
+    let mut out: Vec<Array1<f64>> = Vec::with_capacity(m);
+    for slot in 0..m {
+        let salt = slot_salt(slot);
+        let mut v = Array1::<f64>::zeros(len);
+        for (pc, src) in sources.iter().enumerate() {
+            let w = splitmix_unit((base ^ (pc as u64)) ^ salt);
+            v.scaled_add(w, src);
+        }
+        // Gram-Schmidt against the already-accepted directions so the m axes are
+        // not near-collinear (a near-parallel plane makes `atan2` take only two
+        // values and kills the diversity this exists to create).
+        for u in &out {
+            let proj = v.dot(u);
+            v.scaled_add(-proj, u);
+        }
+        let nv = v.dot(&v).sqrt();
+        if nv > SURPLUS_DIR_FLOOR {
+            v.mapv_inplace(|x| x / nv);
+            out.push(v);
+        }
+    }
+    out
+}
+
+/// Two-direction specialization of [`generic_ortho_combos`] for a surplus periodic
+/// atom's phase plane. Returns `(dir1, dir2, two_dimensional)`; when the source
+/// span is effectively 1-D the second direction collapses below
+/// [`SURPLUS_DIR_FLOOR`] and `two_dimensional` is `false`, so the caller falls back
+/// to the 1-D span phase path rather than feeding `atan2` a degenerate plane.
 fn surplus_phase_plane(
     vt: ArrayView2<'_, f64>,
     atom_idx: usize,
     pc_pair_offset: usize,
     k_atoms: usize,
 ) -> (Array1<f64>, Array1<f64>, bool) {
-    let vt_rows = vt.nrows();
     let ncols = vt.ncols();
-    // splitmix64-seeded weights keyed by (atom_idx, pc_pair_offset, pc):
-    // reproducible, no RNG crate, distinct per atom and per multi-start retry.
-    let mix = |mut z: u64| -> f64 {
-        z = z.wrapping_add(0x9E3779B97F4A7C15);
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
-        z ^= z >> 31;
-        (z as f64 / u64::MAX as f64) * 2.0 - 1.0
-    };
-    let mut a = Array1::<f64>::zeros(ncols);
-    let mut b = Array1::<f64>::zeros(ncols);
-    for pc in 0..vt_rows {
-        let row_pc = vt.row(pc);
-        // Base-`k_atoms` mix of (atom_idx, pc_pair_offset) before the `<< 20`
-        // spread. At `pc_pair_offset == 0` this is exactly `(atom_idx << 20) ^ pc`
-        // — the original key, bit-for-bit — so the first attempt is unchanged.
-        let key = (((atom_idx as u64) + (pc_pair_offset as u64) * (k_atoms as u64)) << 20)
-            ^ (pc as u64);
-        let wa = mix(key);
-        let wb = mix(key ^ 0xD1B54A32D192ED03);
-        for c in 0..ncols {
-            a[c] += wa * row_pc[c];
-            b[c] += wb * row_pc[c];
+    let sources: Vec<ArrayView1<'_, f64>> = (0..vt.nrows()).map(|r| vt.row(r)).collect();
+    let dirs = generic_ortho_combos(&sources, atom_idx, pc_pair_offset, k_atoms, 2);
+    match dirs.len() {
+        n if n >= 2 => {
+            let mut it = dirs.into_iter();
+            (it.next().unwrap(), it.next().unwrap(), true)
         }
-    }
-    let na = a.dot(&a).sqrt().max(1.0e-12);
-    a.mapv_inplace(|v| v / na);
-    let nb = b.dot(&b).sqrt().max(1.0e-12);
-    b.mapv_inplace(|v| v / nb);
-    // Gram-Schmidt: strip dir1's component out of dir2 so the two phase axes are
-    // not near-collinear. Two independently normalized random combinations can be
-    // near-parallel (likely when the effective spectrum is small), which would
-    // make `atan2(z·dir2, z·dir1)` take only two values and kill the diversity
-    // this branch exists to create. With unit `dir1` the residual norm equals the
-    // sine of the angle between the raw directions.
-    let proj = b.dot(&a);
-    b.scaled_add(-proj, &a);
-    let nb_res = b.dot(&b).sqrt();
-    if nb_res > SURPLUS_DIR_FLOOR {
-        b.mapv_inplace(|v| v / nb_res);
-        (a, b, true)
-    } else {
-        (a, b, false)
+        1 => (
+            dirs.into_iter().next().unwrap(),
+            Array1::zeros(ncols),
+            false,
+        ),
+        _ => (Array1::zeros(ncols), Array1::zeros(ncols), false),
     }
 }
 
@@ -128,6 +472,11 @@ pub fn sae_pca_seed_initial_coords_with_pc_offset(
     atom_dim: &[usize],
     pc_pair_offset: usize,
 ) -> Result<Array3<f64>, String> {
+    if let Some(seed) =
+        topology_curved_seed_initial_coords(z, basis_kinds, atom_dim, pc_pair_offset)?
+    {
+        return Ok(seed);
+    }
     let k_atoms = basis_kinds.len();
     let (n_obs, _p_out) = z.dim();
     let d_max = atom_dim.iter().copied().max().unwrap_or(1).max(1);
@@ -325,26 +674,39 @@ pub fn sae_pca_seed_initial_coords_with_pc_offset(
                 }
             }
             SaeAtomBasisKind::Sphere => {
-                // Seed the sphere chart from the top-3 PCs: drop the centred
-                // response onto (pc0, pc1, pc2), unit-normalise, and read off
-                // (lat, lon). This places every row on the chart with
+                // Seed the sphere chart from a 3-frame: drop the centred response
+                // onto three ambient directions, unit-normalise, and read off
+                // (lat, lon), placing every row on the chart with
                 // `lat ∈ (-π/2, π/2)` and `lon ∈ (-π, π]`.
                 let n_pc = vt_rows.min(3);
                 if n_pc == 0 {
                     continue;
                 }
-                // Rotate the sphere's leading-PC window by the multi-start offset
-                // (in PC-pair units, mod the available PCs) so a reseed retry
-                // reads a distinct 3-PC subspace (the #976 distinct-basin lever).
-                let base = if vt_rows > 0 {
-                    (2 * pc_pair_offset) % vt_rows
+                // #1893 — the pre-#1893 sphere seed read the leading 3 PCs for
+                // EVERY atom (its window did not depend on `atom_idx`), so a K-atom
+                // sphere dictionary was K IDENTICAL charts. Give atom `k` a DISJOINT
+                // leading window `[3k, 3k+3)` when it fits and no reseed rotation is
+                // asked; otherwise (K ≫ p surplus, or a #976 retry) a DISTINCT
+                // atom-keyed generic 3-frame in the PC span. Atom 0 at offset 0 keeps
+                // the original top-3-PC frame bit-for-bit.
+                let atom_start = atom_idx.saturating_mul(3);
+                let canonical = pc_pair_offset == 0 && atom_start + 3 <= vt_rows;
+                let frame: Vec<Array1<f64>> = if canonical {
+                    (0..n_pc)
+                        .map(|i| vt.row(atom_start + i).to_owned())
+                        .collect()
                 } else {
-                    0
+                    let sources: Vec<ArrayView1<'_, f64>> =
+                        (0..vt_rows).map(|r| vt.row(r)).collect();
+                    let dirs = generic_ortho_combos(&sources, atom_idx, pc_pair_offset, k_atoms, 3);
+                    if dirs.is_empty() {
+                        continue;
+                    }
+                    dirs
                 };
-                let pcs: Vec<_> = (0..n_pc).map(|i| vt.row((base + i) % vt_rows)).collect();
                 for row in 0..n_obs {
                     let mut amb = [0.0_f64; 3];
-                    for (i, pc) in pcs.iter().enumerate() {
+                    for (i, pc) in frame.iter().enumerate().take(3) {
                         let mut acc = 0.0_f64;
                         for col in 0..centered.ncols() {
                             acc += centered[[row, col]] * pc[col];
@@ -368,29 +730,43 @@ pub fn sae_pca_seed_initial_coords_with_pc_offset(
                 }
             }
             SaeAtomBasisKind::Torus => {
-                // Seed each torus axis from a disjoint pair of PCs: axis `a`
-                // uses (pc_{2a}, pc_{2a+1}) projected onto the centred
-                // response and read off as `atan2`, normalised to `[0, 1)`.
+                // Seed each torus axis from a phase plane: project the centred
+                // response onto two ambient directions and read `atan2`, normalised
+                // to `[0, 1)`.
+                //
+                // #1893 — the pre-#1893 torus seed set `pair == axis` for EVERY
+                // atom (no `atom_idx` dependence), so a K-atom torus dictionary was
+                // K IDENTICAL charts. Give atom `k` a DISJOINT block of PC pairs
+                // `[k·d, k·d + d)` when it fits and no reseed rotation is asked;
+                // otherwise (K ≫ p surplus, or a #976 retry) DISTINCT atom-keyed
+                // generic `2d`-plane. Atom 0 at offset 0 keeps its original
+                // leading-PC-pair-per-axis seed bit-for-bit.
                 let pc_pairs = vt_rows / 2;
+                let atom_start = atom_idx.saturating_mul(d);
+                let canonical = pc_pair_offset == 0 && pc_pairs > 0 && atom_start + d <= pc_pairs;
+                let generic_dirs: Vec<Array1<f64>> = if canonical {
+                    Vec::new()
+                } else {
+                    let sources: Vec<ArrayView1<'_, f64>> =
+                        (0..vt_rows).map(|r| vt.row(r)).collect();
+                    generic_ortho_combos(&sources, atom_idx, pc_pair_offset, k_atoms, 2 * d)
+                };
                 for axis in 0..d {
-                    // Rotate each torus axis's PC pair by the multi-start offset
-                    // (same #976 distinct-basin lever as the periodic arm). With
-                    // `pc_pair_offset == 0` this is the identity (`pair == axis`)
-                    // and the original `pc_b_idx >= vt_rows` break is preserved
-                    // bit-for-bit; a nonzero offset wraps within the available
-                    // pairs so a retry reads a disjoint pair.
-                    let pair = if pc_pair_offset != 0 && pc_pairs > 0 {
-                        (axis + pc_pair_offset) % pc_pairs
+                    let (pc_a, pc_b): (Array1<f64>, Array1<f64>) = if canonical {
+                        let pair = atom_start + axis;
+                        let pc_b_idx = 2 * pair + 1;
+                        if pc_b_idx >= vt_rows {
+                            break;
+                        }
+                        (vt.row(2 * pair).to_owned(), vt.row(pc_b_idx).to_owned())
                     } else {
-                        axis
+                        match (generic_dirs.get(2 * axis), generic_dirs.get(2 * axis + 1)) {
+                            (Some(a), Some(b)) => (a.clone(), b.clone()),
+                            // Ran out of independent generic directions (span rank
+                            // < 2·axis): leave the remaining axes at 0.
+                            _ => break,
+                        }
                     };
-                    let pc_a_idx = 2 * pair;
-                    let pc_b_idx = 2 * pair + 1;
-                    if pc_b_idx >= vt_rows {
-                        break;
-                    }
-                    let pc_a = vt.row(pc_a_idx);
-                    let pc_b = vt.row(pc_b_idx);
                     for row in 0..n_obs {
                         let mut a = 0.0_f64;
                         let mut b = 0.0_f64;
@@ -407,57 +783,78 @@ pub fn sae_pca_seed_initial_coords_with_pc_offset(
             }
             _ => {
                 let avail = u_cols.min(s_vals.len());
-                let k_cols = d.min(avail);
-                // Rotate the score-column window by the multi-start offset (in
-                // PC-pair units, mod the available components) so a reseed retry
-                // reads distinct principal scores (the #976 distinct-basin lever).
-                let base = if avail > 0 {
-                    (2 * pc_pair_offset) % avail
-                } else {
-                    0
-                };
-                // Per-atom diversification (mirrors the #671 Periodic / Torus fix).
-                // Without it EVERY Euclidean/Linear atom read the SAME leading
-                // principal-score columns, so a K-atom dictionary seeded K
-                // IDENTICAL atoms — a rank-deficient joint decoder whose undamped
-                // Laplace factor is non-PD, which the seed-startup validation then
-                // rejects with "no candidate seeds passed outer startup validation"
-                // (the #1782 euclidean/linear failure; the #1094 multi-atom
-                // euclidean numerical-fixed-point refusal is the same duplicate-atom
-                // rank deficiency). Give atom `k` a DISJOINT window of principal
-                // components `[k·d, k·d + d)` (wrapping when atoms outnumber the
-                // available PCs), so distinct atoms read decorrelated scores and the
-                // cross-atom Gram starts well-conditioned. `atom_idx == 0` keeps the
-                // K=1 path byte-for-byte identical (offset 0).
-                let atom_pc_offset = atom_idx.saturating_mul(d);
-                let mut tmp = Array2::<f64>::zeros((n_obs, d));
-                for col in 0..k_cols {
-                    let src = if avail > 0 {
-                        (base + atom_pc_offset + col) % avail
-                    } else {
-                        col
-                    };
-                    let s_col = s_vals[src];
-                    for row in 0..n_obs {
-                        tmp[[row, col]] = u[[row, src]] * s_col;
-                    }
-                }
-                for col in 0..d {
-                    let mut min_v = f64::INFINITY;
-                    let mut max_v = f64::NEG_INFINITY;
-                    for row in 0..n_obs {
-                        let v = tmp[[row, col]];
-                        if v < min_v {
-                            min_v = v;
-                        }
-                        if v > max_v {
-                            max_v = v;
-                        }
-                    }
-                    let span = max_v - min_v;
-                    if span > 0.0 {
+                // Per-atom diversification: give atom `k` a DISJOINT window of
+                // principal components `[k·d, k·d + d)`. Without it EVERY
+                // Euclidean/Linear atom read the SAME leading principal-score
+                // columns, so a K-atom dictionary seeded K IDENTICAL atoms — a
+                // rank-deficient joint decoder whose undamped Laplace factor is
+                // non-PD, which the seed-startup validation then rejects with "no
+                // candidate seeds passed outer startup validation" (the #1782
+                // euclidean/linear failure; the #1094 multi-atom refusal is the
+                // same duplicate-atom rank deficiency).
+                //
+                // #1893 — the disjoint window only holds while `k·d + d ≤ avail`.
+                // Once atoms outrun the ≈`min(n, p)` principal scores the old scheme
+                // WRAPPED (`% avail`), re-reading the SAME score column and seeding a
+                // DUPLICATE design (exact Hessian null). For every SURPLUS atom
+                // (window overruns `avail`) or a #976 reseed retry, project the
+                // centred response onto a DISTINCT atom-keyed generic frame in the PC
+                // span instead, so K ≫ p flat atoms stay pairwise distinct. Atom 0 at
+                // offset 0 keeps the K=1 path byte-for-byte identical.
+                let atom_start = atom_idx.saturating_mul(d);
+                let canonical = pc_pair_offset == 0 && avail > 0 && atom_start + d <= avail;
+                if canonical {
+                    let k_cols = d.min(avail);
+                    let mut tmp = Array2::<f64>::zeros((n_obs, d));
+                    for col in 0..k_cols {
+                        let src = atom_start + col;
+                        let s_col = s_vals[src];
                         for row in 0..n_obs {
-                            out[[atom_idx, row, col]] = (tmp[[row, col]] - min_v) / span - 0.5;
+                            tmp[[row, col]] = u[[row, src]] * s_col;
+                        }
+                    }
+                    for col in 0..d {
+                        let mut min_v = f64::INFINITY;
+                        let mut max_v = f64::NEG_INFINITY;
+                        for row in 0..n_obs {
+                            let v = tmp[[row, col]];
+                            if v < min_v {
+                                min_v = v;
+                            }
+                            if v > max_v {
+                                max_v = v;
+                            }
+                        }
+                        let span = max_v - min_v;
+                        if span > 0.0 {
+                            for row in 0..n_obs {
+                                out[[atom_idx, row, col]] = (tmp[[row, col]] - min_v) / span - 0.5;
+                            }
+                        }
+                    }
+                } else {
+                    let sources: Vec<ArrayView1<'_, f64>> =
+                        (0..vt_rows).map(|r| vt.row(r)).collect();
+                    let dirs = generic_ortho_combos(&sources, atom_idx, pc_pair_offset, k_atoms, d);
+                    for (col, dir) in dirs.iter().enumerate().take(d) {
+                        let mut proj = Array1::<f64>::zeros(n_obs);
+                        for row in 0..n_obs {
+                            let mut acc = 0.0_f64;
+                            for c in 0..centered.ncols() {
+                                acc += centered[[row, c]] * dir[c];
+                            }
+                            proj[row] = acc;
+                        }
+                        let (min_v, max_v) = proj
+                            .iter()
+                            .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
+                                (lo.min(v), hi.max(v))
+                            });
+                        let span = max_v - min_v;
+                        if span > 0.0 {
+                            for row in 0..n_obs {
+                                out[[atom_idx, row, col]] = (proj[row] - min_v) / span - 0.5;
+                            }
                         }
                     }
                 }
@@ -567,6 +964,23 @@ mod tests {
         m
     }
 
+    #[test]
+    fn topology_harmonic_windows_are_cumulative_for_mixed_kinds() {
+        let kinds = vec![
+            SaeAtomBasisKind::Torus,
+            SaeAtomBasisKind::Periodic,
+            SaeAtomBasisKind::Sphere,
+            SaeAtomBasisKind::Linear,
+        ];
+        let dims = vec![2usize, 1, 2, 3];
+        assert_eq!(
+            topology_seed_harmonic_starts(&kinds, &dims),
+            vec![0, 4, 6, 9],
+            "mixed atom kinds must allocate canonical harmonic windows cumulatively; \
+             atom_idx * per-atom-need overlaps when need varies"
+        );
+    }
+
     /// FIX #1: distinct `pc_pair_offset` ⇒ distinct random plane for a surplus
     /// atom, so successive #976 reseeds explore different basins. Also checks the
     /// FIX #2 Gram-Schmidt output is genuinely orthogonal.
@@ -588,9 +1002,15 @@ mod tests {
             "distinct retry offsets must yield distinct dir1 (max diff {diff:.3e})"
         );
         let dot: f64 = d1_0.iter().zip(d2_0.iter()).map(|(a, b)| a * b).sum();
-        assert!(dot.abs() < 1e-9, "dir2 must be orthogonal to dir1 (dot {dot:.3e})");
+        assert!(
+            dot.abs() < 1e-9,
+            "dir2 must be orthogonal to dir1 (dot {dot:.3e})"
+        );
         let n2: f64 = d2_0.dot(&d2_0).sqrt();
-        assert!((n2 - 1.0).abs() < 1e-9, "dir2 must be unit-normalized (norm {n2})");
+        assert!(
+            (n2 - 1.0).abs() < 1e-9,
+            "dir2 must be unit-normalized (norm {n2})"
+        );
     }
 
     /// FIX #1: `pc_pair_offset == 0` reproduces the ORIGINAL splitmix64 key
@@ -669,7 +1089,10 @@ mod tests {
         let s0 = sae_pca_seed_initial_coords_with_pc_offset(z.view(), &kinds, &dims, 0).unwrap();
         let s1 = sae_pca_seed_initial_coords_with_pc_offset(z.view(), &kinds, &dims, 1).unwrap();
         let plain = sae_pca_seed_initial_coords(z.view(), &kinds, &dims).unwrap();
-        assert_eq!(s0, plain, "offset-0 must equal the no-offset seed bit-for-bit");
+        assert_eq!(
+            s0, plain,
+            "offset-0 must equal the no-offset seed bit-for-bit"
+        );
         for v in s0.iter().chain(s1.iter()) {
             assert!(
                 v.is_finite() && *v >= 0.0 && *v < 1.0,
@@ -714,7 +1137,9 @@ mod tests {
                     "seed coord must stay in [-0.5, 0.5]: {v}"
                 );
             }
-            let key: Vec<i64> = (0..n).map(|i| (s[[0, i, 0]] * 1e6).round() as i64).collect();
+            let key: Vec<i64> = (0..n)
+                .map(|i| (s[[0, i, 0]] * 1e6).round() as i64)
+                .collect();
             seeds.insert(key);
         }
         assert!(
@@ -724,5 +1149,124 @@ mod tests {
             (n.min(p)) / 2,
             seeds.len()
         );
+    }
+
+    /// Deterministic structured Z with `p` features, moderate rank.
+    fn structured_z(n: usize, p: usize) -> Array2<f64> {
+        let mut zvals = Vec::with_capacity(n * p);
+        for r in 0..n {
+            for c in 0..p {
+                zvals.push(
+                    ((r as f64) * 0.37 + (c as f64) * 1.1).sin() * ((c + 1) as f64)
+                        + 0.3 * (((r * 3 + c * 5) as f64) * 0.21).cos()
+                        + 0.05 * (r as f64 - c as f64),
+                );
+            }
+        }
+        Array2::from_shape_vec((n, p), zvals).unwrap()
+    }
+
+    /// Count atoms whose coordinate fibers are pairwise DISTINCT designs (rounded
+    /// to `1e-6`). Two atoms sharing a fiber are a DUPLICATE design — the exact
+    /// Hessian null that drives K≫p co-collapse (#1893).
+    fn distinct_fibers(seed: &Array3<f64>) -> usize {
+        let (k, n, dm) = seed.dim();
+        let mut set = std::collections::HashSet::new();
+        for atom in 0..k {
+            let mut key: Vec<i64> = Vec::with_capacity(n * dm);
+            for row in 0..n {
+                for ax in 0..dm {
+                    key.push((seed[[atom, row, ax]] * 1.0e6).round() as i64);
+                }
+            }
+            set.insert(key);
+        }
+        set.len()
+    }
+
+    /// #1893 — the CURVED topology-seed path (the main path for circle/torus/sphere
+    /// at n ≥ 4) must give K ≫ p atoms pairwise-DISTINCT charts. Before the fix the
+    /// sphere/flat topology arms ignored `atom_idx` entirely (every atom identical)
+    /// and the circle/torus arms wrapped once atoms outran the harmonic pairs.
+    #[test]
+    fn overcomplete_topology_seeds_pairwise_distinct_all_curved() {
+        let n = 64usize;
+        let p = 6usize;
+        let z = structured_z(n, p);
+        for (kind, d) in [
+            (SaeAtomBasisKind::Periodic, 1usize),
+            (SaeAtomBasisKind::Torus, 2usize),
+            (SaeAtomBasisKind::Sphere, 2usize),
+        ] {
+            for mult in [4usize, 40usize] {
+                let k = mult * p;
+                let kinds = vec![kind.clone(); k];
+                let dims = vec![d; k];
+                let seed = sae_pca_seed_initial_coords(z.view(), &kinds, &dims).unwrap();
+                for v in seed.iter() {
+                    assert!(v.is_finite(), "{kind:?} K={k}: non-finite seed coord {v}");
+                }
+                let distinct = distinct_fibers(&seed);
+                assert_eq!(
+                    distinct, k,
+                    "{kind:?} K={k} (={mult}·p): every atom's chart must be a distinct \
+                     design — got {distinct}/{k} distinct (duplicate designs ⇒ exact \
+                     Hessian null ⇒ co-collapse)"
+                );
+            }
+        }
+    }
+
+    /// #1893 — the FLAT (Euclidean) linear path: surplus atoms (K > available
+    /// principal scores) previously WRAPPED `% avail`, re-reading the same score
+    /// column and seeding exact-duplicate designs. K = 40·p ≫ avail must now be
+    /// pairwise distinct via the generic-frame fallback.
+    #[test]
+    fn overcomplete_flat_linear_seeds_pairwise_distinct() {
+        let n = 64usize;
+        let p = 6usize; // avail ≈ 6 principal scores; 40·p = 240 ≫ 6.
+        let z = structured_z(n, p);
+        for mult in [4usize, 40usize] {
+            let k = mult * p;
+            let kinds = vec![SaeAtomBasisKind::Linear; k];
+            let dims = vec![1usize; k];
+            let seed = sae_pca_seed_initial_coords(z.view(), &kinds, &dims).unwrap();
+            let distinct = distinct_fibers(&seed);
+            assert_eq!(
+                distinct, k,
+                "flat K={k} (={mult}·p): surplus atoms must not wrap onto duplicate \
+                 principal-score designs — got {distinct}/{k} distinct"
+            );
+        }
+    }
+
+    /// #1893 — the linear CURVED fallback (n < 4 forces the topology path to return
+    /// None): surplus torus/sphere atoms must route to distinct generic frames
+    /// rather than reuse the same PC pairs. Exercises the linear Torus/Sphere
+    /// surplus arms directly.
+    #[test]
+    fn overcomplete_linear_curved_fallback_distinct() {
+        let n = 3usize; // < 4 ⇒ topology_curved_seed returns None ⇒ linear path.
+        let p = 6usize;
+        let z = structured_z(n, p);
+        for (kind, d) in [
+            (SaeAtomBasisKind::Periodic, 1usize),
+            (SaeAtomBasisKind::Torus, 2usize),
+            (SaeAtomBasisKind::Sphere, 2usize),
+        ] {
+            let k = 4 * p;
+            let kinds = vec![kind.clone(); k];
+            let dims = vec![d; k];
+            let seed = sae_pca_seed_initial_coords(z.view(), &kinds, &dims).unwrap();
+            for v in seed.iter() {
+                assert!(v.is_finite(), "{kind:?} linear K={k}: non-finite {v}");
+            }
+            let distinct = distinct_fibers(&seed);
+            assert_eq!(
+                distinct, k,
+                "{kind:?} linear-fallback K={k}: surplus atoms must be pairwise \
+                 distinct — got {distinct}/{k}"
+            );
+        }
     }
 }

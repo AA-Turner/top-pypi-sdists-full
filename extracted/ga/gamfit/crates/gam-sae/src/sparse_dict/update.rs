@@ -26,7 +26,7 @@
 //! remains a one-shot exact diagonal solve.
 
 use super::codes::{SparseCode, solve_row_codes};
-use super::scoring::TileScorer;
+use super::scoring::{ScoreRouteStats, TileScorer};
 use super::{SparseDictConfig, SparseDictFit};
 use ndarray::{Array2, ArrayView2, Axis};
 use rayon::prelude::*;
@@ -34,18 +34,21 @@ use std::collections::HashMap;
 
 /// Route + sparse-code every row of `x`, processing the rows in minibatches of
 /// `config.minibatch` so the peak score working set is `minibatch × score_tile`
-/// (never `N × K`). Within a minibatch the rows are routed by one batched GEMM
-/// per column tile ([`TileScorer::route_minibatch`]) and the per-row active-set
-/// code solves run in parallel. The returned `Vec<SparseCode>` is in global row
-/// order, identical to a serial row-at-a-time pass up to f32 GEMM rounding.
-fn route_and_code_all(
+/// (never `N × K`). Within a minibatch the rows are routed by the shared
+/// [`TileScorer::route_minibatch_dispatch`] policy: GPU score-blocks when
+/// admitted, otherwise the batched CPU GEMM router. The per-row active-set code
+/// solves run in parallel. The returned `Vec<SparseCode>` is in global row order,
+/// identical to a serial row-at-a-time pass up to f32 GEMM rounding.
+pub(super) fn route_and_code_all(
     x: ArrayView2<'_, f32>,
     decoder: ArrayView2<'_, f32>,
     scorer: &TileScorer,
     s: usize,
     code_ridge: f32,
     minibatch: usize,
-) -> Vec<SparseCode> {
+    score_mode: gam_gpu::GpuMode,
+    mut score_route_stats: Option<&mut ScoreRouteStats>,
+) -> Result<Vec<SparseCode>, String> {
     let n = x.nrows();
     let batch = minibatch.max(1);
     let mut codes: Vec<SparseCode> = Vec::with_capacity(n);
@@ -53,7 +56,11 @@ fn route_and_code_all(
     while start < n {
         let end = (start + batch).min(n);
         let block = x.slice(ndarray::s![start..end, ..]);
-        let active_lists = route_block(block, decoder, scorer);
+        let routed = scorer.route_minibatch_with_mode(block, decoder, score_mode)?;
+        if let Some(stats) = score_route_stats.as_deref_mut() {
+            stats.record_result(&routed);
+        }
+        let active_lists = routed.selections;
         // Per-row code solves are independent; fan them out over the minibatch.
         let mut block_codes: Vec<SparseCode> = block
             .axis_iter(Axis(0))
@@ -64,53 +71,7 @@ fn route_and_code_all(
         codes.append(&mut block_codes);
         start = end;
     }
-    codes
-}
-
-/// Route one minibatch `block` (`B × P`) against `decoder` (`K × P`), returning
-/// each row's top-`s` `(atom, score)` shortlist.
-///
-/// The routing — the `N×K×P` scale-K hot loop the whole lane is built around —
-/// is GPU-offloaded when the process admits a device (Linux + CUDA runtime + a
-/// `B × K` block above the device break-even), auto-derived at runtime from
-/// [`gam_gpu::gpu_mode`] (the charter forbids gating behind a build feature). The
-/// device walks `K` in atom-column tiles so peak score memory stays `B × tile`,
-/// independent of `K` — the same no-`N×K` discipline as the CPU path. The score
-/// block is bit-identical to the CPU per-row `top_s_online` (the kernel forbids
-/// FMA contraction), so the GPU routing equals the row-at-a-time oracle exactly.
-///
-/// The universal fallback (non-Linux, [`gam_gpu::GpuMode::Off`], below
-/// break-even, or any device fault under [`gam_gpu::GpuMode::Auto`]) is the
-/// parallel CPU GEMM router [`TileScorer::route_minibatch`]. We pass
-/// [`gam_gpu::GpuMode::Auto`] — never `Required` — because a real fit must run on
-/// any box; the fit is robust to which router ran (it is minibatch-invariant, see
-/// [`TileScorer::route_minibatch`]).
-fn route_block(
-    block: ArrayView2<'_, f32>,
-    decoder: ArrayView2<'_, f32>,
-    scorer: &TileScorer,
-) -> Vec<Vec<(u32, f32)>> {
-    #[cfg(target_os = "linux")]
-    {
-        if gam_gpu::gpu_mode() != gam_gpu::GpuMode::Off {
-            // Auto: the router runs on the device when admitted and the block
-            // clears the break-even, else it returns the CPU path internally; we
-            // only adopt its result when the DEVICE actually produced it, and
-            // otherwise use the faster parallel CPU GEMM below.
-            if let Ok((routed, super::scoring_gpu::ScoreBlockPath::Device)) =
-                super::scoring_gpu::route_minibatch_required(
-                    block,
-                    decoder,
-                    scorer.active,
-                    scorer.tile,
-                    gam_gpu::GpuMode::Auto,
-                )
-            {
-                return routed;
-            }
-        }
-    }
-    scorer.route_minibatch(block, decoder)
+    Ok(codes)
 }
 
 pub(super) fn run(
@@ -127,6 +88,7 @@ pub(super) fn run(
     unit_norm_rows(&mut decoder);
 
     let scorer = TileScorer::new(s, config.score_tile);
+    let mut score_route_stats = ScoreRouteStats::default();
     let mut prev_ev = f64::NEG_INFINITY;
     let mut converged = false;
     let mut epochs_run = 0usize;
@@ -144,7 +106,9 @@ pub(super) fn run(
         s,
         config.code_ridge,
         config.minibatch,
-    );
+        config.score_mode,
+        Some(&mut score_route_stats),
+    )?;
 
     for epoch in 0..config.max_epochs {
         epochs_run = epoch + 1;
@@ -185,7 +149,9 @@ pub(super) fn run(
             s,
             config.code_ridge,
             config.minibatch,
-        );
+            config.score_mode,
+            Some(&mut score_route_stats),
+        )?;
 
         // Convergence-decision EV, computed from the FRESH post-normalisation codes.
         let ev = explained_variance(x, &codes, decoder.view());
@@ -223,6 +189,7 @@ pub(super) fn run(
         epochs: epochs_run,
         converged,
         active: s,
+        score_route_stats,
     })
 }
 
@@ -259,7 +226,7 @@ fn validate(x: ArrayView2<'_, f32>, config: &SparseDictConfig) -> Result<(), Str
 /// Seed atoms with a deterministic k-means++-style farthest-point pass on the
 /// rows, so the initial dictionary already spans the data's principal
 /// directions (no RNG -> reproducible). For `K > N` the extra atoms wrap.
-fn seed_decoder(x: ArrayView2<'_, f32>, k: usize) -> Array2<f32> {
+pub(super) fn seed_decoder(x: ArrayView2<'_, f32>, k: usize) -> Array2<f32> {
     let n = x.nrows();
     let p = x.ncols();
     let mut decoder = Array2::<f32>::zeros((k, p));
@@ -314,13 +281,74 @@ fn seed_decoder(x: ArrayView2<'_, f32>, k: usize) -> Array2<f32> {
 /// `C` is never materialised. Only atom pairs that co-fire in some row appear in
 /// `A`, so the coupling is sparse: `diag` holds `A_kk`, `off` holds the strictly
 /// upper-triangular couplings `A_{kl}` (`k < l`), and `b` holds `B`.
-struct DecoderNormalEq {
+pub(super) struct DecoderNormalEq {
     /// `A_kk = Σ_i c_{ik}²`, length `K`.
-    diag: Vec<f64>,
+    pub(super) diag: Vec<f64>,
     /// `B = CᵀX`, `K×P`.
-    b: Array2<f64>,
+    pub(super) b: Array2<f64>,
     /// Off-diagonal couplings `A_{kl}` keyed by `(k, l)` with `k < l`.
-    off: HashMap<(u32, u32), f64>,
+    pub(super) off: HashMap<(u32, u32), f64>,
+}
+
+impl DecoderNormalEq {
+    /// An empty (`A = 0`, `B = 0`) `K×P` system, ready to have shards streamed
+    /// into it via [`Self::accumulate`]. Used by the streaming trainer to build
+    /// the epoch's normal equations one shard at a time.
+    pub(super) fn zeros(k: usize, p: usize) -> Self {
+        Self {
+            diag: vec![0.0f64; k],
+            b: Array2::<f64>::zeros((k, p)),
+            off: HashMap::new(),
+        }
+    }
+
+    /// Stream one shard's `(x, codes)` into the running normal equations,
+    /// adding its `CᵀC` / `CᵀX` contributions. Summing a corpus's shards this
+    /// way yields exactly the same `(A, B)` as [`assemble_normal_eq`] over the
+    /// concatenation (addition is associative; the per-row contributions are
+    /// independent), so the streaming decoder refresh equals the full-batch one.
+    pub(super) fn accumulate(&mut self, x: ArrayView2<'_, f32>, codes: &[SparseCode]) {
+        let p = self.b.ncols();
+        for (row_idx, code) in codes.iter().enumerate() {
+            let xi = x.row(row_idx);
+            let xi_slice = xi.as_slice();
+            for a in 0..code.indices.len() {
+                let ca = code.codes[a] as f64;
+                if ca == 0.0 {
+                    continue;
+                }
+                let ka = code.indices[a];
+                self.diag[ka as usize] += ca * ca;
+                let brow = ka as usize;
+                let mut brow_view = self.b.row_mut(brow);
+                match (brow_view.as_slice_mut(), xi_slice) {
+                    (Some(bs), Some(xs)) => {
+                        for (bref, &xv) in bs.iter_mut().zip(xs.iter()) {
+                            *bref += ca * xv as f64;
+                        }
+                    }
+                    _ => {
+                        for c in 0..p {
+                            brow_view[c] += ca * xi[c] as f64;
+                        }
+                    }
+                }
+                for bsel in (a + 1)..code.indices.len() {
+                    let cb = code.codes[bsel] as f64;
+                    if cb == 0.0 {
+                        continue;
+                    }
+                    let kb = code.indices[bsel];
+                    if ka == kb {
+                        self.diag[ka as usize] += 2.0 * ca * cb;
+                        continue;
+                    }
+                    let key = if ka < kb { (ka, kb) } else { (kb, ka) };
+                    *self.off.entry(key).or_insert(0.0) += ca * cb;
+                }
+            }
+        }
+    }
 }
 
 /// Assemble the sparse decoder normal equations `(A + ρI) D = B` from the fixed
@@ -395,7 +423,7 @@ fn assemble_normal_eq(
 /// at or below this floor: it never fired (and, since couplings require two
 /// non-zero codes, it is then necessarily isolated). Such atoms keep their
 /// seeded direction so a later epoch can still route rows to them.
-const DEAD_DENOM: f64 = 1.0e-12;
+pub(super) const DEAD_DENOM: f64 = 1.0e-12;
 
 /// Connected-component blocks above this size are solved by conjugate gradient
 /// rather than a dense Cholesky, to keep the per-block cost off `O(m³)`/`O(m²)`
@@ -534,7 +562,7 @@ fn revive_dead_atoms(
 /// sorted (canonical order) before solving so the result is bit-reproducible
 /// regardless of `HashMap` iteration order. Dead atoms ([`DEAD_DENOM`]) and
 /// atoms with no co-firing partner keep / take the trivial solve.
-fn solve_decoder(decoder: &mut Array2<f32>, eq: &DecoderNormalEq, ridge: f64) {
+pub(super) fn solve_decoder(decoder: &mut Array2<f32>, eq: &DecoderNormalEq, ridge: f64) {
     let k = eq.diag.len();
     let p = eq.b.ncols();
 
@@ -728,7 +756,7 @@ fn cholesky_solve_block(mat: &Array2<f64>, rhs: &Array2<f64>) -> Array2<f64> {
     out
 }
 
-fn unit_norm_rows(decoder: &mut Array2<f32>) {
+pub(super) fn unit_norm_rows(decoder: &mut Array2<f32>) {
     for mut row in decoder.outer_iter_mut() {
         let nrm: f32 = row.iter().map(|v| v * v).sum::<f32>().sqrt();
         if nrm > 1.0e-12 {
@@ -850,13 +878,7 @@ mod exact_solve_tests {
         let k = 5usize;
         let p = 4usize;
         // Overlapping 3-atom supports (a sliding window) with generic codes.
-        let supports: [[u32; 3]; 5] = [
-            [0, 1, 2],
-            [1, 2, 3],
-            [2, 3, 4],
-            [3, 4, 0],
-            [4, 0, 1],
-        ];
+        let supports: [[u32; 3]; 5] = [[0, 1, 2], [1, 2, 3], [2, 3, 4], [3, 4, 0], [4, 0, 1]];
         let codevals: [[f32; 3]; 5] = [
             [1.0, 0.5, -0.3],
             [0.7, -0.2, 0.4],
@@ -994,6 +1016,7 @@ mod exact_solve_tests {
             code_ridge: 1.0e-6,
             decoder_ridge: 1.0e-6,
             tolerance: 1.0e-9,
+            score_mode: gam_gpu::GpuMode::Off,
         };
         let fit = fit_sparse_dictionary(x.view(), &config).expect("fit");
         let s = fit.active;
@@ -1007,7 +1030,10 @@ mod exact_solve_tests {
             s,
             config.code_ridge,
             config.minibatch,
-        );
+            config.score_mode,
+            None,
+        )
+        .expect("fresh route");
         let fresh_ev = explained_variance(x.view(), &codes, fit.decoder.view());
         assert!(
             (fresh_ev - fit.explained_variance).abs() < 1.0e-6,

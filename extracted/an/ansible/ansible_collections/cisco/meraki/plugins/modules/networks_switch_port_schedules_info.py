@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_switch_port_schedules_info
-short_description: Information module for networks _switch _port _schedules
+short_description: Information module for networks _switch _portschedules
 description:
-  - Get all networks _switch _port _schedules.
+  - Information module for Networks Switch Portschedules Info.
+  - Get all networks _switch _portschedules.
   - List switch port schedules.
 version_added: '1.0.0'
 extends_documentation_fragment:
@@ -21,6 +21,7 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Switch Portschedules Info.
       - NetworkId path parameter. Network ID.
     type: str
 requirements:
@@ -38,7 +39,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all networks _switch _port _schedules
+- name: Get all networks _switch _portschedules
   cisco.meraki.networks_switch_port_schedules_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

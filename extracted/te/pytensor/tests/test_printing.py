@@ -2,6 +2,7 @@
 Tests of printing functionality
 """
 
+import importlib.util
 import io
 import logging
 import re
@@ -31,8 +32,11 @@ from pytensor.printing import (
     pp,
     pydotprint,
 )
+from pytensor.scalar import Composite, float64
 from pytensor.tensor import as_tensor_variable
+from pytensor.tensor.elemwise import Elemwise
 from pytensor.tensor.linalg import inv
+from pytensor.tensor.math import maximum
 from pytensor.tensor.type import dmatrix, dvector, matrix
 from tests.graph.utils import MyInnerGraphOp, MyOp, MyVariable
 
@@ -498,6 +502,115 @@ MyInnerGraphOp [id C]
         assert exp_line.strip() == res_line.strip()
 
 
+def test_debugprint_inner_graph_shared():
+    """Inner-graph `Op`s that compare equal share a single printed body, whose
+    header lists every node id it applies to (deduped, instead of one body per
+    occurrence)."""
+    x = dvector("x")
+
+    def relu_ofg():
+        i = dvector("i")
+        return OpFromGraph([i], [maximum(i, 0)], inline=False, name="Relu")
+
+    # `a` and `b` use distinct-but-equal OFG instances (identical inner graph);
+    # `c` uses a structurally different OFG.
+    a = relu_ofg()(x)
+    b = relu_ofg()(a)
+    out = OpFromGraph([x], [x + 1], inline=False, name="AddOne")(b)
+
+    lines = debugprint(out, file="str").split("\n")
+
+    exp_res = """AddOne{inline=False} [id A]
+ └─ Relu{inline=False} [id B]
+    └─ Relu{inline=False} [id C]
+       └─ x [id D]
+
+Inner graphs:
+
+AddOne{inline=False} [id A]
+ ← Add [id E]
+    ├─ i0 [id F]
+    └─ ExpandDims{axis=0} [id G]
+       └─ 1 [id H]
+
+Relu{inline=False} [id B, C]
+ ← Maximum [id I]
+    ├─ i0 [id F]
+    └─ ExpandDims{axis=0} [id J]
+       └─ 0 [id K]
+    """
+
+    for exp_line, res_line in zip(exp_res.split("\n"), lines, strict=True):
+        assert exp_line.strip() == res_line.strip()
+
+    def add_one_composite():
+        xs = float64("xs")
+        return Composite([xs], [xs + 1.0])
+
+    d = Elemwise(add_one_composite())(x)
+    e = Elemwise(add_one_composite())(d)
+
+    lines = debugprint(e, file="str").split("\n")
+
+    exp_res = """Composite{(i0 + 1.0)} [id A]
+ └─ Composite{(i0 + 1.0)} [id B]
+    └─ x [id C]
+
+Inner graphs:
+
+Composite{(i0 + 1.0)} [id A, B]
+ ← add [id D]
+    ├─ i0 [id E]
+    └─ 1.0 [id F]
+    """
+
+    for exp_line, res_line in zip(exp_res.split("\n"), lines, strict=True):
+        assert exp_line.strip() == res_line.strip()
+
+    # An Op that only appears nested inside other inner graphs is still
+    # discovered and printed in the "Inner graphs" section. Here both A and B
+    # apply the same Relu to their (nominal) input, so global FrozenApply
+    # interning collapses it to a single shared node, printed once.
+    i1 = dvector("i")
+    a_op = OpFromGraph([i1], [relu_ofg()(i1) + 1], inline=False, name="A")
+    i2 = dvector("i")
+    b_op = OpFromGraph([i2], [relu_ofg()(i2) * 2], inline=False, name="B")
+
+    lines = debugprint(a_op(x) + b_op(x), file="str").split("\n")
+
+    exp_res = """Add [id A]
+ ├─ A{inline=False} [id B]
+ │  └─ x [id C]
+ └─ B{inline=False} [id D]
+    └─ x [id C]
+
+Inner graphs:
+
+A{inline=False} [id B]
+ ← Add [id E]
+    ├─ Relu{inline=False} [id F]
+    │  └─ i0 [id G]
+    └─ ExpandDims{axis=0} [id H]
+       └─ 1 [id I]
+
+B{inline=False} [id D]
+ ← Mul [id J]
+    ├─ Relu{inline=False} [id F]
+    │  └─ ···
+    └─ ExpandDims{axis=0} [id K]
+       └─ 2 [id L]
+
+Relu{inline=False} [id F]
+ ← Maximum [id M]
+    ├─ i0 [id G]
+    └─ ExpandDims{axis=0} [id N]
+       └─ 0 [id O]
+    """
+
+    for exp_line, res_line in zip(exp_res.split("\n"), lines, strict=True):
+        assert exp_line.strip() == res_line.strip()
+
+
 def test_get_var_by_id():
     r1, r2 = MyVariable("v1"), MyVariable("v2")
     o1 = MyOp("op1")(r1, r2)
@@ -573,6 +686,9 @@ def test_summary_with_profile_optimizer():
     assert "Rewriter Profile" in s.getvalue()
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("rich") is None, reason="rich is not installed"
+)
 class TestDebugprintRich:
     """Tests for debugprint(..., file="rich").
 
@@ -581,12 +697,12 @@ class TestDebugprintRich:
     construct the right tree structure and don't crash on various graph shapes.
     """
 
-    rich = pytest.importorskip("rich")
-
     def test_return_type(self):
+        from rich.tree import Tree
+
         x = dvector("x")
         tree = debugprint(x.sum(), file="rich")
-        assert isinstance(tree, self.rich.tree.Tree)
+        assert isinstance(tree, Tree)
 
     def test_single_output_has_one_child(self):
         # One output variable → the hidden root should have exactly one child.
@@ -794,8 +910,10 @@ class TestDebugprintRich:
         mul_node = tree.children[0].children[0]
         assert "result" in str(mul_node.label)
         # Verify Rich can render the tree without raising a markup error.
+        from rich.console import Console
+
         buf = io.StringIO()
-        console = self.rich.console.Console(file=buf, highlight=False)
+        console = Console(file=buf, highlight=False)
         console.print(tree)  # raises MarkupError if escaping is broken
 
     def test_deep_shared_node_sentinel_depth(self):

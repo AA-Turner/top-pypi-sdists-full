@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from sage.main import (
+from sage.cli_core import (
     _detect_broken_test_files,
     _extract_and_write_files,
     _is_garbage_content,
@@ -358,7 +358,7 @@ class TestFileWriting:
 
     def setup_method(self):
         """Set up test fixtures."""
-        from sage.main import _clear_classification
+        from sage.cli_core import _clear_classification
 
         _clear_classification()
         self.temp_dir = Path(tempfile.mkdtemp())
@@ -647,7 +647,7 @@ class TestAutopolitCliWiring:
     @patch("sage.main.run")
     def test_cli_autopolit_command_sets_env(self, mock_run):
         """Test that sage autopolit sets environment variables and runs setup."""
-        from sage.main import app
+        from sage.cli_core import app
         import os
         from typer.testing import CliRunner
 
@@ -678,7 +678,7 @@ class TestAutopolitClassificationOverride:
 
     def test_classification_overridden_when_env_set(self):
         import os
-        from sage.main import _classify_and_store_request
+        from sage.cli_core import _classify_and_store_request
         from sage.core.p0_request_classification import PipelineTypeV2, RequestTypeV2
 
         # 1. Without SAGE_AUTOPOLIT_RUN

@@ -42,7 +42,9 @@ class ReturnAnnotation:
             When the annotation string has strange values
         """
         if self._isTuple():
-            assert self.annotation is not None  # to help mypy understand type
+            assert (
+                self.annotation is not None
+            )  # narrow type for static checkers
 
             if not self.annotation.endswith(']'):
                 raise EdgeCaseError('Return annotation not ending with `]`')
@@ -58,7 +60,9 @@ class ReturnAnnotation:
                 # because we don't know the tuple's length
                 return [self.annotation]
 
-            parsedBody0: ast.Expr = ast.parse(insideTuple).body[0]  # type:ignore[assignment]
+            parsedBody0 = ast.parse(insideTuple).body[0]
+            assert isinstance(parsedBody0, ast.Expr), "Shouldn't have happened"
+
             if isinstance(
                 parsedBody0.value, (ast.Attribute, ast.Name)
             ):  # such as Tuple[int]
@@ -68,20 +72,36 @@ class ReturnAnnotation:
                 parsedBody0.value, ast.Tuple
             ):  # like Tuple[int, str]
                 elts: list[ast.expr] = parsedBody0.value.elts
-                return [unparseName(_) for _ in elts]  # type:ignore[misc]
+                return [unparseName(_) for _ in elts]
 
             raise EdgeCaseError('decompose(): This should not have happened')
 
         return self.putAnnotationInList()
 
     def _isTuple(self) -> bool:
-        try:
-            assert self.annotation is not None  # to help mypy understand type
-            annoHead = ast.parse(self.annotation).body[0].value.value.id  # type:ignore[attr-defined]
-        except (TypeError, AttributeError, IndexError, AssertionError):
+        if self.annotation is None:
             return False
-        else:
-            return annoHead in {'tuple', 'Tuple'}
+
+        # Keep the try scoped to parser/index failures; AST shape mismatches
+        # below are ordinary non-tuple annotations.
+        try:
+            parsedBody0: ast.stmt = ast.parse(self.annotation).body[0]
+        except (TypeError, IndexError, AssertionError):
+            return False
+
+        if not isinstance(parsedBody0, ast.Expr):
+            return False
+
+        parsedValue: ast.expr = parsedBody0.value
+        if not isinstance(parsedValue, ast.Subscript):
+            return False
+
+        parsedValueName: ast.expr = parsedValue.value
+        if not isinstance(parsedValueName, ast.Name):
+            return False
+
+        # Only top-level tuple/Tuple annotations are decomposed by this class.
+        return parsedValueName.id in {'tuple', 'Tuple'}
 
     def putAnnotationInList(self) -> list[str]:
         """Put annotation string in a list"""

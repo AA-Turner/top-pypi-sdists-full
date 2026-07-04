@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dash
-Version: 4.3.0
+Version: 4.4.0
 Summary: A Python framework for building reactive web-apps. Developed by Plotly.
 Home-page: https://plotly.com/dash
 Author: Chris Parmer
@@ -22,7 +22,6 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -32,7 +31,7 @@ Classifier: Topic :: Office/Business :: Financial :: Spreadsheet
 Classifier: Topic :: Scientific/Engineering :: Visualization
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Widget Sets
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: Flask<3.2,>=1.0.4
@@ -46,7 +45,6 @@ Requires-Dist: nest-asyncio
 Requires-Dist: setuptools
 Requires-Dist: janus>=1.0.0
 Requires-Dist: pydantic>=2.10
-Requires-Dist: mcp>=1.23.0; python_version >= "3.10"
 Provides-Extra: async
 Requires-Dist: flask[async]; extra == "async"
 Provides-Extra: ci

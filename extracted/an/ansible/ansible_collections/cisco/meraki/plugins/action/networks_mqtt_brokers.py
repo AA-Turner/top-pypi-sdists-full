@@ -74,7 +74,7 @@ class ActionModule(ActionBase):
             port=params.get("port"),
             security=params.get("security"),
             authentication=params.get("authentication"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
         )
         return new_object
 

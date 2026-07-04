@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: organizations_licenses_move_seats
-short_description: Resource module for organizations _licenses _move _seats
+short_description: Resource module for organizations _licenses _moveseats
 description:
-  - Manage operation create of the resource organizations _licenses _move _seats.
+  - Manage operation create of the resource organizations _licenses _moveseats.
   - Move SM seats to another organization.
 version_added: '1.0.0'
 extends_documentation_fragment:

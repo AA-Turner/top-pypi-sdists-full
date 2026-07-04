@@ -15,7 +15,9 @@ Public API
 - :func:`delete_table`            — ``DROP TABLE [schema].[table]``.
 - :func:`clear_table`             — ``TRUNCATE TABLE [schema].[table]``.
 - :func:`rename_table`            — ``EXEC sp_rename`` (Data-Warehouse-only).
+- :func:`transfer_table`          — ``ALTER SCHEMA ... TRANSFER OBJECT::...`` (Data-Warehouse-only).
 - :func:`recluster_table`         — transactional CTAS-swap to change (or remove) clustering.
+- :func:`get_table_dependents`    — objects referencing a table by name.
 - :func:`get_table_health_metrics` — ``EXEC sp_get_table_health_metrics`` (SQL endpoint only).
 
 List-source note
@@ -30,7 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import cast
 from uuid import uuid4
@@ -46,13 +48,21 @@ from fabric_dw.models import (
     TableRowCount,
     WarehouseKind,
 )
-from fabric_dw.services._helpers import _assert_not_sql_endpoint, coerce_to_utc, reject_non_select
+from fabric_dw.services._helpers import (
+    _assert_not_sql_endpoint,
+    _format_ms_literal,
+    _transfer_object,
+    build_time_travel_option,
+    coerce_to_utc,
+    reject_non_select,
+)
 from fabric_dw.services.schema_infer import (
     infer_columns_from_csv,
     infer_columns_from_json,
     infer_columns_from_parquet,
 )
 from fabric_dw.sql import SqlTarget, run_query, run_statements
+from fabric_dw.sql_io import columns_rows_to_arrow, write_arrow
 from fabric_dw.types import validate_tsql_type
 
 __all__ = [
@@ -65,7 +75,9 @@ __all__ = [
     "create_table_from_json",
     "create_table_from_parquet",
     "delete_table",
+    "export_table",
     "get_cluster_columns",
+    "get_table_dependents",
     "get_table_health_metrics",
     "infer_columns_from_csv",
     "infer_columns_from_json",
@@ -74,6 +86,7 @@ __all__ = [
     "read_table",
     "recluster_table",
     "rename_table",
+    "transfer_table",
     "validate_identifier",
 ]
 
@@ -133,6 +146,10 @@ _READ_TABLE_SQL = "SELECT TOP ({count}) * FROM {schema_q}.{table_q};"
 # COUNT_BIG(*) is bigint-safe (avoids INT overflow on wide tables).
 _COUNT_TABLE_SQL = "SELECT COUNT_BIG(*) AS row_count FROM {schema_q}.{table_q};"
 
+# Full-table export — no TOP; limit variant uses TOP when a row cap is requested.
+_EXPORT_TABLE_SQL = "SELECT * FROM {schema_q}.{table_q};"
+_EXPORT_TABLE_LIMIT_SQL = "SELECT TOP ({limit}) * FROM {schema_q}.{table_q};"
+
 _CLUSTER_COLUMNS_SQL = """\
 SELECT c.name AS column_name, ic.data_clustering_ordinal AS clustering_ordinal
 FROM sys.tables t
@@ -141,6 +158,19 @@ JOIN sys.columns c ON t.object_id = c.object_id
 JOIN sys.index_columns ic ON c.object_id = ic.object_id AND c.column_id = ic.column_id
 WHERE ic.data_clustering_ordinal > 0 AND s.name = ? AND t.name = ?
 ORDER BY ic.data_clustering_ordinal;
+"""
+
+# sys.sql_expression_dependencies is a catalog view populated by the engine at
+# object-creation time via by-name resolution — this is metadata lookup, not
+# SQL text parsing.  referenced_id is resolved through OBJECT_ID(?) so the
+# table's bracket-quoted qualified name is passed as a bound parameter, never
+# concatenated into the query text.
+_TABLE_DEPENDENTS_SQL = """\
+SELECT DISTINCT rs.name AS referencing_schema, ro.name AS referencing_name
+FROM sys.sql_expression_dependencies sed
+JOIN sys.objects ro ON ro.object_id = sed.referencing_id
+JOIN sys.schemas rs ON rs.schema_id = ro.schema_id
+WHERE sed.referenced_id = OBJECT_ID(?);
 """
 
 _FETCH_TABLE_SQL = """\
@@ -239,6 +269,7 @@ async def read_table(
     table_name: str,
     *,
     count: int = 10,
+    as_of: datetime | None = None,
     mode: CredentialMode = CredentialMode.DEFAULT,
 ) -> ResultSet:
     """Return up to *count* rows from *schema*.*table_name*.
@@ -254,6 +285,11 @@ async def read_table(
         schema: The schema name.  Must pass :func:`validate_identifier`.
         table_name: The table name.  Must pass :func:`validate_identifier`.
         count: Maximum number of rows to return (default 10).
+        as_of: Optional point-in-time for time-travel reads.  When set, the
+            query includes ``OPTION (FOR TIMESTAMP AS OF '<utc-literal>')``.
+            Naive datetimes are assumed UTC (via :func:`~._helpers.coerce_to_utc`);
+            tz-aware datetimes are converted to UTC.  Microseconds are rounded
+            to the nearest millisecond.  *None* leaves the SQL unchanged.
         mode: The credential mode for Entra authentication.
 
     Returns:
@@ -267,11 +303,16 @@ async def read_table(
     validate_identifier(schema)
     validate_identifier(table_name)
 
-    read_sql = _READ_TABLE_SQL.format(
+    base_sql = _READ_TABLE_SQL.format(
         count=int(count),
         schema_q=quote_identifier(schema),
         table_q=quote_identifier(table_name),
     )
+    as_of_clause = build_time_travel_option(as_of)
+    # When as_of_clause is empty the result is byte-for-byte identical to base_sql.
+    # The template always ends with ";"; strip it, append the (possibly empty) hint,
+    # then re-add it.
+    read_sql = base_sql[:-1] + as_of_clause + ";"
 
     def _run() -> ResultSet:
         cols, rows = run_query(target, read_sql, mode=mode)
@@ -288,6 +329,7 @@ async def count_table_rows(
     schema: str,
     table_name: str,
     *,
+    as_of: datetime | None = None,
     mode: CredentialMode = CredentialMode.DEFAULT,
 ) -> TableRowCount:
     """Return the total row count of *schema*.*table_name* via ``COUNT_BIG(*)``.
@@ -299,6 +341,10 @@ async def count_table_rows(
         target: The warehouse or SQL Analytics Endpoint to query.
         schema: The schema name.  Must pass :func:`validate_identifier`.
         table_name: The table name.  Must pass :func:`validate_identifier`.
+        as_of: Optional point-in-time for time-travel counts.  When set, the
+            query includes ``OPTION (FOR TIMESTAMP AS OF '<utc-literal>')``.
+            See :func:`~._helpers.build_time_travel_option` for formatting details.
+            *None* leaves the SQL unchanged.
         mode: The credential mode for Entra authentication.
 
     Returns:
@@ -313,10 +359,12 @@ async def count_table_rows(
     validate_identifier(schema)
     validate_identifier(table_name)
 
-    count_sql = _COUNT_TABLE_SQL.format(
+    base_sql = _COUNT_TABLE_SQL.format(
         schema_q=quote_identifier(schema),
         table_q=quote_identifier(table_name),
     )
+    as_of_clause = build_time_travel_option(as_of)
+    count_sql = base_sql[:-1] + as_of_clause + ";"
 
     def _run() -> TableRowCount:
         _cols, rows = run_query(target, count_sql, mode=mode)
@@ -324,6 +372,78 @@ async def count_table_rows(
             msg = f"Table [{schema}].[{table_name}] not found"
             raise NotFoundError(msg)
         return TableRowCount(schema_name=schema, name=table_name, row_count=int(rows[0][0]))
+
+    return await asyncio.to_thread(_run)
+
+
+async def export_table(
+    target: SqlTarget,
+    schema: str,
+    table_name: str,
+    output: Path,
+    fmt: str,
+    *,
+    as_of: datetime | None = None,
+    limit: int | None = None,
+    mode: CredentialMode = CredentialMode.DEFAULT,
+) -> int:
+    """Export all rows of *schema*.*table_name* to a local file.
+
+    Fetches the full result set into memory (V1; streaming is a future follow-up),
+    converts to Arrow via :func:`~fabric_dw.sql_io.columns_rows_to_arrow`, and
+    writes with :func:`~fabric_dw.sql_io.write_arrow`.
+
+    Args:
+        target: The warehouse or SQL Analytics Endpoint to query.
+        schema: The schema name.  Must pass :func:`validate_identifier`.
+        table_name: The table name.  Must pass :func:`validate_identifier`.
+        output: Destination file path.
+        fmt: One of ``"json"``, ``"csv"``, ``"parquet"``.
+        as_of: Optional point-in-time for time-travel exports.  When set, the
+            query includes ``OPTION (FOR TIMESTAMP AS OF '<utc-literal>')``.
+            Naive datetimes are assumed UTC; tz-aware datetimes are converted to
+            UTC.  *None* leaves the SQL unchanged.
+        limit: Optional row cap.  When set, ``SELECT TOP (N)`` is used instead
+            of ``SELECT *``.  *None* exports the full table without a TOP clause.
+        mode: The credential mode for Entra authentication.
+
+    Returns:
+        The number of rows exported as a Python :class:`int`.
+
+    Raises:
+        ValueError: If *schema* or *table_name* fails identifier validation, or
+            if *fmt* is not a recognised :class:`~fabric_dw.sql_io.OutputFormat`.
+        NotFoundError: If the table does not exist (zero columns returned).
+        PermissionDeniedError: If the driver reports a permission error.
+    """
+    validate_identifier(schema)
+    validate_identifier(table_name)
+
+    schema_q = quote_identifier(schema)
+    table_q = quote_identifier(table_name)
+
+    if limit is not None:
+        base_sql = _EXPORT_TABLE_LIMIT_SQL.format(
+            limit=int(limit),
+            schema_q=schema_q,
+            table_q=table_q,
+        )
+    else:
+        base_sql = _EXPORT_TABLE_SQL.format(schema_q=schema_q, table_q=table_q)
+
+    as_of_clause = build_time_travel_option(as_of)
+    # Strip the trailing ";" to insert the (possibly empty) OPTION clause, then re-add it.
+    export_sql = base_sql[:-1] + as_of_clause + ";"
+
+    def _run() -> int:
+        cols, rows = run_query(target, export_sql, mode=mode)
+        if not cols:
+            msg = f"Table [{schema}].[{table_name}] not found"
+            raise NotFoundError(msg)
+        row_list = list(rows)
+        arrow_table = columns_rows_to_arrow(cols, row_list)
+        write_arrow(arrow_table, fmt, output)
+        return len(row_list)
 
     return await asyncio.to_thread(_run)
 
@@ -375,6 +495,66 @@ async def get_cluster_columns(
         return [
             ClusterColumn(column_name=str(row[0]), clustering_ordinal=int(row[1])) for row in rows
         ]
+
+    return await asyncio.to_thread(_run)
+
+
+async def get_table_dependents(
+    target: SqlTarget,
+    schema: str,
+    table_name: str,
+    *,
+    kind: WarehouseKind = WarehouseKind.WAREHOUSE,
+    mode: CredentialMode = CredentialMode.DEFAULT,
+) -> list[str]:
+    """Return schema-qualified names of objects that reference *table_name* by name.
+
+    Queries ``sys.sql_expression_dependencies`` (joined to ``sys.objects`` /
+    ``sys.schemas`` to resolve the referencing entity's name), a catalog view
+    the engine populates from by-name resolution at object-creation time — no
+    SQL text is parsed. Returns an empty list when the table has no known
+    dependents; this is not an error. Used to scope the CLUSTER BY rebuild
+    advisory (#957) to tables that actually have dependents.
+
+    Limitation: ``sys.sql_expression_dependencies`` only tracks statically
+    resolvable by-name references. A dependent that references the table
+    exclusively through dynamic SQL (``EXEC(...)`` / ``sp_executesql``) is
+    invisible to this query and will not be reported — detecting that would
+    require parsing SQL text, which this repo does not do.
+
+    Args:
+        target: The warehouse to query.
+        schema: The schema name.  Must pass :func:`validate_identifier`.
+        table_name: The table name.  Must pass :func:`validate_identifier`.
+        kind: The :class:`~fabric_dw.models.WarehouseKind` of the item.  When
+            :attr:`~fabric_dw.models.WarehouseKind.SQL_ENDPOINT`, the current
+            (and only) caller — the CLUSTER BY advisory — does not apply
+            (clustering is Data-Warehouse-only), so no query is issued and an
+            empty list is returned.
+        mode: The credential mode for Entra authentication.
+
+    Returns:
+        A (possibly empty) list of ``"schema.name"`` strings, one per distinct
+        referencing object (view, stored procedure, function, or trigger).
+
+    Raises:
+        ValueError: If *schema* or *table_name* fails identifier validation.
+        PermissionDeniedError: If the driver reports a permission error.
+    """
+    validate_identifier(schema)
+    validate_identifier(table_name)
+    if kind == WarehouseKind.SQL_ENDPOINT:
+        return []
+    qualified = f"{quote_identifier(schema)}.{quote_identifier(table_name)}"
+
+    def _run() -> list[str]:
+        _cols, rows = run_query(
+            target,
+            _TABLE_DEPENDENTS_SQL,
+            params=[qualified],
+            mode=mode,
+        )
+        return [f"{row[0]}.{row[1]}" for row in rows]
 
     return await asyncio.to_thread(_run)
 
@@ -837,18 +1017,7 @@ async def clone_table(
         # The AT clause does not support bound parameters in T-SQL DDL, so we
         # embed a fixed-format literal derived from the already-validated datetime
         # object -- never an arbitrary user string.
-        #
-        # Round to the nearest millisecond (half-to-even via Python round())
-        # rather than truncating, so that e.g. 123_750 us -> 124 ms instead
-        # of silently shifting the point-in-time 0.75 ms earlier.
-        # round() can return 1000 for microsecond values >= 999_500 us;
-        # use timedelta to roll the carry into the seconds field correctly.
-        at_rounded = at.replace(microsecond=0) + timedelta(
-            milliseconds=round(at.microsecond / 1000)
-        )
-        ms_part = f"{at_rounded.microsecond // 1000:03d}"
-        at_literal = at_rounded.strftime("%Y-%m-%dT%H:%M:%S.") + ms_part
-        ddl = f"{ddl} AT '{at_literal}'"
+        ddl = f"{ddl} AT '{_format_ms_literal(at)}'"
 
     def _run_ddl() -> None:
         # Clone DDL runs on an autocommit connection so the implicit transaction
@@ -1190,6 +1359,80 @@ async def rename_table(
     except NotFoundError:
         msg = f"Table [{schema}].[{new_name}] not found after rename"
         raise NotFoundError(msg) from None
+
+
+async def transfer_table(
+    target: SqlTarget,
+    qualified: str,
+    target_schema: str,
+    *,
+    kind: WarehouseKind = WarehouseKind.WAREHOUSE,
+    mode: CredentialMode = CredentialMode.DEFAULT,
+) -> Table:
+    """Move a table to another schema via ``ALTER SCHEMA ... TRANSFER OBJECT::...``.
+
+    Table transfer is Warehouse-only: Microsoft documents that transferring a
+    table between schemas via T-SQL is not supported on the Fabric SQL
+    Analytics Endpoint and can break the OneLake sync.  This restriction is
+    specific to tables -- it does not apply to views, functions, or stored
+    procedures, which are not subject to the same OneLake-sync risk and do
+    not guard with :func:`~fabric_dw.services._helpers._assert_not_sql_endpoint`.
+
+    .. warning::
+
+        ``OBJECT::[schema].[name]`` matches *any* schema-scoped object with
+        that name, not only tables.  If a view, function, or procedure
+        happens to share the qualified name, the engine transfers that
+        object instead (and drops its permissions).  When the post-transfer
+        re-fetch then finds no table named *table_name* in *target_schema*,
+        :class:`~fabric_dw.exceptions.NotFoundError` is raised with a message
+        that calls this out explicitly.
+
+    .. warning::
+
+        Permissions granted directly on the table are dropped by the engine
+        when the schema changes.  Dependent views and stored procedures that
+        reference the table by its old schema-qualified name are **not**
+        automatically updated and may need refreshing after the transfer.
+
+    Args:
+        target: The warehouse to connect to.
+        qualified: The current fully-qualified name of the form ``schema.table``.
+            Parsed with :func:`~fabric_dw.identifiers.parse_qualified_name`.
+        target_schema: The schema to move the table into.  Must pass
+            :func:`validate_identifier`.  System schemas (``sys``,
+            ``INFORMATION_SCHEMA``, ``guest``, fixed ``db_*`` role schemas)
+            are rejected by
+            :func:`~fabric_dw.services._helpers._alter_schema_transfer`.
+        kind: The :class:`~fabric_dw.models.WarehouseKind` of the item.
+            SQL Endpoint items are rejected with :class:`~fabric_dw.exceptions.ItemKindError`.
+        mode: The credential mode for Entra authentication.
+
+    Returns:
+        A :class:`~fabric_dw.models.Table` reflecting the moved table
+        (fetched via ``sys.tables`` from *target_schema* after the transfer).
+
+    Raises:
+        ItemKindError: If *kind* is :attr:`~fabric_dw.models.WarehouseKind.SQL_ENDPOINT`.
+        ValueError: If *qualified* cannot be parsed, if any identifier component
+            fails identifier validation, or if *target_schema* is a system schema.
+        NotFoundError: If no table named *table_name* is found in *target_schema*
+            after the transfer -- see the warning above about non-table objects.
+        PermissionDeniedError: If the driver reports a permission error.
+    """
+    _assert_not_sql_endpoint(kind)
+
+    schema, table_name = parse_qualified_name(qualified)
+
+    return await _transfer_object(
+        target,
+        source_schema=schema,
+        object_name=table_name,
+        target_schema=target_schema,
+        object_label="table",
+        fetch=lambda: _fetch_table(target, target_schema, table_name, mode=mode),
+        mode=mode,
+    )
 
 
 # ---------------------------------------------------------------------------

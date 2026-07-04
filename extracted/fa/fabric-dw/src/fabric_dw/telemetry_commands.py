@@ -65,6 +65,7 @@ DOMAIN_MAP: dict[str, str] = {
     "cache": "cache",
     "config": "config",
     "completion": "completion",
+    "permissions": "permissions",
     # ── MCP tool names (explicit overrides / multi-domain tools) ─────────────
     # Workspaces
     "assign_workspace_to_capacity": "workspaces",
@@ -79,12 +80,28 @@ DOMAIN_MAP: dict[str, str] = {
     "rename_warehouse": "warehouses",
     "delete_warehouse": "warehouses",
     "takeover_warehouse": "warehouses",
-    "get_warehouse_permissions": "warehouses",
     # SQL Endpoints
     "list_sql_endpoints": "sql_endpoints",
     "get_sql_endpoint": "sql_endpoints",
     "refresh_sql_endpoint_metadata": "sql_endpoints",
-    "get_sql_endpoint_permissions": "sql_endpoints",
+    "list_item_permissions": "permissions",
+    "list_sql_permissions": "permissions",
+    "list_database_principals": "permissions",
+    "my_permissions": "permissions",
+    "grant_permission": "permissions",
+    "deny_permission": "permissions",
+    "revoke_permission": "permissions",
+    # RLS
+    "list_security_policies": "permissions",
+    "create_security_policy": "permissions",
+    "add_security_predicate": "permissions",
+    "drop_security_predicate": "permissions",
+    "set_security_policy_state": "permissions",
+    "drop_security_policy": "permissions",
+    # Dynamic data masking
+    "list_masked_columns": "permissions",
+    "set_column_mask": "permissions",
+    "drop_column_mask": "permissions",
     # Audit
     "get_audit_settings": "audit",
     "enable_audit": "audit",
@@ -125,6 +142,7 @@ DOMAIN_MAP: dict[str, str] = {
     "get_table_columns": "tables",
     "get_table_health_metrics": "tables",
     "list_tables": "tables",
+    "export_table": "tables",
     "read_table": "tables",
     "count_table_rows": "tables",
     "get_cluster_columns": "tables",
@@ -133,12 +151,14 @@ DOMAIN_MAP: dict[str, str] = {
     "create_empty_table": "tables",
     "clone_table": "tables",
     "rename_table": "tables",
+    "transfer_table": "tables",
     "delete_table": "tables",
     "clear_table": "tables",
     "load_table_from_url": "tables",
     # Views
     "get_view_columns": "views",
     "list_views": "views",
+    "export_view": "views",
     "read_view": "views",
     "count_view_rows": "views",
     "get_view": "views",
@@ -146,17 +166,20 @@ DOMAIN_MAP: dict[str, str] = {
     "update_view": "views",
     "drop_view": "views",
     "rename_view": "views",
+    "transfer_view": "views",
     # Stored procedures
     "list_procedures": "procedures",
     "get_procedure": "procedures",
     "create_procedure": "procedures",
     "update_procedure": "procedures",
     "drop_procedure": "procedures",
+    "transfer_procedure": "procedures",
     # Functions
     "list_functions": "functions",
     "get_function": "functions",
     "create_function": "functions",
     "update_function": "functions",
+    "transfer_function": "functions",
     "drop_function": "functions",
     # Statistics
     "list_statistics": "statistics",
@@ -183,6 +206,7 @@ DOMAIN_MAP: dict[str, str] = {
     "get_warehouse_settings": "settings",
     "set_result_set_caching": "settings",
     "set_time_travel_retention": "settings",
+    "set_data_lake_log_publishing": "settings",
     # Tables (load sub-domain)
     "import_table_from_url": "tables",
 }
@@ -213,6 +237,7 @@ _KNOWN_DOMAINS: frozenset[str] = frozenset(
         "config",
         "completion",
         "settings",
+        "permissions",
     }
 )
 

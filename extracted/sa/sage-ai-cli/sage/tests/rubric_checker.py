@@ -497,7 +497,7 @@ def _convert_to_build_prompt(prompt: str) -> str:
 def verify_cli_with_rubric(prompt: str, domain: str = "generate_files") -> None:
     """Run SAGE CLI functionally against our test completions server and check grading rubric."""
     from typer.testing import CliRunner
-    from sage.main import app as sage_app
+    from sage.cli_core import app as sage_app
     
     prompt = _convert_to_build_prompt(prompt)
     
@@ -828,7 +828,7 @@ def verify_utility_command(client: str, cmd: str, tmp_path: Path, delivery: str 
     """Verify non-LLM utility commands for CLI or SMS."""
     if client == "cli":
         from typer.testing import CliRunner
-        from sage.main import app as sage_app
+        from sage.cli_core import app as sage_app
         runner = CliRunner()
         with runner.isolated_filesystem():
             result = runner.invoke(sage_app, [cmd])

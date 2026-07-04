@@ -1,7 +1,7 @@
 - name: Play Name
   hosts: localhost
   vars:
-    sn: QBSB-VLHZ-JQCN
+    sn: Q4AC-YTF3-WQ66
   gather_facts: false
   tasks:
     - name: Get device's LLDP and CDP neighbors

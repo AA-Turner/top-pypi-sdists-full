@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyproject-metadata
-Version: 0.11.0
+Version: 0.12.1
 Summary: PEP 621 metadata parsing
 Author-email: Filipe Laíns <lains@riseup.net>
 Requires-Python: >=3.8
@@ -15,9 +15,11 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 License-File: LICENSE
 Requires-Dist: packaging>=23.2
 Project-URL: changelog, https://pep621.readthedocs.io/en/stable/changelog.html
+Project-URL: documentation, https://pep621.readthedocs.io/en/stable/
 Project-URL: homepage, https://github.com/pypa/pyproject-metadata
 
 # pyproject-metadata

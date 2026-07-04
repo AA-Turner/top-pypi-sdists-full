@@ -18,11 +18,11 @@ DOCUMENTATION = r"""
 ---
 module: purefb_phonehome
 version_added: '1.0.0'
-short_description: Enable or Disable Everpure FlashBlade Phone Home
+short_description: Enable or Disable Pure Storage FlashBlade Phone Home
 description:
-- Enablke or Disable Remote Phone Home for a Everpure FlashBlade.
+- Enablke or Disable Remote Phone Home for a Pure Storage FlashBlade.
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -49,19 +49,16 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PYPURECLIENT = True
+HAS_PURITY_FB = True
 try:
     from pypureclient.flashblade import Support
 except ImportError:
-    HAS_PYPURECLIENT = False
+    HAS_PURITY_FB = False
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
-)
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
 )
 
 
@@ -73,7 +70,7 @@ def enable_ph(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Enabling Phone Home failed. Error: {0}".format(
-                    get_error_message(res)
+                    res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -87,7 +84,7 @@ def disable_ph(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Disabling Phone Home failed. Error: {0}".format(
-                    get_error_message(res)
+                    res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -97,25 +94,25 @@ def test_ph(module, blade):
     """Test phonehome configuration"""
     test_response = []
     response = list(blade.get_support_test(test_type="phonehome").items)
-    for component in response:
-        if component.enabled:
+    for component in range(len(response)):
+        if response[component].enabled:
             enabled = "true"
         else:
             enabled = "false"
-        if component.success:
+        if response[component].success:
             success = "true"
         else:
             success = "false"
         test_response.append(
             {
-                "component_address": component.component_address,
-                "component_name": component.component_name,
-                "description": component.description,
-                "destination": component.destination,
+                "component_address": response[component].component_address,
+                "component_name": response[component].component_name,
+                "description": response[component].description,
+                "destination": response[component].destination,
                 "enabled": enabled,
-                "result_details": getattr(component, "result_details", ""),
+                "result_details": getattr(response[component], "result_details", ""),
                 "success": success,
-                "test_type": component.test_type,
+                "test_type": response[component].test_type,
             }
         )
     module.exit_json(changed=False, test_response=test_response)
@@ -135,7 +132,7 @@ def main():
 
     blade = get_system(module)
 
-    if not HAS_PYPURECLIENT:
+    if not HAS_PURITY_FB:
         module.fail_json(msg="py-pure-client SDK is required for this module")
     support = list(blade.get_support().items)[0].phonehome_enabled
     if module.params["state"] == "present" and not support:

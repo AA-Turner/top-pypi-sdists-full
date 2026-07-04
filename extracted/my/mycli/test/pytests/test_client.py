@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from io import StringIO, TextIOWrapper
-import os
+from io import TextIOWrapper
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -20,7 +19,6 @@ def write_myclirc(tmp_path: Path, content: str) -> str:
 
 def patch_constructor_side_effects(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(MyCli, 'system_config_files', [])
-    monkeypatch.setattr(MyCli, 'pwd_config_file', os.devnull)
     monkeypatch.setattr(MyCli, 'initialize_logging', lambda self: None)
     monkeypatch.setattr(MyCli, 'register_special_commands', lambda self: None)
     monkeypatch.setattr(client_module, 'get_mylogin_cnf_path', lambda: None)
@@ -33,8 +31,8 @@ def test_init_reports_invalid_ssl_mode(monkeypatch: pytest.MonkeyPatch, tmp_path
     myclirc = write_myclirc(
         tmp_path,
         """
-        [main]
-        ssl_mode = invalid
+        [connection]
+        default_ssl_mode = invalid
         """,
     )
 
@@ -42,17 +40,6 @@ def test_init_reports_invalid_ssl_mode(monkeypatch: pytest.MonkeyPatch, tmp_path
 
     assert cli.ssl_mode is None
     assert echo_calls == [('Invalid config option provided for ssl_mode (invalid); ignoring.', {'err': True, 'fg': 'red'})]
-
-
-def test_init_uses_defaults_file_for_mysql_config_files(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    patch_constructor_side_effects(monkeypatch)
-    defaults_file = tmp_path / 'defaults.cnf'
-    defaults_file.write_text('[client]\nuser = alice\n', encoding='utf-8')
-    myclirc = write_myclirc(tmp_path, '')
-
-    cli = MyCli(defaults_file=str(defaults_file), myclirc=myclirc)
-
-    assert cli.cnf_files == [str(defaults_file)]
 
 
 def test_init_honors_explicit_show_warnings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -140,18 +127,6 @@ def test_init_reports_unreadable_mylogin_cnf(monkeypatch: pytest.MonkeyPatch, tm
     MyCli(myclirc=myclirc)
 
     assert 'Error: Unable to read login path file.' in capsys.readouterr().out
-
-
-def test_init_appends_readable_mylogin_cnf(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    patch_constructor_side_effects(monkeypatch)
-    mylogin_cnf = StringIO('[client]\nuser = alice\n')
-    monkeypatch.setattr(client_module, 'get_mylogin_cnf_path', lambda: '/tmp/mylogin.cnf')
-    monkeypatch.setattr(client_module, 'open_mylogin_cnf', lambda path: mylogin_cnf)
-    myclirc = write_myclirc(tmp_path, '')
-
-    cli = MyCli(myclirc=myclirc)
-
-    assert cli.cnf_files[-1] is mylogin_cnf
 
 
 def test_close_stops_schema_prefetcher_and_closes_sqlexecute() -> None:

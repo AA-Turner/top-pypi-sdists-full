@@ -22,8 +22,8 @@ module: purefb_groupquota
 version_added: "1.7.0"
 short_description:  Manage filesystem group quotas
 description:
-    - This module manages group quotas for filesystems on Everpure FlashBlade.
-author: Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+    - This module manages group quotas for filesystems on Pure Storage FlashBlade.
+author: Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -121,11 +121,11 @@ EXAMPLES = """
 RETURN = """
 """
 
-HAS_PYPURECLIENT = True
+HAS_PURITY_FB = True
 try:
     from pypureclient.flashblade import GroupQuotaPost, GroupQuotaPatch
 except ImportError:
-    HAS_PYPURECLIENT = False
+    HAS_PURITY_FB = False
 
 CONTEXT_API_VERSION = "2.17"
 
@@ -134,10 +134,20 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_filesystem,
-    get_error_message,
-)
+
+
+def get_fs(module, blade):
+    """Return Filesystem or None"""
+    api_version = list(blade.get_versions().items)
+    if CONTEXT_API_VERSION in api_version:
+        res = blade.get_file_systems(
+            names=[module.params["name"]], context_names=[module.params["context"]]
+        )
+    else:
+        res = blade.get_file_systems(names=[module.params["name"]])
+    if res.status_code == 200:
+        return list(res.items)[0]
+    return None
 
 
 def get_quota(module, blade):
@@ -200,7 +210,7 @@ def create_quota(module, blade):
                     msg="Failed to create quote for UID {0} on filesystem {1}. Error: {2}".format(
                         module.params["gid"],
                         module.params["name"],
-                        get_error_message(res),
+                        res.errors[0].message,
                     )
                 )
         else:
@@ -226,7 +236,7 @@ def create_quota(module, blade):
                     msg="Failed to create quote for groupname {0} on filesystem {1}. Error: {2}".format(
                         module.params["gname"],
                         module.params["name"],
-                        get_error_message(res),
+                        res.errors[0].message,
                     )
                 )
     module.exit_json(changed=changed)
@@ -263,7 +273,7 @@ def update_quota(module, blade):
                         msg="Failed to update quota for UID {0} on filesystem {1}. Error: {2}".format(
                             module.params["gid"],
                             module.params["name"],
-                            get_error_message(res),
+                            res.errors[0].message,
                         )
                     )
             else:
@@ -289,7 +299,7 @@ def update_quota(module, blade):
                         msg="Failed to update quota for UID {0} on filesystem {1}. Error: {2}".format(
                             module.params["gname"],
                             module.params["name"],
-                            get_error_message(res),
+                            res.errors[0].message,
                         )
                     )
     module.exit_json(changed=changed)
@@ -335,7 +345,7 @@ def delete_quota(module, blade):
                     msg="Failed to delete quota for groupname {0} on filesystem {1}. Error: {2}".format(
                         module.params["gname"],
                         module.params["name"],
-                        get_error_message(res),
+                        res.errors[0].message,
                     )
                 )
     module.exit_json(changed=changed)
@@ -363,12 +373,12 @@ def main():
         supports_check_mode=True,
     )
 
-    if not HAS_PYPURECLIENT:
+    if not HAS_PURITY_FB:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     state = module.params["state"]
     blade = get_system(module)
-    fsys = get_filesystem(module, blade)
+    fsys = get_fs(module, blade)
     if not fsys:
         module.fail_json(
             msg="Filesystem {0} does not exist.".format(module.params["name"])

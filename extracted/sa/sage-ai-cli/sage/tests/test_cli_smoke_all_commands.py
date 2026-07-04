@@ -25,7 +25,7 @@ _runner = CliRunner()
 @pytest.fixture(scope="module")
 def sage_app():
     """Module-scoped import of the full sage CLI app."""
-    from sage.main import app
+    from sage.cli_core import app
     return app
 
 

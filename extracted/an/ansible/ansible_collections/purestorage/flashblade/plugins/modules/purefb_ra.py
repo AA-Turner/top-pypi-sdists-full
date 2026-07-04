@@ -18,11 +18,11 @@ DOCUMENTATION = r"""
 ---
 module: purefb_ra
 version_added: '1.0.0'
-short_description: Enable or Disable Everpure FlashBlade Remote Assist
+short_description: Enable or Disable Pure Storage FlashBlade Remote Assist
 description:
-- Enablke or Disable Remote Assist for a Everpure FlashBlade.
+- Enablke or Disable Remote Assist for a Pure Storage FlashBlade.
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -70,12 +70,7 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
-)
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
-)
+
 
 DURATION_API = "2.14"
 
@@ -95,7 +90,7 @@ def enable_ra(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Enabling Remote Assist failed. Error: {0}".format(
-                    get_error_message(res)
+                    res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -110,7 +105,7 @@ def disable_ra(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Disabling Remote Assist failed. Error: {0}".format(
-                    get_error_message(res)
+                    res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -120,25 +115,25 @@ def test_ra(module, blade):
     """Test support/remote assist configuration"""
     test_response = []
     response = list(blade.get_support_test(test_type="remote-assist").items)
-    for component in response:
-        if component.enabled:
+    for component in range(len(response)):
+        if response[component].enabled:
             enabled = "true"
         else:
             enabled = "false"
-        if component.success:
+        if response[component].success:
             success = "true"
         else:
             success = "false"
         test_response.append(
             {
-                "component_address": component.component_address,
-                "component_name": component.component_name,
-                "description": component.description,
-                "destination": component.destination,
+                "component_address": response[component].component_address,
+                "component_name": response[component].component_name,
+                "description": response[component].description,
+                "destination": response[component].destination,
                 "enabled": enabled,
-                "result_details": getattr(component, "result_details", ""),
+                "result_details": getattr(response[component], "result_details", ""),
                 "success": success,
-                "test_type": component.test_type,
+                "test_type": response[component].test_type,
             }
         )
     module.exit_json(changed=False, test_response=test_response)

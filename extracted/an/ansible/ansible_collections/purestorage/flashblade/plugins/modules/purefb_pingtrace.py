@@ -22,7 +22,7 @@ short_description: Employ the internal FlashBlade ping and trace mechanisms
 description:
 - Ping or trace a destination
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   action:
     description:
@@ -118,9 +118,6 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
-)
 import re
 
 MIN_REQUIRED_API_VERSION = "2.6"
@@ -167,20 +164,20 @@ def run_ping(module, blade):
         )
     if res.status_code != 200:
         module.fail_json(
-            msg="Failed to run ping. Error: {0}".format(get_error_message(res))
+            msg="Failed to run ping. Error: {0}".format(res.errors[0].message)
         )
     else:
         responses = list(res.items)
-        for resp in responses:
-            comp_name = resp.component_name.replace(".", "_")
+        for resp in range(len(responses)):
+            comp_name = responses[resp].component_name.replace(".", "_")
             match = re.search(
                 r"(\d+)\s+packets transmitted,\s+(\d+)\s+received,\s+(\d+)%\s+packet loss,\s+time\s+(\d+)ms",
-                resp.details,
+                responses[resp].details,
             )
 
             if not match:
                 # Report the component that failied along with the failed reposne
-                module.warn("{0}: {1}.".format(comp_name, resp.details))
+                module.warn("{0}: {1}.".format(comp_name, responses[resp].details))
                 continue
 
             transmitted, received, packet_loss, time_ms = map(int, match.groups())
@@ -191,7 +188,7 @@ def run_ping(module, blade):
                 "packet_tx": transmitted,
                 "packet_rx": received,
                 "time": str(time_ms) + "ms",
-                "details": resp.details,
+                "details": responses[resp].details,
             }
 
     module.exit_json(changed=False, pingfact=ping_fact)
@@ -242,15 +239,15 @@ def run_trace(module, blade):
         )
     if res.status_code != 200:
         module.fail_json(
-            msg="Failed to run trace. Error: {0}".format(get_error_message(res))
+            msg="Failed to run trace. Error: {0}".format(res.errors[0].message)
         )
     else:
         responses = list(res.items)
-        for resp in responses:
-            if hasattr(resp, "details"):
-                comp_name = resp.component_name.replace(".", "_")
+        for resp in range(len(responses)):
+            if hasattr(responses[resp], "details"):
+                comp_name = responses[resp].component_name.replace(".", "_")
                 trace_fact[comp_name] = {
-                    "details": resp.details,
+                    "details": responses[resp].details,
                 }
 
     module.exit_json(changed=False, tracefact=trace_fact)

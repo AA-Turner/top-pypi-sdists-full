@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiopnsense
-Version: 1.0.15
+Version: 1.1.0
 Summary: Async Python client library for OPNsense
 Author: Snuffy2
 License-Expression: Apache-2.0
@@ -9,11 +9,12 @@ Project-URL: Documentation, https://aiopnsense.readthedocs.io
 Requires-Python: >=3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aiohttp>=3.12.0
+Requires-Dist: aiohttp<4,>=3.12.0
 Requires-Dist: awesomeversion>=25.8.0
 Requires-Dist: python-dateutil>=2.9.0
 Provides-Extra: docs
 Requires-Dist: sphinx<10,>=9; extra == "docs"
+Requires-Dist: sphinx-argparse-cli<2,>=1; extra == "docs"
 Requires-Dist: sphinx-rtd-theme<4,>=3; extra == "docs"
 Requires-Dist: myst-parser<6,>=5; extra == "docs"
 Dynamic: license-file
@@ -40,6 +41,7 @@ The client currently includes helpers for:
 - system information, notices, certificates, CARP, Wake-on-LAN, reboot, and interface reloads
 - firmware version checks, update status, and upgrade actions
 - interface, gateway, CPU, memory, filesystem, and temperature telemetry
+- diagnostics traffic snapshots and live interface traffic stream samples
 - DHCP lease and ARP table access
 - firewall rules, NAT rules, alias toggling, and state killing
 - service status lookup and service start/stop/restart operations
@@ -59,6 +61,20 @@ The client currently includes helpers for:
 ## Documentation
 
 - Read the Docs: <https://aiopnsense.readthedocs.io>
+
+## Live test scripts
+
+The `scripts/` directory includes live diagnostic helpers for maintainers:
+
+- `aiopnsense_dump.py` runs supported `aiopnsense` client endpoints and prints
+  the raw data returned by the library.
+- `opnsense_api_call.py` calls an arbitrary OPNsense API endpoint with a
+  specified method and optional POST payload.
+
+Both scripts read credentials from `scripts/aiopnsense.env` by default. Copy
+`scripts/aiopnsense.env.example` to create your local env file; it is ignored
+by git. Full CLI reference is generated in the
+[Read the Docs script documentation](https://aiopnsense.readthedocs.io/en/stable/scripts.html).
 
 ## Origin and Purpose
 

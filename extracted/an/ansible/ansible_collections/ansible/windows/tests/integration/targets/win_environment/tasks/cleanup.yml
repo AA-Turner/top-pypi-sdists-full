@@ -24,8 +24,6 @@
     name: "{{ item.0.key }}"
     state: absent
     level: "{{ item.1 }}"
-  loop: >-
-    {{ query('nested',
-        test_multi_value_with_removal_environment_values | dict2items,
-        ['machine', 'process', 'user'],
-    ) }}
+  with_nested:
+  - "{{ test_multi_value_with_removal_environment_values | dict2items }}"
+  - [ 'machine', 'process', 'user' ]

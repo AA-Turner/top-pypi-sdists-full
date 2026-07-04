@@ -33,7 +33,7 @@ if t.TYPE_CHECKING:
 safe_eval: Callable[[t.Any, t.Any, t.Any], t.Any] | None
 
 try:
-    from ansible.module_utils.common.validation import (  # type: ignore[no-redef]
+    from ansible.module_utils.common.validation import (
         safe_eval,
     )
 except ImportError:

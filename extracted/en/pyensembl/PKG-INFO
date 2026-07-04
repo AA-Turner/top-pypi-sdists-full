@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyensembl
-Version: 2.10.1
+Version: 2.10.3
 Summary: Python interface to Ensembl reference genome metadata
 Author-email: Alex Rubinsteyn <alex.rubinsteyn@unc.edu>
 License-Expression: Apache-2.0
@@ -9,6 +9,13 @@ Classifier: Environment :: Console
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown

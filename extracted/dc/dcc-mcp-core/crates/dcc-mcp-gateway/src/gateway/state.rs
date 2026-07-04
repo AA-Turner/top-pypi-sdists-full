@@ -65,6 +65,8 @@ use dcc_mcp_transport::discovery::types::{ServiceEntry, ServiceStatus};
 
 use super::middleware::MiddlewareChain;
 
+use super::capability::search_cache::SearchCache;
+
 /// A call that the gateway has forwarded to a backend and is still awaiting.
 ///
 /// Re-exported from [`dcc_mcp_gateway_core::PendingCall`] as part of the
@@ -238,6 +240,12 @@ pub struct GatewayState {
     /// milliseconds it takes to swap a single instance's slice.
     pub capability_index: Arc<super::capability::CapabilityIndex>,
 
+    /// LRU cache for hot search queries (PIP-2471).
+    ///
+    /// Shared via `Arc` so handlers and refresh paths can invalidate
+    /// it when the capability index changes.
+    pub search_cache: Arc<SearchCache>,
+
     /// Contention event log (issue #766).
     ///
     /// Append-only JSONL ring buffer (bounded to [`EventLog::CAPACITY`]).
@@ -292,6 +300,12 @@ pub struct GatewayState {
     /// policy; daemon mode overrides this from CLI/env configuration.
     pub gateway_persist: bool,
     pub gateway_idle_timeout_secs: u64,
+
+    /// Whether semantic search boosting is enabled for `mode=hybrid` queries.
+    ///
+    /// Default: `false`. When `false`, `mode=hybrid` silently falls back to
+    /// `mode=fuzzy`.  Mirrors [`GatewayConfig::semantic_search_enabled`].
+    pub semantic_search_enabled: bool,
 }
 
 impl GatewayState {

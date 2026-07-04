@@ -16,13 +16,14 @@ jobs:
     name: Reverse dependency testing
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - uses: scientific-python/reverse-dependency-testing-action@main
         with:
           package_name: libpysal
+          python_version: 3.14
           ignore: >-
             fine
             tigernet
@@ -40,7 +41,7 @@ jobs:
             setuptools-scm
             h3-py
             hdbscan
-            pandana
+            pandarm
             astropy
             geodatasets
             bokeh
@@ -52,7 +53,10 @@ jobs:
             fast_hdbscan
             numba
           installation_command: >-
-            pip install pulp -U --force-reinstall; pip install -e .; python -c 'import libpysal; libpysal.examples.fetch_all()';
+              git config --global --add safe.directory /github/workspace;
+              pip install pulp -U --force-reinstall;
+              pip install -e .;
+              python -c 'import libpysal; libpysal.examples.fetch_all()';
           fail_on_failure: true
           xfail: >-
             mgwr

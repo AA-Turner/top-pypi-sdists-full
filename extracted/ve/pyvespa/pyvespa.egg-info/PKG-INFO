@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvespa
-Version: 1.2.3
+Version: 1.2.4
 Summary: Python API for vespa.ai
 Author: Thiago G. Martins, Thomas Thoresen
 Maintainer-email: Thomas Thoresen <thomas@vespa.ai>

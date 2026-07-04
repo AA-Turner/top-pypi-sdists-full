@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from sage.core.request_classifier import ClassifiedRequest, OutputFormat, PipelineType, RequestType
 from sage.core.tool_orchestrator import FileReadStrategy, ReadRequest, SmartFileReader
-from sage.main import (
+from sage.cli_core import (
     _build_multistep_phase_prompts,
     _build_readonly_exploration_nudge,
     _build_readonly_response_retry_prompt,

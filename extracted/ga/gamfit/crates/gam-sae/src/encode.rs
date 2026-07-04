@@ -61,15 +61,13 @@
 
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 
-use gam_linalg::faer_ndarray::FaerEigh;
-use crate::candidate_index::{
-    AtomFrameSketch, SaeCandidateIndex, auto_candidate_budget,
-};
+use crate::candidate_index::{AtomFrameSketch, SaeCandidateIndex, auto_candidate_budget};
 use crate::manifold::{
     AffineCoordinateEvaluator, CylinderHarmonicEvaluator, DuchonCoordinateEvaluator,
     EuclideanPatchEvaluator, PeriodicHarmonicEvaluator, SaeBasisEvaluator, SaeManifoldAtom,
     SphereChartEvaluator, TorusHarmonicEvaluator,
 };
+use gam_linalg::faer_ndarray::FaerEigh;
 
 use faer::Side;
 
@@ -586,10 +584,7 @@ pub(crate) fn reconstruction_jet_sups(
     atom: &SaeManifoldAtom,
     sups: JetSups,
 ) -> ReconstructionJetSups {
-    if matches!(
-        atom.basis_kind,
-        crate::manifold::SaeAtomBasisKind::Periodic
-    ) {
+    if matches!(atom.basis_kind, crate::manifold::SaeAtomBasisKind::Periodic) {
         periodic_reconstruction_jet_sups(atom.decoder_coefficients.view())
     } else {
         let decoder_norm_sum = decoder_row_norm_sum(atom.decoder_coefficients.view());
@@ -738,7 +733,6 @@ impl RowCertificate {
 #[derive(Debug, Clone)]
 struct CertifiedEncodeProbe {
     coord: Array1<f64>,
-    initial_cert: RowCertificate,
     final_cert: RowCertificate,
 }
 
@@ -804,14 +798,18 @@ pub(crate) fn family_jet_sups(
             JetSups::from_family(&ev, chart)
         }
         Duchon => {
-            // The atom carries the basis kind but not the nullspace order, and
-            // the certificate needs an UPPER bound on L. The kernel-tail bound
-            // (cubic r³ coefficients vs the chart's r_min/r_max) is independent
-            // of the constructed order; the polynomial-block bound grows with the
-            // order, so we construct with a conservative order whose polynomial
-            // degree upper-bounds any nullspace the atom's basis width can hold.
-            // Constructing with `m = basis_size` maps to `Degree(basis_size − 1)`
-            // — an over-estimate that keeps the Lipschitz bound sound.
+            // UNSOUND — DO NOT TRUST for a certificate (F2/F3). This bound
+            // hard-codes cubic `φ(r) = r³` radial jets and a single origin center
+            // (`duchon_centers_from_atom`), but the real Duchon kernel is the
+            // polyharmonic `c·r^(2m−d)` (with log variants) over the atom's
+            // data-placed centers — so it can UNDER-estimate L and issue a FALSE
+            // certificate (the module's own warning). The atom does not expose its
+            // real order / center matrix / scaling to this crate, so no sound bound
+            // is available. `build_atom_atlas_from_centers` therefore REFUSES to
+            // certify Duchon atoms (emits uncertified charts → exact-encode
+            // fallback) and never reaches this arm; it is retained only so the
+            // family dispatch is total. If a future change threads the real
+            // order/centers here, replace this with the true `φ_{m,d}` jet bounds.
             let centers = duchon_centers_from_atom(atom);
             let conservative_m = m.max(1);
             let ev = DuchonCoordinateEvaluator::new(centers, conservative_m)?;
@@ -926,13 +924,20 @@ impl JetSups {
 /// max where `∇f = 0` but the full curvature is negative). The residual term
 /// needs the basis second jet `∂²Φ/∂t²`; an evaluator without one returns
 /// `None`, and the row is flagged (no silent Gauss-Newton fallback).
+///
+/// The Hessian returned is the TRUE `∇²f_k` — no Levenberg ridge is added
+/// (F2). The Kantorovich certificate (`row_certificate`) and its `λ_min(H) > 0`
+/// saddle gate must see the genuine field: a ridged `H + λI` certifies neither
+/// the original objective nor a consistently regularized one (a
+/// locally-constant reconstruction has `H = 0`, whose ridged `λI` would falsely
+/// certify a non-isolated, non-unique root). Ridge stays only in the
+/// UNCERTIFIED amortized predictor (`center_amortized_jacobian`/`center_beta`).
 pub(crate) fn encode_grad_hess(
     atom: &SaeManifoldAtom,
     evaluator: &dyn SaeBasisEvaluator,
     t: ArrayView1<'_, f64>,
     x: ArrayView1<'_, f64>,
     amplitude: f64,
-    ridge: f64,
 ) -> Result<Option<(Array1<f64>, Array2<f64>)>, String> {
     let d = atom.latent_dim;
     let p = atom.output_dim();
@@ -1014,9 +1019,7 @@ pub(crate) fn encode_grad_hess(
             h[[b, a]] = hab;
         }
     }
-    for a in 0..d {
-        h[[a, a]] += ridge;
-    }
+    // NO ridge: the certificate must use the TRUE Hessian (F2). See the doc above.
     Ok(Some((g, h)))
 }
 
@@ -1107,7 +1110,6 @@ pub fn row_certificate(
     x: ArrayView1<'_, f64>,
     amplitude: f64,
     lipschitz: f64,
-    ridge: f64,
 ) -> Result<(RowCertificate, Array1<f64>), String> {
     let uncertified = || {
         (
@@ -1121,7 +1123,7 @@ pub fn row_certificate(
         )
     };
     // No second jet ⇒ no full Hessian ⇒ uncertifiable (flag).
-    let Some((g, h)) = encode_grad_hess(atom, evaluator, t0, x, amplitude, ridge)? else {
+    let Some((g, h)) = encode_grad_hess(atom, evaluator, t0, x, amplitude)? else {
         return Ok(uncertified());
     };
     match beta_eta_newton(h.view(), g.view())? {
@@ -1156,7 +1158,6 @@ fn refine_certified_start(
     x: ArrayView1<'_, f64>,
     amplitude: f64,
     lipschitz: f64,
-    ridge: f64,
     newton_steps: usize,
     initial_cert: RowCertificate,
     mut delta: Array1<f64>,
@@ -1169,14 +1170,12 @@ fn refine_certified_start(
         // reached and the remaining fixed-budget steps would only re-accumulate
         // round-off. This is where the well-conditioned quadratic Newton tail's
         // redundant `evaluate` + `second_jet` work is eliminated.
-        if delta.dot(&delta).sqrt()
-            <= NEWTON_REFINE_CONVERGED_EPS * (1.0 + t.dot(&t).sqrt())
-        {
+        if delta.dot(&delta).sqrt() <= NEWTON_REFINE_CONVERGED_EPS * (1.0 + t.dot(&t).sqrt()) {
             break;
         }
         t = &t + &delta;
         let (cert, next_delta) =
-            row_certificate(atom, evaluator, t.view(), x, amplitude, lipschitz, ridge)?;
+            row_certificate(atom, evaluator, t.view(), x, amplitude, lipschitz)?;
         if !cert.certified() {
             return Ok(None);
         }
@@ -1185,7 +1184,6 @@ fn refine_certified_start(
     }
     Ok(Some(CertifiedEncodeProbe {
         coord: t,
-        initial_cert,
         final_cert,
     }))
 }
@@ -1262,6 +1260,19 @@ fn warmup_progress_sufficient(h_new: f64, h_prev: f64) -> bool {
     h_prev < 1.0 && h_new <= WARMUP_QUADRATIC_KAPPA * h_prev * h_prev
 }
 
+/// Whether the basin warm-up must REJECT the just-taken step (flag to the exact
+/// fallback). FIX (F6): a step that just crossed into the certified region
+/// (`h ≤ ½`) is ALWAYS accepted, even if its multiplicative decrease was below
+/// the progress floor (e.g. `h: 0.501 → 0.499`, a legitimate but tiny cross of
+/// the ½ bound). Only a step that is STILL uncertified AND failed to make
+/// sufficient multiplicative progress is a plateau that must flag. The old code
+/// ran the progress test unconditionally, so it could reject an in-hand
+/// certificate and push the row to the exact fallback for nothing (a false
+/// negative).
+fn warmup_should_reject(next_certified: bool, h_new: f64, h_prev: f64) -> bool {
+    !next_certified && !warmup_progress_sufficient(h_new, h_prev)
+}
+
 fn certify_with_basin_warmup(
     atom: &SaeManifoldAtom,
     evaluator: &dyn SaeBasisEvaluator,
@@ -1269,7 +1280,6 @@ fn certify_with_basin_warmup(
     x: ArrayView1<'_, f64>,
     amplitude: f64,
     lipschitz: f64,
-    ridge: f64,
     newton_steps: usize,
     chart_center: ArrayView1<'_, f64>,
     chart_radius: f64,
@@ -1312,7 +1322,7 @@ fn certify_with_basin_warmup(
         return Ok(None);
     }
     let (mut cert, mut delta) =
-        row_certificate(atom, evaluator, t.view(), x, amplitude, lipschitz, ridge)?;
+        row_certificate(atom, evaluator, t.view(), x, amplitude, lipschitz)?;
     while !cert.certified() {
         // Not steppable (indefinite / non-finite Hessian): flag.
         if !(cert.h.is_finite() && cert.beta.is_finite() && cert.eta.is_finite()) {
@@ -1326,7 +1336,7 @@ fn certify_with_basin_warmup(
         }
         t = next;
         let (next_cert, next_delta) =
-            row_certificate(atom, evaluator, t.view(), x, amplitude, lipschitz, ridge)?;
+            row_certificate(atom, evaluator, t.view(), x, amplitude, lipschitz)?;
         cert = next_cert;
         delta = next_delta;
         // The warm-up only helps while h keeps *multiplicatively* contracting
@@ -1338,7 +1348,15 @@ fn certify_with_basin_warmup(
         // not converging to a certifiable in-chart root — flag for the exact
         // fallback (no arbitrary step budget; the bound falls out of the
         // contraction requirement).
-        if !warmup_progress_sufficient(cert.h, prev_h) {
+        //
+        // F6: only enforce the progress bar while STILL uncertified. If this step
+        // just crossed `h ≤ ½` (e.g. 0.501 → 0.499, a decrease too small to clear
+        // the multiplicative floor) the point is already certified — the loop
+        // guard `while !cert.certified()` will exit and refine it. Running the
+        // progress test unconditionally would falsely reject an in-hand certificate
+        // and push the row to the exact fallback for nothing. See
+        // [`warmup_should_reject`].
+        if warmup_should_reject(cert.certified(), cert.h, prev_h) {
             return Ok(None);
         }
     }
@@ -1349,7 +1367,6 @@ fn certify_with_basin_warmup(
         x,
         amplitude,
         lipschitz,
-        ridge,
         newton_steps,
         cert,
         delta,
@@ -1539,10 +1556,34 @@ impl EncodeAtlas {
         }
         let decoder_norm_sum = decoder_row_norm_sum(atom.decoder_coefficients.view());
         let mut charts = Vec::with_capacity(centers.nrows());
+        // HONEST REFUSAL for Duchon atoms (F2/F3): the closed-form Hessian-Lipschitz
+        // bound available here (`family_jet_sups` Duchon arm) hard-codes cubic-r³
+        // jets and a single origin center, but the real Duchon kernel is the
+        // polyharmonic `c·r^(2m−d)` (with log variants) over data-placed centers.
+        // That bound can UNDER-estimate L → a FALSE certificate (the module's own
+        // warning; underestimating L is the dangerous direction). The atom does not
+        // expose its real order/centers/scaling to this crate, so no sound bound is
+        // available — refuse rather than fabricate. Every Duchon chart is emitted
+        // UNCERTIFIED (`certified_radius = 0`, no amortized predictor), so routing
+        // skips it and every Duchon row flags for the exact multi-start encode.
+        let duchon_uncertifiable =
+            matches!(atom.basis_kind, crate::manifold::SaeAtomBasisKind::Duchon);
         for c in 0..centers.nrows() {
             let center = centers.row(c).to_owned();
             let nominal_radius = radii[c];
             let region = chart_region(atom, center.clone(), nominal_radius);
+            if duchon_uncertifiable {
+                charts.push(CertifiedChart {
+                    region,
+                    lipschitz: f64::INFINITY,
+                    beta_center: f64::INFINITY,
+                    certified_radius: 0.0,
+                    amortized_jacobian: None,
+                    recon_center: Array1::<f64>::zeros(atom.output_dim()),
+                    amortized_base: None,
+                });
+                continue;
+            }
             let sups = family_jet_sups(atom, &region)?;
             let recon_sups = reconstruction_jet_sups(atom, sups);
             let lipschitz =
@@ -1679,7 +1720,6 @@ impl EncodeAtlas {
             x,
             amplitude,
             chart.lipschitz,
-            self.config.ridge,
             self.config.newton_steps,
             chart.region.center.view(),
             chart.region.radius,
@@ -1690,7 +1730,12 @@ impl EncodeAtlas {
                 uncertified_certificate(chart.lipschitz),
             ));
         };
-        Ok((probe.coord, probe.initial_cert))
+        // F5: pair the REFINED coordinate with the certificate evaluated AT that
+        // refined landing point (`final_cert`), not the pre-refinement
+        // `initial_cert`. Returning `initial_cert` describes a different (earlier)
+        // iterate's β/η/h — its Kantorovich root-radius overstates the refined
+        // point's distance to the root.
+        Ok((probe.coord, probe.final_cert))
     }
 
     /// Online certified encode of one target row `x` against one atom `k` with
@@ -1740,8 +1785,7 @@ impl EncodeAtlas {
         // and keep the lowest-reconstruction-error CERTIFIED result. For a unimodal
         // atom every candidate chart converges to the same root, so this is a no-op
         // (first-wins tie → the nearest chart), preserving the existing behavior.
-        let candidates =
-            nearest_charts_topk(atom_atlas, x, CERTIFIED_ROUTING_TOPK);
+        let candidates = nearest_charts_topk(atom_atlas, x, amplitude, CERTIFIED_ROUTING_TOPK);
         if candidates.is_empty() {
             return Ok((
                 Array1::<f64>::zeros(d),
@@ -1762,8 +1806,10 @@ impl EncodeAtlas {
             let chart = &atom_atlas.charts[chart_idx];
             let Some(t) = amortized_warm_start(chart, x, amplitude) else {
                 if nearest_fallback.is_none() {
-                    nearest_fallback =
-                        Some((Array1::<f64>::zeros(d), uncertified_certificate(chart.lipschitz)));
+                    nearest_fallback = Some((
+                        Array1::<f64>::zeros(d),
+                        uncertified_certificate(chart.lipschitz),
+                    ));
                 }
                 continue;
             };
@@ -1779,8 +1825,13 @@ impl EncodeAtlas {
                 nearest_fallback = Some((coord.clone(), cert.clone()));
             }
             if cert.certified() {
-                let err =
-                    encode_reconstruction_error(atom, evaluator.as_ref(), coord.view(), x, amplitude);
+                let err = encode_reconstruction_error(
+                    atom,
+                    evaluator.as_ref(),
+                    coord.view(),
+                    x,
+                    amplitude,
+                );
                 if best.as_ref().map(|(_, _, e)| err < *e).unwrap_or(true) {
                     best = Some((coord, cert, err));
                 }
@@ -1861,7 +1912,7 @@ impl EncodeAtlas {
         let Some(evaluator) = atom.basis_evaluator.as_ref().cloned() else {
             return Ok(uncertified());
         };
-        let Some((chart_idx, _)) = nearest_chart(atom_atlas, x) else {
+        let Some((chart_idx, _)) = nearest_chart(atom_atlas, x, amplitude) else {
             return Ok(uncertified());
         };
         let chart = &atom_atlas.charts[chart_idx];
@@ -1887,7 +1938,6 @@ impl EncodeAtlas {
             x,
             amplitude,
             chart.lipschitz,
-            self.config.ridge,
             self.config.newton_steps,
             chart.region.center.view(),
             chart.region.radius,
@@ -1907,7 +1957,6 @@ impl EncodeAtlas {
             x,
             amplitude,
             chart.lipschitz,
-            self.config.ridge,
             self.config.newton_steps,
             chart.region.center.view(),
             chart.region.radius,
@@ -1928,7 +1977,11 @@ impl EncodeAtlas {
                 uncertified_certificate(chart.lipschitz),
             ));
         }
-        Ok((amortized_probe.coord, amortized_probe.initial_cert))
+        // F5: return the certificate at the refined landing coordinate
+        // (`final_cert`), consistent with the coord actually returned and with the
+        // `distilled_probe_tolerance` gate above (which already reads `final_cert`
+        // via `kantorovich_root_radius`). `initial_cert` is a stale earlier iterate.
+        Ok((amortized_probe.coord, amortized_probe.final_cert))
     }
 
     /// Batched amortized (distilled) encode over many rows against one atom
@@ -2142,23 +2195,45 @@ impl EncodeAtlas {
                 .row_mut(ci)
                 .assign(&atom_atlas.charts[c].recon_center);
         }
-        // Per-chart routing key: route_idx[row] = argmin_c ‖x_row − recon_c‖².
-        // ‖x − r‖² = ‖x‖² − 2 x·r + ‖r‖²; the ‖x‖² term is row-constant so the
-        // argmin uses S = X·recon_centersᵀ and the per-chart ‖r‖². First chart
-        // wins on a tie (strict `<`), matching `nearest_chart`.
+        // Per-chart routing key: route_idx[row] = argmin_c ‖x_row − z_row·r_c‖²
+        // (F1: the TRUE objective at the row's amplitude `z_row`, where `r_c` is
+        // the amplitude-1 center reconstruction). First chart wins on a tie (strict
+        // `<`), matching `nearest_chart`. A non-finite amplitude routes to chart 0
+        // (moot — the predictor below skips the row anyway).
+        //
+        // Score the DIRECT squared distance `Σ_j (z·r_cj − x_j)²`, accumulated in
+        // the same element order as the per-row `nearest_chart`, NOT the algebraic
+        // expansion `z²‖r_c‖² − 2z·(x·r_c)`. The two are equal in exact arithmetic,
+        // but the expansion subtracts two O(‖x‖²) quantities and loses ~‖x‖²·ε of
+        // precision to cancellation — enough to FLIP the argmin between two charts
+        // whose reconstructions coincide to rounding (e.g. period-wrapped torus-seam
+        // charts, whose latent centers differ by a full period yet reconstruct to
+        // within 1e-14). On such a near-tie the expansion and `nearest_chart`
+        // disagree, and the two seam charts predict coords a full period apart — so
+        // the batched fast-encode would diverge from the per-row warm-start it must
+        // reproduce bit-for-bit (the `fast_encode_matches_per_row_warm_start`
+        // contract). Computing the same direct distance in the same order keeps this
+        // path byte-identical to `nearest_chart`, so routing (and the tie-break)
+        // agrees on every row. `recon_centers` is still the cached offline
+        // `m₁(t_c)` — no basis re-evaluation, which was the fast path's real cost.
         let route_idx: Vec<usize> = if valid_charts.len() == 1 {
             vec![0usize; n]
         } else {
-            let s = x.dot(&recon_centers.t()); // (n × C)
-            let r_sq: Vec<f64> = (0..valid_charts.len())
-                .map(|c| recon_centers.row(c).dot(&recon_centers.row(c)))
-                .collect();
             (0..n)
                 .map(|row| {
+                    let z = amplitudes[row];
+                    if !z.is_finite() {
+                        return 0usize;
+                    }
+                    let x_row = x.row(row);
                     let mut best_c = 0usize;
                     let mut best_d = f64::INFINITY;
                     for c in 0..valid_charts.len() {
-                        let dist = r_sq[c] - 2.0 * s[[row, c]];
+                        let mut dist = 0.0;
+                        for (r, xv) in recon_centers.row(c).iter().zip(x_row.iter()) {
+                            let diff = z * r - xv;
+                            dist += diff * diff;
+                        }
                         if dist < best_d {
                             best_d = dist;
                             best_c = c;
@@ -2195,7 +2270,10 @@ impl EncodeAtlas {
                 let chart = &atom_atlas.charts[c];
                 // `base = t_c − A₁·m₁` is precomputed offline in the atlas; reuse it
                 // (both are `Some` together — singular G-N block ⇒ both `None`).
-                match (chart.amortized_jacobian.as_ref(), chart.amortized_base.as_ref()) {
+                match (
+                    chart.amortized_jacobian.as_ref(),
+                    chart.amortized_base.as_ref(),
+                ) {
                     (Some(a1), Some(base)) => Some(ChartPredictor { a1, base }),
                     _ => None,
                 }
@@ -2600,8 +2678,13 @@ impl EncodeAtlas {
             let Some(atom_atlas) = self.atoms.get(best_atom) else {
                 continue; // no atlas for this atom → predictor cannot fire (zeroed)
             };
-            if amortized_predict_row(atom_atlas, dir, amplitudes[row], latent_dim, coords.row_mut(row))
-            {
+            if amortized_predict_row(
+                atom_atlas,
+                dir,
+                amplitudes[row],
+                latent_dim,
+                coords.row_mut(row),
+            ) {
                 valid[row] = true;
             }
         }
@@ -2792,9 +2875,10 @@ pub(crate) fn amortized_predict_row(
     if !(amplitude.is_finite() && amplitude.abs() > 0.0) {
         return false;
     }
-    // Nearest certifiable chart by ‖x − recon_center‖² (first-wins on ties, strict
-    // `<` — same argmin as `amortized_encode_batch_fast`'s route_idx; the ‖x‖² term
-    // it drops is row-constant and does not change the argmin).
+    // Nearest certifiable chart by the TRUE objective ‖x − z·recon_center‖²
+    // (F1; `z = amplitude`, finite and non-zero by the guard above). First-wins on
+    // ties (strict `<`) — same amplitude-scaled argmin as
+    // `amortized_encode_batch_fast`'s route_idx.
     let mut best_ci: Option<usize> = None;
     let mut best_dist = f64::INFINITY;
     for (ci, chart) in atom_atlas.charts.iter().enumerate() {
@@ -2803,7 +2887,7 @@ pub(crate) fn amortized_predict_row(
         }
         let mut dist = 0.0;
         for (r, xv) in chart.recon_center.iter().zip(x.iter()) {
-            let diff = r - xv;
+            let diff = amplitude * r - xv;
             dist += diff * diff;
         }
         if dist < best_dist {
@@ -2917,6 +3001,7 @@ pub(crate) fn center_amortized_jacobian(
 pub(crate) fn nearest_chart(
     atom_atlas: &AtomEncodeAtlas,
     x: ArrayView1<'_, f64>,
+    amplitude: f64,
 ) -> Option<(usize, f64)> {
     if atom_atlas.charts.is_empty() {
         return None;
@@ -2926,12 +3011,16 @@ pub(crate) fn nearest_chart(
         if chart.certified_radius <= 0.0 {
             continue;
         }
-        // Reuse the offline-distilled `m(t_c) = B^T Phi(t_c)` (`chart.recon_center`)
-        // instead of re-evaluating the basis at a fixed center per row — see
-        // `nearest_charts_topk`. Distance accumulated in place, no temporary array.
+        // F1: score the TRUE encode objective `‖x − z·m(t_c)‖²` at the row's
+        // amplitude `z`, NOT the amplitude-1 `‖x − m(t_c)‖²`. The distilled
+        // `chart.recon_center` is the amplitude-1 reconstruction `m₁(t_c)`; the
+        // reconstruction actually compared against `x` is `z·m₁(t_c)`. Routing on
+        // the amplitude-1 centers picks the wrong chart whenever `z ≠ 1` (e.g. a
+        // small `z` makes a large-norm center reconstruct near a small `x`).
+        // Distance accumulated in place, no temporary array.
         let mut dist = 0.0;
         for (r, xv) in chart.recon_center.iter().zip(x.iter()) {
-            let diff = r - xv;
+            let diff = amplitude * r - xv;
             dist += diff * diff;
         }
         if best.map(|(_, b)| dist < b).unwrap_or(true) {
@@ -2951,6 +3040,7 @@ pub(crate) fn nearest_chart(
 pub(crate) fn nearest_charts_topk(
     atom_atlas: &AtomEncodeAtlas,
     x: ArrayView1<'_, f64>,
+    amplitude: f64,
     k: usize,
 ) -> Vec<usize> {
     if atom_atlas.charts.is_empty() || k == 0 {
@@ -2961,15 +3051,16 @@ pub(crate) fn nearest_charts_topk(
         if chart.certified_radius <= 0.0 {
             continue;
         }
-        // `m(t_c) = BᵀΦ(t_c)` is an OFFLINE per-chart constant already distilled
+        // `m₁(t_c) = BᵀΦ(t_c)` is an OFFLINE per-chart constant already distilled
         // into `chart.recon_center` at build time (bit-for-bit the same φ·decoder
         // accumulation this used to recompute). Reuse it instead of re-evaluating
         // the basis at a fixed center for every row — that re-eval was the encode's
         // dominant per-row cost (charts × rows basis evals, each allocating the φ/jet
-        // arrays). `‖m(t_c) − x‖²` computed in place (no temporary diff array).
+        // arrays). F1: score the amplitude-scaled `‖x − z·m₁(t_c)‖²` (the true
+        // objective), not the amplitude-1 `‖m₁(t_c) − x‖²`. Computed in place.
         let mut dist = 0.0;
         for (r, xv) in chart.recon_center.iter().zip(x.iter()) {
-            let diff = r - xv;
+            let diff = amplitude * r - xv;
             dist += diff * diff;
         }
         scored.push((idx, dist));
@@ -3014,7 +3105,11 @@ pub(crate) fn encode_reconstruction_error(
         let r = x[out] - amplitude * recon;
         err2 += r * r;
     }
-    if err2.is_finite() { err2.sqrt() } else { f64::INFINITY }
+    if err2.is_finite() {
+        err2.sqrt()
+    } else {
+        f64::INFINITY
+    }
 }
 
 /// Maximum number of chart centers laid down per atom (the SHAPE_BAND grid
@@ -3034,7 +3129,11 @@ pub(crate) const SHAPE_BAND_MAX_POINTS: usize = 512;
 /// geometry: per-axis WRAPPED distance `min(|a−b|, period−|a−b|)` on periodic
 /// (circle) axes — period 1 to match `chart_center_grid`'s `[0,1)` torus tiling
 /// — and plain difference on line axes. Used to place + size data-driven charts.
-pub(crate) fn coord_dist_sq(atom: &SaeManifoldAtom, a: ArrayView1<'_, f64>, b: ArrayView1<'_, f64>) -> f64 {
+pub(crate) fn coord_dist_sq(
+    atom: &SaeManifoldAtom,
+    a: ArrayView1<'_, f64>,
+    b: ArrayView1<'_, f64>,
+) -> f64 {
     // Per-axis period comes from the ONE canonical source `latent_axis_period` —
     // the SAME convention the certified-encode `in_chart` guard uses (via
     // `latent_coordinate_distance`): period-1 fraction axes for periodic/torus and
@@ -3212,7 +3311,12 @@ pub(crate) fn regular_product_grid(
 /// the [`crate::manifold::SphereChartEvaluator`] convention.
 pub(crate) fn sphere_latlon_grid(resolution: usize) -> Array2<f64> {
     use std::f64::consts::PI;
-    let r = resolution.max(2).min(22); // 22² = 484 ≤ SHAPE_BAND_MAX_POINTS.
+    // Per-axis cap derived from the shared point budget rather than a hardcoded
+    // literal (#2071): the largest r with r² ≤ SHAPE_BAND_MAX_POINTS. Equals 22
+    // at the current budget (22²=484≤512), but now tracks the budget if it
+    // changes instead of silently desyncing from the sibling grid arms.
+    let r_cap = SHAPE_BAND_MAX_POINTS.isqrt();
+    let r = resolution.max(2).min(r_cap);
     let mut grid = Array2::<f64>::zeros((r * r, 2));
     for i in 0..r {
         let lat = -PI / 2.0 + PI * (i as f64 + 0.5) / r as f64;
@@ -3382,7 +3486,10 @@ mod encode_fix_tests {
             (d - 0.98).abs() < 1e-12,
             "a flat (non-periodic) axis must keep the full 0.98 distance, got {d}"
         );
-        assert!(d > 0.05, "flat-axis point correctly stays out of a 0.05 ball");
+        assert!(
+            d > 0.05,
+            "flat-axis point correctly stays out of a 0.05 ball"
+        );
     }
 
     /// FIX #4: a genuinely converging (Kantorovich-quadratic) `h`-sequence is
@@ -3497,7 +3604,10 @@ mod encode_fix_tests {
         let b = Array1::from(vec![0.98f64]);
         // Wrapped circle distance min(0.96, 0.04) = 0.04 ⇒ dist² = 0.0016.
         let dsq = coord_dist_sq(&atom, a.view(), b.view());
-        assert!((dsq - 0.0016).abs() < 1e-12, "torus unit-period wrap; got {dsq}");
+        assert!(
+            (dsq - 0.0016).abs() < 1e-12,
+            "torus unit-period wrap; got {dsq}"
+        );
     }
 
     /// BUG (sphere chart tiling): `chart_nominal_radius` for the sphere must use
@@ -3515,5 +3625,221 @@ mod encode_fix_tests {
              (no gaps for resolution>22); raw π/40={} would gap",
             std::f64::consts::PI / 40.0
         );
+    }
+
+    // ---------------------------------------------------------------------
+    // F1: amplitude-aware chart routing.
+    // ---------------------------------------------------------------------
+
+    /// A single certifiable chart with the given amplitude-1 center reconstruction.
+    fn chart_with_recon(recon: Vec<f64>) -> CertifiedChart {
+        CertifiedChart {
+            region: ChartRegion::new(Array1::zeros(1), 1.0),
+            lipschitz: 1.0,
+            beta_center: 1.0,
+            certified_radius: 1.0,
+            amortized_jacobian: None,
+            recon_center: Array1::from(recon),
+            amortized_base: None,
+        }
+    }
+
+    fn atlas_two_charts(m1: f64, m2: f64) -> AtomEncodeAtlas {
+        AtomEncodeAtlas {
+            atom_index: 0,
+            latent_dim: 1,
+            decoder_norm_sum: 1.0,
+            charts: vec![chart_with_recon(vec![m1]), chart_with_recon(vec![m2])],
+        }
+    }
+
+    /// F1 counterexample (module review): chart centers reconstruct (amplitude 1)
+    /// to `m₁ = 1` and `m₂ = 10`. A row `x = 1` at amplitude `z = 0.1`
+    /// reconstructs as `z·m`, so chart 2 is EXACT (`0.1·10 = 1 = x`) and chart 1 is
+    /// wrong (`0.1·1 = 0.1`, error `0.9`). Amplitude-blind routing on the
+    /// amplitude-1 centers picks chart 1 (`|1−1| = 0 < |10−1| = 9`); the
+    /// amplitude-aware fix picks chart 2.
+    #[test]
+    fn f1_routing_scores_amplitude_scaled_reconstruction() {
+        let atlas = atlas_two_charts(1.0, 10.0);
+        let x = Array1::from(vec![1.0]);
+
+        let (idx, _) = nearest_chart(&atlas, x.view(), 0.1).expect("routes");
+        assert_eq!(
+            idx, 1,
+            "z=0.1: must route to the m=10 chart (z·m=1 exact), not m=1"
+        );
+
+        let ranked = nearest_charts_topk(&atlas, x.view(), 0.1, 2);
+        assert_eq!(ranked[0], 1, "z=0.1: nearest chart is the m=10 chart");
+
+        // Negative amplitude: z=-0.1 makes z·m₂ = -1 (error 2) and z·m₁ = -0.1
+        // (error 1.1), so chart 1 is now nearer — the sign is respected.
+        let (idxn, _) = nearest_chart(&atlas, x.view(), -0.1).expect("routes");
+        assert_eq!(idxn, 0, "z=-0.1: sign-aware routing prefers the m=1 chart");
+
+        // No-regression at z=1: recovers the amplitude-1 argmin (m=1 chart exact).
+        let (idx1, _) = nearest_chart(&atlas, x.view(), 1.0).expect("routes");
+        assert_eq!(idx1, 0, "z=1 recovers the amplitude-1 nearest (m=1) chart");
+        assert_eq!(nearest_charts_topk(&atlas, x.view(), 1.0, 1)[0], 0);
+    }
+
+    // ---------------------------------------------------------------------
+    // F2: the certificate uses the TRUE (un-ridged) Hessian.
+    // ---------------------------------------------------------------------
+
+    /// A basis with constant `Φ`, zero Jacobian, and zero second jet: the
+    /// reconstruction is locally CONSTANT, so the true encode Hessian is `0`
+    /// (singular) and the coordinate is non-unique.
+    #[derive(Debug)]
+    struct ConstantPhi {
+        m: usize,
+        d: usize,
+    }
+    impl SaeBasisEvaluator for ConstantPhi {
+        fn evaluate(
+            &self,
+            coords: ndarray::ArrayView2<'_, f64>,
+        ) -> Result<(Array2<f64>, Array3<f64>), String> {
+            let n = coords.nrows();
+            Ok((
+                Array2::ones((n, self.m)),
+                Array3::zeros((n, self.m, self.d)),
+            ))
+        }
+        fn second_jet_dyn(
+            &self,
+            coords: ndarray::ArrayView2<'_, f64>,
+        ) -> Option<Result<ndarray::Array4<f64>, String>> {
+            let n = coords.nrows();
+            Some(Ok(ndarray::Array4::zeros((n, self.m, self.d, self.d))))
+        }
+        fn third_jet_dyn(
+            &self,
+            coords: ndarray::ArrayView2<'_, f64>,
+        ) -> Option<Result<ndarray::Array5<f64>, String>> {
+            if coords.ncols() != self.d {
+                return Some(Err(format!(
+                    "ConstantPhi::third_jet_dyn: expected d = {}, got {} coords",
+                    self.d,
+                    coords.ncols()
+                )));
+            }
+            None
+        }
+    }
+
+    /// F2: a locally-constant reconstruction has a SINGULAR true Hessian (`H = 0`),
+    /// so the point is NOT a genuine isolated minimum and must NOT be certified.
+    /// The old code ridged the certified Hessian (`H → ridge·I`, PD), faking
+    /// `β = 1/ridge`, `η = 0`, `h = 0 ≤ ½` — a FALSE certificate. With the true
+    /// Hessian (`encode_grad_hess` no longer adds ridge) `beta_eta_newton` sees
+    /// `λ_min = 0` and refuses.
+    #[test]
+    fn f2_certificate_uses_true_hessian_refuses_singular_field() {
+        let atom = tiny_atom(SaeAtomBasisKind::EuclideanPatch, 1);
+        let eval = ConstantPhi {
+            m: atom.basis_size(),
+            d: 1,
+        };
+        let t0 = Array1::from(vec![0.0]);
+        let x = Array1::from(vec![0.5]);
+
+        let (g, h) = encode_grad_hess(&atom, &eval, t0.view(), x.view(), 1.0)
+            .expect("encode_grad_hess runs")
+            .expect("second jet present ⇒ Some");
+        assert!(
+            h.iter().all(|&v| v == 0.0),
+            "the TRUE Hessian of a constant reconstruction is 0 — no ridge is added \
+             to the certified field; got {h:?}"
+        );
+        assert!(
+            g.iter().all(|&v| v == 0.0),
+            "gradient is 0 at a flat reconstruction"
+        );
+
+        let (cert, _) = row_certificate(&atom, &eval, t0.view(), x.view(), 1.0, 1.0)
+            .expect("row_certificate runs");
+        assert!(
+            !cert.certified(),
+            "a singular true Hessian must NOT be certified (the old ridged H falsely did)"
+        );
+        assert!(
+            !cert.beta.is_finite(),
+            "β must be ∞ (uncertifiable), never the ridge-faked 1/ridge; got {}",
+            cert.beta
+        );
+    }
+
+    // ---------------------------------------------------------------------
+    // F3: Duchon atoms are refused (honest refusal, never a fabricated bound).
+    // ---------------------------------------------------------------------
+
+    /// F3: `build_atom_atlas_from_centers` must emit ONLY uncertified charts for a
+    /// Duchon atom — the closed-form bound available here would fabricate cubic-r³
+    /// jets and an origin center for a polyharmonic `c·r^(2m−d)` kernel over
+    /// data-placed centers, risking an under-estimate of `L` (false certificate).
+    /// The refusal routes every Duchon row to the exact multi-start encode. A
+    /// non-Duchon control atom is NOT auto-zeroed by this guard.
+    #[test]
+    fn f3_duchon_atoms_are_uncertifiable() {
+        let atom = tiny_atom(SaeAtomBasisKind::Duchon, 1);
+        let centers = ndarray::array![[0.0_f64], [0.3], [0.7]];
+        let radii = vec![0.1_f64, 0.1, 0.1];
+        let atlas = EncodeAtlas::build_atom_atlas_from_centers(
+            0,
+            &atom,
+            centers.view(),
+            &radii,
+            1.0,
+            1.0,
+            &AtlasConfig::default(),
+        )
+        .expect("duchon atlas builds (uncertified)");
+        assert_eq!(atlas.charts.len(), 3, "one chart per center");
+        for (i, chart) in atlas.charts.iter().enumerate() {
+            assert_eq!(
+                chart.certified_radius, 0.0,
+                "duchon chart {i} must be uncertified (refused), got r={}",
+                chart.certified_radius
+            );
+            assert!(
+                chart.amortized_jacobian.is_none(),
+                "duchon chart {i} must carry no amortized predictor"
+            );
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // F6: an already-certified warm-up step is never rejected by the progress rule.
+    // ---------------------------------------------------------------------
+
+    /// F6: a step that just crossed into the certified region (`h ≤ ½`) is accepted
+    /// even when its multiplicative decrease was below the progress floor
+    /// (`0.501 → 0.499`). Only a STILL-uncertified plateau step is rejected. The
+    /// old unconditional progress test rejected the `0.501 → 0.499` cross — a false
+    /// negative that forced an unnecessary exact-solve fallback.
+    #[test]
+    fn f6_certified_step_not_rejected_by_progress_rule() {
+        // 0.501 → 0.499: below the 1/64 multiplicative floor, and NOT the quadratic
+        // path, so `warmup_progress_sufficient` is false…
+        assert!(
+            !warmup_progress_sufficient(0.499, 0.501),
+            "precondition: this tiny decrease fails the progress bar"
+        );
+        // …but because the step is now CERTIFIED it must NOT be rejected (F6).
+        assert!(
+            !warmup_should_reject(true, 0.499, 0.501),
+            "a certified step must be accepted regardless of the progress floor"
+        );
+        // A still-uncertified plateau step IS rejected (the guard still bites).
+        assert!(
+            warmup_should_reject(false, 0.499, 0.501),
+            "an uncertified sub-floor step is a plateau and must flag to fallback"
+        );
+        // A certified step that ALSO made big progress is accepted (sanity).
+        assert!(!warmup_should_reject(true, 0.1, 0.9));
+        // A genuinely-contracting uncertified step is accepted (no regression).
+        assert!(!warmup_should_reject(false, 0.4, 0.9));
     }
 }

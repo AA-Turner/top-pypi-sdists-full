@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sage.main import (
+from sage.cli_core import (
     AutoFleetSubtask,
     TaskType,
     _decompose_task_for_fleet,

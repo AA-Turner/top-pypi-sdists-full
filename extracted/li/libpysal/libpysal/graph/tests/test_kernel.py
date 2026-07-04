@@ -15,7 +15,9 @@ import geopandas
 import numpy as np
 import pandas as pd
 import pytest
+from shapely import Point
 
+from libpysal.graph import Graph
 from libpysal.graph._kernel import (
     HAS_SKLEARN,
     _distance_band,
@@ -215,6 +217,9 @@ def test_kernels(kernel, grocs):
     elif kernel == "bisquare":
         assert weight.mean() == pytest.approx(0.09084085210598618)
         assert weight.max() == pytest.approx(0.9372045972129259)
+    elif kernel == "tricube":
+        assert weight.mean() == pytest.approx(0.0925592973486846)
+        assert weight.max() == pytest.approx(0.8641924033756005)
     elif kernel == "cosine":
         assert weight.mean() == pytest.approx(0.1008306468068958)
         assert weight.max() == pytest.approx(0.7852455006403666)
@@ -358,6 +363,28 @@ def test_coplanar(grocs):
     np.testing.assert_array_equal(pd.unique(head), grocs_duplicated.index)
 
 
+def test_coplanar_clique_duplicate_labels():
+    gs = geopandas.GeoSeries(
+        [
+            Point(0, 0),
+            Point(0, 0),
+            Point(1, 0),
+            Point(2, 0),
+            Point(3, 0),
+            Point(4, 0),
+        ]
+    )
+    g = Graph.build_kernel(gs, k=2, coplanar="clique")
+    assert g.n == 6
+
+    assert 0 in g.adjacency.index.get_level_values("focal")
+    assert 1 in g.adjacency.index.get_level_values("focal")
+
+    neighbors_0 = set(g.adjacency.loc[0].index) - {1}
+    neighbors_1 = set(g.adjacency.loc[1].index) - {0}
+    assert neighbors_0 == neighbors_1
+
+
 def test_shape_preservation():
     coordinates = np.vstack(
         [np.repeat(np.arange(10), 10), np.tile(np.arange(10), 10)]
@@ -422,4 +449,244 @@ def test_distance_band_colocated():
                 0.0,
             ]
         ),
+    )
+
+
+def test__kernel_precomputed_exclude_self_weights_affects_ranking():
+    coords = np.array(
+        [
+            [0.1, 1.0, 2.0],
+            [1.0, 0.1, 3.0],
+            [2.0, 3.0, 0.1],
+        ],
+        dtype=float,
+    )
+    n = coords.shape[0]
+    k = 2
+
+    out_including_self = _kernel(
+        coords,
+        k=k,
+        metric="precomputed",
+        exclude_self_weights=False,
+    )
+    focal, neighbor, weight = out_including_self
+
+    assert focal.shape == (n * k,)
+    assert neighbor.shape == (n * k,)
+    assert weight.shape == (n * k,)
+
+    for i in range(n):
+        neigh_i = set(neighbor[focal == i].tolist())
+        assert i in neigh_i
+
+    out_excluding_self = _kernel(
+        coords,
+        k=k,
+        metric="precomputed",
+        exclude_self_weights=True,
+    )
+
+    focal2, neighbor2, weight2 = out_excluding_self
+
+    assert focal2.shape == (n * k,)
+    assert neighbor2.shape == (n * k,)
+    assert weight2.shape == (n * k,)
+
+    # No (i -> i) edges at all
+    assert not np.any(focal2 == neighbor2)
+
+    for i in range(n):
+        neigh_i = neighbor2[focal2 == i]
+        assert len(neigh_i) == k
+        assert len(set(neigh_i.tolist())) == k
+
+
+def test_tree_parameter_knn(grocs):
+    """Test that passing a pre-built tree produces the same results."""
+    from scipy import spatial
+
+    coords = np.array([[pt.x, pt.y] for pt in grocs.geometry.values])
+
+    # Build KNN without tree
+    g1 = _kernel(coords, k=5, kernel="boxcar", bandwidth=np.inf)
+
+    # Build a KDTree and pass it — coords + tree triggers a warning
+    tree = spatial.KDTree(coords)
+    with pytest.warns(UserWarning, match="coordinate"):
+        g2 = _kernel(coords, k=5, kernel="boxcar", bandwidth=np.inf, tree=tree)
+
+    np.testing.assert_array_equal(g1[0], g2[0])  # focal
+    np.testing.assert_array_equal(g1[1], g2[1])  # neighbor
+    np.testing.assert_array_equal(g1[2], g2[2])  # weight
+
+
+@pytest.mark.skipif(not HAS_SKLEARN, reason="scikit-learn not installed")
+def test_tree_parameter_sklearn(grocs):
+    """Test that passing a pre-built sklearn tree works."""
+    from sklearn.neighbors import KDTree
+
+    coords = np.array([[pt.x, pt.y] for pt in grocs.geometry.values])
+
+    # Build KNN with sklearn tree — coords + tree triggers a warning
+    tree = KDTree(coords)
+    with pytest.warns(UserWarning, match="coordinate"):
+        g = _kernel(coords, k=5, kernel="boxcar", bandwidth=np.inf, tree=tree)
+
+    # Should produce valid output
+    assert len(g[0]) > 0
+    assert len(g[1]) > 0
+    assert len(g[2]) > 0
+
+
+def test_tree_parameter_distance_band(grocs):
+    """Test that passing a pre-built tree to distance_band works."""
+    from scipy import spatial
+
+    coords = np.array([[pt.x, pt.y] for pt in grocs.geometry.values])
+
+    # Build distance band without tree
+    sp1 = _distance_band(coords, threshold=500)
+
+    # Build a KDTree and pass it
+    tree = spatial.KDTree(coords)
+    sp2 = _distance_band(coords, threshold=500, tree=tree)
+
+    np.testing.assert_array_equal(sp1.toarray(), sp2.toarray())
+
+
+def test_tree_parameter_full_distance_matrix():
+    """Test _kernel with k=None and a pre-built tree (uses pdist path)."""
+    from scipy import spatial
+
+    coords = lap_coords[:20]
+
+    # Without tree
+    g1 = _kernel(coords, k=None, kernel="identity", taper=False)
+
+    # With tree — coords + tree triggers a warning
+    tree = spatial.KDTree(coords)
+    with pytest.warns(UserWarning, match="coordinate"):
+        g2 = _kernel(coords, k=None, kernel="identity", taper=False, tree=tree)
+
+    np.testing.assert_array_almost_equal(np.sort(g1[2]), np.sort(g2[2]))
+
+
+def test_tree_jitter_raises():
+    """Tree + coplanar='jitter' should raise a ValueError."""
+    from scipy import spatial
+
+    coords = lap_coords[:20]
+    tree = spatial.KDTree(coords)
+
+    with pytest.raises(ValueError, match="Cannot use a pre-built tree"):
+        _kernel(coords, k=3, coplanar="jitter", tree=tree)
+
+
+@pytest.mark.network
+def test_tree_haversine_raises(grocs):
+    """Tree + metric='haversine' should raise a ValueError."""
+    from scipy import spatial
+
+    grocs_4326 = grocs.to_crs(4326)
+    coords = np.array([[pt.x, pt.y] for pt in grocs_4326.geometry.values])
+    tree = spatial.KDTree(coords)
+
+    with pytest.raises(ValueError, match="Cannot use a pre-built tree"):
+        _kernel(coords, k=3, metric="haversine", tree=tree)
+
+
+def test_adaptive_bandwidth_requires_k():
+    """bandwidth='adaptive' without k should raise a ValueError."""
+    with pytest.raises(ValueError, match="bandwidth='adaptive'"):
+        _kernel(lap_coords, bandwidth="adaptive", k=None)
+
+
+def test_adaptive_bandwidth_basic():
+    """bandwidth='adaptive' with k should produce per-observation bandwidths."""
+    k = 5
+    head_f, tail_f, weight_f = _kernel(lap_coords, k=k)
+    head_a, tail_a, weight_a = _kernel(lap_coords, k=k, bandwidth="adaptive")
+
+    # Both should have the same neighbors
+    assert head_a.shape == head_f.shape
+    assert tail_a.shape == tail_f.shape
+
+    # each focal should have exactly k neighbors
+    unique, counts = np.unique(head_a, return_counts=True)
+    assert (counts == k).all()
+
+    assert weight_a.mean() == pytest.approx(0.2950555038)
+    assert weight_a.max() == pytest.approx(0.3981074891)
+
+    assert not np.allclose(weight_a, weight_f)
+
+
+@pytest.mark.parametrize(
+    "kernel",
+    ["bisquare", "boxcar", "triangular", "tricube", "cosine", "parabolic"],
+)
+def test_compact_support_sparse_path_matches_dense(kernel):
+    """Compact-support kernels with a fixed bandwidth should take the sparse path
+    and return results identical to the dense path."""
+    coords = lap_coords[:100]
+    bw = 0.05
+
+    sparse_heads, sparse_tails, sparse_weights = _kernel(
+        coords, bandwidth=bw, kernel=kernel, metric="euclidean"
+    )
+    # Force dense path: wrap bw so isinstance(bandwidth, (int, float)) is False
+    dense_heads, dense_tails, dense_weights = _kernel(
+        coords, bandwidth=complex(bw), kernel=kernel, metric="euclidean"
+    )
+
+    np.testing.assert_array_equal(
+        np.sort(sparse_heads), np.sort(dense_heads), err_msg=f"{kernel}: heads differ"
+    )
+    np.testing.assert_array_equal(
+        np.sort(sparse_tails), np.sort(dense_tails), err_msg=f"{kernel}: tails differ"
+    )
+    np.testing.assert_array_almost_equal(
+        np.sort(sparse_weights),
+        np.sort(dense_weights),
+        err_msg=f"{kernel}: weights differ",
+    )
+
+
+def test_gaussian_not_sparse_path():
+    """Gaussian without taper must not take the sparse path."""
+
+    coords = lap_coords[:50]
+    bw = 0.05
+
+    heads, tails, weights = _kernel(
+        coords, bandwidth=bw, kernel="gaussian", taper=False
+    )
+    # Gaussian with a tight bandwidth should still return weights for all pairs
+    # (non-zero gaussian never reaches exactly zero), so the edge count should
+    # exceed what a compact-support kernel would return at the same bandwidth.
+    compact_heads, _, _ = _kernel(coords, bandwidth=bw, kernel="bisquare")
+    assert len(heads) >= len(compact_heads), (
+        "Gaussian should have at least as many edges as a compact kernel"
+        " at the same bandwidth"
+    )
+
+
+def test_gaussian_taper_sparse_path_matches_dense():
+    """Gaussian with taper=True should take the sparse path and match the dense path."""
+    coords = lap_coords[:100]
+    bw = 0.05
+
+    sparse_heads, sparse_tails, sparse_weights = _kernel(
+        coords, bandwidth=bw, kernel="gaussian", taper=True, metric="euclidean"
+    )
+    # Force dense path by wrapping bw so isinstance(bandwidth, (int, float)) is False
+    dense_heads, dense_tails, dense_weights = _kernel(
+        coords, bandwidth=complex(bw), kernel="gaussian", taper=True, metric="euclidean"
+    )
+
+    np.testing.assert_array_equal(np.sort(sparse_heads), np.sort(dense_heads))
+    np.testing.assert_array_equal(np.sort(sparse_tails), np.sort(dense_tails))
+    np.testing.assert_array_almost_equal(
+        np.sort(sparse_weights), np.sort(dense_weights)
     )

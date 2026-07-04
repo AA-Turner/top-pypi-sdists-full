@@ -11,13 +11,13 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "cdk8s", "2.70.81", __name__[0:-6], "cdk8s@2.70.81.jsii.tgz"
+    "cdk8s", "2.70.82", __name__[0:-6], "cdk8s@2.70.82.jsii.tgz"
 )
 
 __all__ = [

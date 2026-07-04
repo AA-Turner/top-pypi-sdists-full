@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyDeprecate
-Version: 0.9.0
+Version: 0.10.1
 Summary: Python deprecation decorator: call forwarding, argument mapping, class proxying, CI audit. Zero deps.
 Home-page: https://borda.github.io/pyDeprecate/stable/
 Author: Jiri Borovec
@@ -54,7 +54,7 @@ Dynamic: summary
 
 **Simple tooling for marking deprecated functions or classes and re-routing to their successors.**
 
-> **Summary**: pyDeprecate is a lightweight Python library for managing function and class deprecations with zero dependencies. It provides automatic call forwarding to replacement functions, argument mapping between old and new APIs, and configurable warning controls to prevent log spam. Perfect for library maintainers evolving APIs while maintaining backward compatibility.
+> **Summary**: pyDeprecate is a lightweight Python library for managing function and class deprecations with zero dependencies. It provides automatic call forwarding to replacement functions, argument mapping between old and new APIs, and configurable warning controls to prevent log spam. Perfect for library maintainers evolving APIs while maintaining backward compatibility. Designed around three principles: **simplicity** (single decorator, no config files), **robustness** (works with any Python callable), and **flexibility** (forward, remap, or notify — your choice).
 
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pyDeprecate)](https://pypi.org/project/pyDeprecate/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Borda/pyDeprecate/blob/main/LICENSE)
@@ -67,9 +67,9 @@ Dynamic: summary
 [![CodeFactor](https://www.codefactor.io/repository/github/borda/pydeprecate/badge)](https://www.codefactor.io/repository/github/borda/pydeprecate)
 [![Documentation](https://img.shields.io/badge/docs-borda.github.io-blue)](https://borda.github.io/pyDeprecate/)
 
-[![CI testing](https://github.com/Borda/pyDeprecate/actions/workflows/ci_testing.yml/badge.svg?tag=v0.9.0)](https://github.com/Borda/pyDeprecate/actions/workflows/ci_testing.yml)
-[![Install pkg](https://github.com/Borda/pyDeprecate/actions/workflows/ci_install-pkg.yml/badge.svg?tag=v0.9.0)](https://github.com/Borda/pyDeprecate/actions/workflows/ci_install-pkg.yml)
-[![codecov](https://codecov.io/gh/Borda/pyDeprecate/release/v0.9.0/graph/badge.svg?token=BG7RQ86UJA)](https://codecov.io/gh/Borda/pyDeprecate)
+[![CI testing](https://github.com/Borda/pyDeprecate/actions/workflows/ci_testing.yml/badge.svg?tag=v0.10.1)](https://github.com/Borda/pyDeprecate/actions/workflows/ci_testing.yml)
+[![Install pkg](https://github.com/Borda/pyDeprecate/actions/workflows/ci_install-pkg.yml/badge.svg?tag=v0.10.1)](https://github.com/Borda/pyDeprecate/actions/workflows/ci_install-pkg.yml)
+[![codecov](https://codecov.io/gh/Borda/pyDeprecate/release/v0.10.1/graph/badge.svg?token=BG7RQ86UJA)](https://codecov.io/gh/Borda/pyDeprecate)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Borda/pyDeprecate/main.svg)](https://results.pre-commit.ci/latest/github/Borda/pyDeprecate/main)
 
 > **Author:** [Jiri Borovec](https://github.com/Borda) · **License:** Apache 2.0 · **Python:** 3.9+ · **Install:** `pip install pyDeprecate` · **Import:** `from deprecate import deprecated, deprecated_class` · **Docs:** https://borda.github.io/pyDeprecate/
@@ -123,6 +123,7 @@ Another good aspect is not overwhelming users with too many warnings, so per fun
 - 🚫 The deprecated function body is never executed when using `target`
 - ⚡ Minimal runtime overhead with zero dependencies (Python standard library only)
 - 🛠️ Supports deprecating callables: functions, methods, class constructors, **generator functions** (`def gen(): yield` — warning fires eagerly at call time, before iteration begins), and **`async def` coroutine functions** (wrapper is `async def`, `inspect.iscoroutinefunction(wrapper)` returns `True`; warning fires when the coroutine is awaited)
+- 🏠 Supports deprecating `@property` — all three accessors (`fget`, `fset`, `fdel`) fire `FutureWarning`; chain-style `.setter()` / `.deleter()` rebinding preserved via `_DeprecatedProperty` subclass. Also supports `@cached_property` (getter-only — no `fset`/`fdel`).
 - 📦 Supports deprecating classes, Enums, dataclasses, and module-level constants/objects via transparent proxies (`deprecated_class` for types; `deprecated_instance` for objects, with optional read-only enforcement — blocks standard collection mutators: `append`, `pop`, `update`, `clear`, etc.; custom mutator names bypass this guard)
 - 📝 Optionally, docstrings can be updated automatically in RST/Sphinx or MkDocs/Markdown format (auto-detected); ships bundled Griffe and Sphinx doc-engine extensions
 - 🔍 Preserves original function signature, annotations and metadata for introspection
@@ -304,7 +305,7 @@ Not sure which API to reach for? Start here.
 | `update_docstring` | `False`                     | Append Sphinx `.. deprecated::` notice to docstring                                                        |
 
 > [!TIP]
-> `@deprecated_class()` shares `target`, `deprecated_in`, `remove_in`, `num_warns`, `stream`, `args_mapping`, `args_extra`, `template_mgs`, `update_docstring`, and `docstring_style`.
+> `@deprecated_class()` shares `target`, `deprecated_in`, `remove_in`, `num_warns`, `stream`, `args_mapping`, `attrs_mapping`, `args_extra`, `template_mgs`, `update_docstring`, and `docstring_style`.
 > `deprecated_instance()` shares `deprecated_in`, `remove_in`, `num_warns`, `stream`, `args_extra`, and `template_mgs`; it requires `obj` and adds `name` (display name) and `read_only`.
 
 </details>
@@ -968,6 +969,93 @@ True
 
 <br>
 
+<details>
+<summary>Example: selective attribute deprecation with <code>attrs_mapping</code></summary>
+
+Use `attrs_mapping` to deprecate only specific attribute names — other attributes pass through silently. Covers renames, misspelling corrections, warn-only notices, and Enum member aliases.
+Non-`None` mapping values must exist on the `target` class when `target=` is provided, or on the wrapped class otherwise.
+Entries mapped to `None` keep the same attribute name but still resolve on the active class, so `target=NewClass` with `attrs_mapping={"size": None}` warns and then reads, writes, or deletes `NewClass.size`.
+Non-cyclic chains are allowed at decoration time and reported by audit; cycles raise immediately.
+
+**Decorator syntax** — apply `@deprecated_class(attrs_mapping=...)` at class definition time:
+
+```python
+from deprecate import deprecated_class
+
+
+@deprecated_class(
+    attrs_mapping={"color": "colour"},  # "color" is the deprecated spelling
+    deprecated_in="2.0",
+    remove_in="3.0",
+)
+class Palette:
+    colour: str = "red"  # canonical name
+    size: int = 10  # unlisted — passes through silently
+
+
+print(Palette.color)  # warns: FutureWarning — redirected to colour → "red"
+print(Palette.colour)  # silent
+print(Palette.size)  # silent
+```
+
+<details>
+  <summary>Output: <code>Palette.color; Palette.colour; Palette.size</code></summary>
+
+```
+red
+red
+10
+```
+
+</details>
+
+**Wrapper form** — equivalent, useful when wrapping an existing class:
+
+```python
+from deprecate import deprecated_class
+
+
+class Config:
+    colour: str = "red"
+    size: int = 42
+    timeout: int = 30
+
+
+# "color" → "colour" rename; "size" warn-only (None = no rename, just warn)
+DeprecatedConfig = deprecated_class(
+    attrs_mapping={"color": "colour", "size": None},
+    deprecated_in="1.0",
+    remove_in="2.0",
+)(Config)
+
+print(DeprecatedConfig.color)  # warns: FutureWarning — redirected to colour → "red"
+print(DeprecatedConfig.colour)  # silent
+print(DeprecatedConfig.timeout)  # silent
+```
+
+<details>
+  <summary>Output: <code>DeprecatedConfig.color; DeprecatedConfig.colour; DeprecatedConfig.timeout</code></summary>
+
+```
+red
+red
+30
+```
+
+</details>
+
+Each deprecated attribute name has its own independent warning counter — with `num_warns=1`, both `color` and `size` each emit one warning, not one shared across all entries. See [Selective attribute deprecation](https://borda.github.io/pyDeprecate/stable/guide/use-cases.html#selective-attribute-deprecation) in the docs for write/delete redirect and Enum member alias examples.
+
+**Dataclass auto-expand** — when the wrapped class is a `@dataclass`, a single `deprecated_class(attrs_mapping={"old": "new"})` call automatically warns on both attribute access (`obj.old`) and constructor kwargs (`DC(old=5)`). No need to set `args_mapping` separately for a field rename. For non-`@dataclass` targets, `attrs_mapping` covers attribute access only — also set `args_mapping` to cover constructor kwargs.
+
+**Explicit `TargetMode.ATTRS_REMAP` form** — passing `attrs_mapping` alone auto-resolves to `TargetMode.ATTRS_REMAP`. The equivalent self-documenting form is to pass `target=TargetMode.ATTRS_REMAP` together with `attrs_mapping`; both forms are behaviourally identical. Three misconfigurations emit `UserWarning` at decoration time (planned `TypeError` in v1.0): `target=TargetMode.NOTIFY` + `attrs_mapping=...` (contradictory policies), `target=TargetMode.ATTRS_REMAP` without `attrs_mapping` (no selective effect), and `attrs_mapping={}` (empty dict). Using `@deprecated(target=TargetMode.ATTRS_REMAP)` on a function or property raises `TypeError` — the mode is proxy-only.
+
+To deprecate attributes at different library versions, stack two `@deprecated_class()` decorators — each layer carries its own version pair and `isinstance()`/`issubclass()` resolve correctly through the proxy chain.
+
+</details>
+
+<br>
+
 ### 📝 Automatic docstring updates
 
 You can automatically inject deprecation information into your function's docstring:
@@ -1050,11 +1138,11 @@ This is useful for generating API docs with Sphinx, MkDocs, and strict Google/Nu
 
 **MkDocs** (via `mkdocstrings` + Griffe extension):
 
-![MkDocs demo — deprecation notice rendered as a warning admonition](https://github.com/Borda/pyDeprecate/raw/v0.9.0/docs/assets/images/demo-docs-mkdocs.png)
+![MkDocs demo — deprecation notice rendered as a warning admonition](https://github.com/Borda/pyDeprecate/raw/v0.10.1/docs/assets/images/demo-docs-mkdocs.png)
 
 **Sphinx** (via `autodoc` + Sphinx extension):
 
-![Sphinx demo — deprecation notice rendered as a styled deprecated directive](https://github.com/Borda/pyDeprecate/raw/v0.9.0/docs/assets/images/demo-docs-sphinx.png)
+![Sphinx demo — deprecation notice rendered as a styled deprecated directive](https://github.com/Borda/pyDeprecate/raw/v0.10.1/docs/assets/images/demo-docs-sphinx.png)
 
 See the live rendered output in the online demos: [Sphinx demo](https://borda.github.io/pyDeprecate/stable/demo-sphinx/api.html) · [MkDocs demo](https://borda.github.io/pyDeprecate/stable/demo-mkdocs/api.html).
 
@@ -1148,7 +1236,7 @@ async def fetch(url: str) -> bytes:
 
 # 2) TargetMode.NOTIFY — warn callers; the async body still runs
 @deprecated(deprecated_in="0.9", remove_in="1.0")
-async def legacy_ping() -> str:
+async def ping() -> str:
     """Deprecated — going away; remove call sites."""
     return "pong"
 
@@ -1166,7 +1254,7 @@ async def fetch_data(endpoint: str = "", url: str = "") -> bytes:
 
 
 asyncio.run(fetch("https://example.com"))
-asyncio.run(legacy_ping())
+asyncio.run(ping())
 print(asyncio.run(fetch_data(endpoint="https://example.com")))
 ```
 
@@ -1190,7 +1278,8 @@ b'https://example.com'
 When using `@deprecated` with a `target` function, the deprecated function's body is never executed—all calls are automatically forwarded. However, your IDE might complain about "unused parameters". The `void()` helper function silences these warnings:
 
 ```python
-def new_add(a: int, b: int) -> int:
+# NEW API — adds two integers and returns the sum
+def add_values(a: int, b: int) -> int:
     return a + b
 
 
@@ -1199,24 +1288,25 @@ def new_add(a: int, b: int) -> int:
 from deprecate import deprecated, void
 
 
-@deprecated(target=new_add, deprecated_in="1.0", remove_in="2.0")
-def old_add(a: int, b: int) -> int:
+# DEPRECATED API — `add` replaced by `add_values`
+@deprecated(target=add_values, deprecated_in="1.0", remove_in="2.0")
+def add(a: int, b: int) -> int:
     return void(a, b)  # Tells IDE: "Yes, I know these parameters aren't used"
-    # This line is never reached - call is forwarded to new_add
+    # call is forwarded to add_values
 
 
 # Alternative: You can also use pass or just a docstring
-@deprecated(target=new_add, deprecated_in="1.0", remove_in="2.0")
-def old_add_v2(a: int, b: int) -> int:
+@deprecated(target=add_values, deprecated_in="1.0", remove_in="2.0")
+def add_v1(a: int, b: int) -> int:
     """Just a docstring works too."""
     pass  # This also works
 
 
-print(old_add_v2(2, 3))
+print(add_v1(2, 3))
 ```
 
 <details>
-  <summary>Output: <code>old_add_v2(2, 3)</code></summary>
+  <summary>Output: <code>add_v1(2, 3)</code></summary>
 
 ```
 5
@@ -1751,10 +1841,27 @@ def enforce_no_deprecation_chains():
 > - The function scans all deprecated functions found by `find_deprecation_wrappers()`
 > - Returns `list[DeprecationWrapperInfo]` — each entry has `chain_type` set to a `ChainType` enum value
 > - `ChainType.TARGET` — target is a deprecated callable that forwards to another function; fix by pointing directly to the final target
-> - `ChainType.STACKED` — arg mappings chain through multiple hops and must be composed; two sub-cases:
+> - `ChainType.STACKED` — mappings chain through multiple hops and must be composed; includes:
 >   - Callable target is itself `@deprecated(TargetMode.ARGS_REMAP, args_mapping=...)` (self-renaming) — mappings compose across hops
 >   - Stacked `@deprecated(TargetMode.ARGS_REMAP, args_mapping=...)` on the same function — merge into one decorator with combined `args_mapping`
+>   - `deprecated_class(attrs_mapping=...)` where one deprecated attribute redirects to another deprecated attribute alias
 > - Use `recursive=False` to scan only the top-level module
+
+### Detecting Positional-Only Incompatible Mappings
+
+The `check` subcommand surfaces `deprecated_class` proxies whose `args_mapping` remaps a deprecated kwarg to a `POSITIONAL_ONLY` constructor parameter. Those proxies fall back to `setattr` after construction, which may silently produce wrong results on immutable types or classes without a matching `__setattr__`.
+
+```bash
+pydeprecate check my_package
+# or as part of a full scan:
+pydeprecate all my_package
+```
+
+> [!TIP]
+>
+> - The proxy still works at runtime via `setattr`, but the fallback is invisible; `pydeprecate check` surfaces it at CI time
+> - Fix: use `attrs_mapping` instead of `args_mapping` for `POSITIONAL_ONLY` parameters, or restructure the target constructor to accept keyword arguments
+> - For programmatic use: `validate_mapping_compatibility(module)` returns `list[DeprecationWrapperInfo]` where `args_mapping_positional_only` is non-empty
 
 ## 🧪 Testing Deprecated Code
 
@@ -1765,31 +1872,34 @@ from deprecate import deprecated, assert_no_warnings, void
 import pytest
 
 
-def new_func(x: int) -> int:
+# NEW API — doubles the input value
+def score_predictions(x: int) -> int:
     return x * 2
 
 
-@deprecated(target=new_func, deprecated_in="1.0", remove_in="2.0")
-def old_func(x: int) -> int:
+# DEPRECATED API — `score` replaced by `score_predictions`
+@deprecated(target=score_predictions, deprecated_in="1.0", remove_in="2.0")
+def score(x: int) -> int:
     pass
 
 
-@deprecated(target=new_func, deprecated_in="1.0", remove_in="2.0")
-def old_func2(x: int) -> int:
+# DEPRECATED API — `score_v2` replaced by `score_predictions`
+@deprecated(target=score_predictions, deprecated_in="1.0", remove_in="2.0")
+def score_v2(x: int) -> int:
     return void(x)
 
 
 def test_deprecated_function_shows_warning():
     """Verify the deprecation warning is shown."""
-    with pytest.warns(FutureWarning, match="old_func.*deprecated"):
-        result = old_func(42)
+    with pytest.warns(FutureWarning, match="score.*deprecated"):
+        result = score(42)
     assert result == 84
 
 
 def test_new_function_no_warning():
     """Verify new function doesn't trigger warnings."""
     with assert_no_warnings(FutureWarning):
-        result = new_func(42)
+        result = score_predictions(42)
     assert result == 84
 
 
@@ -1797,11 +1907,11 @@ def test_no_warning_after_first_call():
     """By default, warnings are shown only once per function."""
     # First call shows warning
     with pytest.warns(FutureWarning):
-        old_func2(1)
+        score_v2(1)
 
     # Subsequent calls don't show warning (by default num_warns=1)
     with assert_no_warnings(FutureWarning):
-        old_func2(2)
+        score_v2(2)
 
 
 # call the tests for CI demonstration/validation
@@ -1815,7 +1925,7 @@ test_no_warning_after_first_call()
 
 ```python
 # Minimal replacement implementation used in examples
-def new_func(x: int) -> int:
+def score_predictions(x: int) -> int:
     return x * 2
 
 
@@ -1825,24 +1935,24 @@ from deprecate import deprecated
 
 
 # Show warning every time (useful for critical deprecations)
-@deprecated(target=new_func, deprecated_in="1.0", remove_in="2.0", num_warns=-1)
-def old_func_always_warn(x: int) -> int:
+@deprecated(target=score_predictions, deprecated_in="1.0", remove_in="2.0", num_warns=-1)
+def predict(x: int) -> int:
     pass
 
 
 # Show warning N times total
-@deprecated(target=new_func, deprecated_in="1.0", remove_in="2.0", num_warns=5)
-def old_func_warn_n_times(x: int) -> int:
+@deprecated(target=score_predictions, deprecated_in="1.0", remove_in="2.0", num_warns=5)
+def predict_batch(x: int) -> int:
     pass
 
 
-print(old_func_warn_n_times(1))
+print(predict_batch(1))
 ```
 
 </details>
 
 <details>
-  <summary>Output: <code>old_func_warn_n_times(1)</code></summary>
+  <summary>Output: <code>predict_batch(1)</code></summary>
 
 ```
 2
@@ -1981,7 +2091,7 @@ print(MyClass(42).x)
 
 ```python
 # Minimal replacement function for examples
-def new_func() -> str:
+def get_status() -> str:
     return "Hi!"
 
 
@@ -1995,24 +2105,24 @@ def should_skip() -> bool:
     return False  # replace with your condition
 
 
-@deprecated(target=new_func, skip_if=should_skip)
-def old_func1():
+@deprecated(target=get_status, skip_if=should_skip)
+def infer():
     pass
 
 
 # Also correct: use a lambda
-@deprecated(target=new_func, skip_if=lambda: False)
-def old_func2():
+@deprecated(target=get_status, skip_if=lambda: False)
+def infer_v2():
     pass
 
 
-print(old_func2())
+print(infer_v2())
 ```
 
 </details>
 
 <details>
-  <summary>Output: <code>old_func2()</code></summary>
+  <summary>Output: <code>infer_v2()</code></summary>
 
 ```
 Hi!
@@ -2035,7 +2145,7 @@ has its own warning counter, meaning warnings for different arguments are tracke
 
 ```python
 # Minimal replacement function for examples
-def new_func(x: int) -> int:
+def score_predictions(x: int) -> int:
     return x * 2
 
 
@@ -2045,19 +2155,28 @@ from deprecate import deprecated
 
 
 # Show warning every time
-@deprecated(target=new_func, num_warns=-1)  # -1 means unlimited
-def old_func_always_warn():
+@deprecated(target=score_predictions, num_warns=-1)  # -1 means unlimited
+def predict():
     pass
 
 
 # Show warning N times total
-@deprecated(target=new_func, num_warns=5)  # Show 5 times
-def old_func_warn_n_times():
+@deprecated(target=score_predictions, num_warns=5)  # Show 5 times
+def predict_batch():
     pass
 
 
-assert callable(old_func_warn_n_times)
+print(callable(predict_batch))
 ```
+
+<details>
+  <summary>Output: <code>callable(predict_batch)</code></summary>
+
+```
+True
+```
+
+</details>
 
 </details>
 
@@ -2073,4 +2192,4 @@ The warning will correctly show the full path for real imports when used in your
 
 Have you faced this issue in the past or are you facing it now? Do you have good ideas for improvement? All contributions are welcome!
 
-Please read our [Contributing Guide](https://github.com/Borda/pyDeprecate/raw/v0.9.0/.github/CONTRIBUTING.md) for details on how to contribute, and our [Code of Conduct](https://github.com/Borda/pyDeprecate/raw/v0.9.0/.github/CODE_OF_CONDUCT.md) for community guidelines.
+Please read our [Contributing Guide](https://github.com/Borda/pyDeprecate/raw/v0.10.1/.github/CONTRIBUTING.md) for details on how to contribute, and our [Code of Conduct](https://github.com/Borda/pyDeprecate/raw/v0.10.1/.github/CODE_OF_CONDUCT.md) for community guidelines.

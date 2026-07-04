@@ -353,8 +353,8 @@ test_align_multiple_all:
   fix_str: |
     create table tab1 (
         a varchar(25) not null,
-        b int         not null unique      references tab2 (b),
-        c varchar(5)  not null primary key references tab2 (c)
+        b int         not null unique      references tab2(b),
+        c varchar(5)  not null primary key references tab2(c)
     )
   configs:
     layout:
@@ -365,6 +365,34 @@ test_align_multiple_all:
         column_constraint_segment:
           spacing_before: align
           align_within: create_table_statement
+
+test_align_alias_multibyte_literals:
+  # https://github.com/quarylabs/sqruff/issues/2605
+  # Multi-byte UTF-8 literals (Cyrillic) should be padded by character
+  # width, not byte length. Previously this overshot the column and
+  # produced misaligned output that sqruff lint would keep flagging.
+  fail_str: |
+    SELECT
+        'cash' AS a,
+        'наличные' AS b,
+        'нет' AS c,
+        'plain' AS d
+    FROM t
+  fix_str: |
+    SELECT
+        'cash'     AS a,
+        'наличные' AS b,
+        'нет'      AS c,
+        'plain'    AS d
+    FROM t
+  configs:
+    core:
+      dialect: mysql
+    layout:
+      type:
+        alias_expression:
+          spacing_before: align
+          align_within: select_clause
 
 test_align_multiple_operators:
   # Unrealistic but more stretching with several lines which

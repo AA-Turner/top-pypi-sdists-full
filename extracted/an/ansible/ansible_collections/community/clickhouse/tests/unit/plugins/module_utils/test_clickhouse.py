@@ -10,8 +10,6 @@ from ansible_collections.community.clickhouse.plugins.module_utils.clickhouse im
     version_clickhouse_driver,
     client_common_argument_spec,
     get_main_conn_kwargs,
-    validate_identifier,
-    normalize_db_table
 )
 
 REASON = "The clickhouse_driver module is not installed"
@@ -26,7 +24,6 @@ class FakeAnsibleModule:
             "login_db": None,
             "login_password": None,
             "client_kwargs": {},
-            "success_on": [497],
         }
 
     def fail_json(self, msg):
@@ -40,8 +37,7 @@ def test_client_common_argument_spec():
         'login_user': {'type': 'str', 'default': None},
         'login_host': {'type': 'str', 'default': 'localhost'},
         'login_password': {'type': 'str', 'default': None, 'no_log': True},
-        'client_kwargs': {'type': 'dict', 'default': {}},
-        'success_on': {'type': 'list', 'elements': 'int', 'default': [497]},
+        'client_kwargs': {'type': 'dict', 'default': {}}
     }
 
     assert client_common_argument_spec() == EXPECTED
@@ -88,101 +84,3 @@ def test_check_clickhouse_driver():
     result = check_clickhouse_driver(fake_module)
 
     assert result is None or "clickhouse_driver" in result
-
-
-@pytest.mark.parametrize("table,expected", [
-    ("table", "`current_db`.`table`"),
-    ("_table", "`current_db`.`_table`"),
-])
-def test_normalize_db_table_with_db_call(mocker, table, expected):
-    mock_module = mocker.MagicMock()
-    mock_module.fail_json = mocker.MagicMock()
-    mock_client = mocker.MagicMock()
-    mock_execute_query = mocker.patch("ansible_collections.community.clickhouse.plugins.module_utils.clickhouse.execute_query",
-                                      return_value=[('current_db',)])
-
-    result = normalize_db_table(mock_module, mock_client, None, table)
-
-    assert result == expected
-    mock_execute_query.assert_called_once()
-
-
-@pytest.mark.parametrize("database,table,expected", [
-    ("db", "tab", "`db`.`tab`"),
-    ("db", "*", "`db`.*"),
-    ("_db", "tab", "`_db`.`tab`"),
-])
-def test_normalize_db_table_without_db_call(mocker, database, table, expected):
-    mock_module = mocker.MagicMock()
-    mock_module.fail_json = mocker.MagicMock()
-    mock_client = mocker.MagicMock()
-    mock_execute_query = mocker.patch("ansible_collections.community.clickhouse.plugins.module_utils.clickhouse.execute_query",
-                                      return_value=[('current_db',)])
-
-    result = normalize_db_table(mock_module, mock_client, database, table)
-
-    assert result == expected
-    mock_execute_query.assert_not_called()
-
-
-@pytest.mark.parametrize("malicious_name", [
-    "test; DROP TABLE users; --\\",
-    "test`; DROP TABLE users; --",
-    "test` OR '1'='1",
-    'test"; DROP TABLE users; --\\',
-    "test\\.test",
-    "`test`",
-    "test`collection",
-])
-def test_validate_function_against_malicious_names(mocker, malicious_name):
-    mock_module = mocker.MagicMock()
-    mock_module.fail_json = mocker.MagicMock()
-
-    validate_identifier(mock_module, malicious_name)
-
-    call_msg = mock_module.fail_json.call_args[1]['msg']
-
-    mock_module.fail_json.assert_called_once()
-    assert "Invalid identifier:" in call_msg
-
-
-def test_validate_function_with_empty_name(mocker):
-    mock_module = mocker.MagicMock()
-    mock_module.fail_json = mocker.MagicMock()
-
-    validate_identifier(mock_module, "")
-
-    call_msg = mock_module.fail_json.call_args[1]['msg']
-
-    mock_module.fail_json.assert_called_once()
-    assert "cannot be empty" in call_msg
-
-
-@pytest.mark.parametrize("correct_name", [
-    "test",
-    "test_name",
-    "test_name1",
-    "test1",
-    "test123",
-    "test-table"
-])
-def test_validate_function_with_correct_names(mocker, correct_name):
-    mock_module = mocker.MagicMock()
-    mock_module.fail_json = mocker.MagicMock()
-
-    result = validate_identifier(mock_module, correct_name)
-
-    mock_module.fail_json.assert_not_called()
-
-    assert result == correct_name
-
-
-def test_validate_identifier_with_custom_context(mocker):
-    mock_module = mocker.MagicMock()
-    mock_module.fail_json = mocker.MagicMock()
-
-    validate_identifier(mock_module, "invalid!`", "cluster name")
-
-    mock_module.fail_json.assert_called_once()
-    call_msg = mock_module.fail_json.call_args[1]['msg']
-    assert "Invalid cluster name" in call_msg

@@ -1,3 +1,5 @@
+import warnings
+
 import numpy
 import pandas
 from scipy import optimize, sparse, spatial, stats
@@ -24,6 +26,14 @@ except ImportError:
 
 _VALID_GEOMETRY_TYPES = ["Point"]
 
+# Kernels that are exactly zero beyond `bandwidth`. For these we can use
+# KDTree.sparse_distance_matrix to avoid building the full N×N distance matrix.
+# Infinite-support kernels (e.g. gaussian) also qualify when taper=True, because
+# taper explicitly zeroes weights beyond bandwidth — see kernels.kernel().
+_COMPACT_SUPPORT_KERNELS = frozenset(
+    {"triangular", "parabolic", "bisquare", "tricube", "cosine", "boxcar", "discrete"}
+)
+
 
 def _kernel(
     coordinates,
@@ -38,6 +48,7 @@ def _kernel(
     coplanar="raise",
     resolve_isolates=True,
     exclude_self_weights=True,
+    tree=None,
 ):
     """
     Compute a kernel function over a distance matrix.
@@ -48,9 +59,16 @@ def _kernel(
         geometries over which to compute a kernel. If a geopandas.Geo* object
         is provided, the .geometry attribute is used. If a numpy.ndarray with
         a geometry dtype is used, then the coordinates are extracted and used.
-    bandwidth : float (default: None)
+    bandwidth : float or "auto" or "adaptive" (default: None)
         distance to use in the kernel computation. Should be on the same scale as
-        the input coordinates.
+        the input coordinates. If "adaptive", a per-observation bandwidth
+        is used equal to each observation's distance to its k-th nearest
+        neighbor. This requires ``k`` to be set. If "auto", the bandwidth
+        is optimized as a function of entropy for a given kernel function.
+        This ensures that the entropy of the kernel is maximized for a given
+        distance matrix. This will result in the smoothing that provide the most
+        uniform distribution of kernel values, which is a good proxy for a
+        "moderate" level of smoothing.
     metric : string or callable (default: 'euclidean')
         distance function to apply over the input coordinates. Supported options
         depend on whether or not scikit-learn is installed. If so, then any
@@ -63,6 +81,7 @@ def _kernel(
             - parabolic:
             - gaussian:
             - bisquare:
+            - tricube:
             - cosine:
             - exponential:
             - boxcar/discrete: all distances less than `bandwidth` are 1, and all
@@ -96,7 +115,34 @@ def _kernel(
         Try to resolve isolates. Can be disabled if we are dealing with cliques later.
     exclude_self_weights : bool (default: True)
         Remove self-weights
+    tree : scipy.spatial.KDTree, sklearn.neighbors.KDTree, \
+           sklearn.neighbors.BallTree, optional
+        A pre-built tree for distance computation. If provided, `coordinates`
+        should be None or the tree's data will be used. This avoids rebuilding
+        the tree when it has already been constructed.
+
+    Notes
+    -----
+    When all weights beyond ``bandwidth`` are zero — either because ``kernel``
+    has compact support (bisquare, boxcar, triangular, tricube, cosine,
+    parabolic/discrete) or because ``taper=True`` explicitly zeroes them — and
+    ``bandwidth`` is a fixed numeric value and ``metric`` is ``"euclidean"``, a
+    fast path is taken using ``scipy.spatial.KDTree.sparse_distance_matrix``.
+    This avoids allocating an O(N²) dense distance matrix and instead builds
+    only the O(N × avg_neighbors) sparse matrix of pairs within ``bandwidth``.
+    All other combinations fall through to the existing dense path unchanged.
     """
+    if tree is not None:
+        if hasattr(tree, "data"):
+            if coordinates is not None:
+                warnings.warn(
+                    "`tree` provided, so `coordinate` information will be ignored.",
+                    stacklevel=2,
+                )
+            coordinates = numpy.asarray(tree.data)
+        else:
+            raise ValueError("Provided tree must have a 'data' attribute.")
+
     if metric != "precomputed":
         coordinates, ids, _ = _validate_geometry_input(
             coordinates, ids=ids, valid_geometry_types=_VALID_GEOMETRY_TYPES
@@ -124,42 +170,102 @@ def _kernel(
 
     if k is not None:
         if metric != "precomputed":
-            d = _knn(coordinates, k=k, metric=metric, p=p, coplanar=coplanar)
+            d = _knn(coordinates, k=k, metric=metric, p=p, coplanar=coplanar, tree=tree)
         else:
-            d = coordinates * (coordinates.argsort(axis=1, kind="stable") < (k + 1))
+            if exclude_self_weights:
+                coords_for_ranking = coordinates.copy()
+                numpy.fill_diagonal(coords_for_ranking, numpy.inf)
+            else:
+                coords_for_ranking = coordinates
+
+            ranks = coords_for_ranking.argsort(axis=1, kind="stable").argsort(
+                axis=1, kind="stable"
+            )
+
+            mask = ranks < k
+            rows, cols = numpy.where(mask)
+            values = coordinates[mask]
+            d = sparse.csc_array((values, (rows, cols)), shape=coordinates.shape)
     else:
         if metric != "precomputed":
-            dist_kwds = {}
-            if metric == "minkowski":
-                dist_kwds["p"] = p
-            if HAS_SKLEARN:
-                sq = metrics.pairwise_distances(
-                    coordinates, coordinates, metric=metric, **dist_kwds
-                )
-            else:
-                if metric not in ("euclidean", "manhattan", "cityblock", "minkowski"):
-                    raise ValueError(
-                        f"metric {metric} is not supported by scipy, and scikit-learn "
-                        "could not be imported."
+            # Fast path: when all weights beyond `bandwidth` are zero — either
+            # because the kernel has compact support or because taper=True zeroes
+            # them explicitly — we only need distances within `bandwidth`.  Use
+            # KDTree.sparse_distance_matrix (O(N * neighbors) memory) instead of
+            # building the full N×N dense matrix (O(N²) memory).
+            if (
+                (kernel in _COMPACT_SUPPORT_KERNELS or taper is True)
+                and isinstance(bandwidth, (int, float))
+                and metric == "euclidean"
+            ):
+                if tree is None or not isinstance(tree, spatial.KDTree):
+                    tree = spatial.KDTree(coordinates)
+                d = sparse.csc_array(
+                    tree.sparse_distance_matrix(
+                        tree, bandwidth, output_type="coo_matrix"
                     )
-                d = spatial.distance.pdist(coordinates, metric=metric, **dist_kwds)
-                sq = spatial.distance.squareform(d)
+                )
+                if exclude_self_weights:
+                    d.setdiag(0)
+                    d.eliminate_zeros()
+            else:
+                dist_kwds = {}
+                if metric == "minkowski":
+                    dist_kwds["p"] = p
+                if tree is not None and hasattr(tree, "data"):
+                    d = spatial.distance.pdist(
+                        numpy.asarray(tree.data), metric=metric, **dist_kwds
+                    )
+                    sq = spatial.distance.squareform(d)
+                elif HAS_SKLEARN:
+                    sq = metrics.pairwise_distances(
+                        coordinates, coordinates, metric=metric, **dist_kwds
+                    )
+                else:
+                    if metric not in (
+                        "euclidean",
+                        "manhattan",
+                        "cityblock",
+                        "minkowski",
+                    ):
+                        raise ValueError(
+                            f"metric {metric} is not supported by scipy or scikit-learn"
+                            "could not be imported."
+                        )
+                    d = spatial.distance.pdist(coordinates, metric=metric, **dist_kwds)
+                    sq = spatial.distance.squareform(d)
 
-            # ensure that self-distance is dropped but 0 between co-located pts not
-            # get data and ids for sparse constructor
-            data = sq.flatten()
-            i = numpy.tile(numpy.arange(sq.shape[0]), sq.shape[0])
-            j = numpy.repeat(numpy.arange(sq.shape[0]), sq.shape[0])
+                # ensure that self-distance is dropped but 0 between co-located pts not
+                # get data and ids for sparse constructor
+                data = sq.flatten()
+                i = numpy.tile(numpy.arange(sq.shape[0]), sq.shape[0])
+                j = numpy.repeat(numpy.arange(sq.shape[0]), sq.shape[0])
 
-            if exclude_self_weights:
-                data = numpy.delete(data, numpy.arange(0, data.size, sq.shape[0] + 1))
-                i = numpy.delete(i, numpy.arange(0, i.size, sq.shape[0] + 1))
-                j = numpy.delete(j, numpy.arange(0, j.size, sq.shape[0] + 1))
+                if exclude_self_weights:
+                    data = numpy.delete(
+                        data, numpy.arange(0, data.size, sq.shape[0] + 1)
+                    )
+                    i = numpy.delete(i, numpy.arange(0, i.size, sq.shape[0] + 1))
+                    j = numpy.delete(j, numpy.arange(0, j.size, sq.shape[0] + 1))
 
-            d = sparse.csc_array((data, (i, j)))
+                d = sparse.csc_array((data, (i, j)))
         else:
             d = sparse.csc_array(coordinates)
-    if bandwidth is None:
+
+    if bandwidth == "adaptive":
+        if k is None:
+            raise ValueError(
+                "bandwidth='adaptive' requires `k` to be set so that "
+                "per-observation bandwidths can be computed from k-nearest-neighbor "
+                "distances."
+            )
+        # each observation's bandwidth is its distance to its k-th neighbor,
+        d_csr = d.tocsr()
+        rows, _ = d_csr.nonzero()
+        bw_per_row = numpy.zeros(d_csr.shape[0])
+        numpy.maximum.at(bw_per_row, rows, d_csr.data)
+        bandwidth = bw_per_row[rows] * 1.0000001
+    elif bandwidth is None:
         bandwidth = numpy.percentile(d.data, 25) if k is None else d.data.max()
     elif bandwidth == "auto":
         if (kernel == "identity") or (kernel is None):
@@ -175,12 +281,19 @@ def _kernel(
     return _sparse_to_arrays(d, ids=ids, resolve_isolates=resolve_isolates)
 
 
-def _knn(coordinates, metric="euclidean", k=1, p=2, coplanar="raise"):
+def _knn(coordinates, metric="euclidean", k=1, p=2, coplanar="raise", tree=None):
     """internal function called only within _kernel, never directly to build KNN"""
     coordinates, ids, geoms = _validate_geometry_input(
         coordinates, ids=None, valid_geometry_types=_VALID_GEOMETRY_TYPES
     )
     if coplanar == "jitter":
+        if tree is not None:
+            raise ValueError(
+                "Cannot use a pre-built tree when `coplanar='jitter'`. "
+                "The coordinates are modified during jittering, invalidating the "
+                "tree. Please strip the 'tree' argument or set `coplanar='raise'` "
+                "or `coplanar='clique'`."
+            )
         coordinates, geoms = _jitter_geoms(coordinates, geoms=geoms)
 
     n_coplanar = geoms.geometry.duplicated().sum()
@@ -188,9 +301,19 @@ def _knn(coordinates, metric="euclidean", k=1, p=2, coplanar="raise"):
 
     if n_coplanar == 0:
         if metric == "haversine":
+            if tree is not None:
+                raise ValueError(
+                    "Cannot use a pre-built tree when `metric='haversine'`. "
+                    "The coordinates are transformed (deg to rad) for this metric, "
+                    "invalidating the tree. Please strip the 'tree' argument."
+                )
             # sklearn haversine works with (lat,lng) in radians...
             coordinates = numpy.fliplr(numpy.deg2rad(coordinates))
-        query = _prepare_tree_query(coordinates, metric, p=p)
+        # Use provided tree if available, otherwise build one
+        if tree is not None and hasattr(tree, "query"):
+            query = tree.query
+        else:
+            query = _prepare_tree_query(coordinates, metric, p=p)
         d_linear, ixs = query(coordinates, k=k + 1)
         self_ix, neighbor_ix = ixs[:, 0], ixs[:, 1:]
         d_linear = d_linear[:, 1:]
@@ -238,6 +361,10 @@ def _knn(coordinates, metric="euclidean", k=1, p=2, coplanar="raise"):
                     coplanar="raise",
                 )
             )
+            # map back head and tails to original
+            remaining_ix = numpy.delete(numpy.arange(n_samples), coplanar_lookup)
+            heads = remaining_ix[heads]
+            tails = remaining_ix[tails]
             adjtable = pandas.DataFrame.from_dict(
                 {"focal": heads, "neighbor": tails, "weight": weights}
             )
@@ -262,11 +389,12 @@ def _knn(coordinates, metric="euclidean", k=1, p=2, coplanar="raise"):
         )
 
 
-def _distance_band(coordinates, threshold, ids=None):
+def _distance_band(coordinates, threshold, ids=None, tree=None):
     coordinates, ids, _ = _validate_geometry_input(
         coordinates, ids=ids, valid_geometry_types=_VALID_GEOMETRY_TYPES
     )
-    tree = spatial.KDTree(coordinates)
+    if tree is None or not isinstance(tree, spatial.KDTree):
+        tree = spatial.KDTree(coordinates)
     sp = sparse.csr_array(tree.sparse_distance_matrix(tree, threshold))
     return sp
 

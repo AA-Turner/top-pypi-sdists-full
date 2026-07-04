@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -369,6 +370,70 @@ class TestReadView:
         # Assert the full TOP clause to avoid accidental matches on other numbers.
         assert "TOP (10)" in call_sql
 
+    # -- time-travel (as_of) --
+
+    async def test_as_of_appends_option_for_timestamp(self) -> None:
+        """read_view appends OPTION (FOR TIMESTAMP AS OF ...) when as_of is set."""
+        target = _make_target()
+        conn = _make_conn([(1,)], ["id"])
+        as_of = datetime(2024, 3, 15, 10, 30, 45, 123_000, tzinfo=UTC)
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await read_view(target, "dbo", "vw_sales", as_of=as_of)
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0]
+        assert "OPTION (FOR TIMESTAMP AS OF '2024-03-15T10:30:45.123')" in call_sql
+
+    async def test_as_of_none_sql_unchanged(self) -> None:
+        """read_view SQL is byte-for-byte identical to the template when as_of is None."""
+        from fabric_dw.services.views import _READ_VIEW_SQL  # noqa: PLC0415
+
+        target = _make_target()
+        conn = _make_conn([(1,)], ["id"])
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await read_view(target, "dbo", "vw_sales", count=10)
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0]
+        expected = _READ_VIEW_SQL.format(count=10, schema_q="[dbo]", view_q="[vw_sales]")
+        assert call_sql == expected
+
+    async def test_as_of_utc_coercion(self) -> None:
+        """read_view coerces a tz-aware non-UTC datetime to UTC before formatting."""
+        target = _make_target()
+        conn = _make_conn([(1,)], ["id"])
+        # CET = UTC+1: 11:30 CET == 10:30 UTC
+        cet = timezone(timedelta(hours=1))
+        as_of = datetime(2024, 3, 15, 11, 30, 0, tzinfo=cet)
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await read_view(target, "dbo", "vw_sales", as_of=as_of)
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0]
+        assert "2024-03-15T10:30:00.000" in call_sql
+
+    async def test_as_of_millisecond_rounding(self) -> None:
+        """read_view rounds microseconds to the nearest millisecond (half-to-even)."""
+        target = _make_target()
+        conn = _make_conn([(1,)], ["id"])
+        # 123_750 us -> round(123.75) -> 124 ms
+        as_of = datetime(2024, 3, 15, 10, 30, 45, 123_750, tzinfo=UTC)
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await read_view(target, "dbo", "vw_sales", as_of=as_of)
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0]
+        assert "2024-03-15T10:30:45.124" in call_sql
+
+    async def test_as_of_clause_position_before_semicolon(self) -> None:
+        """OPTION clause appears before the trailing semicolon in the SQL."""
+        target = _make_target()
+        conn = _make_conn([(1,)], ["id"])
+        as_of = datetime(2024, 1, 1, 0, 0, 0, tzinfo=UTC)
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await read_view(target, "dbo", "vw_sales", as_of=as_of)
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0]
+        option_idx = call_sql.index("OPTION")
+        semicolon_idx = call_sql.rindex(";")
+        assert option_idx < semicolon_idx
+
 
 # ===========================================================================
 # count_view_rows
@@ -439,6 +504,210 @@ class TestCountViewRows:
             pytest.raises(NotFoundError),
         ):
             await views.count_view_rows(target, "dbo", "missing")
+
+    # -- time-travel (as_of) --
+
+    async def test_as_of_appends_option_for_timestamp(self) -> None:
+        """count_view_rows appends OPTION (FOR TIMESTAMP AS OF ...) when as_of is set."""
+        target = _make_target()
+        conn = _make_conn([(99,)], ["row_count"])
+        as_of = datetime(2024, 3, 15, 10, 30, 45, 123_000, tzinfo=UTC)
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await views.count_view_rows(target, "dbo", "vw_sales", as_of=as_of)
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0]
+        assert "OPTION (FOR TIMESTAMP AS OF '2024-03-15T10:30:45.123')" in call_sql
+
+    async def test_as_of_none_sql_unchanged(self) -> None:
+        """count_view_rows SQL is byte-for-byte identical to the template when as_of is None."""
+        from fabric_dw.services.views import _COUNT_VIEW_SQL  # noqa: PLC0415
+
+        target = _make_target()
+        conn = _make_conn([(0,)], ["row_count"])
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await views.count_view_rows(target, "dbo", "vw_sales")
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0]
+        expected = _COUNT_VIEW_SQL.format(schema_q="[dbo]", view_q="[vw_sales]")
+        assert call_sql == expected
+
+    async def test_as_of_utc_coercion(self) -> None:
+        """count_view_rows coerces a tz-aware non-UTC datetime to UTC before formatting."""
+        target = _make_target()
+        conn = _make_conn([(5,)], ["row_count"])
+        # CET = UTC+1: 11:30 CET == 10:30 UTC
+        cet = timezone(timedelta(hours=1))
+        as_of = datetime(2024, 3, 15, 11, 30, 0, tzinfo=cet)
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await views.count_view_rows(target, "dbo", "vw_sales", as_of=as_of)
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0]
+        assert "2024-03-15T10:30:00.000" in call_sql
+
+    async def test_as_of_millisecond_rounding(self) -> None:
+        """count_view_rows rounds microseconds to the nearest millisecond (half-to-even)."""
+        target = _make_target()
+        conn = _make_conn([(7,)], ["row_count"])
+        # 123_750 us -> round(123.75) -> 124 ms
+        as_of = datetime(2024, 3, 15, 10, 30, 45, 123_750, tzinfo=UTC)
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await views.count_view_rows(target, "dbo", "vw_sales", as_of=as_of)
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0]
+        assert "2024-03-15T10:30:45.124" in call_sql
+
+    async def test_as_of_clause_position_before_semicolon(self) -> None:
+        """OPTION clause appears before the trailing semicolon in the count SQL."""
+        target = _make_target()
+        conn = _make_conn([(3,)], ["row_count"])
+        as_of = datetime(2024, 1, 1, 0, 0, 0, tzinfo=UTC)
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await views.count_view_rows(target, "dbo", "vw_sales", as_of=as_of)
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0]
+        option_idx = call_sql.index("OPTION")
+        semicolon_idx = call_sql.rindex(";")
+        assert option_idx < semicolon_idx
+
+
+# ===========================================================================
+# export_view
+# ===========================================================================
+
+
+class TestExportView:
+    async def test_returns_row_count(self, tmp_path: Path) -> None:
+        target = _make_target()
+        rows: list[tuple[object, ...]] = [(1, "Alice"), (2, "Bob")]
+        conn = _make_conn(rows, ["id", "name"])
+        output = tmp_path / "out.parquet"
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            count = await views.export_view(target, "dbo", "vw_sales", output, "parquet")
+        assert count == 2
+
+    async def test_sql_no_top_when_no_limit(self, tmp_path: Path) -> None:
+        """Without limit, SELECT * is used (no TOP clause)."""
+        target = _make_target()
+        conn = _make_conn([(1,)], ["id"])
+        output = tmp_path / "out.parquet"
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await views.export_view(target, "dbo", "vw_sales", output, "parquet")
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0].upper()
+        assert "TOP" not in call_sql
+        assert "SELECT * FROM" in call_sql
+
+    async def test_sql_top_when_limit_given(self, tmp_path: Path) -> None:
+        """With limit N, SELECT TOP (N) is used."""
+        target = _make_target()
+        conn = _make_conn([(1,)], ["id"])
+        output = tmp_path / "out.parquet"
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await views.export_view(target, "dbo", "vw_sales", output, "parquet", limit=25)
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0].upper()
+        assert "SELECT TOP (25)" in call_sql
+
+    async def test_sql_uses_bracket_quoting(self, tmp_path: Path) -> None:
+        target = _make_target()
+        conn = _make_conn([(1,)], ["id"])
+        output = tmp_path / "out.parquet"
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await views.export_view(target, "dbo", "vw_sales", output, "parquet")
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0]
+        assert "[dbo]" in call_sql
+        assert "[vw_sales]" in call_sql
+
+    async def test_as_of_appends_option_clause(self, tmp_path: Path) -> None:
+        from datetime import UTC, datetime  # noqa: PLC0415
+
+        target = _make_target()
+        conn = _make_conn([(1,)], ["id"])
+        output = tmp_path / "out.parquet"
+        as_of = datetime(2024, 3, 15, 10, 30, 45, 123_000, tzinfo=UTC)
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await views.export_view(target, "dbo", "vw_sales", output, "parquet", as_of=as_of)
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0]
+        assert "OPTION (FOR TIMESTAMP AS OF '2024-03-15T10:30:45.123')" in call_sql
+
+    async def test_as_of_none_no_option_clause(self, tmp_path: Path) -> None:
+        target = _make_target()
+        conn = _make_conn([(1,)], ["id"])
+        output = tmp_path / "out.parquet"
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await views.export_view(target, "dbo", "vw_sales", output, "parquet")
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0]
+        assert "OPTION" not in call_sql
+
+    async def test_validates_schema_identifier(self, tmp_path: Path) -> None:
+        target = _make_target()
+        output = tmp_path / "out.parquet"
+        with pytest.raises(ValueError, match="Invalid SQL identifier"):
+            await views.export_view(target, "bad;schema", "vw_sales", output, "parquet")
+
+    async def test_validates_view_name_identifier(self, tmp_path: Path) -> None:
+        target = _make_target()
+        output = tmp_path / "out.parquet"
+        with pytest.raises(ValueError, match="Invalid SQL identifier"):
+            await views.export_view(target, "dbo", "view--injection", output, "parquet")
+
+    async def test_raises_not_found_when_no_columns(self, tmp_path: Path) -> None:
+        target = _make_target()
+        cursor = MagicMock()
+        cursor.description = None
+        cursor.fetchall.return_value = []
+        conn = MagicMock()
+        conn.cursor.return_value = cursor
+        output = tmp_path / "out.parquet"
+        with (
+            patch("fabric_dw.sql.open_connection", return_value=conn),
+            pytest.raises(NotFoundError),
+        ):
+            await views.export_view(target, "dbo", "nonexistent", output, "parquet")
+
+    async def test_write_arrow_called_with_correct_format(self, tmp_path: Path) -> None:
+        target = _make_target()
+        conn = _make_conn([(1, "x")], ["id", "name"])
+        output = tmp_path / "out.csv"
+        with (
+            patch("fabric_dw.sql.open_connection", return_value=conn),
+            patch("fabric_dw.services.views.write_arrow") as mock_write,
+        ):
+            await views.export_view(target, "dbo", "vw_sales", output, "csv")
+        mock_write.assert_called_once()
+        _, call_fmt, call_output = mock_write.call_args[0]
+        assert call_fmt == "csv"
+        assert call_output == output
+
+    async def test_return_value_equals_row_count(self, tmp_path: Path) -> None:
+        target = _make_target()
+        rows: list[tuple[object, ...]] = [(i,) for i in range(5)]
+        conn = _make_conn(rows, ["id"])
+        output = tmp_path / "out.parquet"
+        with (
+            patch("fabric_dw.sql.open_connection", return_value=conn),
+            patch("fabric_dw.services.views.write_arrow"),
+        ):
+            count = await views.export_view(target, "dbo", "vw_sales", output, "parquet")
+        assert count == 5
+
+    async def test_option_clause_before_semicolon(self, tmp_path: Path) -> None:
+        from datetime import UTC, datetime  # noqa: PLC0415
+
+        target = _make_target()
+        conn = _make_conn([(1,)], ["id"])
+        output = tmp_path / "out.parquet"
+        as_of = datetime(2024, 1, 1, tzinfo=UTC)
+        with patch("fabric_dw.sql.open_connection", return_value=conn):
+            await views.export_view(target, "dbo", "vw_sales", output, "parquet", as_of=as_of)
+        cursor = conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0]
+        option_idx = call_sql.index("OPTION")
+        semicolon_idx = call_sql.rindex(";")
+        assert option_idx < semicolon_idx
 
 
 # ===========================================================================
@@ -1111,6 +1380,135 @@ class TestRenameView:
         with patch("fabric_dw.sql.open_connection", side_effect=[rename_conn, fetch_conn]):
             result = await views.rename_view(target, "fdw_qa.vw_old", "vw_dwh")
 
+        assert result.definition == raw_def
+
+
+# ===========================================================================
+# transfer_view
+# ===========================================================================
+
+
+class TestTransferView:
+    async def test_emits_alter_schema_transfer(self) -> None:
+        target = _make_target()
+        ddl_conn = _make_conn_for_ddl()
+        moved_row = ("archive", "vw_sales", _NOW, _LATER, "SELECT id, amount FROM dbo.sales")
+        fetch_conn = _make_conn([moved_row], _GET_COLS)
+        with patch("fabric_dw.sql.open_connection", side_effect=[ddl_conn, fetch_conn]):
+            await views.transfer_view(target, "dbo.vw_sales", "archive")
+        cursor = ddl_conn.cursor.return_value
+        call_sql: str = cursor.execute.call_args[0][0]
+        assert call_sql == "ALTER SCHEMA [archive] TRANSFER OBJECT::[dbo].[vw_sales]"
+
+    async def test_returns_view_from_target_schema(self) -> None:
+        target = _make_target()
+        ddl_conn = _make_conn_for_ddl()
+        moved_row = ("archive", "vw_sales", _NOW, _LATER, "SELECT id, amount FROM dbo.sales")
+        fetch_conn = _make_conn([moved_row], _GET_COLS)
+        with patch("fabric_dw.sql.open_connection", side_effect=[ddl_conn, fetch_conn]):
+            result = await views.transfer_view(target, "dbo.vw_sales", "archive")
+        assert isinstance(result, View)
+        assert result.schema_name == "archive"
+        assert result.name == "vw_sales"
+        assert result.qualified_name == "archive.vw_sales"
+
+    async def test_commits_after_execute(self) -> None:
+        target = _make_target()
+        ddl_conn = _make_conn_for_ddl()
+        moved_row = ("archive", "vw_sales", _NOW, _LATER, "SELECT id, amount FROM dbo.sales")
+        fetch_conn = _make_conn([moved_row], _GET_COLS)
+        with patch("fabric_dw.sql.open_connection", side_effect=[ddl_conn, fetch_conn]):
+            await views.transfer_view(target, "dbo.vw_sales", "archive")
+        ddl_conn.commit.assert_called_once()
+
+    async def test_does_not_reject_sql_endpoint_target(self) -> None:
+        """transfer_view must NOT raise for a SQL-endpoint target (no DW-only guard)."""
+        from fabric_dw.models import WarehouseKind  # noqa: PLC0415
+
+        target = MagicMock()
+        target.kind = WarehouseKind.SQL_ENDPOINT
+
+        ddl_conn = _make_conn_for_ddl()
+        moved_row = ("archive", "vw_sales", _NOW, _LATER, "SELECT id, amount FROM dbo.sales")
+        fetch_conn = _make_conn([moved_row], _GET_COLS)
+        with patch("fabric_dw.sql.open_connection", side_effect=[ddl_conn, fetch_conn]):
+            result = await views.transfer_view(target, "dbo.vw_sales", "archive")
+
+        assert result.schema_name == "archive"
+
+    async def test_rejects_undotted_qualified_name(self) -> None:
+        target = _make_target()
+        with pytest.raises(ValueError, match="qualified"):
+            await views.transfer_view(target, "nodot", "archive")
+
+    async def test_rejects_invalid_schema_in_qualified_name(self) -> None:
+        target = _make_target()
+        with pytest.raises(ValueError, match="Invalid SQL identifier"):
+            await views.transfer_view(target, "bad--schema.vw_sales", "archive")
+
+    async def test_rejects_invalid_view_in_qualified_name(self) -> None:
+        target = _make_target()
+        with pytest.raises(ValueError, match="Invalid SQL identifier"):
+            await views.transfer_view(target, "dbo.bad--view", "archive")
+
+    async def test_rejects_invalid_target_schema(self) -> None:
+        target = _make_target()
+        with pytest.raises(ValueError, match="Invalid SQL identifier"):
+            await views.transfer_view(target, "dbo.vw_sales", "bad--schema")
+
+    @pytest.mark.parametrize(
+        "reserved", ["sys", "information_schema", "SYS", "Information_Schema", "guest", "db_owner"]
+    )
+    async def test_rejects_reserved_target_schema(self, reserved: str) -> None:
+        """transfer_view propagates the system-schema rejection from the shared helper.
+
+        The check itself (and its full enumeration of system schemas) is
+        exercised exhaustively in TestAlterSchemaTransfer; this is a thin
+        pass-through test confirming transfer_view does not bypass it.
+        """
+        target = _make_target()
+        with pytest.raises(ValueError, match="reserved system schema"):
+            await views.transfer_view(target, "dbo.vw_sales", reserved)
+
+    async def test_raises_not_found_when_fetch_returns_empty(self) -> None:
+        target = _make_target()
+        ddl_conn = _make_conn_for_ddl()
+        fetch_conn = _make_conn([], _GET_COLS)
+        with (
+            patch("fabric_dw.sql.open_connection", side_effect=[ddl_conn, fetch_conn]),
+            pytest.raises(NotFoundError, match="No view named"),
+        ):
+            await views.transfer_view(target, "dbo.vw_sales", "archive")
+
+    async def test_not_found_message_warns_about_non_view_objects(self) -> None:
+        """The post-transfer NotFoundError must call out that a same-named
+        non-view object (table/function/procedure) may have been moved
+        instead, since OBJECT::[schema].[name] matches any schema-scoped
+        object, not only views.
+        """
+        target = _make_target()
+        ddl_conn = _make_conn_for_ddl()
+        fetch_conn = _make_conn([], _GET_COLS)
+        with (
+            patch("fabric_dw.sql.open_connection", side_effect=[ddl_conn, fetch_conn]),
+            pytest.raises(NotFoundError, match="not only views"),
+        ):
+            await views.transfer_view(target, "dbo.vw_sales", "archive")
+
+    async def test_transfer_view_returns_raw_definition(self) -> None:
+        """transfer_view returns the raw Fabric definition without header-patching.
+
+        Documents the stale-definition caveat: the fetched View's definition
+        is whatever sys.sql_modules reports verbatim, which may still
+        reference the old schema name after a transfer.
+        """
+        raw_def = "CREATE VIEW [dbo].[vw_sales] AS SELECT id, amount FROM dbo.sales"
+        moved_row = ("archive", "vw_sales", _NOW, _LATER, raw_def)
+        target = _make_target()
+        ddl_conn = _make_conn_for_ddl()
+        fetch_conn = _make_conn([moved_row], _GET_COLS)
+        with patch("fabric_dw.sql.open_connection", side_effect=[ddl_conn, fetch_conn]):
+            result = await views.transfer_view(target, "dbo.vw_sales", "archive")
         assert result.definition == raw_def
 
 

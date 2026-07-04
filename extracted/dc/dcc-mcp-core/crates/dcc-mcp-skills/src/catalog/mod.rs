@@ -35,6 +35,7 @@
 //! ```
 
 pub mod execute;
+pub mod inverted_index;
 pub mod persistence;
 pub mod schema_gen;
 pub mod scoring;
@@ -65,8 +66,11 @@ use std::sync::Arc;
 use crate::loader;
 use crate::loader::SkippedSkillDiagnostic;
 
+pub(crate) use self::inverted_index::{IndexGuard, InvertedIndex};
+
 #[allow(clippy::module_inception)]
 mod catalog;
+mod catalog_index;
 mod groups;
 pub(crate) mod helpers;
 pub mod list_projection;
@@ -144,6 +148,14 @@ pub struct SkillCatalog {
     pub(super) after_group_change_hook: RwLock<Option<Arc<AfterGroupChangeFn>>>,
     /// Tool groups currently active (`"<skill>:<group>"` keys).
     pub(super) active_groups: DashSet<String>,
+    /// Inverted index for fast `search_skills` scoring. Built lazily on
+    /// the first query, invalidated on any mutation. Wrapped in `RwLock`
+    /// so builds (writer) and reads (readers) can coexist.
+    pub(super) inverted_index: RwLock<IndexGuard>,
+    /// Per-`dcc_type` shards mapping lowercase dcc name → set of skill
+    /// names. Populated on every mutation; `search_skills` with a
+    /// `dcc` filter uses this to avoid scanning the full catalog.
+    pub(super) dcc_shards: DashMap<String, DashSet<String>>,
 }
 
 impl std::fmt::Debug for SkillCatalog {
@@ -190,9 +202,16 @@ pub(crate) fn group_default_active(groups: &[SkillGroup], group_name: &str) -> b
 impl Registry<SkillEntry> for SkillCatalog {
     fn register(&self, entry: SkillEntry) {
         let key = entry.key();
+        let dcc = entry.metadata.dcc.clone();
+        // Remove old shard entry if present (dcc may have changed).
+        if let Some(old) = self.entries.get(&key) {
+            self.shard_remove(&key, &old.metadata.dcc);
+        }
         self.skipped.remove(&key);
-        self.entries.insert(key, entry);
+        self.entries.insert(key.clone(), entry);
+        self.shard_insert(&key, &dcc);
         self.refresh_dependency_states();
+        self.inverted_index.write().invalidate();
     }
 
     fn get(&self, key: &str) -> Option<SkillEntry> {
@@ -205,9 +224,14 @@ impl Registry<SkillEntry> for SkillCatalog {
 
     fn remove(&self, key: &str) -> bool {
         self.skipped.remove(key);
+        // Remove from shard before removing from entries.
+        if let Some(entry) = self.entries.get(key) {
+            self.shard_remove(key, &entry.metadata.dcc);
+        }
         let removed = self.entries.remove(key).is_some();
         if removed {
             self.refresh_dependency_states();
+            self.inverted_index.write().invalidate();
         }
         removed
     }

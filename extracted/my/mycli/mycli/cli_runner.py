@@ -3,21 +3,18 @@ from __future__ import annotations
 import os
 import re
 import sys
-from textwrap import dedent
 from typing import TYPE_CHECKING, Any, Callable
 from urllib.parse import parse_qs, unquote, urlparse
 
 import click
 
 from mycli.config import str_to_bool
-from mycli.constants import EMPTY_PASSWORD_FLAG_SENTINEL, ISSUES_URL, REPO_URL
+from mycli.constants import EMPTY_PASSWORD_FLAG_SENTINEL, ISSUES_URL
 from mycli.main_modes.batch import main_batch_from_stdin, main_batch_with_progress_bar, main_batch_without_progress_bar
 from mycli.main_modes.checkup import main_checkup
 from mycli.main_modes.execute import main_execute_from_cli
 from mycli.main_modes.list_dsn import main_list_dsn
-from mycli.main_modes.list_ssh_config import main_list_ssh_config
 from mycli.packages.cli_utils import is_valid_connection_scheme
-from mycli.packages.ssh_utils import read_ssh_config
 
 if TYPE_CHECKING:
     from mycli.main import CliArgs
@@ -103,8 +100,6 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
         prompt=cli_args.prompt,
         toolbar_format=cli_args.toolbar,
         logfile=cli_args.logfile,
-        defaults_suffix=cli_args.defaults_group_suffix,
-        defaults_file=cli_args.defaults_file,
         login_path=cli_args.login_path,
         auto_vertical_output=cli_args.auto_vertical_output,
         warn=cli_args.warn,
@@ -134,59 +129,8 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
     if cli_args.table:
         cli_args.format = 'table'
 
-    if cli_args.deprecated_ssl is not None:
-        click.secho(
-            "Warning: The --ssl/--no-ssl CLI options are deprecated and will be removed in a future release. "
-            "Please use the \"default_ssl_mode\" config option or --ssl-mode CLI flag instead. "
-            f"See issue {ISSUES_URL}/1507",
-            err=True,
-            fg="yellow",
-        )
-
-    # ssh_port and ssh_config_path have truthy defaults and are not included
-    if (
-        any([
-            cli_args.ssh_user,
-            cli_args.ssh_host,
-            cli_args.ssh_password,
-            cli_args.ssh_key_filename,
-            cli_args.list_ssh_config,
-            cli_args.ssh_config_host,
-        ])
-        and not cli_args.ssh_warning_off
-    ):
-        click.secho(
-            f"Warning: The built-in SSH functionality is deprecated and will be removed in a future release. See issue {ISSUES_URL}/1464",
-            err=True,
-            fg="red",
-        )
-
     if cli_args.list_dsn:
         sys.exit(main_list_dsn(mycli))
-
-    if cli_args.list_ssh_config:
-        sys.exit(main_list_ssh_config(mycli, cli_args))
-
-    if 'MYSQL_UNIX_PORT' in os.environ:
-        # deprecated 2026-03
-        click.secho(
-            "The MYSQL_UNIX_PORT environment variable is deprecated in favor of MYSQL_UNIX_SOCKET.  "
-            "MYSQL_UNIX_PORT will be removed in a future release.",
-            err=True,
-            fg="red",
-        )
-        if not cli_args.socket:
-            cli_args.socket = os.environ['MYSQL_UNIX_PORT']
-
-    if 'DSN' in os.environ:
-        # deprecated 2026-03
-        click.secho(
-            "The DSN environment variable is deprecated in favor of MYSQL_DSN.  Support for DSN will be removed in a future release.",
-            err=True,
-            fg="red",
-        )
-        if not cli_args.dsn:
-            cli_args.dsn = os.environ['DSN']
 
     # Choose which ever one has a valid value.
     database = cli_args.dbname or cli_args.database
@@ -231,6 +175,11 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
             mycli.dsn_alias = cli_args.dsn
 
     if dsn_uri:
+        is_valid_scheme, scheme = is_valid_connection_scheme(dsn_uri)
+        if not is_valid_scheme:
+            click.secho(f'Error: Unknown connection scheme provided for DSN URI ({scheme}://)', err=True, fg='red')
+            sys.exit(1)
+
         uri = urlparse(dsn_uri)
         env_var_alias_name = None
         dsn_alias = getattr(mycli, 'dsn_alias', None)
@@ -309,25 +258,12 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
     keepalive_ticks = cli_args.keepalive_ticks if cli_args.keepalive_ticks is not None else mycli.default_keepalive_ticks
     ssl_mode = cli_args.ssl_mode or mycli.ssl_mode
 
-    # if there is a mismatch between the ssl_mode value and other sources of ssl config, show a warning
-    # specifically using "is False" to not pickup the case where cli_args.deprecated_ssl is None (not set by the user)
-    if cli_args.deprecated_ssl and ssl_mode == "off" or cli_args.deprecated_ssl is False and ssl_mode in ("auto", "on"):
-        click.secho(
-            f"Warning: The current ssl_mode value of '{ssl_mode}' is overriding the value provided by "
-            f"either the --ssl/--no-ssl CLI options or a DSN URI parameter (ssl={cli_args.deprecated_ssl}).",
-            err=True,
-            fg="yellow",
-        )
-
-    # configure SSL if ssl_mode is auto/on or if
-    # cli_args.deprecated_ssl = True (from --ssl or a DSN URI) and ssl_mode is None
-    if ssl_mode in ("auto", "on") or (cli_args.deprecated_ssl and ssl_mode is None):
+    if ssl_mode in ("auto", "on"):
         if cli_args.socket and ssl_mode == 'auto':
             ssl = None
         else:
             ssl = {
                 "mode": ssl_mode,
-                "enable": cli_args.deprecated_ssl,  # todo: why is this set at all?
                 "ca": cli_args.ssl_ca and os.path.expanduser(cli_args.ssl_ca),
                 "cert": cli_args.ssl_cert and os.path.expanduser(cli_args.ssl_cert),
                 "key": cli_args.ssl_key and os.path.expanduser(cli_args.ssl_key),
@@ -341,23 +277,6 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
     else:
         ssl = None
 
-    if cli_args.ssh_config_host:
-        ssh_config = read_ssh_config(cli_args.ssh_config_path).lookup(cli_args.ssh_config_host)
-        ssh_host = cli_args.ssh_host if cli_args.ssh_host else ssh_config.get("hostname")
-        ssh_user = cli_args.ssh_user if cli_args.ssh_user else ssh_config.get("user")
-        if ssh_config.get("port") and cli_args.ssh_port == 22:
-            # port has a default value, overwrite it if it's in the config
-            ssh_port = int(ssh_config.get("port"))
-        else:
-            ssh_port = cli_args.ssh_port
-        ssh_key_filename = cli_args.ssh_key_filename if cli_args.ssh_key_filename else ssh_config.get("identityfile", [None])[0]
-    else:
-        ssh_host = cli_args.ssh_host
-        ssh_user = cli_args.ssh_user
-        ssh_port = cli_args.ssh_port
-        ssh_key_filename = cli_args.ssh_key_filename
-
-    ssh_key_filename = ssh_key_filename and os.path.expanduser(ssh_key_filename)
     # Merge init-commands: global, DSN-specific, then CLI
     init_cmds: list[str] = []
     # 1) Global init-commands
@@ -392,82 +311,6 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
         use_keyring = str_to_bool(cli_args.use_keyring)
         reset_keyring = False
 
-    # todo: removeme after a period of transition
-    for tup in [
-        ('client', 'prompt', 'prompt', 'main', 'prompt'),
-        ('client', 'pager', 'pager', 'main', 'pager'),
-        ('client', 'skip-pager', 'skip-pager', 'main', 'enable_pager'),
-        # this is a white lie, because default_character_set can actually be read from the package config
-        ('client', 'default-character-set', 'default-character-set', 'connection', 'default_character_set'),
-        # local-infile can be read from both sections
-        ('mysqld', 'local-infile', 'local-infile', 'connection', 'default_local_infile'),
-        ('client', 'local-infile', 'local-infile', 'connection', 'default_local_infile'),
-        ('mysqld', 'loose-local-infile', 'loose-local-infile', 'connection', 'default_local_infile'),
-        ('client', 'loose-local-infile', 'loose-local-infile', 'connection', 'default_local_infile'),
-        # todo: in the future we should add default_port, etc, but only in .myclirc
-        # they are currently ignored in my.cnf
-        ('mysqld', 'default_socket', 'socket', 'connection', 'default_socket'),
-        ('client', 'ssl-ca', 'ssl-ca', 'connection', 'default_ssl_ca'),
-        ('client', 'ssl-cert', 'ssl-cert', 'connection', 'default_ssl_cert'),
-        ('client', 'ssl-key', 'ssl-key', 'connection', 'default_ssl_key'),
-        ('client', 'ssl-cipher', 'ssl-cipher', 'connection', 'default_ssl_cipher'),
-        ('client', 'ssl-verify-server-cert', 'ssl-verify-server-cert', 'connection', 'default_ssl_verify_server_cert'),
-    ]:
-        (
-            mycnf_section_name,
-            mycnf_item_name,
-            printable_mycnf_item_name,
-            myclirc_section_name,
-            myclirc_item_name,
-        ) = tup
-        if str_to_bool(mycli.config['main'].get('my_cnf_transition_done', 'False')):
-            break
-        if (
-            mycli.my_cnf[mycnf_section_name].get(mycnf_item_name) is None
-            and mycli.my_cnf[mycnf_section_name].get(mycnf_item_name.replace('-', '_')) is None
-        ):
-            continue
-        user_section = mycli.config_without_package_defaults.get(myclirc_section_name, {})
-        if user_section.get(myclirc_item_name) is None:
-            cnf_value = mycli.my_cnf[mycnf_section_name].get(mycnf_item_name)
-            if cnf_value is None:
-                cnf_value = mycli.my_cnf[mycnf_section_name].get(mycnf_item_name.replace('-', '_'))
-            click.secho(
-                dedent(
-                    f"""
-                    Reading configuration from my.cnf files is deprecated.
-                    See {ISSUES_URL}/1490 .
-                    The cause of this message is the following in a my.cnf file without a corresponding
-                    ~/.myclirc entry:
-
-                        [{mycnf_section_name}]
-                        {printable_mycnf_item_name} = {cnf_value}
-
-                    To suppress this message, remove the my.cnf item add or the following to ~/.myclirc:
-
-                        [{myclirc_section_name}]
-                        {myclirc_item_name} = <value>
-
-                    The ~/.myclirc setting will take precedence.  In the future, the my.cnf will be ignored.
-
-                    Values are documented at {REPO_URL}/blob/main/mycli/myclirc .  An
-                    empty <value> is generally accepted.
-
-                    To ignore all of this, set
-
-                        [main]
-                        my_cnf_transition_done = True
-
-                    in ~/.myclirc.
-
-                    --------
-
-                    """
-                ),
-                err=True,
-                fg='yellow',
-            )
-
     mycli.connect(
         database=database,
         user=cli_args.user,
@@ -477,11 +320,6 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
         socket=cli_args.socket,
         local_infile=cli_args.local_infile,
         ssl=ssl,
-        ssh_user=ssh_user,
-        ssh_host=ssh_host,
-        ssh_port=ssh_port,
-        ssh_password=cli_args.ssh_password,
-        ssh_key_filename=ssh_key_filename,
         init_command=combined_init_cmd,
         unbuffered=cli_args.unbuffered,
         character_set=cli_args.character_set,

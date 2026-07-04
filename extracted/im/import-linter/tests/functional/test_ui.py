@@ -50,6 +50,36 @@ class TestDrawGraph:
         assert ".high" in output
         assert ".low" in output
 
+    def test_show_import_totals(self):
+        result = subprocess.run(
+            ["import-linter", "drawgraph", "testpackage", "--show-import-totals"],
+            capture_output=True,
+            cwd=testpackage_directory,
+        )
+        assert result.returncode == 0
+        output = result.stdout.decode()
+        assert "label=" in output
+
+    def test_show_module_counts(self):
+        result = subprocess.run(
+            ["import-linter", "drawgraph", "testpackage", "--show-module-counts"],
+            capture_output=True,
+            cwd=testpackage_directory,
+        )
+        assert result.returncode == 0
+        output = result.stdout.decode()
+        assert r".high/\n" in output
+
+    def test_show_cycle_breakers(self):
+        result = subprocess.run(
+            ["import-linter", "drawgraph", "testpackage", "--show-cycle-breakers"],
+            capture_output=True,
+            cwd=testpackage_directory,
+        )
+        assert result.returncode == 0
+        output = result.stdout.decode()
+        assert "dashed" in output
+
     def test_exits_with_error_if_module_not_importable(self):
         result = subprocess.run(
             ["import-linter", "drawgraph", "nonexistent"],
@@ -98,6 +128,16 @@ class TestGraphApi:
         # high has sub-package blue and leaf green
         assert ".blue" in data["child_packages"]
         assert ".green" not in data["child_packages"]
+
+    def test_shows_module_counts(self, client):
+        response = client.get("/api/graph/testpackage?show_module_counts=true")
+        data = response.json()
+        dot = data["dot_string"]
+        # testpackage.high has 4 descendants (blue, blue.one, blue.two, green)
+        assert r".high/\n4" in dot
+        # utils is a leaf module, so should not have a count
+        assert "utils" in dot
+        assert r".utils/\n" not in dot
 
     def test_caches_grimp_graph(self, client):
         # Two requests for different sub-modules of same top-level package

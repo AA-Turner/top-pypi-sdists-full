@@ -3,7 +3,7 @@ import sys
 import pytest
 
 from sage.core.renderer import _build_console, set_no_color
-from sage.main import app as sage_app
+from sage.cli_core import app as sage_app
 
 def test_no_color_env_variable(monkeypatch):
     """Test that NO_COLOR environment variable disables colors dynamically in console."""

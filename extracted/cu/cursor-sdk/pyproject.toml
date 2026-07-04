@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cursor-sdk"
-version = "0.1.8"
+version = "0.1.9"
 description = "cursor-sdk requires a binary wheel - install from PyPI."
 readme = "README.md"
 requires-python = ">=3.10"

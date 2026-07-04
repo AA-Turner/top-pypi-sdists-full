@@ -17,6 +17,7 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Protocol, deprecated
+from unique_sdk.api_resources._llm_models import LLMModels
 
 from unique_toolkit._common.config_checker import register_config
 from unique_toolkit.app.chat_event_filter_options_settings import (
@@ -26,7 +27,12 @@ from unique_toolkit.app.feature_flags import UNIQUE_TOOLKIT_FEATURE_FLAGS
 from unique_toolkit.app.find_env_file import EnvFileNotFoundError, find_env_file
 
 if TYPE_CHECKING:
+    from unique_toolkit.agentic_table.schemas import MagicTableEvent
     from unique_toolkit.app.schemas import BaseEvent, ChatEvent
+
+# Placeholder message ids for magic-table runs that create messages dynamically.
+MAGIC_TABLE_STREAMING_ASSISTANT_MESSAGE_ID = "magic-table-streaming-assistant"
+MAGIC_TABLE_STREAMING_USER_MESSAGE_ID = "magic-table-streaming-user"
 
 
 logger = getLogger(__name__)
@@ -316,6 +322,14 @@ class ApiType(StrEnum):
     LEGACY = "legacy"
 
 
+class UniqueApiConnectionError(Exception):
+    """Raised when the API connection check fails."""
+
+    def __init__(self, base_url: str, message: str) -> None:
+        self.base_url = base_url
+        super().__init__(f"{message} (base URL: {base_url})")
+
+
 @register_config()
 class UniqueApi(BaseSettings):
     base_url: str = Field(
@@ -331,6 +345,8 @@ class UniqueApi(BaseSettings):
     )
 
     api_type: ApiType = Field(default=ApiType.LEGACY)
+
+    _probe_check_failed: bool = PrivateAttr(default=False)
 
     version: str = Field(
         default="2023-12-06",
@@ -398,6 +414,8 @@ class UniqueApi(BaseSettings):
         return parsed, base_path
 
     def sdk_url(self) -> str:
+        if self._probe_check_failed:
+            return self.base_url
         parsed, base_path = self.base_path()
         return urlunparse(parsed._replace(path=base_path, query=None, fragment=None))
 
@@ -405,6 +423,15 @@ class UniqueApi(BaseSettings):
         parsed, base_path = self.base_path()
         path = base_path + "/openai-proxy"
         return urlunparse(parsed._replace(path=path, query=None, fragment=None))
+
+    async def check_connection(self, user_id: str, company_id: str) -> bool:
+        try:
+            model_list = await LLMModels.get_models_async(user_id, company_id)
+            self._probe_check_failed = False
+            return len(model_list["models"]) > 0
+        except Exception as exc:
+            self._probe_check_failed = True
+            raise UniqueApiConnectionError(self.base_url, str(exc)) from exc
 
 
 # EventFilterOptions
@@ -483,6 +510,39 @@ class UniqueContext:
         return cls(
             auth=AuthContext.from_event(event),
             chat=ChatContext.from_chat_event(event),
+        )
+
+    @classmethod
+    def from_magic_table_event(cls, event: MagicTableEvent) -> Self:
+        """Build auth + chat context from a magic-table webhook event.
+
+        Magic-table payloads carry ``chat_id`` and ``assistant_id`` but no live
+        user/assistant message objects. Placeholder message ids are used so
+        chat-scoped services (e.g. :class:`ChatService`) can be constructed via
+        :meth:`from_context`; do not use this context for short-term memory
+        writes that require a real message id.
+        """
+        payload = event.payload
+        if not payload.chat_id:
+            msg = (
+                "Magic-table event is missing chat_id; "
+                "chat-scoped services cannot be built."
+            )
+            raise ValueError(msg)
+        parent_chat_id = (
+            payload.correlation.parent_chat_id if payload.correlation else None
+        )
+        return cls(
+            auth=AuthContext.from_event(event),
+            chat=ChatContext(
+                chat_id=payload.chat_id,
+                assistant_id=payload.assistant_id,
+                last_assistant_message_id=MAGIC_TABLE_STREAMING_ASSISTANT_MESSAGE_ID,
+                last_user_message_id=MAGIC_TABLE_STREAMING_USER_MESSAGE_ID,
+                last_user_message_text="",
+                metadata_filter=payload.metadata_filter,
+                parent_chat_id=parent_chat_id,
+            ),
         )
 
     @classmethod
@@ -574,7 +634,6 @@ class UniqueSettings:
             logger.warning(
                 f"Environment file '{filename}' not found. Falling back to environment variables only."
             )
-            # Fall back to environment variables only
             return cls.from_env()
 
     def init_sdk(self) -> None:
@@ -604,6 +663,29 @@ class UniqueSettings:
         settings = cls.from_env_auto(filename)
         settings.init_sdk()
         return settings
+
+    async def check_connection(self) -> bool:
+        """Verify the API is reachable by listing available models via the SDK.
+
+        Returns:
+            True if the API is reachable and at least one model is available.
+            False if the API is reachable but no models are configured.
+
+        Raises:
+            UniqueApiConnectionError: If the SDK call fails due to a network or auth error.
+        """
+        # Reset before init_sdk so each retry always probes the canonical computed
+        # sdk_url(), not a stale base_url left over from a previous failure.
+        self.api._probe_check_failed = False
+        self.init_sdk()
+        try:
+            return await self.api.check_connection(
+                self.authcontext.get_confidential_user_id(),
+                self.authcontext.get_confidential_company_id(),
+            )
+        finally:
+            # Re-sync api_base with sdk_url() which may have just fallen back.
+            self.init_sdk()
 
     @classmethod
     def from_chat_event(cls, event: ChatEvent) -> UniqueSettings:

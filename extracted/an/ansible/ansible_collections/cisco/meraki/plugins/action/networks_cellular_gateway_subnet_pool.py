@@ -50,7 +50,7 @@ class NetworksCellularGatewaySubnetPool(object):
         self.new_object = dict(
             mask=params.get("mask"),
             cidr=params.get("cidr"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
         )
 
     def get_all_params(self, name=None, id=None):
@@ -130,7 +130,9 @@ class NetworksCellularGatewaySubnetPool(object):
 
         obj_params = [
             ("mask", "mask"),
-            ("cidr", "cidr"),]
+            ("cidr", "cidr"),
+            ("networkId", "networkId"),
+        ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update
         return any(

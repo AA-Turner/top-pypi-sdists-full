@@ -52,7 +52,7 @@ class NetworksApplianceSecurityIntrusion(object):
             mode=params.get("mode"),
             idsRulesets=params.get("idsRulesets"),
             protectedNetworks=params.get("protectedNetworks"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
         )
 
     def get_all_params(self, name=None, id=None):
@@ -137,7 +137,9 @@ class NetworksApplianceSecurityIntrusion(object):
         obj_params = [
             ("mode", "mode"),
             ("idsRulesets", "idsRulesets"),
-            ("protectedNetworks", "protectedNetworks"),]
+            ("protectedNetworks", "protectedNetworks"),
+            ("networkId", "networkId"),
+        ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update
         return any(

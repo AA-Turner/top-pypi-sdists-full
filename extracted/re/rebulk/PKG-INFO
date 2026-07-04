@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rebulk
-Version: 6.0.0
+Version: 6.0.1
 Summary: Rebulk - Define simple search patterns in bulk to perform advanced matching on any string.
 Keywords: re,regexp,regular expression,search,pattern,string,match
 Author: Rémi Alvergnat

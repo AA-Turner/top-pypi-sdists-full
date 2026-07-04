@@ -14,7 +14,7 @@ from esphome.storage_json import StorageJSON
 from ...helpers.async_ import run_in_executor
 from ...helpers.remote_build_layout import parse_from_configuration as parse_remote_build_path
 from ...helpers.storage_path import resolve_storage_path
-from ...models import FirmwareJob, JobType
+from ...models import OTA_PORT, FirmwareJob, JobType
 from . import lifecycle
 from .constants import _OTA_ADDRESS_CACHE_JOB_TYPES, ESPHOME_SUBPROCESS_ENV
 from .helpers import _find_esptool_cmd
@@ -99,9 +99,10 @@ def build_cache_args(controller: FirmwareController, job: FirmwareJob) -> list[s
     """Return ``--mdns/--dns-address-cache`` args for *job*, or empty."""
     if job.job_type not in _OTA_ADDRESS_CACHE_JOB_TYPES or controller._db.devices is None:
         return []
-    # ``rename``'s ``port`` is the post-rename re-install target;
-    # the inner ``esphome run`` against the *old* address is
-    # always OTA, so skip the gate with ``None``.
+    # A rename's flash target is always the old device over OTA — the
+    # tail carries its resolved address in ``port``, the legacy fused
+    # CLI resolves it itself — so skip the port gate with ``None`` and
+    # let the old configuration's cache args through.
     port: str | None = None if job.job_type == JobType.RENAME else job.port
     return controller._db.devices.get_ota_address_cache_args(job.configuration, port)
 
@@ -118,7 +119,7 @@ async def verify_chip(controller: FirmwareController, job: FirmwareJob, lane: La
     ``esp32``, which would false-positive on a chip-vs-variant
     mismatch).
     """
-    if not job.port or job.port.upper() == "OTA" or not job.port.startswith("/dev"):
+    if not job.port or job.port.upper() == OTA_PORT or not job.port.startswith("/dev"):
         return  # only check serial ports
 
     storage = await run_in_executor(

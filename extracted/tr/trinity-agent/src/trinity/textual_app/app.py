@@ -984,8 +984,11 @@ class TrinityTextualApp(App[None]):
 
     #nexus-next-action {
         width: 100%;
-        height: 1;
-        content-align: left middle;
+        min-height: 1;
+        height: auto;
+        max-height: 2;
+        overflow-y: auto;
+        content-align: left top;
         color: $text-muted;
         text-style: bold;
     }
@@ -1031,6 +1034,17 @@ class TrinityTextualApp(App[None]):
         margin-bottom: 1;
     }
 
+    #settings-target-workspace {
+        width: 100%;
+        max-width: 96;
+        min-height: 1;
+        height: auto;
+        max-height: 2;
+        overflow-y: auto;
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+
     .settings-section-title {
         text-style: bold;
         color: $warning;
@@ -1040,6 +1054,21 @@ class TrinityTextualApp(App[None]):
 
     .ui-density-compact .settings-section-title {
         margin-top: 0;
+        margin-bottom: 0;
+    }
+
+    .settings-section-hint {
+        width: 100%;
+        max-width: 96;
+        min-height: 1;
+        height: auto;
+        max-height: 2;
+        overflow-y: auto;
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+
+    .ui-density-compact .settings-section-hint {
         margin-bottom: 0;
     }
 
@@ -1183,12 +1212,18 @@ class TrinityTextualApp(App[None]):
     }
 
     #execution-header-row {
-        height: 1;
+        height: auto;
+        max-height: 2;
+        align-vertical: top;
     }
 
     #execution-header {
-        height: 1;
         width: 1fr;
+        min-height: 1;
+        height: auto;
+        max-height: 2;
+        overflow-y: auto;
+        content-align: left top;
         text-style: bold;
         color: $accent;
     }
@@ -1198,8 +1233,17 @@ class TrinityTextualApp(App[None]):
         margin-left: 1;
     }
 
+    #toggle-activity-expanded,
+    #execution-retry {
+        width: 16;
+    }
+
     #execution-summary {
-        height: 1;
+        min-height: 1;
+        height: auto;
+        max-height: 2;
+        overflow-y: auto;
+        content-align: left top;
         margin-top: 1;
         color: $text-muted;
     }
@@ -1271,6 +1315,25 @@ class TrinityTextualApp(App[None]):
     .execution-package-status {
         width: 8;
         text-style: bold;
+    }
+
+    .execution-status-running {
+        color: $accent;
+    }
+
+    .execution-status-waiting,
+    .execution-status-idle,
+    .execution-status-unknown {
+        color: $text-muted;
+    }
+
+    .execution-status-done {
+        color: $success;
+    }
+
+    .execution-status-issue {
+        color: $warning;
+        text-style: bold reverse;
     }
 
     .execution-package-review {
@@ -1444,18 +1507,26 @@ class TrinityTextualApp(App[None]):
     }
 
     #report-header {
-        height: 4;
+        height: 6;
         margin-bottom: 1;
     }
 
     .ui-density-compact #report-header {
-        height: 3;
+        height: 5;
         margin-bottom: 0;
     }
 
     #report-title {
         text-style: bold;
         color: $accent;
+    }
+
+    #report-target-workspace {
+        min-height: 1;
+        height: auto;
+        max-height: 2;
+        overflow-y: auto;
+        color: $text-muted;
     }
 
     #report-export-btn {
@@ -1468,6 +1539,9 @@ class TrinityTextualApp(App[None]):
 
     #report-export-status {
         color: $text-muted;
+        height: auto;
+        max-height: 2;
+        overflow-y: auto;
     }
 
     #report-body {
@@ -1685,6 +1759,7 @@ class TrinityTextualApp(App[None]):
 
         self._screens_installed = True
         self._sync_nexus_workspace_candidate()
+        self._sync_settings_workspace_candidate()
 
     def _start_model_discovery(self) -> None:
         if self._model_discovery_started:
@@ -3581,6 +3656,13 @@ class TrinityTextualApp(App[None]):
             self.workspace_candidate,
         )
 
+    def _sync_settings_workspace_candidate(self) -> None:
+        if not self._screens_installed:
+            return
+        self.get_screen("settings", SettingsScreen).set_workspace_candidate(
+            self.workspace_candidate,
+        )
+
     def _safe_nexus_target_workspace(
         self,
         snapshot: WorkflowNexusSnapshot | None,
@@ -3609,6 +3691,7 @@ class TrinityTextualApp(App[None]):
             self.get_screen("start", StartScreen).set_workspace_candidate(path)
         if sync_nexus:
             self._sync_nexus_workspace_candidate()
+        self._sync_settings_workspace_candidate()
 
     def _handle_textual_resume_command(self, args: list[str]) -> None:
         action = resume_command_action(

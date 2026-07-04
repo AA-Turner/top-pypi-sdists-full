@@ -1146,7 +1146,11 @@ class PirSensorConfigurationService(SHCDeviceService):
 class OccupancyDetectionService(SHCDeviceService):
     @property
     def isOccupied(self) -> bool:
-        return bool(self.state["isOccupied"])
+        # Spec marks isOccupied as required, but other "required" boolean
+        # state fields (e.g. UserDefinedState's deleted/state, hass#351) have
+        # been observed omitted in practice on partial poll snapshots -- use
+        # the same defensive .get() convention as sibling boolean properties.
+        return bool(self.state.get("isOccupied", False))
 
     @property
     def lastOccupancyChangeTime(self) -> str:
@@ -1703,9 +1707,7 @@ class CommunicationQualityService(SHCDeviceService):
 
     def request_quality_test(self) -> None:
         """Trigger a fresh communication-quality measurement (write-only)."""
-        self.put_state_element(
-            "requestState", self.RequestState.REQUEST.value
-        )
+        self.put_state_element("requestState", self.RequestState.REQUEST.value)
 
     async def async_request_quality_test(self) -> None:
         """Async counterpart to request_quality_test."""
@@ -2044,8 +2046,7 @@ class WallThermostatConfiguration(SHCDeviceService):
         print(f"    heaterType               : {self.heater_type}")
         print(f"    supportedHeaterTypes     : {self.supported_heater_types}")
         print(
-            "    decalcificationProtEnabled: "
-            f"{self.decalcification_protection_enabled}"
+            f"    decalcificationProtEnabled: {self.decalcification_protection_enabled}"
         )
 
 

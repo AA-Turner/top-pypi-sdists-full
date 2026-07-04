@@ -802,6 +802,10 @@ class BingoTerminal:
 
             # 일반 메시지 → AI 응답
             self._send_message(user_input.strip())
+            # ★ _send_message 완료 후에도 stop_flag가 남아있으면 클리어
+            # (Ctrl+C로 중단된 경우 다음 입력 프롬프트가 즉시 force-quit되는 문제 방지)
+            if self._agent_stop_flag.is_set():
+                self._agent_stop_flag.clear()
 
     def _get_input(self) -> str:
         model_cfg = self.config.get_active_model_config()
@@ -1927,6 +1931,10 @@ class BingoTerminal:
                 model.chat_stream(self._build_messages(""))
             )
             self._build_messages = _orig_build  # type: ignore[method-assign]
+            # ★ Ctrl+C 중단 감지 — 플래그가 남아있으면 두 번째 _stream_response 호출 방지
+            if self._agent_stop_flag.is_set():
+                self._agent_stop_flag.clear()
+                return
 
         if full_response:
             self.history.append(Message(role="assistant", content=full_response))
@@ -2189,10 +2197,20 @@ class BingoTerminal:
         self.history.append(Message(role="user", content=wrapped_text))
         self._append_to_session_log("user", text)
 
+        # ★ Ctrl+C 중단 감지 — 플래그가 남아있으면 스트리밍 호출 스킵
+        if self._agent_stop_flag.is_set():
+            self._agent_stop_flag.clear()
+            return
+
         # 시스템 프롬프트 + 스킬 컨텍스트 포함한 전체 메시지로 스트리밍
         full_response = self._stream_response(
             model.chat_stream(self._build_messages(skill_context))
         )
+
+        # ★ 스트리밍 후 Ctrl+C 중단 감지 — 거부 재시도 방지
+        if self._agent_stop_flag.is_set():
+            self._agent_stop_flag.clear()
+            return
 
         # 거부 감지 → 재구성 후 재시도 (이전 출력은 이미 표시됨 — 새 시도만 추가 출력)
         if full_response and detect_refusal(full_response):
@@ -7661,6 +7679,11 @@ class BingoTerminal:
                 "<!doctype", "<!DOCTYPE",
                 "response body:", "Response Body:", "응답체:", "응답바디:",
                 "响应体:", "响应内容:", "返回体:", "请求体:",
+                # v3.6.6: 'Response (403): <!DOCTYPE html>' WAF 차단 응답 오탐 방지
+                # WAF가 AND/UNION/SLEEP 등 다수 페이로드를 403으로 차단 시
+                # "Response (403): <!DOCTYPE html>" 이 5회 이상 반복 → 무한루프 오탐 발생
+                # 실제 무한루프(SQL TOP 1 커서 없음)와 WAF 차단 패턴을 구분
+                "Response (", "response (",
                 # v3.2.17: HTTP 상태코드 + 크기 출력 패턴 (예: [GET] /path → 200/1234B)
                 "[get] ", "[post] ", "[put] ", "[delete] ", "[patch] ",
                 "[GET] ", "[POST] ", "[PUT] ", "[DELETE] ", "[PATCH] ",
@@ -7801,27 +7824,51 @@ class BingoTerminal:
                 _last_five = _table_lines[-5:]
                 if len(set(_last_five)) == 1:  # 마지막 5줄이 모두 동일한 의미있는 값
                     _dup_val = _last_five[0]
-                    _dup_msg = t("infinite_loop_warning", "⚠️  Infinite loop detected — '{name}' repeated {n}+ times.").replace("{name}", _dup_val).replace("{n}", "5")
-                    self.console.print(f"[bold red]{_dup_msg}[/]")
-                    _ip_block_hint += (
-                        f"\n[INFINITE_LOOP_DETECTED: same result '{_dup_val}' repeating]\n"
-                        "CRITICAL BUG IN YOUR SCRIPT: You are getting the same result in a loop!\n"
-                        "ROOT CAUSE: SELECT TOP 1 without pagination cursor always returns first row.\n"
-                        "MANDATORY FIX — Use cursor pagination:\n"
-                        "  seen = set()\n"
-                        "  last_hex = ''\n"
-                        "  while True:\n"
-                        "      if last_hex:\n"
-                        "          payload = f'AND(1)=(SELECT TOP 1 name FROM sysobjects WHERE xtype=0x55 AND name > {last_hex})'\n"
-                        "      else:\n"
-                        "          payload = 'AND(1)=(SELECT TOP 1 name FROM sysobjects WHERE xtype=0x55)'\n"
-                        "      result = extract(payload)\n"
-                        "      if not result or result in seen: break\n"
-                        "      seen.add(result)\n"
-                        "      last_hex = '0x' + result.encode().hex().upper()\n"
-                        "      print(result)\n"
-                        "STOP the current loop immediately and rewrite with this pattern.\n"
+                    _dup_val_lower = _dup_val.lower()
+                    # v3.6.6: WAF 차단 응답 오탐 방지
+                    # "Response (403): <!DOCTYPE html>" 같은 HTTP 에러 응답이
+                    # 여러 페이로드에서 동일하게 반복될 때 루프 오탐 방지
+                    # 실제 SQL 데이터 루프는 HTTP 에러 페이지가 아닌 DB 레코드값을 반복함
+                    _is_waf_response = (
+                        _dup_val_lower.startswith("response (")          # Response (403): ...
+                        or _dup_val_lower.startswith("status=4")          # status=403, status=404
+                        or _dup_val_lower.startswith("status=5")          # status=500, status=503
+                        or "<!doctype" in _dup_val_lower                  # HTML 에러 페이지
+                        or "<html" in _dup_val_lower                      # HTML 본문
+                        or "error 40" in _dup_val_lower                   # "Error 403 (Forbidden)"
+                        or "error 50" in _dup_val_lower                   # "Error 503 ..."
+                        or "forbidden" in _dup_val_lower                  # HTTP 403 Forbidden
+                        or "not found" in _dup_val_lower                  # HTTP 404 Not Found
                     )
+                    if _is_waf_response:
+                        # WAF 차단: 루프 오탐이므로 TOP 1 힌트 없이 스킵
+                        _waf_loop_fp_msg = t(
+                            "loop_fp_waf_block",
+                            "⚡ Loop false-positive skipped: repeated '{name}' is WAF block response — not SQL data loop."
+                        ).replace("{name}", _dup_val[:60])
+                        self.console.print(f"[dim]{_waf_loop_fp_msg}[/]")
+                    else:
+                        _dup_msg = t("infinite_loop_warning", "⚠️  Infinite loop detected — '{name}' repeated {n}+ times.").replace("{name}", _dup_val).replace("{n}", "5")
+                        self.console.print(f"[bold red]{_dup_msg}[/]")
+                        _ip_block_hint += (
+                            f"\n[INFINITE_LOOP_DETECTED: same result '{_dup_val}' repeating]\n"
+                            "CRITICAL BUG IN YOUR SCRIPT: You are getting the same result in a loop!\n"
+                            "ROOT CAUSE: SELECT TOP 1 without pagination cursor always returns first row.\n"
+                            "MANDATORY FIX — Use cursor pagination:\n"
+                            "  seen = set()\n"
+                            "  last_hex = ''\n"
+                            "  while True:\n"
+                            "      if last_hex:\n"
+                            "          payload = f'AND(1)=(SELECT TOP 1 name FROM sysobjects WHERE xtype=0x55 AND name > {last_hex})'\n"
+                            "      else:\n"
+                            "          payload = 'AND(1)=(SELECT TOP 1 name FROM sysobjects WHERE xtype=0x55)'\n"
+                            "      result = extract(payload)\n"
+                            "      if not result or result in seen: break\n"
+                            "      seen.add(result)\n"
+                            "      last_hex = '0x' + result.encode().hex().upper()\n"
+                            "      print(result)\n"
+                            "STOP the current loop immediately and rewrite with this pattern.\n"
+                        )
 
             if _detected_blocks:
                 _wait_secs = 15
@@ -10158,20 +10205,22 @@ class BingoTerminal:
         param = sub[1].strip() if len(sub) > 1 else ""
 
         if cmd == "list" or not arg.strip():
-            tools = reg.list_tools()
+            tools = reg.list()
             if not tools:
-                self._info("No external tools defined. Add YAML files to bingo/tools_ext/builtin/")
+                self._info(self.s.get("tools_ext_no_tools"))
                 return
             t = _T(title="[bold cyan]External Tools[/]", border_style=THEME["primary"])
             t.add_column("Name", style="cyan", width=18)
             t.add_column("Command", width=30, overflow="fold")
+            t.add_column("Available", width=10)
             t.add_column("Description", overflow="fold")
             for tool in tools:
-                t.add_row(tool["name"], tool.get("command", ""), tool.get("description", ""))
+                avail = "[green]✓[/]" if tool.is_available() else "[red]✗[/]"
+                t.add_row(tool.name, tool.command, avail, tool.description or tool.short_description)
             self.console.print(t)
         elif cmd == "run":
             if not param:
-                self._warn("Usage: /tools-ext run <tool_name> [args...]")
+                self._warn(self.s.get("tools_ext_run_usage"))
                 return
             parts = param.split(None, 1)
             name = parts[0]
@@ -10179,10 +10228,10 @@ class BingoTerminal:
             result = reg.run(name, extra)
             self.console.print(result)
         elif cmd == "reload":
-            reg.reload()
-            self._success("External tools reloaded.")
+            reg.__init__()
+            self._success(self.s.get("tools_ext_reloaded"))
         else:
-            self._warn("Usage: /tools-ext [list|run <name>|reload]")
+            self._warn(self.s.get("tools_ext_usage"))
 
     # ── /kb ───────────────────────────────────────────────────────
     def _cmd_kb(self, arg: str = "") -> None:

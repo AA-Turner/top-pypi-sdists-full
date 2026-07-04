@@ -41,7 +41,7 @@ class TestCLIValidationIntegration:
 
     def test_rejection_triggers_recovery_flow(self):
         """When validation rejects, recovery prompt must be sent."""
-        from sage.main import _TOOL_FORMAT_RECOVERY_PROMPT
+        from sage.cli_core import _TOOL_FORMAT_RECOVERY_PROMPT
 
         assert _TOOL_FORMAT_RECOVERY_PROMPT is not None
         assert len(_TOOL_FORMAT_RECOVERY_PROMPT) > 50
@@ -63,7 +63,7 @@ class TestValidationPipelineUnification:
     def test_streaming_and_batch_use_same_patterns(self):
         """Streaming and batch validation must use same pattern definitions."""
         from sage.core.renderer import _detect_bad_streaming_patterns
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         # Both should detect XML tool syntax
         xml_content = "<execute_tool>read</execute_tool>"
@@ -101,7 +101,7 @@ class TestFailClosedGrounding:
 
     def test_uncertainty_phrases_are_detected(self):
         """Validation must detect phrases indicating lack of context."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         uncertainty_response = """
 Without reading the actual files, I cannot provide specific recommendations.
@@ -173,7 +173,7 @@ class TestExecutionLedger:
         ]
 
         # For now, verify the concept exists in some form
-        from sage.main import _track_files_read, _track_files_written
+        from sage.cli_core import _track_files_read, _track_files_written
 
         # These helper functions exist - verify they're callable
         assert callable(_track_files_read)
@@ -181,7 +181,7 @@ class TestExecutionLedger:
 
     def test_claims_must_match_ledger(self):
         """Implementation claims must be verified against ledger."""
-        from sage.main import _validate_implementation_response
+        from sage.cli_core import _validate_implementation_response
 
         # Claim: "I implemented the feature"
         # Ledger: No files written
@@ -263,7 +263,7 @@ class TestGoldenTranscripts:
 
     def test_retry_spiral_triggers_hard_stop(self):
         """Same error 3+ times must trigger hard stop."""
-        from sage.main import FailureLoopDetector
+        from sage.cli_core import FailureLoopDetector
 
         detector = FailureLoopDetector(max_identical_errors=3)
 
@@ -277,7 +277,7 @@ class TestGoldenTranscripts:
 
     def test_fake_green_rejected(self):
         """Claim of passed tests without actual test run must be rejected."""
-        from sage.main import _validate_completion_claim
+        from sage.cli_core import _validate_completion_claim
 
         # Fake green: claims completion but has no evidence (FILE:, RUN:, RESULT: blocks)
         # The function checks for completion claims like "done!", "complete!", "finished"

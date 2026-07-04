@@ -278,6 +278,22 @@ enum SshKeysCommands {
 
 #[derive(Subcommand)]
 enum GitCommands {
+    /// Fast-clone a repo: install trusted pack artifacts directly, then leave a normal Git checkout
+    Clone {
+        /// Repo name
+        repo: String,
+        /// Destination directory (default: derived from the repo name)
+        dest: Option<std::path::PathBuf>,
+        /// Pack/idx/blob artifact cache directory (default: platform cache dir)
+        #[arg(long)]
+        cache_dir: Option<std::path::PathBuf>,
+        /// Prune old cached artifacts after clone; accepts K/M/G/T suffixes
+        #[arg(long, value_parser = commands::git::parse_cache_max_bytes)]
+        cache_max_bytes: Option<u64>,
+        /// Install objects/refs without checking out the worktree
+        #[arg(long)]
+        no_checkout: bool,
+    },
     /// Create an empty repo
     Create {
         /// Repo name
@@ -285,6 +301,27 @@ enum GitCommands {
         /// Default branch name
         #[arg(long, default_value = "main")]
         default_branch: String,
+        /// Output JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Push local files to a repo as one commit (resumable chunk upload; no local git needed)
+    Push {
+        /// Repo name
+        #[arg(long)]
+        repo: String,
+        /// Target branch
+        #[arg(long, default_value = "main")]
+        branch: String,
+        /// Commit message
+        #[arg(short, long, default_value = "tl push")]
+        message: String,
+        /// Force-with-lease: require the branch to currently equal this commit oid
+        #[arg(long)]
+        expect_oid: Option<String>,
+        /// Files or directories to push (directories recurse; repo paths are relative to CWD)
+        #[arg(required = true)]
+        paths: Vec<std::path::PathBuf>,
         /// Output JSON
         #[arg(long)]
         json: bool,
@@ -1425,6 +1462,19 @@ async fn main() {
             CliError::Cancelled => std::process::exit(1),
             _ => {
                 eprintln!("Error: {}", e);
+                // Walk the source chain: wrapped errors like reqwest's hide the
+                // root cause (DNS failure, connection refused, TLS, timeout)
+                // behind Display and only expose it via source().
+                let mut prev = e.to_string();
+                let mut source = std::error::Error::source(&e);
+                while let Some(cause) = source {
+                    let msg = cause.to_string();
+                    if !prev.contains(&msg) {
+                        eprintln!("  Caused by: {}", msg);
+                        prev = msg;
+                    }
+                    source = cause.source();
+                }
                 if ctx.debug {
                     eprintln!("\nDebug info:");
                     eprintln!("  {:?}", e);
@@ -2012,6 +2062,16 @@ async fn run_ssh_keys_command(ctx: &CliContext, subcmd: SshKeysCommands) -> erro
 
 async fn run_git_command(ctx: &CliContext, subcmd: GitCommands) -> error::Result<()> {
     match subcmd {
+        GitCommands::Clone {
+            repo,
+            dest,
+            cache_dir,
+            cache_max_bytes,
+            no_checkout,
+        } => {
+            commands::git::clone_repo(ctx, &repo, dest, cache_dir, cache_max_bytes, no_checkout)
+                .await
+        }
         GitCommands::Create {
             repo,
             default_branch,
@@ -2027,6 +2087,14 @@ async fn run_git_command(ctx: &CliContext, subcmd: GitCommands) -> error::Result
         GitCommands::Token { repo, json } => {
             commands::git::mint_token(ctx, repo.as_deref(), json).await
         }
+        GitCommands::Push {
+            repo,
+            branch,
+            message,
+            expect_oid,
+            paths,
+            json,
+        } => commands::git::push(ctx, &repo, &branch, &message, expect_oid, paths, json).await,
         GitCommands::Url { repo } => {
             println!("{}", commands::git::repo_url(ctx, &repo)?);
             Ok(())
@@ -2152,6 +2220,32 @@ mod tests {
 
     #[test]
     fn git_commands_parse() {
+        match parse_command([
+            "tl",
+            "git",
+            "clone",
+            "demo",
+            "dest-dir",
+            "--cache-max-bytes",
+            "2GiB",
+            "--no-checkout",
+        ]) {
+            Commands::Git(GitCommands::Clone {
+                repo,
+                dest,
+                cache_dir,
+                cache_max_bytes,
+                no_checkout,
+            }) => {
+                assert_eq!(repo, "demo");
+                assert_eq!(dest, Some(std::path::PathBuf::from("dest-dir")));
+                assert_eq!(cache_dir, None);
+                assert_eq!(cache_max_bytes, Some(2 * 1024 * 1024 * 1024));
+                assert!(no_checkout);
+            }
+            _ => panic!("expected git clone command"),
+        }
+
         match parse_command(["tl", "git", "create", "demo", "--default-branch", "trunk"]) {
             Commands::Git(GitCommands::Create {
                 repo,

@@ -23,16 +23,10 @@ attributes:
   check_mode:
     description: Supports check_mode.
     support: full
-  idempotent:
-    support: partial
-    description:
-      - O(settings) can break idempotency when the deprecated C(list) format is used. Use the dictionary format instead.
-      - O(update_password) turns off idempotency because ClickHouse doesn't expose password hashes and the update will always be executed.
 
 author:
   - Aleksandr Vagachev (@aleksvagachev)
   - Andrew Klychkov (@Andersson007)
-  - Rafal Kozlowski (@rkozlo)
 
 extends_documentation_fragment:
   - community.clickhouse.client_inst_opts
@@ -55,14 +49,12 @@ options:
     required: true
   password:
     description:
-      - This option is deprecated and will be removed in 3.0.0. Use O(authentication) instead.
       - Set the user's password.
       - Password can be passed unhashed or hashed.
       - Cannot be used together with O(authentication).
     type: str
   type_password:
     description:
-      - This option is deprecated and will be removed in 3.0.0. Use O(authentication) instead.
       - The type of password being transmitted(plaintext_password, sha256_password, sha256_hash...).
       - For more details, see U(https://clickhouse.com/docs/en/sql-reference/statements/create/user).
       - Cannot be used together with O(authentication).
@@ -119,12 +111,11 @@ options:
   settings:
     description:
       - Settings with their constraints applied by default at user login.
-      - Can pass either C(list)(obsolete) or dictionary.
-      - You can also specify the profile from which the settings will be inherited C(list).
+      - You can also specify the profile from which the settings will be inherited.
       - When specified for an existing user, settings will only be updated if they differ from current settings.
       - The module fetches current settings from C(system.settings_profile_elements) for comparison.
-      - If no O(profiles) or O(settings) defined setting will not remove anything. Set to {} to purge it.
-    type: raw
+    type: list
+    elements: str
     version_added: '0.5.0'
   roles:
     description:
@@ -190,14 +181,6 @@ options:
         elements: str
         required: false
     version_added: '1.0.0'
-  profiles:
-    version_added: 2.2.0
-    description:
-      - Settings profiles that will be applied to role.
-      - Can be only used with O(settings) as C(dict).
-    type: list
-    elements: str
-    default: []
 '''
 
 EXAMPLES = r'''
@@ -265,30 +248,10 @@ EXAMPLES = r'''
     login_password: my_password
     name: test_user
     settings:
-      max_memory_usage:
-        value: 20000
-        writability: readonly
-      max_threads:
-        value: 8
+      - max_memory_usage = 20000 READONLY
+      - max_threads = 8
 
-- name: Update user settings (idempotent - only updates if different)
-  community.clickhouse.clickhouse_user:
-    login_host: localhost
-    login_user: alice
-    login_db: foo
-    login_password: my_password
-    name: test_user
-    settings:
-      max_memory_usage:
-        value: 20G
-        min: 10G
-        max: 25G
-        writability: readonly
-      max_threads:
-        value: 8
-        writability: writable
-
-- name: Create user with specific settings and profile
+- name: Create user with specific settings
   community.clickhouse.clickhouse_user:
     login_host: localhost
     login_user: alice
@@ -300,13 +263,8 @@ EXAMPLES = r'''
       type: sha256_hash
     cluster: test_cluster
     settings:
-      max_memory_usage:
-        value: 15000
-        min: 15000
-        max: 16000
-        writability: readonly
-    profiles:
-      - restricted
+      - max_memory_usage = 15000 MIN 15000 MAX 16000 READONLY
+      - PROFILE 'restricted'
     state: present
 
 - name: Create a user that can only connect from a specified host
@@ -384,8 +342,8 @@ from ansible_collections.community.clickhouse.plugins.module_utils.clickhouse im
     execute_query,
     get_main_conn_kwargs,
 )
-from ansible_collections.community.clickhouse.plugins.module_utils.entity_settings import EntitySettings
 
+PRIV_ERR_CODE = 497
 executed_statements = []
 
 
@@ -401,8 +359,6 @@ class ClickHouseUser():
         self.current_roles = []
         self.current_settings = {}
         self.current_user_hosts = {}
-        self.settings = EntitySettings(self.module, self.client, self.name, 'user')
-
         # Fetch actual values from DB and
         # update the attributes with them
         self.__populate_info()
@@ -414,6 +370,11 @@ class ClickHouseUser():
                  "WHERE name = '%s'" % self.name)
 
         result = execute_query(self.module, self.client, query)
+
+        if result == PRIV_ERR_CODE:
+            login_user = self.module.params['login_user']
+            msg = "Not enough privileges for user: %s" % login_user
+            self.module.fail_json(msg=msg)
 
         if result != []:
             self.user_exists = True
@@ -486,7 +447,7 @@ class ClickHouseUser():
         return user_hosts_dict
 
     def create(self, type_password, password, cluster, user_hosts, settings,
-               roles, roles_mode, default_roles, default_roles_mode, authentication, profiles):
+               roles, roles_mode, default_roles, default_roles_mode, authentication):
 
         query = "CREATE USER '%s'" % self.name
 
@@ -503,18 +464,12 @@ class ClickHouseUser():
         if cluster:
             query += " ON CLUSTER %s" % cluster
 
-        if settings or profiles:
-            if isinstance(settings, list):
-                query += " SETTINGS"
-                for index, value in enumerate(settings):
-                    query += " %s" % value
-                    if index < len(settings) - 1:
-                        query += ","
-            elif isinstance(settings, dict):
-                settings_entity = self.settings.compare_and_build_clause(settings, profiles)
-                query += settings_entity[1]
-            else:
-                self.module.fail_json(msg=f"Unexpexted settings passed: {settings}. Supported list or dict.")
+        if settings:
+            query += " SETTINGS"
+            for index, value in enumerate(settings):
+                query += " %s" % value
+                if index < len(settings) - 1:
+                    query += ","
 
         executed_statements.append(query)
 
@@ -530,7 +485,7 @@ class ClickHouseUser():
         return True
 
     def update(self, update_password, type_password, password, cluster, user_hosts,
-               roles, roles_mode, default_roles, default_roles_mode, settings, authentication, profiles):
+               roles, roles_mode, default_roles, default_roles_mode, settings, authentication):
 
         if roles is not None:
             self.__update_roles(roles, roles_mode, cluster)
@@ -543,8 +498,8 @@ class ClickHouseUser():
         if user_hosts is not None:
             self.__update_host(user_hosts, cluster)
 
-        if settings is not None or profiles is not None:
-            self.__update_settings(settings, cluster, profiles)
+        if settings is not None:
+            self.__update_settings(settings, cluster)
 
         return self.changed
 
@@ -746,74 +701,63 @@ class ClickHouseUser():
 
         self.changed = True
 
-    def __update_settings(self, settings, cluster, profiles):
+    def __update_settings(self, settings, cluster):
         """Update user settings idempotently by comparing with current settings"""
+        # Parse desired settings into a comparable format
+        desired_settings = {}
+        desired_profiles = []
 
-        if isinstance(settings, list):
-            # Parse desired settings into a comparable format
-            desired_settings = {}
-            desired_profiles = []
+        for setting in settings:
+            setting_upper = setting.upper()
+            # Handle PROFILE separately as it's not a regular setting
+            if 'PROFILE' in setting_upper:
+                # Extract profile name (handle both PROFILE 'name' and PROFILE name)
+                profile_part = setting.split(None, 1)[1].strip().strip("'\"")
+                desired_profiles.append(profile_part)
+            else:
+                # Extract setting name (first word before = or space)
+                setting_name = setting.split()[0].split('=')[0].strip()
+                # Normalize the setting string for comparison
+                normalized = ' '.join(setting.split())
+                desired_settings[setting_name] = normalized
 
-            for setting in settings:
-                setting_upper = setting.upper()
-                # Handle PROFILE separately as it's not a regular setting
-                if 'PROFILE' in setting_upper:
-                    # Extract profile name (handle both PROFILE 'name' and PROFILE name)
-                    profile_part = setting.split(None, 1)[1].strip().strip("'\"")
-                    desired_profiles.append(profile_part)
-                else:
-                    # Extract setting name (first word before = or space)
-                    setting_name = setting.split()[0].split('=')[0].strip()
-                    # Normalize the setting string for comparison
-                    normalized = ' '.join(setting.split())
-                    desired_settings[setting_name] = normalized
+        # Compare current with desired
+        needs_update = False
 
-            # Compare current with desired
-            needs_update = False
+        # Check if any setting values differ
+        for setting_name, desired_def in desired_settings.items():
+            current_def = self.current_settings.get(setting_name, '')
+            # Normalize both for comparison (case-insensitive, whitespace-normalized)
+            current_normalized = ' '.join(current_def.upper().split())
+            desired_normalized = ' '.join(desired_def.upper().split())
 
-            # Check if any setting values differ
-            for setting_name, desired_def in desired_settings.items():
-                current_def = self.current_settings.get(setting_name, '')
-                # Normalize both for comparison (case-insensitive, whitespace-normalized)
-                current_normalized = ' '.join(current_def.upper().split())
-                desired_normalized = ' '.join(desired_def.upper().split())
+            if current_normalized != desired_normalized:
+                needs_update = True
+                break
 
-                if current_normalized != desired_normalized:
+        # Check if there are settings to remove (current has settings not in desired)
+        if not needs_update:
+            for setting_name in self.current_settings:
+                if setting_name not in desired_settings:
+                    # There's a setting currently applied that's not in desired
+                    # We need to reapply to remove it
                     needs_update = True
                     break
 
-            # Check if there are settings to remove (current has settings not in desired)
-            if not needs_update:
-                for setting_name in self.current_settings:
-                    if setting_name not in desired_settings:
-                        # There's a setting currently applied that's not in desired
-                        # We need to reapply to remove it
-                        needs_update = True
-                        break
-
-            # Only update if settings actually differ
-            if not needs_update:
-                return
-
-            # Build the ALTER USER query
-            query = "ALTER USER '%s' SETTINGS" % self.name
-            for index, value in enumerate(settings):
-                query += " %s" % value
-                if index < len(settings) - 1:
-                    query += ","
-
-            if cluster:
-                query += " ON CLUSTER %s" % cluster
-        elif isinstance(settings, dict) or profiles:
-            query = "ALTER USER '%s'" % self.name
-            changed, settings_entity, changes = self.settings.compare_and_build_clause(settings, profiles)
-            if not changed:
-                return
-            query += settings_entity
-            if cluster:
-                query += " ON CLUSTER %s" % cluster
-        else:
+        # Only update if settings actually differ
+        if not needs_update:
             return
+
+        # Build the ALTER USER query
+        query = "ALTER USER '%s' SETTINGS" % self.name
+        for index, value in enumerate(settings):
+            query += " %s" % value
+            if index < len(settings) - 1:
+                query += ","
+
+        if cluster:
+            query += " ON CLUSTER %s" % cluster
+
         executed_statements.append(query)
 
         if not self.module.check_mode:
@@ -861,20 +805,8 @@ def main():
     argument_spec.update(
         state=dict(type='str', choices=['present', 'absent'], default='present'),
         name=dict(type='str', required=True),
-        password=dict(
-            type='str',
-            default=None,
-            no_log=True,
-            removed_in_version='3.0.0',
-            removed_from_collection='community.clickhouse'
-        ),
-        type_password=dict(
-            type='str',
-            default='sha256_password',
-            no_log=False,
-            removed_in_version='3.0.0',
-            removed_from_collection='community.clickhouse'
-        ),
+        password=dict(type='str', default=None, no_log=True),
+        type_password=dict(type='str', default='sha256_password', no_log=False),
         authentication=dict(
             type='dict',
             default=None,
@@ -905,14 +837,13 @@ def main():
             default='on_create', no_log=False
         ),
         user_hosts=dict(type='list', elements='dict'),
-        settings=dict(type='raw'),
-        profiles=dict(type='list', elements='str', default=[]),
+        settings=dict(type='list', elements='str'),
         roles=dict(type='list', elements='str', default=None),
         default_roles=dict(type='list', elements='str', default=None),
         roles_mode=dict(type='str', choices=['listed_only', 'append', 'remove'],
                         default='listed_only'),
         default_roles_mode=dict(type='str', choices=['listed_only', 'append', 'remove'],
-                                default='listed_only')
+                                default='listed_only'),
     )
 
     # Instantiate an object of module class
@@ -937,7 +868,6 @@ def main():
     update_password = module.params['update_password']
     user_hosts = module.params['user_hosts']
     settings = module.params['settings']
-    profiles = module.params['profiles']
     roles = module.params['roles']
     roles_mode = module.params['roles_mode']
     default_roles = module.params['default_roles']
@@ -953,14 +883,15 @@ def main():
     # Do the job
     changed = False
     user = ClickHouseUser(module, client, name)
+
     if state == 'present':
         if not user.user_exists:
             changed = user.create(type_password, password, cluster, user_hosts, settings,
-                                  roles, roles_mode, default_roles, default_roles_mode, authentication, profiles)
+                                  roles, roles_mode, default_roles, default_roles_mode, authentication)
         else:
             # If user exists
             changed = user.update(update_password, type_password, password, cluster, user_hosts,
-                                  roles, roles_mode, default_roles, default_roles_mode, settings, authentication, profiles)
+                                  roles, roles_mode, default_roles, default_roles_mode, settings, authentication)
     else:
         # If state is absent
         if user.user_exists:

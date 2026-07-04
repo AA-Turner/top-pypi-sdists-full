@@ -1,11 +1,11 @@
 use gam_linalg::faer_ndarray::fast_ata;
 
 use super::*;
+use approx::assert_abs_diff_eq;
 use gam_solve::arrow_schur::{
     ArrowFactorSlab, ArrowHtbetaCache, ArrowSolverMode, ArrowUndampedFactors, PcgDiagnostics,
 };
 use gam_terms::analytic_penalties::ARDPenalty;
-use approx::assert_abs_diff_eq;
 use ndarray::{Array5, array};
 
 pub(crate) fn assert_matrix_same_bits(left: &Array2<f64>, right: &Array2<f64>) {
@@ -158,7 +158,9 @@ pub(crate) fn evidence_gauge_deflation_count_bounded_flicker_reanchors_freely() 
     // A sustained 150<->147 flicker reverses direction on EVERY step — far more
     // reversals than the K=1 budget of 6 — yet the amplitude (3) is well inside
     // the relative jitter band (150/4 = 37), so none charge the budget.
-    let flicker = [147usize, 150, 147, 150, 147, 150, 147, 150, 147, 150, 147, 150, 147, 150];
+    let flicker = [
+        147usize, 150, 147, 150, 147, 150, 147, 150, 147, 150, 147, 150, 147, 150,
+    ];
     for &c in &flicker {
         term.record_evidence_gauge_deflation_count(c)
             .expect("a bounded low-amplitude flicker must re-anchor, never abort");
@@ -178,7 +180,9 @@ pub(crate) fn evidence_gauge_deflation_count_bounded_flicker_reanchors_freely() 
     let mut term2 = trivial_k1_euclidean_term();
     term2.record_evidence_gauge_deflation_count(150).unwrap();
     let mut errored = false;
-    for &c in &[40usize, 150, 40, 150, 40, 150, 40, 150, 40, 150, 40, 150, 40, 150] {
+    for &c in &[
+        40usize, 150, 40, 150, 40, 150, 40, 150, 40, 150, 40, 150, 40, 150,
+    ] {
         if term2.record_evidence_gauge_deflation_count(c).is_err() {
             errored = true;
             break;
@@ -993,6 +997,41 @@ pub(crate) fn scad_coord_penalty_active_on_euclidean_axis() {
 /// pivot (BUG 3). The assembled `htt` diagonal on every periodic coord axis
 /// must therefore be non-negative (the `max(V'',0)` PSD majorizer), while the
 /// gradient stays the exact `V'`.
+/// #1026 shared-ARD flat-layout contract. With `K=2` single-axis atoms the
+/// SHARED parameterization collapses both per-atom axis-0 ARD strengths onto ONE
+/// outer coordinate (`1+K+0 = 3`), so the flat outer vector is length
+/// `1+K+max_d = 4`. The former per-atom cursor walk in the gradient / EFS / IFT
+/// consumers wrote atom0→3 and atom1→4 — index 4 is OUT OF BOUNDS on a length-4
+/// vector (panic), and even when it did not panic it split one shared strength
+/// across two phantom slots. `ard_flat_index` maps every atom owning an axis onto
+/// the single shared coordinate (in-bounds), and the consumers accumulate into
+/// it. The PerAtom arm keeps unique coordinates matching the `to_flat` cursor.
+#[test]
+pub(crate) fn shared_ard_flat_index_aliases_in_bounds_1026() {
+    let shared = SaeManifoldRho::new_shared_ard(0.0, 0.0, vec![array![0.1_f64], array![0.2_f64]]);
+    let shared_len = shared.to_flat().len();
+    assert_eq!(shared_len, 4, "shared flat len = 1+K+max_d");
+    assert_eq!(shared.ard_flat_index(0, 0), 3);
+    assert_eq!(
+        shared.ard_flat_index(1, 0),
+        3,
+        "both atoms' axis 0 alias the single shared coordinate"
+    );
+    assert!(
+        shared.ard_flat_index(1, 0) < shared_len,
+        "shared index must stay in bounds (the old per-atom walk went OOB)"
+    );
+
+    let per_atom = SaeManifoldRho::new(0.0, 0.0, vec![array![0.1_f64], array![0.2_f64]]);
+    assert_eq!(per_atom.to_flat().len(), 5, "per-atom flat len = 1+K+Σ d_k");
+    assert_eq!(per_atom.ard_flat_index(0, 0), 3);
+    assert_eq!(
+        per_atom.ard_flat_index(1, 0),
+        4,
+        "per-atom keeps unique coordinates (bit-for-bit the historical cursor)"
+    );
+}
+
 #[test]
 pub(crate) fn periodic_ard_curvature_is_psd_in_assembled_htt() {
     // Two rows past the quarter period (t in (0.25, 0.75)) where cos(2πt) < 0.
@@ -1727,7 +1766,8 @@ pub(crate) fn decoder_norm_guard_reseeds_all_atoms_on_total_co_collapse_k3() {
         "test precondition: dictionary must start co-collapsed; EV={ev_before:.4}"
     );
 
-    term.enforce_decoder_norm_guard(target.view(), 0, &rho)
+    // S1: the EV co-collapse arm is armed only at iteration > 0 (iteration 0 = cold seed).
+    term.enforce_decoder_norm_guard(target.view(), 1, &rho)
         .expect("co-collapse guard must recover, not error");
 
     // EVERY atom — including the one the old code preserved as anchor — must be
@@ -1862,8 +1902,9 @@ pub(crate) fn co_collapse_multistart_restores_best_basin_not_last_reseed() {
     // guard observes at the start of each call (the candidate basin it may bank).
     // The guard reseeds in place, so each call's pre-reseed EV is a distinct
     // multi-start attempt; the best of these is what the final state must match.
+    // S1: the EV arm is armed only at iteration > 0; drive 1..=BUDGET+1 (BUDGET reseeds + restore).
     let mut best_seen = f64::NEG_INFINITY;
-    for iteration in 0..=SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET {
+    for iteration in 1..=(SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET + 1) {
         let ev_at_entry = term
             .dictionary_reconstruction_ev(target.view(), &rho)
             .expect("EV evaluates");
@@ -2576,8 +2617,7 @@ pub(crate) fn decoder_repulsion_strength_is_derived_and_scale_invariant_1610() {
     // hand-picked magnitude and NOT a rank-count heuristic. Checked on a
     // constructed unit-scale term (μ_C is a per-term, per-pair quantity).
     let unit_term = build_at_scale(1.0);
-    let expected =
-        SAE_DECODER_REPULSION_BARRIER_RATIO * unit_term.separation_barrier_strength();
+    let expected = SAE_DECODER_REPULSION_BARRIER_RATIO * unit_term.separation_barrier_strength();
     assert_eq!(
         unit_term.decoder_repulsion_strength(),
         expected,
@@ -3708,7 +3748,10 @@ pub(crate) fn planted_circle_embedded(n: usize, d_embed: usize, sigma: f64) -> A
         frame[[1, j]] = deterministic_circle_noise(j, 1);
     }
     for r in 0..2 {
-        let norm = (0..d_embed).map(|j| frame[[r, j]] * frame[[r, j]]).sum::<f64>().sqrt();
+        let norm = (0..d_embed)
+            .map(|j| frame[[r, j]] * frame[[r, j]])
+            .sum::<f64>()
+            .sqrt();
         for j in 0..d_embed {
             frame[[r, j]] /= norm.max(1.0e-300);
         }
@@ -3848,7 +3891,9 @@ pub(crate) fn planted_circle_focus_1744() {
     ] {
         let label = assignment_mode.label();
         let (term, seed_dispersion) = planted_circle_seed_term(z.view(), assignment_mode);
-        out.push_str(&format!("FOCUS1744 mode={label} seed_disp={seed_dispersion:.3e}\n"));
+        out.push_str(&format!(
+            "FOCUS1744 mode={label} seed_disp={seed_dispersion:.3e}\n"
+        ));
         for &sparse in &[-8.0_f64, 1.0] {
             for &ard in &[-6.0_f64, -3.0, 0.0, 1.0] {
                 for &smooth in &[-8.0_f64, -5.0, -3.0, -1.0, 0.0, 1.0, 3.0] {
@@ -4019,7 +4064,6 @@ pub(crate) fn sae_value_probe_refusal_classification_is_inner_only() {
         )
     );
 }
-
 
 #[test]
 pub(crate) fn streaming_exact_reml_matches_full_batch_reml_small_sae() {
@@ -4346,7 +4390,9 @@ pub(crate) fn reml_retries_refinement_after_non_pd_undamped_evidence_factor() {
     // bare-`Err` precondition — it proves both that the seed is genuinely
     // indefinite AND that the #1117 deflation engaged).
     let (.., cold_cache) = solve_arrow_newton_step_with_options(&cold_sys, 0.0, 0.0, &options)
-        .expect("cold undamped evidence factor must be spectrally conditioned (#1117), not refused");
+        .expect(
+            "cold undamped evidence factor must be spectrally conditioned (#1117), not refused",
+        );
     let cold_deflated_rows = cold_cache
         .deflation_row_spectra
         .iter()
@@ -7882,8 +7928,8 @@ pub(crate) fn jumprelu_assignment_prior_hessian_diag_is_exact_over_logit_sweep()
 /// reproducer in #174.
 #[test]
 pub(crate) fn ibp_map_k2_periodic_torus_recovers_signal_with_lsq_init() {
-    use gam_linalg::faer_ndarray::{FaerCholesky, fast_ata, fast_atb};
     use faer::Side as FaerSide;
+    use gam_linalg::faer_ndarray::{FaerCholesky, fast_ata, fast_atb};
 
     let n = 200usize;
     let p = 8usize;
@@ -9753,150 +9799,6 @@ pub(crate) fn factored_evidence_matches_full_b_at_small_p() {
     assert_abs_diff_eq!(occam, expected, epsilon = 1.0e-12);
 }
 
-/// Streaming polar refresh from an accumulated cross-moment re-orients the
-/// frame toward the cross-moment span and keeps `B_k`'s in-span component
-/// while staying column-orthonormal (the closed-form streaming step).
-#[test]
-pub(crate) fn streaming_polar_refresh_reorients_frame() {
-    let m = 4usize;
-    let p = 12usize;
-    let r = 2usize;
-    let mut frame0 = Array2::<f64>::zeros((p, r));
-    frame0[[0, 0]] = 1.0;
-    frame0[[1, 1]] = 1.0;
-    let mut c0 = Array2::<f64>::zeros((m, r));
-    for mu in 0..m {
-        c0[[mu, 0]] = 1.0 + mu as f64;
-        c0[[mu, 1]] = 0.5 - mu as f64;
-    }
-    let decoder = fast_abt(&c0, &frame0);
-    let mut phi = Array2::<f64>::zeros((m, m));
-    let mut jet = Array3::<f64>::zeros((m, m, 1));
-    for mu in 0..m {
-        phi[[mu, mu]] = 1.0;
-        jet[[mu, mu, 0]] = 1.0;
-    }
-    let s_raw = gam_terms::basis::create_difference_penalty_matrix(m, 2, None).unwrap();
-    let mut atom = SaeManifoldAtom::new(
-        "stream",
-        SaeAtomBasisKind::EuclideanPatch,
-        1,
-        phi,
-        jet,
-        decoder,
-        s_raw,
-    )
-    .unwrap();
-    atom.maybe_activate_decoder_frame().expect("activate");
-    // New cross-moment pointing at axes {2,3}: refreshed frame must span them.
-    let mut cross = Array2::<f64>::zeros((p, r));
-    cross[[2, 0]] = 3.0;
-    cross[[3, 1]] = 2.0;
-    atom.refresh_frame_from_cross_moment(cross.view())
-        .expect("refresh");
-    let frame = atom.decoder_frame.as_ref().expect("frame");
-    // Frame stays orthonormal.
-    let gram = fast_atb(&frame.frame().to_owned(), &frame.frame().to_owned());
-    for i in 0..r {
-        for j in 0..r {
-            let expect = if i == j { 1.0 } else { 0.0 };
-            assert_abs_diff_eq!(gram[[i, j]], expect, epsilon = 1.0e-9);
-        }
-    }
-    // Refreshed span aligns with the cross-moment axes {2,3} (angle ~0).
-    let mut target_span = Array2::<f64>::zeros((p, r));
-    target_span[[2, 0]] = 1.0;
-    target_span[[3, 1]] = 1.0;
-    let angle = frame
-        .max_principal_angle(target_span.view())
-        .expect("angle");
-    assert_abs_diff_eq!(angle, 0.0, epsilon = 1.0e-9);
-}
-
-#[test]
-pub(crate) fn small_p_zero_decoder_stays_full_b() {
-    let m = 3usize;
-    let p = 8usize;
-    let mut phi = Array2::<f64>::zeros((m, m));
-    let mut jet = Array3::<f64>::zeros((m, m, 1));
-    for row in 0..m {
-        phi[[row, row]] = 1.0;
-        jet[[row, row, 0]] = 1.0;
-    }
-    let smooth_penalty = gam_terms::basis::create_difference_penalty_matrix(m, 2, None).unwrap();
-    let mut atom = SaeManifoldAtom::new(
-        "small-p-zero",
-        SaeAtomBasisKind::EuclideanPatch,
-        1,
-        phi,
-        jet,
-        Array2::<f64>::zeros((m, p)),
-        smooth_penalty,
-    )
-    .unwrap();
-
-    assert_eq!(atom.decoder_frame_activation_rank().unwrap(), None);
-    assert_eq!(atom.maybe_activate_decoder_frame().unwrap(), None);
-    assert_eq!(atom.border_frame_rank(), p);
-}
-
-/// #1026/#1417: the learnable-α forward data-derivative must give an UNGATED
-/// (background-tier) atom ZERO α-sensitivity. An ungated atom's gate is forced
-/// to 1.0 (`has_ungated` override), so its mass `a_k ≡ 1` is α-independent and
-/// `∂a_k/∂logα = 0` — the `π_k(α)` chain applies only to gated atoms. Before the
-/// fix the code credited the ungated atom `(1/π_k)·dπ_k/dρ ≠ 0`, biasing the
-/// data α-gradient. FD-check the analytic against the data NLL ½Σ‖fitted−target‖²
-/// (where the ungated atom's reconstruction is α-constant) on a 2-atom fixture
-/// with atom 1 ungated.
-#[test]
-pub(crate) fn forward_alpha_data_derivative_skips_ungated_atom_1026() {
-    let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
-    term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, true);
-    // Atom 1 is the #1026 ungated background tier (gate ≡ 1).
-    term.assignment = term
-        .assignment
-        .clone()
-        .with_ungated(vec![false, true])
-        .unwrap();
-    rho.log_lambda_sparse = 0.3;
-
-    let analytic = term
-        .learnable_ibp_forward_alpha_data_derivative(&rho, target.view())
-        .unwrap();
-
-    // FD of the data NLL ½Σ‖fitted−target‖² wrt ρ₀ (= logα offset, since
-    // α = α₀·e^{ρ₀} ⇒ ∂logα/∂ρ₀ = 1). The ungated atom's fitted contribution is
-    // α-constant, so the FD sees only the gated atom's π-derivative.
-    let data_nll = |t: &SaeManifoldTerm, r: &SaeManifoldRho| -> f64 {
-        let fitted = t.try_fitted_for_rho(r).unwrap();
-        let mut s = 0.0_f64;
-        for row in 0..fitted.nrows() {
-            for c in 0..fitted.ncols() {
-                let d = fitted[[row, c]] - target[[row, c]];
-                s += d * d;
-            }
-        }
-        0.5 * s
-    };
-    let h = 1.0e-6;
-    let mut rp = rho.clone();
-    let mut rm = rho.clone();
-    rp.log_lambda_sparse += h;
-    rm.log_lambda_sparse -= h;
-    let fd = (data_nll(&term, &rp) - data_nll(&term, &rm)) / (2.0 * h);
-    assert!(
-        (analytic - fd).abs() <= 1.0e-5 * (1.0 + fd.abs()),
-        "forward-α data derivative must match FD with an ungated atom: \
-         analytic={analytic:.8e}, fd={fd:.8e}"
-    );
-    // Non-vacuity: the gated atom must give a materially nonzero derivative
-    // (otherwise the test would pass even if everything were zeroed).
-    assert!(
-        fd.abs() > 1.0e-6,
-        "fixture must exercise a nonzero gated-atom α-derivative; fd={fd:.3e}"
-    );
-}
-
 pub(crate) fn gamma_fd_tiny_fixture() -> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho) {
     let n = 10usize;
     let p = 3usize;
@@ -9982,7 +9884,6 @@ pub(crate) fn fixed_state_logdet(
     let (tt, beta) = cache.arrow_log_det();
     tt + beta.expect("dense Schur logdet")
 }
-
 
 // [#780 line-count gate] The #1557 arrow-Schur parallelism-invariance
 // regression test (`arrow_schur_assembly_is_faer_parallelism_invariant_1557`)

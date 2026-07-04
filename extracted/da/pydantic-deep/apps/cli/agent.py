@@ -9,13 +9,13 @@ from typing import Any, Literal
 from pydantic_ai_backends import LocalBackend
 
 from apps.cli.config import load_config
-from apps.cli.prompts import build_cli_instructions
 from apps.cli.reminder import _build_reminder_config
-from pydantic_deep.agent import DEFAULT_INSTRUCTIONS, create_deep_agent
+from pydantic_deep.agent import create_deep_agent
 from pydantic_deep.deps import DeepAgentDeps
 from pydantic_deep.features.forking.capability import LiveForkCapability
 from pydantic_deep.features.hooks import Hook, HookEvent, HookInput, HookResult
 from pydantic_deep.features.message_queue import MessageQueue
+from pydantic_deep.prompts import build_system_prompt
 
 
 def _detect_fork_test_command(backend: Any) -> str | None:
@@ -154,6 +154,9 @@ def create_cli_agent(  # noqa: C901
     periodic_reminder: bool | None = None,
     reminder_mode: Literal["off", "first", "context", "llm"] | None = None,
     reminder_model: str | None = None,
+    forking: bool | None = None,
+    include_improve: bool | None = None,
+    tool_search: bool | None = None,
 ) -> tuple[Any, DeepAgentDeps]:
     """Create a CLI-configured agent with all pydantic-deep capabilities.
 
@@ -279,23 +282,18 @@ def create_cli_agent(  # noqa: C901
     if extra_middleware:
         middleware.extend(extra_middleware)
 
-    instructions = (
-        DEFAULT_INSTRUCTIONS
-        + "\n\n"
-        + build_cli_instructions(
-            non_interactive=non_interactive,
-            lean=lean,
-        )
-    )
+    # Forking (and other benchmark-profile flags) default OFF non-interactively;
+    # resolve forking here so the prompt's Forking section matches the capability.
+    _forking = forking if forking is not None else not non_interactive
 
     # When using Docker sandbox, the agent operates inside the container at /workspace
     instruction_root = "/workspace" if effective_sandbox == "docker" else str(root.resolve())
-    working_dir_section = (
-        f"\n\n## Working Directory\n\n"
-        f"You are operating in: `{instruction_root}`\n\n"
-        f"All file paths must be absolute, starting with `{instruction_root}`."
+    instructions = build_system_prompt(
+        non_interactive=non_interactive,
+        lean=lean,
+        working_dir=instruction_root,
+        forking=_forking,
     )
-    instructions += working_dir_section
 
     if extra_instructions:
         instructions += "\n\n" + extra_instructions
@@ -314,7 +312,15 @@ def create_cli_agent(  # noqa: C901
     # 3. Project-level skills (.pydantic-deep/skills/)
     # 4. Explicit override (--skills-dir flag)
     skill_dirs: list[str] = []
-    if include_skills:
+    # Gate on the *resolved* skills setting (config default when the flag is
+    # unset), mirroring `effective_skills` below. Gating on the raw
+    # `include_skills` meant headless `pydantic-deep run` — which passes
+    # `include_skills=None` — silently discovered no skill directories, so
+    # skills never loaded despite being enabled by config.
+    _skills_enabled = (
+        include_skills if include_skills is not None else config.include_skills
+    ) and not lean
+    if _skills_enabled:
         # Bundled skills (always available)
         bundled = Path(__file__).resolve().parent / "skills"
         if bundled.is_dir():
@@ -357,9 +363,17 @@ def create_cli_agent(  # noqa: C901
 
     effective_skills = _skills if not lean else False
     effective_plan = _plan if not lean else False
-    effective_memory = _memory if not lean else False
     effective_subagents = _subagents if not lean else False
     effective_todo = _todo if not lean else False
+
+    # Benchmark/automation profile: self-improvement, deferred tool search, and
+    # cross-session memory add no value in a single-shot non-interactive run —
+    # default them OFF there (each still overridable). `_forking` is resolved
+    # earlier (needed for the prompt).
+    _improve = include_improve if include_improve is not None else not non_interactive
+    _tool_search = tool_search if tool_search is not None else config.tool_search
+    effective_tool_search = _tool_search and not lean and not non_interactive
+    effective_memory = _memory if (not lean and not non_interactive) else False
 
     _browser = include_browser if include_browser is not None else config.include_browser
     effective_browser = _browser if not lean else False
@@ -455,10 +469,14 @@ def create_cli_agent(  # noqa: C901
         context_discovery=_context_disc if not lean else False,
         include_teams=(include_teams if include_teams is not None else config.include_teams),
         include_liteparse=effective_liteparse,
-        include_improve=True,
+        include_improve=_improve,
         # Defer the situational tool surface so only the core loop loads upfront.
-        tool_search=(config.tool_search if not lean else False),
-        forking=LiveForkCapability(test_command=_detect_fork_test_command(effective_backend)),
+        tool_search=effective_tool_search,
+        forking=(
+            LiveForkCapability(test_command=_detect_fork_test_command(effective_backend))
+            if _forking
+            else False
+        ),
         # Web tools — explicit params override config
         web_search=(
             web_search if web_search is not None else (config.web_search if not lean else False)
@@ -494,7 +512,14 @@ def create_cli_agent(  # noqa: C901
         # Message queue for mid-run steering and follow-up delivery
         message_queue=queue,
         periodic_reminder=_build_reminder_config(
-            periodic_reminder, reminder_mode, config, on_reminder, reminder_model
+            periodic_reminder,
+            reminder_mode,
+            config,
+            on_reminder,
+            # Inherit the runtime model, not config.model (the TOML default,
+            # which may be a different provider than `-m` — e.g. Anthropic while
+            # running on Vertex, which then crashes with no ANTHROPIC_API_KEY).
+            reminder_model or config.reminder_model or effective_model,
         ),
     )
 

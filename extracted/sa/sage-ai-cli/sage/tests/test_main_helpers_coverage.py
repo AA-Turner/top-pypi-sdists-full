@@ -13,7 +13,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 from sage.config import SageConfig
-from sage.main import (
+from sage.cli_core import (
     _is_explicit_model_request,
     _should_lock_requested_model,
     _get_msg_content,

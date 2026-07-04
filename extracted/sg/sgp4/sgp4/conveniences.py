@@ -74,32 +74,11 @@ def sat_epoch_datetime(sat):
     micro = int(fraction * 1e6)
     return dt.datetime(year, month, day, hour, minute, second, micro, UTC)
 
-_ATTRIBUTES = []
-_ATTR_MAXES = {}
+_ATTR_MAXES = {'argpo': '2pi', 'inclo': 'pi', 'mo': '2pi', 'nodeo': '2pi'}
 _MAX_VALUES = {'2pi': 2*pi, 'pi': pi}
-
-def _load_attributes():
-    for line in sgp4.__doc__.splitlines():
-        if line.endswith('*'):
-            title = line.strip('*')
-            _ATTRIBUTES.append(title)
-        elif line.startswith('| ``'):
-            pieces = line.split('``')
-            name = pieces[1]
-            _ATTRIBUTES.append(name)
-            i = 2
-            while pieces[i] == ', ':
-                another_name = pieces[i+1]
-                _ATTRIBUTES.append(another_name)
-                i += 2
-            if '<' in line:
-                _ATTR_MAXES[name] = '2pi' if ('2pi' in line) else 'pi'
 
 def check_satrec(sat):
     """Check whether satellite orbital elements are within range."""
-
-    if not _ATTRIBUTES:
-        _load_attributes()
 
     e = []
 
@@ -113,12 +92,10 @@ def check_satrec(sat):
     if e:
         raise ValueError('satellite parameters out of range:\n' + '\n'.join(e))
 
+_ATTRIBUTES = ['Identification', 'satnum_str', 'satnum', 'classification', 'ephtype', 'elnum', 'revnum', 'Orbital Elements', 'epochyr', 'epochdays', 'ndot', 'nddot', 'bstar', 'inclo', 'nodeo', 'ecco', 'argpo', 'mo', 'no_kozai', 'no', 'jdsatepoch', 'jdsatepochF', 'Computed Orbit Properties', 'a', 'altp', 'alta', 'argpdot', 'gsto', 'mdot', 'nodedot', 'Propagator Mode', 'operationmode', 'method', 'Result of Most Recent Propagation', 't', 'error', 'Mean Elements From Most Recent Propagation', 'am', 'em', 'im', 'Om', 'om', 'mm', 'nm', 'Gravity Model Parameters', 'tumin', 'xke', 'mu', 'radiusearthkm', 'j2', 'j3', 'j4', 'j3oj2']
 
 def dump_satrec(sat, sat2=None):
     """Yield lines that list the attributes of one or two satellites."""
-
-    if not _ATTRIBUTES:
-        _load_attributes()
 
     for item in _ATTRIBUTES:
         if item[0].isupper():

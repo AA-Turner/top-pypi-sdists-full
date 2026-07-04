@@ -944,7 +944,7 @@ def is_garbage_content(filepath: str, content: str) -> tuple[bool, str]:
 
     # Classes that are all empty methods
     class_matches = re.findall(
-        r'class\s+(\w+)[^:]*:\s*\n((?:\s+(?:def|@|"""|\'\'\').*\n)*)', content
+        r'class\s+(\w+)[^:]*:\s*\n((?:[ \t]+.*\n)*)', content
     )
     for class_name, class_body in class_matches:
         if class_body.strip():
@@ -1071,10 +1071,7 @@ def _detect_canonical_workspace_root(cwd: Path) -> Path | None:
     best_candidate = candidates[0][0]
 
     # Only return if the candidate has significantly more structure
-    if candidates[0][1] >= 1:  # At least one project marker
-        return best_candidate
-
-    return None
+    return best_candidate
 
 
 def validate_file_path_against_codebase(
@@ -1311,15 +1308,12 @@ def detect_hallucinated_duplicate(
             continue  # Skip files that can't be read
 
     # Even if content differs, warn about same filename
-    if len(existing_files) >= 1:
-        existing_paths = [str(f.relative_to(cwd)) for f in existing_files[:3]]
-        return True, (
-            f"FILE: '{filepath}' creates a new file but '{filename}' already exists at: "
-            f"{', '.join(existing_paths)}. "
-            f"Consider modifying the existing file with READ: first."
-        )
-
-    return False, ""
+    existing_paths = [str(f.relative_to(cwd)) for f in existing_files[:3]]
+    return True, (
+        f"FILE: '{filepath}' creates a new file but '{filename}' already exists at: "
+        f"{', '.join(existing_paths)}. "
+        f"Consider modifying the existing file with READ: first."
+    )
 
 
 # Backward compatibility aliases (prefixed versions for main.py)

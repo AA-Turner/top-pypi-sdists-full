@@ -146,10 +146,11 @@ class ParamSection(_KVSection):
 
     def _parse_item(self, key: str, value: str) -> DocstringParam:
         match = PARAM_KEY_REGEX.match(key)
-        arg_name = type_name = is_optional = default = None
+        arg_name = type_name = raw_type_name = is_optional = default = None
         if match is not None:
             arg_name = match.group("name")
             type_name = match.group("type")
+            raw_type_name = type_name
             if type_name is not None:
                 optional_match = PARAM_OPTIONAL_REGEX.match(type_name)
                 if optional_match is not None:
@@ -178,6 +179,7 @@ class ParamSection(_KVSection):
             type_name=type_name,
             is_optional=is_optional,
             default=default,
+            raw_type_name=raw_type_name,
         )
 
 
@@ -203,6 +205,7 @@ class AttrSection(ParamSection):
             type_name=docstring_param.type_name,
             is_optional=docstring_param.is_optional,
             default=docstring_param.default,
+            raw_type_name=docstring_param.raw_type_name,
         )
 
 

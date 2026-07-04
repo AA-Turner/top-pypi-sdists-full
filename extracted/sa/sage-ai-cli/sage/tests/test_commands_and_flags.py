@@ -1,6 +1,6 @@
 import pytest
 from typer.testing import CliRunner
-from sage.main import app as sage_app
+from sage.cli_core import app as sage_app
 
 @pytest.fixture
 def runner():
@@ -51,7 +51,7 @@ def test_repl_slash_exit_commands(runner, monkeypatch):
 
 def test_mode_violation_false_positives():
     """Test that conversational lists matching FILE: do not trigger false positive violations."""
-    from sage.main import _extract_and_write_files
+    from sage.cli_core import _extract_and_write_files
     from pathlib import Path
 
     conversational_output = (

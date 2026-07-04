@@ -40,7 +40,6 @@ impl SaeManifoldTerm {
         self.apply_newton_step_impl(delta_ext_coord, delta_beta, step_size, true)
     }
 
-
     /// Capture the mutable state perturbed by an `apply_newton_step` +
     /// `loss` line-search trial, plus the row-layout state read by
     /// `apply_newton_step` when unpacking compact Newton steps. See
@@ -293,9 +292,7 @@ impl SaeManifoldTerm {
         rho: &SaeManifoldRho,
         analytic_penalties: Option<&AnalyticPenaltyRegistry>,
     ) -> Result<(), String> {
-        use crate::chart_canonicalization::{
-            CHART_RECOMPOSITION_REL_TOL, CanonicalChartTopology,
-        };
+        use crate::chart_canonicalization::{CHART_RECOMPOSITION_REL_TOL, CanonicalChartTopology};
         /// Which canonical-representative construction applies to an atom:
         /// arc length for `d = 1` (#1019 stage 1), the minimum-isometry-defect
         /// flow for `d = 2` torus atoms (#1019 stage 2), and the same flow
@@ -538,9 +535,7 @@ impl SaeManifoldTerm {
         atom_idx: usize,
         topology: &crate::chart_canonicalization::CanonicalChartTopology,
     ) -> Result<bool, String> {
-        use crate::chart_canonicalization::{
-            CHART_RECOMPOSITION_REL_TOL, unit_speed_retraction,
-        };
+        use crate::chart_canonicalization::{CHART_RECOMPOSITION_REL_TOL, unit_speed_retraction};
         let n = self.n_obs();
         if n == 0 {
             return Ok(false);
@@ -1660,46 +1655,50 @@ impl SaeManifoldTerm {
         }
         let mut ssr = 0.0_f64;
         let mut sst = 0.0_f64;
+        // Reconstruction OUTPUT energy about the target column means: `Σ (fitted −
+        // mean)²`. A dictionary whose decoders have co-vanished produces ≈ the
+        // column mean and hence near-zero output energy; a fit that merely explains
+        // little but whose decoders carry real signal has output energy of ordinary
+        // magnitude. This is the "decoder output co-vanished" half of the
+        // absolute-degeneracy verdict below.
+        let mut sfit = 0.0_f64;
         for row in 0..n {
             for col in 0..p {
                 let r = target[[row, col]] - fitted[[row, col]];
                 ssr += r * r;
                 let centered = target[[row, col]] - means[col];
                 sst += centered * centered;
+                let out = fitted[[row, col]] - means[col];
+                sfit += out * out;
             }
         }
-        if !(ssr.is_finite() && sst.is_finite()) || sst <= f64::MIN_POSITIVE {
+        if !(ssr.is_finite() && sst.is_finite() && sfit.is_finite()) || sst <= f64::MIN_POSITIVE {
             return Ok(false);
         }
         let ev = 1.0 - ssr / sst;
-        // #1522 — DERIVE the co-collapse acceptance bar from the data rather than
-        // keying on a corpus-tuned absolute constant. The bar is half the BEST EV
-        // any rank-`K` linear dictionary could reach on THIS centered target (its
-        // rank-`K` PCA / Eckart-Young ceiling), so it tracks the data's achievable
-        // reconstruction instead of an OLMo-calibrated number: a fit that explains
-        // less than half the variance a rank-`K` optimum could is a structural
-        // collapse on this data, whatever its absolute EV. The dictionary rank is
-        // the sum of the per-atom basis sizes (each atom contributes its own
-        // `basis_size()` directions), capped at the data rank `min(n, p)`. When the
-        // ceiling is degenerate or un-computable (constant target, SVD failure) the
-        // `pca_ev_ceiling` returns non-finite and we fall back to the absolute
-        // [`SAE_FIT_DATA_COLLAPSE_EV_FLOOR`] so the guard never keys on a
-        // meaningless bar.
-        //
-        // #1610 — the rank `q` at which the linear PCA ceiling is taken is the
-        // dictionary's GEOMETRICALLY REACHABLE rank (`Σ_k rank(Φ_k)` capped at
-        // `min(n,p)`), not the nominal coefficient count `Σ_k basis_size_k`. A
-        // curved atom's decoded image spans only `rank(Φ_k) ≤ basis_size_k`
-        // linear directions, so the old nominal count over-stated what the
-        // NONLINEAR dictionary can reach and biased the linear PCA ceiling high
-        // (and hence the bar). The reachable rank is read from the chart designs
-        // alone, so a co-collapsed dictionary still reports full geometric reach
-        // and the guard does not lower its own bar at the collapse it must catch.
+        let out_energy_ratio = sfit / sst;
+        // S1 (guard surgery) — the collapse verdict that feeds the outer BFGS WALL
+        // must fire ONLY on ABSOLUTE degeneracy, never on a fit that is merely
+        // below a competitiveness ceiling. The former `0.5 × dense rank-K PCA
+        // ceiling` bar sat above the honest `k_active`-sparse optimum on real
+        // activations, so ordinary K≥2 fits were walled as "collapsed", flattening
+        // the outer objective (every probe returned the wall → no line-search
+        // gradient → ρ oscillation / timeout). Detection now keys on the SIGNAL-FREE
+        // null floor (`absolute_degeneracy_ev_floor` = `q / n`, the classical
+        // null-`R²`), and requires BOTH:
+        //   (a) EV at or below that null floor (explains no more than chance), AND
+        //   (b) the reconstruction output co-vanished (output energy at or below the
+        //       same null level — the decoders produce ≈ the column mean, nothing).
+        // Condition (b) is the discriminator that distinguishes a genuinely
+        // co-vanished dictionary (reseed/wall appropriate) from a present-decoder
+        // fit that simply reconstructs poorly (the optimizer's job). The reachable
+        // rank `q = Σ_k rank(Φ_k)` (chart geometry alone, so a co-collapsed decoder
+        // still reports full reach) sets the null floor.
         let dictionary_rank =
             crate::manifold::outer_objective::reachable_dictionary_rank(&self.atoms, n, p);
         let ev_floor =
-            crate::manifold::outer_objective::collapse_ev_bar(target, dictionary_rank);
-        if !(ev.is_finite() && ev <= ev_floor) {
+            crate::manifold::outer_objective::absolute_degeneracy_ev_floor(target, dictionary_rank);
+        if !(ev.is_finite() && ev <= ev_floor && out_energy_ratio <= ev_floor) {
             return Ok(false);
         }
 
@@ -2023,6 +2022,13 @@ impl SaeManifoldTerm {
         iteration: usize,
         rho: Option<&SaeManifoldRho>,
     ) -> Result<(), String> {
+        // SAC — the K=1 stagewise lane disarms the guard stack: a single atom has
+        // no dictionary peer to collapse against, so the reseed machinery is a
+        // no-op there, and disarming keeps the per-atom / backfitting refits
+        // provably reseed-free (block-coordinate monotonicity).
+        if !self.guards_enabled {
+            return Ok(());
+        }
         let n = self.n_obs();
         let k = self.k_atoms();
         if n == 0 || k == 0 {
@@ -2179,6 +2185,11 @@ impl SaeManifoldTerm {
         iteration: usize,
         rho: &SaeManifoldRho,
     ) -> Result<(), String> {
+        // SAC — the stagewise lane disarms the guard stack (see
+        // `enforce_active_mass_guard`); a disarmed term never reseeds.
+        if !self.guards_enabled {
+            return Ok(());
+        }
         let n = self.n_obs();
         let k = self.k_atoms();
         // A single atom has no dictionary peer to be distinct from, so the
@@ -2204,11 +2215,23 @@ impl SaeManifoldTerm {
         } else {
             0.5 * (sorted[k / 2 - 1] + sorted[k / 2])
         };
-        // No usable scale (every decoder is ≈0, e.g. the cold-start zero seed):
-        // the joint solve has not yet placed any signal, so there is nothing to
-        // be "behind"; defer to the mass guard / inner solve rather than reseed
-        // against an all-zero reference.
-        if !(median > 0.0) {
+        // No usable scale (every decoder is ≈0). At ENTRY (iteration 0) this is the
+        // cold-start zero seed — the joint solve has not placed any signal yet, so
+        // there is nothing to be "behind"; defer to the mass guard / inner solve
+        // rather than reseed against an all-zero reference.
+        //
+        // #2027: at iteration > 0 a zero median is NOT cold — the joint solve has
+        // run and STILL left EVERY decoder vanished. That is the stuck-at-null
+        // co-collapse the whitened K≥2 fit falls into (both atoms carry ≈nothing, so
+        // the median collapses WITH them and the relative-norm arm sees no atom
+        // "behind"). Returning here would make the ABSOLUTE co-collapse arm below —
+        // which keys on EV ≤ the null floor AND co-vanished output, i.e. EXACTLY this
+        // state — a permanently dead arm, so the reseed/deflation/anchor would not fire
+        // (the #2027 repro's `cocollapse_reseeds == 0` at EV = −0.0). Fall through
+        // instead: with median = 0 the relative floor is 0, no atom is flagged
+        // "behind" (`breached` stays empty), and the iteration>0 absolute arm
+        // correctly recognizes the co-vanished dictionary and reseeds it.
+        if !(median > 0.0) && iteration == 0 {
             return Ok(());
         }
         let floor = SAE_ATOM_DECODER_NORM_COLLAPSE_RATIO * median;
@@ -2227,40 +2250,90 @@ impl SaeManifoldTerm {
             // real-data K=2 failure (both atoms fall into one basin and the fit
             // explains ~0 variance; empirically a different seed or stronger
             // decoder-incoherence repulsion avoids the basin, but the guard must
-            // catch it for ANY seed). Detect it ABSOLUTELY from the
-            // reconstruction: a dictionary that explains essentially none of the
-            // centered target variance has collapsed regardless of relative
-            // norms.
+            // catch it once the fit has genuinely stalled there — see the S1 note
+            // below for why this is gated to iteration > 0 and ABSOLUTE degeneracy).
+            // Detect it ABSOLUTELY from the reconstruction: a dictionary that
+            // explains essentially none of the centered target variance AND whose
+            // output has co-vanished has collapsed regardless of relative norms.
+            // S1 (guard surgery) — the co-collapse reseed arm must fire ONLY on
+            // genuine ABSOLUTE degeneracy after the optimizer has had a chance, NOT
+            // on a cold seed or a merely-uncompetitive fit. Two changes close the
+            // #1522 false-positive that was destroying state before optimization:
+            //
+            //  (1) NEVER at iteration 0. The entry (iteration-0) guard call evaluated
+            //      the SEED against a bar — but a cold seed is below ANY bar by
+            //      definition, so K≥2 real-data fits opened by burning the whole
+            //      reseed budget on the seed's PCs and recording Terminal collapse
+            //      events before the first Newton step. Checking the seed against a
+            //      bar checks COLDNESS, not health. The entry call still runs the
+            //      relative-norm arm above (a warm-started already-collapsed decoder
+            //      is legitimately reseeded there), but the EV arm is armed only once
+            //      an accepted step exists to have progressed — an `iteration > 0`
+            //      state still at the null floor is genuinely STALLED at a degenerate
+            //      basin, not merely cold.
+            //
+            //  (2) ABSOLUTE degeneracy, not "below a competitiveness ceiling". The
+            //      former `0.5 × dense rank-K PCA ceiling` bar sat above the honest
+            //      `k_active`-sparse optimum on real activations, so ordinary K≥2
+            //      fits tripped it. Trip now requires BOTH the reconstruction EV at
+            //      or below the SIGNAL-FREE null floor (`absolute_degeneracy_ev_floor`
+            //      = `q / n`, the classical null-`R²`) AND the reconstruction OUTPUT
+            //      co-vanished (output energy at or below the same null level — the
+            //      decoders produce ≈ the column mean). Both hold exactly when every
+            //      decoder has vanished TOGETHER (the #853/#976 co-collapse); a
+            //      present-decoder fit that merely reconstructs poorly keeps output
+            //      energy and is left to the optimizer. A non-finite EV is deferred
+            //      to the median/mass guards; iteration 0 defers entirely.
+            if iteration == 0 {
+                return Ok(());
+            }
             let ev = self.dictionary_reconstruction_ev(target, rho)?;
-            // CO-collapse is an EV-MAGNITUDE failure, not an EV-finiteness one: a
-            // co-collapsed dictionary explains essentially none of the centered
-            // target variance, but that EV is a perfectly finite number near zero
-            // (often slightly negative). Gating on `ev.is_finite()` therefore short-
-            // circuits this arm for every real fit — the #1522 regression that
-            // re-opened the #853/#976 blind spot (gates spread, decoders co-collapse,
-            // EV≈0, rank-deficient Hessian → REML abort). Trip the arm exactly when
-            // EV sits at or below the SAME data-derived collapse bar the fitted-data
-            // acceptance check keys on (half the rank-`K` PCA / Eckart-Young ceiling
-            // achievable on THIS centered target, falling back to the absolute
-            // [`SAE_FIT_DATA_COLLAPSE_EV_FLOOR`] when that ceiling is un-computable),
-            // so the co-collapse reseed and the data-collapse verdict measure
-            // degeneracy against one and the same threshold. A non-finite EV is
-            // un-certifiable here and is deferred (the median/mass guards and inner
-            // solve own that case), as is any EV above the bar (a healthy fit).
+            let out_energy_ratio =
+                self.dictionary_reconstruction_output_energy_ratio(target, rho)?;
             let n = self.n_obs();
             let p = target.ncols();
-            // #1610 — calibrate the linear PCA ceiling against the dictionary's
-            // GEOMETRICALLY REACHABLE rank (`Σ_k rank(Φ_k)`), not the nominal
-            // coefficient count `Σ_k basis_size_k` (biased high for a nonlinear
-            // dictionary). Shared with the fitted-data collapse acceptance check
-            // so both verdicts key on the same reachable-rank bar.
+            // Reachable rank `q = rank([Φ_1 … Φ_K])`, the CONCATENATED chart-design
+            // rank (#C5), NOT the sum `Σ_k rank(Φ_k)` — shared atom column spaces
+            // are counted once (chart geometry alone, so a co-collapsed decoder
+            // still reports full reach). Sets the null floor, shared with the
+            // fitted-data collapse verdict so both key on one bar.
             let dictionary_rank =
                 crate::manifold::outer_objective::reachable_dictionary_rank(&self.atoms, n, p);
-            let ev_floor = crate::manifold::outer_objective::collapse_ev_bar(
+            let ev_floor = crate::manifold::outer_objective::absolute_degeneracy_ev_floor(
                 target,
                 dictionary_rank,
             );
-            if !(ev.is_finite() && ev <= ev_floor) {
+            // The reseed fires when the decoders have VANISHED together (EV at the
+            // signal-free null floor AND the output co-vanished). #2082 note: an
+            // additional STRUCTURAL trigger (`structural_coherence_collapse_detected`,
+            // for the "high EV, no structure" mode) was trialed here but its derived
+            // Wachter null bar false-positives on HEALTHY correlated K≥2 fits — atoms
+            // that legitimately share some output span but each carry real structure —
+            // and reseeding them mid-fit regressed `manifold_beats_linear_joint_
+            // streaming_1026` and `planted_circle_multi_atom_jumprelu_clears_startup_
+            // validation_1782`. Distinguishing "merged" from "merely correlated" needs
+            // more than coherence (it depends on what the DATA needs), so the detector
+            // is left as a callable diagnostic for the evidence-gated structure search
+            // to consume, NOT an inline reseed trigger. The #2027 fix (entry-placement
+            // seeding) already resolves the high-EV-no-structure mode at its source.
+            //
+            // #2082 telemetry: surface the "high EV, no structure" mode when it appears
+            // — atoms structurally collapsed onto a shared output subspace while the
+            // reconstruction is NOT decoder-degenerate (EV above the null floor). This
+            // is diagnostic ONLY (no state change), so healthy fits are byte-unchanged;
+            // it lets the structure search / operator see the mode the two-width test
+            // catches without the false-positive reseed that regressed live fits.
+            let ev_degenerate = ev.is_finite() && ev <= ev_floor && out_energy_ratio <= ev_floor;
+            if !ev_degenerate
+                && let Some((j, kk, coherence)) = self.structural_coherence_collapse_detected()?
+            {
+                log::warn!(
+                    "SaeManifoldTerm: structural coherence collapse — atoms ({j}, {kk}) decode a \
+                     shared output subspace (μ̂={coherence:.4} above the derived random-subspace \
+                     null) at healthy EV={ev:.4}; diagnostic only, deferred to the structure search"
+                );
+            }
+            if !ev_degenerate {
                 return Ok(());
             }
             // #1026 keep-best multi-start: the current (pre-reseed) state is a
@@ -2271,13 +2344,24 @@ impl SaeManifoldTerm {
             // On budget exhaustion we restore the incumbent rather than leaving the
             // last (often catastrophic) reseed — a multi-start must never return a
             // basin worse than one it already visited.
-            if ev.is_finite()
-                && self
-                    .best_cocollapse_incumbent
-                    .as_ref()
-                    .is_none_or(|(best_ev, _)| ev > *best_ev)
-            {
-                self.best_cocollapse_incumbent = Some((ev, self.snapshot_mutable_state()));
+            // #2081 — the incumbent comparison prices reconstruction EV FIRST and,
+            // at (near-)equal EV, breaks the tie on coordinate uniformity: EV
+            // provably does not certify the coordinate, so a reseed that ties on EV
+            // but reads a more uniform angle is the better basin.
+            let candidate_uniformity = self.coordinate_uniformity_aggregate();
+            let prefer = match self.best_cocollapse_incumbent.as_ref() {
+                None => ev.is_finite(),
+                Some((best_ev, best_uniformity, _)) => prefer_candidate_basin(
+                    ev,
+                    candidate_uniformity,
+                    *best_ev,
+                    *best_uniformity,
+                    SAE_FINAL_EV_DEGRADATION_TOL,
+                ),
+            };
+            if prefer {
+                self.best_cocollapse_incumbent =
+                    Some((ev, candidate_uniformity, self.snapshot_mutable_state()));
             }
             // Co-collapsed: every decoder is ≈0 TOGETHER. Reseed ALL atoms onto
             // DISTINCT residual PCs — keeping no "anchor", because in a true
@@ -2303,12 +2387,13 @@ impl SaeManifoldTerm {
             // fighting the optimizer over one atom. It gets its OWN budget
             // (`SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET`), distinct from the
             // per-atom `SAE_ATOM_COLLAPSE_RESEED_BUDGET` (which stays 1 for the
-            // reasons in its doc). Because this branch only runs when EV is at or
-            // below the data-derived collapse bar (`collapse_ev_bar` =
-            // `SAE_COLLAPSE_PCA_EV_FRACTION` × the rank-K PCA ceiling) — a fit
-            // explaining less than half the linearly-achievable variance — it is a
-            // no-op for every healthy fit and can only ADD basin-escape attempts
-            // to an already-failed dictionary.
+            // reasons in its doc). Because this branch only runs at iteration > 0
+            // when EV is at or below the SIGNAL-FREE null floor
+            // (`absolute_degeneracy_ev_floor` = `q / n`) AND the reconstruction
+            // output has co-vanished — a dictionary explaining no more than chance
+            // whose decoders produce ≈ the column mean — it is a no-op for every
+            // healthy (or merely-uncompetitive) fit and can only ADD basin-escape
+            // attempts to an already-degenerate dictionary.
             if self.dictionary_cocollapse_reseeds >= SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET {
                 // Multi-start budget spent. #1026: restore the BEST basin seen
                 // across all reseeds (including the original seed) before giving up
@@ -2317,8 +2402,20 @@ impl SaeManifoldTerm {
                 // converts the catastrophic-last-reseed outcome (EV −1.01) back to
                 // the best basin found (EV 0.127), so the evidence-gated structure
                 // search ranks the dictionary's real best, not its worst attempt.
-                if let Some((best_ev, best_state)) = self.best_cocollapse_incumbent.take() {
-                    if best_ev > ev {
+                if let Some((best_ev, best_uniformity, best_state)) =
+                    self.best_cocollapse_incumbent.take()
+                {
+                    // #2081 — restore the incumbent when it is the better basin under
+                    // the same EV-then-uniformity ordering used to bank it: strictly
+                    // higher EV, or (near-)equal EV with a more uniform coordinate.
+                    let current_uniformity = self.coordinate_uniformity_aggregate();
+                    if prefer_candidate_basin(
+                        best_ev,
+                        best_uniformity,
+                        ev,
+                        current_uniformity,
+                        SAE_FINAL_EV_DEGRADATION_TOL,
+                    ) {
                         self.restore_mutable_state(&best_state);
                         log::warn!(
                             "SaeManifoldTerm: dictionary co-collapse multi-start budget spent; \
@@ -2349,7 +2446,7 @@ impl SaeManifoldTerm {
             self.dictionary_cocollapse_reseeds += 1;
             log::warn!(
                 "SaeManifoldTerm: dictionary co-collapse (reconstruction EV={ev:.4} at or \
-                 below the data-derived collapse bar) with no relative-norm breach; \
+                 below the signal-free null floor, output co-vanished) with no relative-norm breach; \
                  reseeding all {k} atoms onto distinct residual PCs (dictionary multi-start \
                  {}/{SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET}: total co-collapse, no atom \
                  carries material signal to anchor)",
@@ -2377,11 +2474,26 @@ impl SaeManifoldTerm {
                     action: CollapseAction::Reseeded,
                 });
             }
-            // One joint least-squares decoder refit at the re-diversified state
-            // (same rationale as the per-atom arm below): every atom, the reseeded
-            // ones especially, gets a fresh non-degenerate decoder that distributes
-            // the available signal across the dictionary.
-            self.refit_decoder_least_squares_at_current_state(target, Some(rho))?;
+            // #2027 — a GREEDY DISJOINT-SUBSPACE (matching-pursuit) decoder refit
+            // REPLACES the joint least-squares refit here. The joint refit's
+            // minimum-norm solution re-spreads the leading residual direction across
+            // atoms at the near-degenerate co-collapsed Gram, undoing the disjoint
+            // coordinate reseed above; the deflation refit instead makes each atom
+            // claim residual variance no other atom already took, so the dictionary
+            // cannot re-collapse onto one shared direction in a single refit. The
+            // freshly-fit decoders are consistent with the reseeded gates (the LSQ was
+            // solved AT those gates), so the reconstruction EV strictly improves over
+            // the degenerate incumbent — the keep-best multi-start below then banks or
+            // restores it as usual.
+            self.refit_decoder_sequential_deflation(target, rho)?;
+            // #2082 anchor-then-refit: with disjoint decoders now placed, pin each row
+            // (softly) to the atom that best explains it, THEN re-fit the decoders AT
+            // the anchored gates so decoders and gates stay consistent (anchoring after
+            // a single refit desyncs them and degrades EV — the ordering is what makes
+            // the anchor safe). Gives each atom a stable territory the outer Newton
+            // descent starts from, without breaking the reseed-improves-EV contract.
+            self.anchor_logits_to_residual_ownership(target)?;
+            self.refit_decoder_sequential_deflation(target, rho)?;
             return Ok(());
         }
         // Decide which breached atoms still have reseed budget (recording a
@@ -2478,6 +2590,54 @@ impl SaeManifoldTerm {
         Ok(1.0 - ss_res / ss_tot)
     }
 
+    /// S1 (guard surgery) — fraction of the centered target variance carried by the
+    /// dictionary's OWN reconstruction OUTPUT: `Σ (fitted − mean)² / Σ (target −
+    /// mean)²`. A dictionary whose decoders have co-vanished reconstructs ≈ the
+    /// column mean, so this ratio falls to the null fitting-noise level; a fit that
+    /// merely reconstructs poorly but whose decoders carry real signal keeps output
+    /// energy of ordinary magnitude. Paired with [`Self::dictionary_reconstruction_ev`],
+    /// this is the "decoder output co-vanished" half of the absolute-degeneracy
+    /// co-collapse verdict in [`Self::enforce_decoder_norm_guard`]: a genuine
+    /// co-collapse has BOTH ~zero EV AND ~zero output energy, distinguishing it from
+    /// a present-decoder fit that simply reconstructs poorly (the optimizer's job).
+    /// Returns `0.0` for a constant (zero-variance) target, where the notion is
+    /// vacuous. Column means use the same running update as `dictionary_reconstruction_ev`.
+    pub(crate) fn dictionary_reconstruction_output_energy_ratio(
+        &self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+    ) -> Result<f64, String> {
+        let fitted = self.try_fitted_for_rho(rho)?;
+        if fitted.dim() != target.dim() {
+            return Err(format!(
+                "SaeManifoldTerm::dictionary_reconstruction_output_energy_ratio: fitted {:?} \
+                 != target {:?}",
+                fitted.dim(),
+                target.dim()
+            ));
+        }
+        let n = target.nrows();
+        let mut ss_out = 0.0_f64;
+        let mut ss_tot = 0.0_f64;
+        for col in 0..target.ncols() {
+            let mut mean = 0.0_f64;
+            for (count, row) in (0..n).enumerate() {
+                let x = target[[row, col]];
+                mean += (x - mean) / (count as f64 + 1.0);
+            }
+            for row in 0..n {
+                let dev = target[[row, col]] - mean;
+                ss_tot += dev * dev;
+                let out = fitted[[row, col]] - mean;
+                ss_out += out * out;
+            }
+        }
+        if !(ss_tot > 0.0) {
+            return Ok(0.0);
+        }
+        Ok(ss_out / ss_tot)
+    }
+
     /// Reseed a set of collapsed atoms onto DISTINCT principal directions of the
     /// current reconstruction residual in one pass, reusing the production #671
     /// disjoint-PC seeding ([`sae_pca_seed_initial_coords`], which assigns atom
@@ -2524,9 +2684,12 @@ impl SaeManifoldTerm {
         let pc_pairs = (residual.ncols().min(n)) / 2;
         // #2023 — typed per-fit opt-in (was the GAM_SAE_DATA_ROW_RESEED env lever).
         let data_row_reseed = self.data_row_reseed;
-        let all_flat = basis_kinds
-            .iter()
-            .all(|k| matches!(k, SaeAtomBasisKind::EuclideanPatch | SaeAtomBasisKind::Linear));
+        let all_flat = basis_kinds.iter().all(|k| {
+            matches!(
+                k,
+                SaeAtomBasisKind::EuclideanPatch | SaeAtomBasisKind::Linear
+            )
+        });
         let seeded = if data_row_reseed && all_flat && n > 0 && pc_pair_offset >= pc_pairs.max(1) {
             // Distinct anchor row per (atom, retry), spanning the full n-row range
             // so successive exhausted-pool retries never re-anchor identically.
@@ -2553,6 +2716,339 @@ impl SaeManifoldTerm {
             self.assignment.coords[atom].set_flat(flat.view());
             let coords = self.assignment.coords[atom].as_matrix();
             self.atoms[atom].refresh_basis(coords.view())?;
+        }
+        Ok(())
+    }
+
+    /// #2027 co-collapse fix, Part A — GREEDY DISJOINT-SUBSPACE decoder refit.
+    ///
+    /// The joint decoder least-squares
+    /// ([`Self::refit_decoder_least_squares_at_current_state`]) fits ALL atoms
+    /// against the SAME target in ONE normal-equations solve. At a co-collapsed
+    /// state the freshly reseeded atoms sit on distinct residual PC pairs, but the
+    /// joint Gram is near-degenerate (the atoms' gated designs overlap heavily on
+    /// the leading residual direction), and the minimum-norm joint solution spreads
+    /// that SAME direction across several atoms — re-symmetrising the very basin the
+    /// reseed just broke. This is the mechanism behind the K≥2 co-collapse: disjoint
+    /// COORDINATE seeds are not enough while the DECODER refit is free to re-share
+    /// one direction.
+    ///
+    /// This greedy matching-pursuit refit instead lets every atom claim a DISJOINT
+    /// chunk of the residual. Repeatedly: single-atom-fit each not-yet-committed atom
+    /// against the CURRENT residual, commit the one whose gated fit explains the most
+    /// residual energy, subtract its contribution, and continue. Each atom therefore
+    /// lands on residual variance no already-committed atom took, so the dictionary
+    /// cannot collapse back onto one shared direction in a single refit — the
+    /// block-nursery sequential-composition principle, applied in-loop. The per-atom
+    /// design is the identical gated `diag(a_·k)·Φ_k` the joint audit and joint refit
+    /// use, so on a healthy, well-separated dictionary the deflation reproduces the
+    /// joint least-squares fit up to block-coordinate ordering. Deterministic: ties
+    /// resolve to the lower atom index. The `quotient_scale` peel is mirrored from
+    /// the joint refit so the amortized-amplitude bookkeeping stays consistent.
+    pub(crate) fn refit_decoder_sequential_deflation(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+    ) -> Result<(), String> {
+        let n = self.n_obs();
+        let p = self.output_dim();
+        if target.dim() != (n, p) {
+            return Err(format!(
+                "SaeManifoldTerm::refit_decoder_sequential_deflation: target shape {:?} != ({n}, {p})",
+                target.dim()
+            ));
+        }
+        let k = self.k_atoms();
+        if k == 0 || n == 0 {
+            return Ok(());
+        }
+        // Per-row gate weights, rho-keyed exactly as the joint refit reads them, so
+        // the deflation design matches the joint audit's `diag(a_·k)·Φ_k` blocks.
+        let mut gates = Array2::<f64>::zeros((n, k));
+        for row in 0..n {
+            let assignments = self.assignment.try_assignments_row_for_rho(row, rho)?;
+            for atom in 0..k {
+                gates[[row, atom]] = assignments[atom];
+            }
+        }
+        // Gated single-atom design `D_k = diag(a_·k)·Φ_k` (n × M_k).
+        let gated_design = |slf: &Self, atom: usize| -> Array2<f64> {
+            let m = slf.atoms[atom].basis_size();
+            let mut d = Array2::<f64>::zeros((n, m));
+            for row in 0..n {
+                let w = gates[[row, atom]];
+                for col in 0..m {
+                    d[[row, col]] = w * slf.atoms[atom].basis_values[[row, col]];
+                }
+            }
+            d
+        };
+        let mut residual = target.to_owned();
+        let mut remaining: Vec<usize> = (0..k).collect();
+        while !remaining.is_empty() {
+            let mut best_atom = remaining[0];
+            let mut best_energy = f64::NEG_INFINITY;
+            let mut best_beta: Option<Array2<f64>> = None;
+            for &atom in &remaining {
+                let d = gated_design(self, atom);
+                // A gated design `D_k = diag(a_·k)·Φ_k` that is all-zero means atom
+                // `k` is gated OFF at every row: its reconstruction is identically
+                // zero for ANY decoder, so the reduced joint problem this seed ρ
+                // presents is rank-deficient and its closed-form Laplace evidence is
+                // undefined — the SAME infeasible-ρ class as the non-PD Schur /
+                // per-row Hessian refusals (#1782). It arises for a legitimate seed
+                // state (a jumprelu / threshold gate that zeroes every row at an
+                // off-optimum seed ρ), NOT a coding defect, and fitting the resulting
+                // all-off (zero) dictionary just makes the outer optimizer grind on a
+                // gradient-free landscape. Surface a DISTINCT, classifiable refusal so
+                // `is_recoverable_value_probe_refusal` reads it as the finite collapse
+                // wall and the outer solver steers ρ back to where atoms turn on (or
+                // ships best-so-far), instead of `solve_design_least_squares`'s
+                // generic "zero numerical rank" error aborting the whole fit ("no
+                // candidate seeds passed outer startup validation"). The generic error
+                // stays fatal for every other (genuinely defective) caller.
+                if d.iter().all(|&v| v == 0.0) {
+                    return Err(format!(
+                        "refit_decoder_sequential_deflation: atom {atom} is gated off at \
+                         every row (all-zero gated design); the seed ρ leaves the reduced \
+                         problem rank-deficient (recoverable infeasible-ρ probe)"
+                    ));
+                }
+                let beta = solve_design_least_squares(d.view(), residual.view())?;
+                let fit = d.dot(&beta);
+                let energy: f64 = fit.iter().map(|v| v * v).sum();
+                // Strict `>` keeps the tie-break at the lower index (deterministic).
+                if energy > best_energy {
+                    best_energy = energy;
+                    best_atom = atom;
+                    best_beta = Some(beta);
+                }
+            }
+            let beta = best_beta.expect("remaining is non-empty so a best atom was chosen");
+            let m = self.atoms[best_atom].basis_size();
+            if beta.dim() != (m, p) {
+                return Err(format!(
+                    "SaeManifoldTerm::refit_decoder_sequential_deflation: atom {best_atom} beta shape {:?} != ({m}, {p})",
+                    beta.dim()
+                ));
+            }
+            // Deflate the residual by this atom's committed gated contribution.
+            let d = gated_design(self, best_atom);
+            let fit = d.dot(&beta);
+            residual = &residual - &fit;
+            for col in 0..m {
+                for out in 0..p {
+                    self.atoms[best_atom].decoder_coefficients[[col, out]] = beta[[col, out]];
+                }
+            }
+            self.atoms[best_atom].refresh_intrinsic_smooth_penalty();
+            // #2022 refit-peel, mirrored from the joint refit (default-off; a no-op
+            // unless the scale-gauge quotient is armed on this term).
+            if self.quotient_scale {
+                self.atoms[best_atom].log_amplitude = 0.0;
+                self.atoms[best_atom].absorb_decoder_norm_into_log_amplitude(f64::MIN_POSITIVE);
+            }
+            remaining.retain(|&a| a != best_atom);
+        }
+        Ok(())
+    }
+
+    /// #2082 — soft ROW-OWNERSHIP ANCHOR (used ONLY in the co-collapse reseed arm,
+    /// between two deflation refits: deflate → anchor → refit). For each row, find the
+    /// atom whose current decoder best matches that row's target direction (the
+    /// alignment `⟨target_row, Φ_k(t)·B_k⟩`) and NUDGE that atom's gate logit up by one
+    /// temperature unit, the others down by one — a relative bias in the gate's own
+    /// logit scale, NOT a hard partition. On its own this DESYNCS the gates from the
+    /// decoders the prior deflation fit to the OLD gates (EV degrades — the reason it
+    /// was pulled from the #2027 arm); the caller therefore RE-FITS the decoders at the
+    /// anchored gates immediately after, restoring the reseed-improves-EV contract while
+    /// giving each atom a stable territory the subsequent Newton descent starts from.
+    /// K=1 has no ownership to contest, so this is a no-op there.
+    pub(crate) fn anchor_logits_to_residual_ownership(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+    ) -> Result<(), String> {
+        let n = self.n_obs();
+        let p = self.output_dim();
+        let k = self.k_atoms();
+        if n == 0 || k < 2 {
+            return Ok(());
+        }
+        let mut owner = vec![0usize; n];
+        for row in 0..n {
+            let mut best = 0usize;
+            let mut best_align = f64::NEG_INFINITY;
+            for atom in 0..k {
+                let m = self.atoms[atom].basis_size();
+                let phi = &self.atoms[atom].basis_values;
+                let b = &self.atoms[atom].decoder_coefficients;
+                let mut align = 0.0_f64;
+                for out in 0..p {
+                    let mut recon = 0.0_f64;
+                    for col in 0..m {
+                        recon += phi[[row, col]] * b[[col, out]];
+                    }
+                    align += recon * target[[row, out]];
+                }
+                if align > best_align {
+                    best_align = align;
+                    best = atom;
+                }
+            }
+            owner[row] = best;
+        }
+        let bias = self.assignment.mode.temperature().max(f64::MIN_POSITIVE);
+        for row in 0..n {
+            for atom in 0..k {
+                let delta = if atom == owner[row] { bias } else { -bias };
+                self.assignment.logits[[row, atom]] += delta;
+            }
+        }
+        if matches!(self.assignment.mode, AssignmentMode::Softmax { .. }) {
+            canonicalize_softmax_logits(&mut self.assignment.logits);
+        }
+        Ok(())
+    }
+
+    /// #2082 — STRUCTURAL coherence collapse detector. The median/EV co-collapse
+    /// arms catch a dictionary whose decoders have VANISHED (`‖B_k‖ → 0`). They are
+    /// blind to the "HIGH EV, NO STRUCTURE" mode the #2027 two-width test exposes:
+    /// two atoms carry full decoder norm yet decode ~the SAME output subspace, so the
+    /// reconstruction EV looks healthy while the dictionary really has one atom's worth
+    /// of structure. Detect it from the max inter-atom output-frame coherence
+    /// `μ̂_{jk} = σ_max(Q_jᵀ Q_k)` — the largest principal-angle COSINE between the
+    /// atoms' orthonormal decoder output frames `Q_k` (`certificate_output_frame`) —
+    /// fired against a DERIVED random-subspace null (no magic constant).
+    ///
+    /// Null bar: two INDEPENDENT Haar-random subspaces of dims `r_j, r_k` in `Rᵖ` have
+    /// their largest canonical correlation concentrate at the Wachter / MANOVA bulk
+    /// edge `μ_null = √(a(1−b)) + √(b(1−a))` with `a = r_j/p, b = r_k/p` (→ 0 as `p`
+    /// grows: random atoms are incoherent). A pair is STRUCTURALLY collapsed when its
+    /// coherence has moved from that null floor to (near) the degenerate ceiling
+    /// `μ = 1` (identical subspaces): fire when `μ̂_{jk}` exceeds the MIDPOINT
+    /// `½(μ_null + 1)` — halfway between "as incoherent as random" and "identical". The
+    /// only inputs are the derived `μ_null` and the hard degeneracy ceiling 1, so there
+    /// is no free threshold. Returns the worst offending pair `(j, k, μ̂)`, or `None`
+    /// when every pair sits below its derived bar (`K < 2`, a rank-0 atom, or a genuine
+    /// well-separated dictionary all return `None`).
+    pub(crate) fn structural_coherence_collapse_detected(
+        &self,
+    ) -> Result<Option<(usize, usize, f64)>, String> {
+        let k = self.k_atoms();
+        let p = self.output_dim();
+        if k < 2 || p == 0 {
+            return Ok(None);
+        }
+        let frames = (0..k)
+            .map(|atom| crate::manifold::certificate::certificate_output_frame(self, atom))
+            .collect::<Result<Vec<_>, String>>()?;
+        let mut worst: Option<(usize, usize, f64)> = None;
+        for j in 0..k {
+            for kk in (j + 1)..k {
+                let rj = frames[j].ncols();
+                let rk = frames[kk].ncols();
+                if rj == 0 || rk == 0 {
+                    continue;
+                }
+                let overlap = fast_atb(&frames[j], &frames[kk]);
+                let (_u, s, _vt) = overlap.svd(false, false).map_err(|e| {
+                    format!("structural_coherence_collapse_detected: SVD failed ({j},{kk}): {e}")
+                })?;
+                let coherence = s.iter().copied().fold(0.0_f64, f64::max);
+                let a = rj as f64 / p as f64;
+                let b = rk as f64 / p as f64;
+                let mu_null = (a * (1.0 - b)).max(0.0).sqrt() + (b * (1.0 - a)).max(0.0).sqrt();
+                let bar = 0.5 * (mu_null.min(1.0) + 1.0);
+                if coherence > bar && worst.as_ref().is_none_or(|&(_, _, c)| coherence > c) {
+                    worst = Some((j, kk, coherence));
+                }
+            }
+        }
+        Ok(worst)
+    }
+
+    /// #2027 cold-start SEQUENTIAL CHART deflation — seed each atom's CHART *and*
+    /// decoder onto DISJOINT structure so a K≥2 fit recovers every planted factor,
+    /// not just the dominant one.
+    ///
+    /// [`Self::refit_decoder_sequential_deflation`] places disjoint DECODERS but
+    /// leaves every atom's COORDINATES at the shared PCA seed. When two atoms' seed
+    /// charts read the SAME dominant structure (empirically the whitened two-circle
+    /// case: both atoms' PCA-pair seeds land on the higher-variance circle) they
+    /// both fit that one factor and the weaker planted factor is never recovered —
+    /// a HIGH EV with NO structure separation (both decoders on the same output
+    /// channels). The decoder is only as expressive as the chart it rides.
+    ///
+    /// This re-seeds each atom's coordinates from the CURRENT residual's LEADING
+    /// structure before fitting its decoder and deflating: atom 0 takes the dominant
+    /// planted factor, atom 1 the dominant factor of what atom 0 left behind, and so
+    /// on — the block-nursery sequential-composition principle applied to the charts
+    /// themselves at cold-start entry. Each atom's chart is therefore aligned with a
+    /// DISTINCT factor, so its deflation decoder lands on that factor's channels and
+    /// the atoms separate. Uses only the production seeding primitive
+    /// (`sae_pca_seed_initial_coords`, one atom at a time on the residual) and the
+    /// same gated design / `quotient_scale` peel as the joint refit.
+    pub(crate) fn seed_cold_start_disjoint_charts(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+    ) -> Result<(), String> {
+        let n = self.n_obs();
+        let p = self.output_dim();
+        let k = self.k_atoms();
+        if n == 0 || k == 0 {
+            return Ok(());
+        }
+        let mut residual = target.to_owned();
+        for atom in 0..k {
+            // 1. Re-seed THIS atom's chart from the current residual's leading
+            //    structure (one-atom PCA seed on the residual left by prior atoms).
+            let kind = self.atoms[atom].basis_kind.clone();
+            let dim = self.atoms[atom].latent_dim;
+            let seeded = sae_pca_seed_initial_coords(
+                residual.view(),
+                std::slice::from_ref(&kind),
+                std::slice::from_ref(&dim),
+            )?;
+            let mut flat = Array1::<f64>::zeros(n * dim);
+            for row in 0..n {
+                for axis in 0..dim {
+                    flat[row * dim + axis] = seeded[[0, row, axis]];
+                }
+            }
+            self.assignment.coords[atom].set_flat(flat.view());
+            let coords = self.assignment.coords[atom].as_matrix();
+            self.atoms[atom].refresh_basis(coords.view())?;
+            // 2. Fit this atom's decoder to the residual on its fresh chart (gated
+            //    design `diag(a_·k)·Φ_k`), then deflate the residual by its fit.
+            let m = self.atoms[atom].basis_size();
+            let mut d = Array2::<f64>::zeros((n, m));
+            for row in 0..n {
+                let assignments = self.assignment.try_assignments_row_for_rho(row, rho)?;
+                let w = assignments[atom];
+                for col in 0..m {
+                    d[[row, col]] = w * self.atoms[atom].basis_values[[row, col]];
+                }
+            }
+            let beta = solve_design_least_squares(d.view(), residual.view())?;
+            if beta.dim() != (m, p) {
+                return Err(format!(
+                    "SaeManifoldTerm::seed_cold_start_disjoint_charts: atom {atom} beta shape {:?} != ({m}, {p})",
+                    beta.dim()
+                ));
+            }
+            let fit = d.dot(&beta);
+            residual = &residual - &fit;
+            for col in 0..m {
+                for out in 0..p {
+                    self.atoms[atom].decoder_coefficients[[col, out]] = beta[[col, out]];
+                }
+            }
+            self.atoms[atom].refresh_intrinsic_smooth_penalty();
+            if self.quotient_scale {
+                self.atoms[atom].log_amplitude = 0.0;
+                self.atoms[atom].absorb_decoder_norm_into_log_amplitude(f64::MIN_POSITIVE);
+            }
         }
         Ok(())
     }
@@ -3335,6 +3831,36 @@ impl SaeManifoldTerm {
             self.accumulate_decoder_gram(&mut grams);
             self.finalize_decoder_identifiability_audit(&grams, self.n_obs())?;
         }
+        // #2027 — COLD-START disjoint decoder placement. The joint Newton solve
+        // below relies on its first step to place decoder mass from the seed, but an
+        // all-≈0 cold decoder is a DEGENERATE stationary start: with every `B_k = 0`
+        // the reconstruction is the zero map, the inner gradient can already sit under
+        // the relative convergence tolerance, and the loop "converges" and BREAKS at
+        // iteration 0 without ever placing a decoder — the fit returns the null
+        // reconstruction (EV ≈ 0) and the in-loop co-collapse guard (which the loop
+        // body reaches only AFTER an accepted step) never runs. This is the whitened
+        // K≥2 co-collapse fingerprint: EV = −0.0, `cocollapse_reseeds = 0`. Give the
+        // solve a NON-DEGENERATE start whenever the dictionary decoder has co-vanished
+        // at entry: place an initial DISJOINT-subspace decoder by greedy deflation —
+        // each atom claims a distinct chunk of the target (the same refit the
+        // co-collapse reseed arm uses), so the atoms start on separate structure and
+        // the Newton walk has a real coordinate gradient to descend. Gated strictly on
+        // a co-vanished decoder (`max_k ‖B_k‖ == 0`, the cold seed): any warm-started
+        // or already-placed decoder is left byte-for-byte untouched, so every existing
+        // non-cold fit — and the `max_iter == 0` freeze handled above — is unchanged.
+        let max_decoder_norm = self
+            .atoms
+            .iter()
+            .map(|atom| atom.decoder_coefficients.iter().map(|v| v * v).sum::<f64>())
+            .fold(0.0_f64, f64::max)
+            .sqrt();
+        if !(max_decoder_norm > 0.0) {
+            // Sequential CHART deflation (not just decoder deflation): re-seed each
+            // atom's coordinates from the residual left by prior atoms so the atoms
+            // align with DISTINCT planted factors and separate, rather than both
+            // fitting the dominant factor (high EV, no structure recovery).
+            self.seed_cold_start_disjoint_charts(target, rho)?;
+        }
         // #1026 — keep the best real reconstruction basin found inside this
         // bounded inner solve. The co-collapse guard can reseed onto a high-EV
         // PC-periodic dictionary and then a later Newton step can drift back into
@@ -3347,6 +3873,13 @@ impl SaeManifoldTerm {
         let mut best_reconstruction_ev = self
             .dictionary_reconstruction_ev(target, rho)
             .unwrap_or(f64::NEG_INFINITY);
+        // #2081 — the incumbent carries its coordinate-uniformity score alongside
+        // EV so the keep-best can break (near-)equal-EV ties on coordinate fidelity.
+        let mut best_reconstruction_uniformity = if best_reconstruction_ev.is_finite() {
+            self.coordinate_uniformity_aggregate()
+        } else {
+            None
+        };
         let mut best_reconstruction_state = if best_reconstruction_ev.is_finite() {
             Some(self.snapshot_mutable_state())
         } else {
@@ -3614,6 +4147,71 @@ impl SaeManifoldTerm {
             // that has fallen far behind its peers and reseed it onto the
             // residual; a strict no-op for K=1.
             self.enforce_decoder_norm_guard(target, outer_iteration, rho)?;
+            // #2089 defense-in-depth: never grind a hopeless fit (and never let a
+            // CPU watchdog SIGKILL the host while it does). When the co-collapse
+            // multi-start budget is fully spent yet the dictionary is STILL at or
+            // below the signal-free null floor (`q/n`), it never escaped total
+            // co-collapse for this input — every atom's decoder co-vanished and no
+            // residual structure could anchor `K` distinct charts. The guard has
+            // already restored the best basin it banked, so continuing the outer
+            // loop (and the outer-REML ρ-search that drives it) only re-derives the
+            // same degenerate basin at cost. Return a typed error so the FFI raises
+            // a diagnosable Python exception PROMPTLY instead of thrashing toward a
+            // useless model. Gated to genuine, budget-exhausted TOTAL co-collapse:
+            // a healthy fit never reseeds (`dictionary_cocollapse_reseeds == 0`),
+            // and a partially-recovered basin (best EV above the floor) still
+            // returns `Ok` exactly as before, so no non-degenerate fit is affected.
+            if self.dictionary_cocollapse_reseeds
+                >= crate::assignment::SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET
+            {
+                let ev_now = self.dictionary_reconstruction_ev(target, rho)?;
+                let dictionary_rank = crate::manifold::outer_objective::reachable_dictionary_rank(
+                    &self.atoms,
+                    self.n_obs(),
+                    target.ncols(),
+                );
+                let ev_floor = crate::manifold::outer_objective::absolute_degeneracy_ev_floor(
+                    target,
+                    dictionary_rank,
+                );
+                if !(ev_now.is_finite() && ev_now > ev_floor) {
+                    // Carry the collapse MEASUREMENTS in the message so a caller that
+                    // deliberately drives co-collapse as a control (red-tree scaling
+                    // experiments) can read the numbers off the exception instead of
+                    // losing them to the raise: the terminal reconstruction EV, the
+                    // null floor, the worst inter-atom output-frame coherence μ̂ (the
+                    // shared-subspace signature), and the per-atom decoder norms ‖B_k‖
+                    // (all ≈0 under a genuine co-vanish).
+                    let mu_hat = match self.structural_coherence_collapse_detected() {
+                        Ok(Some((_, _, coherence))) => format!("{coherence:.4}"),
+                        Ok(None) => "below-null-bar".to_string(),
+                        Err(_) => "unavailable".to_string(),
+                    };
+                    let decoder_norms: Vec<f64> = self
+                        .atoms
+                        .iter()
+                        .map(|atom| {
+                            atom.decoder_coefficients
+                                .iter()
+                                .map(|value| value * value)
+                                .sum::<f64>()
+                                .sqrt()
+                        })
+                        .collect();
+                    return Err(format!(
+                        "SaeManifoldTerm::run_joint_fit_arrow_schur: dictionary did not escape \
+                         total co-collapse after {} reseed multi-starts (reconstruction \
+                         EV={ev_now:.4} at or below the signal-free null floor {ev_floor:.4}); \
+                         every atom's decoder co-vanished and no residual structure could anchor \
+                         K={} distinct charts for this input [mu_hat_max={mu_hat}, \
+                         decoder_norms={decoder_norms:.4?}]. Refusing to continue the degenerate \
+                         fit. Try fewer atoms (a smaller K), a different atom_topology/assignment, \
+                         more observations, or a different random_state.",
+                        crate::assignment::SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET,
+                        self.k_atoms()
+                    ));
+                }
+            }
             // #2022 — enforce unit-speed (arc-length) charts IN-LOOP at this
             // accepted-outer-iteration boundary (post-acceptance, OUTSIDE the line
             // search, same cadence as the guards above). Image-frozen ⇒ data-fit +
@@ -3638,8 +4236,18 @@ impl SaeManifoldTerm {
                     .map_err(|err| format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}"))?;
             }
             if let Ok(ev) = self.dictionary_reconstruction_ev(target, rho) {
-                if ev.is_finite() && ev > best_reconstruction_ev + SAE_FINAL_EV_DEGRADATION_TOL {
+                // #2081 — keep the best basin on EV FIRST and, at (near-)equal EV,
+                // on the coordinate-uniformity certificate ([`prefer_candidate_basin`]).
+                let candidate_uniformity = self.coordinate_uniformity_aggregate();
+                if prefer_candidate_basin(
+                    ev,
+                    candidate_uniformity,
+                    best_reconstruction_ev,
+                    best_reconstruction_uniformity,
+                    SAE_FINAL_EV_DEGRADATION_TOL,
+                ) {
                     best_reconstruction_ev = ev;
+                    best_reconstruction_uniformity = candidate_uniformity;
                     best_reconstruction_state = Some(self.snapshot_mutable_state());
                 }
             }
@@ -3731,6 +4339,11 @@ impl SaeManifoldTerm {
         // hint would always equal the cold LSQ decoder, never the seed). A freeze
         // is by definition not a convergence request, so there is no
         // under-converged decoder to rescue here.
+        let pre_polish_reconstruction_incumbent = self
+            .dictionary_reconstruction_ev(target, rho)
+            .ok()
+            .filter(|ev| ev.is_finite())
+            .map(|ev| (ev, self.snapshot_mutable_state()));
         if max_iter > 0 && !self.frames_active() {
             let mut best_objective =
                 self.penalized_objective_total(target, rho, analytic_penalties, 1.0)?;
@@ -3769,6 +4382,27 @@ impl SaeManifoldTerm {
                             break;
                         }
                     }
+                }
+            }
+        }
+        // The final decoder-LSQ / coordinate-reprojection polish is accepted by
+        // the penalized objective because that is the scalar consumed by the REML
+        // outer loop. Reconstruction EV is the user-facing fitted quantity,
+        // however, and the polish is allowed to trade data fit for smoothness.
+        // Keep the same #1026 invariant as the Newton loop: a bounded in-fit
+        // refinement may not return a materially worse reconstruction than the
+        // incumbent it started from. This preserves the evidence objective's
+        // monotone path during fitting while ensuring the delivered fitted state is
+        // the best reconstruction basin the inner solve already found, rather than
+        // a smoother-but-collapsed post-polish state.
+        if let Some((pre_polish_ev, pre_polish_state)) = pre_polish_reconstruction_incumbent {
+            if let Ok(final_ev) = self.dictionary_reconstruction_ev(target, rho) {
+                if final_ev.is_finite() && final_ev + SAE_FINAL_EV_DEGRADATION_TOL < pre_polish_ev {
+                    log::warn!(
+                        "[#1026] restoring pre-polish reconstruction incumbent after final \
+                         polish degraded EV from {pre_polish_ev:.4} to {final_ev:.4}"
+                    );
+                    self.restore_mutable_state(&pre_polish_state);
                 }
             }
         }
@@ -3981,6 +4615,43 @@ impl SaeManifoldTerm {
         Ok(())
     }
 
+    /// Synthesize the monomial-patch basis evaluator for a streaming chunk when
+    /// the atom was built from a precomputed design matrix and therefore carries
+    /// no `basis_evaluator` (issue #1801).
+    ///
+    /// The flat monomial-patch families — [`SaeAtomBasisKind::EuclideanPatch`],
+    /// [`SaeAtomBasisKind::Linear`], and [`SaeAtomBasisKind::Poincare`] — all
+    /// share the deterministic [`crate::basis::EuclideanPatchEvaluator`] design:
+    /// `Φ(t)` is the set of monomials of total degree ≤ `max_degree` in the
+    /// atom's `latent_dim` coordinates (the Poincaré patch differs only in its
+    /// intrinsic penalty, not in `Φ`). We recover `max_degree` by searching
+    /// upward for the degree whose monomial count equals the atom's
+    /// `basis_size()`; the count is strictly increasing in the degree, so the
+    /// match is unique. Returns `None` when the basis kind has no well-defined
+    /// monomial evaluator (e.g. `Duchon`, which needs its kernel centers) or when
+    /// no degree reproduces the atom's width, so the caller keeps the original
+    /// "no basis evaluator" error rather than guessing.
+    fn synthesize_monomial_patch_evaluator(
+        atom: &SaeManifoldAtom,
+    ) -> Option<Arc<dyn SaeBasisEvaluator>> {
+        match atom.basis_kind {
+            SaeAtomBasisKind::EuclideanPatch
+            | SaeAtomBasisKind::Linear
+            | SaeAtomBasisKind::Poincare => {}
+            _ => return None,
+        }
+        let latent_dim = atom.latent_dim;
+        let target = atom.basis_size();
+        for degree in 0..=target {
+            if gam_terms::basis::monomial_exponents(latent_dim, degree).len() == target {
+                return crate::basis::EuclideanPatchEvaluator::new(latent_dim, degree)
+                    .ok()
+                    .map(|ev| Arc::new(ev) as Arc<dyn SaeBasisEvaluator>);
+            }
+        }
+        None
+    }
+
     /// Materialize a row-chunk `[start, end)` of this term as a standalone
     /// `SaeManifoldTerm`, recomputing `(basis_values, basis_jacobian)` on demand
     /// from the persisted decoder + atom geometry and the caller-supplied
@@ -4028,13 +4699,29 @@ impl SaeManifoldTerm {
                     atom.latent_dim
                 ));
             }
-            let evaluator = atom.basis_evaluator.as_ref().ok_or_else(|| {
-                format!(
-                    "SaeManifoldTerm::materialize_chunk: atom '{}' has no basis evaluator; a \
-                     streaming fit must re-evaluate Φ(t) at each chunk's coordinates",
-                    atom.name
-                )
-            })?;
+            // A streaming fit must re-evaluate Φ(t) at each chunk's coordinates.
+            // Atoms carried from precomputed design matrices via
+            // `SaeManifoldAtom::new` hold `basis_evaluator = None`; for the flat
+            // monomial-patch families we synthesize the deterministic evaluator
+            // from the atom geometry (issue #1801) instead of aborting the fit.
+            let synthesized_evaluator = match atom.basis_evaluator.as_ref() {
+                Some(_) => None,
+                None => Self::synthesize_monomial_patch_evaluator(atom),
+            };
+            let evaluator = match atom
+                .basis_evaluator
+                .as_ref()
+                .or(synthesized_evaluator.as_ref())
+            {
+                Some(evaluator) => evaluator,
+                None => {
+                    return Err(format!(
+                        "SaeManifoldTerm::materialize_chunk: atom '{}' has no basis evaluator; a \
+                         streaming fit must re-evaluate Φ(t) at each chunk's coordinates",
+                        atom.name
+                    ));
+                }
+            };
             let (phi, jet) = evaluator.evaluate(coords.view())?;
             let m = atom.basis_size();
             if phi.dim() != (n_chunk, m) {
@@ -4067,7 +4754,14 @@ impl SaeManifoldTerm {
                 atom.decoder_coefficients.clone(),
                 atom.smooth_penalty_raw.clone(),
             )?;
-            chunk_atom.basis_evaluator = atom.basis_evaluator.clone();
+            // Carry the atom's own evaluator when it has one; otherwise seed the
+            // chunk with the synthesized monomial-patch evaluator (#1801) so the
+            // downstream streaming assembly re-evaluates Φ(t) exactly as the
+            // non-precomputed path does.
+            chunk_atom.basis_evaluator = atom
+                .basis_evaluator
+                .clone()
+                .or_else(|| synthesized_evaluator.clone());
             chunk_atom.basis_second_jet = atom.basis_second_jet.clone();
             // #972 / #977 T1: carry the active Grassmann frame onto the chunk
             // atom so the streaming per-chunk assembly uses the SAME factored

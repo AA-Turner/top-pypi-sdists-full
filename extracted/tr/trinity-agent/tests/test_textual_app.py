@@ -205,7 +205,9 @@ from trinity.textual_app.screens.execution_matrix import (
     ExecutionPackageRow,
     ExecutionMatrixScreen,
     _detail_button_label,
+    _risk_lane_label,
     _review_label,
+    _status_note_label,
 )
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.report import (
@@ -3052,6 +3054,32 @@ async def test_report_screen_uses_korean_chrome_labels(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_report_header_shows_snapshot_target_workspace(tmp_path) -> None:
+    target = tmp_path / "target-app"
+    target.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+    app.active_snapshot = WorkflowNexusSnapshot(
+        session_id="wf-target-report",
+        target_workspace=str(target),
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("report")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, ReportScreen)
+        label = screen.query_one("#report-target-workspace", Static)
+
+        assert "계획 대상" in str(label.content)
+        assert str(target) in str(label.content)
+        assert label.styles.max_height.value == 2
+        assert str(label.styles.overflow_y) == "auto"
+
+
+@pytest.mark.asyncio
 async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
     snapshot = WorkflowNexusSnapshot(
         session_id="wf-ko-report",
@@ -3273,6 +3301,36 @@ async def test_report_screen_escapes_export_status_path(tmp_path) -> None:
         status = screen.query_one("#report-export-status")
         assert "Saved:" in str(status.render())
         assert "report-" in str(status.render())
+
+
+@pytest.mark.asyncio
+async def test_report_export_status_wraps_long_paths(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("report")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, ReportScreen)
+        screen.show_export_path(
+            tmp_path / ("very-long-report-directory-" * 3) / "report.md"
+        )
+        await pilot.pause()
+
+        status = screen.query_one("#report-export-status", Static)
+        rendered = "\n".join(
+            strip.text
+            for strip in status.render_lines(
+                Region(0, 0, status.region.width, status.region.height)
+            )
+        )
+
+        assert status.styles.height.is_auto
+        assert status.styles.max_height.value == 2
+        assert str(status.styles.overflow_y) == "auto"
+        assert 1 < status.region.height <= 2
+        assert "Saved:" in rendered
 
 
 @pytest.mark.asyncio
@@ -8029,6 +8087,9 @@ async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
         assert palette.display is True
         assert any("/status" in option for option in options)
         assert any("[local]" in option for option in options)
+        assert any("[setting" in option for option in options)
+        assert any("[workflow" in option for option in options)
+        assert any("[run AI !write]" in option for option in options)
 
         composer.set_text("/ex")
         await pilot.pause()
@@ -8069,6 +8130,9 @@ async def test_prompt_composer_localizes_slash_command_palette_in_korean(tmp_pat
 
         assert any("/status" in option for option in options)
         assert any("[로컬]" in option for option in options)
+        assert any("[설정" in option for option in options)
+        assert any("[흐름" in option for option in options)
+        assert any("[실행 AI !쓰기]" in option for option in options)
         assert any("제공자와 워크플로우 상태 보기" in option for option in options)
         assert not any("show provider and workflow status" in option for option in options)
         assert "명령 더 있음" in more
@@ -9653,6 +9717,20 @@ async def test_execution_matrix_renders_compact_status_labels(tmp_path) -> None:
             "IDLE",
             "?",
         ]
+        assert [status.has_class("execution-status-issue") for status in statuses] == [
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            True,
+            False,
+            False,
+        ]
+        assert statuses[5].has_class("execution-status-done")
+        assert not statuses[5].has_class("execution-status-issue")
 
 
 @pytest.mark.asyncio
@@ -9726,6 +9804,9 @@ async def test_execution_matrix_renders_korean_compact_status_labels(
             "휴식",
             "?",
         ]
+        assert statuses[2].has_class("execution-status-done")
+        assert statuses[3].has_class("execution-status-issue")
+        assert not statuses[3].has_class("execution-status-done")
 
 
 @pytest.mark.asyncio
@@ -9959,6 +10040,38 @@ def test_execution_matrix_compacts_reviewer_status_labels() -> None:
     )
 
 
+def test_execution_matrix_risk_lane_labels_include_status_notes() -> None:
+    retryable = WorkPackageSnapshot(
+        id="WP-001",
+        title="Retryable package",
+        owner_agent="codex",
+        status="failed",
+        risk="high",
+        retryable=True,
+    )
+    second_review = WorkPackageSnapshot(
+        id="WP-002",
+        title="Second review",
+        owner_agent="claude",
+        status="done",
+        review_status="needs_second_review",
+        risk="medium",
+    )
+    waiting = WorkPackageSnapshot(
+        id="WP-003",
+        title="Waiting package",
+        owner_agent="claude",
+        status="pending",
+        risk="low",
+    )
+
+    assert _status_note_label(retryable) == "retry"
+    assert _risk_lane_label(retryable) == "high retry"
+    assert _status_note_label(second_review, lang="ko") == "2차"
+    assert "2차" in _risk_lane_label(second_review, lang="ko")
+    assert _status_note_label(waiting) == "wait"
+
+
 @pytest.mark.asyncio
 async def test_execution_matrix_row_labels_no_peer_review_skip(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
@@ -10160,7 +10273,7 @@ async def test_execution_matrix_80_columns_keeps_review_risk_and_spec_visible(
         row = screen.query("#execution-package-list .execution-package-row").first()
         row_text = _widget_tree_text(row)
         assert "review: agy queued" in row_text
-        assert "risk: high" in row_text
+        assert "risk: high retry" in row_text
         assert "Spec" in row_text
         for widget in row.query(
             ".execution-package-review, .execution-package-risk, .execution-package-spec"
@@ -10169,7 +10282,7 @@ async def test_execution_matrix_80_columns_keeps_review_risk_and_spec_visible(
 
         activity_lines = screen.activity_lines()
         assert activity_lines[0] == "Recent Log"
-        assert "... 4 earlier log lines hidden" in activity_lines
+        assert "... 4 earlier log lines hidden · open Full Log" in activity_lines
         assert "event-11" in activity_lines
 
 
@@ -10253,7 +10366,7 @@ def test_execution_matrix_recent_activity_reads_only_recent_log_window() -> None
     activity_lines = screen.activity_lines()
 
     assert activity_lines[0] == "Recent Log"
-    assert "... 93 earlier log lines hidden" in activity_lines
+    assert "... 93 earlier log lines hidden · open Full Log" in activity_lines
     assert activity_lines[-1] == "event-100"
     assert source.indexes == list(range(93, 100))
 
@@ -10455,6 +10568,11 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
             assert "워크플로우 실행 중" in summary
             assert "실행 exec-run-viewport-qa" in summary
             assert "대상:" in summary
+            summary_widget = screen.query_one("#execution-summary", Static)
+            assert 1 <= summary_widget.region.height <= 2
+            summary_rendered = _rendered_static_text(summary_widget)
+            assert "워크플로우 실행 중" in summary_rendered
+            assert "exec-run-viewport-qa" in summary_rendered
 
             for selector in (
                 "#toggle-task-expanded",
@@ -10462,7 +10580,22 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
                 "#execution-retry",
             ):
                 widget = screen.query_one(selector, Button)
+                assert widget.region.width == 16
                 assert widget.region.x + widget.region.width <= width
+            header_button_labels = {
+                "#toggle-task-expanded": "작업 펼치기",
+                "#toggle-activity-expanded": "전체 로그 13",
+                "#execution-retry": "재시도 1",
+            }
+            for selector, label in header_button_labels.items():
+                button = screen.query_one(selector, Button)
+                button_text = "\n".join(
+                    strip.text
+                    for strip in button.render_lines(
+                        Region(0, 0, button.region.width, button.region.height)
+                    )
+                )
+                assert label in button_text
 
             rows = list(screen.query("#execution-package-list .execution-package-row"))
             assert len(rows) == 2
@@ -10553,7 +10686,7 @@ async def test_execution_matrix_opens_full_activity_log_modal(tmp_path) -> None:
         )
         recent_lines = screen.activity_lines()
         assert recent_lines[0] == "Recent Log"
-        assert "... 4 earlier log lines hidden" in recent_lines
+        assert "... 4 earlier log lines hidden · open Full Log" in recent_lines
         assert "event-1" not in recent_lines
 
         screen.query_one("#toggle-activity-expanded", Button).press()
@@ -10657,7 +10790,7 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
 
         activity_lines = screen.activity_lines()
         assert activity_lines[0] == "최근 로그"
-        assert "... 이전 로그 2줄 숨김" in activity_lines
+        assert "... 이전 로그 2줄 숨김 · 전체 로그에서 보기" in activity_lines
 
         screen.query_one("#toggle-activity-expanded", Button).press()
         await pilot.pause()
@@ -10680,7 +10813,7 @@ def test_execution_log_modal_windows_large_logs() -> None:
     modal = ExecutionLogModal(lines)
     rendered = modal.render_log_lines()
 
-    assert rendered[0] == "... 25 earlier log lines hidden"
+    assert rendered[0] == "... 25 earlier log lines hidden · use search to narrow"
     assert rendered[1] == "event-26"
     assert rendered[-1] == f"event-{MAX_RENDERED_LOG_LINES + 25}"
     assert "event-1" not in rendered
@@ -10717,7 +10850,7 @@ def test_execution_log_modal_unfiltered_window_avoids_full_iteration() -> None:
 
     rendered = modal.render_log_lines()
 
-    assert rendered[0] == "... 25 earlier log lines hidden"
+    assert rendered[0] == "... 25 earlier log lines hidden · use search to narrow"
     assert rendered[1] == "event-26"
     assert rendered[-1] == f"event-{MAX_RENDERED_LOG_LINES + 25}"
     assert source.indexes == list(range(25, MAX_RENDERED_LOG_LINES + 25))
@@ -10789,7 +10922,7 @@ def test_execution_log_modal_filters_large_match_sets() -> None:
     modal = ExecutionLogModal(lines)
     rendered = modal.render_log_lines("failed")
 
-    assert rendered[0] == "... 3 earlier log lines hidden"
+    assert rendered[0] == "... 3 earlier log lines hidden · use search to narrow"
     assert rendered[1] == "WP-004 failed"
     assert rendered[-1] == f"WP-{MAX_RENDERED_LOG_LINES + 3:03d} failed"
     assert modal.status_text("failed") == (
@@ -10801,17 +10934,27 @@ def test_execution_log_modal_shows_empty_filtered_state() -> None:
     modal = ExecutionLogModal(["WP-001 started"])
     korean = ExecutionLogModal(["WP-001 started"], lang="ko")
 
-    assert modal.render_log_lines("missing") == ["No matching execution log lines."]
-    assert korean.render_log_lines("missing") == ["일치하는 실행 로그가 없습니다."]
-    assert modal.status_text("missing") == "0 matches"
-    assert korean.status_text("missing") == "0개 결과"
+    assert modal.render_log_lines("missing") == [
+        "No matching execution log lines. Clear search to show all logs."
+    ]
+    assert korean.render_log_lines("missing") == [
+        "일치하는 실행 로그가 없습니다. 검색어를 지우면 전체 로그를 볼 수 있습니다."
+    ]
+    assert (
+        modal.status_text("missing")
+        == "0 matches · clear search to show all logs"
+    )
+    assert (
+        korean.status_text("missing")
+        == "0개 결과 · 검색어를 지우면 전체 로그 표시"
+    )
 
 
 def test_execution_log_modal_localizes_large_log_window() -> None:
     lines = [f"event-{index}" for index in range(1, MAX_RENDERED_LOG_LINES + 3)]
     modal = ExecutionLogModal(lines, lang="ko")
 
-    assert modal.render_log_lines()[0] == "... 이전 로그 2줄 숨김"
+    assert modal.render_log_lines()[0] == "... 이전 로그 2줄 숨김 · 검색으로 좁혀보기"
 
 
 def test_execution_log_modal_keeps_empty_state() -> None:
@@ -12641,7 +12784,8 @@ async def test_nexus_next_action_strip_updates_with_snapshot(tmp_path) -> None:
         assert isinstance(nexus, NexusScreen)
         next_action = nexus.query_one("#nexus-next-action", Static)
         assert str(next_action.content) == "Now: Blueprint ready | Next: run `/execute`"
-        assert next_action.styles.height.value == 1
+        assert next_action.styles.min_height.value == 1
+        assert next_action.styles.max_height.value == 2
 
         nexus.apply_snapshot(
             WorkflowNexusSnapshot(
@@ -12655,6 +12799,47 @@ async def test_nexus_next_action_strip_updates_with_snapshot(tmp_path) -> None:
             "Now: Waiting for your answer (1) | Next: "
             "use the question panel or `/answer next <answer>`"
         )
+
+
+@pytest.mark.asyncio
+async def test_nexus_next_action_strip_wraps_long_korean_hint(tmp_path) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        next_action = nexus.query_one("#nexus-next-action", Static)
+        nexus.apply_snapshot(
+            WorkflowNexusSnapshot(
+                session_id="wf-fake",
+                questions=[
+                    QuestionSnapshot(
+                        id="q-provider-error-retry",
+                        question="Retry failed provider?",
+                        options=[
+                            "Retry failed providers",
+                            "Continue without failed providers",
+                            "Stop workflow",
+                        ],
+                    )
+                ],
+            )
+        )
+        await pilot.pause()
+
+        assert str(next_action.content) == (
+            "현재: 프로바이더 오류 결정 | 다음: "
+            "중앙 버튼: 실패 재시도 / 제외하고 계속 / 중단"
+        )
+        assert 1 <= next_action.region.height <= 2
+        rendered = _rendered_static_text(next_action)
+        assert "프로바이더 오류 결정" in rendered
+        assert "중앙 버튼" in rendered
 
 
 @pytest.mark.asyncio
@@ -13194,6 +13379,51 @@ async def test_execution_matrix_header_uses_snapshot_target_without_preflight(
 
 
 @pytest.mark.asyncio
+async def test_execution_matrix_header_compacts_very_long_target_path(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    target = (
+        tmp_path
+        / ("very-long-workspace-root-name-" * 4)
+        / "deeply-nested-projects"
+        / "customer-onboarding-automation"
+    )
+    target.mkdir(parents=True)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(target_workspace=str(target)),
+        )
+        await pilot.pause()
+
+        header_row = screen.query_one("#execution-header-row")
+        header = screen.query_one("#execution-header", Static)
+        header_text = str(header.content)
+        assert "..." in header_text
+        assert header_text.endswith("customer-onboarding-automation")
+        assert 1 <= header.region.height <= 2
+        assert header_row.region.height <= 2
+        assert "customer-onboarding-automation" in _rendered_static_text(header)
+        for selector in (
+            "#toggle-task-expanded",
+            "#toggle-activity-expanded",
+            "#execution-retry",
+        ):
+            button = screen.query_one(selector, Button)
+            assert button.region.x + button.region.width <= screen.size.width
+            assert (
+                button.region.y + button.region.height
+                <= header_row.region.y + header_row.region.height
+            )
+
+
+@pytest.mark.asyncio
 async def test_execution_matrix_retry_button_opens_retry_modal(tmp_path) -> None:
     snapshot = WorkflowNexusSnapshot(
         session_id="wf-retry-action",
@@ -13713,7 +13943,7 @@ async def test_settings_visual_preferences_reach_workbench_surfaces(
         report = app.screen
         assert isinstance(report, ReportScreen)
         assert report.query_one("#report-screen").styles.padding.top == 0
-        assert report.query_one("#report-header").styles.height.value == 3
+        assert report.query_one("#report-header").styles.height.value == 5
         assert report.query_one("#report-header").styles.margin.bottom == 0
         assert report.query_one("#report-title").styles.color == truecolor
         assert report.query_one("#report-body").styles.border_top[1] == truecolor
@@ -13761,6 +13991,62 @@ async def test_settings_korean_control_labels_keep_select_space(tmp_path) -> Non
         assert central_provider_label.styles.width.value == 26
         assert central_provider_select.styles.min_width.value == 28
         assert central_provider_select.styles.width.is_fraction
+
+
+@pytest.mark.asyncio
+async def test_settings_scope_hints_explain_impact_in_korean(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        hints = [
+            screen.query_one("#settings-appearance-hint", Static),
+            screen.query_one("#settings-agent-models-hint", Static),
+            screen.query_one("#settings-central-agent-hint", Static),
+        ]
+
+        assert "현재 워크벤치" in str(hints[0].content)
+        assert "직접 고른 모델" in str(hints[1].content)
+        assert "자동은 활성 에이전트" in str(hints[2].content)
+        for hint in hints:
+            assert hint.has_class("settings-section-hint")
+            assert hint.styles.max_height.value == 2
+            assert str(hint.styles.overflow_y) == "auto"
+            assert _rendered_static_text(hint).strip()
+
+
+@pytest.mark.asyncio
+async def test_settings_header_follows_workspace_candidate(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    launch_target = tmp_path / "launch-target"
+    selected_target = tmp_path / "selected-target"
+    control_repo.mkdir()
+    launch_target.mkdir()
+    selected_target.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo, lang="ko")
+    app = TrinityTextualApp(config, launch_cwd=launch_target)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        label = screen.query_one("#settings-target-workspace", Static)
+        assert "계획 대상" in str(label.content)
+        assert str(launch_target.resolve()) in str(label.content)
+        assert label.styles.max_height.value == 2
+        assert str(label.styles.overflow_y) == "auto"
+
+        app._set_workspace_candidate(selected_target.resolve(), sync_start=True)
+        await pilot.pause()
+
+        assert str(selected_target.resolve()) in str(label.content)
 
 
 @pytest.mark.asyncio

@@ -125,6 +125,11 @@ impl TemplatedFile {
         &self.inner.name
     }
 
+    /// Whether `self` and `other` share the same underlying allocation.
+    pub fn ptr_eq(&self, other: &TemplatedFile) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
+    }
+
     #[cfg(feature = "stringify")]
     pub fn to_yaml(&self) -> String {
         let inner = &*self.inner;
@@ -309,26 +314,42 @@ impl TemplatedFileInner {
 
     /// Get the line number and position of a point in the source file.
     /// Args:
-    ///  - char_pos: The character position in the relevant file.
+    ///  - char_pos: The byte position in the relevant file.
     ///  - source: Are we checking the source file (as opposed to the templated
     ///    file)
     ///
-    /// Returns: line_number, line_position
+    /// Returns: line_number, line_position (1-indexed; the position is counted
+    /// in Unicode characters, not bytes, to match SQLFluff's behavior).
     pub fn get_line_pos_of_char_pos(&self, char_pos: usize, source: bool) -> (usize, usize) {
-        let ref_str = if source {
-            &self.source_newlines
+        let (ref_str, file_str) = if source {
+            (&self.source_newlines, self.source_str.as_str())
         } else {
-            &self.templated_newlines
+            (
+                &self.templated_newlines,
+                self.templated_str.as_deref().unwrap_or(&self.source_str),
+            )
         };
         match ref_str.binary_search(&char_pos) {
             Ok(nl_idx) | Err(nl_idx) => {
-                if nl_idx > 0 {
-                    (nl_idx + 1, char_pos - ref_str[nl_idx - 1])
+                let line_start_byte = if nl_idx > 0 {
+                    ref_str[nl_idx - 1] + 1
                 } else {
-                    // NB: line_pos is char_pos + 1 because character position is 0-indexed,
-                    // but the line position is 1-indexed.
-                    (1, char_pos + 1)
-                }
+                    0
+                };
+                let line_no = nl_idx + 1;
+                // Count chars between the line start and char_pos. If char_pos is
+                // out of bounds (e.g. for positions in templated content that don't
+                // map cleanly to the underlying string), fall back to byte
+                // arithmetic for that segment.
+                let line_pos = if char_pos <= file_str.len()
+                    && file_str.is_char_boundary(line_start_byte)
+                    && file_str.is_char_boundary(char_pos)
+                {
+                    file_str[line_start_byte..char_pos].chars().count() + 1
+                } else {
+                    char_pos.saturating_sub(line_start_byte) + 1
+                };
+                (line_no, line_pos)
             }
         }
     }
@@ -674,6 +695,10 @@ impl RawFileSlice {
     /// Return the raw source string for this slice.
     pub fn raw(&self) -> &str {
         &self.raw
+    }
+
+    pub const fn block_idx(&self) -> usize {
+        self.block_idx
     }
 
     /// Return the slice type (e.g., literal, templated, comment).

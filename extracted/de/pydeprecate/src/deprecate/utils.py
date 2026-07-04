@@ -90,6 +90,98 @@ def _get_signature(func: Callable) -> inspect.Signature:
         return inspect.signature(func)
 
 
+def _is_dataclass_target(cls: Any) -> bool:  # noqa: ANN401
+    """Return True if *cls* is a dataclass class (not an instance).
+
+    Used by :class:`~deprecate.proxy._DeprecatedProxy` to detect ``@dataclass`` targets that benefit from automatic
+    ``attrs_mapping`` → ``args_mapping`` expansion.
+
+    """
+    import dataclasses
+
+    return isinstance(cls, type) and dataclasses.is_dataclass(cls)
+
+
+def _apply_args_mapping_collisions(
+    args_mapping: dict[str, Optional[str]],
+    kwargs: dict[str, Any],
+    args_skip: Any,  # noqa: ANN401 - accepts list or set
+    name: str,
+    stream: Any,  # noqa: ANN401 - truthy check; callable in deprecation path
+    stacklevel: int,
+) -> dict[str, Any]:
+    """Return snapshot of explicit new-name values for collision pairs and emit UserWarning per collision.
+
+    A collision occurs when a caller supplies both the deprecated old argument name and its mapped new name
+    simultaneously.  The new-name value always wins; this function snapshots it before the remap overwrites
+    it and warns the caller that the old name was ignored.
+
+    Args:
+        args_mapping: Mapping of old argument names to new names (``None`` = drop).
+        kwargs: Current keyword arguments at the call site.
+        args_skip: Names whose mapped value is ``None`` (drop); excluded from collision detection.
+        name: Callable name used in the warning message.
+        stream: Warning stream; falsy value suppresses all warnings.
+        stacklevel: Passed to ``warnings.warn``; caller is responsible for counting frames above this function.
+
+    Returns:
+        Dict of ``{new_k: kwargs[new_k]}`` for each detected collision pair (empty when no collisions).
+
+    """
+    collision_pairs = [
+        (old_k, new_k)
+        for old_k, new_k in args_mapping.items()
+        if new_k is not None and old_k in kwargs and new_k in kwargs and new_k not in args_skip
+    ]
+    explicit_new: dict[str, Any] = {new_k: kwargs[new_k] for _, new_k in collision_pairs}
+    if collision_pairs and stream:
+        for old_k, new_k in collision_pairs:
+            warnings.warn(
+                f"Both `{old_k}` (deprecated) and `{new_k}` were supplied to `{name}()`; `{old_k}` is ignored.",
+                UserWarning,
+                stacklevel=stacklevel,
+            )
+    return explicit_new
+
+
+def _get_args_mapping_positional_only_keys(
+    target_cls: Any,  # noqa: ANN401
+    args_mapping: dict[str, Any],
+) -> tuple[str, ...]:
+    """Return ``args_mapping`` keys whose redirect target is a POSITIONAL_ONLY constructor param.
+
+    When ``deprecated_class(args_mapping={"old": "new"}, ...)`` is applied to a target class whose
+    constructor declares ``new`` as positional-only (``def __init__(self, new, /): ...``), calling
+    the proxy with ``old=value`` would remap to ``new=value`` and then immediately raise
+    ``TypeError`` because ``new`` cannot be passed as a keyword argument.
+
+    This helper detects that mismatch at decoration time so the proxy can emit a ``UserWarning``
+    and store the incompatible keys on :class:`~deprecate._types.DeprecationConfig` for audit
+    surfacing.
+
+    Args:
+        target_cls: The resolved target class to inspect.
+        args_mapping: The ``args_mapping`` dict being validated.
+
+    Returns:
+        Tuple of ``args_mapping`` old-key names whose remapped target name is positional-only in
+        the target's constructor signature.  Empty tuple when no incompatibilities detected.
+
+    """
+    try:
+        sig = inspect.signature(target_cls)
+    except (TypeError, ValueError):
+        return ()
+
+    positional_only: set[str] = {
+        name for name, p in sig.parameters.items() if p.kind is inspect.Parameter.POSITIONAL_ONLY
+    }
+    if not positional_only:
+        return ()
+
+    return tuple(old_key for old_key, mapping_val in args_mapping.items() if mapping_val in positional_only)
+
+
 def _warns_repr(warns: list[warnings.WarningMessage]) -> list[Union[Warning, str]]:
     """Convert list of warning messages to their string representations.
 

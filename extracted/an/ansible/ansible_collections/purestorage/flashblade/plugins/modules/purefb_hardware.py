@@ -22,7 +22,7 @@ short_description: Manage FlashBlade Hardware
 description:
 - Enable or disable FlashBlade visual identification lights and set connector parameters
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -76,19 +76,16 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PYPURECLIENT = True
+HAS_PURESTORAGE = True
 try:
     from pypureclient import flashblade
 except ImportError:
-    HAS_PYPURECLIENT = False
+    HAS_PURESTORAGE = False
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
-)
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
 )
 
 
@@ -110,7 +107,7 @@ def main():
     )
 
     module = AnsibleModule(argument_spec, supports_check_mode=True)
-    if not HAS_PYPURECLIENT:
+    if not HAS_PURESTORAGE:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     blade = get_system(module)
@@ -135,7 +132,7 @@ def main():
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to set identification LED for {0}. Error: {1}".format(
-                            module.params["name"], get_error_message(res)
+                            module.params["name"], res.errors[0].message
                         )
                     )
     res = blade.get_hardware_connectors(names=[module.params["name"]])

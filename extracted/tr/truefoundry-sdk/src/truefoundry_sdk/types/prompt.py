@@ -10,58 +10,54 @@ from .subject import Subject
 
 
 class Prompt(UniversalBaseModel):
-    """
-    Generic artifact API DTO including run-step linkage for ML runs.
-    """
-
     id: str = pydantic.Field()
     """
-    Unique identifier for the artifact
+    Unique identifier of the prompt.
     """
 
     ml_repo_id: str = pydantic.Field()
     """
-    ID of the ML Repo that this artifact belongs to
+    Identifier of the ML Repo the prompt belongs to.
     """
 
     type: typing.Optional[typing.Literal["chat_prompt"]] = pydantic.Field(default=None)
     """
-    Type of the artifact, always 'chat_prompt' for Prompt entities
+    Discriminator for the artifact type; always `chat_prompt` for a prompt.
     """
 
     name: str = pydantic.Field()
     """
-    Name of the artifact (alphanumeric characters, hyphens, and underscores only, max 256 characters)
+    Name of the prompt.
     """
 
     fqn: str = pydantic.Field()
     """
-    Fully qualified name of the artifact in the format '{artifact_type}:{tenant_name}/{ml_repo_name}/{artifact_name}'
+    Fully Qualified Name uniquely identifying the prompt.
     """
 
     created_by_subject: Subject = pydantic.Field()
     """
-    Subject (user, team, or service account) that created this artifact
+    Subject (user, team, or service account) that created the prompt.
     """
 
     created_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
     """
-    Timestamp when the artifact was created
+    Timestamp when the prompt was created.
     """
 
     updated_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
     """
-    Timestamp when the artifact was last updated
+    Timestamp when the prompt was last updated.
     """
 
     latest_version: typing.Optional[PromptVersion] = pydantic.Field(default=None)
     """
-    The most recent version of this prompt
+    Most recently created version of the prompt, if any exist.
     """
 
-    run_steps: typing.Optional[typing.List[int]] = pydantic.Field(default=None)
+    run_steps: typing.Optional[typing.List[float]] = pydantic.Field(default=None)
     """
-    List of run step numbers where this artifact was created or updated
+    Run steps associated with the prompt.
     """
 
     if IS_PYDANTIC_V2:

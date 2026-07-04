@@ -159,17 +159,63 @@ class GetTracesRequest(google.protobuf.message.Message):
     class OrderBy(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+        class _Sort:
+            ValueType = typing.NewType("ValueType", builtins.int)
+            V: typing_extensions.TypeAlias = ValueType
+
+        class _SortEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[GetTracesRequest.OrderBy._Sort.ValueType], builtins.type):
+            DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+            SORT_UNSPECIFIED: GetTracesRequest.OrderBy._Sort.ValueType  # 0
+            """Defaults to SORT_DEFAULT (lexicographic). This keeps the behaviour
+            backwards compatible when `sort` is left unset.
+            """
+            SORT_DEFAULT: GetTracesRequest.OrderBy._Sort.ValueType  # 1
+            """Default lexicographic ordering: values are compared by their Unicode
+            code points, so e.g. "item10" sorts before "item2".
+            """
+            SORT_NATURAL: GetTracesRequest.OrderBy._Sort.ValueType  # 2
+            """Natural ordering: embedded runs of digits are compared by their
+            numeric value, so e.g. "item2" sorts before "item10".
+            """
+
+        class Sort(_Sort, metaclass=_SortEnumTypeWrapper):
+            """Sort selects which sort order is applied when ordering by a textual
+            attribute (e.g. KEY_ROOT_SPAN_NAME). It has no effect when ordering by
+            a numeric attribute such as KEY_ROOT_SPAN_DURATION_MS.
+            """
+
+        SORT_UNSPECIFIED: GetTracesRequest.OrderBy.Sort.ValueType  # 0
+        """Defaults to SORT_DEFAULT (lexicographic). This keeps the behaviour
+        backwards compatible when `sort` is left unset.
+        """
+        SORT_DEFAULT: GetTracesRequest.OrderBy.Sort.ValueType  # 1
+        """Default lexicographic ordering: values are compared by their Unicode
+        code points, so e.g. "item10" sorts before "item2".
+        """
+        SORT_NATURAL: GetTracesRequest.OrderBy.Sort.ValueType  # 2
+        """Natural ordering: embedded runs of digits are compared by their
+        numeric value, so e.g. "item2" sorts before "item10".
+        """
+
         KEY_FIELD_NUMBER: builtins.int
         DESCENDING_FIELD_NUMBER: builtins.int
+        SORT_FIELD_NUMBER: builtins.int
         key: global___TraceAttribute.Key.ValueType
         descending: builtins.bool
+        sort: global___GetTracesRequest.OrderBy.Sort.ValueType
+        """The sort order to apply when ordering by a textual attribute. Defaults
+        to SORT_DEFAULT (lexicographic) when unset, preserving the historical
+        behaviour. Set to SORT_NATURAL to order alphanumeric values naturally
+        (e.g. "item2" before "item10"). Ignored for numeric attributes.
+        """
         def __init__(
             self,
             *,
             key: global___TraceAttribute.Key.ValueType = ...,
             descending: builtins.bool = ...,
+            sort: global___GetTracesRequest.OrderBy.Sort.ValueType = ...,
         ) -> None: ...
-        def ClearField(self, field_name: typing.Literal["descending", b"descending", "key", b"key"]) -> None: ...
+        def ClearField(self, field_name: typing.Literal["descending", b"descending", "key", b"key", "sort", b"sort"]) -> None: ...
 
     @typing.final
     class TraceFilter(google.protobuf.message.Message):

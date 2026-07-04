@@ -6,6 +6,7 @@ so the Numba backend can generate a single loop with indirect indexing,
 eliminating materialised intermediate arrays.
 """
 
+from pytensor.compile import optdb
 from pytensor.compile.builders import OpFromGraph
 from pytensor.graph import node_rewriter
 from pytensor.graph.rewriting.basic import GraphRewriter, dfs_rewriter
@@ -169,23 +170,17 @@ def undo_take_reshape_for_fusion(fgraph, node):
 
 
 indexed_elemwise_optdb = SequenceDB()
-# Disabled by default on the 3.0.x line. This fusion shipped in 3.0.4 but can
-# trigger a RecursionError during OpFromGraph shape inference on some graphs
-# (e.g. numba-mode FullRankADVI); it was too risky for a minor release. The
-# proper fix lives on main (non-recursive core-shape construction). Until that
-# is backported we do not register the fusion into the default numba pipeline.
-# To re-enable, re-add `from pytensor.compile import optdb` and the call below.
-# optdb.register(
-#     "fuse_indexed_into_elemwise",
-#     indexed_elemwise_optdb,
-#     "numba",
-#     # symbolic_op_recognition is excluded from OpFromGraph inner-graph
-#     # compilation, preventing recursive fusion.
-#     "symbolic_op_recognition",
-#     # After inplace_elemwise (position=50.5) so we see final inplace patterns,
-#     # same position as other numba-specific rewrites (BlockwiseWithCoreShape).
-#     position=100,
-# )
+optdb.register(
+    "fuse_indexed_into_elemwise",
+    indexed_elemwise_optdb,
+    "numba",
+    # symbolic_op_recognition is excluded from OpFromGraph inner-graph
+    # compilation, preventing recursive fusion.
+    "symbolic_op_recognition",
+    # After inplace_elemwise (position=50.5) so we see final inplace patterns,
+    # same position as other numba-specific rewrites (BlockwiseWithCoreShape).
+    position=100,
+)
 
 indexed_elemwise_optdb.register(
     "undo_take_dimshuffle_for_fusion",
@@ -266,7 +261,7 @@ class IndexedElemwise(OpFromGraph):
         # safe because reads don't destroy. Write targets always get their own
         # fresh inner input (see FuseIndexedElemwise) so a destroyed buffer is
         # never deduped onto a read source.
-        super().__init__(*args, on_unused_input="ignore", accept_inplace=True, **kwargs)
+        super().__init__(*args, on_unused_input="ignore", **kwargs)
 
     def __str__(self):
         for node in self.fgraph.apply_nodes:

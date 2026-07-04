@@ -18,11 +18,13 @@ import kfactory as kf
 import klayout.db as kdb
 import numpy as np
 import numpy.typing as npt
+from kfactory.conf import CheckInstances
 from kfactory.geometry import UMGeometricObject
 from numpy import mod
 from scipy import optimize
 
 import gdsfactory as gf
+from gdsfactory._cell import cell
 from gdsfactory.component import Component, ComponentAllAngle
 from gdsfactory.component_layout import (
     rotate_points,
@@ -891,6 +893,7 @@ def transition_asymmetric(
     )
 
 
+@cell(check_instances=CheckInstances.IGNORE)
 def along_path(
     p: Path,
     component: ComponentSpec,
@@ -1053,6 +1056,7 @@ def extrude(
 
     xsection_points: list[list[float | npt.NDArray[np.floating[Any]]]] = []
     c = ComponentAllAngle() if all_angle else Component()
+    path_length = p.length()
 
     layer = get_layer(layer or x.layer)
 
@@ -1247,8 +1251,11 @@ def extrude(
 
         # Join points together
         points_poly = np.concatenate([points1, points2[::-1, :]])
+        # Unchanged sections use the original path, so this preserves the old
+        # per-section threshold without recomputing the same length each time.
+        section_length = p_sec.length() if path_changed else path_length
 
-        if not hidden and p_sec.length() > 1e-3:
+        if not hidden and section_length > 1e-3:
             c.add_polygon(points_poly, layer=layer)
 
         # Add port_names if they were specified
@@ -1293,7 +1300,7 @@ def extrude(
                 register_cross_section=register_cross_section,
             )
 
-    c.info["length"] = float(np.round(p.length(), 3))
+    c.info["length"] = path_length
 
     for via in x.components_along_path:
         if via.offset:
@@ -1391,6 +1398,7 @@ def extrude_transition(
     dx = np.diff(p.points[:, 0])
     dy = np.diff(p.points[:, 1])
     lengths = np.cumsum(np.sqrt(dx**2 + dy**2))
+    path_length = float(np.round(lengths[-1], 3))
     lengths = np.concatenate([[0], lengths]) / lengths[-1]
 
     for section_name in common_sections:
@@ -1510,7 +1518,7 @@ def extrude_transition(
         # Join points together
         points_poly = np.concatenate([points1, points2[::-1, :]])
 
-        if not hidden and p.length() > 1e-3:
+        if not hidden and path_length > 1e-3:
             c.add_polygon(points_poly, layer=layer)
 
         # Add port_names if they were specified

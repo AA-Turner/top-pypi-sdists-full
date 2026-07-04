@@ -17,6 +17,7 @@ from trinity.textual_app.settings import (
     UISettings,
     UISettingsStore,
 )
+from trinity.textual_app.workspace_labels import target_workspace_state_label
 
 
 class SettingsScreen(Screen[None]):
@@ -48,11 +49,13 @@ class SettingsScreen(Screen[None]):
         config: TrinityConfig,
         *,
         lang: str = "en",
+        workspace_candidate: object | None = None,
     ) -> None:
         super().__init__(name="settings")
         self.settings_store = settings_store
         self.config = config
         self.lang = lang
+        self.workspace_candidate = workspace_candidate
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
         self.settings = settings_store.load()
         self._preview_render_key: str | None = None
@@ -64,6 +67,8 @@ class SettingsScreen(Screen[None]):
         self._central_provider_value = config.synthesis_agent or "auto"
         self._select_events_ready = False
         self._pending_select_values: dict[str, str] = {}
+        self._workspace_label_key = self._workspace_label()
+        self._workspace_label_widget: Static | None = None
         self._persisted_agent_enabled = {
             name: bool(spec.enabled)
             for name, spec in config.agents.items()
@@ -83,14 +88,27 @@ class SettingsScreen(Screen[None]):
         self._select_cache = {}
         self._preview_widget = None
         self._status_widget = None
+        self._workspace_label_widget = None
         self._status_key = ""
+        self._workspace_label_key = self._workspace_label()
         self._central_provider_value = central_provider
         self._select_events_ready = False
         yield Header(show_clock=False)
         with Vertical(id="settings-screen"):
             with VerticalScroll(id="settings-form"):
                 yield Static(self._label("settings"), id="settings-title")
+                workspace_label = Static(
+                    self._workspace_label(),
+                    id="settings-target-workspace",
+                )
+                self._workspace_label_widget = workspace_label
+                yield workspace_label
                 yield Static(self._label("appearance"), classes="settings-section-title")
+                yield Static(
+                    self._label("appearance_scope"),
+                    id="settings-appearance-hint",
+                    classes="settings-section-hint",
+                )
                 with Horizontal(classes="settings-row"):
                     yield Label(self._label("theme_mode"))
                     yield self._select(
@@ -130,6 +148,11 @@ class SettingsScreen(Screen[None]):
                         ),
                     )
                 yield Static(self._label("agent_models"), classes="settings-section-title")
+                yield Static(
+                    self._label("agent_models_scope"),
+                    id="settings-agent-models-hint",
+                    classes="settings-section-hint",
+                )
                 for name, spec in self.config.agents.items():
                     with Horizontal(classes="settings-row"):
                         yield Label(
@@ -143,6 +166,11 @@ class SettingsScreen(Screen[None]):
                             disabled=not spec.enabled,
                         )
                 yield Static(self._label("central_agent"), classes="settings-section-title")
+                yield Static(
+                    self._label("central_agent_scope"),
+                    id="settings-central-agent-hint",
+                    classes="settings-section-hint",
+                )
                 with Horizontal(classes="settings-row"):
                     yield Label(self._label("central_provider"))
                     yield self._select(
@@ -196,6 +224,16 @@ class SettingsScreen(Screen[None]):
 
     def _enable_select_events(self) -> None:
         self._select_events_ready = True
+
+    def set_workspace_candidate(self, path: object | None) -> None:
+        next_candidate = str(path or "")
+        if next_candidate == str(self.workspace_candidate or ""):
+            return
+        self.workspace_candidate = path
+        if not self.is_mounted:
+            self._workspace_label_key = self._workspace_label()
+            return
+        self._refresh_workspace_label()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "apply-settings":
@@ -286,6 +324,13 @@ class SettingsScreen(Screen[None]):
             )
         self._set_preview_text(self.preview_text())
         self._sync_saved_status()
+
+    def _refresh_workspace_label(self) -> None:
+        label = self._workspace_label()
+        if label == self._workspace_label_key:
+            return
+        self._workspace_label_static().update(label)
+        self._workspace_label_key = label
 
     def action_apply(self) -> None:
         previous_models = {
@@ -437,6 +482,21 @@ class SettingsScreen(Screen[None]):
             return self._status_widget
         self._status_widget = self.query_one("#settings-status", Static)
         return self._status_widget
+
+    def _workspace_label_static(self) -> Static:
+        if self._workspace_label_widget is None:
+            self._workspace_label_widget = self.query_one(
+                "#settings-target-workspace",
+                Static,
+            )
+        return self._workspace_label_widget
+
+    def _workspace_label(self) -> str:
+        return target_workspace_state_label(
+            self.workspace_candidate,
+            control_repo=self.config.project_dir,
+            lang=self.lang,
+        )
 
     def _select_options(
         self,
@@ -769,14 +829,17 @@ class SettingsScreen(Screen[None]):
         ko = {
             "settings": "설정",
             "appearance": "화면 설정",
+            "appearance_scope": "저장 및 적용 후 현재 워크벤치에 바로 반영됩니다.",
             "theme_mode": "테마 모드",
             "color_profile": "색상 호환성",
             "density": "밀도",
             "motion": "시작 로고 애니메이션",
             "unicode": "시작 로고 글리프",
             "agent_models": "저장된 에이전트 기본 모델",
+            "agent_models_scope": "저장된 기본 모델입니다. 시작/Nexus에서 직접 고른 모델은 유지됩니다.",
             "central": "중앙",
             "central_agent": "저장된 중앙 에이전트 기본 모델",
+            "central_agent_scope": "중앙 응답 기본값입니다. 자동은 활성 에이전트 기준으로 선택합니다.",
             "central_provider": "중앙 에이전트 프로바이더",
             "central_model": "중앙 에이전트 모델",
             "agent_default": "에이전트 기본값",
@@ -811,14 +874,17 @@ class SettingsScreen(Screen[None]):
         en = {
             "settings": "Settings",
             "appearance": "UI preferences",
+            "appearance_scope": "Applies to the current workbench after Save & Apply.",
             "theme_mode": "Theme mode",
             "color_profile": "Color compatibility",
             "density": "Density",
             "motion": "Start logo motion",
             "unicode": "Start logo glyphs",
             "agent_models": "Saved agent model defaults",
+            "agent_models_scope": "Saved defaults. Start/Nexus model choices you made stay intact.",
             "central": "Central",
             "central_agent": "Saved central agent default model",
+            "central_agent_scope": "Default for central replies. Auto uses enabled agents.",
             "central_provider": "Central agent provider",
             "central_model": "Central agent model",
             "agent_default": "Agent default",

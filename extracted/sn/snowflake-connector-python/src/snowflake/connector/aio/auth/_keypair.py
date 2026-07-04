@@ -5,7 +5,6 @@ from __future__ import annotations
 from logging import getLogger
 from typing import Any
 
-from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
 from ...auth.keypair import AuthByKeyPair as AuthByKeyPairSync
@@ -17,14 +16,11 @@ logger = getLogger(__name__)
 class AuthByKeyPair(AuthByPluginAsync, AuthByKeyPairSync):
     def __init__(
         self,
-        private_key: bytes | str | RSAPrivateKey | EllipticCurvePrivateKey,
-        private_key_passphrase: bytes | None = None,
+        private_key: bytes | str | RSAPrivateKey,
         lifetime_in_seconds: int = AuthByKeyPairSync.LIFETIME,
         **kwargs,
     ) -> None:
-        AuthByKeyPairSync.__init__(
-            self, private_key, private_key_passphrase, lifetime_in_seconds, **kwargs
-        )
+        AuthByKeyPairSync.__init__(self, private_key, lifetime_in_seconds, **kwargs)
 
     async def reset_secrets(self) -> None:
         AuthByKeyPairSync.reset_secrets(self)

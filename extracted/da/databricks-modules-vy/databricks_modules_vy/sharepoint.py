@@ -21,10 +21,17 @@ dbutils = DBUtils(spark)
 def _get_sharepoint_ctx(site_name="VyMasterdata") -> ClientContext:
     sharepoint_url = dbutils.secrets.get("SHAREPOINT", "url")
     site_url = f"{sharepoint_url}/sites/{site_name}"
+    tenant = dbutils.secrets.get("SHAREPOINT", "tenant")
     client_id = dbutils.secrets.get("SHAREPOINT", "app_id")
-    client_secret = dbutils.secrets.get("SHAREPOINT", "app_secret")
+    thumbprint = dbutils.secrets.get("SHAREPOINT", "cert_thumbprint")
+    private_key = dbutils.secrets.get("SHAREPOINT", "cert_private_key")
 
-    return ClientContext(site_url).with_client_credentials(client_id, client_secret)
+    return ClientContext(site_url).with_client_certificate(
+        tenant=tenant,
+        client_id=client_id,
+        thumbprint=thumbprint,
+        private_key=private_key,
+    )
 
 
 def _execute_query_with_backoff(
@@ -270,6 +277,27 @@ def df_from_sharepoint_csv_utf8(
     if include_row_num:
         dp["row_num"] = dp.reset_index().index + 1
         dp["row_num"] = dp["row_num"].astype(row_num_type)
+
+    df = spark.createDataFrame(dp)
+
+    return df
+
+
+def df_from_sharepoint_excel(item_path, site_name="VyMasterdata", **kwargs) -> DataFrame:
+    """Gets the bytes from an excel file in sharepoint and converts it to a spark dataframe.
+
+    Requires the 'openpyxl' package, install it with '%pip install openpyxl'.
+
+    Args:
+        item_path (str) : path relative to the site the file is located. Initiate the path with '/'
+        site_name (str) : name of site to fetch the file from
+        **kwargs         : additional keyword arguments passed directly to pd.read_excel
+    Returns:
+        (spark.DataFrame) dataframe of the excel sheet
+    """
+    file_bytesio = _get_file_bytes_from_sharepoint(item_path, site_name)
+    dp = pd.read_excel(io=file_bytesio, **kwargs)
+    dp = dp.replace([np.nan], [None])
 
     df = spark.createDataFrame(dp)
 

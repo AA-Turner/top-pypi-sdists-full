@@ -2,7 +2,7 @@ import os
 import re
 import pytest
 from typer.testing import CliRunner
-from sage.main import app as sage_app
+from sage.cli_core import app as sage_app
 from pathlib import Path
 from sage.core.content_validator import validate_content
 

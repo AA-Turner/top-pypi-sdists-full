@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hol-guard
-Version: 2.0.972
+Version: 2.0.979
 Summary: Protect local AI harnesses with HOL Guard and run scanner checks for Codex, Claude, Cursor, Gemini, OpenCode, and Pi.
 Project-URL: Homepage, https://github.com/hashgraph-online/hol-guard
 Project-URL: Repository, https://github.com/hashgraph-online/hol-guard

@@ -309,7 +309,9 @@ class NetworksWirelessRfProfiles(object):
             ("sixGhzSettings", "sixGhzSettings"),
             ("transmission", "transmission"),
             ("perSsidSettings", "perSsidSettings"),
-            ("flexRadios", "flexRadios"), ("rfProfileId", "rfProfileId"),
+            ("flexRadios", "flexRadios"),
+            ("networkId", "networkId"),
+            ("rfProfileId", "rfProfileId"),
             ("isIndoorDefault", "isIndoorDefault"),
             ("isOutdoorDefault", "isOutdoorDefault"),
         ]

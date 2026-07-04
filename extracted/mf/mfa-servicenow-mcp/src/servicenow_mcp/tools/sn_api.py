@@ -6,6 +6,7 @@ import threading
 import time
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional
 from urllib.parse import parse_qs, parse_qsl, unquote, urlparse
 
@@ -1082,7 +1083,73 @@ def sn_health(
     user = _authenticated_user(config, auth_manager, allow_live=session_ok)
     if user:
         result["authenticated_user"] = user
+    workspace = _workspace_snapshot()
+    if workspace:
+        result["workspace"] = workspace
     return result
+
+
+# Hard work ceiling for the health snapshot: at most this many components are
+# content-checked per call. Advisory surface only — the push gates re-verify
+# live at upload time, so an early stop can never hide a real conflict there.
+_WORKSPACE_SCAN_BUDGET = 500
+
+
+def _workspace_snapshot() -> Dict[str, Any]:
+    """Offline glance at the user's REAL download roots so unfinished local
+    work surfaces NATURALLY on the session's usual first call (sn_health).
+
+    Roots come from the auto-registry the download tools maintain (covers any
+    output_dir), with ./temp as fallback for pre-registry trees. Disk reads
+    only (no network), bounded by _WORKSPACE_SCAN_BUDGET, silent when there is
+    nothing to say, and never allowed to break the health check itself.
+    """
+    try:
+        # Lazy import: workspace_tools imports from this module.
+        from servicenow_mcp.tools.workspace_tools import _discover_trees, _scan_tree_local
+        from servicenow_mcp.utils.workspace_roots import known_download_roots
+
+        roots = list(known_download_roots())
+        default_root = Path.cwd() / "temp"
+        if default_root.exists():
+            roots.append(default_root)
+        if not roots:
+            return {}
+        edits = 0
+        conflicts = 0
+        trees = 0
+        budget = _WORKSPACE_SCAN_BUDGET
+        seen_trees: set = set()
+        for root in roots:
+            if budget <= 0 or trees >= 10:
+                break
+            for tree in _discover_trees(root, 10 - trees):
+                key = str(tree)
+                if key in seen_trees:
+                    continue
+                seen_trees.add(key)
+                local = _scan_tree_local(tree, component_budget=budget)
+                budget -= local["components"]
+                trees += 1
+                edits += len(local["your_edits"])
+                conflicts += len(local["unresolved_conflicts"])
+                if budget <= 0:
+                    break
+        if not edits and not conflicts:
+            return {}
+        out: Dict[str, Any] = {"downloaded_trees": trees}
+        if edits:
+            out["unpushed_local_edits"] = edits
+        if conflicts:
+            out["unresolved_conflicts"] = conflicts
+        out["next"] = (
+            "Details: diff_local_component(path='<tree root>', verdict=True) — "
+            "per-component verdicts vs the live server, no bodies."
+        )
+        return out
+    except Exception as exc:  # noqa: BLE001 — a broken temp tree must not fail health
+        logger.warning("sn_health: workspace snapshot skipped: %s", exc)
+        return {}
 
 
 def _sn_health_impl(

@@ -108,13 +108,43 @@ _LEGACY_ID_ALIASES: dict[str, str] = {
 
 
 def resolve_legacy_id(model_id: str) -> str:
-    """Translate old-style cloud slot IDs to their current canonical form.
+    """Translate old-style or missing cloud slot IDs to their closest canonical form.
 
     Safe no-op for anything not in the alias table. Called by the
     backend's `/chat` route + the CLI router so old IDs route to the
     right Cloud Run service without an explicit migration step.
     """
-    return _LEGACY_ID_ALIASES.get(model_id, model_id)
+    if model_id in _LEGACY_ID_ALIASES:
+        return _LEGACY_ID_ALIASES[model_id]
+
+    if not model_id.startswith("cloud:"):
+        return model_id
+
+    # If it's one of our deployed canonical models (either a value in aliases or deepseek-r1-7b), return as-is
+    canonical = set(_LEGACY_ID_ALIASES.values()) | {"cloud:deepseek-r1-7b"}
+    if model_id in canonical:
+        return model_id
+
+    # Dynamic fallback heuristic for any other cloud model requested
+    name = model_id.removeprefix("cloud:").lower()
+    if "qwen" in name:
+        return "cloud:qwen3-coder"
+    elif "llama" in name:
+        return "cloud:llama-3-2"
+    elif "gemma" in name:
+        return "cloud:gemma-4"
+    elif "deepseek" in name:
+        return "cloud:deepseek-r1-7b"
+    elif "phi" in name:
+        return "cloud:phi-4-reasoning"
+    elif "mistral" in name or "mixtral" in name:
+        return "cloud:mistral-small"
+    elif "yi" in name:
+        return "cloud:yi-coder-9b"
+    elif "codellama" in name or "starcoder" in name:
+        return "cloud:qwen3-coder"
+
+    return model_id
 
 
 def _deployed_model_tags() -> set[str] | None:

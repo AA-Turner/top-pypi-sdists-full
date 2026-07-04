@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from sage.main import (
+from sage.cli_core import (
     _build_cloud_deployment_context,
     _clear_classification,
     _expand_prompt,

@@ -6,6 +6,8 @@ import asyncio
 import contextlib
 import os
 import subprocess
+import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +29,9 @@ from apps.cli.widgets.message_list import MessageList
 from apps.cli.widgets.status_bar import StatusBar
 from pydantic_deep.goal import GoalEvaluator, GoalState
 from pydantic_deep.models import DEFAULT_JUDGE_MODEL
+
+#: Seconds within which a second Ctrl+C confirms exit (Claude Code / Codex style).
+_CTRL_C_EXIT_WINDOW = 2.0
 
 
 def _detect_git_branch(working_dir: str) -> str:
@@ -98,11 +103,13 @@ class DeepApp(App):
         on_cost_update: Any | None = None,
         on_context_update: Any | None = None,
         on_reminder: Any | None = None,
+        agent_factory: Callable[[], tuple[Any, Any]] | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self.agent = agent
         self.deps = deps
+        self._agent_factory = agent_factory
         self.working_dir = str(working_dir)
         self._model = model
         self._version = version
@@ -113,6 +120,8 @@ class DeepApp(App):
         self.last_user_prompt: str = ""
         self._startup_error = startup_error
         self.queue = getattr(deps, "message_queue", None)
+        #: monotonic timestamp of the last idle Ctrl+C, for double-press exit.
+        self._last_ctrl_c: float = 0.0
         # Active goaql-completion loop (set via /goal). The evaluator is created
         # lazily on first use so sessions that never set a goal pay nothing.
         self._goal: GoalState | None = None
@@ -186,8 +195,29 @@ class DeepApp(App):
         except Exception:  # pragma: no cover - defensive: bad config shouldn't break startup
             pass
 
+    def _build_deferred_agent(self) -> None:
+        """Build the agent from `self._agent_factory` inside Textual's loop.
+
+        Deferred from startup so async primitives created by the factory (e.g.
+        MCP stdio transports spun up by subagent `agent_factory` callables) bind
+        to the running Textual event loop rather than the orphaned pre-`app.run()`
+        one.
+        """
+        if self.agent is not None or self._agent_factory is None:
+            return
+        try:
+            agent, deps = self._agent_factory()
+            self.agent = agent
+            self.deps = deps
+            self.queue = getattr(deps, "message_queue", None)
+            self._startup_error = None
+        except Exception as exc:
+            self._startup_error = str(exc)
+            get_logger().error(f"Agent creation failed at startup: {exc}")
+
     def on_mount(self) -> None:
         self.model_name = self._model
+        self._build_deferred_agent()
         try:
             from apps.cli.config import load_config
 
@@ -342,6 +372,13 @@ class DeepApp(App):
         except Exception:
             pass
 
+        try:
+            from apps.cli.model_history import record_model_use
+
+            record_model_use(effective)
+        except Exception:
+            pass
+
         msg = f"Agent ready! Model: {effective}"
         if effective_fallback:
             msg += f" → fallback: {effective_fallback}"
@@ -392,6 +429,12 @@ class DeepApp(App):
         with contextlib.suppress(NoMatches, ScreenStackError):
             self.screen.query_one(DeepHeader).model_name = name
             self.screen.query_one(StatusBar).model_name = name
+            # The session line under the input reads app.model_name lazily, so it
+            # needs an explicit refresh — otherwise it shows the old model until
+            # the app restarts.
+            from apps.cli.widgets.input_area import SessionFooter
+
+            self.screen.query_one(SessionFooter).refresh_session()
 
     def watch_is_streaming(self, streaming: bool) -> None:
         with contextlib.suppress(NoMatches, ScreenStackError):
@@ -546,13 +589,44 @@ class DeepApp(App):
                 current.mark_pending_cancelling()
 
     def action_interrupt(self) -> None:
-        """Handle Ctrl+C - cancel running agent or exit."""
+        """Handle Ctrl+C.
+
+        Aligns with Claude Code / Codex: a running agent is interrupted; an
+        active text selection is copied to the clipboard; otherwise a lone press
+        arms exit and a second press within `_CTRL_C_EXIT_WINDOW` quits — so a
+        stray Ctrl+C (habitual "copy") never kills the session.
+        """
+        # 1. Running agent → interrupt (single press).
         if self.agent_task and not self.agent_task.done():
             self._signal_cancelling()
             self.agent_task.cancel()
             self.notify("Agent interrupted", severity="warning")
-        else:
+            return
+
+        # 2. Text selected → copy it (like most terminals/CLIs).
+        selected = self._selected_text()
+        if selected:
+            self.copy_to_clipboard(selected)
+            with contextlib.suppress(Exception):
+                self.screen.clear_selection()
+            self.notify("Copied selection to clipboard")
+            return
+
+        # 3. Idle, nothing selected → require a second press to exit.
+        now = time.monotonic()
+        if now - self._last_ctrl_c <= _CTRL_C_EXIT_WINDOW:
             self.exit()
+            return
+        self._last_ctrl_c = now
+        self.notify("Press Ctrl+C again to exit")
+
+    def _selected_text(self) -> str | None:
+        """Return the text currently selected on screen, if any."""
+        try:
+            text = self.screen.get_selected_text()
+        except Exception:
+            return None
+        return text or None
 
     def action_escape_key(self) -> None:
         """Handle Esc - fork-aware: terminate branch / abort fork, then interrupt, then focus."""

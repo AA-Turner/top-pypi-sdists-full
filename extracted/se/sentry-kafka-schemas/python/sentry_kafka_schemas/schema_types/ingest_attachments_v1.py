@@ -1,4 +1,4 @@
-from typing import List, TypedDict, Union, Required, Dict, Any
+from typing import TypedDict, Required, Any, List, Union, Dict
 
 
 class Attachments(TypedDict, total=False):

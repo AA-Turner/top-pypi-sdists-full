@@ -69,19 +69,36 @@ pub fn process_stdin(rules: &[Box<dyn Rule>], args: &crate::CheckArgs, config: &
         .map(|f| config.get_flavor_for_file(std::path::Path::new(f)))
         .unwrap_or_else(|| config.markdown_flavor());
 
+    // Apply per-file-ignores keyed on the stdin filename, so piping a file's
+    // content (as pre-commit hooks and editors do) honors `[per-file-ignores]`
+    // exactly like `rumdl check/fmt <file>`. Without this, linting would report
+    // rules the file has excluded; the fix coordinator enforces the same
+    // exclusion on the fix pass, so check and fix stay consistent.
+    let filtered_rules: Vec<Box<dyn Rule>> = match args.stdin_filename.as_deref() {
+        Some(name) => rumdl_lib::rules::filter_rules_for_file(rules, config, std::path::Path::new(name)),
+        None => rules.to_vec(),
+    };
+    let effective_rules: &[Box<dyn Rule>] = &filtered_rules;
+
     // Lint through the same engine as the file path, so inline config
     // overrides, kramdown suppression, inline-disable ranges, and severity
     // overrides behave identically to `rumdl check <file>`.
-    let mut all_warnings =
-        match rumdl_lib::lint(&content, rules, args.verbose, flavor, source_file.clone(), Some(config)) {
-            Ok(warnings) => warnings,
-            Err(e) => {
-                if !silent {
-                    eprintln!("{}: {}", "Error".red().bold(), e);
-                }
-                exit::tool_error();
+    let mut all_warnings = match rumdl_lib::lint(
+        &content,
+        effective_rules,
+        args.verbose,
+        flavor,
+        source_file.clone(),
+        Some(config),
+    ) {
+        Ok(warnings) => warnings,
+        Err(e) => {
+            if !silent {
+                eprintln!("{}: {}", "Error".red().bold(), e);
             }
-        };
+            exit::tool_error();
+        }
+    };
 
     // Sort warnings by line/column
     all_warnings.sort_by(|a, b| {
@@ -104,7 +121,7 @@ pub fn process_stdin(rules: &[Box<dyn Rule>], args: &crate::CheckArgs, config: &
             let mut fixed_content = content.clone();
             let file_path = args.stdin_filename.as_ref().map(std::path::Path::new);
             let _warnings_fixed = file_processor::apply_fixes_coordinated(
-                rules,
+                effective_rules,
                 &all_warnings,
                 &mut fixed_content,
                 quiet,
@@ -126,7 +143,7 @@ pub fn process_stdin(rules: &[Box<dyn Rule>], args: &crate::CheckArgs, config: &
             // must not be reported as "0 remaining", so signal a tool error.
             let remaining_warnings = match rumdl_lib::lint(
                 &fixed_content,
-                rules,
+                effective_rules,
                 args.verbose,
                 flavor,
                 source_file.clone(),

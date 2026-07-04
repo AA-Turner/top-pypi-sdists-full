@@ -108,7 +108,7 @@ class ProvXMLSerializer(Serializer):
             if namespace not in nsmap:
                 nsmap[namespace.prefix] = namespace.uri
 
-        for key, value in DEFAULT_NAMESPACES.items():
+        for _key, value in DEFAULT_NAMESPACES.items():
             uri = value.uri
             if value.prefix == "xsd":
                 # The XSD namespace for some reason has no hash at the end
@@ -272,11 +272,13 @@ class ProvXMLSerializer(Serializer):
             qname = etree.QName(element)
             if qname.namespace != DEFAULT_NAMESPACES["prov"].uri:
                 raise ProvXMLException(
-                    "Non PROV element discovered in " "document or bundle."
+                    "Non PROV element discovered in document or bundle."
                 )
             # Ignore the <prov:other> element storing non-PROV information.
             if qname.localname == "other":
-                warnings.warn(
+                # No explicit stacklevel to preserve historic warning behaviour;
+                # revisit in a follow-up.
+                warnings.warn(  # noqa: B028
                     "Document contains non-PROV information in "
                     "<prov:other>. It will be ignored in this package.",
                     UserWarning,
@@ -308,7 +310,8 @@ class ProvXMLSerializer(Serializer):
 
             if _ns_xsi("type") in element.attrib:
                 value = xml_qname_to_QualifiedName(
-                    element, element.attrib[_ns_xsi("type")]  # type: ignore[arg-type]
+                    element,
+                    element.attrib[_ns_xsi("type")],  # type: ignore[arg-type]
                 )
                 attributes.append((PROV["type"], value))
 
@@ -357,9 +360,12 @@ def _extract_attributes(
     attributes = []  # type: list[tuple[prov.model.QualifiedName, Any]]
     for subel in element:
         sqname = etree.QName(subel)
-        _t = xml_qname_to_QualifiedName(
-            subel, "%s:%s" % (subel.prefix, sqname.localname)
+        qname_str = (
+            "%s:%s" % (subel.prefix, sqname.localname)
+            if subel.prefix
+            else sqname.localname
         )
+        _t = xml_qname_to_QualifiedName(subel, qname_str)
 
         for key, value in subel.attrib.items():
             value_str = value.decode("utf-8") if isinstance(value, bytes) else value
@@ -374,7 +380,9 @@ def _extract_attributes(
             elif key == _ns_xml("lang"):
                 _v = prov.model.Literal(subel.text, langtag=value_str)
             else:
-                warnings.warn(
+                # No explicit stacklevel to preserve historic warning behaviour;
+                # revisit in a follow-up.
+                warnings.warn(  # noqa: B028
                     "The element '%s' contains an attribute %s='%s' "
                     "which is not representable in the prov module's "
                     "internal data model and will thus be ignored."
@@ -408,7 +416,14 @@ def xml_qname_to_QualifiedName(
     # case 2: unknown prefix
     if None in element.nsmap:
         ns_uri = element.nsmap[None]
-        ns = Namespace("", ns_uri)
+        if ns_uri == XML_XSD_URI:
+            ns = XSD  # use the standard xsd namespace (i.e. with #)
+        else:
+            # Deliberately not mapping PROV.uri to the canonical PROV namespace
+            # here (unlike the prefixed branch above): doing so would change the
+            # serialized output for previously-accepted documents, breaking the
+            # 2.x output-compatibility promise.
+            ns = Namespace("", ns_uri)
         return ns[qname_str]
     # no default namespace
     raise ProvXMLException(

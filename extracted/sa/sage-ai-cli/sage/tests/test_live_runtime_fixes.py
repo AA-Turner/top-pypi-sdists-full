@@ -27,7 +27,7 @@ class TestLivePathUsesStructuredTools:
         # should call _extract_tool_commands_structured instead of _extract_tool_commands
 
         from sage.core.tools import ToolCall, ToolType
-        from sage.main import _extract_tool_commands_structured
+        from sage.cli_core import _extract_tool_commands_structured
 
         text = """READ: sage/main.py
 SEARCH: def test_function
@@ -73,7 +73,7 @@ class TestBlankToolCommandRejection:
 
     def test_blank_read_command_rejected(self):
         """READ: with no argument should be rejected, not silently skipped."""
-        from sage.main import _extract_tool_commands_structured
+        from sage.cli_core import _extract_tool_commands_structured
 
         text = """READ:
 READ:
@@ -87,7 +87,7 @@ READ:
 
     def test_whitespace_only_read_command_rejected(self):
         """READ: with only whitespace should be rejected."""
-        from sage.main import _extract_tool_commands_structured
+        from sage.cli_core import _extract_tool_commands_structured
 
         text = """READ:
 READ:
@@ -205,7 +205,7 @@ class TestGroundingFailClosed:
 
     def test_grounding_failure_stops_generation(self):
         """After grounding fails, model should NOT continue with generic advice."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         # Model admits no context then gives generic advice
         response = """I cannot access the actual codebase files.
@@ -331,7 +331,7 @@ class TestLivePathIntegration:
     def test_structured_tools_flow(self):
         """Full flow: text -> ToolCall -> execute -> ledger -> validate claims."""
         from sage.core.tools import ExecutionLedger
-        from sage.main import _extract_tool_commands_structured
+        from sage.cli_core import _extract_tool_commands_structured
 
         # Model output
         text = """Let me read the relevant files:
@@ -434,7 +434,7 @@ class TestStatefulConstrainedRecovery:
 
     def test_constrained_recovery_rejects_non_commands(self):
         """In constrained recovery, non-command responses must be rejected."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         # Even if the model provides some valid-looking content,
         # if it doesn't have the required evidence, it should fail
@@ -479,7 +479,7 @@ class TestCLIValidationIntegration:
         ]
 
         # These functions exist and are used in the live path
-        from sage.main import (
+        from sage.cli_core import (
             _detect_repetitive_filler,
             _detect_tool_description_vs_execution,
             _extract_tool_commands_structured,
@@ -513,7 +513,7 @@ class TestCLIValidationIntegration:
     def test_structured_tools_in_live_path(self):
         """Live path must use structured ToolCall objects."""
         from sage.core.tools import ToolCall
-        from sage.main import _extract_tool_commands_structured
+        from sage.cli_core import _extract_tool_commands_structured
 
         text = "READ: sage/main.py"
         calls = _extract_tool_commands_structured(text)

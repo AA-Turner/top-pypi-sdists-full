@@ -36,11 +36,12 @@ class AgentSkillsClient:
         self, agent_skill_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> GetAgentSkillResponse:
         """
-        Get an agent skill artifact by its ID.
+        Get an agent skill by its ID.
 
         Parameters
         ----------
         agent_skill_id : str
+            Identifier of the agent skill.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -48,7 +49,7 @@ class AgentSkillsClient:
         Returns
         -------
         GetAgentSkillResponse
-            Successful Response
+            The agent skill data
 
         Examples
         --------
@@ -67,11 +68,12 @@ class AgentSkillsClient:
 
     def delete(self, agent_skill_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> EmptyResponse:
         """
-        Delete an agent skill artifact by its ID.
+        Delete an agent skill by its ID.
 
         Parameters
         ----------
         agent_skill_id : str
+            Identifier of the agent skill.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -79,7 +81,7 @@ class AgentSkillsClient:
         Returns
         -------
         EmptyResponse
-            Successful Response
+            Empty response indicating successful deletion
 
         Examples
         --------
@@ -99,36 +101,36 @@ class AgentSkillsClient:
     def list(
         self,
         *,
+        limit: typing.Optional[int] = 100,
+        offset: typing.Optional[int] = 0,
         fqn: typing.Optional[str] = None,
         ml_repo_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
-        offset: typing.Optional[int] = 0,
-        limit: typing.Optional[int] = 100,
         include_empty_agent_skills: typing.Optional[bool] = True,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[AgentSkill, ListAgentSkillsResponse]:
         """
-        List agent skills with optional filtering by FQN, ML Repo, or name. When present, `latest_version.manifest.source` is `blob-storage` with `description` only; use GET agent skill version for full SKILL.md (inline `source` with `skill_md`).
+        List agent skills with optional filtering by FQN, ML Repo, or name.
 
         Parameters
         ----------
-        fqn : typing.Optional[str]
-            Fully qualified name to filter agent skills by (format: 'agent-skill:{tenant}/{ml_repo}/{agent_skill_name}')
-
-        ml_repo_id : typing.Optional[str]
-            ML Repo ID filter
-
-        name : typing.Optional[str]
-            Agent skill name filter
+        limit : typing.Optional[int]
+            Number of items per page
 
         offset : typing.Optional[int]
-            Pagination offset
+            Number of items to skip
 
-        limit : typing.Optional[int]
-            Page size
+        fqn : typing.Optional[str]
+            Fully Qualified Name uniquely identifying the agent skill.
+
+        ml_repo_id : typing.Optional[str]
+            Identifier of the ML Repo to filter agent skills by.
+
+        name : typing.Optional[str]
+            Name of the agent skill to filter by.
 
         include_empty_agent_skills : typing.Optional[bool]
-            Whether to include agent skills that have no versions
+            Whether to include agent skills that have no versions.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -136,7 +138,7 @@ class AgentSkillsClient:
         Returns
         -------
         SyncPager[AgentSkill, ListAgentSkillsResponse]
-            Successful Response
+            List of agent skills matching the query with pagination information
 
         Examples
         --------
@@ -147,11 +149,11 @@ class AgentSkillsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         response = client.agent_skills.list(
+            limit=10,
+            offset=0,
             fqn="fqn",
             ml_repo_id="ml_repo_id",
             name="name",
-            offset=1,
-            limit=1,
             include_empty_agent_skills=True,
         )
         for item in response:
@@ -161,11 +163,11 @@ class AgentSkillsClient:
             yield page
         """
         return self._raw_client.list(
+            limit=limit,
+            offset=offset,
             fqn=fqn,
             ml_repo_id=ml_repo_id,
             name=name,
-            offset=offset,
-            limit=limit,
             include_empty_agent_skills=include_empty_agent_skills,
             request_options=request_options,
         )
@@ -174,7 +176,7 @@ class AgentSkillsClient:
         self, *, manifest: AgentSkillManifest, request_options: typing.Optional[RequestOptions] = None
     ) -> GetAgentSkillVersionResponse:
         """
-        Create or update an agent skill version from a manifest.
+        Create or update an agent skill version.
 
         Parameters
         ----------
@@ -235,11 +237,12 @@ class AsyncAgentSkillsClient:
         self, agent_skill_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> GetAgentSkillResponse:
         """
-        Get an agent skill artifact by its ID.
+        Get an agent skill by its ID.
 
         Parameters
         ----------
         agent_skill_id : str
+            Identifier of the agent skill.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -247,7 +250,7 @@ class AsyncAgentSkillsClient:
         Returns
         -------
         GetAgentSkillResponse
-            Successful Response
+            The agent skill data
 
         Examples
         --------
@@ -276,11 +279,12 @@ class AsyncAgentSkillsClient:
         self, agent_skill_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> EmptyResponse:
         """
-        Delete an agent skill artifact by its ID.
+        Delete an agent skill by its ID.
 
         Parameters
         ----------
         agent_skill_id : str
+            Identifier of the agent skill.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -288,7 +292,7 @@ class AsyncAgentSkillsClient:
         Returns
         -------
         EmptyResponse
-            Successful Response
+            Empty response indicating successful deletion
 
         Examples
         --------
@@ -316,36 +320,36 @@ class AsyncAgentSkillsClient:
     async def list(
         self,
         *,
+        limit: typing.Optional[int] = 100,
+        offset: typing.Optional[int] = 0,
         fqn: typing.Optional[str] = None,
         ml_repo_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
-        offset: typing.Optional[int] = 0,
-        limit: typing.Optional[int] = 100,
         include_empty_agent_skills: typing.Optional[bool] = True,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[AgentSkill, ListAgentSkillsResponse]:
         """
-        List agent skills with optional filtering by FQN, ML Repo, or name. When present, `latest_version.manifest.source` is `blob-storage` with `description` only; use GET agent skill version for full SKILL.md (inline `source` with `skill_md`).
+        List agent skills with optional filtering by FQN, ML Repo, or name.
 
         Parameters
         ----------
-        fqn : typing.Optional[str]
-            Fully qualified name to filter agent skills by (format: 'agent-skill:{tenant}/{ml_repo}/{agent_skill_name}')
-
-        ml_repo_id : typing.Optional[str]
-            ML Repo ID filter
-
-        name : typing.Optional[str]
-            Agent skill name filter
+        limit : typing.Optional[int]
+            Number of items per page
 
         offset : typing.Optional[int]
-            Pagination offset
+            Number of items to skip
 
-        limit : typing.Optional[int]
-            Page size
+        fqn : typing.Optional[str]
+            Fully Qualified Name uniquely identifying the agent skill.
+
+        ml_repo_id : typing.Optional[str]
+            Identifier of the ML Repo to filter agent skills by.
+
+        name : typing.Optional[str]
+            Name of the agent skill to filter by.
 
         include_empty_agent_skills : typing.Optional[bool]
-            Whether to include agent skills that have no versions
+            Whether to include agent skills that have no versions.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -353,7 +357,7 @@ class AsyncAgentSkillsClient:
         Returns
         -------
         AsyncPager[AgentSkill, ListAgentSkillsResponse]
-            Successful Response
+            List of agent skills matching the query with pagination information
 
         Examples
         --------
@@ -369,11 +373,11 @@ class AsyncAgentSkillsClient:
 
         async def main() -> None:
             response = await client.agent_skills.list(
+                limit=10,
+                offset=0,
                 fqn="fqn",
                 ml_repo_id="ml_repo_id",
                 name="name",
-                offset=1,
-                limit=1,
                 include_empty_agent_skills=True,
             )
             async for item in response:
@@ -387,11 +391,11 @@ class AsyncAgentSkillsClient:
         asyncio.run(main())
         """
         return await self._raw_client.list(
+            limit=limit,
+            offset=offset,
             fqn=fqn,
             ml_repo_id=ml_repo_id,
             name=name,
-            offset=offset,
-            limit=limit,
             include_empty_agent_skills=include_empty_agent_skills,
             request_options=request_options,
         )
@@ -400,7 +404,7 @@ class AsyncAgentSkillsClient:
         self, *, manifest: AgentSkillManifest, request_options: typing.Optional[RequestOptions] = None
     ) -> GetAgentSkillVersionResponse:
         """
-        Create or update an agent skill version from a manifest.
+        Create or update an agent skill version.
 
         Parameters
         ----------

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from collections.abc import Iterable, Set
 
@@ -79,9 +81,11 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
             for d in dirs_to_remove:
                 dirs.remove(d)
 
-            for filename in files:
-                if self._is_python_file(filename, dirpath):
-                    python_files.append(self.file_system.join(dirpath, filename))
+            python_files.extend(
+                self.file_system.join(dirpath, filename)
+                for filename in files
+                if self._is_python_file(filename, dirpath)
+            )
 
         namespace_dirs = self._determine_namespace_dirs(candidate_namespace_dirs, python_files)
         return python_files, namespace_dirs
@@ -112,9 +116,11 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
         Files with extra dots in the name won't be treated as Python files.
 
         Args:
-            filename (str): the filename, excluding the path.
+            filename: the filename, excluding the path.
+            dirpath: the directory path containing the file.
+
         Returns:
-            bool: whether it's a Python file.
+            Whether it's a Python file.
         """
         # Ignore hidden files.
         if filename.startswith("."):
@@ -138,18 +144,20 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
     ) -> str:
         """
         Args:
-            package_name (string) - the importable name of the top level package. Could
+            package_name: the importable name of the top level package. Could
                 be namespaced.
-            filename_and_path (string) - the full name of the Python file.
-            package_directory (string) - the full path of the top level Python package directory.
-         Returns:
-            Absolute module name for importing (string).
+            filename_and_path: the full name of the Python file.
+            package_directory: the full path of the top level Python package directory.
+
+        Returns:
+            Absolute module name for importing.
         """
         internal_filename_and_path = filename_and_path[len(package_directory) :]
         internal_filename_and_path_without_extension = internal_filename_and_path[1:-3]
-        components = [package_name] + internal_filename_and_path_without_extension.split(
-            self.file_system.sep
-        )
+        components = [
+            package_name,
+            *internal_filename_and_path_without_extension.split(self.file_system.sep),
+        ]
         if components[-1] == "__init__":
             components.pop()
         return ".".join(components)
@@ -159,11 +167,12 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
     ) -> str:
         """
         Args:
-            package_name (string) - the importable name of the top level package. Could
+            package_name: the importable name of the top level package. Could
                 be namespaced.
-            namespace_dir (string) - the full name of the namespace directory.
-            package_directory (string) - the full path of the top level Python package directory.
-         Returns:
+            namespace_dir: the full name of the namespace directory.
+            package_directory: the full path of the top level Python package directory.
+
+        Returns:
             Absolute module name for importing (string).
         """
         parent_of_package_directory = package_directory[: -len(package_name)]

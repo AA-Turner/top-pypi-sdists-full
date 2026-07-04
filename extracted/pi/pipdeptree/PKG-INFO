@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipdeptree
-Version: 3.1.0
+Version: 3.1.1
 Summary: Command line utility to show dependency tree of packages.
 Project-URL: Changelog, https://github.com/tox-dev/pipdeptree/releases
 Project-URL: Documentation, https://pipdeptree.readthedocs.io

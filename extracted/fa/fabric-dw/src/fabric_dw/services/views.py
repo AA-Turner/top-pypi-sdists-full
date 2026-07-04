@@ -11,29 +11,38 @@ Public API
 - :func:`update_view`         — issue CREATE OR ALTER VIEW … AS <select_body>.
 - :func:`drop_view`           — issue DROP VIEW.
 - :func:`rename_view`         — rename a view via sp_rename (both DW and SQL endpoint).
+- :func:`transfer_view`       — ``ALTER SCHEMA ... TRANSFER OBJECT::...`` (both DW/SQL endpoint).
 """
 
 from __future__ import annotations
 
 import asyncio
 from datetime import datetime
+from pathlib import Path
 from typing import cast
 
 from fabric_dw.auth import CredentialMode
 from fabric_dw.exceptions import NotFoundError
 from fabric_dw.identifiers import parse_qualified_name, quote_identifier, validate_identifier
 from fabric_dw.models import View
-from fabric_dw.services._helpers import reject_non_select
+from fabric_dw.services._helpers import (
+    _transfer_object,
+    build_time_travel_option,
+    reject_non_select,
+)
 from fabric_dw.sql import SqlTarget, run_query
+from fabric_dw.sql_io import columns_rows_to_arrow, write_arrow
 
 __all__ = [
     "count_view_rows",
     "create_view",
     "drop_view",
+    "export_view",
     "get_view",
     "list_views",
     "read_view",
     "rename_view",
+    "transfer_view",
     "update_view",
     "validate_identifier",
 ]
@@ -47,6 +56,10 @@ _READ_VIEW_SQL = "SELECT TOP ({count}) * FROM {schema_q}.{view_q};"
 
 # COUNT_BIG(*) is bigint-safe (avoids INT overflow on wide views).
 _COUNT_VIEW_SQL = "SELECT COUNT_BIG(*) AS row_count FROM {schema_q}.{view_q};"
+
+# Full-view export — no TOP; limit variant uses TOP when a row cap is requested.
+_EXPORT_VIEW_SQL = "SELECT * FROM {schema_q}.{view_q};"
+_EXPORT_VIEW_LIMIT_SQL = "SELECT TOP ({limit}) * FROM {schema_q}.{view_q};"
 
 _LIST_VIEWS_SQL = """\
 SELECT
@@ -158,6 +171,7 @@ async def read_view(
     view_name: str,
     *,
     count: int = 10,
+    as_of: datetime | None = None,
     mode: CredentialMode = CredentialMode.DEFAULT,
 ) -> tuple[list[str], list[tuple[object, ...]]]:
     """Return up to *count* rows from *schema*.*view_name*.
@@ -170,6 +184,11 @@ async def read_view(
         schema: The schema name.  Must pass :func:`validate_identifier`.
         view_name: The view name.  Must pass :func:`validate_identifier`.
         count: Maximum number of rows to return (default 10).
+        as_of: Optional point-in-time for time-travel reads.  When set, the
+            query includes ``OPTION (FOR TIMESTAMP AS OF '<utc-literal>')``.
+            Naive datetimes are assumed UTC (via :func:`~._helpers.coerce_to_utc`);
+            tz-aware datetimes are converted to UTC.  Microseconds are rounded
+            to the nearest millisecond.  *None* leaves the SQL unchanged.
         mode: The credential mode for Entra authentication.
 
     Returns:
@@ -187,11 +206,14 @@ async def read_view(
 
     # Identifiers are validated; bracket-quote them for the FROM clause.
     # TOP count is an internal int (not user-supplied string), safe to embed.
-    read_sql = _READ_VIEW_SQL.format(
+    base_sql = _READ_VIEW_SQL.format(
         count=int(count),
         schema_q=quote_identifier(schema),
         view_q=quote_identifier(view_name),
     )
+    as_of_clause = build_time_travel_option(as_of)
+    # When as_of_clause is empty the result is byte-for-byte identical to base_sql.
+    read_sql = base_sql[:-1] + as_of_clause + ";"
 
     def _run() -> tuple[list[str], list[tuple[object, ...]]]:
         # run_query raises NotFoundError (via map_driver_error) for SQL error 208
@@ -212,6 +234,7 @@ async def count_view_rows(
     schema: str,
     view_name: str,
     *,
+    as_of: datetime | None = None,
     mode: CredentialMode = CredentialMode.DEFAULT,
 ) -> int:
     """Return the total row count of *schema*.*view_name* via ``COUNT_BIG(*)``.
@@ -223,6 +246,10 @@ async def count_view_rows(
         target: The warehouse or SQL Analytics Endpoint to query.
         schema: The schema name.  Must pass :func:`validate_identifier`.
         view_name: The view name.  Must pass :func:`validate_identifier`.
+        as_of: Optional point-in-time for time-travel counts.  When set, the
+            query includes ``OPTION (FOR TIMESTAMP AS OF '<utc-literal>')``.
+            See :func:`~._helpers.build_time_travel_option` for formatting details.
+            *None* leaves the SQL unchanged.
         mode: The credential mode for Entra authentication.
 
     Returns:
@@ -236,10 +263,12 @@ async def count_view_rows(
     validate_identifier(schema)
     validate_identifier(view_name)
 
-    count_sql = _COUNT_VIEW_SQL.format(
+    base_sql = _COUNT_VIEW_SQL.format(
         schema_q=quote_identifier(schema),
         view_q=quote_identifier(view_name),
     )
+    as_of_clause = build_time_travel_option(as_of)
+    count_sql = base_sql[:-1] + as_of_clause + ";"
 
     def _run() -> int:
         _cols, rows = run_query(target, count_sql, mode=mode)
@@ -247,6 +276,78 @@ async def count_view_rows(
             msg = f"View [{schema}].[{view_name}] not found"
             raise NotFoundError(msg)
         return int(rows[0][0])
+
+    return await asyncio.to_thread(_run)
+
+
+async def export_view(
+    target: SqlTarget,
+    schema: str,
+    view_name: str,
+    output: Path,
+    fmt: str,
+    *,
+    as_of: datetime | None = None,
+    limit: int | None = None,
+    mode: CredentialMode = CredentialMode.DEFAULT,
+) -> int:
+    """Export all rows of *schema*.*view_name* to a local file.
+
+    Fetches the full result set into memory (V1; streaming is a future follow-up),
+    converts to Arrow via :func:`~fabric_dw.sql_io.columns_rows_to_arrow`, and
+    writes with :func:`~fabric_dw.sql_io.write_arrow`.
+
+    Args:
+        target: The warehouse or SQL Analytics Endpoint to query.
+        schema: The schema name.  Must pass :func:`validate_identifier`.
+        view_name: The view name.  Must pass :func:`validate_identifier`.
+        output: Destination file path.
+        fmt: One of ``"json"``, ``"csv"``, ``"parquet"``.
+        as_of: Optional point-in-time for time-travel exports.  When set, the
+            query includes ``OPTION (FOR TIMESTAMP AS OF '<utc-literal>')``.
+            Naive datetimes are assumed UTC; tz-aware datetimes are converted to
+            UTC.  *None* leaves the SQL unchanged.
+        limit: Optional row cap.  When set, ``SELECT TOP (N)`` is used instead
+            of ``SELECT *``.  *None* exports the full view without a TOP clause.
+        mode: The credential mode for Entra authentication.
+
+    Returns:
+        The number of rows exported as a Python :class:`int`.
+
+    Raises:
+        ValueError: If *schema* or *view_name* fails identifier validation, or
+            if *fmt* is not a recognised :class:`~fabric_dw.sql_io.OutputFormat`.
+        NotFoundError: If the view does not exist (zero columns returned).
+        PermissionDeniedError: If the driver reports a permission error.
+    """
+    validate_identifier(schema)
+    validate_identifier(view_name)
+
+    schema_q = quote_identifier(schema)
+    view_q = quote_identifier(view_name)
+
+    if limit is not None:
+        base_sql = _EXPORT_VIEW_LIMIT_SQL.format(
+            limit=int(limit),
+            schema_q=schema_q,
+            view_q=view_q,
+        )
+    else:
+        base_sql = _EXPORT_VIEW_SQL.format(schema_q=schema_q, view_q=view_q)
+
+    as_of_clause = build_time_travel_option(as_of)
+    # Strip the trailing ";" to insert the (possibly empty) OPTION clause, then re-add it.
+    export_sql = base_sql[:-1] + as_of_clause + ";"
+
+    def _run() -> int:
+        cols, rows = run_query(target, export_sql, mode=mode)
+        if not cols:
+            msg = f"View [{schema}].[{view_name}] not found"
+            raise NotFoundError(msg)
+        row_list = list(rows)
+        arrow_table = columns_rows_to_arrow(cols, row_list)
+        write_arrow(arrow_table, fmt, output)
+        return len(row_list)
 
     return await asyncio.to_thread(_run)
 
@@ -480,3 +581,73 @@ async def rename_view(
     except NotFoundError:
         msg = f"View [{schema}].[{new_name}] not found after rename"
         raise NotFoundError(msg) from None
+
+
+async def transfer_view(
+    target: SqlTarget,
+    qualified: str,
+    target_schema: str,
+    *,
+    mode: CredentialMode = CredentialMode.DEFAULT,
+) -> View:
+    """Move a view to another schema via ``ALTER SCHEMA ... TRANSFER OBJECT::...``.
+
+    Works on both Data Warehouses and SQL Analytics Endpoints — no DW-only guard
+    is applied.  Transferring a view does not carry the OneLake-sync risk that
+    restricts :func:`~fabric_dw.services.tables.transfer_table` to Warehouses.
+
+    .. warning::
+
+        ``OBJECT::[schema].[name]`` matches *any* schema-scoped object with
+        that name, not only views.  If a table, function, or procedure
+        happens to share the qualified name, the engine transfers that
+        object instead.  When the post-transfer re-fetch then finds no view
+        named *view_name* in *target_schema*,
+        :class:`~fabric_dw.exceptions.NotFoundError` is raised with a message
+        that calls this out explicitly.
+
+    .. warning::
+
+        ``ALTER SCHEMA ... TRANSFER`` moves the view but does **not** rewrite
+        the schema name stored in the view's definition
+        (``sys.sql_modules.definition``, ``OBJECT_DEFINITION()``).  The
+        returned ``definition`` may still show the old schema name in the
+        ``CREATE ... AS`` header even though the view now lives in
+        *target_schema*.  This is a deliberate limitation: rewriting the
+        definition text would require parsing and regenerating SQL, which
+        this project does not do (see the "No SQL parsing" rule in
+        ``CLAUDE.md``).
+
+    Args:
+        target: The warehouse or SQL Analytics Endpoint to connect to.
+        qualified: The current fully-qualified name of the form ``schema.view``.
+            Parsed with :func:`~fabric_dw.identifiers.parse_qualified_name`.
+        target_schema: The schema to move the view into.  Must pass
+            :func:`validate_identifier`.  System schemas (``sys``,
+            ``INFORMATION_SCHEMA``, ``guest``, fixed ``db_*`` role schemas)
+            are rejected by
+            :func:`~fabric_dw.services._helpers._alter_schema_transfer`.
+        mode: The credential mode for Entra authentication.
+
+    Returns:
+        A :class:`~fabric_dw.models.View` reflecting the moved view (fetched
+        via :func:`get_view` from *target_schema* after the transfer).
+
+    Raises:
+        ValueError: If *qualified* cannot be parsed, if any identifier component
+            fails identifier validation, or if *target_schema* is a system schema.
+        NotFoundError: If no view named *view_name* is found in *target_schema*
+            after the transfer -- see the warning above about non-view objects.
+        PermissionDeniedError: If the driver reports a permission error.
+    """
+    schema, view_name = parse_qualified_name(qualified)
+
+    return await _transfer_object(
+        target,
+        source_schema=schema,
+        object_name=view_name,
+        target_schema=target_schema,
+        object_label="view",
+        fetch=lambda: get_view(target, target_schema, view_name, mode=mode),
+        mode=mode,
+    )

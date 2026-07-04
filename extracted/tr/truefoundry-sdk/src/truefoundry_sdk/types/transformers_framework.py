@@ -8,12 +8,16 @@ from .library_name import LibraryName
 
 
 class TransformersFramework(UniversalBaseModel):
-    type: typing.Literal["transformers"] = "transformers"
-    library_name: typing.Optional[LibraryName] = pydantic.Field(default=None)
     """
-    Name of the library for the framework
+    Transformers
     """
 
+    type: typing.Literal["transformers"] = pydantic.Field(default="transformers")
+    """
+    Type of the framework
+    """
+
+    library_name: typing.Optional[LibraryName] = None
     pipeline_tag: typing.Optional[str] = pydantic.Field(default=None)
     """
     The `pipeline()` task this model can be used with e.g. `text-generation`. See [huggingface docs](https://huggingface.co/docs/transformers/main/en/main_classes/pipelines#transformers.pipeline.task) for all possible values

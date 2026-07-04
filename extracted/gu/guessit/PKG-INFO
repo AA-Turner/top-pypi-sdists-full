@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: guessit
-Version: 4.0.2
+Version: 4.1.0
 Summary: GuessIt - a library for guessing information from video filenames.
 Project-URL: Homepage, https://guessit-io.github.io/guessit
 Project-URL: Repository, https://github.com/guessit-io/guessit
@@ -24,7 +24,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: babelfish>=0.6.1
 Requires-Dist: python-dateutil>=2.8.0
-Requires-Dist: rebulk<7,>=6
+Requires-Dist: rebulk<7,>=6.0.1
 Provides-Extra: regex
 Requires-Dist: regex; extra == 'regex'
 Description-Content-Type: text/markdown
@@ -67,6 +67,43 @@ JavaScript / TypeScript port
 
 Looking for a JavaScript implementation? [guessit-js](https://github.com/opensubtitles/guessit-js) is a third-party TypeScript/WASM port (maintained by [OpenSubtitles](https://www.opensubtitles.org)) that runs in Node, browsers and WASM with no Python required. It is not affiliated with this project.
 
+Supported languages
+-------------------
+
+GuessIt handles two independent notions of "language".
+
+**Season / episode keywords.** Beyond English, GuessIt recognises season and
+episode markers written in several languages, in both `keyword number` and
+`number keyword` order (e.g. `Temporada 2` and `2ª Temporada`, `Сезон 3` and
+`3 сезон`), as well as the compact `T02E22` / `T01XE08` form:
+
+| Language | Season | Episode |
+|---|---|---|
+| English | `season`, `seasons` | `episode(s)`, `ep`, `eps` |
+| French | `saison`, `saisons` | `épisode(s)` |
+| Dutch | `seizoen` | `aflevering`, `afl` |
+| German | `staffel` (also `2. Staffel`) | `folge` |
+| Spanish / Portuguese | `temporada(s)`, `tem`, `temp` (with ordinals `1ª`/`04ª`/`3º`) | `capítulo(s)`, `episodio(s)` |
+| Italian | `stagione` | `episodio` |
+| Polish | `sezon` | `odcinek` |
+| Romanian | `sezonul` | `episodul` |
+| Hungarian | `2. évad` | `5. rész` |
+| Scandinavian | `säsong`, `sesong`, `sæson` | `avsnitt` |
+| Russian | `сезон` (incl. `5-й сезон`, `Сезон №9`) | `серия`, `серии`, `эпизод` |
+| Turkish | `sezon` | `bölüm` |
+| Japanese / Chinese | `第…季`, `シーズン…`, `…期` | `第…話`, `第…集` |
+
+Episode numbers are also detected for the plain English `episode` spelling
+regardless of the title's language. These keyword lists are configurable — see
+the [configuration docs](https://guessit-io.github.io/guessit/configuration/).
+
+**Spoken / subtitle language.** The `language` and `subtitle_language`
+properties detect the audio and subtitle language from tags such as `VOSTFR`,
+`MULTi`, `ITA`, `ENG`, … and resolve them through
+[babelfish](https://github.com/Diaoul/babelfish), which covers essentially every
+ISO 639 language. Use the `allowed_languages` option to restrict the recognised
+set.
+
 Support
 -------
 
@@ -83,6 +120,42 @@ GuessIt is licensed under the [LGPLv3 license](http://www.gnu.org/licenses/lgpl.
 # CHANGELOG
 
 <!-- version list -->
+
+## v4.1.0 (2026-07-03)
+
+### Bug Fixes
+
+- **episodes**: Don't treat a title year as a number-first season marker
+  ([`d25e714`](https://github.com/guessit-io/guessit/commit/d25e714494c4f7d7ee5f675366b36dd5e1c91391))
+
+- **film**: Keep a leading film number in the title
+  ([`cc2b0a4`](https://github.com/guessit-io/guessit/commit/cc2b0a484dc51b48ba18782c51c829a8373edd49))
+
+- **options**: Read bundled options.json as UTF-8
+  ([`1fa5cd1`](https://github.com/guessit-io/guessit/commit/1fa5cd14c6406bef90acddf16d4b4be263c92a14))
+
+- **title**: Reclaim a title-word property value from the title zone
+  ([`af31f60`](https://github.com/guessit-io/guessit/commit/af31f6046c5ef2b45c212cadaf71d1913c4f3b68))
+
+- **website**: Refresh IANA TLD list so modern-gTLD hosts are detected
+  ([`246562d`](https://github.com/guessit-io/guessit/commit/246562d1fcfca34106f4d90aed28af274162ad78))
+
+### Features
+
+- **episodes**: Keep a title-trailing number out of number-first seasons
+  ([`01fb144`](https://github.com/guessit-io/guessit/commit/01fb144006bda32d1ca384f12eb627257a7e3480))
+
+- **episodes**: Recognize non-English season/episode keywords
+  ([`53d9a73`](https://github.com/guessit-io/guessit/commit/53d9a73b35680facfa85a8b0ad49e73fe93eea1b))
+
+- **title**: Split a leading original-language script prefix into alternative_title
+  ([`01c3d4e`](https://github.com/guessit-io/guessit/commit/01c3d4e72bc2ff102735594bfada6ae741165c96))
+
+### Performance Improvements
+
+- Cache effective options across calls with stable options
+  ([`975cf8f`](https://github.com/guessit-io/guessit/commit/975cf8f2a2ac5c4a1054247bb57017dfa6273652))
+
 
 ## v4.0.2 (2026-06-29)
 

@@ -59,7 +59,11 @@ class Config:
     charges_history = "/charges-history"
     realised_profit_history = "/realised-pnl-history"
     tax_pnl_history = "/tax-pnl-history"
-    ledger_history = "/ledger-history"    
+    ledger_history = "/ledger-history"
+    screeners_config = "/screeners/config"
+    screeners_query = "/screeners/query"
+    screeners_candlestick = "/screeners/candlestick"
+    screeners_technical = "/screeners/technical"    
     
     
 
@@ -1966,4 +1970,72 @@ class FyersModel:
             response = self.service.get_async_call(Config.ledger_history, self.header, data)
         else:
             response = self.service.get_call(Config.ledger_history, self.header, data)
+        return response
+
+    def screeners_config(self) -> dict:
+        """
+        Retrieves screeners config required for the screeners API.
+
+        Returns:
+            The response JSON as a dictionary.
+        """
+        if self.is_async:
+            response = self.service.get_async_call(Config.screeners_config, self.header)
+        else:
+            response = self.service.get_call(Config.screeners_config, self.header)
+        return response
+
+    def screeners_query(self, data) -> dict:
+        """
+        Retrieves screeners query based on the provided data.
+
+        Args:
+            data (dict): A dictionary containing the screeners query details.
+            - screener (str): The screener to use.
+            - universe (str): The universe to use.
+            - fields (str): The fields to use.
+            - order_by (str): The field to order by.
+            - order (str): The order to use.
+
+        Returns:
+            The response JSON as a dictionary.
+        """
+        if self.is_async:
+            response = self.service.get_async_call(Config.screeners_query, self.header, data)
+        else:
+            response = self.service.get_call(Config.screeners_query, self.header, data)
+        return response
+
+    def screeners_candlestick(self, data) -> dict:
+        """
+        Retrieves screeners query based on the provided data.
+
+        Args:
+            data (dict): A dictionary containing the screeners query details.
+            - screener (str): The screener to use.
+
+        Returns:
+            The response JSON as a dictionary.
+        """
+        if self.is_async:
+            response = self.service.get_async_call(Config.screeners_candlestick, self.header, data)
+        else:
+            response = self.service.get_call(Config.screeners_candlestick, self.header, data)
+        return response
+
+    def screeners_technical(self, data) -> dict:
+        """
+        Retrieves screeners query based on the provided data.
+
+        Args:
+            data (dict): A dictionary containing the screeners query details.
+            - screener (str): The screener to use.
+
+        Returns:
+            The response JSON as a dictionary.
+        """
+        if self.is_async:
+            response = self.service.get_async_call(Config.screeners_technical, self.header, data)
+        else:
+            response = self.service.get_call(Config.screeners_technical, self.header, data)
         return response

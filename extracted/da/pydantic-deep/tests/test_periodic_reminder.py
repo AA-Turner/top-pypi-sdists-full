@@ -54,10 +54,17 @@ class _FakeRequestContext:
 
 
 class TestShouldFire:
-    def test_fires_at_every_n_turns_default(self) -> None:
-        cfg = PeriodicReminderConfig(every_n_turns=5)
+    def test_fires_at_every_n_turns_when_first_after_none(self) -> None:
+        cfg = PeriodicReminderConfig(every_n_turns=5, first_after=None)
         assert not _should_fire(4, 0, cfg)
         assert _should_fire(5, 0, cfg)
+
+    def test_first_fires_at_default_first_after(self) -> None:
+        # Default cadence: first reminder at turn 15.
+        cfg = PeriodicReminderConfig()
+        assert not _should_fire(14, 0, cfg)
+        assert _should_fire(15, 0, cfg)
+        assert _should_fire(30, 1, cfg)
 
     def test_fires_at_custom_first_after(self) -> None:
         cfg = PeriodicReminderConfig(every_n_turns=10, first_after=3)
@@ -73,13 +80,13 @@ class TestShouldFire:
         assert _should_fire(13, 2, cfg)
 
     def test_does_not_fire_before_first(self) -> None:
-        cfg = PeriodicReminderConfig(every_n_turns=10)
+        cfg = PeriodicReminderConfig(every_n_turns=10, first_after=5)
         for turn in range(1, 5):
             assert not _should_fire(turn, 0, cfg)
         assert _should_fire(5, 0, cfg)
 
     def test_respects_max_reminders(self) -> None:
-        cfg = PeriodicReminderConfig(every_n_turns=5, max_reminders_per_run=2)
+        cfg = PeriodicReminderConfig(every_n_turns=5, first_after=5, max_reminders_per_run=2)
         assert _should_fire(5, 0, cfg)
         assert _should_fire(5, 1, cfg)
         assert not _should_fire(5, 2, cfg)
@@ -485,18 +492,19 @@ class TestMakeConfigForMode:
         cfg = make_config_for_mode("llm")
         assert isinstance(cfg.generator, LLMReminderGenerator)
         assert cfg.every_n_turns == 15
-        assert cfg.max_reminders_per_run == 3
+        # No cap: fires consistently every 15 turns for the whole run.
+        assert cfg.max_reminders_per_run is None
 
     def test_first_mode_returns_none_generator(self) -> None:
         cfg = make_config_for_mode("first")
         assert cfg.generator is None
-        assert cfg.every_n_turns == 10
+        assert cfg.every_n_turns == 15
         assert cfg.max_reminders_per_run is None
 
     def test_context_mode_returns_callable_generator(self) -> None:
         cfg = make_config_for_mode("context")
         assert callable(cfg.generator)
-        assert cfg.every_n_turns == 10
+        assert cfg.every_n_turns == 15
 
     @pytest.mark.anyio
     async def test_context_mode_generator_builds_transcript(self) -> None:

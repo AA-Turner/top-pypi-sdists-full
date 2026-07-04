@@ -27,6 +27,7 @@ from pystrich.datamatrix import (
 from pystrich.dxf import DxfUnit
 from pystrich.ean13 import EAN13Encoder, EAN13RenderOptions
 from pystrich.exceptions import PyStrichInvalidInput, PyStrichInvalidOption
+from pystrich.itf import ITF14Encoder, ITFEncoder, ITFRenderOptions
 from pystrich.marks import MarkShape
 from pystrich.matrix_encoder import Matrix2DEncoder
 from pystrich.pdf417 import (
@@ -79,9 +80,29 @@ class Format(abc.ABC):
             default="auto",
             help="output format; 'auto' resolves from -o filename or output context",
         )
+        sp.add_argument(
+            "--dark-hex",
+            metavar="HEX",
+            default=None,
+            help="dark (foreground) colour as 3, 6 or 8 hex digits; png/svg/eps only",
+        )
+        sp.add_argument(
+            "--light-hex",
+            metavar="HEX",
+            default=None,
+            help="light (background) colour as 3, 6 or 8 hex digits; png/svg/eps only",
+        )
 
     @abc.abstractmethod
     def encoder(self, args: argparse.Namespace) -> Any: ...
+
+    @staticmethod
+    def _colour_kwargs(args: argparse.Namespace) -> dict[str, Any]:
+        return {
+            flag: getattr(args, flag)
+            for flag in ("dark_hex", "light_hex")
+            if getattr(args, flag) is not None
+        }
 
     def render(self, args: argparse.Namespace) -> bytes:
         result = getattr(self, f"render_{args.output_type}")(args)
@@ -110,13 +131,13 @@ class OneDFormat(Format):
     def encoder(self, args: argparse.Namespace) -> Bar1DEncoder: ...
 
     def render_png(self, args: argparse.Namespace) -> bytes:
-        return self.encoder(args).get_imagedata(args.bar_width)
+        return self.encoder(args).get_imagedata(args.bar_width, **self._colour_kwargs(args))
 
     def render_svg(self, args: argparse.Namespace) -> str:
-        return self.encoder(args).get_svg(args.bar_width)
+        return self.encoder(args).get_svg(args.bar_width, **self._colour_kwargs(args))
 
     def render_eps(self, args: argparse.Namespace) -> str:
-        return self.encoder(args).get_eps(args.bar_width)
+        return self.encoder(args).get_eps(args.bar_width, **self._colour_kwargs(args))
 
 
 class TwoDFormat(Format):
@@ -195,29 +216,40 @@ class TwoDFormat(Format):
 
     def render_png(self, args: argparse.Namespace) -> bytes:
         self._reject_flags(args, "png", "inverse", "mark_shape", "dxf_units")
-        return self.encoder(args).get_imagedata(self._raster_cell_size(args, "png"))
+        return self.encoder(args).get_imagedata(
+            self._raster_cell_size(args, "png"), **self._colour_kwargs(args)
+        )
 
     def render_svg(self, args: argparse.Namespace) -> str:
         self._reject_flags(args, "svg", "dxf_units")
         return self.encoder(args).get_svg(
-            self._raster_cell_size(args, "svg"), **self._vector_kwargs(args)
+            self._raster_cell_size(args, "svg"),
+            **self._vector_kwargs(args),
+            **self._colour_kwargs(args),
         )
 
     def render_eps(self, args: argparse.Namespace) -> str:
         self._reject_flags(args, "eps", "dxf_units")
         return self.encoder(args).get_eps(
-            self._raster_cell_size(args, "eps"), **self._vector_kwargs(args)
+            self._raster_cell_size(args, "eps"),
+            **self._vector_kwargs(args),
+            **self._colour_kwargs(args),
         )
 
     def render_ascii(self, args: argparse.Namespace) -> str:
-        self._reject_flags(args, "ascii", "inverse", "mark_shape", "dxf_units")
+        self._reject_flags(
+            args, "ascii", "inverse", "mark_shape", "dxf_units", "dark_hex", "light_hex"
+        )
         return self.encoder(args).get_ascii() + "\n"
 
     def render_terminal(self, args: argparse.Namespace) -> str:
-        self._reject_flags(args, "terminal", "inverse", "mark_shape", "dxf_units")
+        self._reject_flags(
+            args, "terminal", "inverse", "mark_shape", "dxf_units", "dark_hex", "light_hex"
+        )
         return self.encoder(args).get_terminal_art(ansi_bg=args.is_tty) + "\n"
 
     def render_dxf(self, args: argparse.Namespace) -> str:
+        self._reject_flags(args, "dxf", "dark_hex", "light_hex")
         units: DxfUnit | None
         if args.dxf_units is None or args.dxf_units == "mm":
             units = "mm"
@@ -234,6 +266,8 @@ _FLAG_LABELS = {
     "inverse": "--inverse",
     "mark_shape": "--mark-shape",
     "dxf_units": "--dxf-units",
+    "dark_hex": "--dark-hex",
+    "light_hex": "--light-hex",
 }
 
 
@@ -296,6 +330,52 @@ class EAN13(OneDFormat):
         if args.height is not None:
             opts["height"] = args.height
         return EAN13Encoder(args.text, options=opts or None)
+
+
+class ITF(OneDFormat):
+    name = "itf"
+    help = "Interleaved 2 of 5 (1D, an even number of digits)"
+    text_help = "an even number of digits"
+
+    def add_args(self, sp: argparse.ArgumentParser) -> None:
+        super().add_args(sp)
+        sp.add_argument(
+            "--bearer-width",
+            type=int,
+            default=None,
+            help="thickness of a bearer bar's rules, in narrow-bar widths (default: none)",
+        )
+
+    def encoder(self, args: argparse.Namespace) -> ITFEncoder:
+        opts: ITFRenderOptions = {}
+        if args.height is not None:
+            opts["height"] = args.height
+        if args.bearer_width is not None:
+            opts["bearer_width"] = args.bearer_width
+        return ITFEncoder(args.text, options=opts or None)
+
+
+class ITF14(OneDFormat):
+    name = "itf14"
+    help = "ITF-14 (1D, 13 or 14 digits, with bearer bar)"
+    text_help = "13 or 14 digits"
+
+    def add_args(self, sp: argparse.ArgumentParser) -> None:
+        super().add_args(sp)
+        sp.add_argument(
+            "--bearer-width",
+            type=int,
+            default=None,
+            help="thickness of the bearer bar's rules, in narrow-bar widths (default: 4)",
+        )
+
+    def encoder(self, args: argparse.Namespace) -> ITF14Encoder:
+        opts: ITFRenderOptions = {}
+        if args.height is not None:
+            opts["height"] = args.height
+        if args.bearer_width is not None:
+            opts["bearer_width"] = args.bearer_width
+        return ITF14Encoder(args.text, options=opts or None)
 
 
 class DataMatrix(TwoDFormat):
@@ -450,7 +530,17 @@ class Aztec(TwoDFormat):
         )
 
 
-FORMATS: list[Format] = [Code39(), Code128(), EAN13(), DataMatrix(), QRCode(), PDF417(), Aztec()]
+FORMATS: list[Format] = [
+    Code39(),
+    Code128(),
+    EAN13(),
+    ITF(),
+    ITF14(),
+    DataMatrix(),
+    QRCode(),
+    PDF417(),
+    Aztec(),
+]
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -462,7 +552,8 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="pystrich",
         description=(
             "Generate 1D/2D barcodes "
-            "(Code 39, Code 128, EAN-13, Data Matrix, QR Code, PDF417, Aztec Code). "
+            "(Code 39, Code 128, EAN-13, Interleaved 2 of 5, ITF-14, "
+            "Data Matrix, QR Code, PDF417, Aztec Code). "
             "Pass input via --text or stdin."
         ),
     )

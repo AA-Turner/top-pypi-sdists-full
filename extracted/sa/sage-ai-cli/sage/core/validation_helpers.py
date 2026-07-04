@@ -263,7 +263,7 @@ def _write_file(
     """
     if Path(filepath_str).name == "__init__.py":
         content = ""
-    from sage.main import _INVALID_FILENAMES
+    from sage.core.exploration_helpers import _INVALID_FILENAMES
     candidate = (filepath_str or "").strip()
     if Path(candidate).is_absolute() or candidate.startswith("~"):
         renderer.debug_warning(f"Rejected absolute filename: {candidate}")
@@ -423,7 +423,7 @@ def _extract_and_write_files(
     ENFORCEMENT: If the current request is classified as read-only (ANALYSIS, LIST_GENERATION,
     QUESTION, SEARCH), ALL FILE: blocks are rejected to prevent accidental code generation.
     """
-    from sage.main import _add_session_file_read, _failure_loop_detector, _get_current_classification, _normalize_workspace_relative_path, _record_file_read
+    from sage.cli_core import _add_session_file_read, _failure_loop_detector, _get_current_classification, _normalize_workspace_relative_path, _record_file_read
     written: list[str] = []
     seen: set[str] = set()
     files_read = files_read or set()
@@ -823,8 +823,9 @@ def _syntax_precheck(written: list[str], cwd: Path) -> tuple[bool, str]:
 
         # JSON validation
         elif filepath.endswith(".json"):
+            cmd = f'python -c "import json; json.load(open({repr(filepath)}))"'
             result = _run_shell(
-                f'python -c "import json; json.load(open({shlex.quote(filepath)}))"',
+                cmd,
                 cwd,
                 timeout=5,
             )
@@ -834,7 +835,7 @@ def _syntax_precheck(written: list[str], cwd: Path) -> tuple[bool, str]:
         # YAML validation
         elif filepath.endswith((".yml", ".yaml")):
             result = _run_shell(
-                f'python -c "import yaml; yaml.safe_load(open({shlex.quote(filepath)}))"',
+                f'python -c "import yaml; yaml.safe_load(open({repr(filepath)}))"',
                 cwd,
                 timeout=5,
             )
@@ -1054,7 +1055,7 @@ def _detect_tool_description_vs_execution(response: str) -> tuple[bool, list[str
         Tuple of (is_descriptive, list of mentioned tools)
         is_descriptive is True if tools are mentioned in prose, not executed
     """
-    from sage.main import _extract_tool_commands_structured
+    from sage.cli_core import _extract_tool_commands_structured
     # Strip <think>/<thinking> blocks before validation. Reasoning models
     # (qwen3, deepseek-r1) emit a multi-paragraph "Let me check..." plan
     # inside <think>...</think>. That's NOT the response — it's the model's
@@ -1298,7 +1299,7 @@ def _is_simple_qa_prompt(prompt: str) -> bool:
     Returns:
         True if this is a simple Q&A prompt, False if it looks like an agent task
     """
-    from sage.main import _is_explicit_resume_request
+    from sage.cli_core import _is_explicit_resume_request
     if _is_explicit_resume_request(prompt):
         return False
 
@@ -1505,7 +1506,7 @@ def _pick_build_model(current_model_id: str) -> tuple[str, str | None]:
     the fastest available local model and returns a short user-facing
     explanation.
     """
-    from sage.main import _ollama_local_models
+    from sage.cli_core import _ollama_local_models
     if not current_model_id.startswith("ollama:"):
         return current_model_id, None
     bare = current_model_id.split(":", 1)[1]
@@ -2474,7 +2475,7 @@ def _build_context_aware_validation_retry_prompt(
     is_analysis: bool,
 ) -> str:
     """Build a retry prompt that matches whether grounded evidence already exists."""
-    from sage.main import _sample_workspace_paths
+    from sage.cli_core import _sample_workspace_paths
     violations_text = "\n".join(f"{i + 1}. {v}" for i, v in enumerate(violations))
 
     if is_analysis and current_files_read:
@@ -2581,7 +2582,7 @@ def _requires_grounded_file_citations(
     classification: _ClassifiedRequest | None,
 ) -> bool:
     """Return True when a read-only analysis response must cite verified files."""
-    from sage.main import _should_seed_recursive_analysis_context
+    from sage.cli_core import _should_seed_recursive_analysis_context
     if not classification or not classification.read_only:
         return False
     if classification.request_type not in {_RequestType.ANALYSIS, _RequestType.LIST_GENERATION}:

@@ -649,8 +649,9 @@ class WarehouseSettings(_FabricBase):
     """Server-side database settings read from ``sys.databases``.
 
     Both Data Warehouses and SQL Analytics Endpoints expose these settings.
-    The two write operations (:func:`~fabric_dw.services.settings.set_result_set_caching`
-    and :func:`~fabric_dw.services.settings.set_time_travel_retention`) require
+    The write operations (:func:`~fabric_dw.services.settings.set_result_set_caching`,
+    :func:`~fabric_dw.services.settings.set_time_travel_retention`, and
+    :func:`~fabric_dw.services.settings.set_data_lake_log_publishing`) require
     a Data Warehouse (they execute ``ALTER DATABASE CURRENT SET …``).
 
     Attributes:
@@ -659,12 +660,16 @@ class WarehouseSettings(_FabricBase):
         time_travel_retention_days: Time-travel retention period in days.
         time_travel_retention_cutoff_date: The earliest date for which time-travel
             data is retained, or ``None`` when not applicable.
+        data_lake_log_publishing: Whether Delta Lake log publishing is enabled
+            (``True`` = ``AUTO``, ``False`` = ``PAUSED``).  ``None``/``NULL``
+            from the driver (e.g. on SQL Analytics Endpoints) maps to ``False``.
     """
 
     database: str
     result_set_caching: bool
     time_travel_retention_days: int | None
     time_travel_retention_cutoff_date: datetime | None
+    data_lake_log_publishing: bool
 
 
 # ---------------------------------------------------------------------------
@@ -984,6 +989,56 @@ class SqlResult(_FabricBase):
 
 
 # ---------------------------------------------------------------------------
+# T-SQL in-database permission models
+# ---------------------------------------------------------------------------
+
+
+class DatabasePrincipal(_FabricBase):
+    """A database principal from ``sys.database_principals``.
+
+    Attributes:
+        name: The principal name (Entra UPN, app GUID, role name, etc.).
+        type: The principal type description (e.g. ``SQL_USER``,
+            ``EXTERNAL_USER``, ``DATABASE_ROLE``).
+        authentication_type: The authentication type description (e.g.
+            ``INSTANCE``, ``EXTERNAL``).
+    """
+
+    name: str
+    type: str
+    authentication_type: str
+
+
+class DatabasePermission(_FabricBase):
+    """A single row from ``sys.database_permissions`` joined to ``sys.database_principals``.
+
+    Attributes:
+        principal_name: The grantee principal name.
+        principal_type: The principal type description.
+        state: Permission state — one of ``GRANT``, ``DENY``, or
+            ``GRANT_WITH_GRANT_OPTION``.
+        permission_name: The permission name (e.g. ``SELECT``, ``EXECUTE``).
+        securable_class: The securable class — ``DATABASE``, ``SCHEMA``, or
+            ``OBJECT``.
+        schema_name: The schema name (for ``SCHEMA`` and ``OBJECT`` class securables;
+            ``None`` for ``DATABASE``).
+        object_name: The object name (for ``OBJECT`` class securables; ``None``
+            otherwise).
+        column_name: The column name for column-level grants (``minor_id != 0``);
+            ``None`` for table-level or non-OBJECT securables.
+    """
+
+    principal_name: str
+    principal_type: str
+    state: str
+    permission_name: str
+    securable_class: str
+    schema_name: str | None = None
+    object_name: str | None = None
+    column_name: str | None = None
+
+
+# ---------------------------------------------------------------------------
 # API payload helpers — boundary validation for raw HTTP response bodies
 # ---------------------------------------------------------------------------
 
@@ -1026,3 +1081,76 @@ class WarehouseSnapshotApiPayload(_FabricBase):
         ``properties`` dict, or an empty instance if the key is absent.
         """
         return cls.model_validate(as_props(item.get("properties")))
+
+
+# ---------------------------------------------------------------------------
+# Row-level security models
+# ---------------------------------------------------------------------------
+
+
+class SecurityPredicate(_FabricBase):
+    """A single predicate attached to a security policy.
+
+    Sourced from ``sys.security_predicates`` joined to ``sys.security_policies``.
+
+    Attributes:
+        predicate_type: ``FILTER`` or ``BLOCK``.
+        operation: The DML operation for BLOCK predicates as returned by the
+            catalog (e.g. ``AFTER INSERT``, ``BEFORE DELETE``).
+            ``None`` for FILTER predicates.
+        schema_name: Schema of the target table.
+        table_name: Name of the target table.
+        predicate_definition: The full TVF call expression as stored in the
+            catalog (e.g. ``[rls].[fn_filter]([SalesRep])``).
+    """
+
+    predicate_type: str
+    operation: str | None
+    schema_name: str
+    table_name: str
+    predicate_definition: str
+
+
+class SecurityPolicy(_FabricBase):
+    """A security policy with its associated predicates.
+
+    Sourced from ``sys.security_policies`` joined to ``sys.security_predicates``.
+
+    Attributes:
+        policy_schema: Schema in which the policy lives.
+        policy_name: Name of the security policy.
+        is_enabled: Whether the policy is active (STATE = ON).
+        predicates: Ordered list of predicates attached to this policy.
+            Empty when the policy has no predicates.
+    """
+
+    policy_schema: str
+    policy_name: str
+    is_enabled: bool
+    predicates: list[SecurityPredicate]
+
+
+# ---------------------------------------------------------------------------
+# Dynamic data masking models
+# ---------------------------------------------------------------------------
+
+
+class MaskedColumn(_FabricBase):
+    """A column with a dynamic data masking function applied.
+
+    Sourced from ``sys.masked_columns`` joined to ``sys.columns``,
+    ``sys.objects``, and ``sys.schemas``.
+
+    Attributes:
+        schema_name: Schema of the table that owns the masked column.
+        table_name: Name of the table that owns the masked column.
+        column_name: Name of the masked column.
+        masking_function: The masking function literal stored in the catalog,
+            e.g. ``"default()"``, ``"email()"``, ``"random(1,12)"``, or
+            ``'partial(2,"XXXX",2)'``.
+    """
+
+    schema_name: str
+    table_name: str
+    column_name: str
+    masking_function: str

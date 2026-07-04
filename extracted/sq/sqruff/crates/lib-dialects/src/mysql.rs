@@ -3,7 +3,9 @@ use sqruff_lib_core::dialects::init::DialectKind;
 use sqruff_lib_core::dialects::syntax::SyntaxKind;
 use sqruff_lib_core::helpers::{Config, ToMatchable};
 use sqruff_lib_core::parser::grammar::Ref;
-use sqruff_lib_core::parser::grammar::anyof::{AnyNumberOf, any_set_of, one_of};
+use sqruff_lib_core::parser::grammar::anyof::{
+    AnyNumberOf, any_set_of, one_of, optionally_bracketed,
+};
 use sqruff_lib_core::parser::grammar::delimited::Delimited;
 use sqruff_lib_core::parser::grammar::sequence::{Bracketed, Sequence};
 use sqruff_lib_core::parser::lexer::Matcher;
@@ -152,6 +154,34 @@ pub fn raw_dialect() -> Dialect {
     for kw in MYSQL_RESERVED_KEYWORDS_REMOVE {
         mysql.sets_mut("reserved_keywords").remove(kw);
     }
+
+    // MySQL interval datetime units (#4746).
+    // https://github.com/mysql/mysql-server/blob/1bfe02bd/sql/sql_yacc.yy#L12321-L12345
+    mysql.sets_mut("datetime_units").clear();
+    mysql.sets_mut("datetime_units").extend([
+        // interval
+        "DAY_HOUR",
+        "DAY_MICROSECOND",
+        "DAY_MINUTE",
+        "DAY_SECOND",
+        "HOUR_MICROSECOND",
+        "HOUR_MINUTE",
+        "HOUR_SECOND",
+        "MINUTE_MICROSECOND",
+        "MINUTE_SECOND",
+        "SECOND_MICROSECOND",
+        "YEAR_MONTH",
+        // interval_time_stamp
+        "DAY",
+        "WEEK",
+        "HOUR",
+        "MINUTE",
+        "MONTH",
+        "QUARTER",
+        "SECOND",
+        "MICROSECOND",
+        "YEAR",
+    ]);
 
     // ============================================================
     // Grammar replacements (overriding ANSI)
@@ -444,8 +474,6 @@ pub fn raw_dialect() -> Dialect {
                 Ref::keyword("DATE").to_matchable(),
                 Ref::keyword("TIME").to_matchable(),
                 Ref::keyword("TIMESTAMP").to_matchable(),
-                Ref::keyword("DATETIME").to_matchable(),
-                Ref::keyword("INTERVAL").to_matchable(),
             ])
             .config(|this| this.optional())
             .to_matchable(),
@@ -1147,7 +1175,7 @@ pub fn raw_dialect() -> Dialect {
             Sequence::new(vec![
                 Sequence::new(vec![
                     Ref::keyword("CONSTRAINT").to_matchable(),
-                    Ref::new("ObjectReferenceSegment").to_matchable(),
+                    Ref::new("ObjectReferenceSegment").optional().to_matchable(),
                 ])
                 .config(|this| this.optional())
                 .to_matchable(),
@@ -1328,19 +1356,8 @@ pub fn raw_dialect() -> Dialect {
         "IntervalExpressionSegment",
         Sequence::new(vec![
             Ref::keyword("INTERVAL").to_matchable(),
-            one_of(vec![
-                Sequence::new(vec![
-                    Ref::new("ExpressionSegment").to_matchable(),
-                    one_of(vec![
-                        Ref::new("QuotedLiteralSegment").to_matchable(),
-                        Ref::new("DatetimeUnitSegment").to_matchable(),
-                    ])
-                    .to_matchable(),
-                ])
-                .to_matchable(),
-                Ref::new("QuotedLiteralSegment").to_matchable(),
-            ])
-            .to_matchable(),
+            Ref::new("ExpressionSegment").to_matchable(),
+            Ref::new("DatetimeUnitSegment").to_matchable(),
         ])
         .to_matchable(),
     );
@@ -2825,7 +2842,14 @@ pub fn raw_dialect() -> Dialect {
                     .optional()
                     .to_matchable(),
                 Ref::keyword("AS").to_matchable(),
-                Ref::new("SelectStatementSegment").to_matchable(),
+                optionally_bracketed(vec![
+                    one_of(vec![
+                        Ref::new("SelectStatementSegment").to_matchable(),
+                        Ref::new("SetExpressionSegment").to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable(),
                 Ref::new("WithCheckOptionSegment").optional().to_matchable(),
             ])
             .to_matchable()
@@ -2870,7 +2894,14 @@ pub fn raw_dialect() -> Dialect {
                 .optional()
                 .to_matchable(),
             Ref::keyword("AS").to_matchable(),
-            Ref::new("SelectStatementSegment").to_matchable(),
+            optionally_bracketed(vec![
+                one_of(vec![
+                    Ref::new("SelectStatementSegment").to_matchable(),
+                    Ref::new("SetExpressionSegment").to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable(),
             Ref::new("WithCheckOptionSegment").optional().to_matchable(),
         ])
         .to_matchable(),
@@ -2939,7 +2970,7 @@ pub fn raw_dialect() -> Dialect {
                     .to_matchable(),
                     Sequence::new(vec![
                         Ref::keyword("BEFORE").to_matchable(),
-                        Ref::new("DateTimeLiteralGrammar").to_matchable(),
+                        Ref::new("ExpressionSegment").to_matchable(),
                     ])
                     .to_matchable(),
                 ])
@@ -3871,6 +3902,20 @@ pub fn raw_dialect() -> Dialect {
     );
 
     // ============================================================
+    // RETURN statement (#4693) — https://dev.mysql.com/doc/refman/8.0/en/return.html
+    mysql.add([(
+        "ReturnStatementSegment".into(),
+        NodeMatcher::new(SyntaxKind::ReturnStatement, |_| {
+            Sequence::new(vec![
+                Ref::keyword("RETURN").to_matchable(),
+                Ref::new("ExpressionSegment").to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
+
     // StatementSegment - override to add MySQL-specific statements
     // ============================================================
 
@@ -3914,6 +3959,7 @@ pub fn raw_dialect() -> Dialect {
                 Ref::new("LoadDataSegment").to_matchable(),
                 Ref::new("ReplaceSegment").to_matchable(),
                 Ref::new("AlterDatabaseStatementSegment").to_matchable(),
+                Ref::new("ReturnStatementSegment").to_matchable(),
             ]),
             None,
             None,

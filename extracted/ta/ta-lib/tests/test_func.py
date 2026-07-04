@@ -7,11 +7,11 @@ from talib import func
 
 
 def test_talib_version():
-    assert talib.__ta_version__[:5] == b'0.6.4'
+    assert talib.__ta_version__[:5] == b'0.7.1'
 
 
 def test_num_functions():
-    assert len(talib.get_functions()) == 158
+    assert len(talib.get_functions()) == 161
 
 
 def test_input_wrong_type():

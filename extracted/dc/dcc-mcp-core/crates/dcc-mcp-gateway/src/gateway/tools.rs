@@ -3,6 +3,7 @@
 use serde_json::{Value, json};
 
 use crate::gateway::admin::trace::{AgentContext, TraceContext};
+use crate::gateway::capability::search_cache::SearchCacheKey;
 use crate::gateway::capability_service::{SearchResponseContext, search_hit_to_value_with_context};
 use crate::gateway::search_telemetry::{
     RANKER_VERSION, SearchFollowupInput, SearchTelemetryHit, SearchTelemetryInput,
@@ -404,6 +405,66 @@ pub async fn tool_search_tools(
     let query = crate::gateway::capability_service::parse_search_payload(args);
     let index_generation =
         crate::gateway::capability_service::index_generation(&gs.capability_index);
+
+    // Shared helper: hybrid→fuzzy downgrade + semantic diagnostic
+    let (query, semantic) = crate::gateway::capability_service::apply_search_mode_downgrade(
+        query,
+        gs.semantic_search_enabled,
+    );
+
+    // --- LRU cache check (PIP-2471) ---
+    let cache_key = SearchCacheKey::from_query(&query);
+    let index_gen = crate::gateway::capability_service::index_generation(&gs.capability_index);
+    if let Some(cached_body) = gs
+        .search_cache
+        .get_with_index_gen(&cache_key, Some(&index_gen))
+    {
+        let cached_hits: Vec<Value> = serde_json::from_slice(&cached_body).unwrap_or_else(|e| {
+            tracing::warn!(
+                ?e,
+                "search cache entry corrupt (MCP), falling back to recompute"
+            );
+            Vec::new()
+        });
+        if !cached_hits.is_empty() {
+            let search_context = SearchResponseContext::new(
+                crate::gateway::search_telemetry::SearchTelemetryStore::new_search_id(),
+                index_gen,
+            );
+            gs.search_telemetry.record_search(SearchTelemetryInput {
+                search_id: search_context.search_id.clone(),
+                transport: "mcp".to_string(),
+                kind: "tool".to_string(),
+                query: query.query.clone(),
+                dcc_type: query.dcc_type.clone(),
+                dcc_types: query.dcc_types.clone(),
+                instance_id: query.instance_id.map(|id| id.to_string()),
+                limit: query.limit,
+                total: cached_hits.len(),
+                ranker_version: search_context.ranker_version.to_string(),
+                index_generation: search_context.index_generation.clone(),
+                hits: vec![],
+                trace_context: trace_context.cloned(),
+                session_id: session_id
+                    .map(str::to_string)
+                    .or_else(|| agent_context.and_then(|ctx| ctx.session_id.clone())),
+                agent_context: agent_context.cloned(),
+                tags_any: query.tags_any.clone(),
+            });
+            return serde_json::to_string_pretty(&json!({
+                "search_id": search_context.search_id,
+                "ranker_version": search_context.ranker_version,
+                "index_generation": search_context.index_generation,
+                "total": cached_hits.len(),
+                "hits": cached_hits,
+                "semantic": semantic,
+                "search_cache_hit": true,
+            }))
+            .map_err(|e| e.to_string());
+        }
+    }
+    // --- end cache check ---
+
     let search_context = SearchResponseContext::new(
         crate::gateway::search_telemetry::SearchTelemetryStore::new_search_id(),
         index_generation,
@@ -439,12 +500,23 @@ pub async fn tool_search_tools(
         tags_any: query.tags_any.clone(),
     });
 
+    // --- LRU cache store (PIP-2471) ---
+    if let Ok(body_bytes) = serde_json::to_vec(&annotated) {
+        gs.search_cache.put(
+            cache_key,
+            body_bytes,
+            search_context.index_generation.clone(),
+        );
+    }
+    // --- end cache store ---
+
     serde_json::to_string_pretty(&json!({
         "search_id": search_context.search_id,
         "ranker_version": search_context.ranker_version,
         "index_generation": search_context.index_generation,
         "total": annotated.len(),
         "hits":  annotated,
+        "semantic": semantic,
     }))
     .map_err(|e| e.to_string())
 }
@@ -1062,7 +1134,7 @@ fn index_generation_from_inputs(args: &Value, meta: Option<&Value>) -> Option<St
     from_payload(args).or_else(|| meta.and_then(from_payload))
 }
 
-fn describe_needs_refresh(
+pub(crate) fn describe_needs_refresh(
     gs: &GatewayState,
     slug: &str,
     args: &Value,
@@ -1155,6 +1227,7 @@ pub fn gateway_tool_defs() -> serde_json::Value {
                     "dcc": {"type": "string", "description": "Alias of dcc_type for skill search"},
                     "tags": {"type": "array", "items": {"type": "string"}},
                     "tags_any": {"type": "array", "items": {"type": "string"}, "description": "OR tag filter — rows carrying any of these tags pass. tags remains AND."},
+                    "mode": {"type": "string", "enum": ["fuzzy", "exact", "hybrid"], "default": "fuzzy", "description": "Search mode: fuzzy (default, BM25+nucleo), exact (substring), hybrid (fuzzy + semantic boost when configured)."},
                     "limit": {"type": "integer", "minimum": 0},
                     "response_format": {"type": "string", "enum": ["json", "toon"], "description": "Wrapper-level output format. Prefer MCP params._meta.response_format for clients that keep tool arguments pure."},
                     "compact": {"type": "boolean", "description": "Alias for response_format=toon when true."}
@@ -1255,212 +1328,4 @@ pub fn gateway_tool_defs() -> serde_json::Value {
             }
         }
     ])
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::{Map, Value, json};
-    use std::sync::Arc;
-    use std::time::Duration;
-    use tokio::sync::{RwLock, broadcast, watch};
-    use uuid::Uuid;
-
-    fn test_gateway_state() -> GatewayState {
-        let dir = tempfile::tempdir().unwrap();
-        let (yield_tx, _) = watch::channel(false);
-        let (events_tx, _) = broadcast::channel::<String>(8);
-        GatewayState {
-            registry: Arc::new(RwLock::new(
-                dcc_mcp_transport::discovery::file_registry::FileRegistry::new(dir.path()).unwrap(),
-            )),
-            http_instance_registry: Arc::new(parking_lot::RwLock::new(
-                crate::gateway::http_registration::HttpInstanceRegistry::default(),
-            )),
-            mdns_instance_registry: Arc::new(parking_lot::RwLock::new(
-                crate::gateway::mdns_registration::MdnsInstanceRegistry::default(),
-            )),
-            relay_instance_registry: Arc::new(parking_lot::RwLock::new(
-                crate::gateway::relay_registration::RelayInstanceRegistry::default(),
-            )),
-            stale_timeout: Duration::from_secs(30),
-            backend_timeout: Duration::from_secs(10),
-            async_dispatch_timeout: Duration::from_secs(60),
-            wait_terminal_timeout: Duration::from_secs(600),
-            server_name: "test".into(),
-            server_version: env!("CARGO_PKG_VERSION").into(),
-            own_host: "127.0.0.1".into(),
-            own_port: 0,
-            http_client: reqwest::Client::new(),
-            yield_tx: Arc::new(yield_tx),
-            events_tx: Arc::new(events_tx),
-            protocol_version: Arc::new(RwLock::new(None)),
-            resource_subscriptions: Arc::new(RwLock::new(std::collections::HashMap::new())),
-            client_attribution: Arc::new(
-                crate::gateway::caller_attribution::ClientAttributionStore::default(),
-            ),
-            pending_calls: Arc::new(RwLock::new(std::collections::HashMap::new())),
-            subscriber: crate::gateway::sse_subscriber::SubscriberManager::default(),
-            allow_unknown_tools: false,
-            policy: Arc::new(crate::gateway::GatewayPolicy::default()),
-            adapter_version: None,
-            adapter_dcc: None,
-            capability_index: Arc::new(crate::gateway::capability::CapabilityIndex::new()),
-            event_log: Arc::new(crate::gateway::event_log::EventLog::new()),
-            #[cfg(feature = "prometheus")]
-            gateway_metrics: Arc::new(crate::gateway::event_log::GatewayMetrics::new()),
-            middleware_chain: Arc::new(crate::gateway::middleware::MiddlewareChain::new()),
-            instance_diagnostics: Arc::new(
-                crate::gateway::instance_diagnostics::InstanceDiagnosticsStore::new(),
-            ),
-            traffic_capture: Arc::new(crate::gateway::traffic::TrafficCapture::disabled()),
-            search_telemetry: Arc::new(
-                crate::gateway::search_telemetry::SearchTelemetryStore::new(),
-            ),
-            debug_routes_enabled: false,
-            auth: Arc::new(crate::gateway::security::GatewayAuth::disabled()),
-            update_manifest_url: None,
-            gateway_persist: false,
-            gateway_idle_timeout_secs: 30,
-        }
-    }
-
-    fn annotations_by_tool() -> Map<String, Value> {
-        gateway_tool_defs()
-            .as_array()
-            .expect("gateway_tool_defs returns an array")
-            .iter()
-            .map(|tool| {
-                let name = tool
-                    .get("name")
-                    .and_then(Value::as_str)
-                    .expect("gateway tool has a name")
-                    .to_string();
-                let annotations = tool
-                    .get("annotations")
-                    .cloned()
-                    .expect("gateway tool has annotations");
-                (name, annotations)
-            })
-            .collect()
-    }
-
-    #[test]
-    fn gateway_tool_defs_advertise_canonical_workflow_tools_only() {
-        let defs = gateway_tool_defs();
-        let names: Vec<&str> = defs
-            .as_array()
-            .expect("gateway_tool_defs returns an array")
-            .iter()
-            .filter_map(|tool| tool.get("name").and_then(Value::as_str))
-            .collect();
-
-        assert_eq!(names, ["search", "describe", "load_skill", "call"]);
-    }
-
-    #[test]
-    fn gateway_tool_defs_all_have_annotations() {
-        let annotations = annotations_by_tool();
-        assert_eq!(annotations.len(), 4);
-
-        for (name, value) in annotations {
-            let hints = value
-                .as_object()
-                .unwrap_or_else(|| panic!("{name} annotations must be an object"));
-            assert!(
-                [
-                    "readOnlyHint",
-                    "destructiveHint",
-                    "idempotentHint",
-                    "openWorldHint"
-                ]
-                .iter()
-                .any(|key| hints.contains_key(*key)),
-                "{name} annotations must include at least one MCP ToolAnnotations hint"
-            );
-        }
-    }
-
-    #[test]
-    fn gateway_call_schema_keeps_compatibility_shape() {
-        let defs = gateway_tool_defs();
-        let call = defs
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|tool| tool["name"] == "call")
-            .expect("call tool advertised");
-
-        assert_eq!(call["inputSchema"]["type"], "object");
-        assert!(call["inputSchema"].get("anyOf").is_none());
-        assert!(call["inputSchema"].get("oneOf").is_none());
-        assert!(call["inputSchema"].get("allOf").is_none());
-        assert!(call["inputSchema"].get("not").is_none());
-        assert!(call["inputSchema"].get("required").is_none());
-        assert!(call["inputSchema"]["properties"]["tool_slug"].is_object());
-        assert_eq!(call["inputSchema"]["properties"]["calls"]["maxItems"], 25);
-        assert_eq!(call["annotations"]["destructiveHint"], true);
-    }
-
-    #[test]
-    fn gateway_tool_defs_use_expected_annotations() {
-        let annotations = annotations_by_tool();
-
-        assert_eq!(
-            annotations.get("search"),
-            Some(&json!({"readOnlyHint": true, "openWorldHint": true}))
-        );
-        assert_eq!(
-            annotations.get("describe"),
-            Some(&json!({"readOnlyHint": true, "openWorldHint": true}))
-        );
-    }
-
-    #[test]
-    fn describe_refresh_is_conditional_on_generation_and_index_hit() {
-        let gs = test_gateway_state();
-        let instance_id = Uuid::from_u128(0x1234);
-        let record = crate::gateway::capability::CapabilityRecord::new(
-            crate::gateway::capability::tool_slug("maya", &instance_id, "maya_scene__list_objects"),
-            "maya_scene__list_objects".to_string(),
-            "maya_scene__list_objects".to_string(),
-            Some("maya-scene".into()),
-            "List scene objects",
-            vec!["scene".into()],
-            "maya".into(),
-            instance_id,
-            false,
-            true,
-            None,
-        );
-        let fingerprint = crate::gateway::capability::InstanceFingerprint(1);
-        gs.capability_index
-            .upsert_instance(instance_id, vec![record.clone()], fingerprint);
-
-        let current_generation =
-            crate::gateway::capability_service::index_generation(&gs.capability_index);
-        let args = json!({
-            "tool_slug": record.tool_slug,
-            "meta": {"index_generation": current_generation}
-        });
-        assert!(!describe_needs_refresh(&gs, &record.tool_slug, &args, None));
-
-        let stale_args = json!({
-            "tool_slug": record.tool_slug,
-            "meta": {"index_generation": "stale"}
-        });
-        assert!(describe_needs_refresh(
-            &gs,
-            &record.tool_slug,
-            &stale_args,
-            None
-        ));
-
-        assert!(describe_needs_refresh(
-            &gs,
-            "maya.abcdef01.__missing__",
-            &json!({}),
-            None
-        ));
-    }
 }

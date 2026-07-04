@@ -4,10 +4,10 @@ requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2", "wheel"]
 
 [project]
 name = "pydoclint"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
   "click>=8.1.0",
-  "docstring_parser_fork>=0.0.12",
+  "docstring_parser_fork==0.0.16",
   "tomli>=2.0.1; python_version<'3.11'",
 ]
 requires-python = ">=3.10"
@@ -34,10 +34,6 @@ pydoclint = "pydoclint.main:main"
 
 [project.urls]
 Homepage = "https://github.com/jsh9/pydoclint"
-
-[tool.mypy]
-exclude = "pydoclint/utils/unparser.py"
-strict = true
 
 [tool.pydoclint]
 check-arg-defaults = true

@@ -4,18 +4,24 @@
     state: absent
 
 - name: create KDS root key if not present
-  microsoft.ad.kds_root_key:
-    effective_time_hours: 0
+  ansible.windows.win_powershell:
+    error_action: stop
+    script: |
+      $Ansible.Changed = $false
+      if (-not (Get-KdsRootKey)) {
+          Add-KdsRootKey -EffectiveTime ((Get-Date).AddHours(-10))
+          $Ansible.Changed = $true
+      }
   become: true
   become_method: runas
   become_user: SYSTEM
 
 - block:
-    - import_tasks: tests.yml
+  - import_tasks: tests.yml
 
   always:
-    - name: remove temp service account
-      service_account:
-        name: MySA
-        identity: "{{ object_identity | default(omit) }}"
-        state: absent
+  - name: remove temp service account
+    service_account:
+      name: MySA
+      identity: '{{ object_identity | default(omit) }}'
+      state: absent

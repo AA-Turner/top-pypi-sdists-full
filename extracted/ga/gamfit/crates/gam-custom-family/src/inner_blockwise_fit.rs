@@ -3,8 +3,8 @@
 //! `outer_objective.rs` by concern (#1145). Re-exported via
 //! `custom_family` so existing paths stay stable.
 
-use super::*;
 use super::blockwise_solve::BlockWorkingSetUpdaterExt;
+use super::*;
 use gam_solve::row_measure::RowSubsampleMaskExt;
 
 pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
@@ -218,8 +218,7 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
         );
     }
     let ridge = effective_solverridge(options.ridge_floor);
-    let joint_bundle: Option<&gam_problem::JointPenaltyBundle> =
-        options.joint_penalties.as_deref();
+    let joint_bundle: Option<&gam_problem::JointPenaltyBundle> = options.joint_penalties.as_deref();
     if let Some(bundle) = joint_bundle {
         for (i, spec) in bundle.specs.iter().enumerate() {
             if spec.dim() != total_joint_p {
@@ -765,9 +764,8 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
         // discipline (grow on flat, reset on recovery) is the shared
         // loop_guard::FlatStreak so it cannot drift from the other
         // stagnation detectors in the tree (#968).
-        let mut obj_flat_streak = gam_solve::loop_guard::FlatStreak::new(
-            gam_solve::loop_guard::PLATEAU_DEFAULT_WINDOW,
-        );
+        let mut obj_flat_streak =
+            gam_solve::loop_guard::FlatStreak::new(gam_solve::loop_guard::PLATEAU_DEFAULT_WINDOW);
         // Total descent budget across the joint-Newton loop, used by
         // the end-of-loop summary to report `descent_total`.
         let initial_joint_objective: f64 = lastobjective;
@@ -792,41 +790,12 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
         // at cycle 0 via the divergence/stall guard, so `cycle > 0` is never
         // reached and the per-cycle guard never fires. The outer startup then
         // drives a whole cascade of fresh solves — one per multistart seed,
-        // plus the post-failure identifiability audit and the final
-        // posterior-escalation refit — and each pays a full cycle-0 joint
-        // Hessian assembly + constrained QP before exiting. With each cycle 0
-        // costing ~one outer budget-window at scale, the total fit wall-clock
-        // grew without bound (#seeds + audit + refit) even though the budget
-        // was long spent. Refuse to begin a fresh solve once the deadline has
-        // passed: the first solve still runs (the deadline is checked at its
-        // entry, before it has taken time), so a best-effort iterate is always
-        // produced for the outer search, and every solve entered AFTER the
-        // budget is spent returns a catchable error in O(1) instead of paying
-        // another cycle 0. A solve started past the deadline cannot improve a
-        // within-budget result. No-op when no deadline is armed.
-        if gam_solve::rho_optimizer::outer_wall_clock_deadline_exceeded() {
-            return Err(
-                "coupled exact-joint inner solve abandoned at entry: the fit-level wall-clock \
-                 budget was exhausted before this solve began — returning a bounded catchable \
-                 error rather than paying another full inner cycle past the deadline"
-                    .to_string(),
-            );
-        }
         // The exact joint-Hessian route solves the penalized Newton system
         // directly. Extra damping must be wired through an accepted/rejected
         // step policy before it belongs here; keep the matvec faithful to the
         // objective until then.
         for cycle in 0..inner_loop_hard_ceiling {
             if cycle >= inner_max_cycles {
-                break;
-            }
-            if cycle > 0 && gam_solve::rho_optimizer::outer_wall_clock_deadline_exceeded() {
-                // gam#979: the fit-level wall-clock budget is spent. Stop at the
-                // current best-effort iterate so the outer search (which would
-                // otherwise grind every remaining screening stage / seed / plan
-                // to its cycle budget on a constrained solve that never
-                // certifies) terminates in bounded time. >=1 cycle has run, so a
-                // finite iterate is always returned.
                 break;
             }
             let verbose_cycle = cycle == 0
@@ -1797,7 +1766,8 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                                 // model preserves the linear-but-monotone endgame the
                                 // divided-difference solve already certifies.
                                 if custom_family_jeffreys_completion_preserves_psd(
-                                    hphi, &completion,
+                                    hphi,
+                                    &completion,
                                 ) {
                                     lhs_true += &completion;
                                 }
@@ -2744,10 +2714,7 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 // any further auto-install; if either contract is broken the
                 // id will diverge from `tr_row_measure_top` and we Err below.
                 let tr_row_measure_trial =
-                    gam_solve::row_measure::RowSubsampleMask::from_options(
-                        options,
-                        total_joint_n,
-                    );
+                    gam_solve::row_measure::RowSubsampleMask::from_options(options, total_joint_n);
                 // Hard invariant: the trust-region ratio numerator (objective
                 // at β minus trial at β+δ) and denominator (rhs·δ − ½δᵀH δ)
                 // MUST share a row measure with the Hessian/gradient build.
@@ -5257,14 +5224,13 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 let oldest = *residual_rate_history.front().unwrap();
                 // Single source of truth for the slow-geometric-rate projection
                 // (gam#979): deterministic cycle-count projection, no wall-clock.
-                let too_slow =
-                    gam_solve::loop_guard::slow_geometric_rate_exceeds_projection_cap(
-                        residual,
-                        oldest,
-                        LINEAR_RATE_WINDOW,
-                        residual_tol,
-                        LINEAR_RATE_PROJECTION_CAP,
-                    );
+                let too_slow = gam_solve::loop_guard::slow_geometric_rate_exceeds_projection_cap(
+                    residual,
+                    oldest,
+                    LINEAR_RATE_WINDOW,
+                    residual_tol,
+                    LINEAR_RATE_PROJECTION_CAP,
+                );
                 if too_slow {
                     log::warn!(
                         "[PIRLS/joint-Newton convergence] cycle {:>3} | slow-geometric-rate stall early-exit (gam#979): residual={:.3e} (tol={:.3e}) descending at ~{:.4}×/cycle over the last {} cycles — projected >{} more cycles to reach tol; the residual is converging but far too slowly to finish in a practical budget (the survival marginal-slope oversmoothed-ρ endgame), so returning unconverged with finite β instead of grinding to inner_max_cycles={}.",
@@ -5444,8 +5410,7 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
             let ift_gradient = augmented_joint_gradient
                 .as_ref()
                 .or(cached_joint_gradient.as_ref());
-            let joint_penalty_score =
-                joint_penalty_stationarity_score(options, specs, &states);
+            let joint_penalty_score = joint_penalty_stationarity_score(options, specs, &states);
             let kkt_residual = exact_newton_joint_kkt_residual_for_ift_from_cached_gradient(
                 family,
                 specs,
@@ -5600,13 +5565,17 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                     last_math_summary,
                 );
                 if coupled_exact_joint_required {
-                    // Budget-exhaustion error MUST carry `block_residual_inf=…`
-                    // so the carrying block survives the bubble through the
-                    // outer optimiser. If no in-cycle cert refusal produced
-                    // a structured report we build one here from the cached
-                    // joint gradient + states. `joint_hessian_source` is
-                    // per-cycle so the H_pen spectrum fields degrade to
-                    // NaN/empty; per-block residual data is fully present.
+                    // Budget exhaustion is a failed *inner mode at this rho*, not
+                    // malformed user input.  Propagate it as a finite
+                    // `converged=false` inner result so the outer objective can
+                    // reject/back off this smoothing point (the same contract used
+                    // by non-exact families) instead of bubbling an
+                    // `InvalidInput` through the custom-family string boundary.
+                    // This matters on the survival/location-scale flat baseline
+                    // valley: some startup rho candidates are numerically
+                    // non-certifying, but neighbouring rho values are perfectly
+                    // fit-able, so aborting the whole fit prevents the optimizer
+                    // from ever leaving the valley.
                     let block_diag = if let Some(report) = last_kkt_refusal_report.as_ref() {
                         report.format_bubbled_error()
                     } else {
@@ -5637,9 +5606,9 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                         );
                         report.format_bubbled_error()
                     };
-                    return Err(format!(
-                        "coupled exact-joint inner solve exhausted the joint Newton budget without KKT convergence after {cycles_done} cycle(s) — {block_diag}"
-                    ));
+                    log::warn!(
+                        "coupled exact-joint inner solve exhausted the joint Newton budget without KKT convergence after {cycles_done} cycle(s) — {block_diag}; returning a non-converged inner mode for outer-rho rejection"
+                    );
                 }
             }
             let penalty_value = total_quadratic_penalty(
@@ -5686,15 +5655,12 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
             });
         }
         if coupled_exact_joint_required {
-            // Bubble the structured KKT refusal report (per-block residual
-            // breakdown + H_pen spectrum + diagnosis) so the cause of the
-            // refusal survives serialization through the outer optimizer,
-            // the seed-validation cascade, and gamfit. When the cert refused
-            // inside the cycle loop we already computed a `KktRefusalReport`
-            // at the refusing iterate; reuse it verbatim. If a different
-            // early-exit path reaches this branch, build the same structured
-            // report from the last Newton math snapshot rather than routing
-            // through a second diagnostic string format.
+            // An early exit from the exact joint path is also a non-certifying
+            // inner mode at the current rho, not invalid input.  Do not fall
+            // through to blockwise iteration (that would drop required
+            // cross-block curvature), but do return the current finite iterate
+            // with `converged=false` so the outer optimizer can reject this rho
+            // and continue.
             let block_diag = last_kkt_refusal_report
                 .as_ref()
                 .map(KktRefusalReport::format_bubbled_error)
@@ -5702,9 +5668,51 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                     "structured KKT refusal report unavailable: no joint Newton math snapshot"
                         .to_string()
                 });
-            return Err(format!(
-                "coupled exact-joint inner solve exited the joint Newton path before convergence — {block_diag}"
-            ));
+            log::warn!(
+                "coupled exact-joint inner solve exited the joint Newton path before convergence — {block_diag}; returning a non-converged inner mode for outer-rho rejection"
+            );
+            let penalty_value = total_quadratic_penalty(
+                &states,
+                &s_lambdas,
+                ridge,
+                options.ridge_policy,
+                joint_bundle,
+                Some(specs),
+            );
+            let (block_logdet_h, block_logdet_s) = blockwise_logdet_terms_with_workspace(
+                family,
+                specs,
+                &mut states,
+                block_log_lambdas,
+                options,
+                cached_joint_workspace.clone(),
+            )?;
+            let active_constraints = {
+                let local_ranges = block_param_ranges(specs);
+                let local_total_p = local_ranges.last().map(|(_, end)| *end).unwrap_or(0);
+                let block_constraints = collect_block_linear_constraints(family, &states, specs)?;
+                assemble_active_constraint_block(
+                    &block_constraints,
+                    &cached_active_sets,
+                    &local_ranges,
+                    local_total_p,
+                )
+                .map(std::sync::Arc::new)
+            };
+            return Ok(BlockwiseInnerResult {
+                block_states: states,
+                active_sets: normalize_active_sets(cached_active_sets),
+                log_likelihood: current_log_likelihood,
+                penalty_value,
+                cycles: cycles_done,
+                converged: false,
+                block_logdet_h,
+                block_logdet_s,
+                s_lambdas,
+                joint_workspace: cached_joint_workspace.clone(),
+                kkt_residual: None,
+                active_constraints,
+            });
         }
         // Otherwise fall through to blockwise iteration below.
     }

@@ -216,7 +216,9 @@ class OrganizationsAdaptivePolicyAcls(object):
             ("name", "name"),
             ("description", "description"),
             ("rules", "rules"),
-            ("ipVersion", "ipVersion"), ("aclId", "aclId"),
+            ("ipVersion", "ipVersion"),
+            ("organizationId", "organizationId"),
+            ("aclId", "aclId"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (DNAC) params
         # If any does not have eq params, it requires update

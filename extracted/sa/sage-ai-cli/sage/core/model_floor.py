@@ -46,7 +46,7 @@ _KNOWN_MODELS: dict[str, float] = {
     "gemma2:2b": 2.0, "gemma2-2b": 2.0,
     "gemma2:9b": 9.0, "gemma2-9b": 9.0,
     "gemma2:27b": 27.0, "gemma2-27b": 27.0,
-    "gemma4": 4.0,
+    "gemma4": 12.0,
     # Mistral
     "mistral-7b": 7.0, "mistral-nemo": 12.0,
     "mixtral-8x7b": 47.0, "mixtral-8x22b": 141.0,

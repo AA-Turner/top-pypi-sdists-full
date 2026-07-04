@@ -81,19 +81,25 @@ class Arg:
     @classmethod
     def fromDocstringParam(cls, param: DocstringParam) -> Arg:
         """Construct an Arg object from a DocstringParam object"""
-        return Arg(name=param.arg_name, typeHint=cls._str(param.type_name))
+        return Arg(
+            name=param.arg_name,
+            typeHint=cls._getRawTypeNameFromDocstringArg(param),
+        )
 
     @classmethod
     def fromDocstringAttr(cls, attr: DocstringAttr) -> Arg:
         """Construct an Arg object from a DocstringAttr object"""
-        return Arg(name=attr.arg_name, typeHint=cls._str(attr.type_name))
+        return Arg(
+            name=attr.arg_name,
+            typeHint=cls._getRawTypeNameFromDocstringArg(attr),
+        )
 
     @classmethod
     def fromAstArg(cls, astArg: ast.arg) -> Arg:
         """Construct an Arg object from a Python AST argument object"""
         anno: ast.expr | None = astArg.annotation
         typeHint: str | None = '' if anno is None else unparseName(anno)
-        assert typeHint is not None  # to help mypy better understand type
+        assert typeHint is not None  # narrow type for static checkers
         return Arg(name=astArg.arg, typeHint=typeHint)
 
     @classmethod
@@ -105,7 +111,7 @@ class Arg:
         """Construct an Arg object from AST argument with its default value"""
         anno: ast.expr | None = astArg.annotation
         typeHint: str | None = '' if anno is None else unparseName(anno)
-        assert typeHint is not None  # to help mypy better understand type
+        assert typeHint is not None  # narrow type for static checkers
 
         if astArg in argToDefaultMapping:
             # This means there IS a default value, even if it's None
@@ -140,7 +146,7 @@ class Arg:
         unparsedArgName = unparseName(astAnnAssign.target)
         unparsedTypeHint = unparseName(astAnnAssign.annotation)
 
-        # These assertions are to help mypy better interpret types
+        # These assertions narrow types for static checkers
         assert unparsedArgName is not None
         assert unparsedTypeHint is not None
 
@@ -149,6 +155,27 @@ class Arg:
     @classmethod
     def _str(cls, typeName: str | None) -> str:
         return '' if typeName is None else typeName
+
+    @classmethod
+    def _getRawTypeNameFromDocstringArg(cls, docstringArg: Any) -> str:
+        """
+        Return parser-preserved docstring type text when available.
+
+        For NumPy params and attrs, ``docstring_parser_fork`` exposes
+        ``raw_type_name`` as the declaration type segment before the parser
+        normalizes metadata into ``type_name`` and ``default``. For example,
+        ``arg : int, default=1`` has ``raw_type_name`` of ``"int, default=1"``,
+        ``type_name`` of ``"int"``, and ``default`` of ``"1"``.
+
+        pydoclint keeps using the raw text so docstring defaults remain part of
+        ``Arg.typeHint`` for existing DOC105/DOC605 comparisons. Fall back to
+        ``type_name`` for parser outputs without ``raw_type_name``.
+        """
+        rawTypeName = getattr(docstringArg, 'raw_type_name', None)
+        if rawTypeName is not None:
+            return cls._str(rawTypeName)
+
+        return cls._str(docstringArg.type_name)
 
     @classmethod
     def _typeHintsEq(cls, hint1: str, hint2: str) -> bool:
@@ -163,12 +190,12 @@ class Arg:
         # >>>     "ghi",
         # >>> ]
         try:
-            hint1_: str = unparseName(ast.parse(stripQuotes(hint1)))  # type:ignore[arg-type,assignment]
+            hint1_: str = unparseName(ast.parse(stripQuotes(hint1)))
         except SyntaxError:
             hint1_ = hint1
 
         try:
-            hint2_: str = unparseName(ast.parse(stripQuotes(hint2)))  # type:ignore[arg-type,assignment]
+            hint2_: str = unparseName(ast.parse(stripQuotes(hint2)))
         except SyntaxError:
             hint2_ = hint2
 
@@ -298,7 +325,9 @@ class ArgList:
     ) -> None:
         try:  # we may not know all potential cases, so we use try/catch
             unparsedTarget: str | None = unparseName(target)
-            assert unparsedTarget is not None  # to help mypy understand type
+            assert (
+                unparsedTarget is not None
+            )  # narrow type for static checkers
             infoList.append(Arg(name=unparsedTarget, typeHint=''))
         except Exception as ex:
             lineRange: str = (

@@ -5,64 +5,59 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .artifact_type import ArtifactType
-from .base_artifact_version import BaseArtifactVersion
+from .artifact_version import ArtifactVersion
 from .subject import Subject
 
 
 class Artifact(UniversalBaseModel):
-    """
-    Generic artifact API DTO including run-step linkage for ML runs.
-    """
-
     id: str = pydantic.Field()
     """
-    Unique identifier for the artifact
+    System-generated artifact ID.
     """
 
     ml_repo_id: str = pydantic.Field()
     """
-    ID of the ML Repo that this artifact belongs to
+    Identifier of the ML Repo the artifact belongs to.
     """
 
-    type: ArtifactType = pydantic.Field()
+    type: typing.Optional[typing.Literal["artifact"]] = pydantic.Field(default=None)
     """
-    Type of the artifact (e.g., 'artifact', 'model', 'chat_prompt', 'agent-skill', 'plot', 'image')
+    Discriminator for the artifact type; always `artifact` for a generic artifact.
     """
 
     name: str = pydantic.Field()
     """
-    Name of the artifact (alphanumeric characters, hyphens, and underscores only, max 256 characters)
+    Name of the artifact.
     """
 
     fqn: str = pydantic.Field()
     """
-    Fully qualified name of the artifact in the format '{artifact_type}:{tenant_name}/{ml_repo_name}/{artifact_name}'
+    Human-readable Fully Qualified Name of the artifact.
     """
 
     created_by_subject: Subject = pydantic.Field()
     """
-    Subject (user, team, or service account) that created this artifact
+    Subject (user, team, or service account) that created the artifact.
     """
 
     created_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
     """
-    Timestamp when the artifact was created
+    Timestamp when the artifact was created.
     """
 
     updated_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
     """
-    Timestamp when the artifact was last updated
+    Timestamp when the artifact was last updated.
     """
 
-    latest_version: typing.Optional[BaseArtifactVersion] = pydantic.Field(default=None)
+    latest_version: typing.Optional[ArtifactVersion] = pydantic.Field(default=None)
     """
-    The most recent version of this artifact
+    Most recently created version of the artifact, if any exist.
     """
 
-    run_steps: typing.Optional[typing.List[int]] = pydantic.Field(default=None)
+    run_steps: typing.Optional[typing.List[float]] = pydantic.Field(default=None)
     """
-    List of run step numbers where this artifact was created or updated
+    Run steps associated with the artifact.
     """
 
     if IS_PYDANTIC_V2:

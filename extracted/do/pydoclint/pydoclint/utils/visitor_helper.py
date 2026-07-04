@@ -427,10 +427,13 @@ def extractClassAttributesFromNode(
             atl.extend(ArgList.fromAstAssign(itm).infoList)
         elif isinstance(itm, (ast.AsyncFunctionDef, ast.FunctionDef)):  # noqa: SIM102
             if treatPropertyMethodsAsClassAttrs and checkIsPropertyMethod(itm):
+                typeHint = (
+                    '' if itm.returns is None else unparseName(itm.returns)
+                )
                 atl.append(
                     Arg(
                         name=itm.name,
-                        typeHint=unparseName(itm.returns),  # type:ignore[arg-type]
+                        typeHint=typeHint,
                     )
                 )
 
@@ -712,7 +715,7 @@ def checkReturnTypesForNumpyStyle(
     returnAnnoItems: list[str] = returnAnnotation.decompose()
     returnAnnoInList: list[str] = returnAnnotation.putAnnotationInList()
 
-    returnSecTypes: list[str] = [stripQuotes(_.argType) for _ in returnSection]  # type:ignore[misc]
+    returnSecTypes: list[str] = [stripQuotes(_.argType) for _ in returnSection]
 
     if returnAnnoInList != returnSecTypes:
         if len(returnAnnoItems) != len(returnSection):
@@ -746,7 +749,7 @@ def checkReturnTypesForGoogleOrSphinxStyle(
     # use one compound style for tuples.
 
     if len(returnSection) > 0:
-        retArgType: str = stripQuotes(returnSection[0].argType)  # type:ignore[assignment]
+        retArgType: str = stripQuotes(returnSection[0].argType)
         if returnAnnotation.annotation is None:
             msg = 'Return annotation has 0 type(s); docstring'
             msg += ' return section has 1 type(s).'
@@ -877,19 +880,28 @@ def extractYieldTypeFromGeneratorOrIteratorAnnotation(
     # Or it's the 0th (only) element in Iterator
     yieldType: str | None
 
-    try:
-        if generatorAnnotationKind is not None:
-            annotationArgs = _extractGeneratorOrAsyncGeneratorAnnotationArgs(
-                returnAnnoText,
-                generatorAnnotationKind=generatorAnnotationKind,
+    # Keep each annotation family in its own try so malformed annotations fall
+    # back to the original text without hiding normal branch logic.
+    if generatorAnnotationKind is not None:
+        try:
+            annotationArgs: list[ast.expr] = (
+                _extractGeneratorOrAsyncGeneratorAnnotationArgs(
+                    returnAnnoText,
+                    generatorAnnotationKind=generatorAnnotationKind,
+                )
             )
             yieldType = unparseName(annotationArgs[0])
-        elif hasIteratorOrIterableAsReturnAnnotation:
-            annotationSlice = _extractAnnotationSubscriptSlice(returnAnnoText)
-            yieldType = unparseName(annotationSlice)
-        else:
+        except (AttributeError, TypeError, IndexError, ValueError):
             yieldType = returnAnnoText
-    except (AttributeError, TypeError, IndexError, ValueError):
+    elif hasIteratorOrIterableAsReturnAnnotation:
+        try:
+            annotationSlice: ast.expr = _extractAnnotationSubscriptSlice(
+                returnAnnoText
+            )
+            yieldType = unparseName(annotationSlice)
+        except (AttributeError, TypeError, IndexError, ValueError):
+            yieldType = returnAnnoText
+    else:
         yieldType = returnAnnoText
 
     return stripQuotes(yieldType)
@@ -936,20 +948,30 @@ def extractReturnTypeFromGeneratorAnnotation(
     # None when its arity can be interpreted.
     # https://docs.python.org/3/library/typing.html#typing.Generator
     returnType: str | None
-    try:
-        if generatorAnnotationKind is GeneratorAnnotationKind.ASYNC_GENERATOR:
-            _extractAsyncGeneratorAnnotationSubscriptArgs(returnAnnoText)
-            returnType = 'None'
-            return stripQuotes(returnType)
 
+    # AsyncGenerator has no ReturnType slot; successful arity validation means
+    # the documented return type is None.
+    if generatorAnnotationKind is GeneratorAnnotationKind.ASYNC_GENERATOR:
+        try:
+            _extractAsyncGeneratorAnnotationSubscriptArgs(returnAnnoText)
+        except (AttributeError, TypeError, IndexError, ValueError):
+            returnType = returnAnnoText
+        else:
+            returnType = 'None'
+
+        return stripQuotes(returnType)
+
+    try:
+        generatorArgs: list[ast.expr]
         generatorArgs = _extractGeneratorAnnotationSubscriptArgs(
             returnAnnoText
         )
-        if len(generatorArgs) <= GENERATOR_RETURN_TYPE_ARG_INDEX:
-            returnType = 'None'
-        else:
-            returnArg = generatorArgs[GENERATOR_RETURN_TYPE_ARG_INDEX]
-            returnType = unparseName(returnArg)
+        # Abbreviated Generator annotations default ReturnType to None.
+        returnType = (
+            'None'
+            if len(generatorArgs) <= GENERATOR_RETURN_TYPE_ARG_INDEX
+            else unparseName(generatorArgs[GENERATOR_RETURN_TYPE_ARG_INDEX])
+        )
     except (AttributeError, TypeError, IndexError, ValueError):
         returnType = returnAnnoText
 
@@ -1016,7 +1038,18 @@ def _extractAnnotationSubscriptArgs(
 
 def _extractAnnotationSubscriptSlice(returnAnnoText: str | None) -> ast.expr:
     """Return the slice inside a subscript annotation."""
-    return ast.parse(returnAnnoText).body[0].value.slice  # type:ignore[attr-defined,arg-type,no-any-return]
+    if returnAnnoText is None:
+        raise TypeError('Return annotation cannot be None')
+
+    parsedBody0 = ast.parse(returnAnnoText).body[0]
+    if not isinstance(parsedBody0, ast.Expr):
+        raise TypeError('Return annotation must parse to an expression')
+
+    parsedValue = parsedBody0.value
+    if not isinstance(parsedValue, ast.Subscript):
+        raise TypeError('Return annotation must be subscripted')
+
+    return parsedValue.slice
 
 
 def addMismatchedRaisesExceptionViolation(

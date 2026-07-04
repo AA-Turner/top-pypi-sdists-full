@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_firmware_upgrades_rollbacks
-short_description: Resource module for networks _firmware _upgrades _rollbacks
+short_description: Resource module for networks _firmwareupgrades _rollbacks
 description:
-  - Manage operation create of the resource networks _firmware _upgrades _rollbacks.
+  - Manage operation create of the resource networks _firmwareupgrades _rollbacks.
   - Rollback a Firmware Upgrade For A Network.
 version_added: '1.0.0'
 extends_documentation_fragment:
@@ -19,15 +18,6 @@ options:
   networkId:
     description: NetworkId path parameter. Network ID.
     type: str
-  predownload:
-    description: Predownload settings for the firmware upgrade.
-    suboptions:
-      enabled:
-        description: Whether or not the network devices will predownload the firmware
-          image in advance of the actual upgrade. Only applies to wireless devices
-          running MR 32 or higher.
-        type: bool
-    type: dict
   product:
     description: Product type to rollback (if the network is a combined network).
     type: str
@@ -91,8 +81,6 @@ EXAMPLES = r"""
     meraki_use_iterator_for_get_pages: "{{ meraki_use_iterator_for_get_pages }}"
     meraki_inherit_logging_config: "{{ meraki_inherit_logging_config }}"
     networkId: string
-    predownload:
-      enabled: false
     product: switch
     reasons:
       - category: performance
@@ -124,9 +112,6 @@ meraki_response:
           "category": "string",
           "comment": "string"
         }
-      ],
-      "predownload": {
-        "enabled": true
-      }
+      ]
     }
 """

@@ -35,7 +35,6 @@ argument_spec.update(dict(
     hubs=dict(type="list"),
     subnets=dict(type="list"),
     subnet=dict(type="dict"),
-    hostTranslations=dict(type="list"),
     networkId=dict(type="str"),
 ))
 
@@ -55,8 +54,7 @@ class NetworksApplianceVpnSiteToSiteVpn(object):
             hubs=params.get("hubs"),
             subnets=params.get("subnets"),
             subnet=params.get("subnet"),
-            hostTranslations=params.get("hostTranslations"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
         )
 
     def get_all_params(self, name=None, id=None):
@@ -85,10 +83,6 @@ class NetworksApplianceVpnSiteToSiteVpn(object):
                 'subnet') is not None:
             new_object_params['subnet'] = self.new_object.get('subnet') or \
                 self.new_object.get('subnet')
-        if self.new_object.get('hostTranslations') is not None or self.new_object.get(
-                'host_translations') is not None:
-            new_object_params['hostTranslations'] = self.new_object.get(
-                'hostTranslations') or self.new_object.get('host_translations')
         if self.new_object.get('networkId') is not None or self.new_object.get(
                 'network_id') is not None:
             new_object_params['networkId'] = self.new_object.get(
@@ -151,7 +145,8 @@ class NetworksApplianceVpnSiteToSiteVpn(object):
             ("hubs", "hubs"),
             ("subnets", "subnets"),
             ("subnet", "subnet"),
-            ("hostTranslations", "hostTranslations"),]
+            ("networkId", "networkId"),
+        ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update
         return any(

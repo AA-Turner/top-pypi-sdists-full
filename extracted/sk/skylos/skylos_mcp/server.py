@@ -328,6 +328,8 @@ def _verify_change_impl(
     project_context: bool = False,
     include_dependency_hallucinations: bool = False,
     exclude_folders: str | None = None,
+    contract_path: str | None = None,
+    contract_enabled: bool = True,
 ) -> dict:
     """Core logic for verify_change, extracted for testability."""
     from skylos.verify_change import verify_change_path
@@ -348,6 +350,8 @@ def _verify_change_impl(
         exclude_folders=excl,
         project_context=project_context,
         include_dependency_hallucinations=include_dependency_hallucinations,
+        contract_path=contract_path,
+        contract_enabled=contract_enabled,
     )
 
 
@@ -1104,6 +1108,8 @@ def _register_tools(mcp):
         project_context: bool = False,
         include_dependency_hallucinations: bool = False,
         exclude_folders: str | None = None,
+        contract_path: str | None = None,
+        contract_enabled: bool = True,
     ) -> str:
         """Verify a changed file/range for AI-code defects.
 
@@ -1125,6 +1131,8 @@ def _register_tools(mcp):
                 project_context=project_context,
                 include_dependency_hallucinations=include_dependency_hallucinations,
                 exclude_folders=exclude_folders,
+                contract_path=contract_path,
+                contract_enabled=contract_enabled,
             )
             _store_result(result, "verify_change", path)
             return json.dumps(result, indent=2)

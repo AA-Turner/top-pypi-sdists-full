@@ -50,34 +50,6 @@ def read_config_file(f: str | IO[str], list_values: bool = True) -> ConfigObj | 
     return config
 
 
-def get_included_configs(config_file: str | IO[str]) -> list[str | IO[str]]:
-    """Get a list of configuration files that are included into config_path
-    with !includedir directive.
-
-    "Normal" configs should be passed as file paths. The only exception
-    is .mylogin which is decoded into a stream. However, it never
-    contains include directives and so will be ignored by this
-    function.
-
-    """
-    if not isinstance(config_file, str) or not os.path.isfile(config_file):
-        return []
-    included_configs: list[str | IO[str]] = []
-
-    try:
-        with open(config_file) as f:
-            include_directives = filter(lambda s: s.startswith("!includedir"), f)
-            dirs_split = (s.strip().split()[-1] for s in include_directives)
-            dirs = filter(os.path.isdir, dirs_split)
-            for dir_ in dirs:
-                for filename in os.listdir(dir_):
-                    if filename.endswith(".cnf"):
-                        included_configs.append(os.path.join(dir_, filename))
-    except (PermissionError, UnicodeDecodeError):
-        pass
-    return included_configs
-
-
 def read_config_files(
     files: list[str | IO[str]],
     list_values: bool = True,
@@ -99,10 +71,6 @@ def read_config_files(
         _file = _files.pop(0)
         _config = read_config_file(_file, list_values=list_values)
 
-        # expand includes only if we were able to parse config
-        # (otherwise we'll just encounter the same errors again)
-        if config is not None:
-            _files = get_included_configs(_file) + _files
         if _config is not None:
             config.merge(_config)
             config.filename = _config.filename
@@ -168,56 +136,6 @@ def open_mylogin_cnf(name: str) -> TextIOWrapper | None:
         return None
 
     return TextIOWrapper(plaintext)
-
-
-# TODO reuse code between encryption an decryption
-def encrypt_mylogin_cnf(plaintext: IO[str]) -> BytesIO:
-    """Encryption of .mylogin.cnf file, analogous to calling
-    mysql_config_editor.
-
-    Code is based on the python implementation by Kristian Koehntopp
-    https://github.com/isotopp/mysql-config-coder
-
-    """
-
-    def realkey(key: bytes) -> bytes:
-        """Create the AES key from the login key."""
-        rkey = bytearray(16)
-        for i in range(len(key)):
-            rkey[i % 16] ^= key[i]
-        return bytes(rkey)
-
-    def encode_line(plaintext: str, real_key: bytes, buf_len: int) -> bytes:
-        aes = AES.new(real_key, AES.MODE_ECB)
-        text_len = len(plaintext)
-        pad_len = buf_len - text_len
-        pad_chr = bytes(chr(pad_len), "utf8")
-        plaintext_b = plaintext.encode() + pad_chr * pad_len
-        encrypted_text = b"".join([aes.encrypt(plaintext_b[i : i + 16]) for i in range(0, len(plaintext_b), 16)])
-        return encrypted_text
-
-    LOGIN_KEY_LENGTH = 20
-    key = os.urandom(LOGIN_KEY_LENGTH)
-    real_key = realkey(key)
-
-    outfile = BytesIO()
-
-    outfile.write(struct.pack("i", 0))
-    outfile.write(key)
-
-    while True:
-        line = plaintext.readline()
-        if not line:
-            break
-        real_len = len(line)
-        pad_len = (int(real_len / 16) + 1) * 16
-
-        outfile.write(struct.pack("i", pad_len))
-        x = encode_line(line, real_key, pad_len)
-        outfile.write(x)
-
-    outfile.seek(0)
-    return outfile
 
 
 def read_and_decrypt_mylogin_cnf(f: BinaryIO) -> BytesIO | None:

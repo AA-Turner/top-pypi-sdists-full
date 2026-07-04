@@ -337,6 +337,85 @@ async def test_read_view_workspace_not_in_allowlist(ctx_patch) -> None:
 
 
 # ---------------------------------------------------------------------------
+# read_view — as_of (time-travel)
+# ---------------------------------------------------------------------------
+
+
+async def test_read_view_with_as_of_passes_to_service(mock_ctx, ctx_patch) -> None:
+    """read_view parses as_of ISO-8601 and threads the datetime to the service."""
+    from datetime import datetime  # noqa: PLC0415
+
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=make_item_entry())
+    mock_svc = AsyncMock(return_value=(["id"], [(1,)]))
+
+    with (
+        ctx_patch,
+        patch("fabric_dw.services.views.read_view", new=mock_svc),
+    ):
+        await mcp._tool_manager.call_tool(
+            "read_view",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.vw_sales",
+                "as_of": "2024-03-15T10:30:00",
+            },
+        )
+
+    _, kwargs = mock_svc.call_args
+    assert kwargs.get("as_of") is not None
+    assert isinstance(kwargs["as_of"], datetime)
+
+
+async def test_read_view_without_as_of_passes_none(mock_ctx, ctx_patch) -> None:
+    """read_view without as_of calls the service with as_of=None."""
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=make_item_entry())
+    mock_svc = AsyncMock(return_value=(["id"], [(1,)]))
+
+    with (
+        ctx_patch,
+        patch("fabric_dw.services.views.read_view", new=mock_svc),
+    ):
+        await mcp._tool_manager.call_tool(
+            "read_view",
+            {"workspace": WS_NAME, "item": WH_NAME, "qualified_name": "dbo.vw_sales"},
+        )
+
+    _, kwargs = mock_svc.call_args
+    assert kwargs.get("as_of") is None
+
+
+async def test_read_view_invalid_as_of_raises_tool_error(mock_ctx, ctx_patch) -> None:
+    """read_view raises ToolError when as_of is not a valid ISO-8601 string."""
+    from mcp.server.fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=make_item_entry())
+
+    with (
+        ctx_patch,
+        pytest.raises(ToolError),
+    ):
+        await mcp._tool_manager.call_tool(
+            "read_view",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.vw_sales",
+                "as_of": "not-a-date",
+            },
+        )
+
+
+# ---------------------------------------------------------------------------
 # get_view — happy path
 # ---------------------------------------------------------------------------
 
@@ -959,6 +1038,197 @@ async def test_rename_view_value_error_becomes_tool_error(mock_ctx, ctx_patch) -
 
 
 # ---------------------------------------------------------------------------
+# transfer_view — happy path
+# ---------------------------------------------------------------------------
+
+
+async def test_transfer_view_happy_path(mock_ctx, ctx_patch) -> None:
+    """transfer_view resolves workspace + item, calls service, returns moved view dict."""
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    moved_view = _make_view(schema="archive", name="vw_sales")
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=make_item_entry())
+    mock_transfer = AsyncMock(return_value=moved_view)
+
+    with (
+        ctx_patch,
+        patch("fabric_dw.services.views.transfer_view", new=mock_transfer),
+    ):
+        result = await mcp._tool_manager.call_tool(
+            "transfer_view",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.vw_sales",
+                "target_schema": "archive",
+            },
+        )
+
+    mock_transfer.assert_called_once()
+    args, _kwargs = mock_transfer.call_args
+    # service is called positionally: target, qualified_name, target_schema
+    assert args[1] == "dbo.vw_sales"
+    assert args[2] == "archive"
+    assert isinstance(result, dict)
+    assert result["name"] == "vw_sales"
+    assert result["schema_name"] == "archive"
+
+
+async def test_transfer_view_does_not_reject_sql_endpoint(mock_ctx, ctx_patch) -> None:
+    """transfer_view must NOT raise a ToolError for a SQL Analytics Endpoint item."""
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    moved_view = _make_view(schema="archive", name="vw_sales")
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=make_sql_endpoint_entry())
+
+    with (
+        ctx_patch,
+        patch("fabric_dw.services.views.transfer_view", new=AsyncMock(return_value=moved_view)),
+    ):
+        result = await mcp._tool_manager.call_tool(
+            "transfer_view",
+            {
+                "workspace": WS_NAME,
+                "item": "MySqlEndpoint",
+                "qualified_name": "dbo.vw_sales",
+                "target_schema": "archive",
+            },
+        )
+
+    assert result["name"] == "vw_sales"
+
+
+# ---------------------------------------------------------------------------
+# transfer_view — error / guard paths
+# ---------------------------------------------------------------------------
+
+
+async def test_transfer_view_readonly_mode_blocked(ctx_patch) -> None:
+    """transfer_view raises ToolError in read-only mode."""
+    from mcp.server.fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    with (
+        ctx_patch,
+        patch.dict(os.environ, {"FABRIC_MCP_READONLY": "1"}),
+        pytest.raises(ToolError) as exc_info,
+    ):
+        await mcp._tool_manager.call_tool(
+            "transfer_view",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.vw_sales",
+                "target_schema": "archive",
+            },
+        )
+
+    assert "read-only" in str(exc_info.value).lower()
+
+
+async def test_transfer_view_unqualified_name_raises_tool_error(ctx_patch) -> None:
+    """transfer_view raises ToolError when qualified_name has no dot."""
+    from mcp.server.fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    with (
+        ctx_patch,
+        pytest.raises(ToolError),
+    ):
+        await mcp._tool_manager.call_tool(
+            "transfer_view",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "nodot",
+                "target_schema": "archive",
+            },
+        )
+
+
+async def test_transfer_view_workspace_not_in_allowlist(ctx_patch) -> None:
+    """transfer_view raises ToolError when workspace is not in allowlist."""
+    from mcp.server.fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    with (
+        ctx_patch,
+        patch.dict(os.environ, {"FABRIC_MCP_WORKSPACES": "other-ws"}),
+        pytest.raises(ToolError),
+    ):
+        await mcp._tool_manager.call_tool(
+            "transfer_view",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.vw_sales",
+                "target_schema": "archive",
+            },
+        )
+
+
+async def test_transfer_view_fabric_error_becomes_tool_error(mock_ctx, ctx_patch) -> None:
+    """transfer_view converts FabricError to ToolError."""
+    from mcp.server.fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=make_item_entry())
+
+    with (
+        ctx_patch,
+        patch(
+            "fabric_dw.services.views.transfer_view",
+            new=AsyncMock(side_effect=FabricError("SQL error")),
+        ),
+        pytest.raises(ToolError),
+    ):
+        await mcp._tool_manager.call_tool(
+            "transfer_view",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.vw_sales",
+                "target_schema": "archive",
+            },
+        )
+
+
+async def test_transfer_view_value_error_becomes_tool_error(mock_ctx, ctx_patch) -> None:
+    """transfer_view converts ValueError (e.g. reserved target schema) to ToolError."""
+    from mcp.server.fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=make_item_entry())
+
+    with (
+        ctx_patch,
+        patch(
+            "fabric_dw.services.views.transfer_view",
+            new=AsyncMock(side_effect=ValueError("reserved system schema")),
+        ),
+        pytest.raises(ToolError),
+    ):
+        await mcp._tool_manager.call_tool(
+            "transfer_view",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.vw_sales",
+                "target_schema": "sys",
+            },
+        )
+
+
+# ---------------------------------------------------------------------------
 # count_view_rows
 # ---------------------------------------------------------------------------
 
@@ -1041,6 +1311,85 @@ async def test_count_view_rows_bad_qualified_name_raises_tool_error(ctx_patch) -
         await mcp._tool_manager.call_tool(
             "count_view_rows",
             {"workspace": WS_NAME, "item": WH_NAME, "qualified_name": "nodot"},
+        )
+
+
+# ---------------------------------------------------------------------------
+# count_view_rows — as_of (time-travel)
+# ---------------------------------------------------------------------------
+
+
+async def test_count_view_rows_with_as_of_passes_to_service(mock_ctx, ctx_patch) -> None:
+    """count_view_rows parses as_of ISO-8601 and threads the datetime to the service."""
+    from datetime import datetime  # noqa: PLC0415
+
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=make_item_entry())
+    mock_count = AsyncMock(return_value=10)
+
+    with (
+        ctx_patch,
+        patch("fabric_dw.services.views.count_view_rows", new=mock_count),
+    ):
+        await mcp._tool_manager.call_tool(
+            "count_view_rows",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.vw_sales",
+                "as_of": "2024-03-15T10:30:00",
+            },
+        )
+
+    _, kwargs = mock_count.call_args
+    assert kwargs.get("as_of") is not None
+    assert isinstance(kwargs["as_of"], datetime)
+
+
+async def test_count_view_rows_without_as_of_passes_none(mock_ctx, ctx_patch) -> None:
+    """count_view_rows without as_of calls the service with as_of=None."""
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=make_item_entry())
+    mock_count = AsyncMock(return_value=0)
+
+    with (
+        ctx_patch,
+        patch("fabric_dw.services.views.count_view_rows", new=mock_count),
+    ):
+        await mcp._tool_manager.call_tool(
+            "count_view_rows",
+            {"workspace": WS_NAME, "item": WH_NAME, "qualified_name": "dbo.vw_sales"},
+        )
+
+    _, kwargs = mock_count.call_args
+    assert kwargs.get("as_of") is None
+
+
+async def test_count_view_rows_invalid_as_of_raises_tool_error(mock_ctx, ctx_patch) -> None:
+    """count_view_rows raises ToolError when as_of is not a valid ISO-8601 string."""
+    from mcp.server.fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=make_item_entry())
+
+    with (
+        ctx_patch,
+        pytest.raises(ToolError),
+    ):
+        await mcp._tool_manager.call_tool(
+            "count_view_rows",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.vw_sales",
+                "as_of": "not-a-date",
+            },
         )
 
 

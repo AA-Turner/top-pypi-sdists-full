@@ -139,6 +139,14 @@ pub fn signed_log_sum_exp(log_mags: &[f64], signs: &[f64]) -> (f64, f64) {
         f64::NEG_INFINITY
     };
 
+    if log_pos == f64::NEG_INFINITY && log_neg == f64::NEG_INFINITY {
+        // Both partial sums are empty: no terms at all, all signs zero, or every
+        // magnitude `−∞` (each `exp(−∞) = 0`). The signed sum is exactly `0`, so
+        // the contract requires `(−∞, 0.0)` — NOT the positive-sum convention,
+        // which would mislabel a zero as `+1` and corrupt any downstream cascade
+        // that reads back the sign.
+        return (f64::NEG_INFINITY, 0.0);
+    }
     if log_neg == f64::NEG_INFINITY {
         return (log_pos, 1.0);
     }
@@ -351,7 +359,10 @@ mod tests {
     fn normal_cdf_symmetry() {
         for &x in &[0.5, 1.0, 2.0, 3.0] {
             let sum = normal_cdf(x) + normal_cdf(-x);
-            assert!((sum - 1.0).abs() < TOL, "cdf symmetry failed at x={x}: sum={sum}");
+            assert!(
+                (sum - 1.0).abs() < TOL,
+                "cdf symmetry failed at x={x}: sum={sum}"
+            );
         }
     }
 
@@ -396,7 +407,10 @@ mod tests {
             let got = erfcx_nonnegative(x);
             let expected = (x * x).exp() * erfc(x);
             let err = rel_err(got, expected);
-            assert!(err < 1e-10, "x={x}: got={got} expected={expected} rel={err}");
+            assert!(
+                err < 1e-10,
+                "x={x}: got={got} expected={expected} rel={err}"
+            );
         }
     }
 
@@ -407,7 +421,10 @@ mod tests {
         assert!(got.is_finite() && got > 0.0, "erfcx(50)={got}");
         // Leading asymptotic term: 1/(x*sqrt(pi)).
         let asymptotic = 1.0 / (50.0 * std::f64::consts::PI.sqrt());
-        assert!(rel_err(got, asymptotic) < 1e-3, "got={got} asymptotic={asymptotic}");
+        assert!(
+            rel_err(got, asymptotic) < 1e-3,
+            "got={got} asymptotic={asymptotic}"
+        );
     }
 
     // ── log1mexp_positive ─────────────────────────────────────────────────────
@@ -469,13 +486,31 @@ mod tests {
     }
 
     #[test]
-    fn slse_empty_returns_neg_inf() {
-        // With no terms the positive partial is vacuously −∞, so the function
-        // short-circuits the `log_neg == NEG_INFINITY` branch and returns sign +1
-        // (the positive-sum convention when both partials are empty).
+    fn slse_empty_returns_neg_inf_with_zero_sign() {
+        // With no terms the sum is exactly 0, so the docstring contract is
+        // `(−∞, 0.0)`. (This test previously encoded the buggy `+1.0` positive-sum
+        // convention, which contradicted both the docstring and the cancellation
+        // test below; rewritten to the correct zero sign.)
         let (lm, sg) = signed_log_sum_exp(&[], &[]);
         assert_eq!(lm, f64::NEG_INFINITY);
-        assert_eq!(sg, 1.0);
+        assert_eq!(sg, 0.0);
+    }
+
+    #[test]
+    fn slse_all_zero_signs_return_zero_sign() {
+        // A single term whose sign is 0 contributes nothing; S = 0 ⇒ (−∞, 0.0).
+        let (lm, sg) = signed_log_sum_exp(&[0.0], &[0.0]);
+        assert_eq!(lm, f64::NEG_INFINITY);
+        assert_eq!(sg, 0.0);
+    }
+
+    #[test]
+    fn slse_all_neg_inf_magnitudes_return_zero_sign() {
+        // Every magnitude is exp(−∞) = 0 regardless of sign, so the sum is 0 and
+        // the reported sign must be 0.0, not +1.0.
+        let (lm, sg) = signed_log_sum_exp(&[f64::NEG_INFINITY, f64::NEG_INFINITY], &[1.0, -1.0]);
+        assert_eq!(lm, f64::NEG_INFINITY);
+        assert_eq!(sg, 0.0);
     }
 
     #[test]
@@ -528,7 +563,10 @@ mod tests {
         for &x in &[-2.0_f64, -1.0, 0.0, 1.0, 2.0, 3.0] {
             let got = normal_logcdf(x);
             let expected = normal_cdf(x).ln();
-            assert!((got - expected).abs() < 1e-10, "x={x}: got={got} expected={expected}");
+            assert!(
+                (got - expected).abs() < 1e-10,
+                "x={x}: got={got} expected={expected}"
+            );
         }
     }
 
@@ -593,8 +631,14 @@ mod tests {
             let (lc, mr) = signed_probit_logcdf_and_mills_ratio(x);
             let lc_ref = normal_logcdf(x);
             let mr_ref = normal_pdf(x) / normal_cdf(x);
-            assert!((lc - lc_ref).abs() < 1e-10, "x={x}: lc={lc} lc_ref={lc_ref}");
-            assert!((mr - mr_ref).abs() < 1e-10, "x={x}: mr={mr} mr_ref={mr_ref}");
+            assert!(
+                (lc - lc_ref).abs() < 1e-10,
+                "x={x}: lc={lc} lc_ref={lc_ref}"
+            );
+            assert!(
+                (mr - mr_ref).abs() < 1e-10,
+                "x={x}: mr={mr} mr_ref={mr_ref}"
+            );
         }
     }
 
@@ -603,7 +647,10 @@ mod tests {
         for &x in &[-0.5_f64, -1.0, -2.0, -5.0] {
             let (lc, mr) = signed_probit_logcdf_and_mills_ratio(x);
             let lc_ref = normal_logcdf(x);
-            assert!((lc - lc_ref).abs() < 1e-10, "x={x}: lc={lc} lc_ref={lc_ref}");
+            assert!(
+                (lc - lc_ref).abs() < 1e-10,
+                "x={x}: lc={lc} lc_ref={lc_ref}"
+            );
             assert!(mr.is_finite() && mr > 0.0, "x={x}: mr={mr}");
         }
     }
@@ -640,7 +687,9 @@ mod tests {
 
     #[test]
     fn quantile_roundtrip_cdf() {
-        for &p in &[0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 0.999] {
+        for &p in &[
+            0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 0.999,
+        ] {
             let q = standard_normal_quantile(p).unwrap();
             let p_back = normal_cdf(q);
             assert!(

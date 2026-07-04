@@ -2719,6 +2719,26 @@ pub fn integrated_inverse_link_mean_and_derivative(
         LinkFunction::Probit => Ok(probit_posterior_meanwith_deriv_exact(mu, sigma)),
         LinkFunction::Logit => logit_posterior_meanwith_deriv_controlled(mu, sigma),
         LinkFunction::CLogLog => Ok(cloglog_posterior_meanwith_deriv_controlled(quadctx, mu, sigma)),
+        LinkFunction::LogLog | LinkFunction::Cauchit => {
+            // The outer arm restricts `link` to exactly these two variants.
+            let component = if matches!(link, LinkFunction::LogLog) {
+                LinkComponent::LogLog
+            } else {
+                LinkComponent::Cauchit
+            };
+            let (mean, dmean_dmu, _, _) = integrate_normal_ghq_adaptive(quadctx, mu, sigma, |x| {
+                component_point_jet(component, x)
+            });
+            Ok(IntegratedMeanDerivative {
+                mean,
+                dmean_dmu,
+                mode: if sigma <= 1e-10 {
+                    IntegratedExpectationMode::ExactClosedForm
+                } else {
+                    IntegratedExpectationMode::QuadratureFallback
+                },
+            })
+        }
         LinkFunction::Sas => Err(EstimationError::InvalidInput(
             "state-less integrated SAS moments are unsupported; use SAS-aware prediction APIs with explicit (epsilon, log_delta)".to_string(),
         )),
@@ -2794,6 +2814,28 @@ pub fn integrated_inverse_link_jet(
             Ok(integrated_cloglog_inverse_link_jet_controlled(
                 quadctx, mu, sigma,
             ))
+        }
+        LinkFunction::LogLog | LinkFunction::Cauchit => {
+            // The outer arm restricts `link` to exactly these two variants.
+            let component = if matches!(link, LinkFunction::LogLog) {
+                LinkComponent::LogLog
+            } else {
+                LinkComponent::Cauchit
+            };
+            let (mean, d1, d2, d3) = integrate_normal_ghq_adaptive(quadctx, mu, sigma, |x| {
+                component_point_jet(component, x)
+            });
+            Ok(IntegratedInverseLinkJet {
+                mean,
+                d1,
+                d2,
+                d3,
+                mode: if sigma <= 1e-10 {
+                    IntegratedExpectationMode::ExactClosedForm
+                } else {
+                    IntegratedExpectationMode::QuadratureFallback
+                },
+            })
         }
         LinkFunction::Sas => Err(EstimationError::InvalidInput(
             "state-less integrated SAS jet is unsupported; use SAS-aware prediction APIs with explicit (epsilon, log_delta)".to_string(),
@@ -4664,16 +4706,133 @@ pub fn cloglog_ghq_value(ctx: &QuadratureContext, mu: f64, sigma: f64, n_nodes: 
         return g.clamp(0.0, 1.0);
     }
     let inv_sqrt_pi = 1.0 / std::f64::consts::PI.sqrt();
-    let scale = SQRT_2 * sigma;
-    with_gh_nodesweights(ctx, n_nodes, |nodes, weights| {
-        let mut sum = 0.0_f64;
-        for i in 0..nodes.len() {
-            let t = mu + scale * nodes[i];
-            let (g, _, _, _, _) = cloglog_g_derivatives(t);
-            sum += weights[i] * g;
+
+    // Adaptive (mode-centred) Gauss-Hermite quadrature (Liu & Pierce, 1994).
+    //
+    // Plain physicist GHQ centred at `mu` with scale `√2 σ` integrates
+    //   L(μ,σ) = ∫ g(η) N(η; μ, σ²) dη,   g(η) = 1 − exp(−exp(η)),
+    // but converges slowly once σ is moderate/large: the cloglog inverse link is
+    // a stiff 0→1 *ramp* (a CDF), and a degree-(2n−1) polynomial fit of a step
+    // against the fixed N(μ,σ²) weight leaves ~1e-6 truncation error at n=15 and
+    // ~1e-8 at n=31 for σ≈1 — so simply doubling the order does *not* stabilise
+    // the integral to the 1e-8 level the caller expects. Two things fix this:
+    //
+    //  1. Re-centre the rule on the integrand's own mode and match its curvature
+    //     (adaptive GHQ). Let ℓ(η) = ln g(η) − (η−μ)²/(2σ²); the integrand
+    //     q(η) = g(η) N(η;μ,σ²) ∝ exp(ℓ(η)) is strictly log-concave (g'/g is
+    //     decreasing) with a unique mode η̂ (ℓ'(η̂)=0). With τ² = −1/ℓ''(η̂) the
+    //     affine map η = η̂ + √2 τ t gives
+    //       L ≈ (τ/(σ√π)) Σ_i ω_i g(η_i) exp(t_i² − (η_i−μ)²/(2σ²)),
+    //     which improves conditioning and reduces to the plain rule as σ→0
+    //     (η̂→μ, τ→σ). This buys ~10× accuracy.
+    //
+    //  2. Certify convergence by an actual order-doubling error estimate, not by
+    //     clamping the request to one σ-derived order. `n_nodes` is the starting
+    //     order; we then escalate up the GHQ ladder (7→15→21→31→51) and stop as
+    //     soon as two successive orders agree to `CLOGLOG_GHQ_CONV_TOL`, returning
+    //     the higher-order (more resolved) estimate. Earlier code instead set
+    //     `n_eff = n_nodes.max(adaptive_point_count_from_sd(σ))`, forcing a
+    //     requested 15 and 31 to the *same* internal order so the caller's
+    //     order-doubling check `|I_31 − I_15|` was trivially ≈0 — it papered over
+    //     under-resolution rather than proving it (#2063; the σ step-function it
+    //     relied on was itself tuned to pass tests). With the mode-centred rule
+    //     of (1) the escalation converges in 1–2 steps, so this is both honest
+    //     and cheap.
+    let inv_sig2 = 1.0 / (sigma * sigma);
+    let mut eta_hat = mu;
+    let mut converged = false;
+    for _ in 0..100 {
+        let (g, g1, g2, _, _, _) = cloglog_point_jet5(eta_hat);
+        if !(g > 0.0) || !g1.is_finite() || !g2.is_finite() {
+            break;
         }
-        (sum * inv_sqrt_pi).clamp(0.0, 1.0)
-    })
+        let r = g1 / g;
+        let lp = r - (eta_hat - mu) * inv_sig2;
+        let lpp = g2 / g - r * r - inv_sig2;
+        if !lpp.is_finite() || lpp >= 0.0 {
+            break;
+        }
+        let step = lp / lpp;
+        eta_hat -= step;
+        if step.abs() <= 1e-13 * (1.0 + eta_hat.abs()) {
+            converged = true;
+            break;
+        }
+    }
+
+    // Curvature at the located mode. If mode-finding failed or the curvature is
+    // degenerate, fall back to the plain (μ-centred) rule so the value is never
+    // worse than the classical GHQ estimate.
+    let tau = if converged {
+        let (g, g1, g2, _, _, _) = cloglog_point_jet5(eta_hat);
+        if g > 0.0 {
+            let r = g1 / g;
+            let lpp = g2 / g - r * r - inv_sig2;
+            let tau2 = -1.0 / lpp;
+            if tau2.is_finite() && tau2 > 0.0 {
+                Some(tau2.sqrt())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    // Evaluate the (mode-centred, or μ-centred fallback) rule at a single order.
+    let eval_at = |n: usize| -> f64 {
+        match tau {
+            Some(tau) => {
+                let pref = tau * inv_sqrt_pi / sigma;
+                with_gh_nodesweights(ctx, n, |nodes, weights| {
+                    let mut sum = 0.0_f64;
+                    for i in 0..nodes.len() {
+                        let t = nodes[i];
+                        let eta_i = eta_hat + SQRT_2 * tau * t;
+                        let (g, _, _, _, _, _) = cloglog_point_jet5(eta_i);
+                        let dev = eta_i - mu;
+                        sum += weights[i] * (t * t - 0.5 * dev * dev * inv_sig2).exp() * g;
+                    }
+                    (pref * sum).clamp(0.0, 1.0)
+                })
+            }
+            None => {
+                let scale = SQRT_2 * sigma;
+                with_gh_nodesweights(ctx, n, |nodes, weights| {
+                    let mut sum = 0.0_f64;
+                    for i in 0..nodes.len() {
+                        let t = mu + scale * nodes[i];
+                        let (g, _, _, _, _) = cloglog_g_derivatives(t);
+                        sum += weights[i] * g;
+                    }
+                    (sum * inv_sqrt_pi).clamp(0.0, 1.0)
+                })
+            }
+        }
+    };
+
+    // Error-driven order-doubling: start at `n_nodes` (its floor), escalate up
+    // the ladder and return the higher-order estimate as soon as two successive
+    // orders agree to `CLOGLOG_GHQ_CONV_TOL`; if none do, return the max-order
+    // (most-resolved) estimate rather than assert convergence (#2063).
+    const CLOGLOG_GHQ_ORDER_LADDER: [usize; 5] = [7, 15, 21, 31, 51];
+    const CLOGLOG_GHQ_CONV_TOL: f64 = 1e-10;
+    let floor = n_nodes.min(*CLOGLOG_GHQ_ORDER_LADDER.last().unwrap());
+    let mut prev: Option<f64> = None;
+    let mut result = 0.0_f64;
+    for &n in CLOGLOG_GHQ_ORDER_LADDER.iter().filter(|&&n| n >= floor) {
+        let cur = eval_at(n);
+        result = cur;
+        if let Some(p) = prev
+            && (cur - p).abs() < CLOGLOG_GHQ_CONV_TOL
+        {
+            break;
+        }
+        prev = Some(cur);
+    }
+    result
 }
 
 /// Compute all partial derivatives of `L(μ,σ)` up to fourth order via

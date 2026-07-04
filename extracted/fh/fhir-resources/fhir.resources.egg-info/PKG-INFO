@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhir.resources
-Version: 8.2.0
+Version: 8.3.0
 Summary: FHIR Resources as Model Class
 Home-page: https://github.com/nazrulworld/fhir.resources
 Author: Md Nazrul Islam
@@ -33,7 +33,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Typing :: Typed
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
-Requires-Dist: fhir-core>=1.1.5
+Requires-Dist: fhir-core>=1.1.9
 Provides-Extra: yaml
 Requires-Dist: PyYAML>=5.4.1; extra == "yaml"
 Provides-Extra: xml
@@ -932,6 +932,15 @@ owned by `Health Level Seven International <https://www.hl7.org/legal/trademarks
 =======
 History
 =======
+
+8.3.0 (2026-07-03)
+------------------
+
+Breaking
+
+- For the `Extension` class, the `url` field value is now required. Issue #205 (https://github.com/nazrulworld/fhir.resources/issues/205)
+
+- Minimum requirement for ``fhir-core`` version is now ``1.1.9``
 
 8.2.0 (2026-02-02)
 ------------------

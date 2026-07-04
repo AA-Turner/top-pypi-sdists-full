@@ -15,19 +15,15 @@ if typing.TYPE_CHECKING:
         deployments,
         docker_registries,
         metrics,
-        ml,
         users,
         vcs,
         workflows,
     )
     from .ai_gateway import AiGatewayGetGatewayConfigRequestType
     from .metrics import MetricsGetChartsRequestFilterEntity
-    from .ml import ApplyMlEntityRequestManifest, DeleteMlEntityRequestManifest
     from .workflows import WorkflowsExecuteWorkflowResponse
 _dynamic_imports: typing.Dict[str, str] = {
     "AiGatewayGetGatewayConfigRequestType": ".ai_gateway",
-    "ApplyMlEntityRequestManifest": ".ml",
-    "DeleteMlEntityRequestManifest": ".ml",
     "MetricsGetChartsRequestFilterEntity": ".metrics",
     "WorkflowsExecuteWorkflowResponse": ".workflows",
     "ai_gateway": ".ai_gateway",
@@ -38,7 +34,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "deployments": ".deployments",
     "docker_registries": ".docker_registries",
     "metrics": ".metrics",
-    "ml": ".ml",
     "users": ".users",
     "vcs": ".vcs",
     "workflows": ".workflows",
@@ -68,8 +63,6 @@ def __dir__():
 
 __all__ = [
     "AiGatewayGetGatewayConfigRequestType",
-    "ApplyMlEntityRequestManifest",
-    "DeleteMlEntityRequestManifest",
     "MetricsGetChartsRequestFilterEntity",
     "WorkflowsExecuteWorkflowResponse",
     "ai_gateway",
@@ -80,7 +73,6 @@ __all__ = [
     "deployments",
     "docker_registries",
     "metrics",
-    "ml",
     "users",
     "vcs",
     "workflows",

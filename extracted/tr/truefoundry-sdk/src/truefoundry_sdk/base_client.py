@@ -14,10 +14,13 @@ from .raw_base_client import AsyncRawBaseTrueFoundry, RawBaseTrueFoundry
 from .types.true_foundry_apply_request_manifest import TrueFoundryApplyRequestManifest
 from .types.true_foundry_apply_response import TrueFoundryApplyResponse
 from .types.true_foundry_delete_request_manifest import TrueFoundryDeleteRequestManifest
+from .types.true_foundry_delete_response import TrueFoundryDeleteResponse
 
 if typing.TYPE_CHECKING:
     from .agent_skill_versions.client import AgentSkillVersionsClient, AsyncAgentSkillVersionsClient
     from .agent_skills.client import AgentSkillsClient, AsyncAgentSkillsClient
+    from .agent_versions.client import AgentVersionsClient, AsyncAgentVersionsClient
+    from .agents.client import AgentsClient, AsyncAgentsClient
     from .alerts.client import AlertsClient, AsyncAlertsClient
     from .application_versions.client import ApplicationVersionsClient, AsyncApplicationVersionsClient
     from .applications.client import ApplicationsClient, AsyncApplicationsClient
@@ -36,6 +39,7 @@ if typing.TYPE_CHECKING:
     from .personal_access_tokens.client import AsyncPersonalAccessTokensClient, PersonalAccessTokensClient
     from .prompt_versions.client import AsyncPromptVersionsClient, PromptVersionsClient
     from .prompts.client import AsyncPromptsClient, PromptsClient
+    from .runs.client import AsyncRunsClient, RunsClient
     from .secret_groups.client import AsyncSecretGroupsClient, SecretGroupsClient
     from .secrets.client import AsyncSecretsClient, SecretsClient
     from .teams.client import AsyncTeamsClient, TeamsClient
@@ -63,6 +67,15 @@ class BaseTrueFoundry:
     timeout : typing.Optional[float]
         The timeout to be used, in seconds, for requests. By default the timeout is 60 seconds, unless a custom httpx client is used, in which case this default is not enforced.
 
+    max_retries : typing.Optional[int]
+        The default maximum number of retries for failed requests. Defaults to 2. Per-request `max_retries` in `request_options` takes precedence over this value.
+
+    stream_reconnection_enabled : typing.Optional[bool]
+        Whether to automatically reconnect on stream disconnection for resumable streaming endpoints. Defaults to True. Per-request `stream_reconnection_enabled` in `request_options` takes precedence over this value.
+
+    max_stream_reconnection_attempts : typing.Optional[int]
+        The maximum number of reconnection attempts for resumable streaming endpoints. Defaults to no limit. Per-request `max_stream_reconnection_attempts` in `request_options` takes precedence over this value.
+
     follow_redirects : typing.Optional[bool]
         Whether the default httpx client follows redirects or not, this is irrelevant if a custom httpx client is passed in.
 
@@ -89,6 +102,9 @@ class BaseTrueFoundry:
         api_key: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = os.getenv("TFY_API_KEY"),
         headers: typing.Optional[typing.Dict[str, str]] = None,
         timeout: typing.Optional[float] = None,
+        max_retries: typing.Optional[int] = None,
+        stream_reconnection_enabled: typing.Optional[bool] = None,
+        max_stream_reconnection_attempts: typing.Optional[int] = None,
         follow_redirects: typing.Optional[bool] = True,
         httpx_client: typing.Optional[httpx.Client] = None,
         logging: typing.Optional[typing.Union[LogConfig, Logger]] = None,
@@ -96,6 +112,7 @@ class BaseTrueFoundry:
         _defaulted_timeout = (
             timeout if timeout is not None else 60 if httpx_client is None else httpx_client.timeout.read
         )
+        _defaulted_max_retries = max_retries if max_retries is not None else 2
         if api_key is None:
             raise ApiError(body="The client must be instantiated be either passing in api_key or setting TFY_API_KEY")
         self._client_wrapper = SyncClientWrapper(
@@ -108,6 +125,9 @@ class BaseTrueFoundry:
             if follow_redirects is not None
             else httpx.Client(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
+            max_retries=_defaulted_max_retries,
+            stream_reconnection_enabled=stream_reconnection_enabled,
+            max_stream_reconnection_attempts=max_stream_reconnection_attempts,
             logging=logging,
         )
         self._raw_client = RawBaseTrueFoundry(client_wrapper=self._client_wrapper)
@@ -120,24 +140,27 @@ class BaseTrueFoundry:
         self._applications: typing.Optional[ApplicationsClient] = None
         self._application_versions: typing.Optional[ApplicationVersionsClient] = None
         self._jobs: typing.Optional[JobsClient] = None
-        self._environments: typing.Optional[EnvironmentsClient] = None
         self._workspaces: typing.Optional[WorkspacesClient] = None
+        self._environments: typing.Optional[EnvironmentsClient] = None
         self._secrets: typing.Optional[SecretsClient] = None
         self._secret_groups: typing.Optional[SecretGroupsClient] = None
         self._events: typing.Optional[EventsClient] = None
         self._alerts: typing.Optional[AlertsClient] = None
-        self._logs: typing.Optional[LogsClient] = None
-        self._ml_repos: typing.Optional[MlReposClient] = None
-        self._traces: typing.Optional[TracesClient] = None
-        self._artifacts: typing.Optional[ArtifactsClient] = None
+        self._agents: typing.Optional[AgentsClient] = None
+        self._agent_versions: typing.Optional[AgentVersionsClient] = None
         self._prompts: typing.Optional[PromptsClient] = None
-        self._models: typing.Optional[ModelsClient] = None
-        self._artifact_versions: typing.Optional[ArtifactVersionsClient] = None
-        self._model_versions: typing.Optional[ModelVersionsClient] = None
         self._prompt_versions: typing.Optional[PromptVersionsClient] = None
+        self._artifacts: typing.Optional[ArtifactsClient] = None
+        self._artifact_versions: typing.Optional[ArtifactVersionsClient] = None
+        self._ml_repos: typing.Optional[MlReposClient] = None
+        self._data_directories: typing.Optional[DataDirectoriesClient] = None
+        self._runs: typing.Optional[RunsClient] = None
+        self._models: typing.Optional[ModelsClient] = None
+        self._model_versions: typing.Optional[ModelVersionsClient] = None
+        self._logs: typing.Optional[LogsClient] = None
         self._agent_skills: typing.Optional[AgentSkillsClient] = None
         self._agent_skill_versions: typing.Optional[AgentSkillVersionsClient] = None
-        self._data_directories: typing.Optional[DataDirectoriesClient] = None
+        self._traces: typing.Optional[TracesClient] = None
 
     @property
     def with_raw_response(self) -> RawBaseTrueFoundry:
@@ -158,12 +181,12 @@ class BaseTrueFoundry:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> TrueFoundryApplyResponse:
         """
-        Applies a given manifest to create or update resources of specific types, such as provider-account, cluster, workspace, or ml-repo.
+        Apply a manifest to create or update a resource.
 
         Parameters
         ----------
         manifest : TrueFoundryApplyRequestManifest
-            manifest of the resource to be created or updated
+            Manifest of the resource to be created or updated
 
         dry_run : typing.Optional[bool]
             Dry run the apply operation without actually applying
@@ -174,7 +197,7 @@ class BaseTrueFoundry:
         Returns
         -------
         TrueFoundryApplyResponse
-            The resource has been successfully created or updated.
+            The created or updated resource, and the action that was performed.
 
         Examples
         --------
@@ -202,21 +225,22 @@ class BaseTrueFoundry:
 
     def delete(
         self, *, manifest: TrueFoundryDeleteRequestManifest, request_options: typing.Optional[RequestOptions] = None
-    ) -> None:
+    ) -> TrueFoundryDeleteResponse:
         """
-        Deletes resources of specific types, such as provider-account, cluster, workspace, or application.
+        Delete a resource identified by the provided manifest.
 
         Parameters
         ----------
         manifest : TrueFoundryDeleteRequestManifest
-            manifest of the resource to be deleted
+            Manifest of the resource to be deleted
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        None
+        TrueFoundryDeleteResponse
+            Empty response confirming the resource has been deleted.
 
         Examples
         --------
@@ -315,20 +339,20 @@ class BaseTrueFoundry:
         return self._jobs
 
     @property
-    def environments(self):
-        if self._environments is None:
-            from .environments.client import EnvironmentsClient  # noqa: E402
-
-            self._environments = EnvironmentsClient(client_wrapper=self._client_wrapper)
-        return self._environments
-
-    @property
     def workspaces(self):
         if self._workspaces is None:
             from .workspaces.client import WorkspacesClient  # noqa: E402
 
             self._workspaces = WorkspacesClient(client_wrapper=self._client_wrapper)
         return self._workspaces
+
+    @property
+    def environments(self):
+        if self._environments is None:
+            from .environments.client import EnvironmentsClient  # noqa: E402
+
+            self._environments = EnvironmentsClient(client_wrapper=self._client_wrapper)
+        return self._environments
 
     @property
     def secrets(self):
@@ -363,36 +387,20 @@ class BaseTrueFoundry:
         return self._alerts
 
     @property
-    def logs(self):
-        if self._logs is None:
-            from .logs.client import LogsClient  # noqa: E402
+    def agents(self):
+        if self._agents is None:
+            from .agents.client import AgentsClient  # noqa: E402
 
-            self._logs = LogsClient(client_wrapper=self._client_wrapper)
-        return self._logs
-
-    @property
-    def ml_repos(self):
-        if self._ml_repos is None:
-            from .ml_repos.client import MlReposClient  # noqa: E402
-
-            self._ml_repos = MlReposClient(client_wrapper=self._client_wrapper)
-        return self._ml_repos
+            self._agents = AgentsClient(client_wrapper=self._client_wrapper)
+        return self._agents
 
     @property
-    def traces(self):
-        if self._traces is None:
-            from .traces.client import TracesClient  # noqa: E402
+    def agent_versions(self):
+        if self._agent_versions is None:
+            from .agent_versions.client import AgentVersionsClient  # noqa: E402
 
-            self._traces = TracesClient(client_wrapper=self._client_wrapper)
-        return self._traces
-
-    @property
-    def artifacts(self):
-        if self._artifacts is None:
-            from .artifacts.client import ArtifactsClient  # noqa: E402
-
-            self._artifacts = ArtifactsClient(client_wrapper=self._client_wrapper)
-        return self._artifacts
+            self._agent_versions = AgentVersionsClient(client_wrapper=self._client_wrapper)
+        return self._agent_versions
 
     @property
     def prompts(self):
@@ -403,12 +411,20 @@ class BaseTrueFoundry:
         return self._prompts
 
     @property
-    def models(self):
-        if self._models is None:
-            from .models.client import ModelsClient  # noqa: E402
+    def prompt_versions(self):
+        if self._prompt_versions is None:
+            from .prompt_versions.client import PromptVersionsClient  # noqa: E402
 
-            self._models = ModelsClient(client_wrapper=self._client_wrapper)
-        return self._models
+            self._prompt_versions = PromptVersionsClient(client_wrapper=self._client_wrapper)
+        return self._prompt_versions
+
+    @property
+    def artifacts(self):
+        if self._artifacts is None:
+            from .artifacts.client import ArtifactsClient  # noqa: E402
+
+            self._artifacts = ArtifactsClient(client_wrapper=self._client_wrapper)
+        return self._artifacts
 
     @property
     def artifact_versions(self):
@@ -419,6 +435,38 @@ class BaseTrueFoundry:
         return self._artifact_versions
 
     @property
+    def ml_repos(self):
+        if self._ml_repos is None:
+            from .ml_repos.client import MlReposClient  # noqa: E402
+
+            self._ml_repos = MlReposClient(client_wrapper=self._client_wrapper)
+        return self._ml_repos
+
+    @property
+    def data_directories(self):
+        if self._data_directories is None:
+            from .data_directories.client import DataDirectoriesClient  # noqa: E402
+
+            self._data_directories = DataDirectoriesClient(client_wrapper=self._client_wrapper)
+        return self._data_directories
+
+    @property
+    def runs(self):
+        if self._runs is None:
+            from .runs.client import RunsClient  # noqa: E402
+
+            self._runs = RunsClient(client_wrapper=self._client_wrapper)
+        return self._runs
+
+    @property
+    def models(self):
+        if self._models is None:
+            from .models.client import ModelsClient  # noqa: E402
+
+            self._models = ModelsClient(client_wrapper=self._client_wrapper)
+        return self._models
+
+    @property
     def model_versions(self):
         if self._model_versions is None:
             from .model_versions.client import ModelVersionsClient  # noqa: E402
@@ -427,12 +475,12 @@ class BaseTrueFoundry:
         return self._model_versions
 
     @property
-    def prompt_versions(self):
-        if self._prompt_versions is None:
-            from .prompt_versions.client import PromptVersionsClient  # noqa: E402
+    def logs(self):
+        if self._logs is None:
+            from .logs.client import LogsClient  # noqa: E402
 
-            self._prompt_versions = PromptVersionsClient(client_wrapper=self._client_wrapper)
-        return self._prompt_versions
+            self._logs = LogsClient(client_wrapper=self._client_wrapper)
+        return self._logs
 
     @property
     def agent_skills(self):
@@ -451,12 +499,12 @@ class BaseTrueFoundry:
         return self._agent_skill_versions
 
     @property
-    def data_directories(self):
-        if self._data_directories is None:
-            from .data_directories.client import DataDirectoriesClient  # noqa: E402
+    def traces(self):
+        if self._traces is None:
+            from .traces.client import TracesClient  # noqa: E402
 
-            self._data_directories = DataDirectoriesClient(client_wrapper=self._client_wrapper)
-        return self._data_directories
+            self._traces = TracesClient(client_wrapper=self._client_wrapper)
+        return self._traces
 
 
 def _make_default_async_client(
@@ -496,6 +544,15 @@ class AsyncBaseTrueFoundry:
     timeout : typing.Optional[float]
         The timeout to be used, in seconds, for requests. By default the timeout is 60 seconds, unless a custom httpx client is used, in which case this default is not enforced.
 
+    max_retries : typing.Optional[int]
+        The default maximum number of retries for failed requests. Defaults to 2. Per-request `max_retries` in `request_options` takes precedence over this value.
+
+    stream_reconnection_enabled : typing.Optional[bool]
+        Whether to automatically reconnect on stream disconnection for resumable streaming endpoints. Defaults to True. Per-request `stream_reconnection_enabled` in `request_options` takes precedence over this value.
+
+    max_stream_reconnection_attempts : typing.Optional[int]
+        The maximum number of reconnection attempts for resumable streaming endpoints. Defaults to no limit. Per-request `max_stream_reconnection_attempts` in `request_options` takes precedence over this value.
+
     follow_redirects : typing.Optional[bool]
         Whether the default httpx client follows redirects or not, this is irrelevant if a custom httpx client is passed in.
 
@@ -523,6 +580,9 @@ class AsyncBaseTrueFoundry:
         headers: typing.Optional[typing.Dict[str, str]] = None,
         async_token: typing.Optional[typing.Callable[[], typing.Awaitable[str]]] = None,
         timeout: typing.Optional[float] = None,
+        max_retries: typing.Optional[int] = None,
+        stream_reconnection_enabled: typing.Optional[bool] = None,
+        max_stream_reconnection_attempts: typing.Optional[int] = None,
         follow_redirects: typing.Optional[bool] = True,
         httpx_client: typing.Optional[httpx.AsyncClient] = None,
         logging: typing.Optional[typing.Union[LogConfig, Logger]] = None,
@@ -530,6 +590,7 @@ class AsyncBaseTrueFoundry:
         _defaulted_timeout = (
             timeout if timeout is not None else 60 if httpx_client is None else httpx_client.timeout.read
         )
+        _defaulted_max_retries = max_retries if max_retries is not None else 2
         if api_key is None:
             raise ApiError(body="The client must be instantiated be either passing in api_key or setting TFY_API_KEY")
         self._client_wrapper = AsyncClientWrapper(
@@ -541,6 +602,9 @@ class AsyncBaseTrueFoundry:
             if httpx_client is not None
             else _make_default_async_client(timeout=_defaulted_timeout, follow_redirects=follow_redirects),
             timeout=_defaulted_timeout,
+            max_retries=_defaulted_max_retries,
+            stream_reconnection_enabled=stream_reconnection_enabled,
+            max_stream_reconnection_attempts=max_stream_reconnection_attempts,
             logging=logging,
         )
         self._raw_client = AsyncRawBaseTrueFoundry(client_wrapper=self._client_wrapper)
@@ -553,24 +617,27 @@ class AsyncBaseTrueFoundry:
         self._applications: typing.Optional[AsyncApplicationsClient] = None
         self._application_versions: typing.Optional[AsyncApplicationVersionsClient] = None
         self._jobs: typing.Optional[AsyncJobsClient] = None
-        self._environments: typing.Optional[AsyncEnvironmentsClient] = None
         self._workspaces: typing.Optional[AsyncWorkspacesClient] = None
+        self._environments: typing.Optional[AsyncEnvironmentsClient] = None
         self._secrets: typing.Optional[AsyncSecretsClient] = None
         self._secret_groups: typing.Optional[AsyncSecretGroupsClient] = None
         self._events: typing.Optional[AsyncEventsClient] = None
         self._alerts: typing.Optional[AsyncAlertsClient] = None
-        self._logs: typing.Optional[AsyncLogsClient] = None
-        self._ml_repos: typing.Optional[AsyncMlReposClient] = None
-        self._traces: typing.Optional[AsyncTracesClient] = None
-        self._artifacts: typing.Optional[AsyncArtifactsClient] = None
+        self._agents: typing.Optional[AsyncAgentsClient] = None
+        self._agent_versions: typing.Optional[AsyncAgentVersionsClient] = None
         self._prompts: typing.Optional[AsyncPromptsClient] = None
-        self._models: typing.Optional[AsyncModelsClient] = None
-        self._artifact_versions: typing.Optional[AsyncArtifactVersionsClient] = None
-        self._model_versions: typing.Optional[AsyncModelVersionsClient] = None
         self._prompt_versions: typing.Optional[AsyncPromptVersionsClient] = None
+        self._artifacts: typing.Optional[AsyncArtifactsClient] = None
+        self._artifact_versions: typing.Optional[AsyncArtifactVersionsClient] = None
+        self._ml_repos: typing.Optional[AsyncMlReposClient] = None
+        self._data_directories: typing.Optional[AsyncDataDirectoriesClient] = None
+        self._runs: typing.Optional[AsyncRunsClient] = None
+        self._models: typing.Optional[AsyncModelsClient] = None
+        self._model_versions: typing.Optional[AsyncModelVersionsClient] = None
+        self._logs: typing.Optional[AsyncLogsClient] = None
         self._agent_skills: typing.Optional[AsyncAgentSkillsClient] = None
         self._agent_skill_versions: typing.Optional[AsyncAgentSkillVersionsClient] = None
-        self._data_directories: typing.Optional[AsyncDataDirectoriesClient] = None
+        self._traces: typing.Optional[AsyncTracesClient] = None
 
     @property
     def with_raw_response(self) -> AsyncRawBaseTrueFoundry:
@@ -591,12 +658,12 @@ class AsyncBaseTrueFoundry:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> TrueFoundryApplyResponse:
         """
-        Applies a given manifest to create or update resources of specific types, such as provider-account, cluster, workspace, or ml-repo.
+        Apply a manifest to create or update a resource.
 
         Parameters
         ----------
         manifest : TrueFoundryApplyRequestManifest
-            manifest of the resource to be created or updated
+            Manifest of the resource to be created or updated
 
         dry_run : typing.Optional[bool]
             Dry run the apply operation without actually applying
@@ -607,7 +674,7 @@ class AsyncBaseTrueFoundry:
         Returns
         -------
         TrueFoundryApplyResponse
-            The resource has been successfully created or updated.
+            The created or updated resource, and the action that was performed.
 
         Examples
         --------
@@ -643,21 +710,22 @@ class AsyncBaseTrueFoundry:
 
     async def delete(
         self, *, manifest: TrueFoundryDeleteRequestManifest, request_options: typing.Optional[RequestOptions] = None
-    ) -> None:
+    ) -> TrueFoundryDeleteResponse:
         """
-        Deletes resources of specific types, such as provider-account, cluster, workspace, or application.
+        Delete a resource identified by the provided manifest.
 
         Parameters
         ----------
         manifest : TrueFoundryDeleteRequestManifest
-            manifest of the resource to be deleted
+            Manifest of the resource to be deleted
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        None
+        TrueFoundryDeleteResponse
+            Empty response confirming the resource has been deleted.
 
         Examples
         --------
@@ -764,20 +832,20 @@ class AsyncBaseTrueFoundry:
         return self._jobs
 
     @property
-    def environments(self):
-        if self._environments is None:
-            from .environments.client import AsyncEnvironmentsClient  # noqa: E402
-
-            self._environments = AsyncEnvironmentsClient(client_wrapper=self._client_wrapper)
-        return self._environments
-
-    @property
     def workspaces(self):
         if self._workspaces is None:
             from .workspaces.client import AsyncWorkspacesClient  # noqa: E402
 
             self._workspaces = AsyncWorkspacesClient(client_wrapper=self._client_wrapper)
         return self._workspaces
+
+    @property
+    def environments(self):
+        if self._environments is None:
+            from .environments.client import AsyncEnvironmentsClient  # noqa: E402
+
+            self._environments = AsyncEnvironmentsClient(client_wrapper=self._client_wrapper)
+        return self._environments
 
     @property
     def secrets(self):
@@ -812,36 +880,20 @@ class AsyncBaseTrueFoundry:
         return self._alerts
 
     @property
-    def logs(self):
-        if self._logs is None:
-            from .logs.client import AsyncLogsClient  # noqa: E402
+    def agents(self):
+        if self._agents is None:
+            from .agents.client import AsyncAgentsClient  # noqa: E402
 
-            self._logs = AsyncLogsClient(client_wrapper=self._client_wrapper)
-        return self._logs
-
-    @property
-    def ml_repos(self):
-        if self._ml_repos is None:
-            from .ml_repos.client import AsyncMlReposClient  # noqa: E402
-
-            self._ml_repos = AsyncMlReposClient(client_wrapper=self._client_wrapper)
-        return self._ml_repos
+            self._agents = AsyncAgentsClient(client_wrapper=self._client_wrapper)
+        return self._agents
 
     @property
-    def traces(self):
-        if self._traces is None:
-            from .traces.client import AsyncTracesClient  # noqa: E402
+    def agent_versions(self):
+        if self._agent_versions is None:
+            from .agent_versions.client import AsyncAgentVersionsClient  # noqa: E402
 
-            self._traces = AsyncTracesClient(client_wrapper=self._client_wrapper)
-        return self._traces
-
-    @property
-    def artifacts(self):
-        if self._artifacts is None:
-            from .artifacts.client import AsyncArtifactsClient  # noqa: E402
-
-            self._artifacts = AsyncArtifactsClient(client_wrapper=self._client_wrapper)
-        return self._artifacts
+            self._agent_versions = AsyncAgentVersionsClient(client_wrapper=self._client_wrapper)
+        return self._agent_versions
 
     @property
     def prompts(self):
@@ -852,12 +904,20 @@ class AsyncBaseTrueFoundry:
         return self._prompts
 
     @property
-    def models(self):
-        if self._models is None:
-            from .models.client import AsyncModelsClient  # noqa: E402
+    def prompt_versions(self):
+        if self._prompt_versions is None:
+            from .prompt_versions.client import AsyncPromptVersionsClient  # noqa: E402
 
-            self._models = AsyncModelsClient(client_wrapper=self._client_wrapper)
-        return self._models
+            self._prompt_versions = AsyncPromptVersionsClient(client_wrapper=self._client_wrapper)
+        return self._prompt_versions
+
+    @property
+    def artifacts(self):
+        if self._artifacts is None:
+            from .artifacts.client import AsyncArtifactsClient  # noqa: E402
+
+            self._artifacts = AsyncArtifactsClient(client_wrapper=self._client_wrapper)
+        return self._artifacts
 
     @property
     def artifact_versions(self):
@@ -868,6 +928,38 @@ class AsyncBaseTrueFoundry:
         return self._artifact_versions
 
     @property
+    def ml_repos(self):
+        if self._ml_repos is None:
+            from .ml_repos.client import AsyncMlReposClient  # noqa: E402
+
+            self._ml_repos = AsyncMlReposClient(client_wrapper=self._client_wrapper)
+        return self._ml_repos
+
+    @property
+    def data_directories(self):
+        if self._data_directories is None:
+            from .data_directories.client import AsyncDataDirectoriesClient  # noqa: E402
+
+            self._data_directories = AsyncDataDirectoriesClient(client_wrapper=self._client_wrapper)
+        return self._data_directories
+
+    @property
+    def runs(self):
+        if self._runs is None:
+            from .runs.client import AsyncRunsClient  # noqa: E402
+
+            self._runs = AsyncRunsClient(client_wrapper=self._client_wrapper)
+        return self._runs
+
+    @property
+    def models(self):
+        if self._models is None:
+            from .models.client import AsyncModelsClient  # noqa: E402
+
+            self._models = AsyncModelsClient(client_wrapper=self._client_wrapper)
+        return self._models
+
+    @property
     def model_versions(self):
         if self._model_versions is None:
             from .model_versions.client import AsyncModelVersionsClient  # noqa: E402
@@ -876,12 +968,12 @@ class AsyncBaseTrueFoundry:
         return self._model_versions
 
     @property
-    def prompt_versions(self):
-        if self._prompt_versions is None:
-            from .prompt_versions.client import AsyncPromptVersionsClient  # noqa: E402
+    def logs(self):
+        if self._logs is None:
+            from .logs.client import AsyncLogsClient  # noqa: E402
 
-            self._prompt_versions = AsyncPromptVersionsClient(client_wrapper=self._client_wrapper)
-        return self._prompt_versions
+            self._logs = AsyncLogsClient(client_wrapper=self._client_wrapper)
+        return self._logs
 
     @property
     def agent_skills(self):
@@ -900,9 +992,9 @@ class AsyncBaseTrueFoundry:
         return self._agent_skill_versions
 
     @property
-    def data_directories(self):
-        if self._data_directories is None:
-            from .data_directories.client import AsyncDataDirectoriesClient  # noqa: E402
+    def traces(self):
+        if self._traces is None:
+            from .traces.client import AsyncTracesClient  # noqa: E402
 
-            self._data_directories = AsyncDataDirectoriesClient(client_wrapper=self._client_wrapper)
-        return self._data_directories
+            self._traces = AsyncTracesClient(client_wrapper=self._client_wrapper)
+        return self._traces

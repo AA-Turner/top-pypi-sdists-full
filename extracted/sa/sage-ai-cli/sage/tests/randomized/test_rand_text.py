@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from sage.main import app as sage_app
+from sage.cli_core import app as sage_app
 from sage.core.sms_bridge import SAGEMessageBridge, SMSConfig
 from sage.tests.randomized.shared_generators import MEDIA_GENERATORS, make_dummy_file
 

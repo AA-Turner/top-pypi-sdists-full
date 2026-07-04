@@ -267,16 +267,52 @@ class TestBasePrompt:
 
         assert isinstance(BASE_PROMPT, str)
         assert len(BASE_PROMPT) > 100
-        assert "Core Behavior" in BASE_PROMPT
+        assert "You are a Deep Agent" in BASE_PROMPT
 
     def test_base_prompt_content(self):
-        """BASE_PROMPT contains key sections."""
+        """BASE_PROMPT contains the core sections."""
         from pydantic_deep.prompts import BASE_PROMPT
 
-        assert "Tool Usage" in BASE_PROMPT
-        assert "Workflow" in BASE_PROMPT
-        assert "Error Handling" in BASE_PROMPT
-        assert "Subagent Delegation" in BASE_PROMPT
+        assert "# Tool usage" in BASE_PROMPT
+        assert "# Doing tasks" in BASE_PROMPT
+        assert "# Acting with care" in BASE_PROMPT
+        assert "# Communicating" in BASE_PROMPT
+
+
+class TestSubmodelInheritance:
+    """Submodels inherit the primary model when not explicitly configured."""
+
+    def _capture_summarization(self, monkeypatch: pytest.MonkeyPatch, **kwargs: Any) -> str | None:
+        from pydantic_ai_summarization import ContextManagerCapability
+
+        seen: dict[str, str | None] = {}
+        orig = ContextManagerCapability.__init__
+
+        def spy(self: Any, *a: Any, **k: Any) -> Any:
+            seen["sm"] = k.get("summarization_model")
+            return orig(self, *a, **k)
+
+        monkeypatch.setattr(ContextManagerCapability, "__init__", spy)
+        create_deep_agent(
+            backend=StateBackend(), cost_tracking=False, include_subagents=False, **kwargs
+        )
+        return seen.get("sm")
+
+    def test_summarization_inherits_primary_model(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # anthropic + a dummy key: provider construction needs a key but no network
+        # or ADC, so this runs in CI. The test only checks the inherited string.
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        sm = self._capture_summarization(monkeypatch, model="anthropic:claude-sonnet-4-6")
+        assert sm == "anthropic:claude-sonnet-4-6"
+
+    def test_explicit_summarization_model_wins(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        sm = self._capture_summarization(
+            monkeypatch,
+            model="anthropic:claude-opus-4-6",
+            summarization_model="anthropic:claude-haiku-4-5",
+        )
+        assert sm == "anthropic:claude-haiku-4-5"
 
 
 class TestImageSupport:

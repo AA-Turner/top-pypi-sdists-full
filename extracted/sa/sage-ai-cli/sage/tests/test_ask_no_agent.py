@@ -42,7 +42,7 @@ class TestNoAgentFlag:
         monkeypatch.setattr("sage.main._build_simple_qa_messages", fake_simple)
 
         # Import app AFTER patches so any closure-captured refs are fresh
-        from sage.main import app
+        from sage.cli_core import app
         runner = CliRunner()
         result = runner.invoke(
             app,

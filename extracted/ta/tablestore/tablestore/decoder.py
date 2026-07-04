@@ -97,7 +97,8 @@ class OTSProtoBufferDecoder(object):
         reverse_enum_map = {
             pb.INTEGER: 'INTEGER',
             pb.STRING: 'STRING',
-            pb.BINARY: 'BINARY'
+            pb.BINARY: 'BINARY',
+            pb.PK_BOOLEAN: 'BOOLEAN'
         }
         if column_type_enum in reverse_enum_map:
             return reverse_enum_map[column_type_enum]

@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: python-semantic-release
-Version: 10.5.3
+Version: 10.6.0
 Summary: Automatic Semantic Versioning for Python projects
 Author-email: Rolf Erik Lekang <me@rolflekang.com>, codejedi365 <codejedi365@gmail.com>
 License: MIT
-Project-URL: changelog, https://github.com/python-semantic-release/python-semantic-release/blob/master/CHANGELOG.md
+Project-URL: changelog, https://python-semantic-release.readthedocs.io/en/stable/misc/psr_changelog.html
 Project-URL: documentation, https://python-semantic-release.readthedocs.io
 Project-URL: homepage, https://python-semantic-release.readthedocs.io
 Project-URL: issues, https://github.com/python-semantic-release/python-semantic-release/issues

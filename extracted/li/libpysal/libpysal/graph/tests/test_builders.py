@@ -1,5 +1,3 @@
-import sys
-
 import geodatasets
 import geopandas as gpd
 import numpy as np
@@ -220,9 +218,7 @@ class TestTriangulation:
 
     def test_sorting(self):
         delaunay = graph.Graph.build_triangulation(self.gdf)
-        pd.testing.assert_index_equal(
-            pd.Index(self.gdf.index, name="focal"), delaunay.unique_ids
-        )
+        pd.testing.assert_index_equal(pd.Index(self.gdf.index), delaunay.unique_ids)
 
 
 @pytest.mark.network
@@ -283,6 +279,37 @@ class TestKernel:
         assert pd.api.types.is_string_dtype(g._adjacency.index.dtypes["neighbor"])
         assert pd.api.types.is_numeric_dtype(g._adjacency.dtype)
 
+    def test_adaptive_bandwidth(self):
+        """build_kernel with bandwidth='adaptive' should work end-to-end."""
+        from shapely.geometry import Point
+
+        rng = np.random.default_rng(6301)
+        coords = gpd.GeoSeries([Point(*p) for p in rng.laplace(size=(20, 2)) / 50])
+        g_fixed = graph.Graph.build_kernel(coords, k=4)
+        g_adaptive = graph.Graph.build_kernel(coords, k=4, bandwidth="adaptive")
+
+        # Same neighbour topology between fixed and adaptive ...
+        assert set(
+            zip(
+                g_fixed.adjacency.index.get_level_values("focal"),
+                g_fixed.adjacency.index.get_level_values("neighbor"),
+                strict=True,
+            )
+        ) == set(
+            zip(
+                g_adaptive.adjacency.index.get_level_values("focal"),
+                g_adaptive.adjacency.index.get_level_values("neighbor"),
+                strict=True,
+            )
+        )
+
+        # ... but the kernel weights must differ.
+        assert not np.allclose(g_fixed.adjacency.values, g_adaptive.adjacency.values)
+
+        # Check against actual values
+        assert g_adaptive.adjacency.values.mean() == pytest.approx(0.2946159834)
+        assert g_adaptive.adjacency.values.max() == pytest.approx(0.3978916872)
+
     def test_knn_intids(self):
         g = graph.Graph.build_knn(self.gdf, k=3, coplanar="jitter")
 
@@ -302,6 +329,50 @@ class TestKernel:
         g = graph.Graph.build_kernel(gdf.centroid, k=2)
 
         assert g.sparse.shape == (85, 85)
+
+    def test_knn_tree_scipy(self):
+        from scipy import spatial
+
+        gdf = gpd.read_file(geodatasets.get_path("nybb"))
+        gdf = gdf.set_geometry(gdf.centroid)
+
+        tree = spatial.KDTree(gdf.geometry.get_coordinates())
+        g = graph.Graph.build_knn(tree, k=3)
+
+        assert pd.api.types.is_numeric_dtype(g._adjacency.index.dtypes["focal"])
+        assert pd.api.types.is_numeric_dtype(g._adjacency.index.dtypes["neighbor"])
+        assert pd.api.types.is_numeric_dtype(g._adjacency.dtype)
+        assert g.n == len(gdf)
+
+    def test_knn_tree_sklearn_kdtree(self):
+        pytest.importorskip("sklearn")
+        from sklearn import neighbors
+
+        gdf = gpd.read_file(geodatasets.get_path("nybb"))
+        gdf = gdf.set_geometry(gdf.centroid)
+
+        tree = neighbors.KDTree(gdf.geometry.get_coordinates())
+        g = graph.Graph.build_knn(tree, k=3)
+
+        assert pd.api.types.is_numeric_dtype(g._adjacency.index.dtypes["focal"])
+        assert pd.api.types.is_numeric_dtype(g._adjacency.index.dtypes["neighbor"])
+        assert pd.api.types.is_numeric_dtype(g._adjacency.dtype)
+        assert g.n == len(gdf)
+
+    def test_knn_tree_sklearn_balltree(self):
+        pytest.importorskip("sklearn")
+        from sklearn import neighbors
+
+        gdf = gpd.read_file(geodatasets.get_path("nybb"))
+        gdf = gdf.set_geometry(gdf.centroid)
+
+        tree = neighbors.BallTree(gdf.geometry.get_coordinates())
+        g = graph.Graph.build_knn(tree, k=3)
+
+        assert pd.api.types.is_numeric_dtype(g._adjacency.index.dtypes["focal"])
+        assert pd.api.types.is_numeric_dtype(g._adjacency.index.dtypes["neighbor"])
+        assert pd.api.types.is_numeric_dtype(g._adjacency.dtype)
+        assert g.n == len(gdf)
 
 
 @pytest.mark.network
@@ -356,6 +427,17 @@ class TestDistanceBand:
         assert pd.api.types.is_string_dtype(g._adjacency.index.dtypes["focal"])
         assert pd.api.types.is_string_dtype(g._adjacency.index.dtypes["neighbor"])
         assert pd.api.types.is_numeric_dtype(g._adjacency.dtype)
+
+    def test_distance_band_tree_scipy(self):
+        from scipy import spatial
+
+        tree = spatial.KDTree(self.gdf.geometry.get_coordinates())
+        g = graph.Graph.build_distance_band(tree, 50000)
+
+        assert pd.api.types.is_numeric_dtype(g._adjacency.index.dtypes["focal"])
+        assert pd.api.types.is_numeric_dtype(g._adjacency.index.dtypes["neighbor"])
+        assert pd.api.types.is_numeric_dtype(g._adjacency.dtype)
+        assert g.n == len(self.gdf)
 
 
 @pytest.mark.network
@@ -513,12 +595,12 @@ class TestMatching:
 
 
 @pytest.mark.network
-@pytest.mark.skipif(
-    sys.platform.startswith("win"), reason="pandana has dtype issues on windows"
-)
 class TestTravelNetwork:
     def setup_method(self):
-        pandana = pytest.importorskip("pandana")
+        try:
+            import pandana as pandarm
+        except ImportError:
+            pandarm = pytest.importorskip("pandarm")
         import pooch
 
         self.net_path = pooch.retrieve(
@@ -527,7 +609,7 @@ class TestTravelNetwork:
         )
         df = gpd.read_file(geodatasets.get_path("geoda cincinnati")).to_crs(4326)
         self.df = df.set_geometry(df.centroid)
-        self.network = pandana.Network.from_hdf5(self.net_path)
+        self.network = pandarm.Network.from_hdf5(self.net_path)
 
     def test_build_travel_network(self):
         g = graph.Graph.build_travel_cost(self.df, self.network, 500)

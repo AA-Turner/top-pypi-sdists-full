@@ -1,6 +1,6 @@
 [project]
 name = "pyinstxtractor-ng"
-version = "2026.04.07"
+version = "2026.07.03"
 description = "PyInstaller Extractor Next Generation"
 authors = [{ name = "extremecoders-re" }]
 license = "GPL-3.0-only"

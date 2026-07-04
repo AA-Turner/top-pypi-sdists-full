@@ -713,6 +713,7 @@ _ALL_MUTATING_TOOLS: list[str] = [
     "update_view",
     "drop_view",
     "rename_view",
+    "transfer_view",
     # warehouses.py
     "create_warehouse",
     "rename_warehouse",
@@ -730,10 +731,14 @@ _ALL_MUTATING_TOOLS: list[str] = [
     "clear_table",
     "clone_table",
     "rename_table",
+    "transfer_table",
     # procedures.py
     "create_procedure",
     "update_procedure",
     "drop_procedure",
+    "transfer_procedure",
+    # functions.py
+    "transfer_function",
     # snapshots.py
     "create_snapshot",
     "rename_snapshot",

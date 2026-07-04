@@ -180,6 +180,9 @@ class PlainBufferBuilder(object):
             stream.write_raw_byte(const.VT_INF_MIN)
         elif value is INF_MAX:
             stream.write_raw_byte(const.VT_INF_MAX)
+        elif isinstance(value, bool):
+            stream.write_raw_byte(const.VT_BOOLEAN)
+            stream.write_boolean(value)
         elif isinstance(value, int):
             stream.write_raw_byte(const.VT_INTEGER)
             stream.write_raw_little_endian64(value)

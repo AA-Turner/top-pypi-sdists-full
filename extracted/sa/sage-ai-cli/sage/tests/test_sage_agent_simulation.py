@@ -136,7 +136,7 @@ class TestAnalysisTaskValidation:
 
     def test_reject_large_list_without_reads(self):
         """Large recommendation lists without file reads should be rejected."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         # Generate 100 recommendations
         recommendations = "\n".join([f"{i}. Fix issue {i} in the codebase" for i in range(1, 101)])
@@ -152,7 +152,7 @@ class TestAnalysisTaskValidation:
 
     def test_accept_list_with_proportional_reads(self):
         """Lists with proportional file reads should be accepted."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         # Generate 50 recommendations
         recommendations = "\n".join([f"{i}. Fix issue in module {i}" for i in range(1, 51)])
@@ -167,7 +167,7 @@ class TestAnalysisTaskValidation:
 
     def test_reject_assumption_based_reasoning(self):
         """Responses that proceed by assuming should be rejected."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         assumption_responses = [
             "I will proceed by assuming the codebase uses standard patterns...",
@@ -195,7 +195,7 @@ class TestToolExecutionValidation:
 
     def test_detect_descriptive_tool_mentions(self):
         """Tool descriptions WITHOUT actual execution should be detected and rejected."""
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         # These are ONLY descriptions with NO actual commands - should be rejected
         descriptive_only_responses = [
@@ -227,7 +227,7 @@ class TestToolExecutionValidation:
 
     def test_allow_direct_tool_execution(self):
         """Direct tool execution should NOT be flagged."""
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         execution_responses = [
             "READ: sage/main.py\nREAD: sage/config.py\n\nBased on these files...",
@@ -241,7 +241,7 @@ class TestToolExecutionValidation:
 
     def test_detect_tool_refusal_claims(self):
         """Claims that tools can't be executed should be detected."""
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         refusal_responses = [
             "Since I cannot execute the read commands, I will assume...",
@@ -265,7 +265,7 @@ class TestImplementationTaskValidation:
 
     def test_reject_phantom_implementation(self):
         """Implementation claims without FILE: blocks should be rejected."""
-        from sage.main import _validate_implementation_claim
+        from sage.cli_core import _validate_implementation_claim
 
         phantom_response = """
 I've implemented the model registry with the following features:
@@ -282,7 +282,7 @@ The implementation is complete and ready for testing.
 
     def test_accept_real_implementation(self):
         """Implementation with FILE: blocks should be accepted."""
-        from sage.main import _validate_implementation_claim
+        from sage.cli_core import _validate_implementation_claim
 
         real_response = """
 I've implemented the feature:
@@ -307,7 +307,7 @@ The implementation is complete.
 
     def test_reject_tdd_claim_without_tests(self):
         """TDD claims without test files should be rejected."""
-        from sage.main import _validate_tdd_compliance
+        from sage.cli_core import _validate_tdd_compliance
 
         tdd_response = """
 Following TDD principles, I've implemented the feature.
@@ -339,7 +339,7 @@ class TestFailureLoopDetection:
 
     def test_detect_repeated_identical_errors(self):
         """Repeated identical errors should trigger loop detection."""
-        from sage.main import FailureLoopDetector
+        from sage.cli_core import FailureLoopDetector
 
         detector = FailureLoopDetector(max_identical_errors=3)
 
@@ -356,7 +356,7 @@ class TestFailureLoopDetection:
 
     def test_detect_repeated_validation_failures(self):
         """Repeated validation failures should trigger loop detection."""
-        from sage.main import FailureLoopDetector
+        from sage.cli_core import FailureLoopDetector
 
         detector = FailureLoopDetector(max_identical_errors=3)
 
@@ -369,7 +369,7 @@ class TestFailureLoopDetection:
 
     def test_reset_clears_history(self):
         """Reset should clear all history."""
-        from sage.main import FailureLoopDetector
+        from sage.cli_core import FailureLoopDetector
 
         detector = FailureLoopDetector()
 
@@ -504,7 +504,7 @@ class TestEndToEndSimulation:
 
     def test_simulate_analysis_task_flow(self):
         """Simulate the full analysis task validation flow."""
-        from sage.main import (
+        from sage.cli_core import (
             _detect_tool_description_vs_execution,
             _validate_context_gathering,
         )
@@ -569,7 +569,7 @@ Based on reading sage/main.py:1-500, I found:
 
     def test_simulate_implementation_task_flow(self):
         """Simulate the full implementation task validation flow."""
-        from sage.main import (
+        from sage.cli_core import (
             _validate_completion_claim,
             _validate_implementation_claim,
             _validate_tdd_compliance,
@@ -655,7 +655,7 @@ class TestNonStandardToolSyntax:
 
     def test_detect_function_call_syntax_in_validation(self):
         """Function call style syntax should be detected during validation."""
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         bad_responses = [
             'I will use read_file("sage/main.py") to examine the code',
@@ -671,7 +671,7 @@ class TestNonStandardToolSyntax:
     def test_allow_valid_tool_syntax(self):
         """Valid READ:/SEARCH:/RUN: syntax should not be flagged."""
         from sage.core.renderer import _detect_bad_streaming_patterns
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         valid_responses = [
             "READ: sage/main.py",
@@ -721,7 +721,7 @@ class TestArgumentativeBehaviorDetection:
 
     def test_detect_request_for_input_in_validation(self):
         """Requests for user input should be detected during validation."""
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         argumentative_responses = [
             "Please provide the output so I can analyze it.",
@@ -878,7 +878,7 @@ Once you share the file contents, I can analyze them.
     def test_good_response_passes_all_checks(self):
         """A well-formed response should pass all detection checks."""
         from sage.core.renderer import _detect_bad_streaming_patterns
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         good_response = """READ: sage/main.py
 READ: sage/core/validation.py
@@ -1132,7 +1132,7 @@ class TestSessionContextPersistence:
 
     def test_session_files_read_persistence(self, tmp_path):
         """Files read should persist to session state."""
-        from sage.main import (
+        from sage.cli_core import (
             _add_session_file_read,
             _get_session_files_read,
             _save_session_state,
@@ -1156,7 +1156,7 @@ class TestSessionContextPersistence:
 
     def test_session_mode_persistence(self, tmp_path):
         """Session mode should persist."""
-        from sage.main import (
+        from sage.cli_core import (
             _get_session_mode,
             _save_session_state,
             _set_session_mode,
@@ -1178,7 +1178,7 @@ class TestSessionContextPersistence:
 
     def test_session_pending_tasks(self, tmp_path):
         """Pending tasks should persist."""
-        from sage.main import (
+        from sage.cli_core import (
             _add_session_pending_task,
             _get_incomplete_tasks,
             _mark_task_completed,
@@ -1227,7 +1227,7 @@ class TestFilePathValidation:
 
     def test_reject_prose_as_path(self):
         """Prose text should be rejected as a file path."""
-        from sage.main import _is_valid_file_path
+        from sage.cli_core import _is_valid_file_path
 
         invalid_paths = [
             "The previous interaction was a directive to perform an analysis",
@@ -1245,7 +1245,7 @@ class TestFilePathValidation:
 
     def test_reject_paths_with_sentence_patterns(self):
         """Paths with sentence patterns should be rejected."""
-        from sage.main import _is_valid_file_path
+        from sage.cli_core import _is_valid_file_path
 
         invalid_paths = [
             "file.py is the main entry point",
@@ -1260,14 +1260,14 @@ class TestFilePathValidation:
 
     def test_reject_very_long_paths(self):
         """Very long paths (>255 chars) should be rejected."""
-        from sage.main import _is_valid_file_path
+        from sage.cli_core import _is_valid_file_path
 
         long_path = "a" * 300 + ".py"
         assert _is_valid_file_path(long_path) is False
 
     def test_reject_paths_with_multiple_spaces(self):
         """Paths with multiple consecutive spaces should be rejected."""
-        from sage.main import _is_valid_file_path
+        from sage.cli_core import _is_valid_file_path
 
         invalid_paths = [
             "file.py  and another thing",
@@ -1280,7 +1280,7 @@ class TestFilePathValidation:
 
     def test_accept_valid_file_paths(self):
         """Valid file paths should be accepted."""
-        from sage.main import _is_valid_file_path
+        from sage.cli_core import _is_valid_file_path
 
         valid_paths = [
             "sage/main.py",
@@ -1303,7 +1303,7 @@ class TestFilePathValidation:
 
     def test_extract_tool_commands_filters_invalid_paths(self):
         """_extract_tool_commands should filter out invalid READ: paths."""
-        from sage.main import _extract_tool_commands
+        from sage.cli_core import _extract_tool_commands
 
         text = """READ: sage/main.py
 READ: The previous interaction was a directive to perform an analysis

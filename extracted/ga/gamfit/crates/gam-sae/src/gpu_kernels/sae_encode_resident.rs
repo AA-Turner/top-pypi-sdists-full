@@ -8,8 +8,9 @@
 //!   2. **warm-starts** each candidate from that chart's distilled IFT affine
 //!      predictor `t̂ = t_c + (1/z)·A₁·(x − z·m₁)`,
 //!   3. runs the **per-row latent-coordinate Newton** solve inside the
-//!      Kantorovich basin: at each iterate it forms the FULL Hessian
-//!      `H = JₘᵀJₘ + r·∂²m + ridge·I`, takes the Newton step `δ = −H⁻¹g`, and
+//!      Kantorovich basin: at each iterate it forms the FULL, TRUE Hessian
+//!      `H = JₘᵀJₘ + r·∂²m` (NO Levenberg ridge — the certificate must see the
+//!      genuine field, F2), takes the Newton step `δ = −H⁻¹g`, and
 //!      evaluates the certificate `h = β·η·L` (`β = 1/λ_min(H)`, `η = ‖δ‖`),
 //!      first navigating into the basin (`h ≤ ½`) then refining `newton_steps`,
 //!   4. **assigns** the row to the lowest-reconstruction-error CERTIFIED
@@ -54,9 +55,7 @@
 
 use std::time::Instant;
 
-use crate::encode::{
-    AtlasConfig, AtomEncodeAtlas, KANTOROVICH_THRESHOLD, euclidean_patch_degree,
-};
+use crate::encode::{AtlasConfig, AtomEncodeAtlas, KANTOROVICH_THRESHOLD, euclidean_patch_degree};
 use crate::manifold::SaeManifoldAtom;
 use gam_gpu::policy::{EncodeDecisionBlocked, EncodeDeploymentDecision};
 
@@ -77,8 +76,6 @@ pub struct EncodeAtomDevice {
     pub topk: usize,
     /// Online Newton refinement steps after a certified landing.
     pub newton_steps: usize,
-    /// Levenberg ridge added to the per-row Hessian diagonal.
-    pub ridge: f64,
     /// Monomial exponents, row-major `exponents[col*d + axis]`, length `m*d`.
     pub exponents: Vec<i32>,
     /// Decoder `B`, row-major `decoder[basis*p + out]`, length `m*p`.
@@ -191,7 +188,6 @@ impl EncodeAtomDevice {
             p,
             topk: crate::encode::CERTIFIED_ROUTING_TOPK,
             newton_steps: config.newton_steps,
-            ridge: config.ridge,
             exponents,
             decoder,
             charts,
@@ -264,7 +260,13 @@ fn dpow(base: f64, exp: i32) -> f64 {
 /// [`crate::basis::EuclideanPatchEvaluator::second_jet`] (the same falling-
 /// factorial monomial derivatives), producing:
 ///   `phi[col]`, `jet[col*d + axis]`, `hess[(col*d + a)*d + c]`.
-fn eval_basis(dev: &EncodeAtomDevice, t: &[f64], phi: &mut [f64], jet: &mut [f64], hess: &mut [f64]) {
+fn eval_basis(
+    dev: &EncodeAtomDevice,
+    t: &[f64],
+    phi: &mut [f64],
+    jet: &mut [f64],
+    hess: &mut [f64],
+) {
     let (d, m) = (dev.d, dev.m);
     let exp = &dev.exponents;
     for col in 0..m {
@@ -284,7 +286,11 @@ fn eval_basis(dev: &EncodeAtomDevice, t: &[f64], phi: &mut [f64], jet: &mut [f64
             if a_axis != 0 {
                 jval = a_axis as f64;
                 for a in 0..d {
-                    let ea = if a == axis { a_axis - 1 } else { exp[col * d + a] };
+                    let ea = if a == axis {
+                        a_axis - 1
+                    } else {
+                        exp[col * d + a]
+                    };
                     if ea != 0 {
                         jval *= dpow(t[a], ea);
                     }
@@ -353,10 +359,13 @@ struct EvaluatedBasis<'a> {
     hess: &'a [f64],
 }
 
-/// Gradient `g` and FULL Hessian `H` (+ ridge) of the encode objective at `t`.
+/// Gradient `g` and FULL, TRUE Hessian `H` of the encode objective at `t`.
 /// Mirror of [`crate::encode::encode_grad_hess`]:
-///   `g[a] = Jₘ[a]·r`,  `H[a,b] = Jₘ[a]·Jₘ[b] + z·Σ ∂²Φ·(r·B) + ridge·δ_ab`,
-/// with `m = z·BᵀΦ`, `r = m − x`, `Jₘ = z·BᵀJ_Φ`. For the monomial family the
+///   `g[a] = Jₘ[a]·r`,  `H[a,b] = Jₘ[a]·Jₘ[b] + z·Σ ∂²Φ·(r·B)`,
+/// with `m = z·BᵀΦ`, `r = m − x`, `Jₘ = z·BᵀJ_Φ`. NO Levenberg ridge is added:
+/// the certificate must see the genuine field (F2), exactly as production's
+/// `encode_grad_hess` (a ridged `H + λI` would falsely certify a singular,
+/// non-isolated root). For the monomial family the
 /// second jet always exists, so this never returns "no certificate".
 fn encode_grad_hess(
     dev: &EncodeAtomDevice,
@@ -424,9 +433,7 @@ fn encode_grad_hess(
             h[a * d + b] = hab;
         }
     }
-    for a in 0..d {
-        h[a * d + a] += dev.ridge;
-    }
+    // NO ridge: the certificate uses the TRUE Hessian (F2). See the doc above.
 }
 
 /// Cyclic Jacobi symmetric eigensolver for a `d×d` matrix (row-major, `d ≤ 8`).
@@ -555,7 +562,13 @@ fn row_certificate(
     scratch: &mut Scratch,
 ) -> (DeviceRowCertificate, Vec<f64>) {
     let d = dev.d;
-    eval_basis(dev, t, &mut scratch.phi, &mut scratch.jet, &mut scratch.hess);
+    eval_basis(
+        dev,
+        t,
+        &mut scratch.phi,
+        &mut scratch.jet,
+        &mut scratch.hess,
+    );
     encode_grad_hess(
         dev,
         x,
@@ -621,7 +634,8 @@ fn in_chart(t: &[f64], center: &[f64], radius: f64) -> bool {
 /// [`crate::encode::certify_with_basin_warmup`] composed with
 /// `refine_certified_start`: navigate into the `h ≤ ½` basin (staying in-chart,
 /// requiring `h` to contract), then take `newton_steps` refine steps that must
-/// all stay certified. Returns `(coord, landing_cert)` or `None`.
+/// all stay certified. Returns `(coord, final_cert)` — the certificate at the
+/// REFINED landing coordinate (F5) — or `None`.
 fn certify_with_basin_warmup(
     dev: &EncodeAtomDevice,
     mut t: Vec<f64>,
@@ -633,8 +647,7 @@ fn certify_with_basin_warmup(
     if !in_chart(&t, &chart.center, chart.radius) {
         return None;
     }
-    let (mut cert, mut delta) =
-        row_certificate(dev, &t, x, amplitude, chart.lipschitz, scratch);
+    let (mut cert, mut delta) = row_certificate(dev, &t, x, amplitude, chart.lipschitz, scratch);
     while !cert.certified() {
         if !(cert.h.is_finite() && cert.beta.is_finite() && cert.eta.is_finite()) {
             return None;
@@ -659,7 +672,15 @@ fn certify_with_basin_warmup(
     // Mirror production's convergence early-exit: once the pending Newton step is
     // below the coordinate ULP scale the certified root is reached and further steps
     // only re-accumulate round-off (keeps device parity with the encode.rs fold).
-    let landing = cert;
+    //
+    // F5: return the certificate evaluated AT the refined landing coordinate
+    // (`final_cert`), not the pre-refinement basin-exit cert. `final_cert` starts as
+    // the basin-exit cert and is updated to each certified refine iterate's cert —
+    // exactly production's `refine_certified_start` (the returned β/η/h describe the
+    // coordinate actually returned). The old code returned the basin-exit `landing`,
+    // whose Kantorovich root-radius overstates the refined point's distance to the
+    // root — the source of the emulator↔production `h`-parity gap.
+    let mut final_cert = cert;
     for _ in 0..dev.newton_steps {
         let dnorm = delta.iter().map(|v| v * v).sum::<f64>().sqrt();
         let tnorm = t.iter().map(|v| v * v).sum::<f64>().sqrt();
@@ -673,15 +694,22 @@ fn certify_with_basin_warmup(
         if !nc.certified() {
             return None;
         }
+        final_cert = nc;
         delta = nd;
     }
-    Some((t, landing))
+    Some((t, final_cert))
 }
 
 /// Distilled affine warm start `t̂ = t_c + (1/z)·A₁·(x − z·m₁)`. Mirror of
 /// [`crate::encode::amortized_warm_start`]. `None` when the chart has no
 /// Jacobian or the amplitude is not strictly positive & finite.
-fn amortized_warm_start(chart: &EncodeChartDevice, x: &[f64], amplitude: f64, d: usize, p: usize) -> Option<Vec<f64>> {
+fn amortized_warm_start(
+    chart: &EncodeChartDevice,
+    x: &[f64],
+    amplitude: f64,
+    d: usize,
+    p: usize,
+) -> Option<Vec<f64>> {
     if !chart.has_jacobian {
         return None;
     }
@@ -700,8 +728,20 @@ fn amortized_warm_start(chart: &EncodeChartDevice, x: &[f64], amplitude: f64, d:
 
 /// Reconstruction error `‖x − z·m(t)‖`. Mirror of
 /// [`crate::encode::encode_reconstruction_error`].
-fn recon_error(dev: &EncodeAtomDevice, t: &[f64], x: &[f64], amplitude: f64, scratch: &mut Scratch) -> f64 {
-    eval_basis(dev, t, &mut scratch.phi, &mut scratch.jet, &mut scratch.hess);
+fn recon_error(
+    dev: &EncodeAtomDevice,
+    t: &[f64],
+    x: &[f64],
+    amplitude: f64,
+    scratch: &mut Scratch,
+) -> f64 {
+    eval_basis(
+        dev,
+        t,
+        &mut scratch.phi,
+        &mut scratch.jet,
+        &mut scratch.hess,
+    );
     let mut err2 = 0.0;
     let p = dev.p;
     let mut recon = vec![0.0_f64; p];
@@ -710,13 +750,26 @@ fn recon_error(dev: &EncodeAtomDevice, t: &[f64], x: &[f64], amplitude: f64, scr
         let r = x[c] - amplitude * recon[c];
         err2 += r * r;
     }
-    if err2.is_finite() { err2.sqrt() } else { f64::INFINITY }
+    if err2.is_finite() {
+        err2.sqrt()
+    } else {
+        f64::INFINITY
+    }
 }
 
-/// Top-`k` charts by center reconstruction distance, sorted by (distance, index)
-/// — mirror of [`crate::encode::nearest_charts_topk`]. Only certifiable charts
-/// (`certified_radius > 0`) are considered.
-fn nearest_charts_topk(dev: &EncodeAtomDevice, x: &[f64], scratch: &mut Scratch) -> Vec<usize> {
+/// Top-`k` charts by the amplitude-scaled center reconstruction distance
+/// `‖x − z·m₁(t_c)‖²` (F1), sorted by (distance, index) — mirror of
+/// [`crate::encode::nearest_charts_topk`]. `m₁` is the amplitude-1 center
+/// reconstruction; the reconstruction actually compared against `x` is `z·m₁`, so
+/// routing must scale by the row's amplitude `z` (an amplitude-blind score picks
+/// the wrong chart whenever `z ≠ 1`). Only certifiable charts (`certified_radius >
+/// 0`) are considered.
+fn nearest_charts_topk(
+    dev: &EncodeAtomDevice,
+    x: &[f64],
+    amplitude: f64,
+    scratch: &mut Scratch,
+) -> Vec<usize> {
     if dev.charts.is_empty() || dev.topk == 0 {
         return Vec::new();
     }
@@ -727,11 +780,17 @@ fn nearest_charts_topk(dev: &EncodeAtomDevice, x: &[f64], scratch: &mut Scratch)
         if chart.certified_radius <= 0.0 {
             continue;
         }
-        eval_basis(dev, &chart.center, &mut scratch.phi, &mut scratch.jet, &mut scratch.hess);
+        eval_basis(
+            dev,
+            &chart.center,
+            &mut scratch.phi,
+            &mut scratch.jet,
+            &mut scratch.hess,
+        );
         recon_amp1(dev, &scratch.phi, &mut recon);
         let mut dist = 0.0;
         for c in 0..p {
-            let diff = recon[c] - x[c];
+            let diff = amplitude * recon[c] - x[c];
             dist += diff * diff;
         }
         scored.push((idx, dist));
@@ -749,11 +808,15 @@ fn nearest_charts_topk(dev: &EncodeAtomDevice, x: &[f64], scratch: &mut Scratch)
 /// This is BOTH the CPU fallback and the exactness oracle the CUDA kernel is
 /// pinned to (the kernel does exactly this, one block per row).
 #[must_use]
-pub fn emulate_certified_encode_row(dev: &EncodeAtomDevice, x: &[f64], amplitude: f64) -> DeviceEncodeRow {
+pub fn emulate_certified_encode_row(
+    dev: &EncodeAtomDevice,
+    x: &[f64],
+    amplitude: f64,
+) -> DeviceEncodeRow {
     let d = dev.d;
     let p = dev.p;
     let mut scratch = Scratch::new(dev);
-    let candidates = nearest_charts_topk(dev, x, &mut scratch);
+    let candidates = nearest_charts_topk(dev, x, amplitude, &mut scratch);
     if candidates.is_empty() {
         return DeviceEncodeRow {
             coord: vec![0.0; d],
@@ -766,14 +829,21 @@ pub fn emulate_certified_encode_row(dev: &EncodeAtomDevice, x: &[f64], amplitude
         let chart = &dev.charts[chart_idx];
         let Some(t_hat) = amortized_warm_start(chart, x, amplitude, d, p) else {
             if nearest_fallback.is_none() {
-                nearest_fallback = Some((vec![0.0; d], DeviceRowCertificate::uncertified(chart.lipschitz)));
+                nearest_fallback = Some((
+                    vec![0.0; d],
+                    DeviceRowCertificate::uncertified(chart.lipschitz),
+                ));
             }
             continue;
         };
-        let (coord, cert) = match certify_with_basin_warmup(dev, t_hat, x, amplitude, chart, &mut scratch) {
-            Some((c, cert)) => (c, cert),
-            None => (vec![0.0; d], DeviceRowCertificate::uncertified(chart.lipschitz)),
-        };
+        let (coord, cert) =
+            match certify_with_basin_warmup(dev, t_hat, x, amplitude, chart, &mut scratch) {
+                Some((c, cert)) => (c, cert),
+                None => (
+                    vec![0.0; d],
+                    DeviceRowCertificate::uncertified(chart.lipschitz),
+                ),
+            };
         if nearest_fallback.is_none() {
             nearest_fallback = Some((coord.clone(), cert));
         }
@@ -876,7 +946,7 @@ __device__ void recon_amp1(const double* dec, const double* phi, double* out){
     for(int c=0;c<PP;++c) out[c]+=pv*dec[b*PP+c]; }
 }
 
-// grad g[D] and full Hessian h[D*D] (+ridge). Mirror of encode_grad_hess.
+// grad g[D] and full, TRUE Hessian h[D*D] (NO ridge, F2). Mirror of encode_grad_hess.
 __device__ void grad_hess(const double* dec, const double* t, const double* x, double amp,
                           const double* phi, const double* jet, const double* hess,
                           double* g, double* h){
@@ -899,7 +969,7 @@ __device__ void grad_hess(const double* dec, const double* t, const double* x, d
       h[a*DD+b]=hab+curv;
     }
   }
-  for(int a=0;a<DD;++a) h[a*DD+a]+=RIDGE;
+  // NO ridge: the certificate uses the TRUE Hessian (F2).
 }
 
 // Cyclic Jacobi eigensolver (mirror of jacobi_eigh); vecs columns: vecs[col*D+row].
@@ -985,7 +1055,12 @@ __device__ int certify_basin(const int* exps, const double* dec,
     row_certificate(exps, dec, t, x, amp, L, &h, &beta, &eta, delta);
     if(!(isfinite(h)) || h>=prev_h) return 0;
   }
-  double landing = h;
+  // F5: refine, then report the certificate `h` at the REFINED landing coordinate
+  // (mirror production `refine_certified_start`'s `final_cert`), NOT the pre-refine
+  // basin-exit `h`. `row_certificate` mutates `h` in place at each certified refine
+  // iterate, so after the loop `h` already holds the final refined certificate
+  // (or the basin-exit `h` if convergence broke before any refine step) — exactly
+  // production's `final_cert`.
   for(int s=0;s<NEWTON;++s){
     // convergence early-exit (mirror production refine_certified_start).
     double dnorm=0.0, tnorm=0.0;
@@ -996,7 +1071,7 @@ __device__ int certify_basin(const int* exps, const double* dec,
     if(!(isfinite(h) && h<=KANTOROVICH)) return 0;
   }
   for(int i=0;i<DD;++i) coord_out[i]=t[i];
-  *landing_h=landing;
+  *landing_h=h;
   return 1;
 }
 
@@ -1026,7 +1101,9 @@ extern "C" __global__ void sae_certified_encode(
   const double* x = targets + (size_t)row*PP;
   double amp = amps[row];
 
-  // ---- routing: top-TOPK certifiable charts by center recon distance. ----
+  // ---- routing: top-TOPK certifiable charts by the amplitude-scaled center
+  //      recon distance ‖x − z·m₁(t_c)‖² (F1; z·m₁ is the reconstruction actually
+  //      compared against x — an amplitude-blind score mis-routes when z != 1). ----
   int cand[TOPK]; double cand_d[TOPK]; int ncand=0;
   {
     double phi[MM]; double jet[MM*DD]; double hess[MM*DD*DD]; double recon[PP];
@@ -1034,7 +1111,7 @@ extern "C" __global__ void sae_certified_encode(
       if (cert_radii[idx] <= 0.0) continue;
       eval_basis(exps, centers + (size_t)idx*DD, phi, jet, hess);
       recon_amp1(dec, phi, recon);
-      double dist=0.0; for(int c=0;c<PP;++c){ double df=recon[c]-x[c]; dist+=df*df; }
+      double dist=0.0; for(int c=0;c<PP;++c){ double df=amp*recon[c]-x[c]; dist+=df*df; }
       // insert into the sorted top-TOPK by (dist, idx).
       int pos=ncand;
       while(pos>0 && (cand_d[pos-1]>dist)){ if(pos<TOPK){cand_d[pos]=cand_d[pos-1]; cand[pos]=cand[pos-1];} pos--; }
@@ -1095,7 +1172,7 @@ extern "C" __global__ void sae_certified_encode(
 }
 "#;
 
-/// Build the full NVRTC source for one `(d, m, p, topk, newton, ridge)`
+/// Build the full NVRTC source for one `(d, m, p, topk, newton)`
 /// instantiation, prepending the `#define`s so the compile is a pure
 /// `compile_ptx_arch` matching `sae_rowjet` / `arrow_schur_nvrtc`.
 #[cfg(target_os = "linux")]
@@ -1103,14 +1180,13 @@ extern "C" __global__ void sae_certified_encode(
 pub fn encode_kernel_source(dev: &EncodeAtomDevice) -> String {
     format!(
         "#define DD {}\n#define MM {}\n#define PP {}\n#define TOPK {}\n#define NEWTON {}\n\
-         #define RIDGE ({:e})\n#define GMIN_FLOOR ({:e})\n#define REFINE_EPS ({:e})\n\
+         #define GMIN_FLOOR ({:e})\n#define REFINE_EPS ({:e})\n\
          {ENCODE_KERNEL_SOURCE}",
         dev.d,
         dev.m,
         dev.p,
         dev.topk,
         dev.newton_steps,
-        dev.ridge,
         crate::encode::CERTIFIED_GLOBAL_MIN_RECON_FLOOR,
         crate::encode::NEWTON_REFINE_CONVERGED_EPS
     )
@@ -1266,9 +1342,7 @@ pub fn measure_device_encode_throughput(
 
 #[cfg(target_os = "linux")]
 mod device {
-    use super::{
-        DeviceEncodeRow, DeviceRowCertificate, EncodeAtomDevice, encode_kernel_source,
-    };
+    use super::{DeviceEncodeRow, DeviceRowCertificate, EncodeAtomDevice, encode_kernel_source};
     use gam_gpu::gpu_error::{GpuError, GpuResultExt};
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex, OnceLock};
@@ -1298,8 +1372,8 @@ mod device {
 
     fn module_for(b: &Backend, dev: &EncodeAtomDevice) -> Result<Arc<CudaModule>, GpuError> {
         let key = format!(
-            "{}-{}-{}-{}-{}-{:e}",
-            dev.d, dev.m, dev.p, dev.topk, dev.newton_steps, dev.ridge
+            "{}-{}-{}-{}-{}",
+            dev.d, dev.m, dev.p, dev.topk, dev.newton_steps
         );
         if let Ok(guard) = b.modules.lock() {
             if let Some(m) = guard.get(&key) {
@@ -1360,24 +1434,42 @@ mod device {
             tgt[i * p..(i + 1) * p].copy_from_slice(x);
         }
 
-        let exps_dev = stream.clone_htod(&dev.exponents).gpu_ctx("sae_encode htod exps")?;
-        let dec_dev = stream.clone_htod(&dev.decoder).gpu_ctx("sae_encode htod dec")?;
-        let centers_dev = stream.clone_htod(&centers).gpu_ctx("sae_encode htod centers")?;
+        let exps_dev = stream
+            .clone_htod(&dev.exponents)
+            .gpu_ctx("sae_encode htod exps")?;
+        let dec_dev = stream
+            .clone_htod(&dev.decoder)
+            .gpu_ctx("sae_encode htod dec")?;
+        let centers_dev = stream
+            .clone_htod(&centers)
+            .gpu_ctx("sae_encode htod centers")?;
         let radii_dev = stream.clone_htod(&radii).gpu_ctx("sae_encode htod radii")?;
-        let cert_dev = stream.clone_htod(&cert_radii).gpu_ctx("sae_encode htod cert_radii")?;
+        let cert_dev = stream
+            .clone_htod(&cert_radii)
+            .gpu_ctx("sae_encode htod cert_radii")?;
         let lips_dev = stream.clone_htod(&lips).gpu_ctx("sae_encode htod lips")?;
-        let hasj_dev = stream.clone_htod(&has_jac).gpu_ctx("sae_encode htod has_jac")?;
+        let hasj_dev = stream
+            .clone_htod(&has_jac)
+            .gpu_ctx("sae_encode htod has_jac")?;
         let a1_dev = stream.clone_htod(&a1).gpu_ctx("sae_encode htod a1")?;
-        let reconc_dev = stream.clone_htod(&recon_c).gpu_ctx("sae_encode htod recon_c")?;
+        let reconc_dev = stream
+            .clone_htod(&recon_c)
+            .gpu_ctx("sae_encode htod recon_c")?;
         let tgt_dev = stream.clone_htod(&tgt).gpu_ctx("sae_encode htod targets")?;
-        let amps_dev = stream.clone_htod(&amplitudes.to_vec()).gpu_ctx("sae_encode htod amps")?;
-        let mut coords_dev = stream.alloc_zeros::<f64>(n * d).gpu_ctx("sae_encode alloc coords")?;
+        let amps_dev = stream
+            .clone_htod(&amplitudes.to_vec())
+            .gpu_ctx("sae_encode htod amps")?;
+        let mut coords_dev = stream
+            .alloc_zeros::<f64>(n * d)
+            .gpu_ctx("sae_encode alloc coords")?;
         let mut h_dev = stream.alloc_zeros::<f64>(n).gpu_ctx("sae_encode alloc h")?;
-        let mut cert_out_dev = stream.alloc_zeros::<i32>(n).gpu_ctx("sae_encode alloc certified")?;
+        let mut cert_out_dev = stream
+            .alloc_zeros::<i32>(n)
+            .gpu_ctx("sae_encode alloc certified")?;
 
         let n_i32 = i32::try_from(n).map_err(|_| gam_gpu::gpu_err!("sae_encode n overflow"))?;
-        let ncharts_i32 =
-            i32::try_from(n_charts).map_err(|_| gam_gpu::gpu_err!("sae_encode n_charts overflow"))?;
+        let ncharts_i32 = i32::try_from(n_charts)
+            .map_err(|_| gam_gpu::gpu_err!("sae_encode n_charts overflow"))?;
         let cfg = LaunchConfig {
             grid_dim: (n_i32 as u32, 1, 1),
             block_dim: (32, 1, 1),
@@ -1409,9 +1501,15 @@ mod device {
         let mut coords = vec![0.0_f64; n * d];
         let mut h = vec![0.0_f64; n];
         let mut cert = vec![0_i32; n];
-        stream.memcpy_dtoh(&coords_dev, &mut coords).gpu_ctx("sae_encode dtoh coords")?;
-        stream.memcpy_dtoh(&h_dev, &mut h).gpu_ctx("sae_encode dtoh h")?;
-        stream.memcpy_dtoh(&cert_out_dev, &mut cert).gpu_ctx("sae_encode dtoh certified")?;
+        stream
+            .memcpy_dtoh(&coords_dev, &mut coords)
+            .gpu_ctx("sae_encode dtoh coords")?;
+        stream
+            .memcpy_dtoh(&h_dev, &mut h)
+            .gpu_ctx("sae_encode dtoh h")?;
+        stream
+            .memcpy_dtoh(&cert_out_dev, &mut cert)
+            .gpu_ctx("sae_encode dtoh certified")?;
         stream.synchronize().gpu_ctx("sae_encode synchronize")?;
 
         let mut out = Vec::with_capacity(n);
@@ -1624,7 +1722,11 @@ mod tests {
         let dev = EncodeAtomDevice::from_atom_atlas(&atom, &atlas.atoms[0], &config).unwrap();
         let n = 40usize;
         let rows: Vec<Vec<f64>> = (0..n)
-            .map(|k| (0..p).map(|c| 0.3 * (((k + c) as f64) * 0.19).sin()).collect())
+            .map(|k| {
+                (0..p)
+                    .map(|c| 0.3 * (((k + c) as f64) * 0.19).sin())
+                    .collect()
+            })
             .collect();
         let amps: Vec<f64> = (0..n).map(|_| 1.0).collect();
         let (batch, path) = sae_certified_encode_batch(&dev, &rows, &amps);
@@ -1705,7 +1807,10 @@ mod tests {
             "the exact encode benchmark must produce a positive rows/sec, got {}",
             tput.rows_per_sec
         );
-        assert_eq!(tput.device_engaged(), matches!(tput.path, EncodePath::Device));
+        assert_eq!(
+            tput.device_engaged(),
+            matches!(tput.path, EncodePath::Device)
+        );
 
         // The benchmark must be non-vacuous: on a well-conditioned dictionary the
         // planted on-manifold rows certify through the exact encode (proving the
@@ -1787,7 +1892,10 @@ mod tests {
                 for k in 0..2 {
                     acc += vals[k] * vecs[k * 2 + r] * vecs[k * 2 + c];
                 }
-                assert!((acc - a[r * 2 + c]).abs() < 1e-12, "eig reconstruct {r},{c}");
+                assert!(
+                    (acc - a[r * 2 + c]).abs() < 1e-12,
+                    "eig reconstruct {r},{c}"
+                );
             }
         }
         // Eigenvalues of [[4,1],[1,3]] are (7±√5)/2.
@@ -1813,8 +1921,10 @@ mod tests {
         let ptx = gam_gpu::device_cache::compile_ptx_arch(&src)
             .expect("sae_encode kernel compiles to PTX via NVRTC");
         let text = ptx.to_src();
-        assert!(text.contains(".visible .entry sae_certified_encode"),
-            "PTX must export the encode entry");
+        assert!(
+            text.contains(".visible .entry sae_certified_encode"),
+            "PTX must export the encode entry"
+        );
         assert!(text.contains(".target sm_"), "PTX must carry a target arch");
     }
 
@@ -1827,7 +1937,11 @@ mod tests {
         let dev = EncodeAtomDevice::from_atom_atlas(&atom, &atlas.atoms[0], &config).unwrap();
         let n = DEVICE_ROW_THRESHOLD + 64;
         let rows: Vec<Vec<f64>> = (0..n)
-            .map(|k| (0..p).map(|c| 0.3 * (((k + c) as f64) * 0.019).sin()).collect())
+            .map(|k| {
+                (0..p)
+                    .map(|c| 0.3 * (((k + c) as f64) * 0.019).sin())
+                    .collect()
+            })
             .collect();
         let amps = vec![1.0; n];
         let cpu = emulate_certified_encode_batch(&dev, &rows, &amps);
@@ -1836,14 +1950,21 @@ mod tests {
                 .expect("admitted GPU runtime must run the sae_encode kernel");
             let mut max_coord = 0.0_f64;
             for (a, b) in cpu.iter().zip(devout.iter()) {
-                assert_eq!(a.cert.certified(), b.cert.certified(), "device certified flag");
+                assert_eq!(
+                    a.cert.certified(),
+                    b.cert.certified(),
+                    "device certified flag"
+                );
                 if a.cert.certified() {
                     for axis in 0..dev.d {
                         max_coord = max_coord.max((a.coord[axis] - b.coord[axis]).abs());
                     }
                 }
             }
-            assert!(max_coord <= 1e-9, "device vs emulator coord diff {max_coord:.3e} > 1e-9");
+            assert!(
+                max_coord <= 1e-9,
+                "device vs emulator coord diff {max_coord:.3e} > 1e-9"
+            );
         }
     }
 }

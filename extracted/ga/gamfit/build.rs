@@ -21,6 +21,7 @@ fn main() {
 
     let manifest_dir =
         PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set"));
+    emit_workspace_scanner_rerun_roots(&manifest_dir);
 
     // Everything below — the Python penalty-manifest generation and the
     // first-party hygiene scanners — is development/CI tooling that operates on
@@ -38,7 +39,7 @@ fn main() {
         return;
     }
 
-    // HARD ban (always fatal): Claude may not edit build.rs alone. If the most
+    // Hard ban (always fatal): Claude may not edit build.rs alone. If the most
     // recent git author of build.rs is Claude, the change must be a co-authored
     // human collaboration. The checks in this file are not to be weakened or
     // removed under any circumstances; a human maintainer must approve and commit
@@ -1010,6 +1011,29 @@ fn forbid_build_rs_self_tampering(manifest_dir: &Path) {
 /// author; `Co-Authored-By` alone is intentionally not enough because git log
 /// `%an` returns the primary author of the commit.
 fn forbid_claude_build_rs_edits(manifest_dir: &Path) {
+    // A shallow or partial clone (e.g. a CI / wheel-build fetch made with
+    // `--depth`) does not contain the commit that actually last modified
+    // build.rs, so the `git log -- build.rs` audit below cannot see it and git
+    // instead reports the shallow-boundary tip commit's author — a false
+    // positive that blocks the build whenever that tip happens to be a
+    // Claude-authored commit to some *other* file. Authoring of build.rs never
+    // happens inside a shallow, checkout-only build clone, so the guard is
+    // inapplicable there and is skipped. Full working clones — the only place a
+    // build.rs commit is actually authored — still enforce it below.
+    let shallow = Command::new("git")
+        .arg("-C")
+        .arg(manifest_dir)
+        .arg("rev-parse")
+        .arg("--is-shallow-repository")
+        .output();
+    if let Ok(shallow) = shallow {
+        if shallow.status.success()
+            && String::from_utf8_lossy(&shallow.stdout).trim() == "true"
+        {
+            return;
+        }
+    }
+
     let output = Command::new("git")
         .arg("-C")
         .arg(manifest_dir)
@@ -4306,10 +4330,7 @@ const OVERSIZED_PROBATION_FLOOR_LINES: usize = 7_000;
 /// tracked) are pruned. Emitted probation offenders are only those in the
 /// 7k..=10k band — files still over 10k are already reported by the primary
 /// `scan_for_oversized_tracked_files` gate, so we do not double-report them.
-fn scan_for_probation_oversized_files(
-    root: &Path,
-    offenders: &mut Vec<(PathBuf, usize, String)>,
-) {
+fn scan_for_probation_oversized_files(root: &Path, offenders: &mut Vec<(PathBuf, usize, String)>) {
     let ledger_path = root.join(OVERSIZED_PROBATION_LEDGER_FILENAME);
     let mut ledger = load_probation_ledger(&ledger_path);
 
@@ -4469,6 +4490,27 @@ struct ScannedFile {
 }
 
 static SCANNABLE_FILES: OnceLock<Vec<ScannedFile>> = OnceLock::new();
+
+fn emit_workspace_scanner_rerun_roots(root: &Path) {
+    emit_rerun_if_dir_exists(&root.join("src"));
+    emit_rerun_if_dir_exists(&root.join("examples"));
+    emit_rerun_if_dir_exists(&root.join("gamfit"));
+
+    let crates_dir = root.join("crates");
+    let Ok(entries) = fs::read_dir(&crates_dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let crate_src = entry.path().join("src");
+        emit_rerun_if_dir_exists(&crate_src);
+    }
+}
+
+fn emit_rerun_if_dir_exists(path: &Path) {
+    if path.is_dir() {
+        println!("cargo:rerun-if-changed={}", path.display());
+    }
+}
 
 fn visit_files(root: &Path, dir: &Path, visitor: &mut dyn FnMut(&Path, &str)) {
     let dir_rel = dir

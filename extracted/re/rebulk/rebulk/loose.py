@@ -5,13 +5,21 @@ Various utilities functions
 
 from __future__ import annotations
 
-from inspect import getfullargspec, isclass
+from functools import lru_cache
+from inspect import getfullargspec as _getfullargspec
+from inspect import isclass
 from typing import TYPE_CHECKING, Any, cast
 
 from .utils import is_iterable
 
 if TYPE_CHECKING:
     from inspect import FullArgSpec
+
+# Validators/formatters/conflict-solvers are stable singletons for a Rebulk instance's lifetime,
+# so their signature introspection is redundant across the many matching-path calls. The set of
+# distinct callables is small and bounded, and getfullargspec is a pure function of its callable,
+# so an unbounded identity cache is safe.
+getfullargspec = lru_cache(maxsize=None)(_getfullargspec)
 
 
 def _constructor(class_: Any) -> Any:

@@ -8,7 +8,10 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 class SessionTeam(UniversalBaseModel):
     name: str
-    id: str
+    id: str = pydantic.Field()
+    """
+    System-generated team ID.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

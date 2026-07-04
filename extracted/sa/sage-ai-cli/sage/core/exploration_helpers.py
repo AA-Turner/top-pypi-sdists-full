@@ -260,7 +260,7 @@ def _build_prompt_reader(cwd: Path) -> Callable[[str], str]:
 
     Falls back to Rich input in non-interactive/test environments.
     """
-    from sage.main import _load_prompt_history
+    from sage.core.session_helpers import _load_prompt_history
     if sys.stdin.isatty() and sys.stdout.isatty():
         try:
             import os
@@ -871,7 +871,7 @@ def _collect_full_readonly_file_coverage(
     to keep local-model analysis responsive instead of stalling before the model
     can synthesize findings.
     """
-    from sage.main import _record_file_read
+    from sage.cli_core import _record_file_read
     from sage.core.tools import ToolCall, ToolType
 
     all_paths = _iter_full_analysis_file_paths(cwd)
@@ -1836,7 +1836,7 @@ def _execute_tool_commands(
 
     Also records evidence via the global evidence tracker for synthesis gating.
     """
-    from sage.main import _add_session_file_read, _get_project_file_listing, _record_file_read, _record_search
+    from sage.cli_core import _add_session_file_read, _get_project_file_listing, _record_file_read, _record_search
     global _consecutive_failed_reads
 
     results: list[str] = []

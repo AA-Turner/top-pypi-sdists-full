@@ -15,7 +15,7 @@ import math
 from collections.abc import Callable
 from itertools import chain
 from textwrap import dedent
-from typing import Any, TypeAlias
+from typing import Any
 
 import numpy as np
 
@@ -26,6 +26,7 @@ from pytensor.gradient import disconnected_type, grad_undefined
 from pytensor.graph.basic import Apply, Constant, Variable
 from pytensor.graph.fg import FrozenFunctionGraph
 from pytensor.graph.op import HasInnerGraph, Op
+from pytensor.graph.replace import clone_replace
 from pytensor.graph.traversal import applys_between
 from pytensor.graph.type import HasDataType, HasShape
 from pytensor.graph.utils import MetaObject, MethodNotDefined
@@ -790,7 +791,7 @@ float64: ScalarType = get_scalar_type("float64")
 complex64: ScalarType = get_scalar_type("complex64")
 complex128: ScalarType = get_scalar_type("complex128")
 
-_ScalarTypes: TypeAlias = tuple[ScalarType, ...]
+type _ScalarTypes = tuple[ScalarType, ...]
 int_types: _ScalarTypes = (int8, int16, int32, int64)
 uint_types: _ScalarTypes = (uint8, uint16, uint32, uint64)
 float_types: _ScalarTypes = (float16, float32, float64)
@@ -1801,7 +1802,6 @@ class Maximum(BinaryScalarOp):
     commutative = True
     associative = True
     nfunc_spec = ("maximum", 2, 1)
-    nfunc_variadic = "maximum"
     identity = -np.inf
 
     def impl(self, *inputs):
@@ -1848,7 +1848,6 @@ class Minimum(BinaryScalarOp):
     commutative = True
     associative = True
     nfunc_spec = ("minimum", 2, 1)
-    nfunc_variadic = "minimum"
     identity = np.inf
 
     def impl(self, *inputs):
@@ -1895,7 +1894,6 @@ class Add(ScalarOp):
     commutative = True
     associative = True
     nfunc_spec = ("add", 2, 1)
-    nfunc_variadic = "sum"
 
     def impl(self, *inputs):
         return sum(inputs)
@@ -1937,7 +1935,6 @@ class Mul(ScalarOp):
     commutative = True
     associative = True
     nfunc_spec = ("multiply", 2, 1)
-    nfunc_variadic = "prod"
 
     def impl(self, *inputs):
         return np.prod(inputs)
@@ -4208,6 +4205,7 @@ class ScalarInnerGraphOp(ScalarOp, HasInnerGraph):
         rval = dict(self.__dict__)
         rval.pop("_c_code", None)
         rval.pop("_py_perform_fn", None)
+        rval.pop("_name", None)
         rval.pop("prepare_node_called", None)
         return rval
 
@@ -4226,6 +4224,8 @@ class Composite(ScalarInnerGraphOp):
 
     """
 
+    _name = None
+
     def __init__(
         self,
         inputs,
@@ -4233,12 +4233,13 @@ class Composite(ScalarInnerGraphOp):
         name="Composite",
     ):
         self.name = name
-        self._name = None
 
         for i in inputs:
             assert i not in outputs  # This isn't supported, use identity
 
-        self.fgraph = FrozenFunctionGraph(inputs, outputs)
+        # Composite inner graphs have no inplace ops, so structurally-identical
+        # nodes can be safely deduplicated.
+        self.fgraph = FrozenFunctionGraph.from_io(inputs, outputs, dedup_nodes=True)
         self._validate_inner_graph(self.fgraph)
 
         self.inputs = self.fgraph.inputs
@@ -4275,21 +4276,21 @@ class Composite(ScalarInnerGraphOp):
         if self.inputs_type == tuple(i.type for i in inputs):
             return super().make_node(*inputs)
         else:
-            # Make a new op with the right input types.
+            # Make a new op whose inner graph is rebuilt on fresh inputs of the
+            # new types. The retype needs ``rebuild_strict=False`` (re-infers
+            # each node's output types), which in-place ``FunctionGraph``
+            # replacements cannot do, so thaw first and rebuild the mutable copy.
             assert len(inputs) == self.nin
-            fg = self.fgraph
-            res = pytensor.compile.rebuild_collect_shared(
-                fg.outputs,
-                replace=dict(zip(fg.inputs, inputs, strict=True)),
+            unfrozen_fgraph = self.fgraph.unfreeze()
+            new_inner_inputs = [i.type() for i in inputs]
+            new_outputs = clone_replace(
+                unfrozen_fgraph.outputs,
+                replace=dict(
+                    zip(unfrozen_fgraph.inputs, new_inner_inputs, strict=True)
+                ),
                 rebuild_strict=False,
             )
-            # After rebuild_collect_shared, the Variable in inputs
-            # are not necessarily in the graph represented by res.
-            # res[2][0] is a dict that map from the original variable to the
-            # cloned variable.
-            cloned_inputs = [res[2][0][i] for i in inputs]
-            node = Composite(cloned_inputs, res[1]).make_node(*inputs)
-            return node
+            return Composite(new_inner_inputs, new_outputs).make_node(*inputs)
 
     def perform(self, node, inputs, output_storage):
         outputs = self.py_perform_fn(*inputs)

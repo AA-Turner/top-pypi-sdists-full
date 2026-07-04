@@ -80,7 +80,7 @@ class TestSimpleQAMode:
 
     def test_is_simple_qa_detects_math_questions(self):
         """Simple math questions should be detected as Q&A."""
-        from sage.main import _is_simple_qa_prompt
+        from sage.cli_core import _is_simple_qa_prompt
 
         simple_prompts = [
             "What is 2+2?",
@@ -94,7 +94,7 @@ class TestSimpleQAMode:
 
     def test_is_simple_qa_rejects_agent_tasks(self):
         """Agent tasks should NOT be treated as simple Q&A."""
-        from sage.main import _is_simple_qa_prompt
+        from sage.cli_core import _is_simple_qa_prompt
 
         agent_prompts = [
             "Analyze the codebase and list 100 improvements",
@@ -109,7 +109,7 @@ class TestSimpleQAMode:
 
     def test_ask_command_uses_simple_mode_for_qa(self):
         """sage run should use simple mode for Q&A, not agent mode."""
-        from sage.main import _build_simple_qa_messages
+        from sage.cli_core import _build_simple_qa_messages
 
         messages = _build_simple_qa_messages("What is 2+2?")
 
@@ -145,7 +145,7 @@ class TestSimpleQAMode:
     def test_timeout_wrapper_fails_fast_for_stuck_simple_qa(self):
         """Simple-QA timeout wrapper should abort instead of hanging the REPL forever."""
         from sage.core.renderer import StreamingTimeoutError
-        from sage.main import _run_callable_with_timeout
+        from sage.cli_core import _run_callable_with_timeout
 
         with pytest.raises(StreamingTimeoutError):
             _run_callable_with_timeout(
@@ -156,7 +156,7 @@ class TestSimpleQAMode:
 
     def test_hidden_agent_turn_timeout_stays_short_for_local_models(self):
         """Hidden non-stream agent turns should fail fast on local models."""
-        from sage.main import _get_single_turn_agent_timeout
+        from sage.cli_core import _get_single_turn_agent_timeout
 
         assert _get_single_turn_agent_timeout("ollama") == 30.0
         assert _get_single_turn_agent_timeout("llama_cpp") == 60.0
@@ -198,7 +198,7 @@ class TestAskGroundingDiscipline:
 
     def test_ask_with_file_reference_requires_read(self):
         """If ask mentions a file, it should READ it before answering."""
-        from sage.main import _should_ground_ask_response
+        from sage.cli_core import _should_ground_ask_response
 
         # Prompt asks about a specific file
         prompt = "Read main.py and tell me what run() does"
@@ -208,7 +208,7 @@ class TestAskGroundingDiscipline:
 
     def test_ask_without_file_reference_no_grounding(self):
         """Simple Q&A without files doesn't need grounding."""
-        from sage.main import _should_ground_ask_response
+        from sage.cli_core import _should_ground_ask_response
 
         prompt = "What is 2+2?"
 
@@ -246,7 +246,7 @@ class TestModelAvailability:
     def test_model_listing_shows_download_status(self):
         """Model listing should indicate if model needs download."""
         from sage.config import SageConfig
-        from sage.main import _resolve_model_prefix
+        from sage.cli_core import _resolve_model_prefix
 
         cfg = SageConfig(models={"qwen2.5-coder-3b": {"path": "/missing/model.gguf"}})
 
@@ -258,7 +258,7 @@ class TestModelAvailability:
     def test_gcs_prefix_resolves_to_local_catalog_model(self):
         """gcs: aliases should behave like downloadable local GGUF models."""
         from sage.config import SageConfig
-        from sage.main import _resolve_model_prefix
+        from sage.cli_core import _resolve_model_prefix
 
         resolved = _resolve_model_prefix("gcs:qwen2.5-coder-3b", SageConfig())
         assert resolved == "llama_cpp:qwen2.5-coder-3b"
@@ -266,7 +266,7 @@ class TestModelAvailability:
     def test_cloud_prefix_resolves_to_ollama_alias(self):
         """cloud: aliases map to local Ollama model ids (legacy compatibility)."""
         from sage.config import SageConfig
-        from sage.main import _resolve_model_prefix
+        from sage.cli_core import _resolve_model_prefix
 
         resolved = _resolve_model_prefix("cloud:openai", SageConfig())
         assert resolved == "ollama:openai"
@@ -292,7 +292,7 @@ class TestModelAvailability:
     def test_explicit_ollama_model_stays_exact_even_if_not_pulled(self):
         """An explicit ollama:model choice should not be silently remapped to cloud."""
         from sage.config import SageConfig
-        from sage.main import _prepare_model_for_use
+        from sage.cli_core import _prepare_model_for_use
 
         cfg = SageConfig()
         mock_response = MagicMock()
@@ -315,7 +315,7 @@ class TestModelAvailability:
     def test_explicit_ollama_model_raises_if_ollama_is_offline(self):
         """If the user explicitly asks for Ollama, we should fail clearly instead of drifting."""
         from sage.config import SageConfig
-        from sage.main import _prepare_model_for_use
+        from sage.cli_core import _prepare_model_for_use
 
         with (
             patch("httpx.get", side_effect=RuntimeError("offline")),
@@ -326,7 +326,7 @@ class TestModelAvailability:
     def test_bare_ollama_catalog_name_prefers_local_provider(self):
         """Bare exact Ollama catalog names should resolve locally before cloud fuzzy fallback."""
         from sage.config import SageConfig
-        from sage.main import _resolve_model_prefix
+        from sage.cli_core import _resolve_model_prefix
 
         resolved = _resolve_model_prefix("qwen3", SageConfig())
         assert resolved == "ollama:qwen3"
@@ -334,7 +334,7 @@ class TestModelAvailability:
     def test_bare_ollama_catalog_name_stays_local_when_selected(self):
         """Bare exact Ollama selections like qwen3 should not drift to cloud providers."""
         from sage.config import SageConfig
-        from sage.main import _prepare_model_for_use
+        from sage.cli_core import _prepare_model_for_use
 
         cfg = SageConfig()
         mock_response = MagicMock()
@@ -357,7 +357,7 @@ class TestModelAvailability:
     def test_missing_ollama_model_is_pulled_during_prepare(self):
         """Switching to an Ollama model in the CLI should eagerly pull it."""
         from sage.config import SageConfig
-        from sage.main import _ensure_model_available
+        from sage.cli_core import _ensure_model_available
 
         cfg = SageConfig()
         mock_response = MagicMock()
@@ -380,7 +380,7 @@ class TestModelAvailability:
     def test_catalog_model_auto_downloads_when_selected(self):
         """Selecting a catalog-backed local model should trigger download + registration."""
         from sage.config import SageConfig
-        from sage.main import _ensure_model_available
+        from sage.cli_core import _ensure_model_available
 
         fake_model = SimpleNamespace(name="test-gcs-model", backend="gguf")
         cfg = SageConfig()
@@ -405,7 +405,7 @@ class TestModelAvailability:
     def test_catalog_model_downloads_before_runtime_fallback(self):
         """Even if llama_cpp runtime is unavailable, catalog assets should still be prepared."""
         from sage.config import SageConfig
-        from sage.main import _ensure_model_available
+        from sage.cli_core import _ensure_model_available
 
         fake_model = SimpleNamespace(name="test-gcs-model-2", backend="gguf")
         cfg = SageConfig()
@@ -440,7 +440,7 @@ class TestModelAvailability:
 
     def test_llama_cpp_install_attempts_try_binary_first(self):
         """Bootstrap should prefer a binary wheel before attempting a source build."""
-        from sage.main import _llama_cpp_install_attempts
+        from sage.cli_core import _llama_cpp_install_attempts
 
         attempts = _llama_cpp_install_attempts(
             {"cmake": False, "compiler": False, "darwin_arm64": False}
@@ -452,7 +452,7 @@ class TestModelAvailability:
 
     def test_llama_cpp_install_attempts_add_source_build_when_toolchain_present(self):
         """Bootstrap should try a source build when the local toolchain can support it."""
-        from sage.main import _llama_cpp_install_attempts
+        from sage.cli_core import _llama_cpp_install_attempts
 
         attempts = _llama_cpp_install_attempts(
             {"cmake": True, "compiler": True, "darwin_arm64": True}
@@ -469,7 +469,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_scan_project_context_with_files_returns_preview_paths(self, tmp_path):
         """Recursive scan should tell us which files were actually previewed."""
-        from sage.main import _scan_project_context_with_files
+        from sage.cli_core import _scan_project_context_with_files
 
         (tmp_path / "README.md").write_text("# Project\n")
         (tmp_path / "backend").mkdir()
@@ -490,7 +490,7 @@ class TestWorkspaceAccessGrounding:
     def test_recursive_analysis_seed_reads_real_project_files(self, tmp_path):
         """Broad analysis bootstrap should recursively seed grounded file evidence."""
         from sage.core.tools import ExecutionLedger
-        from sage.main import _seed_recursive_analysis_context
+        from sage.cli_core import _seed_recursive_analysis_context
 
         (tmp_path / "README.md").write_text("# Project\n")
         (tmp_path / "pyproject.toml").write_text("[tool.pytest.ini_options]\n")
@@ -516,7 +516,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_recursive_analysis_seed_selector_targets_broad_repo_audits(self):
         """Broad repo-wide analysis prompts should trigger recursive context seeding."""
-        from sage.main import _classify_and_store_request, _should_seed_recursive_analysis_context
+        from sage.cli_core import _classify_and_store_request, _should_seed_recursive_analysis_context
 
         prompt = "Analyze this codebase and tell me what needs to be fixed and improved."
         classification = _classify_and_store_request(prompt)
@@ -525,7 +525,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_multistep_pipeline_routes_seeded_broad_readonly_audits(self):
         """Broad seeded audits should use the grounded multistep path on local models."""
-        from sage.main import _classify_and_store_request, _should_use_multistep_pipeline
+        from sage.cli_core import _classify_and_store_request, _should_use_multistep_pipeline
 
         prompt = "Analyze this codebase and tell me what needs to be fixed and improved."
         classification = _classify_and_store_request(prompt)
@@ -541,7 +541,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_collect_readonly_shell_inventory_uses_safe_bash_discovery(self, tmp_path):
         """Broad analysis bootstrap should collect a safe shell inventory from the repo root."""
-        from sage.main import _collect_readonly_shell_inventory
+        from sage.cli_core import _collect_readonly_shell_inventory
 
         outputs = {
             "pwd": str(tmp_path),
@@ -562,7 +562,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_iter_full_analysis_file_paths_includes_relevant_dotfiles(self, tmp_path):
         """Broad audits should include important hidden project files like .github workflows."""
-        from sage.main import _iter_full_analysis_file_paths
+        from sage.cli_core import _iter_full_analysis_file_paths
 
         (tmp_path / ".github").mkdir()
         (tmp_path / ".github" / "workflows").mkdir()
@@ -579,7 +579,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_iter_full_analysis_file_paths_excludes_runtime_conversation_logs(self, tmp_path):
         """Broad audits should skip runtime conversation logs that are not source code."""
-        from sage.main import _iter_full_analysis_file_paths
+        from sage.cli_core import _iter_full_analysis_file_paths
 
         (tmp_path / "ai-platform").mkdir()
         (tmp_path / "ai-platform" / "data").mkdir()
@@ -597,7 +597,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_iter_full_analysis_file_paths_excludes_hidden_cache_directories(self, tmp_path):
         """Broad audits should skip hidden cache dirs while still allowing key hidden config."""
-        from sage.main import _iter_full_analysis_file_paths
+        from sage.cli_core import _iter_full_analysis_file_paths
 
         (tmp_path / ".ruff_cache").mkdir()
         (tmp_path / ".ruff_cache" / ".gitignore").write_text("*\n")
@@ -619,7 +619,7 @@ class TestWorkspaceAccessGrounding:
     def test_collect_full_readonly_file_coverage_reads_all_small_project_files(self, tmp_path):
         """Broad repo analysis should READ every eligible small text file in the project."""
         from sage.core.tools import ExecutionLedger
-        from sage.main import _collect_full_readonly_file_coverage
+        from sage.cli_core import _collect_full_readonly_file_coverage
 
         (tmp_path / ".github").mkdir()
         (tmp_path / ".github" / "workflows").mkdir()
@@ -664,7 +664,7 @@ class TestWorkspaceAccessGrounding:
     def test_collect_full_readonly_file_coverage_caps_large_local_projects(self, tmp_path):
         """Local broad analysis should cap verification on very large repos for responsiveness."""
         from sage.core.tools import ExecutionLedger
-        from sage.main import _collect_full_readonly_file_coverage
+        from sage.cli_core import _collect_full_readonly_file_coverage
 
         (tmp_path / "backend").mkdir()
         for idx in range(220):
@@ -688,7 +688,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_extract_grounded_file_references_matches_verified_paths(self):
         """Final analysis should only count file citations that match verified repo files."""
-        from sage.main import _extract_grounded_file_references
+        from sage.cli_core import _extract_grounded_file_references
 
         verified = {
             "ai-platform/sage/main.py",
@@ -711,7 +711,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_requires_grounded_file_citations_for_broad_analysis(self):
         """Broad repo audits should require verified file citations in the final synthesis."""
-        from sage.main import (
+        from sage.cli_core import (
             _classify_and_store_request,
             _requires_grounded_file_citations,
         )
@@ -723,7 +723,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_broad_analysis_rejects_root_only_metadata_citations(self):
         """Repo-wide audits should cite concrete subproject/source paths, not just root metadata."""
-        from sage.main import (
+        from sage.cli_core import (
             _classify_and_store_request,
             _collect_analysis_validation_violations,
         )
@@ -758,7 +758,7 @@ class TestWorkspaceAccessGrounding:
         self, tmp_path
     ):
         """Once grounded evidence exists, retries should ask for corrected synthesis, not more tools."""
-        from sage.main import _build_context_aware_validation_retry_prompt
+        from sage.cli_core import _build_context_aware_validation_retry_prompt
 
         prompt = _build_context_aware_validation_retry_prompt(
             task_prompt="Analyze this codebase and tell me what needs to be fixed.",
@@ -778,7 +778,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_actionable_numbered_list_detection_accepts_small_findings_lists(self):
         """A solid 3-item findings list should be reusable for follow-up implementation."""
-        from sage.main import _looks_like_actionable_numbered_list
+        from sage.cli_core import _looks_like_actionable_numbered_list
 
         response = (
             "1. Fix auth token retry loop in `ai-platform/sage/main.py:11900`.\n"
@@ -791,7 +791,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_request_grounding_state_ignores_saved_session_reads(self, tmp_path):
         """Fresh analysis requests must not inherit stale evidence from prior sessions."""
-        from sage.main import (
+        from sage.cli_core import (
             _add_session_file_read,
             _initialize_request_grounding_state,
         )
@@ -804,7 +804,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_request_grounding_state_seeds_only_explicit_pinned_context(self, tmp_path):
         """Files the user explicitly pinned with /read may seed the next request."""
-        from sage.main import _initialize_request_grounding_state
+        from sage.cli_core import _initialize_request_grounding_state
 
         files_read, execution_ledger = _initialize_request_grounding_state(
             tmp_path,
@@ -816,7 +816,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_workspace_access_note_covers_root_and_children(self, tmp_path):
         """The prompt note should make it clear that the whole invoked root is readable."""
-        from sage.main import _build_workspace_access_note
+        from sage.cli_core import _build_workspace_access_note
 
         (tmp_path / "README.md").write_text("hello")
         (tmp_path / "src").mkdir()
@@ -836,7 +836,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_multistep_prompt_does_not_claim_listing_is_exhaustive(self, tmp_path):
         """The analysis prompt should not falsely imply the sample listing is the only readable content."""
-        from sage.main import _build_multistep_phase_prompts
+        from sage.cli_core import _build_multistep_phase_prompts
 
         (tmp_path / "pyproject.toml").write_text("[tool.pytest.ini_options]\n")
         (tmp_path / "src").mkdir()
@@ -856,7 +856,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_workspace_map_summarizes_repo_structure(self, tmp_path):
         """CLI models should receive a grounded repo map, not just a few example paths."""
-        from sage.main import _build_workspace_map
+        from sage.cli_core import _build_workspace_map
 
         (tmp_path / "README.md").write_text("# Project\n")
         (tmp_path / "pyproject.toml").write_text("[tool.pytest.ini_options]\n")
@@ -894,7 +894,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_explicit_resume_request_requires_resume_language(self):
         """Fresh tasks should not inherit prior chat unless the user explicitly asks to resume."""
-        from sage.main import _is_explicit_resume_request
+        from sage.cli_core import _is_explicit_resume_request
 
         assert _is_explicit_resume_request("resume where we left off")
         assert _is_explicit_resume_request("what were we doing last time?")
@@ -904,7 +904,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_build_resume_context_from_memory_is_opt_in(self, tmp_path):
         """Stored conversation memory should stay dormant for normal fresh prompts."""
-        from sage.main import _add_to_conversation_memory, _build_resume_context_from_memory
+        from sage.cli_core import _add_to_conversation_memory, _build_resume_context_from_memory
 
         _add_to_conversation_memory(tmp_path, "user", "Analyze this codebase.")
         _add_to_conversation_memory(tmp_path, "assistant", "The repo is clean and ready.")
@@ -917,7 +917,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_build_resume_context_filters_invalid_prior_assistant_output(self, tmp_path):
         """Resume mode should filter obvious pseudo-tool garbage from prior assistant messages."""
-        from sage.main import _add_to_conversation_memory, _build_resume_context_from_memory
+        from sage.cli_core import _add_to_conversation_memory, _build_resume_context_from_memory
 
         _add_to_conversation_memory(tmp_path, "user", "Continue debugging the repo.")
         _add_to_conversation_memory(
@@ -944,7 +944,7 @@ class TestWorkspaceAccessGrounding:
         self, tmp_path
     ):
         """Arrow-key prompt history should stay input-only while outputs remain available for follow-ups."""
-        from sage.main import (
+        from sage.cli_core import (
             _add_to_output_history,
             _add_to_prompt_history,
             _get_session_recent_analysis_output,
@@ -981,7 +981,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_followup_fix_context_uses_recent_analysis_output(self, tmp_path):
         """Follow-up fix prompts should inherit SAGE's own prior findings without using prompt history."""
-        from sage.main import (
+        from sage.cli_core import (
             _add_to_output_history,
             _build_followup_context_from_recent_analysis,
         )
@@ -1008,7 +1008,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_structured_bold_numbered_analysis_is_persisted_and_recoverable(self, tmp_path):
         """Bold numbered analysis sections should round-trip into task memory for the next prompt."""
-        from sage.main import (
+        from sage.cli_core import (
             DockerSandbox,
             TDDGate,
             TaskExecutionManager,
@@ -1069,7 +1069,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_recover_tasks_from_recent_analysis_memory(self, tmp_path):
         """Follow-up implementation should be able to recover recent numbered findings."""
-        from sage.main import (
+        from sage.cli_core import (
             DockerSandbox,
             TDDGate,
             TaskExecutionManager,
@@ -1099,7 +1099,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_recover_tasks_from_output_history_when_conversation_memory_is_empty(self, tmp_path):
         """Recent SAGE outputs should be enough to recover follow-up fixes even without chat replay."""
-        from sage.main import (
+        from sage.cli_core import (
             DockerSandbox,
             TDDGate,
             TaskExecutionManager,
@@ -1129,7 +1129,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_recover_tasks_from_priority_heading_analysis_memory(self, tmp_path):
         """Follow-up implementation should recover tasks from Priority-style analysis headings."""
-        from sage.main import (
+        from sage.cli_core import (
             DockerSandbox,
             TDDGate,
             TaskExecutionManager,
@@ -1164,7 +1164,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_exact_prompt_pair_routes_analysis_then_tdd_followup(self, tmp_path, monkeypatch):
         """The exact user prompt pair should support analysis first, then TDD task execution."""
-        from sage.main import (
+        from sage.cli_core import (
             DockerSandbox,
             TDDGate,
             TaskExecutionManager,
@@ -1252,7 +1252,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_mixed_analysis_output_prefers_explicit_numbered_task_block(self):
         """Mixed fallback analysis should recover the explicit task list instead of the earlier findings blob."""
-        from sage.main import _normalize_actionable_task_list_text
+        from sage.cli_core import _normalize_actionable_task_list_text
 
         content = (
             "## Grounded Fallback Analysis\n\n"
@@ -1281,7 +1281,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_recover_tasks_filters_placeholder_paths_when_real_workspace_refs_exist(self, tmp_path):
         """Recovered implementation tasks should drop placeholder-only paths once real workspace refs are present."""
-        from sage.main import (
+        from sage.cli_core import (
             DockerSandbox,
             TDDGate,
             TaskExecutionManager,
@@ -1324,7 +1324,7 @@ class TestWorkspaceAccessGrounding:
         self, tmp_path, monkeypatch
     ):
         """The second prompt should resume failed work too, not silently skip it."""
-        from sage.main import (
+        from sage.cli_core import (
             DockerSandbox,
             TDDGate,
             TaskExecutionManager,
@@ -1380,7 +1380,7 @@ class TestWorkspaceAccessGrounding:
         self, tmp_path, monkeypatch
     ):
         """The implementation follow-up must not report success if any resumed task fails."""
-        from sage.main import (
+        from sage.cli_core import (
             DockerSandbox,
             TDDGate,
             TaskExecutionManager,
@@ -1434,7 +1434,7 @@ class TestWorkspaceAccessGrounding:
         self, tmp_path, monkeypatch
     ):
         """A task cannot complete if the response never produced any real file changes."""
-        from sage.main import DockerSandbox, TDDGate, TaskExecutionManager
+        from sage.cli_core import DockerSandbox, TDDGate, TaskExecutionManager
 
         manager = TaskExecutionManager(
             tmp_path,
@@ -1470,7 +1470,7 @@ class TestWorkspaceAccessGrounding:
         self, tmp_path, monkeypatch
     ):
         """Writing only tests should not be accepted as a finished implementation task."""
-        from sage.main import DockerSandbox, TDDGate, TaskExecutionManager
+        from sage.cli_core import DockerSandbox, TDDGate, TaskExecutionManager
 
         manager = TaskExecutionManager(
             tmp_path,
@@ -1504,7 +1504,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_execute_task_with_tdd_stops_on_no_progress_blocker(self, tmp_path):
         """Task execution should stop on a real no-progress blocker, not on an arbitrary retry cap."""
-        from sage.main import DockerSandbox, TDDGate, TaskExecutionManager
+        from sage.cli_core import DockerSandbox, TDDGate, TaskExecutionManager
 
         manager = TaskExecutionManager(
             tmp_path,
@@ -1536,7 +1536,7 @@ class TestWorkspaceAccessGrounding:
         """Failing tests in the red phase should never be labeled as a passing gate."""
         from types import SimpleNamespace
 
-        from sage.main import DockerSandbox
+        from sage.cli_core import DockerSandbox
 
         sandbox = DockerSandbox(tmp_path, network_enabled=False)
         monkeypatch.setattr(
@@ -1560,7 +1560,7 @@ class TestWorkspaceAccessGrounding:
     ):
         """Task-level TDD verification should honor scoped defaults and retry via a project venv."""
         from sage.core.commands import CommandResult
-        from sage.main import DockerSandbox, TDDGate
+        from sage.cli_core import DockerSandbox, TDDGate
 
         backend = tmp_path / "backend"
         venv_bin = backend / ".venv" / "bin"
@@ -1608,7 +1608,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_tdd_gate_retry_context_describes_unbounded_fix_loop(self, tmp_path):
         """Retry context should describe unbounded test fixing instead of a fixed attempt ceiling."""
-        from sage.main import DockerSandbox, TDDGate
+        from sage.cli_core import DockerSandbox, TDDGate
 
         gate = TDDGate(DockerSandbox(tmp_path, network_enabled=False))
         gate.increment_retry()
@@ -1621,7 +1621,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_fallback_findings_with_backticked_file_lines_round_trip_into_tasks(self, tmp_path):
         """Fallback analysis findings with `path:line` evidence should stay recoverable for TDD follow-ups."""
-        from sage.main import (
+        from sage.cli_core import (
             DockerSandbox,
             TDDGate,
             TaskExecutionManager,
@@ -2861,7 +2861,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_broad_local_analysis_skips_pre_multistep_ai_orchestration(self):
         """Broad local read-only analysis should skip extra orchestration model calls."""
-        from sage.main import _classify_and_store_request, _should_skip_ai_orchestration
+        from sage.cli_core import _classify_and_store_request, _should_skip_ai_orchestration
 
         analysis_prompt = "Analyze this codebase and tell me what needs to be fixed and improved."
         implementation_prompt = "Implement all the fixes using TDD."
@@ -2964,7 +2964,7 @@ class TestWorkspaceAccessGrounding:
 
     def test_tool_description_detector_is_tool_aware_for_batch_reads(self):
         """Valid READ batches should not be rejected as BAD_PATTERN just because paths repeat."""
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         response = """READ: ai-platform/backend/config.py
 READ: ai-platform/backend/app.py
@@ -3157,7 +3157,7 @@ READ: ai-platform/backend/runtime_manager.py
 
     def test_local_seeded_synthesis_prompt_prefers_recursive_context_over_shell_inventory(self):
         """Local synthesis should stay compact when recursive code context is already available."""
-        from sage.main import _build_seeded_readonly_synthesis_prompt
+        from sage.cli_core import _build_seeded_readonly_synthesis_prompt
 
         prompt = _build_seeded_readonly_synthesis_prompt(
             "TASK: Analyze this repo",
@@ -3176,7 +3176,7 @@ READ: ai-platform/backend/runtime_manager.py
 
     def test_seeded_synthesis_prompt_falls_back_to_shell_inventory_without_recursive_context(self):
         """If no recursive code context exists, the shell inventory can still ground synthesis."""
-        from sage.main import _build_seeded_readonly_synthesis_prompt
+        from sage.cli_core import _build_seeded_readonly_synthesis_prompt
 
         prompt = _build_seeded_readonly_synthesis_prompt(
             "TASK: Analyze this repo",
@@ -3192,7 +3192,7 @@ READ: ai-platform/backend/runtime_manager.py
 
     def test_grounded_analysis_failure_message_is_user_facing(self):
         """Fail-closed analysis messaging should stay clean and actionable."""
-        from sage.main import _build_grounded_analysis_failure_message
+        from sage.cli_core import _build_grounded_analysis_failure_message
 
         message = _build_grounded_analysis_failure_message()
 
@@ -3383,7 +3383,7 @@ READ: ai-platform/backend/runtime_manager.py
         self, tmp_path
     ):
         """Grounded implementation retries should push direct TDD execution, not ask for more input."""
-        from sage.main import _build_context_aware_validation_retry_prompt
+        from sage.cli_core import _build_context_aware_validation_retry_prompt
 
         prompt = _build_context_aware_validation_retry_prompt(
             task_prompt="Implement all the fixes using TDD.",
@@ -3402,7 +3402,7 @@ READ: ai-platform/backend/runtime_manager.py
         self, tmp_path
     ):
         """After tool results, implementation follow-ups should require direct TDD work."""
-        from sage.main import _build_tool_followup_prompt, _classify_and_store_request
+        from sage.cli_core import _build_tool_followup_prompt, _classify_and_store_request
 
         classification = _classify_and_store_request("Implement all the fixes using TDD.")
         prompt = _build_tool_followup_prompt(
@@ -3419,7 +3419,7 @@ READ: ai-platform/backend/runtime_manager.py
         self, tmp_path
     ):
         """If no prior findings list exists, SAGE should be able to bootstrap one for TDD execution."""
-        from sage.main import (
+        from sage.cli_core import (
             DockerSandbox,
             TDDGate,
             TaskExecutionManager,
@@ -3455,7 +3455,7 @@ READ: ai-platform/backend/runtime_manager.py
 
     def test_bootstrap_tasks_retries_after_speculative_response(self, tmp_path):
         """Task bootstrap should retry if the model responds with hypothetical prose."""
-        from sage.main import (
+        from sage.cli_core import (
             DockerSandbox,
             TDDGate,
             TaskExecutionManager,
@@ -3533,7 +3533,7 @@ READ: ai-platform/backend/runtime_manager.py
 
     def test_execute_tool_commands_only_counts_successful_reads(self, tmp_path):
         """Failed READ guesses must not count as grounded file awareness."""
-        from sage.main import _execute_tool_commands
+        from sage.cli_core import _execute_tool_commands
 
         (tmp_path / "real.py").write_text("print('hi')\n")
         files_read: set[str] = set()
@@ -3590,7 +3590,7 @@ READ: ai-platform/backend/runtime_manager.py
     ):
         """No-tests-found failures should give concrete guidance about the real test location."""
         from sage.core.commands import CommandResult
-        from sage.main import DockerSandbox, TDDGate
+        from sage.cli_core import DockerSandbox, TDDGate
 
         package_tests = tmp_path / "sage" / "tests"
         package_tests.mkdir(parents=True)
@@ -3622,7 +3622,7 @@ READ: ai-platform/backend/runtime_manager.py
         self, tmp_path, monkeypatch
     ):
         """Task retries should call out missing runnable tests instead of generic retry prose."""
-        from sage.main import DockerSandbox, TDDGate, TaskExecutionManager
+        from sage.cli_core import DockerSandbox, TDDGate, TaskExecutionManager
 
         test_dir = tmp_path / "pkg" / "tests"
         test_dir.mkdir(parents=True)
@@ -3730,7 +3730,7 @@ READ: ai-platform/backend/runtime_manager.py
 
     def test_context_validator_allows_investigation_response_with_real_tools(self):
         """Read-only analysis may start with READ/SEARCH commands before any files are read."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         response = """I need to inspect the project structure first.
 
@@ -3749,7 +3749,7 @@ READ: ai-platform/sage/main.py
 
     def test_investigation_only_helper_accepts_planning_plus_real_read_commands(self):
         """A short evidence-gathering plan with real READ commands should be allowed to execute."""
-        from sage.main import _is_investigation_only_response
+        from sage.cli_core import _is_investigation_only_response
 
         response = """The user is asking for a comprehensive review.
 
@@ -3766,7 +3766,7 @@ READ: README.md
 
     def test_context_validator_allows_planning_plus_read_commands_before_findings(self):
         """Mixed planning prose plus valid tool commands should not be misclassified as findings."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         response = """The user is asking for a comprehensive, read-only code analysis of the entire codebase.
 
@@ -3792,7 +3792,7 @@ READ: README.md
 
     def test_context_validator_does_not_treat_read_targets_as_hallucinated_paths(self):
         """Multiple READ targets in an investigation step should not be rejected as fake references."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         response = """READ: ai-platform/sage/main.py
 READ: ai-platform/sage/core/prompts.py
@@ -3864,7 +3864,7 @@ class TestBlankToolRejection:
 
     def test_blank_read_is_invalid(self):
         """READ: with no path must be rejected."""
-        from sage.main import _extract_tool_commands_structured
+        from sage.cli_core import _extract_tool_commands_structured
 
         text = "READ:\nREAD:\nREAD:"
 

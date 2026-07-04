@@ -41,7 +41,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from ._jsii import *
@@ -87,7 +87,7 @@ class ApiObject(
         :param metadata: Object metadata. If ``name`` is not specified, an app-unique name will be allocated by the framework based on the path of the construct within thes construct tree.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c3471c86f94453ef4d9efec6bd8f9cf9dbac2f11db69184e091d0a4f6d502be)
+            type_hints = cached_type_hints(_typecheckingstub__7c3471c86f94453ef4d9efec6bd8f9cf9dbac2f11db69184e091d0a4f6d502be)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApiObjectProps(api_version=api_version, kind=kind, metadata=metadata)
@@ -104,7 +104,7 @@ class ApiObject(
         :param o: The object to check.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e1861e2a67b17cc03b65ec7686045b40569487efa29052a042f312c20d14b2c)
+            type_hints = cached_type_hints(_typecheckingstub__7e1861e2a67b17cc03b65ec7686045b40569487efa29052a042f312c20d14b2c)
             check_type(argname="argument o", value=o, expected_type=type_hints["o"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isApiObject", [o]))
 
@@ -120,7 +120,7 @@ class ApiObject(
         :param c: The higher-level construct.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c55b2fcd45f38255c26ac00ed411c9af6ec5ea8ba6920c18afedcc214149a4e)
+            type_hints = cached_type_hints(_typecheckingstub__7c55b2fcd45f38255c26ac00ed411c9af6ec5ea8ba6920c18afedcc214149a4e)
             check_type(argname="argument c", value=c, expected_type=type_hints["c"])
         return typing.cast("ApiObject", jsii.sinvoke(cls, "of", [c]))
 
@@ -133,7 +133,7 @@ class ApiObject(
         :param dependencies: the dependencies to add.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82881106c470fdf7ed8e821d53730213ae34215c35ed597f7708178c0df728bf)
+            type_hints = cached_type_hints(_typecheckingstub__82881106c470fdf7ed8e821d53730213ae34215c35ed597f7708178c0df728bf)
             check_type(argname="argument dependencies", value=dependencies, expected_type=typing.Tuple[type_hints["dependencies"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addDependency", [*dependencies]))
 
@@ -148,7 +148,7 @@ class ApiObject(
               kubePod.addJsonPatch(JsonPatch.replace('/spec/enableServiceLinks', true));
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__161731dd57929dbfaf25c8720b0e1ddbb543e720daf53247296b6d94a9976531)
+            type_hints = cached_type_hints(_typecheckingstub__161731dd57929dbfaf25c8720b0e1ddbb543e720daf53247296b6d94a9976531)
             check_type(argname="argument ops", value=ops, expected_type=typing.Tuple[type_hints["ops"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addJsonPatch", [*ops]))
 
@@ -237,7 +237,7 @@ class ApiObjectMetadata:
         :param owner_references: List of objects depended by this object. If ALL objects in the list have been deleted, this object will be garbage collected. If this object is managed by a controller, then an entry in this list will point to this controller, with the controller field set to true. There cannot be more than one managing controller. Kubernetes sets the value of this field automatically for objects that are dependents of other objects like ReplicaSets, DaemonSets, Deployments, Jobs and CronJobs, and ReplicationControllers. You can also configure these relationships manually by changing the value of this field. However, you usually don't need to and can allow Kubernetes to automatically manage the relationships. Default: - automatically set by Kubernetes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35f4c3c7639bc9b50e949af73521350fa15fe4a126bddfdabcac5172638d132d)
+            type_hints = cached_type_hints(_typecheckingstub__35f4c3c7639bc9b50e949af73521350fa15fe4a126bddfdabcac5172638d132d)
             check_type(argname="argument annotations", value=annotations, expected_type=type_hints["annotations"])
             check_type(argname="argument finalizers", value=finalizers, expected_type=type_hints["finalizers"])
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
@@ -428,7 +428,7 @@ class ApiObjectMetadataDefinition(
         :param value: Metadata value.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9def3e3bd00bf53cb37a2e0644831b7d89d8821a115c8d269a7d9e2d4531bb4d)
+            type_hints = cached_type_hints(_typecheckingstub__9def3e3bd00bf53cb37a2e0644831b7d89d8821a115c8d269a7d9e2d4531bb4d)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "add", [key, value]))
@@ -441,7 +441,7 @@ class ApiObjectMetadataDefinition(
         :param value: - The value.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ca708eae375d08efb85cb3aa3ab3facc98cc64a3ab5ae313448e08b7d5029c5)
+            type_hints = cached_type_hints(_typecheckingstub__0ca708eae375d08efb85cb3aa3ab3facc98cc64a3ab5ae313448e08b7d5029c5)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addAnnotation", [key, value]))
@@ -453,7 +453,7 @@ class ApiObjectMetadataDefinition(
         :param finalizers: the finalizers.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10dc63d8c5b395973d6bc1d0cdc1e1b5026ce0e8147949b44197244e4156f74e)
+            type_hints = cached_type_hints(_typecheckingstub__10dc63d8c5b395973d6bc1d0cdc1e1b5026ce0e8147949b44197244e4156f74e)
             check_type(argname="argument finalizers", value=finalizers, expected_type=typing.Tuple[type_hints["finalizers"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addFinalizers", [*finalizers]))
 
@@ -465,7 +465,7 @@ class ApiObjectMetadataDefinition(
         :param value: - The value.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a63f1a5223c791fe2ed2391972064b7664d61556144b09da9c6bc83a0328cefe)
+            type_hints = cached_type_hints(_typecheckingstub__a63f1a5223c791fe2ed2391972064b7664d61556144b09da9c6bc83a0328cefe)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addLabel", [key, value]))
@@ -509,7 +509,7 @@ class ApiObjectMetadataDefinition(
         :return: a value of a label or undefined
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fec412ec90f3d03be3378cbdee675bf84860bff9d43c0328f5c1508f82ce2e6b)
+            type_hints = cached_type_hints(_typecheckingstub__fec412ec90f3d03be3378cbdee675bf84860bff9d43c0328f5c1508f82ce2e6b)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "getLabel", [key]))
 
@@ -573,7 +573,7 @@ class ApiObjectMetadataDefinitionOptions(ApiObjectMetadata):
         :param api_object: Which ApiObject instance is the metadata attached to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__941a97ef4e3f244aec7e1e661b3ea14853c24d8af07fc02fa36831237c09dff3)
+            type_hints = cached_type_hints(_typecheckingstub__941a97ef4e3f244aec7e1e661b3ea14853c24d8af07fc02fa36831237c09dff3)
             check_type(argname="argument annotations", value=annotations, expected_type=type_hints["annotations"])
             check_type(argname="argument finalizers", value=finalizers, expected_type=type_hints["finalizers"])
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
@@ -750,7 +750,7 @@ class ApiObjectProps:
         if isinstance(metadata, dict):
             metadata = ApiObjectMetadata(**metadata)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dd25b85d2368c9440a32a95c8f2442d5db4cc9bc422486dd10cfc51448222d8)
+            type_hints = cached_type_hints(_typecheckingstub__0dd25b85d2368c9440a32a95c8f2442d5db4cc9bc422486dd10cfc51448222d8)
             check_type(argname="argument api_version", value=api_version, expected_type=type_hints["api_version"])
             check_type(argname="argument kind", value=kind, expected_type=type_hints["kind"])
             check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
@@ -838,7 +838,7 @@ class App(
         :param c: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3d69a701ccbd6d4fe53a9f9a1243ebfef02b200d6c47aaee4e0ecb22fc803d4)
+            type_hints = cached_type_hints(_typecheckingstub__f3d69a701ccbd6d4fe53a9f9a1243ebfef02b200d6c47aaee4e0ecb22fc803d4)
             check_type(argname="argument c", value=c, expected_type=type_hints["c"])
         return typing.cast("App", jsii.sinvoke(cls, "of", [c]))
 
@@ -925,7 +925,7 @@ class AppProps:
         :param yaml_output_type: How to divide the YAML output into files. Default: YamlOutputType.FILE_PER_CHART
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ef9f0e4cd886d9d12fc1e1bb666e5a9f09404abbdcba465301b3dc064ecfde4)
+            type_hints = cached_type_hints(_typecheckingstub__0ef9f0e4cd886d9d12fc1e1bb666e5a9f09404abbdcba465301b3dc064ecfde4)
             check_type(argname="argument outdir", value=outdir, expected_type=type_hints["outdir"])
             check_type(argname="argument output_file_extension", value=output_file_extension, expected_type=type_hints["output_file_extension"])
             check_type(argname="argument record_construct_metadata", value=record_construct_metadata, expected_type=type_hints["record_construct_metadata"])
@@ -1036,7 +1036,7 @@ class Chart(
         :param namespace: The default namespace for all objects defined in this chart (directly or indirectly). This namespace will only apply to objects that don't have a ``namespace`` explicitly defined for them. Default: - no namespace is synthesized (usually this implies "default")
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aac62dbd05c99a5228dff367434c3e3fca0fb00c841ecd71382b9acd3fc1e30d)
+            type_hints = cached_type_hints(_typecheckingstub__aac62dbd05c99a5228dff367434c3e3fca0fb00c841ecd71382b9acd3fc1e30d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ChartProps(
@@ -1057,7 +1057,7 @@ class Chart(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ac1ee14ad96a56047185b46392b2fba722962d47ed4174705c5dc48101cec6e)
+            type_hints = cached_type_hints(_typecheckingstub__2ac1ee14ad96a56047185b46392b2fba722962d47ed4174705c5dc48101cec6e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isChart", [x]))
 
@@ -1069,7 +1069,7 @@ class Chart(
         :param c: a construct node.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c3591e786c1053dcfd71742c41befcbdacfce2fb416c37a182e0cdd7968ae81)
+            type_hints = cached_type_hints(_typecheckingstub__0c3591e786c1053dcfd71742c41befcbdacfce2fb416c37a182e0cdd7968ae81)
             check_type(argname="argument c", value=c, expected_type=type_hints["c"])
         return typing.cast("Chart", jsii.sinvoke(cls, "of", [c]))
 
@@ -1082,7 +1082,7 @@ class Chart(
         :param dependencies: the dependencies to add.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__932e2ddf3b649962a0914218bc529f30c50bf5d7ca654cc994f8a3084c93c717)
+            type_hints = cached_type_hints(_typecheckingstub__932e2ddf3b649962a0914218bc529f30c50bf5d7ca654cc994f8a3084c93c717)
             check_type(argname="argument dependencies", value=dependencies, expected_type=typing.Tuple[type_hints["dependencies"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addDependency", [*dependencies]))
 
@@ -1108,7 +1108,7 @@ class Chart(
         :param api_object: The API object to generate a name for.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15771e9e29c981b37d0997432bf0647e396050fd6c07b9241625bfb3e542d7ec)
+            type_hints = cached_type_hints(_typecheckingstub__15771e9e29c981b37d0997432bf0647e396050fd6c07b9241625bfb3e542d7ec)
             check_type(argname="argument api_object", value=api_object, expected_type=type_hints["api_object"])
         return typing.cast(builtins.str, jsii.invoke(self, "generateObjectName", [api_object]))
 
@@ -1165,7 +1165,7 @@ class ChartProps:
         :param namespace: The default namespace for all objects defined in this chart (directly or indirectly). This namespace will only apply to objects that don't have a ``namespace`` explicitly defined for them. Default: - no namespace is synthesized (usually this implies "default")
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__587cc3f5a3d7a6cc9a5690888b75875a8059bcf784bfae23dedf362a06743ee3)
+            type_hints = cached_type_hints(_typecheckingstub__587cc3f5a3d7a6cc9a5690888b75875a8059bcf784bfae23dedf362a06743ee3)
             check_type(argname="argument disable_resource_name_hashes", value=disable_resource_name_hashes, expected_type=type_hints["disable_resource_name_hashes"])
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
@@ -1347,7 +1347,7 @@ class CronOptions:
         :param week_day: The day of the week to run this rule at. Default: - Any day of the week
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc2c750519e19d88bad3a5fad0784148fee43e03a55bddfc61438556ab6bb698)
+            type_hints = cached_type_hints(_typecheckingstub__dc2c750519e19d88bad3a5fad0784148fee43e03a55bddfc61438556ab6bb698)
             check_type(argname="argument day", value=day, expected_type=type_hints["day"])
             check_type(argname="argument hour", value=hour, expected_type=type_hints["hour"])
             check_type(argname="argument minute", value=minute, expected_type=type_hints["minute"])
@@ -1440,7 +1440,7 @@ class DependencyGraph(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.DependencyGraph"
         :param node: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00e42df9fe8e54748af3dd0e25616d4ea57a51e241dfc6972407f4bce78ced02)
+            type_hints = cached_type_hints(_typecheckingstub__00e42df9fe8e54748af3dd0e25616d4ea57a51e241dfc6972407f4bce78ced02)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
         jsii.create(self.__class__, self, [node])
 
@@ -1476,7 +1476,7 @@ class DependencyVertex(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.DependencyVerte
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7903f01cf4bab7177bfc66d8e5acb3e99c019af8082b816e72beee89ab639c47)
+            type_hints = cached_type_hints(_typecheckingstub__7903f01cf4bab7177bfc66d8e5acb3e99c019af8082b816e72beee89ab639c47)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.create(self.__class__, self, [value])
 
@@ -1491,7 +1491,7 @@ class DependencyVertex(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.DependencyVerte
         :param dep: The dependency.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f3c1a1b4df66c2406e31123378a2ba7139aab5e261b7253d3771af9c0ed2922)
+            type_hints = cached_type_hints(_typecheckingstub__2f3c1a1b4df66c2406e31123378a2ba7139aab5e261b7253d3771af9c0ed2922)
             check_type(argname="argument dep", value=dep, expected_type=type_hints["dep"])
         return typing.cast(None, jsii.invoke(self, "addChild", [dep]))
 
@@ -1539,7 +1539,7 @@ class Duration(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Duration"):
         :return: a new ``Duration`` representing ``amount`` Days.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15ce164c8ddb62412fbc9134b2a57787b49dbf637a9072ddd8cb35ef9545a083)
+            type_hints = cached_type_hints(_typecheckingstub__15ce164c8ddb62412fbc9134b2a57787b49dbf637a9072ddd8cb35ef9545a083)
             check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
         return typing.cast("Duration", jsii.sinvoke(cls, "days", [amount]))
 
@@ -1553,7 +1553,7 @@ class Duration(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Duration"):
         :return: a new ``Duration`` representing ``amount`` Hours.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49be32303a4d56be9a6c9d9fb6e759ce5a4a30d954642474baf29f1b47d6e5bb)
+            type_hints = cached_type_hints(_typecheckingstub__49be32303a4d56be9a6c9d9fb6e759ce5a4a30d954642474baf29f1b47d6e5bb)
             check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
         return typing.cast("Duration", jsii.sinvoke(cls, "hours", [amount]))
 
@@ -1567,7 +1567,7 @@ class Duration(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Duration"):
         :return: a new ``Duration`` representing ``amount`` ms.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed8a2ef493eb7238ccbd43ee0e3ff2da5e62c5d6d51fc2d127776eba261980e5)
+            type_hints = cached_type_hints(_typecheckingstub__ed8a2ef493eb7238ccbd43ee0e3ff2da5e62c5d6d51fc2d127776eba261980e5)
             check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
         return typing.cast("Duration", jsii.sinvoke(cls, "millis", [amount]))
 
@@ -1581,7 +1581,7 @@ class Duration(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Duration"):
         :return: a new ``Duration`` representing ``amount`` Minutes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a65e8ee772805167d1dcc9fe3132d51039baf5cc182a0d12041c68495d4a3661)
+            type_hints = cached_type_hints(_typecheckingstub__a65e8ee772805167d1dcc9fe3132d51039baf5cc182a0d12041c68495d4a3661)
             check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
         return typing.cast("Duration", jsii.sinvoke(cls, "minutes", [amount]))
 
@@ -1597,7 +1597,7 @@ class Duration(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Duration"):
         :see: https://www.iso.org/fr/standard/70907.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca0db6a272abc31ecb50e8a143af3a1c2e63de57d4793ad8a17a96d0454f2037)
+            type_hints = cached_type_hints(_typecheckingstub__ca0db6a272abc31ecb50e8a143af3a1c2e63de57d4793ad8a17a96d0454f2037)
             check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
         return typing.cast("Duration", jsii.sinvoke(cls, "parse", [duration]))
 
@@ -1611,7 +1611,7 @@ class Duration(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Duration"):
         :return: a new ``Duration`` representing ``amount`` Seconds.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c36c45ae685aa42e43f0df90cff9bc72a4d096750fe1eb4ba29aef794d09410)
+            type_hints = cached_type_hints(_typecheckingstub__5c36c45ae685aa42e43f0df90cff9bc72a4d096750fe1eb4ba29aef794d09410)
             check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
         return typing.cast("Duration", jsii.sinvoke(cls, "seconds", [amount]))
 
@@ -1728,7 +1728,7 @@ class GroupVersionKind:
         :param kind: The object kind.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5654dc50c8f0fc983e64c60bc59a01c4a0ebeb3357670346908003a338a42d2d)
+            type_hints = cached_type_hints(_typecheckingstub__5654dc50c8f0fc983e64c60bc59a01c4a0ebeb3357670346908003a338a42d2d)
             check_type(argname="argument api_version", value=api_version, expected_type=type_hints["api_version"])
             check_type(argname="argument kind", value=kind, expected_type=type_hints["kind"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1801,7 +1801,7 @@ class HelmProps:
         :param version: Version constraint for the chart version to use. This constraint can be a specific tag (e.g. 1.1.1) or it may reference a valid range (e.g. ^2.0.0). If this is not specified, the latest version is used This name is passed to ``helm template --version`` and has all the relevant semantics.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d491a2276602d3378938ffe40a1ca86f3a51816e3a51fd829aeb41e96630e966)
+            type_hints = cached_type_hints(_typecheckingstub__d491a2276602d3378938ffe40a1ca86f3a51816e3a51fd829aeb41e96630e966)
             check_type(argname="argument chart", value=chart, expected_type=type_hints["chart"])
             check_type(argname="argument helm_executable", value=helm_executable, expected_type=type_hints["helm_executable"])
             check_type(argname="argument helm_flags", value=helm_flags, expected_type=type_hints["helm_flags"])
@@ -1968,7 +1968,7 @@ class _IResolverProxy:
         :param context: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad5ca202bc9e3dd6c5b464aae10cd956d0ccfeabb617701f2f25c6845a60289e)
+            type_hints = cached_type_hints(_typecheckingstub__ad5ca202bc9e3dd6c5b464aae10cd956d0ccfeabb617701f2f25c6845a60289e)
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
         return typing.cast(None, jsii.invoke(self, "resolve", [context]))
 
@@ -1995,7 +1995,7 @@ class ImplicitTokenResolver(
         :param context: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb6e42d5af180bdfb92d72b8157aae3261fc21d0f10885350023690febf6cbae)
+            type_hints = cached_type_hints(_typecheckingstub__eb6e42d5af180bdfb92d72b8157aae3261fc21d0f10885350023690febf6cbae)
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
         return typing.cast(None, jsii.invoke(self, "resolve", [context]))
 
@@ -2024,7 +2024,7 @@ class Include(
         :param url: Local file path or URL which includes a Kubernetes YAML manifest.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b7ad4649d7e1e318f4c5cfd1b6f285d8481cd49825b775d4fcdc15c2f1257c3)
+            type_hints = cached_type_hints(_typecheckingstub__6b7ad4649d7e1e318f4c5cfd1b6f285d8481cd49825b775d4fcdc15c2f1257c3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = IncludeProps(url=url)
@@ -2049,7 +2049,7 @@ class IncludeProps:
         :param url: Local file path or URL which includes a Kubernetes YAML manifest.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5a5cdbd9f75abfa5f7670e54b759fcd6f7c402051f050a5e1aa1f73ac5eaf3e)
+            type_hints = cached_type_hints(_typecheckingstub__c5a5cdbd9f75abfa5f7670e54b759fcd6f7c402051f050a5e1aa1f73ac5eaf3e)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "url": url,
@@ -2113,7 +2113,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.JsonPatch"):
             JsonPatch.add('/biscuits/1', { "name": "Ginger Nut" })
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e51633af9c45ea1ac2cc618c9ade6d085cb4b0e47240e794a287cacb94a4c59)
+            type_hints = cached_type_hints(_typecheckingstub__7e51633af9c45ea1ac2cc618c9ade6d085cb4b0e47240e794a287cacb94a4c59)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("JsonPatch", jsii.sinvoke(cls, "add", [path, value]))
@@ -2129,7 +2129,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.JsonPatch"):
         :return: The result document
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0cc5db94fd68d7c20469e460e266007085d6d5b5e8541e8796ba2c1c8106dd8)
+            type_hints = cached_type_hints(_typecheckingstub__f0cc5db94fd68d7c20469e460e266007085d6d5b5e8541e8796ba2c1c8106dd8)
             check_type(argname="argument document", value=document, expected_type=type_hints["document"])
             check_type(argname="argument ops", value=ops, expected_type=typing.Tuple[type_hints["ops"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(typing.Any, jsii.sinvoke(cls, "apply", [document, *ops]))
@@ -2150,7 +2150,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.JsonPatch"):
             JsonPatch.copy('/biscuits/0', '/best_biscuit')
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ad568ab5b16454e5e827da5f437072e9e3555ccc7b7553a697903192a1b3eb5)
+            type_hints = cached_type_hints(_typecheckingstub__8ad568ab5b16454e5e827da5f437072e9e3555ccc7b7553a697903192a1b3eb5)
             check_type(argname="argument from_", value=from_, expected_type=type_hints["from_"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("JsonPatch", jsii.sinvoke(cls, "copy", [from_, path]))
@@ -2170,7 +2170,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.JsonPatch"):
             JsonPatch.move('/biscuits', '/cookies')
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de55a7c5105ba84ccdf0e9638671d4816ff4422d1895bef75b8aa1047454ad69)
+            type_hints = cached_type_hints(_typecheckingstub__de55a7c5105ba84ccdf0e9638671d4816ff4422d1895bef75b8aa1047454ad69)
             check_type(argname="argument from_", value=from_, expected_type=type_hints["from_"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("JsonPatch", jsii.sinvoke(cls, "move", [from_, path]))
@@ -2187,7 +2187,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.JsonPatch"):
             JsonPatch.remove('/biscuits/0')
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9aed01338ac97e26df8aa53e7f354b7fc10275fcf1d9814b024cc78d755f21ed)
+            type_hints = cached_type_hints(_typecheckingstub__9aed01338ac97e26df8aa53e7f354b7fc10275fcf1d9814b024cc78d755f21ed)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("JsonPatch", jsii.sinvoke(cls, "remove", [path]))
 
@@ -2206,7 +2206,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.JsonPatch"):
             JsonPatch.replace('/biscuits/0/name', 'Chocolate Digestive')
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b103a48708f207593ef910f1bddfd661aef834c5086afbbdba659c0103dfcab)
+            type_hints = cached_type_hints(_typecheckingstub__9b103a48708f207593ef910f1bddfd661aef834c5086afbbdba659c0103dfcab)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("JsonPatch", jsii.sinvoke(cls, "replace", [path, value]))
@@ -2227,7 +2227,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.JsonPatch"):
             JsonPatch.test('/best_biscuit/name', 'Choco Leibniz')
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9005a324c07bb509dbb3733b53e421cbf2e1220e48c561f969d97268d097c69e)
+            type_hints = cached_type_hints(_typecheckingstub__9005a324c07bb509dbb3733b53e421cbf2e1220e48c561f969d97268d097c69e)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("JsonPatch", jsii.sinvoke(cls, "test", [path, value]))
@@ -2241,7 +2241,7 @@ class Lazy(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Lazy"):
         :param producer: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e66ad4b91ba96e5ece2b03dda56e66ac135a52e42ec1dc812633365d043b45da)
+            type_hints = cached_type_hints(_typecheckingstub__e66ad4b91ba96e5ece2b03dda56e66ac135a52e42ec1dc812633365d043b45da)
             check_type(argname="argument producer", value=producer, expected_type=type_hints["producer"])
         return typing.cast(typing.Any, jsii.sinvoke(cls, "any", [producer]))
 
@@ -2266,7 +2266,7 @@ class LazyResolver(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.LazyResolver"):
         :param context: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9af8596daa9e070048c5bd02166ac52f48073da14c659b03be91af3d002a76b8)
+            type_hints = cached_type_hints(_typecheckingstub__9af8596daa9e070048c5bd02166ac52f48073da14c659b03be91af3d002a76b8)
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
         return typing.cast(None, jsii.invoke(self, "resolve", [context]))
 
@@ -2298,7 +2298,7 @@ class NameOptions:
         :param max_len: Maximum allowed length for the name. Default: 63
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ff5aa57fdaa34956720956edd71f9da68fb2936d50787accb5cd16713811035)
+            type_hints = cached_type_hints(_typecheckingstub__7ff5aa57fdaa34956720956edd71f9da68fb2936d50787accb5cd16713811035)
             check_type(argname="argument delimiter", value=delimiter, expected_type=type_hints["delimiter"])
             check_type(argname="argument extra", value=extra, expected_type=type_hints["extra"])
             check_type(argname="argument include_hash", value=include_hash, expected_type=type_hints["include_hash"])
@@ -2406,7 +2406,7 @@ class Names(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Names"):
         length.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2694a7308fa083bea22907798345bf812c9e9a723f8832b8f0a8bbef8565f836)
+            type_hints = cached_type_hints(_typecheckingstub__2694a7308fa083bea22907798345bf812c9e9a723f8832b8f0a8bbef8565f836)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = NameOptions(
             delimiter=delimiter,
@@ -2460,7 +2460,7 @@ class Names(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Names"):
         length.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92b42b2ea1a8f79926d2acae92335ea6375b89dbd75da580f0ded3902cfce829)
+            type_hints = cached_type_hints(_typecheckingstub__92b42b2ea1a8f79926d2acae92335ea6375b89dbd75da580f0ded3902cfce829)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = NameOptions(
             delimiter=delimiter,
@@ -2494,7 +2494,7 @@ class NumberStringUnionResolver(
         :param context: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f0e0eaeefa0726153706af3c2183eab46ff6dadfe4d6d943600131d6bf2657e)
+            type_hints = cached_type_hints(_typecheckingstub__6f0e0eaeefa0726153706af3c2183eab46ff6dadfe4d6d943600131d6bf2657e)
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
         return typing.cast(None, jsii.invoke(self, "resolve", [context]))
 
@@ -2535,7 +2535,7 @@ class OwnerReference:
         :param controller: If true, this reference points to the managing controller.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71cfb6f34de5a3f7c962fcc2da2dfae03bc583bfafc2393157bd81af722b432b)
+            type_hints = cached_type_hints(_typecheckingstub__71cfb6f34de5a3f7c962fcc2da2dfae03bc583bfafc2393157bd81af722b432b)
             check_type(argname="argument api_version", value=api_version, expected_type=type_hints["api_version"])
             check_type(argname="argument kind", value=kind, expected_type=type_hints["kind"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -2639,7 +2639,7 @@ class ResolutionContext(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.ResolutionCont
         :param value: The value associated to the key currently being resolved.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed6d87f260728f933d112797dca80dbcf9281ea35eadb4bff9f6a38a1cf78a1e)
+            type_hints = cached_type_hints(_typecheckingstub__ed6d87f260728f933d112797dca80dbcf9281ea35eadb4bff9f6a38a1cf78a1e)
             check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -2654,7 +2654,7 @@ class ResolutionContext(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.ResolutionCont
         :param new_value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f0dc17edb4458da9d06ff82b9c151690ce17fbe2dfdfe623b5f7415cdcd5071)
+            type_hints = cached_type_hints(_typecheckingstub__3f0dc17edb4458da9d06ff82b9c151690ce17fbe2dfdfe623b5f7415cdcd5071)
             check_type(argname="argument new_value", value=new_value, expected_type=type_hints["new_value"])
         return typing.cast(None, jsii.invoke(self, "replaceValue", [new_value]))
 
@@ -2685,7 +2685,7 @@ class ResolutionContext(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.ResolutionCont
     @replaced.setter
     def replaced(self, value: builtins.bool) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46fc386c510b2c1129687fab66a5d8b73e229013d9438613e42b2b93bab2701f)
+            type_hints = cached_type_hints(_typecheckingstub__46fc386c510b2c1129687fab66a5d8b73e229013d9438613e42b2b93bab2701f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "replaced", value) # pyright: ignore[reportArgumentType]
 
@@ -2698,7 +2698,7 @@ class ResolutionContext(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.ResolutionCont
     @replaced_value.setter
     def replaced_value(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f2dafc483ec1b162f3ac5314f24a646833af290785fa69fee4e9a54bd10e1af)
+            type_hints = cached_type_hints(_typecheckingstub__9f2dafc483ec1b162f3ac5314f24a646833af290785fa69fee4e9a54bd10e1af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "replacedValue", value) # pyright: ignore[reportArgumentType]
 
@@ -2722,7 +2722,7 @@ class Size(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Size"):
         :param amount: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce6e3e4f8a439c63e3ed083e0d76fba9fe218a2f3f2a47515af3732dcf82fcce)
+            type_hints = cached_type_hints(_typecheckingstub__ce6e3e4f8a439c63e3ed083e0d76fba9fe218a2f3f2a47515af3732dcf82fcce)
             check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
         return typing.cast("Size", jsii.sinvoke(cls, "gibibytes", [amount]))
 
@@ -2736,7 +2736,7 @@ class Size(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Size"):
         :param amount: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2fd48faa9e664bcd03923015ba048b929be4a547ac0a2f1ef83a7bcf2a6ef88)
+            type_hints = cached_type_hints(_typecheckingstub__d2fd48faa9e664bcd03923015ba048b929be4a547ac0a2f1ef83a7bcf2a6ef88)
             check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
         return typing.cast("Size", jsii.sinvoke(cls, "kibibytes", [amount]))
 
@@ -2750,7 +2750,7 @@ class Size(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Size"):
         :param amount: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eecf102c3a7a867995cb1f2e0ca44a97d0c853897af7d1da6d92ea170aad88c0)
+            type_hints = cached_type_hints(_typecheckingstub__eecf102c3a7a867995cb1f2e0ca44a97d0c853897af7d1da6d92ea170aad88c0)
             check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
         return typing.cast("Size", jsii.sinvoke(cls, "mebibytes", [amount]))
 
@@ -2764,7 +2764,7 @@ class Size(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Size"):
         :param amount: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6dd978397137248b8c68fd5ef41aad7818510368daf79092fb8e1ff9a0478e5f)
+            type_hints = cached_type_hints(_typecheckingstub__6dd978397137248b8c68fd5ef41aad7818510368daf79092fb8e1ff9a0478e5f)
             check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
         return typing.cast("Size", jsii.sinvoke(cls, "pebibyte", [amount]))
 
@@ -2778,7 +2778,7 @@ class Size(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Size"):
         :param amount: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3f658d6703486a9fb30a5fb73df83a10f792ba95cd2ae69ba6436614be70497)
+            type_hints = cached_type_hints(_typecheckingstub__a3f658d6703486a9fb30a5fb73df83a10f792ba95cd2ae69ba6436614be70497)
             check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
         return typing.cast("Size", jsii.sinvoke(cls, "tebibytes", [amount]))
 
@@ -2874,7 +2874,7 @@ class SizeConversionOptions:
         :param rounding: How conversions should behave when it encounters a non-integer result. Default: SizeRoundingBehavior.FAIL
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b74d8c5389abc7998df4e40c89a04d6708f914ec430a67d4de594f36ede0a385)
+            type_hints = cached_type_hints(_typecheckingstub__b74d8c5389abc7998df4e40c89a04d6708f914ec430a67d4de594f36ede0a385)
             check_type(argname="argument rounding", value=rounding, expected_type=type_hints["rounding"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if rounding is not None:
@@ -2964,7 +2964,7 @@ class Testing(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Testing"):
         :param chart: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__657f8eacff995e51f091bb334052923572b19da3a7b5ee11827c7b1c681b474f)
+            type_hints = cached_type_hints(_typecheckingstub__657f8eacff995e51f091bb334052923572b19da3a7b5ee11827c7b1c681b474f)
             check_type(argname="argument chart", value=chart, expected_type=type_hints["chart"])
         return typing.cast(typing.List[typing.Any], jsii.sinvoke(cls, "synth", [chart]))
 
@@ -2981,7 +2981,7 @@ class TimeConversionOptions:
         :param integral: If ``true``, conversions into a larger time unit (e.g. ``Seconds`` to ``Minutes``) will fail if the result is not an integer. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__202179ea2e21ed97cbc9ef1e98318b5d41feee4298b72f63a9d7495a60551470)
+            type_hints = cached_type_hints(_typecheckingstub__202179ea2e21ed97cbc9ef1e98318b5d41feee4298b72f63a9d7495a60551470)
             check_type(argname="argument integral", value=integral, expected_type=type_hints["integral"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if integral is not None:
@@ -3022,7 +3022,7 @@ class Yaml(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Yaml"):
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ea0571de9ead9ae671cf61531de5cfac77b27994c5f5491a9889702153838eb)
+            type_hints = cached_type_hints(_typecheckingstub__1ea0571de9ead9ae671cf61531de5cfac77b27994c5f5491a9889702153838eb)
             check_type(argname="argument docs", value=docs, expected_type=type_hints["docs"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "formatObjects", [docs]))
 
@@ -3038,7 +3038,7 @@ class Yaml(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Yaml"):
         :return: an array of objects, each represents a document inside the YAML
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c990285959004a4192b7c194b2879b1515f72a1d8f0705ea3e1631f4267aad85)
+            type_hints = cached_type_hints(_typecheckingstub__c990285959004a4192b7c194b2879b1515f72a1d8f0705ea3e1631f4267aad85)
             check_type(argname="argument url_or_file", value=url_or_file, expected_type=type_hints["url_or_file"])
         return typing.cast(typing.List[typing.Any], jsii.sinvoke(cls, "load", [url_or_file]))
 
@@ -3051,7 +3051,7 @@ class Yaml(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Yaml"):
         :param docs: The set of objects.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2c22a324dc074a1a13ef8e272543e01de272575028e4edd16b312cbc791dbaa)
+            type_hints = cached_type_hints(_typecheckingstub__f2c22a324dc074a1a13ef8e272543e01de272575028e4edd16b312cbc791dbaa)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
             check_type(argname="argument docs", value=docs, expected_type=type_hints["docs"])
         return typing.cast(None, jsii.sinvoke(cls, "save", [file_path, docs]))
@@ -3069,7 +3069,7 @@ class Yaml(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Yaml"):
         :return: a YAML string. Multiple docs are separated by ``---``.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bba1c53df20fc40a3cce3fb70d981ea0d1fbeb521d6b0507d3415cdcd311aad)
+            type_hints = cached_type_hints(_typecheckingstub__5bba1c53df20fc40a3cce3fb70d981ea0d1fbeb521d6b0507d3415cdcd311aad)
             check_type(argname="argument docs", value=docs, expected_type=typing.Tuple[type_hints["docs"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(builtins.str, jsii.sinvoke(cls, "stringify", [*docs]))
 
@@ -3083,7 +3083,7 @@ class Yaml(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Yaml"):
         :return: the path to the temporary file
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b7ee4a0dedcd4c38cd685fc630a0ba5acf4fac661d411a0699db4e04ddd3de5)
+            type_hints = cached_type_hints(_typecheckingstub__1b7ee4a0dedcd4c38cd685fc630a0ba5acf4fac661d411a0699db4e04ddd3de5)
             check_type(argname="argument docs", value=docs, expected_type=type_hints["docs"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "tmp", [docs]))
 
@@ -3135,7 +3135,7 @@ class Helm(Include, metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Helm"):
         :param version: Version constraint for the chart version to use. This constraint can be a specific tag (e.g. 1.1.1) or it may reference a valid range (e.g. ^2.0.0). If this is not specified, the latest version is used This name is passed to ``helm template --version`` and has all the relevant semantics.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__190f4a5d85ecb3182d8df49a55454bd5cce993c692349125ced9593e6aa96c77)
+            type_hints = cached_type_hints(_typecheckingstub__190f4a5d85ecb3182d8df49a55454bd5cce993c692349125ced9593e6aa96c77)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = HelmProps(

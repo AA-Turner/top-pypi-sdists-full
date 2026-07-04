@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-organizations
-Version: 2.6.0
+Version: 2.7.0
 Summary: Group accounts for Django
 Project-URL: Source, https://github.com/bennylope/django-organizations
 Project-URL: Issues, https://github.com/bennylope/django-organizations/issues

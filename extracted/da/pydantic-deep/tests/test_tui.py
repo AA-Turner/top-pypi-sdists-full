@@ -20,18 +20,20 @@ class TestTUIWidgets:
             await pilot.pause()
             assert app.screen.__class__.__name__ == "ChatScreen"
 
-    async def test_welcome_starts_with_empty_conversation(self, app):
-        """No welcome banner in the conversation — identity lives in the top
-        header, so the message list starts empty (no duplicate hero)."""
+    async def test_welcome_starts_with_hero_and_no_messages(self, app):
+        """A fresh conversation shows the welcome hero and no chat messages yet."""
         async with app.run_test(size=(120, 35)) as pilot:
-            await pilot.pause()
-            await pilot.pause()
+            for _ in range(4):
+                await pilot.pause()
+            from apps.cli.widgets.assistant_message import AssistantMessage
             from apps.cli.widgets.hero import HeroBanner
             from apps.cli.widgets.message_list import MessageList
+            from apps.cli.widgets.user_message import UserMessage
 
             msg_list = app.screen.query_one(MessageList)
-            assert len(msg_list.children) == 0
-            assert len(msg_list.query(HeroBanner)) == 0
+            assert len(msg_list.query(HeroBanner)) == 1  # welcome hero present
+            assert len(msg_list.query(UserMessage)) == 0  # no messages yet
+            assert len(msg_list.query(AssistantMessage)) == 0
 
     def test_quiet_console_logging_strips_terminal_handlers(self):
         """fastmcp/mcp must not log to the terminal under the TUI (it paints over
@@ -281,6 +283,59 @@ class TestReconfigureAgent:
         assert captured["on_reminder"] is sentinel_rem
         assert cast(object, app.agent) == "AGENT"
         assert cast(object, app.deps) == "DEPS"
+
+
+class TestDeferredAgentFactory:
+    """`agent_factory` must run in on_mount (inside Textual's loop), not at
+    construction time — so MCP stdio transports created by subagent factories
+    bind to the running loop."""
+
+    async def test_factory_invoked_in_running_loop(self):
+        import asyncio
+
+        captured: dict[str, object] = {}
+
+        def factory() -> tuple[object, object]:
+            captured["loop"] = asyncio.get_running_loop()
+            return ("AGENT", "DEPS")
+
+        app = DeepApp(model="test", version="0.0.0", agent_factory=factory)
+        assert app.agent is None
+
+        async with app.run_test(size=(120, 35)) as pilot:
+            await pilot.pause()
+
+        assert "loop" in captured
+        assert cast(object, app.agent) == "AGENT"
+        assert cast(object, app.deps) == "DEPS"
+
+    async def test_factory_failure_sets_startup_error(self):
+        def factory() -> tuple[object, object]:
+            raise RuntimeError("no api key")
+
+        app = DeepApp(model="test", version="0.0.0", agent_factory=factory)
+
+        async with app.run_test(size=(120, 35)) as pilot:
+            await pilot.pause()
+
+        assert app.agent is None
+        assert app._startup_error == "no api key"
+
+    async def test_prebuilt_agent_skips_factory(self):
+        called = False
+
+        def factory() -> tuple[object, object]:
+            nonlocal called
+            called = True
+            return ("AGENT", "DEPS")
+
+        app = DeepApp(model="test", version="0.0.0", agent="PREBUILT", agent_factory=factory)
+
+        async with app.run_test(size=(120, 35)) as pilot:
+            await pilot.pause()
+
+        assert called is False
+        assert cast(object, app.agent) == "PREBUILT"
 
 
 class TestSearchModal:
@@ -540,3 +595,56 @@ class TestMessageQueueIntegration:
 
             barrier.set()
             await task
+
+
+class TestCtrlCBehavior:
+    """Ctrl+C: interrupt a run, copy a selection, or double-press to exit."""
+
+    async def test_single_idle_press_arms_second_exits(self, app):
+        from unittest.mock import MagicMock
+
+        async with app.run_test(size=(120, 35)) as pilot:
+            await pilot.pause()
+            app.exit = MagicMock()
+            app.action_interrupt()  # first idle press → arm, no exit
+            app.exit.assert_not_called()
+            app.action_interrupt()  # second within the window → exit
+            app.exit.assert_called_once()
+
+    async def test_stale_press_re_arms_not_exit(self, app):
+        from unittest.mock import MagicMock
+
+        async with app.run_test(size=(120, 35)) as pilot:
+            await pilot.pause()
+            app.exit = MagicMock()
+            app.action_interrupt()
+            app._last_ctrl_c -= 60  # window elapsed
+            app.action_interrupt()  # re-arms rather than exits
+            app.exit.assert_not_called()
+
+    async def test_selection_is_copied_not_exit(self, app):
+        from unittest.mock import MagicMock
+
+        async with app.run_test(size=(120, 35)) as pilot:
+            await pilot.pause()
+            app.exit = MagicMock()
+            app.copy_to_clipboard = MagicMock()
+            app.screen.get_selected_text = lambda: "agent response text"
+            app.action_interrupt()
+            app.copy_to_clipboard.assert_called_once_with("agent response text")
+            app.exit.assert_not_called()
+
+    async def test_running_agent_interrupted_first(self, app):
+        from unittest.mock import MagicMock
+
+        async with app.run_test(size=(120, 35)) as pilot:
+            await pilot.pause()
+            app.exit = MagicMock()
+            app.copy_to_clipboard = MagicMock()
+            task = MagicMock()
+            task.done.return_value = False
+            app.agent_task = task
+            app.action_interrupt()
+            task.cancel.assert_called_once()
+            app.exit.assert_not_called()
+            app.copy_to_clipboard.assert_not_called()

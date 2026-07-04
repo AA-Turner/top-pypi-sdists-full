@@ -1,13 +1,22 @@
 from __future__ import annotations
 
 import sys
+from typing import Sequence
+
+from mycli.constants import EMPTY_PASSWORD_FLAG_SENTINEL
 
 
-def filtered_sys_argv() -> list[str]:
-    args = sys.argv[1:]
+def filtered_sys_argv() -> Sequence[str | int]:
+    args: Sequence[str | int] = sys.argv[1:]
+    password_flag_forms = ['-p', '--pass', '--password']
+
     if args == ['-h']:
         args = ['--help']
-    return args
+
+    if args and args[-1] in password_flag_forms:
+        args = list(args) + [EMPTY_PASSWORD_FLAG_SENTINEL]
+
+    return list(args)
 
 
 def is_valid_connection_scheme(text: str) -> tuple[bool, str | None]:
@@ -15,7 +24,10 @@ def is_valid_connection_scheme(text: str) -> tuple[bool, str | None]:
     if "://" not in text:
         return False, None
     scheme = text.split("://")[0]
-    if scheme not in ("mysql", "mysqlx", "tcp", "socket", "ssh"):
-        return False, scheme
-    else:
+    if scheme.startswith('mysql+'):
         return True, None
+    if scheme.startswith('mysqlx+'):
+        return True, None
+    if scheme in ("mysql", "mysqlx", "tcp", "socket"):
+        return True, None
+    return False, scheme

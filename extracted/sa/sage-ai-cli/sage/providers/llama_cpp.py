@@ -99,8 +99,8 @@ def _gguf_arch_supported(path) -> bool:
             version = struct.unpack("<I", f.read(4))[0]
             if version < 2:
                 return True  # very old — attempt to load
-            # Skip tensor_count + metadata_kv_count
-            f.read(16)
+            # Skip tensor_count
+            f.read(8)
             # Scan metadata for "general.architecture"
             kv_count = struct.unpack("<Q", f.read(8))[0]
             # We only care about the first few KV entries
@@ -134,7 +134,7 @@ def _gguf_arch_supported(path) -> bool:
                     break
     except Exception:
         pass
-    return True  # unknown → attempt to load (fail-safe)
+    return True
 
 
 def _models_dir():

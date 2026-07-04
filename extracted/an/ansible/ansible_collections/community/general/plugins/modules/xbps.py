@@ -155,18 +155,6 @@ packages:
   type: list
   sample: ["ansible"]
   returned: success
-stdout:
-  description: Standard output of the last executed command.
-  returned: when a package manager command was executed
-  type: str
-  sample: ''
-  version_added: 13.1.0
-stderr:
-  description: Standard error of the last executed command.
-  returned: when a package manager command was executed
-  type: str
-  sample: ''
-  version_added: 13.1.0
 """
 
 
@@ -214,7 +202,7 @@ def query_package(module, xbps_path, name, state="present"):
 
 
 def update_package_db(module, xbps_path):
-    """Returns (changed, stdout, stderr) for the sync command"""
+    """Returns True if update_package_db changed"""
     cmd = [xbps_path["install"], "-S"]
     cmd = append_flags(module, xbps_path, cmd)
     if module.params["accept_pubkey"]:
@@ -224,10 +212,10 @@ def update_package_db(module, xbps_path):
     rc, stdout, stderr = module.run_command(cmd, check_rc=False, data=stdin)
 
     if "Failed to import pubkey" in stderr:
-        module.fail_json(msg="Failed to import pubkey for repository", stdout=stdout, stderr=stderr)
+        module.fail_json(msg="Failed to import pubkey for repository")
     if rc != 0:
-        module.fail_json(msg="Could not update package db", stdout=stdout, stderr=stderr)
-    return "avg rate" in stdout, stdout, stderr
+        module.fail_json(msg="Could not update package db")
+    return "avg rate" in stdout
 
 
 def upgrade_xbps(module, xbps_path, exit_on_success=False):
@@ -235,7 +223,7 @@ def upgrade_xbps(module, xbps_path, exit_on_success=False):
     cmdupgradexbps = append_flags(module, xbps_path, cmdupgradexbps)
     rc, stdout, stderr = module.run_command(cmdupgradexbps, check_rc=False)
     if rc != 0:
-        module.fail_json(msg="Could not upgrade xbps itself", stdout=stdout, stderr=stderr)
+        module.fail_json(msg="Could not upgrade xbps itself")
 
 
 def upgrade(module, xbps_path):
@@ -248,29 +236,27 @@ def upgrade(module, xbps_path):
     rc, stdout, stderr = module.run_command(cmdneedupgrade, check_rc=False)
     if rc == 0:
         if len(stdout.splitlines()) == 0:
-            module.exit_json(changed=False, msg="Nothing to upgrade", stdout=stdout, stderr=stderr)
+            module.exit_json(changed=False, msg="Nothing to upgrade")
         elif module.check_mode:
-            module.exit_json(changed=True, msg="Would have performed upgrade", stdout=stdout, stderr=stderr)
+            module.exit_json(changed=True, msg="Would have performed upgrade")
         else:
             rc, stdout, stderr = module.run_command(cmdupgrade, check_rc=False)
             if rc == 0:
-                module.exit_json(changed=True, msg="System upgraded", stdout=stdout, stderr=stderr)
+                module.exit_json(changed=True, msg="System upgraded")
             elif rc == 16 and module.params["upgrade_xbps"]:
                 upgrade_xbps(module, xbps_path)
                 # avoid loops by not trying self-upgrade again
                 module.params["upgrade_xbps"] = False
                 upgrade(module, xbps_path)
             else:
-                module.fail_json(msg="Could not upgrade", stdout=stdout, stderr=stderr)
+                module.fail_json(msg="Could not upgrade")
     else:
-        module.fail_json(msg="Could not upgrade", stdout=stdout, stderr=stderr)
+        module.fail_json(msg="Could not upgrade")
 
 
 def remove_packages(module, xbps_path, packages):
     """Returns true if package removal succeeds"""
     changed_packages = []
-    last_stdout = ""
-    last_stderr = ""
     # Using a for loop in case of error, we can report the package that failed
     for package in packages:
         # Query the package first, to see if we even need to remove
@@ -283,20 +269,12 @@ def remove_packages(module, xbps_path, packages):
         rc, stdout, stderr = module.run_command(cmd, check_rc=False)
 
         if rc != 0:
-            module.fail_json(msg=f"failed to remove {package}", stdout=stdout, stderr=stderr)
+            module.fail_json(msg=f"failed to remove {package}")
 
-        last_stdout = stdout
-        last_stderr = stderr
         changed_packages.append(package)
 
     if len(changed_packages) > 0:
-        module.exit_json(
-            changed=True,
-            msg=f"removed {len(changed_packages)} package(s)",
-            packages=changed_packages,
-            stdout=last_stdout,
-            stderr=last_stderr,
-        )
+        module.exit_json(changed=True, msg=f"removed {len(changed_packages)} package(s)", packages=changed_packages)
 
     module.exit_json(changed=False, msg="package(s) already absent")
 
@@ -326,13 +304,9 @@ def install_packages(module, xbps_path, state, packages):
         module.params["upgrade_xbps"] = False
         install_packages(module, xbps_path, state, packages)
     elif rc != 0 and not (state == "latest" and rc == 17):
-        module.fail_json(
-            msg=f"failed to install {len(toInstall)} package(s)", packages=toInstall, stdout=stdout, stderr=stderr
-        )
+        module.fail_json(msg=f"failed to install {len(toInstall)} packages(s)", packages=toInstall)
 
-    module.exit_json(
-        changed=True, msg=f"installed {len(toInstall)} package(s)", packages=toInstall, stdout=stdout, stderr=stderr
-    )
+    module.exit_json(changed=True, msg=f"installed {len(toInstall)} package(s)", packages=toInstall)
 
 
 def check_packages(module, xbps_path, packages, state):
@@ -362,13 +336,10 @@ def update_cache(module, xbps_path, upgrade_planned):
         if upgrade_planned:
             return
         module.exit_json(changed=True, msg="Would have updated the package cache")
-    changed, stdout, stderr = update_package_db(module, xbps_path)
+    changed = update_package_db(module, xbps_path)
     if not upgrade_planned:
         module.exit_json(
-            changed=changed,
-            msg=("Updated the package master lists" if changed else "Package list already up to date"),
-            stdout=stdout,
-            stderr=stderr,
+            changed=changed, msg=("Updated the package master lists" if changed else "Package list already up to date")
         )
 
 

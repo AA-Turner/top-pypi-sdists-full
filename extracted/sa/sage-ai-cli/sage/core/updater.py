@@ -122,7 +122,7 @@ def build_sage_run_command() -> list[str]:
     return [
         sys.executable,
         "-c",
-        "import sys; sys.argv = ['sage', 'run']; from sage.main import app; app()",
+        "import sys; sys.argv = ['sage', 'run']; from sage.cli_core import app; app()",
     ]
 
 

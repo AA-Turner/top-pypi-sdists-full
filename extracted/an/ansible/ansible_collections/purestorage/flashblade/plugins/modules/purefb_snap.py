@@ -18,13 +18,13 @@ DOCUMENTATION = r"""
 ---
 module: purefb_snap
 version_added: '1.0.0'
-short_description: Manage filesystem snapshots on Everpure FlashBlades
+short_description: Manage filesystem snapshots on Pure Storage FlashBlades
 description:
-- Create or delete volumes and filesystem snapshots on Everpure FlashBlades.
+- Create or delete volumes and filesystem snapshots on Pure Storage FlashBlades.
 - Restoring a filesystem from a snapshot is only supported using
   the latest snapshot.
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -141,10 +141,6 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_filesystem,
-    get_error_message,
-)
 
 from datetime import datetime
 
@@ -163,6 +159,20 @@ SNAP_NOW_API = "2.10"
 CONTEXT_API_VERSION = "2.17"
 
 
+def get_fs(module, blade):
+    """Return Filesystem or None"""
+    api_version = list(blade.get_versions().items)
+    if CONTEXT_API_VERSION in api_version:
+        res = blade.get_file_systems(
+            names=[module.params["name"]], context_names=[module.params["context"]]
+        )
+    else:
+        res = blade.get_file_systems(names=[module.params["name"]])
+    if res.status_code == 200:
+        return list(res.items)[0]
+    return None
+
+
 def get_latest_fssnapshot(module, blade):
     """Get the name of the latest snpshot or None"""
     api_version = list(blade.get_versions().items)
@@ -178,7 +188,7 @@ def get_latest_fssnapshot(module, blade):
     if res.status_code != 200:
         module.fail_json(
             msg="Failed to get filesystem snapshots. Error: {0}".format(
-                get_error_message(res)
+                res.errors[0].message
             )
         )
     all_snaps = list(res.items)
@@ -227,11 +237,11 @@ def create_snapshot(module, blade):
         )
     else:
         connected_blades = list(blade.get_array_connections().items)
-    for rem_blade in connected_blades:
+    for rem_blade in range(len(connected_blades)):
         if (
             module.params["target"]
-            and module.params["target"] == rem_blade.remote.name
-            and rem_blade.status == "connected"
+            and module.params["target"] == connected_blades[rem_blade].remote.name
+            and connected_blades[rem_blade].status == "connected"
         ):
             blade_exists = True
             break
@@ -278,7 +288,7 @@ def create_snapshot(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create remote snapshot. Error: {0}".format(
-                    get_error_message(res)
+                    res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -309,7 +319,7 @@ def restore_snapshot(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to restore snapshot {0} to filesystem {1}. Error: {2}".format(
-                        snapname, module.params["name"], get_error_message(res)
+                        snapname, module.params["name"], res.errors[0].message
                     )
                 )
     else:
@@ -341,7 +351,7 @@ def recover_snapshot(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to recover snapshot {0} for filesystem {1}. Error: {2}".format(
-                    snapname, module.params["name"], get_error_message(res)
+                    snapname, module.params["name"], res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -375,7 +385,7 @@ def delete_snapshot(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to delete snapshot {0}. Error: {1}".format(
-                    snapname, get_error_message(res)
+                    snapname, res.errors[0].message
                 )
             )
         if module.params["eradicate"]:
@@ -388,7 +398,7 @@ def delete_snapshot(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to eradicate snapshot {0}. Error: {1}".format(
-                        snapname, get_error_message(res)
+                        snapname, res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -409,7 +419,7 @@ def eradicate_snapshot(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to eradicate snapshot {0}. Error: {1}".format(
-                    snapname, get_error_message(res)
+                    snapname, res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -454,7 +464,7 @@ def main():
                 SNAP_NOW_API
             )
         )
-    filesystem = get_filesystem(module, blade)
+    filesystem = get_fs(module, blade)
     snap = get_fssnapshot(module, blade)
     if state == "present" and filesystem and not filesystem.destroyed and not snap:
         create_snapshot(module, blade)

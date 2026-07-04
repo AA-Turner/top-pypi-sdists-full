@@ -24,7 +24,7 @@ class TestToolExecutionDetection:
 
     def test_detect_descriptive_tool_mentions(self):
         """Should detect when model ONLY describes tools without executing them."""
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         # Model ONLY describing what it WILL do - no actual tool commands (bug)
         # This is the problematic case: talking ABOUT tools without using them
@@ -47,7 +47,7 @@ Then I will analyze the architecture and run the tests.
 
     def test_detect_actual_tool_execution(self):
         """Should recognize when model actually executes tools."""
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         # Model actually executing (correct)
         execution_response = """
@@ -64,7 +64,7 @@ Based on the files above, I can see...
 
     def test_detect_mixed_description_and_execution(self):
         """Should allow preamble when actual tool commands are present."""
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         # Preamble followed by actual tool commands is ACCEPTABLE
         # The tool commands will actually execute
@@ -97,7 +97,7 @@ class TestFillerContentDetection:
 
     def test_detect_repetitive_list_items(self):
         """Should detect when model generates repetitive boilerplate items."""
-        from sage.main import _detect_repetitive_filler
+        from sage.cli_core import _detect_repetitive_filler
 
         # Example from the log: items 13-50 are all "Implement basic logging for X"
         filler_response = """
@@ -118,7 +118,7 @@ class TestFillerContentDetection:
 
     def test_allow_legitimate_varied_content(self):
         """Should allow legitimate varied recommendations."""
-        from sage.main import _detect_repetitive_filler
+        from sage.cli_core import _detect_repetitive_filler
 
         varied_response = """
 1. Fix authentication bypass in terminal WebSocket
@@ -135,7 +135,7 @@ class TestFillerContentDetection:
 
     def test_detect_template_repetition(self):
         """Should detect template-based repetition patterns."""
-        from sage.main import _detect_repetitive_filler
+        from sage.cli_core import _detect_repetitive_filler
 
         template_response = """
 1. Implement X for Y.
@@ -161,7 +161,7 @@ class TestContextGatheringValidation:
 
     def test_detect_claims_without_reads(self):
         """Should detect when model claims no context but doesn't read files."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         no_context_claim = """
 I cannot provide specific recommendations without reading the actual code.
@@ -184,7 +184,7 @@ Here are general suggestions:
 
     def test_allow_claims_with_actual_reads(self):
         """Should allow context claims when model actually read files."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         claim_with_reads = """
 Based on the files I've read, here are specific recommendations...
@@ -200,7 +200,7 @@ Based on the files I've read, here are specific recommendations...
 
     def test_detect_no_file_references_claim(self):
         """Should detect 'no file references available' without reads."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         # From the log
         response = """
@@ -219,7 +219,7 @@ Based on the files I've read, here are specific recommendations...
 
     def test_fail_closed_uncertainty_then_specifics(self):
         """P1-B: Model that admits uncertainty then gives specifics should fail closed."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         # Model admits it doesn't know, then gives specific recommendations anyway
         response = """
@@ -242,7 +242,7 @@ I don't have access to the actual codebase, but here are my recommendations:
 
     def test_fail_closed_speculative_audit(self):
         """P1-B: Speculative audit without evidence should fail closed."""
-        from sage.main import _validate_context_gathering
+        from sage.cli_core import _validate_context_gathering
 
         # Model produces "audit" without reading anything
         response = """
@@ -273,7 +273,7 @@ class TestReadOnlyModeEnforcement:
 
     def test_detect_implementation_in_analysis_request(self):
         """Should detect when model suggests implementation in analysis mode."""
-        from sage.main import _validate_readonly_mode
+        from sage.cli_core import _validate_readonly_mode
 
         # User asked for analysis, model suggests implementation
         user_request = "Analyze the codebase and list 100 items that should be improved"
@@ -293,7 +293,7 @@ class TestReadOnlyModeEnforcement:
 
     def test_allow_analysis_in_analysis_request(self):
         """Should allow proper analysis without implementation."""
-        from sage.main import _validate_readonly_mode
+        from sage.cli_core import _validate_readonly_mode
 
         user_request = "Analyze the codebase and list 100 items that should be improved"
 
@@ -311,7 +311,7 @@ After analyzing the codebase, here are the improvement areas:
 
     def test_detect_imperative_verbs_in_analysis(self):
         """Should detect imperative implementation verbs in analysis mode."""
-        from sage.main import _validate_readonly_mode
+        from sage.cli_core import _validate_readonly_mode
 
         user_request = "What needs to be fixed in the auth system?"
 
@@ -339,7 +339,7 @@ class TestToolUsageValidation:
 
     def test_reject_analysis_without_file_reads(self):
         """Should reject analysis responses that don't read any files."""
-        from sage.main import _validate_tool_usage_for_analysis
+        from sage.cli_core import _validate_tool_usage_for_analysis
 
         response = """
 Here are 100 improvements for the codebase:
@@ -365,7 +365,7 @@ Here are 100 improvements for the codebase:
 
     def test_allow_analysis_with_file_reads(self):
         """Should allow analysis that actually read files."""
-        from sage.main import _validate_tool_usage_for_analysis
+        from sage.cli_core import _validate_tool_usage_for_analysis
 
         response = """
 Based on analyzing the codebase (10 files read), here are improvements:
@@ -385,7 +385,7 @@ Based on analyzing the codebase (10 files read), here are improvements:
 
     def test_require_proportional_analysis_effort(self):
         """Should require analysis effort proportional to request size."""
-        from sage.main import _validate_tool_usage_for_analysis
+        from sage.cli_core import _validate_tool_usage_for_analysis
 
         # User asked for 100 items but only 2 files read
         response = "Here are 100 improvements..."
@@ -410,7 +410,7 @@ class TestSageBehavioralIntegrity:
 
     def test_full_analysis_request_validation(self):
         """Should validate entire analysis request flow."""
-        from sage.main import _validate_analysis_response
+        from sage.cli_core import _validate_analysis_response
 
         user_request = "Analyze the codebase and list 100 items that should be improved"
 

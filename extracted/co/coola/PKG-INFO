@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coola
-Version: 1.1.7
+Version: 1.1.8
 Dynamic: Maintainer
 Dynamic: Maintainer-email
 Summary: Library to check equality between two complex/nested objects
@@ -29,14 +29,18 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Testing
 Requires-Python: >=3.10
 Provides-Extra: all
+Requires-Dist: colorlog<7.0,>=6.9; extra == 'all'
 Requires-Dist: jax<1.0,>=0.5.0; (sys_platform == 'linux' or (sys_platform == 'darwin' and platform_machine == 'arm64')) and extra == 'all'
 Requires-Dist: numpy<3.0,>=1.24; extra == 'all'
 Requires-Dist: packaging>=22.0; extra == 'all'
 Requires-Dist: pandas<4.0,>=2.0; extra == 'all'
 Requires-Dist: polars<2.0,>=1.0; extra == 'all'
 Requires-Dist: pyarrow>=11.0; extra == 'all'
+Requires-Dist: rich<16.0,>=14.0.0; extra == 'all'
 Requires-Dist: torch<3.0,>=2.0; (sys_platform == 'linux' or (sys_platform == 'darwin' and platform_machine == 'arm64')) and extra == 'all'
 Requires-Dist: xarray>=2024.1; extra == 'all'
+Provides-Extra: colorlog
+Requires-Dist: colorlog<7.0,>=6.9; extra == 'colorlog'
 Provides-Extra: jax
 Requires-Dist: jax<1.0,>=0.5.0; (sys_platform == 'linux' or (sys_platform == 'darwin' and platform_machine == 'arm64')) and extra == 'jax'
 Provides-Extra: numpy
@@ -49,6 +53,8 @@ Provides-Extra: polars
 Requires-Dist: polars<2.0,>=1.0; extra == 'polars'
 Provides-Extra: pyarrow
 Requires-Dist: pyarrow>=11.0; extra == 'pyarrow'
+Provides-Extra: rich
+Requires-Dist: rich<16.0,>=14.0.0; extra == 'rich'
 Provides-Extra: torch
 Requires-Dist: torch<3.0,>=2.0; (sys_platform == 'linux' or (sys_platform == 'darwin' and platform_machine == 'arm64')) and extra == 'torch'
 Provides-Extra: xarray
@@ -329,6 +335,7 @@ methods, see the [installation guide](https://durandtibo.github.io/coola/get_sta
 | `coola` | `jax`<sup>*</sup> | `numpy`<sup>*</sup> | `packaging`<sup>*</sup> | `pandas`<sup>*</sup> | `polars`<sup>*</sup> | `pyarrow`<sup>*</sup> | `torch`<sup>*</sup> | `xarray`<sup>*</sup> | `python` |
 |---------|-------------------|---------------------|-------------------------|----------------------|----------------------|-----------------------|---------------------|----------------------|----------|
 | `main`  | `>=0.5.0,<1.0`    | `>=1.24,<3.0`       | `>=22.0`                | `>=2.0,<4.0`         | `>=1.0,<2.0`         | `>=11.0`              | `>=2.0,<3.0`        | `>=2024.1`           | `>=3.10` |
+| `1.1.8` | `>=0.5.0,<1.0`    | `>=1.24,<3.0`       | `>=22.0`                | `>=2.0,<4.0`         | `>=1.0,<2.0`         | `>=11.0`              | `>=2.0,<3.0`        | `>=2024.1`           | `>=3.10` |
 | `1.1.7` | `>=0.5.0,<1.0`    | `>=1.24,<3.0`       | `>=22.0`                | `>=2.0,<4.0`         | `>=1.0,<2.0`         | `>=11.0`              | `>=2.0,<3.0`        | `>=2024.1`           | `>=3.10` |
 | `1.1.6` | `>=0.5.0,<1.0`    | `>=1.24,<3.0`       | `>=22.0`                | `>=2.0,<4.0`         | `>=1.0,<2.0`         | `>=11.0`              | `>=2.0,<3.0`        | `>=2024.1`           | `>=3.10` |
 | `1.1.5` | `>=0.5.0,<1.0`    | `>=1.24,<3.0`       | `>=22.0`                | `>=2.0,<4.0`         | `>=1.0,<2.0`         | `>=11.0`              | `>=2.0,<3.0`        | `>=2024.1`           | `>=3.10` |

@@ -1216,6 +1216,33 @@ class OTSClient(BaseOTSClient):
     def list_memory_store_requests(self, request):
         return self._vectors_request_helper('ListMemoryStoreRequests', request)
 
+    def get_memory_task(self, request):
+        return self._vectors_request_helper('GetMemoryTask', request)
+
+    def list_memory_tasks(self, request):
+        return self._vectors_request_helper('ListMemoryTasks', request)
+
+    def list_memory_store_scopes(self, request):
+        return self._vectors_request_helper('ListMemoryStoreScopes', request)
+
+    def create_memory_dream_task(self, request):
+        return self._vectors_request_helper('CreateMemoryDreamTask', request)
+
+    def get_memory_dream_task(self, request):
+        return self._vectors_request_helper('GetMemoryDreamTask', request)
+
+    def list_memory_dream_tasks(self, request):
+        return self._vectors_request_helper('ListMemoryDreamTasks', request)
+
+    def cancel_memory_dream_task(self, request):
+        return self._vectors_request_helper('CancelMemoryDreamTask', request)
+
+    def list_memory_dream_actions(self, request):
+        return self._vectors_request_helper('ListMemoryDreamActions', request)
+
+    def apply_memory_dream_actions(self, request):
+        return self._vectors_request_helper('ApplyMemoryDreamActions', request)
+
 class AsyncOTSClient(BaseOTSClient):
 
     DEFAULT_KEEPALIVE_TIMEOUT = 12
@@ -2179,4 +2206,31 @@ class AsyncOTSClient(BaseOTSClient):
 
     async def list_memory_store_requests(self, request):
         return await self._vectors_request_helper('ListMemoryStoreRequests', request)
+
+    async def get_memory_task(self, request):
+        return await self._vectors_request_helper('GetMemoryTask', request)
+
+    async def list_memory_tasks(self, request):
+        return await self._vectors_request_helper('ListMemoryTasks', request)
+
+    async def list_memory_store_scopes(self, request):
+        return await self._vectors_request_helper('ListMemoryStoreScopes', request)
+
+    async def create_memory_dream_task(self, request):
+        return await self._vectors_request_helper('CreateMemoryDreamTask', request)
+
+    async def get_memory_dream_task(self, request):
+        return await self._vectors_request_helper('GetMemoryDreamTask', request)
+
+    async def list_memory_dream_tasks(self, request):
+        return await self._vectors_request_helper('ListMemoryDreamTasks', request)
+
+    async def cancel_memory_dream_task(self, request):
+        return await self._vectors_request_helper('CancelMemoryDreamTask', request)
+
+    async def list_memory_dream_actions(self, request):
+        return await self._vectors_request_helper('ListMemoryDreamActions', request)
+
+    async def apply_memory_dream_actions(self, request):
+        return await self._vectors_request_helper('ApplyMemoryDreamActions', request)
 

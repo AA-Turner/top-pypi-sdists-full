@@ -15,17 +15,33 @@ if typing.TYPE_CHECKING:
     from .balance_definition_balance_availability_duration_modifier import (
         BalanceDefinitionBalanceAvailabilityDurationModifier,
     )
+    from .balance_definition_balance_availability_duration_unit import BalanceDefinitionBalanceAvailabilityDurationUnit
+    from .balance_definition_balance_option_amount_overtaking_strategy import (
+        BalanceDefinitionBalanceOptionAmountOvertakingStrategy,
+    )
+    from .balance_definition_balance_option_credit_rounding import BalanceDefinitionBalanceOptionCreditRounding
+    from .balance_definition_balance_option_debit_rounding import BalanceDefinitionBalanceOptionDebitRounding
+    from .balance_definition_unit import BalanceDefinitionUnit
     from .balance_limit import BalanceLimit
+    from .balance_limit_constraint_type import BalanceLimitConstraintType
+    from .balance_limit_duration_unit import BalanceLimitDurationUnit
+    from .balance_limit_transaction_type import BalanceLimitTransactionType
     from .batch_accepted_response import BatchAcceptedResponse
     from .batch_events_response import BatchEventsResponse
     from .batch_events_response_errors_item import BatchEventsResponseErrorsItem
     from .cart import Cart
     from .company import Company
     from .configuration import Configuration
+    from .consent_group import ConsentGroup
+    from .consent_group_item import ConsentGroupItem
+    from .consent_group_item_status import ConsentGroupItemStatus
+    from .consent_group_signup_mode import ConsentGroupSignupMode
+    from .consent_groups_list_response import ConsentGroupsListResponse
     from .contact_error_model import ContactErrorModel
     from .contact_error_model_code import ContactErrorModelCode
     from .conversations_message import ConversationsMessage
     from .conversations_message_attachments_item import ConversationsMessageAttachmentsItem
+    from .conversations_message_attachments_item_image_info import ConversationsMessageAttachmentsItemImageInfo
     from .conversations_message_bcc_item import ConversationsMessageBccItem
     from .conversations_message_cc_item import ConversationsMessageCcItem
     from .conversations_message_file import ConversationsMessageFile
@@ -54,11 +70,14 @@ if typing.TYPE_CHECKING:
     from .get_events_list import GetEventsList
     from .get_events_list_events_item import GetEventsListEventsItem
     from .get_extended_campaign_overview import GetExtendedCampaignOverview
+    from .get_extended_campaign_overview_email_expiration_date import GetExtendedCampaignOverviewEmailExpirationDate
+    from .get_extended_campaign_overview_email_expiration_date_unit import (
+        GetExtendedCampaignOverviewEmailExpirationDateUnit,
+    )
     from .get_extended_campaign_overview_sender import GetExtendedCampaignOverviewSender
     from .get_extended_campaign_overview_status import GetExtendedCampaignOverviewStatus
     from .get_extended_campaign_overview_type import GetExtendedCampaignOverviewType
     from .get_extended_campaign_stats import GetExtendedCampaignStats
-    from .get_extended_campaign_stats_links_stats import GetExtendedCampaignStatsLinksStats
     from .get_extended_campaign_stats_stats_by_device import GetExtendedCampaignStatsStatsByDevice
     from .get_folder import GetFolder
     from .get_list import GetList
@@ -70,7 +89,6 @@ if typing.TYPE_CHECKING:
     from .get_smtp_template_overview_sender import GetSmtpTemplateOverviewSender
     from .get_sso_token import GetSsoToken
     from .get_webhook import GetWebhook
-    from .get_webhook_channel import GetWebhookChannel
     from .get_webhook_type import GetWebhookType
     from .internal_server_error_body import InternalServerErrorBody
     from .internal_server_error_body_code import InternalServerErrorBodyCode
@@ -107,7 +125,6 @@ if typing.TYPE_CHECKING:
     from .send_test_email import SendTestEmail
     from .send_transac_sms import SendTransacSms
     from .send_transac_sms_tag import SendTransacSmsTag
-    from .send_transac_sms_tag_field import SendTransacSmsTagField
     from .send_transac_sms_type import SendTransacSmsType
     from .task import Task
     from .task_reminder import TaskReminder
@@ -116,16 +133,25 @@ if typing.TYPE_CHECKING:
     from .tier import Tier
     from .tier_access_conditions_item import TierAccessConditionsItem
     from .tier_group import TierGroup
+    from .tier_group_downgrade_schedule import TierGroupDowngradeSchedule
+    from .tier_group_downgrade_schedule_duration_modifier import TierGroupDowngradeScheduleDurationModifier
+    from .tier_group_downgrade_schedule_duration_unit import TierGroupDowngradeScheduleDurationUnit
     from .tier_group_downgrade_strategy import TierGroupDowngradeStrategy
+    from .tier_group_upgrade_schedule import TierGroupUpgradeSchedule
+    from .tier_group_upgrade_schedule_duration_modifier import TierGroupUpgradeScheduleDurationModifier
+    from .tier_group_upgrade_schedule_duration_unit import TierGroupUpgradeScheduleDurationUnit
     from .tier_group_upgrade_strategy import TierGroupUpgradeStrategy
     from .tier_tier_rewards_item import TierTierRewardsItem
     from .transaction import Transaction
+    from .transaction_status import TransactionStatus
+    from .transaction_transaction_type import TransactionTransactionType
     from .unauthorized_error_body import UnauthorizedErrorBody
     from .unauthorized_error_body_code import UnauthorizedErrorBodyCode
     from .update_campaign_status import UpdateCampaignStatus
     from .update_campaign_status_status import UpdateCampaignStatusStatus
     from .value_response import ValueResponse
     from .variables_items import VariablesItems
+    from .wallet_pass_install_url import WalletPassInstallUrl
     from .whatsapp_camp_stats import WhatsappCampStats
 _dynamic_imports: typing.Dict[str, str] = {
     "AbTestVersionClicks": ".ab_test_version_clicks",
@@ -135,17 +161,31 @@ _dynamic_imports: typing.Dict[str, str] = {
     "BadRequestErrorBodyCode": ".bad_request_error_body_code",
     "BalanceDefinition": ".balance_definition",
     "BalanceDefinitionBalanceAvailabilityDurationModifier": ".balance_definition_balance_availability_duration_modifier",
+    "BalanceDefinitionBalanceAvailabilityDurationUnit": ".balance_definition_balance_availability_duration_unit",
+    "BalanceDefinitionBalanceOptionAmountOvertakingStrategy": ".balance_definition_balance_option_amount_overtaking_strategy",
+    "BalanceDefinitionBalanceOptionCreditRounding": ".balance_definition_balance_option_credit_rounding",
+    "BalanceDefinitionBalanceOptionDebitRounding": ".balance_definition_balance_option_debit_rounding",
+    "BalanceDefinitionUnit": ".balance_definition_unit",
     "BalanceLimit": ".balance_limit",
+    "BalanceLimitConstraintType": ".balance_limit_constraint_type",
+    "BalanceLimitDurationUnit": ".balance_limit_duration_unit",
+    "BalanceLimitTransactionType": ".balance_limit_transaction_type",
     "BatchAcceptedResponse": ".batch_accepted_response",
     "BatchEventsResponse": ".batch_events_response",
     "BatchEventsResponseErrorsItem": ".batch_events_response_errors_item",
     "Cart": ".cart",
     "Company": ".company",
     "Configuration": ".configuration",
+    "ConsentGroup": ".consent_group",
+    "ConsentGroupItem": ".consent_group_item",
+    "ConsentGroupItemStatus": ".consent_group_item_status",
+    "ConsentGroupSignupMode": ".consent_group_signup_mode",
+    "ConsentGroupsListResponse": ".consent_groups_list_response",
     "ContactErrorModel": ".contact_error_model",
     "ContactErrorModelCode": ".contact_error_model_code",
     "ConversationsMessage": ".conversations_message",
     "ConversationsMessageAttachmentsItem": ".conversations_message_attachments_item",
+    "ConversationsMessageAttachmentsItemImageInfo": ".conversations_message_attachments_item_image_info",
     "ConversationsMessageBccItem": ".conversations_message_bcc_item",
     "ConversationsMessageCcItem": ".conversations_message_cc_item",
     "ConversationsMessageFile": ".conversations_message_file",
@@ -174,11 +214,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetEventsList": ".get_events_list",
     "GetEventsListEventsItem": ".get_events_list_events_item",
     "GetExtendedCampaignOverview": ".get_extended_campaign_overview",
+    "GetExtendedCampaignOverviewEmailExpirationDate": ".get_extended_campaign_overview_email_expiration_date",
+    "GetExtendedCampaignOverviewEmailExpirationDateUnit": ".get_extended_campaign_overview_email_expiration_date_unit",
     "GetExtendedCampaignOverviewSender": ".get_extended_campaign_overview_sender",
     "GetExtendedCampaignOverviewStatus": ".get_extended_campaign_overview_status",
     "GetExtendedCampaignOverviewType": ".get_extended_campaign_overview_type",
     "GetExtendedCampaignStats": ".get_extended_campaign_stats",
-    "GetExtendedCampaignStatsLinksStats": ".get_extended_campaign_stats_links_stats",
     "GetExtendedCampaignStatsStatsByDevice": ".get_extended_campaign_stats_stats_by_device",
     "GetFolder": ".get_folder",
     "GetList": ".get_list",
@@ -190,7 +231,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetSmtpTemplateOverviewSender": ".get_smtp_template_overview_sender",
     "GetSsoToken": ".get_sso_token",
     "GetWebhook": ".get_webhook",
-    "GetWebhookChannel": ".get_webhook_channel",
     "GetWebhookType": ".get_webhook_type",
     "InternalServerErrorBody": ".internal_server_error_body",
     "InternalServerErrorBodyCode": ".internal_server_error_body_code",
@@ -227,7 +267,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SendTestEmail": ".send_test_email",
     "SendTransacSms": ".send_transac_sms",
     "SendTransacSmsTag": ".send_transac_sms_tag",
-    "SendTransacSmsTagField": ".send_transac_sms_tag_field",
     "SendTransacSmsType": ".send_transac_sms_type",
     "Task": ".task",
     "TaskReminder": ".task_reminder",
@@ -236,16 +275,25 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Tier": ".tier",
     "TierAccessConditionsItem": ".tier_access_conditions_item",
     "TierGroup": ".tier_group",
+    "TierGroupDowngradeSchedule": ".tier_group_downgrade_schedule",
+    "TierGroupDowngradeScheduleDurationModifier": ".tier_group_downgrade_schedule_duration_modifier",
+    "TierGroupDowngradeScheduleDurationUnit": ".tier_group_downgrade_schedule_duration_unit",
     "TierGroupDowngradeStrategy": ".tier_group_downgrade_strategy",
+    "TierGroupUpgradeSchedule": ".tier_group_upgrade_schedule",
+    "TierGroupUpgradeScheduleDurationModifier": ".tier_group_upgrade_schedule_duration_modifier",
+    "TierGroupUpgradeScheduleDurationUnit": ".tier_group_upgrade_schedule_duration_unit",
     "TierGroupUpgradeStrategy": ".tier_group_upgrade_strategy",
     "TierTierRewardsItem": ".tier_tier_rewards_item",
     "Transaction": ".transaction",
+    "TransactionStatus": ".transaction_status",
+    "TransactionTransactionType": ".transaction_transaction_type",
     "UnauthorizedErrorBody": ".unauthorized_error_body",
     "UnauthorizedErrorBodyCode": ".unauthorized_error_body_code",
     "UpdateCampaignStatus": ".update_campaign_status",
     "UpdateCampaignStatusStatus": ".update_campaign_status_status",
     "ValueResponse": ".value_response",
     "VariablesItems": ".variables_items",
+    "WalletPassInstallUrl": ".wallet_pass_install_url",
     "WhatsappCampStats": ".whatsapp_camp_stats",
 }
 
@@ -279,17 +327,31 @@ __all__ = [
     "BadRequestErrorBodyCode",
     "BalanceDefinition",
     "BalanceDefinitionBalanceAvailabilityDurationModifier",
+    "BalanceDefinitionBalanceAvailabilityDurationUnit",
+    "BalanceDefinitionBalanceOptionAmountOvertakingStrategy",
+    "BalanceDefinitionBalanceOptionCreditRounding",
+    "BalanceDefinitionBalanceOptionDebitRounding",
+    "BalanceDefinitionUnit",
     "BalanceLimit",
+    "BalanceLimitConstraintType",
+    "BalanceLimitDurationUnit",
+    "BalanceLimitTransactionType",
     "BatchAcceptedResponse",
     "BatchEventsResponse",
     "BatchEventsResponseErrorsItem",
     "Cart",
     "Company",
     "Configuration",
+    "ConsentGroup",
+    "ConsentGroupItem",
+    "ConsentGroupItemStatus",
+    "ConsentGroupSignupMode",
+    "ConsentGroupsListResponse",
     "ContactErrorModel",
     "ContactErrorModelCode",
     "ConversationsMessage",
     "ConversationsMessageAttachmentsItem",
+    "ConversationsMessageAttachmentsItemImageInfo",
     "ConversationsMessageBccItem",
     "ConversationsMessageCcItem",
     "ConversationsMessageFile",
@@ -318,11 +380,12 @@ __all__ = [
     "GetEventsList",
     "GetEventsListEventsItem",
     "GetExtendedCampaignOverview",
+    "GetExtendedCampaignOverviewEmailExpirationDate",
+    "GetExtendedCampaignOverviewEmailExpirationDateUnit",
     "GetExtendedCampaignOverviewSender",
     "GetExtendedCampaignOverviewStatus",
     "GetExtendedCampaignOverviewType",
     "GetExtendedCampaignStats",
-    "GetExtendedCampaignStatsLinksStats",
     "GetExtendedCampaignStatsStatsByDevice",
     "GetFolder",
     "GetList",
@@ -334,7 +397,6 @@ __all__ = [
     "GetSmtpTemplateOverviewSender",
     "GetSsoToken",
     "GetWebhook",
-    "GetWebhookChannel",
     "GetWebhookType",
     "InternalServerErrorBody",
     "InternalServerErrorBodyCode",
@@ -371,7 +433,6 @@ __all__ = [
     "SendTestEmail",
     "SendTransacSms",
     "SendTransacSmsTag",
-    "SendTransacSmsTagField",
     "SendTransacSmsType",
     "Task",
     "TaskReminder",
@@ -380,15 +441,24 @@ __all__ = [
     "Tier",
     "TierAccessConditionsItem",
     "TierGroup",
+    "TierGroupDowngradeSchedule",
+    "TierGroupDowngradeScheduleDurationModifier",
+    "TierGroupDowngradeScheduleDurationUnit",
     "TierGroupDowngradeStrategy",
+    "TierGroupUpgradeSchedule",
+    "TierGroupUpgradeScheduleDurationModifier",
+    "TierGroupUpgradeScheduleDurationUnit",
     "TierGroupUpgradeStrategy",
     "TierTierRewardsItem",
     "Transaction",
+    "TransactionStatus",
+    "TransactionTransactionType",
     "UnauthorizedErrorBody",
     "UnauthorizedErrorBodyCode",
     "UpdateCampaignStatus",
     "UpdateCampaignStatusStatus",
     "ValueResponse",
     "VariablesItems",
+    "WalletPassInstallUrl",
     "WhatsappCampStats",
 ]

@@ -85,8 +85,6 @@ def _strip_fences(raw: str) -> str:
         return text
     # Find first fence opening and last fence closing.
     first = text.find("```")
-    if first == -1:
-        return text
     # Skip the language tag on the opening fence line (```lua, ```python, etc.).
     nl = text.find("\n", first)
     if nl == -1:

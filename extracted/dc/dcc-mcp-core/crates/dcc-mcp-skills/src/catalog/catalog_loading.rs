@@ -209,15 +209,16 @@ impl SkillCatalog {
 
         self.entries.insert(
             skill_name.clone(),
-            SkillEntry {
+            SkillEntry::new(
                 metadata,
-                state: SkillState::Discovered,
-                registered_tools: Vec::new(),
+                SkillState::Discovered,
+                Vec::new(),
                 scope,
                 path_source,
-            },
+            ),
         );
         self.refresh_dependency_states();
+        self.inverted_index.write().invalidate();
         self.load_skill(&skill_name)
     }
 
@@ -427,11 +428,12 @@ impl SkillCatalog {
                 return Err(err);
             }
 
-            // Generate input_schema: prefer tools.yaml if present, otherwise derive from Python signature
+            // Prefer manifest schemas. Runtime Python introspection is opt-in
+            // because importing arbitrary skill scripts during discovery can
+            // spawn DCC host Python processes and run module-level side effects.
             let input_schema = if tool_decl.input_schema.is_null() {
-                // Try to generate schema from Python script signature
                 if let Some(ref script_path) = script_path {
-                    crate::catalog::schema_gen::generate_input_schema(script_path, None)
+                    crate::catalog::schema_gen::generate_input_schema_if_enabled(script_path, None)
                         .unwrap_or_else(|| serde_json::json!({"type": "object"}))
                 } else {
                     serde_json::json!({"type": "object"})
@@ -533,9 +535,8 @@ impl SkillCatalog {
                     .unwrap_or("unknown");
                 let action_name = format!("{}__{}", skill_base, stem.replace('-', "_"));
 
-                // Try to generate schema from Python script signature
                 let input_schema =
-                    crate::catalog::schema_gen::generate_input_schema(script_path, None)
+                    crate::catalog::schema_gen::generate_input_schema_if_enabled(script_path, None)
                         .unwrap_or_else(|| serde_json::json!({"type": "object"}));
 
                 let meta = ToolMeta {
@@ -593,9 +594,11 @@ impl SkillCatalog {
 
         if let Some(mut entry) = self.entries.get_mut(skill_name) {
             entry.metadata = metadata.clone();
+            entry.refresh_tokens();
             entry.state = SkillState::Loaded;
             entry.registered_tools = registered.clone();
         }
+        self.inverted_index.write().invalidate();
         self.loaded.insert(skill_name.to_string());
         self.notify_after_load_hook(skill_name, metadata, &registered);
 
@@ -692,9 +695,14 @@ impl SkillCatalog {
             let _ = self.unload_skill(skill_name);
         }
         self.skipped.remove(skill_name);
+        // Remove from dcc shard before removing from entries.
+        if let Some(entry) = self.entries.get(skill_name) {
+            self.shard_remove(skill_name, &entry.metadata.dcc);
+        }
         let removed = self.entries.remove(skill_name).is_some();
         if removed {
             self.refresh_dependency_states();
+            self.inverted_index.write().invalidate();
         }
         removed
     }
@@ -711,6 +719,8 @@ impl SkillCatalog {
         }
         self.entries.clear();
         self.skipped.clear();
+        self.dcc_shards.clear();
+        self.inverted_index.write().invalidate();
     }
 
     /// Replay a persisted set of loaded skills + active groups (#1405).

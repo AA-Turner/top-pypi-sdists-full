@@ -14,7 +14,7 @@ if "ANTIGRAVITY_PROJECT_ID" in os.environ:
     os.environ["NO_COLOR"] = "1"
     os.environ["SAGE_NO_COLOR"] = "1"
 
-from sage.main import app
+from sage.cli_core import app
 
 if __name__ == "__main__":
     app()

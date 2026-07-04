@@ -601,12 +601,12 @@ class TestCLIIntegration:
 
     def test_cli_app_exists(self):
         """CLI app is importable."""
-        from sage.main import app
+        from sage.cli_core import app
         assert app is not None
 
     def test_cli_models_command(self):
         """Models command exists."""
-        from sage.main import app
+        from sage.cli_core import app
 
         # Check that models command is registered
         commands = [cmd.name for cmd in app.registered_commands]

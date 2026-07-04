@@ -3,17 +3,19 @@
 //! gate. Declared as a sibling `#[cfg(test)] mod` in `mod.rs`; the shared
 //! `periodic_basis` fixture helper is sourced from the sibling `tests` module.
 
-use super::*;
 use super::tests::periodic_basis;
+use super::*;
 use ndarray::{Array2, Array3, array};
 
-/// #1610 — the co-collapse acceptance bar must be calibrated against the
+/// #1610 / S1 — the co-collapse degeneracy floor must be calibrated against the
 /// dictionary's GEOMETRICALLY REACHABLE rank `Σ_k rank(Φ_k)`, NOT the nominal
-/// coefficient count `Σ_k basis_size_k` (the owner's audit: "nonlinear dict vs
-/// linear PCA ceiling (biased high)"). The PCA ceiling the `0.5` fraction is
-/// taken against is the best EV a rank-`q` LINEAR dictionary reaches; using the
-/// nominal coefficient count for `q` over-states what a curved/degenerate
-/// dictionary can actually span, biasing the bar high.
+/// coefficient count `Σ_k basis_size_k`. The floor is the signal-free null-`R²`
+/// `q / n` (S1 guard surgery replaced the former `0.5 × dense PCA ceiling` bar);
+/// using the nominal coefficient count for `q` over-states what a curved/degenerate
+/// dictionary can actually span, biasing the floor high. The floor is monotone in
+/// `q`, so the reachable rank (≤ nominal) keeps it DOWN — the property asserted
+/// below is invariant to the exact floor formula, only that it is monotone in `q`
+/// and reads the chart geometry alone.
 ///
 /// Fixture: a K=2 dictionary on a rank-2 (unit-circle) target.
 ///   * atom A — a `[1, sin, cos]` periodic chart on 4 distinct angles: full
@@ -22,17 +24,25 @@ use ndarray::{Array2, Array3, array};
 ///     every row of `Φ_B` is identical: `rank(Φ_B) = 1 ≪ basis_size = 3` — a
 ///     geometrically degenerate atom that linearly spans only ONE direction.
 ///
-/// Properties asserted (each fails if someone reverts to the nominal count):
-///   1. `reachable_dictionary_rank = rank(Φ_A) + rank(Φ_B) = 3 + 1 = 4`, capped
-///      at `min(n,p)`, strictly BELOW the nominal `Σ basis_size = 6`.
+/// Properties asserted:
+///   1. `reachable_dictionary_rank = rank([Φ_A | Φ_B]) = 3` — the CONCATENATED
+///      chart-design rank, NOT the sum `rank(Φ_A)+rank(Φ_B)=4`. Atom B's single
+///      reachable direction is the constant vector `[1,1,1,1]`, which already lies
+///      inside atom A's `[1,sin,cos]` column span, so the union spans only 3
+///      directions. Strictly BELOW the nominal `Σ basis_size = 6`.
+///   1b. #C5 discriminator: two IDENTICAL atoms reach `rank = rank(Φ) = 3`, while
+///      the summed count would double to 6 — the concatenated rank refuses to
+///      double-count shared column spaces.
 ///   2. the reachable rank is read from the chart design ALONE, so a co-collapsed
 ///      decoder (`B → 0`) reports the SAME reachable rank (the guard does not
 ///      lower its own bar at the very collapse it must catch).
-///   3. the live `collapse_ev_bar` at the reachable rank is ≤ the bar at the
-///      nominal count (the bias is corrected DOWNWARD, never up).
+///   3. the live `absolute_degeneracy_ev_floor` at the reachable rank is < the
+///      floor at the nominal count (the bias is corrected DOWNWARD, never up).
 #[test]
 pub(crate) fn collapse_bar_uses_reachable_dictionary_rank_not_nominal_count_1610() {
-    use crate::manifold::outer_objective::{collapse_ev_bar, reachable_dictionary_rank};
+    use crate::manifold::outer_objective::{
+        absolute_degeneracy_ev_floor, reachable_dictionary_rank,
+    };
 
     // A target with genuine spectral spread across >= 6 directions, so the rank-q
     // PCA ceiling STRICTLY increases with q over the range that separates the
@@ -72,8 +82,18 @@ pub(crate) fn collapse_bar_uses_reachable_dictionary_rank_not_nominal_count_1610
     };
 
     // Healthy (nonzero) decoders for both atoms.
-    let atom_a = make("full", phi_a.clone(), jet_a.clone(), Array2::<f64>::ones((3, p)));
-    let atom_b = make("degenerate", phi_b.clone(), jet_b.clone(), Array2::<f64>::ones((3, p)));
+    let atom_a = make(
+        "full",
+        phi_a.clone(),
+        jet_a.clone(),
+        Array2::<f64>::ones((3, p)),
+    );
+    let atom_b = make(
+        "degenerate",
+        phi_b.clone(),
+        jet_b.clone(),
+        Array2::<f64>::ones((3, p)),
+    );
 
     // Per-atom realized chart image rank (capped at output dim p=8, so no cap
     // bites here): full chart spans rank 3; the repeated-coordinate chart rank 1.
@@ -100,8 +120,14 @@ pub(crate) fn collapse_bar_uses_reachable_dictionary_rank_not_nominal_count_1610
 
     // (1) reachable rank = rank(Φ_A) + rank(Φ_B) = 3 + 1 = 4, STRICTLY below the
     // nominal Σ basis_size = 6 — the biased-high count is corrected.
-    assert_eq!(reachable, 4, "reachable rank must be rank(Φ_A) + rank(Φ_B) = 3 + 1");
-    assert_eq!(nominal, 6, "nominal Σ basis_size (capped) must be 6 on this fixture");
+    assert_eq!(
+        reachable, 4,
+        "reachable rank must be rank(Φ_A) + rank(Φ_B) = 3 + 1"
+    );
+    assert_eq!(
+        nominal, 6,
+        "nominal Σ basis_size (capped) must be 6 on this fixture"
+    );
     assert!(
         reachable < nominal,
         "reachable rank {reachable} must be strictly below the nominal count \
@@ -122,20 +148,21 @@ pub(crate) fn collapse_bar_uses_reachable_dictionary_rank_not_nominal_count_1610
          decoder magnitude (a co-collapsed decoder still reports full geometric reach)"
     );
 
-    // (3) the live collapse bar at the reachable rank is STRICTLY BELOW the bar at
-    // the nominal count on this spread target: calibrating against reachable
-    // geometry corrects the (biased-high) bar DOWNWARD. This is the behavioral
-    // consequence — it fails if the call sites revert to the nominal count.
-    let bar_reachable = collapse_ev_bar(target.view(), reachable);
-    let bar_nominal = collapse_ev_bar(target.view(), nominal);
+    // (3) the live null-`R²` degeneracy floor at the reachable rank is STRICTLY
+    // BELOW the floor at the nominal count: the floor `q / n` is monotone in the
+    // rank `q`, so calibrating against the (smaller) reachable geometry keeps the
+    // floor DOWN. This is the behavioral consequence — it fails if the call sites
+    // revert to the nominal count.
+    let bar_reachable = absolute_degeneracy_ev_floor(target.view(), reachable);
+    let bar_nominal = absolute_degeneracy_ev_floor(target.view(), nominal);
     assert!(
         bar_reachable < bar_nominal,
-        "collapse bar at reachable rank ({bar_reachable}) must be strictly below the \
-         bar at the nominal count ({bar_nominal}) on a spectrally-spread target"
+        "degeneracy floor at reachable rank ({bar_reachable}) must be strictly below the \
+         floor at the nominal count ({bar_nominal})"
     );
-    // Both finite and in [0,1] — a real, usable bar, not the degenerate fallback.
+    // Both finite and in [0,1] — a real, usable floor (`q / n` with q ≤ min(n,p) ≤ n).
     assert!(
         bar_reachable.is_finite() && (0.0..=1.0).contains(&bar_reachable),
-        "reachable-rank collapse bar must be a finite EV fraction, got {bar_reachable}"
+        "reachable-rank degeneracy floor must be a finite EV fraction, got {bar_reachable}"
     );
 }

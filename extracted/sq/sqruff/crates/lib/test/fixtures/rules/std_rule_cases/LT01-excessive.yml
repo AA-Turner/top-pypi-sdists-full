@@ -4,11 +4,11 @@ test_basic:
   pass_str: SELECT 1
 
 test_basic_template:
-  ignored: "jinja is not supported"
   pass_str: |
     {{ 'SELECT 1' }}
   configs:
     core:
+      templater: jinja
       ignore_templated_areas: false
 
 test_basic_fix:
@@ -266,6 +266,15 @@ test_postgres_datatype:
   configs:
     core:
       dialect: postgres
+
+test_ansi_referenced_column_list_spacing:
+  pass_str: |
+    CREATE TABLE child (
+        parent_id INTEGER REFERENCES parent(id)
+    );
+  configs:
+    core:
+      dialect: ansi
 
 test_redshift_datatype:
   pass_str: |

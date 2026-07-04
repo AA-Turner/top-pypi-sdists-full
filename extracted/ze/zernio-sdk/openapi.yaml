@@ -601,6 +601,8 @@ components:
             **send_message**: `{ messageType: text|template|media|interactive, text,
             template:{name,language,variableMapping}, media:{mediaType:image|video|audio|document,
             url,caption}, interactive }`. `template` and `interactive` are WhatsApp-only.
+            `interactive.type` is inferred from the payload shape when omitted; payloads with
+            neither `type` nor an inferable shape are rejected.
 
 
             **wait_for_reply**: `{ timeoutMinutes:int (max 43200), saveAs:string }`. Resume via
@@ -1563,6 +1565,9 @@ components:
                     type: string
                   status:
                     type: string
+                  accountId:
+                    type: string
+                    description: SocialAccount id this platform target published through. Use it to route events by connected account (e.g. separate staging vs production endpoints). A post can span multiple accounts.
                   platformPostId:
                     type: string
                   publishedUrl:
@@ -1613,6 +1618,7 @@ components:
                 properties:
                   platform: { type: string }
                   status: { type: string }
+                  accountId: { type: string, description: 'SocialAccount id this platform target published through. On post.platform.* events see also the top-level `account` block.' }
                   platformPostId: { type: string }
                   publishedUrl: { type: string }
                   error: { type: string }
@@ -1924,6 +1930,9 @@ components:
             id:
               type: string
               description: Social account ID
+            accountId:
+              type: string
+              description: Social account ID (same as id); canonical field for account filtering.
             platform:
               type: string
             username:
@@ -1986,6 +1995,9 @@ components:
             id:
               type: string
               description: Social account ID (the facebook account owning the Page)
+            accountId:
+              type: string
+              description: Social account ID (same as id); canonical field for account filtering.
             platform:
               type: string
               enum: [facebook]
@@ -2058,6 +2070,9 @@ components:
           properties:
             id:
               type: string
+            accountId:
+              type: string
+              description: Social account ID (same as id); canonical field for account filtering.
             platform:
               type: string
             username:
@@ -2088,6 +2103,9 @@ components:
           properties:
             id:
               type: string
+            accountId:
+              type: string
+              description: Social account ID (same as id); canonical field for account filtering.
             platform:
               type: string
             username:
@@ -2159,6 +2177,9 @@ components:
           properties:
             id:
               type: string
+            accountId:
+              type: string
+              description: Social account ID (same as id); canonical field for account filtering.
             platform:
               type: string
             username:
@@ -2307,6 +2328,9 @@ components:
         id:
           type: string
           description: Social account ID
+        accountId:
+          type: string
+          description: Social account ID (same value as id). Canonical field so consumers can filter every webhook event on one field (e.g. route staging vs production by account). id is kept for backward compatibility.
         platform: { type: string }
         username: { type: string }
         displayName: { type: string }
@@ -12493,13 +12517,13 @@ paths:
                   description: Required if scope is 'profiles'. Array of profile IDs to grant access to.
                 role:
                   type: string
-                  enum: [member, billing_admin, viewer]
+                  enum: [admin, member, billing_admin, viewer]
                   default: member
-                  description: Org role granted to the invitee. Defaults to 'member'. 'viewer' creates a read-only member who can view everything in their profile scope but cannot perform any content mutation (publish, edit, delete, connect accounts).
+                  description: Org role granted to the invitee. Defaults to 'member'. 'admin' can manage the team (invite/remove members, change roles and access) and billing, but not ownership transfer or account deletion. 'billing_admin' (displayed as Billing Manager) manages billing only. 'viewer' creates a read-only member who can view everything in their profile scope but cannot perform any content mutation (publish, edit, delete, connect accounts).
                 readOnly:
                   type: boolean
                   deprecated: true
-                  description: Deprecated. Use role 'viewer' instead. When true, the invite is created with role 'viewer'. Cannot be combined with role 'billing_admin'.
+                  description: Deprecated. Use role 'viewer' instead. When true, the invite is created with role 'viewer'. Cannot be combined with role 'billing_admin' or 'admin'.
             example:
               scope: "profiles"
               profileIds:
@@ -15122,7 +15146,7 @@ paths:
       description: |
         Fetch pending OAuth data for headless mode using the pendingDataToken from the redirect URL.
 
-        **Scope**: This endpoint is used only for LinkedIn organizations and Snapchat profiles, where the selection list is too large to fit in URL params. WhatsApp, Facebook, Pinterest, Google Business and other platforms pass selection state directly via URL query params on the redirect (`profileId`, `tempToken`, `step`), no pending record is created, so this endpoint will return 404 for those flows. Use the platform-specific selection endpoint instead (e.g. `/v1/connect/whatsapp/select-phone-number`).
+        **Scope**: This endpoint is used for LinkedIn organizations, Snapchat profiles, and Pinterest boards, where the selection list is too large to fit in URL params. The redirect carries a `pendingDataToken` instead of the full payload; the response includes the corresponding selection array (e.g. `boards` for Pinterest). WhatsApp, Facebook, Google Business and other platforms pass selection state directly via URL query params on the redirect (`profileId`, `tempToken`, `step`), no pending record is created, so this endpoint will return 404 for those flows. Use the platform-specific selection endpoint instead (e.g. `/v1/connect/whatsapp/select-phone-number`).
 
         Token is one-time use and expires after 10 minutes. No authentication required.
       parameters:
@@ -23600,6 +23624,7 @@ paths:
                         description: { type: [string, "null"], description: Plain-English explanation of what to provide. }
                         example: { type: [string, "null"], description: Concrete example value. }
                         localTo: { type: [string, "null"], description: ISO country the value must be local to }
+                        audience: { type: [string, "null"], enum: [business, individual, null], description: 'When set, the requirement applies ONLY to this end-user type — provide it for that type and OMIT it for the other (e.g. Brazil: "Cartão CNPJ" is business-only, "CPF" and "ID/Passport Copy" are personal-only). Submitting both sets makes the regulator ask whether the number is for personal or business use and stalls the review. Pass `entityType` on POST so the server drops the inapplicable set.' }
                   reusable:
                     type: [object, "null"]
                     description: Present when this account already has an approved verification for the country that can be reused (skip the form). `fromPhoneNumber`/`details` mirror the newest option; `options` lists ALL approved verifications (agencies hold one per end client) — pass the chosen option's `fromPhoneNumber` as `reuseFrom` on POST.

@@ -2,16 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_wireless_ssids_firewall_l3_firewall_rules
-short_description: Resource module for networks _wireless _ssids _firewall l3 _firewall
-  _rules
+short_description: Resource module for networks _wireless _ssids _firewall l3firewallrules
 description:
-  - Manage operation update of the resource networks _wireless _ssids _firewall l3
-    _firewall _rules.
+  - Manage operation update of the resource networks _wireless _ssids _firewall l3firewallrules.
   - Update the L3 firewall rules of an SSID on an MR network.
 version_added: '1.0.0'
 extends_documentation_fragment:

@@ -7,7 +7,7 @@ readme = "README.md"
 authors = [
     {name = 'Jens Diemer', email = 'django-reversion-compare@jensdiemer.de'}
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "django",  # https://docs.djangoproject.com
     "django-reversion",  # https://github.com/etianen/django-reversion
@@ -18,6 +18,9 @@ dependencies = [
 ]
 [dependency-groups]
 dev = [
+    "manage_django_project>=0.10.0",  # https://github.com/jedie/manage_django_project
+    "cmd2<=3", # TODO: Update "manage_django_project" to support newer cmd2 versions!
+    #
     "bx_django_utils",   # https://github.com/boxine/bx_django_utils
     "django-countries",  # https://github.com/SmileyChris/django-countries
     "model_bakery",  # https://github.com/model-bakers/model_bakery
@@ -28,7 +31,6 @@ dev = [
     "colorlog",  # https://github.com/borntyping/python-colorlog
     "gunicorn",  # https://github.com/benoimyproject.wsgitc/gunicorn
     "django-debug-toolbar",  # http://django-debug-toolbar.readthedocs.io/en/stable/changes.html
-    "manage_django_project>=0.10.0",  # https://github.com/jedie/manage_django_project
     "uv",  # https://github.com/astral-sh/uv
     "hatchling",  # https://github.com/pypa/hatch/tree/master/backend
     "tblib",   # https://github.com/ionelmc/python-tblib
@@ -46,6 +48,27 @@ dev = [
     "requests-mock",
     "django-override-storage",  # https://github.com/danifus/django-override-storage
 ]
+
+
+[tool.uv]
+# Don't install bleed-edge versions of dependencies, to avoid undetected issues and supply chain attacks.
+exclude-newer = "1 week"
+
+[tool.uv.exclude-newer-package]
+# Exclude own packages from the "exclude-newer" rule and
+# add external packages temporarily to fix known issues or current CVEs
+cryptography = "2026-07-03T12:00:00Z"
+
+
+[tool.cli_base.pip_audit]
+strict=true
+require_hashes=true
+ignore-vuln=[
+    "CVE-2026-4539", # https://github.com/pygments/pygments/issues/3058#issuecomment-4127344972
+]
+
+[tool.cli_base]
+version_module_name = "reversion_compare" # Used by "update-readme-history" pre-commit hook
 
 [project.urls]
 Documentation = "https://github.com/jedie/django-reversion-compare"
@@ -75,16 +98,6 @@ packages = ["reversion_compare", "reversion_compare_project"]
 
 [tool.hatch.version]
 path = "reversion_compare/__init__.py"
-
-
-[tool.cli_base]
-version_module_name = "reversion_compare" # Used by "update-readme-history" pre-commit hook
-
-
-[tool.cli_base.pip_audit]
-strict=true
-require_hashes=true
-ignore-vuln=[]
 
 
 [tool.ruff]
@@ -157,6 +170,7 @@ applied_migrations = [
     "86b20b9", # 2025-09-22T21:43:37+02:00
     "38082ef", # 2025-10-16T10:28:32+02:00
     "af6dd62", # 2026-01-26T16:04:53+01:00
+    "1124332", # 2026-04-22T17:46:04+02:00
 ]
 
 [manageprojects.cookiecutter_context.cookiecutter]

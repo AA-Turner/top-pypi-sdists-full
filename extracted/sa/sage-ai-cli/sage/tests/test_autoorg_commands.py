@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sage.main import (
+from sage.cli_core import (
     TaskType,
     _autoorg_response_requests_user_input,
     _build_autoorg_business_brief,

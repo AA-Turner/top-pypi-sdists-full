@@ -735,7 +735,7 @@ class TestSageAnalysisIssues:
 
     def test_main_py_evidence_tracker_functions_importable(self):
         """EvidenceTracker functions should be importable from main.py."""
-        from sage.main import (
+        from sage.cli_core import (
             _check_synthesis_gate,
             _get_evidence_tracker,
             _record_file_read,
@@ -766,7 +766,7 @@ class TestSageAnalysisIssues:
 
     def test_main_py_evidence_tracker_resets_on_classify(self):
         """EvidenceTracker should reset when a new request is classified."""
-        from sage.main import (
+        from sage.cli_core import (
             _classify_and_store_request,
             _get_evidence_tracker,
             _record_file_read,
@@ -789,7 +789,7 @@ class TestSageAnalysisIssues:
 
     def test_main_py_synthesis_gate_blocks_without_evidence(self):
         """Synthesis gate should block synthesis without evidence in main.py."""
-        from sage.main import (
+        from sage.cli_core import (
             _check_synthesis_gate,
             _reset_evidence_tracker,
         )
@@ -1109,14 +1109,14 @@ class TestPromptEnhancement:
 
     def test_enhance_task_prompt_exists(self):
         """A function to enhance prompts should exist in main.py."""
-        from sage.main import _enhance_task_prompt
+        from sage.cli_core import _enhance_task_prompt
 
         # Should be callable
         assert callable(_enhance_task_prompt)
 
     def test_enhance_task_prompt_adds_clarity(self):
         """Enhanced prompt should add clarity to the original."""
-        from sage.main import _enhance_task_prompt
+        from sage.cli_core import _enhance_task_prompt
 
         original = "fix the bug"
         enhanced = _enhance_task_prompt(original)
@@ -1126,7 +1126,7 @@ class TestPromptEnhancement:
 
     def test_enhance_task_prompt_preserves_intent(self):
         """Enhanced prompt should preserve original intent."""
-        from sage.main import _enhance_task_prompt
+        from sage.cli_core import _enhance_task_prompt
 
         original = "implement user login"
         enhanced = _enhance_task_prompt(original)
@@ -1137,7 +1137,7 @@ class TestPromptEnhancement:
     def test_enhance_task_prompt_adds_tdd_for_implementation(self):
         """Enhanced prompt for implementation should mention TDD."""
         from sage.core.request_classifier import RequestClassifier
-        from sage.main import _enhance_task_prompt
+        from sage.cli_core import _enhance_task_prompt
 
         classifier = RequestClassifier()
         original = "implement a new feature"
@@ -1247,7 +1247,7 @@ class TestEvidenceGroundingIntegration:
 
     def test_tool_commands_record_evidence(self):
         """READ: and SEARCH: commands should record evidence."""
-        from sage.main import (
+        from sage.cli_core import (
             _record_file_read,
             _record_search,
             _reset_evidence_tracker,
@@ -1267,7 +1267,7 @@ class TestEvidenceGroundingIntegration:
 
     def test_synthesis_gate_integrated_with_main(self):
         """Synthesis gate check should be integrated in main.py."""
-        from sage.main import _check_synthesis_gate, _reset_evidence_tracker
+        from sage.cli_core import _check_synthesis_gate, _reset_evidence_tracker
 
         _reset_evidence_tracker()
         can_synthesize, reason = _check_synthesis_gate()
@@ -1275,7 +1275,7 @@ class TestEvidenceGroundingIntegration:
 
     def test_evidence_tracker_resets_per_request(self):
         """Evidence tracker should reset for each new request classification."""
-        from sage.main import (
+        from sage.cli_core import (
             _classify_and_store_request,
             _get_evidence_tracker,
             _record_file_read,

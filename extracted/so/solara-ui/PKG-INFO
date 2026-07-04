@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: solara-ui
-Version: 1.57.6
+Version: 1.58.0
 Dynamic: Summary
 Project-URL: Home, https://www.github.com/widgetti/solara
 Project-URL: Documentation, https://solara.dev
@@ -28,6 +28,7 @@ License: The MIT License (MIT)
         THE SOFTWARE.
 Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.8
+Requires-Dist: executing
 Requires-Dist: humanize
 Requires-Dist: ipyvue>=1.9.0
 Requires-Dist: ipyvuetify>=1.6.10
@@ -50,6 +51,8 @@ Provides-Extra: markdown
 Requires-Dist: markdown; extra == 'markdown'
 Requires-Dist: pygments; extra == 'markdown'
 Requires-Dist: pymdown-extensions; extra == 'markdown'
+Provides-Extra: redis
+Requires-Dist: redis>=4.2; extra == 'redis'
 Description-Content-Type: text/markdown
 
 **A Pure Python, React-style Framework for Scaling Your Jupyter and Web Apps**

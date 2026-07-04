@@ -24,6 +24,7 @@ default = [
     "databricks",
     "db2",
     "duckdb",
+    "greenplum",
     "hive",
     "mysql",
     "oracle",
@@ -41,6 +42,7 @@ clickhouse = []
 databricks = ["sparksql"]
 db2 = []
 duckdb = ["postgres"]
+greenplum = ["postgres"]
 hive = []
 mysql = []
 oracle = []
@@ -55,14 +57,15 @@ tsql = []
 [dependencies]
 sqruff-lib-core.workspace = true
 strum.workspace = true
-itertools = "0.14.0"
+itertools = "0.15.0"
 hashbrown.workspace = true
 serde_yaml = "0.9.34+deprecated"
 
 [dev-dependencies]
+configparser = "3.2.0"
 sqruff-lib-core.workspace = true
 sqruff-lib-core.features = ["serde", "stringify"]
-rayon = "1.10.0"
+rayon = "1.12.0"
 expect-test = "1.5.0"
 glob = "0.3.1"
 serde_yaml = "0.9.34+deprecated"

@@ -95,6 +95,15 @@ class OTSProtocol(object):
         'DeleteMemory',
         'ListMemoryStoreMessages',
         'ListMemoryStoreRequests',
+        'GetMemoryTask',
+        'ListMemoryTasks',
+        'ListMemoryStoreScopes',
+        'CreateMemoryDreamTask',
+        'GetMemoryDreamTask',
+        'ListMemoryDreamTasks',
+        'CancelMemoryDreamTask',
+        'ListMemoryDreamActions',
+        'ApplyMemoryDreamActions',
     ]
 
     def __init__(self, instance_name, encoding, logger, extra_headers=None,

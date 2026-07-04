@@ -19,7 +19,7 @@ DOCUMENTATION = r"""
 module: purefb_proxy
 version_added: '1.0.0'
 author:
-  - Everpure ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+  - Pure Storage ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 short_description: Configure FlashBlade phonehome HTTPs proxy settings
 description:
 - Set or erase configuration for the phonehome proxy settings.
@@ -79,12 +79,6 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
-)
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
-)
 
 
 def delete_proxy(module, blade):
@@ -95,7 +89,7 @@ def delete_proxy(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Delete proxy settings failed. Error: {0}".format(
-                    get_error_message(res)
+                    res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -114,7 +108,7 @@ def create_proxy(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Set phone home proxy failed. Error: {0}".format(
-                    get_error_message(res)
+                    res.errors[0].message
                 )
             )
 
@@ -137,7 +131,7 @@ def update_proxy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Phone home proxy update failed. Error: {0}".format(
-                        get_error_message(res)
+                        res.errors[0].message
                     )
                 )
 

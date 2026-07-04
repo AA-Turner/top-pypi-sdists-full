@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 from sage.core.request_classifier import EvidenceTracker
-from sage.main import SAGEAgent, _reset_evidence_tracker, _get_evidence_tracker
+from sage.cli_core import SAGEAgent, _reset_evidence_tracker, _get_evidence_tracker
 from sage.core.tools import ExecutionLedger
 
 def test_evidence_tracker_failed_searches():

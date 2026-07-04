@@ -21,11 +21,11 @@ from io import IOBase
 from typing import (
     Any,
     Callable,
-    Iterable,
     Optional,
     Union,
 )
-import typing  # to use typing.TypeAlias in comments for compatibility with Python 3.9
+from collections.abc import Iterable
+import typing  # noqa: F401 -- used by `# type: typing.TypeAlias` comments below
 from urllib.parse import urlparse
 
 import dateutil.parser
@@ -46,9 +46,7 @@ QualifiedNameCandidate = Union[QualifiedName, str, Identifier]  # type: typing.T
 OptionalID = Optional[QualifiedNameCandidate]  # type: typing.TypeAlias
 EntityRef = Union["ProvEntity", QualifiedNameCandidate]  # type: typing.TypeAlias
 ActivityRef = Union["ProvActivity", QualifiedNameCandidate]  # type: typing.TypeAlias
-AgentRef = Union[
-    "ProvAgent", "ProvEntity", "ProvActivity", QualifiedNameCandidate
-]  # type: typing.TypeAlias
+AgentRef = Union["ProvAgent", "ProvEntity", "ProvActivity", QualifiedNameCandidate]  # type: typing.TypeAlias
 GenrationRef = Union["ProvGeneration", QualifiedNameCandidate]  # type: typing.TypeAlias
 UsageRef = Union["ProvUsage", QualifiedNameCandidate]  # type: typing.TypeAlias
 RecordAttributesArg = Union[
@@ -135,7 +133,7 @@ def encoding_provn_value(
     if isinstance(value, str):
         return _ensure_multiline_string_triple_quoted(value)
     elif isinstance(value, datetime.datetime):
-        return '"{0}" %% xsd:dateTime'.format(value.isoformat())
+        return f'"{value.isoformat()}" %% xsd:dateTime'
     elif isinstance(value, float):
         return '"%g" %%%% xsd:float' % value
     elif isinstance(value, bool):
@@ -145,7 +143,7 @@ def encoding_provn_value(
         return str(value)
 
 
-class Literal(object):
+class Literal:
     def __init__(
         self,
         value: Any,
@@ -260,13 +258,11 @@ class ProvElementIdentifierRequired(ProvException):
     """Exception for a missing element identifier."""
 
     def __str__(self) -> str:
-        return (
-            "An identifier is missing. All PROV elements require a valid " "identifier."
-        )
+        return "An identifier is missing. All PROV elements require a valid identifier."
 
 
 #  PROV records
-class ProvRecord(object):
+class ProvRecord:
     """Base class for PROV records."""
 
     FORMAL_ATTRIBUTES = ()  # type: tuple[QualifiedName, ...]
@@ -297,7 +293,7 @@ class ProvRecord(object):
     def __hash__(self) -> int:
         return hash((self.get_type(), self._identifier, frozenset(self.attributes)))
 
-    def copy(self) -> "ProvRecord":
+    def copy(self) -> ProvRecord:
         """
         Return an exact copy of this record.
         """
@@ -321,16 +317,18 @@ class ProvRecord(object):
         Adds a PROV type assertion to the record.
 
         :param type_identifier: PROV namespace identifier to add.
+        :raises ProvExceptionInvalidQualifiedName: If the type identifier is invalid.
         """
         self._attributes[PROV_TYPE].add(type_identifier)
 
     def get_attribute(self, attr_name: QualifiedNameCandidate) -> set:
         """
-        Returns the attribute values (if any) for the specified attribute name).
+        Returns the attribute values (if any) for the specified attribute name.
 
         :param attr_name: Name of the attribute.
         :return: Set of value(s) of the specified attribute.
         :rtype: set
+        :raises ProvExceptionInvalidQualifiedName: If the attribute name is invalid.
         """
         attr_name_qn = self._bundle.mandatory_valid_qname(attr_name)
         return self._attributes[attr_name_qn]
@@ -457,10 +455,9 @@ class ProvRecord(object):
             # Check if one of the attributes specifies that the current type
             # is a collection. In that case multiple attributes of the same
             # type are allowed.
-            if PROV_ATTR_COLLECTION in [_i[0] for _i in attributes]:
-                is_collection = True
-            else:
-                is_collection = False
+            is_collection = any(
+                attr_name == PROV_ATTR_COLLECTION for attr_name, _ in attributes
+            )
 
             for attr_name, original_value in attributes:
                 if original_value is None:
@@ -468,6 +465,14 @@ class ProvRecord(object):
 
                 # make sure the attribute name is valid
                 attr = self._bundle.mandatory_valid_qname(attr_name)
+
+                # the branches below bind `value` to different types
+                value: (
+                    QualifiedName
+                    | datetime.datetime
+                    | Literal
+                    | SupportedXSDParsedTypes
+                )
 
                 if attr in PROV_ATTRIBUTE_QNAMES:
                     # Expecting a qualified name
@@ -481,7 +486,7 @@ class ProvRecord(object):
                             )
                     else:
                         qname = original_value
-                    value = self._bundle.mandatory_valid_qname(qname)  # type: Any
+                    value = self._bundle.mandatory_valid_qname(qname)
                 elif attr in PROV_ATTRIBUTE_LITERALS:
                     # Expecting a datetime object or a string that can be parsed as a datetime
                     if isinstance(original_value, str):
@@ -623,7 +628,7 @@ class ProvElement(ProvRecord):
             # All types of PROV elements require a valid identifier
             raise ProvElementIdentifierRequired()
 
-        super(ProvElement, self).__init__(bundle, identifier, attributes)
+        super().__init__(bundle, identifier, attributes)
 
     def is_element(self) -> bool:
         """
@@ -1370,7 +1375,7 @@ class NamespaceManager(dict):
                 return new_prefix
 
 
-class ProvBundle(object):
+class ProvBundle:
     """PROV Bundle"""
 
     def __init__(
@@ -1378,7 +1383,7 @@ class ProvBundle(object):
         records: Optional[Iterable[ProvRecord]] = None,
         identifier: Optional[QualifiedName] = None,
         namespaces: Optional[NSCollection] = None,
-        document: Optional["ProvDocument"] = None,
+        document: Optional[ProvDocument] = None,
     ):
         """
         Constructor.
@@ -1651,7 +1656,7 @@ class ProvBundle(object):
         # TODO: Check unification rules in the PROV-CONSTRAINTS document
         # This method simply merges the records having the same name
         merged_records = dict()
-        for identifier, records in self._id_map.items():
+        for _identifier, records in self._id_map.items():
             if len(records) > 1:
                 # more than one record having the same identifier
                 # merge the records
@@ -2429,7 +2434,7 @@ class ProvBundle(object):
         from prov import dot
 
         if filename:
-            format = str(os.path.splitext(filename))[-1].lower().strip(os.path.extsep)
+            format = str(os.path.splitext(filename)[-1]).lower().strip(os.path.extsep)
         else:
             format = "png"
         format = format.lower()
@@ -2453,8 +2458,14 @@ class ProvBundle(object):
             else:
                 # Use matplotlib to show the image as it likely is more
                 # widespread than PIL and works nicely in the ipython notebook.
-                import matplotlib.pylab as plt  # type: ignore
-                import matplotlib.image as mpimg  # type: ignore
+                try:
+                    import matplotlib.pylab as plt  # type: ignore
+                    import matplotlib.image as mpimg  # type: ignore
+                except ImportError as e:
+                    raise ImportError(
+                        "The plot() method requires matplotlib when no filename"
+                        ' is provided. Install it with: pip install "prov[plot]"'
+                    ) from e
 
                 max_size = 30
 
@@ -2524,7 +2535,7 @@ class ProvDocument(ProvBundle):
         if not isinstance(other, ProvDocument):
             return False
         # Comparing the documents' content
-        if not super(ProvDocument, self).__eq__(other):
+        if not super().__eq__(other):
             return False
 
         # Comparing the documents' bundles
@@ -2648,8 +2659,7 @@ class ProvDocument(ProvBundle):
         """
         if not isinstance(bundle, ProvBundle):
             raise ProvException(
-                "Only a ProvBundle instance can be added as a bundle in a "
-                "ProvDocument."
+                "Only a ProvBundle instance can be added as a bundle in a ProvDocument."
             )
 
         if bundle.is_document():

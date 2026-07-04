@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 from sage.core.repl import SageREPL
-from sage.main import _build_prompt_reader
+from sage.cli_core import _build_prompt_reader
 from sage.core.validation import is_garbage_content
 from prompt_toolkit.layout.containers import ConditionalContainer
 from prompt_toolkit.keys import Keys
@@ -115,7 +115,7 @@ def test_is_garbage_content_placeholders():
     assert not is_garbage
 
 def test_greenfield_prompts_are_generic():
-    from sage.main import _build_multistep_phase_prompts
+    from sage.cli_core import _build_multistep_phase_prompts
     
     task_prompt = "Build a brand new chess game from scratch"
     prompts = _build_multistep_phase_prompts(task_prompt, cwd=None)
@@ -127,7 +127,7 @@ def test_greenfield_prompts_are_generic():
         assert "expo/react native" not in content.lower()
 
 def test_auto_validate_garbage_rejection(tmp_path):
-    from sage.main import _auto_validate
+    from sage.cli_core import _auto_validate
     
     # Create a temporary directory structure
     file_path = tmp_path / "incomplete.js"

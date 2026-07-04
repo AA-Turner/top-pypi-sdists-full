@@ -16,6 +16,8 @@ from fabric_dw.cli._context import CliContext
 from fabric_dw.cli._main import _CLI_CONDITIONAL_DESTRUCTIVE_KEY
 from fabric_dw.cli._render import render, render_result_rows
 from fabric_dw.cli.commands._utils import (
+    AS_OF_OPTION,
+    TIME_TRAVEL_AGO_OPTION,
     build_http_client,
     build_sql_target,
     confirm_destructive,
@@ -23,6 +25,7 @@ from fabric_dw.cli.commands._utils import (
     load_sql_body,
     parse_iso_datetime,
     parse_qualified_name,
+    resolve_as_of,
     resolve_item,
     resolve_warehouse_arg,
     resolve_workspace,
@@ -85,6 +88,8 @@ async def list_cmd(ctx: CliContext, item: str | None, schema: str | None) -> Non
     help="Output format.",
 )
 @click.option("--output", default=None, help="Write to this file instead of stdout.")
+@AS_OF_OPTION
+@TIME_TRAVEL_AGO_OPTION
 @click.pass_obj
 @coro
 async def read_cmd(
@@ -94,12 +99,15 @@ async def read_cmd(
     count: int,
     fmt: str,
     output: str | None,
+    as_of: str | None,
+    ago: str | None,
 ) -> None:
     """Read up to COUNT rows from QUALIFIED_NAME (schema.table) on ITEM."""
     ws = resolve_workspace(ctx)
     wh = resolve_warehouse_arg(ctx, item)
     schema, table_name = parse_qualified_name(qualified_name, kind="table")
     output_path = Path(output) if output else None
+    as_of_dt = resolve_as_of(as_of, ago)
 
     # --format takes precedence when explicitly supplied (i.e. differs from the default
     # JSON value); if --format is omitted (or is the default "json"), the global --json
@@ -113,7 +121,7 @@ async def read_cmd(
         async with build_http_client(ctx) as http:
             target, _entry = await build_sql_target(http, ws, wh)
             result = await _tables_svc.read_table(
-                target, schema, table_name, count=count, mode=ctx.auth
+                target, schema, table_name, count=count, as_of=as_of_dt, mode=ctx.auth
             )
             arrow_table = columns_rows_to_arrow(result.columns, result.rows)
             write_arrow(arrow_table, effective_fmt, output_path)
@@ -186,21 +194,28 @@ async def columns_cmd(
 @tables_group.command("count")
 @click.argument("item", required=False, default=None)
 @click.argument("qualified_name")
+@AS_OF_OPTION
+@TIME_TRAVEL_AGO_OPTION
 @click.pass_obj
 @coro
 async def count_cmd(
     ctx: CliContext,
     item: str | None,
     qualified_name: str,
+    as_of: str | None,
+    ago: str | None,
 ) -> None:
     """Count rows in QUALIFIED_NAME (schema.table) on ITEM."""
     ws = resolve_workspace(ctx)
     wh = resolve_warehouse_arg(ctx, item)
     schema, table_name = parse_qualified_name(qualified_name, kind="table")
+    as_of_dt = resolve_as_of(as_of, ago)
     try:
         async with build_http_client(ctx) as http:
             target, _entry = await build_sql_target(http, ws, wh)
-            result = await _tables_svc.count_table_rows(target, schema, table_name, mode=ctx.auth)
+            result = await _tables_svc.count_table_rows(
+                target, schema, table_name, as_of=as_of_dt, mode=ctx.auth
+            )
             render(
                 result.model_dump(mode="json"),
                 json_output=ctx.json_output,
@@ -208,6 +223,93 @@ async def count_cmd(
             )
     except (ValueError, FabricError) as exc:
         raise click.ClickException(str(exc)) from exc
+
+
+@tables_group.command("export")
+@click.argument("item", required=False, default=None)
+@click.argument("qualified_name")
+@click.option("--output", required=True, type=click.Path(), help="Destination file path.")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice([f.value for f in OutputFormat], case_sensitive=False),
+    default=None,
+    help="Output format (inferred from --output extension when omitted).",
+)
+@click.option(
+    "--limit",
+    default=None,
+    type=click.IntRange(min=1),
+    help="Export at most N rows (sampling). Must be >= 1.",
+)
+@click.option(
+    "--no-overwrite",
+    "no_overwrite",
+    is_flag=True,
+    default=False,
+    help="Fail if the output file already exists instead of overwriting.",
+)
+@AS_OF_OPTION
+@TIME_TRAVEL_AGO_OPTION
+@click.pass_obj
+@coro
+async def export_cmd(
+    ctx: CliContext,
+    item: str | None,
+    qualified_name: str,
+    output: str,
+    fmt: str | None,
+    limit: int | None,
+    no_overwrite: bool,
+    as_of: str | None,
+    ago: str | None,
+) -> None:
+    """Export all rows of QUALIFIED_NAME (schema.table) on ITEM to a local file.
+
+    The output format is inferred from the --output extension (.parquet, .csv, .json)
+    when --format is omitted.  Pass --format to override.
+
+    WARNING: exporting large tables loads all rows into memory. Use --limit for sampling.
+    """
+    ws = resolve_workspace(ctx)
+    wh = resolve_warehouse_arg(ctx, item)
+    schema, table_name = parse_qualified_name(qualified_name, kind="table")
+    as_of_dt = resolve_as_of(as_of, ago)
+    output_path = Path(output)
+
+    # Infer format from extension when --format is omitted.
+    if fmt is None:
+        try:
+            fmt = infer_file_format(output_path)
+        except ValueError as exc:
+            raise click.UsageError(str(exc)) from exc
+
+    if no_overwrite and output_path.exists():
+        raise click.UsageError(f"Output file already exists: {output_path}")
+
+    try:
+        async with build_http_client(ctx) as http:
+            target, _entry = await build_sql_target(http, ws, wh)
+            row_count = await _tables_svc.export_table(
+                target,
+                schema,
+                table_name,
+                output_path,
+                fmt,
+                as_of=as_of_dt,
+                limit=limit,
+                mode=ctx.auth,
+            )
+    except (ValueError, FabricError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if ctx.json_output:
+        import json  # noqa: PLC0415
+
+        payload = {"status": "exported", "rows": row_count, "output": str(output_path)}
+        click.echo(json.dumps(payload))
+    else:
+        click.echo(f"Exported {row_count} row(s) to {output_path}.")
 
 
 @tables_group.command("health-check")
@@ -615,9 +717,15 @@ async def cluster_by_cmd(
     Omit --cluster-by entirely to remove clustering (rebuilds without CLUSTER BY).
 
     \b
-    WARNING: Dependent views and stored procedures that reference this table by
-    name are NOT automatically updated by this CLUSTER BY rebuild (which
-    recreates the table via CTAS and sp_rename) and may need refreshing.
+    WARNING: If this table has dependent objects (views, stored procedures,
+    etc. that reference it by name), a warning is printed before the rebuild —
+    those objects are NOT automatically updated by this CLUSTER BY rebuild
+    (which recreates the table via CTAS and sp_rename) and may need
+    refreshing. Dependents are detected via catalog metadata
+    (sys.sql_expression_dependencies), which only tracks statically
+    resolvable by-name references; a dependent that reaches this table only
+    through dynamic SQL (EXEC(...) / sp_executesql) will NOT be detected and
+    no warning will be printed for it.
 
     Only supported on Fabric Data Warehouses (not SQL Analytics Endpoints).
     This operation copies the full table — runtime is proportional to table size.
@@ -636,12 +744,22 @@ async def cluster_by_cmd(
             ):
                 click.echo("Aborted.")
                 return
-            click.echo(
-                "WARNING: Dependent views and stored procedures referencing this table "
-                "are NOT automatically updated by this CLUSTER BY rebuild (CTAS-swap) "
-                "and may need refreshing.",
-                err=True,
+            # #957: only warn when the table actually has dependents (checked via
+            # sys.sql_expression_dependencies, a parameterized metadata query — not
+            # SQL text parsing). A clean rebuild of a table with no dependents
+            # should produce no warning. Passing kind short-circuits the query
+            # for SQL Analytics Endpoints (recluster_table rejects those anyway).
+            dependents = await _tables_svc.get_table_dependents(
+                target, schema, table_name, kind=entry.kind, mode=ctx.auth
             )
+            if dependents:
+                click.echo(
+                    "WARNING: Dependent objects referencing this table by name "
+                    "(views, stored procedures, etc.) are NOT automatically updated "
+                    "by this CLUSTER BY rebuild (CTAS-swap) and may need refreshing: "
+                    + ", ".join(sorted(dependents)),
+                    err=True,
+                )
             t = await _tables_svc.recluster_table(
                 target,
                 schema,
@@ -1394,6 +1512,38 @@ async def rename_cmd(
             target, entry = await build_sql_target(http, ws, wh)
             t = await _tables_svc.rename_table(
                 target, qualified_name, new_name, kind=entry.kind, mode=ctx.auth
+            )
+            render(t.model_dump(by_alias=True, mode="json"), json_output=ctx.json_output)
+    except (ValueError, FabricError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
+@tables_group.command("transfer")
+@click.argument("item", required=False, default=None)
+@click.argument("qualified_name")
+@click.option("--target-schema", required=True, help="Schema to move the table into.")
+@click.pass_obj
+@coro
+async def transfer_cmd(
+    ctx: CliContext,
+    item: str | None,
+    qualified_name: str,
+    target_schema: str,
+) -> None:
+    """Move QUALIFIED_NAME (schema.table) on ITEM to --target-schema.
+
+    ITEM must be a Data Warehouse; transferring a table on a SQL Analytics
+    Endpoint is not supported and can break the OneLake sync, so SQL
+    Analytics Endpoints are rejected.
+    """
+    ws = resolve_workspace(ctx)
+    wh = resolve_warehouse_arg(ctx, item)
+    parse_qualified_name(qualified_name, kind="table")
+    try:
+        async with build_http_client(ctx) as http:
+            target, entry = await build_sql_target(http, ws, wh)
+            t = await _tables_svc.transfer_table(
+                target, qualified_name, target_schema, kind=entry.kind, mode=ctx.auth
             )
             render(t.model_dump(by_alias=True, mode="json"), json_output=ctx.json_output)
     except (ValueError, FabricError) as exc:

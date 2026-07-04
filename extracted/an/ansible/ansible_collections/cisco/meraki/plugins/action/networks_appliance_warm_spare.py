@@ -56,7 +56,7 @@ class NetworksApplianceWarmSpare(object):
             uplinkMode=params.get("uplinkMode"),
             virtualIp1=params.get("virtualIp1"),
             virtualIp2=params.get("virtualIp2"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
         )
 
     def get_all_params(self, name=None, id=None):
@@ -150,7 +150,9 @@ class NetworksApplianceWarmSpare(object):
             ("spareSerial", "spareSerial"),
             ("uplinkMode", "uplinkMode"),
             ("virtualIp1", "virtualIp1"),
-            ("virtualIp2", "virtualIp2"),]
+            ("virtualIp2", "virtualIp2"),
+            ("networkId", "networkId"),
+        ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update
         return any(

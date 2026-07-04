@@ -333,7 +333,7 @@ def _classify_and_store_request(user_input: str) -> _ClassifiedRequest:
     Also resets the evidence tracker for the new request.
     Also sets the session mode for cross-turn persistence.
     """
-    from sage.main import _add_session_pending_task, _set_session_mode
+    from sage.cli_core import _add_session_pending_task, _set_session_mode
     global _current_classification
     _current_classification = _request_classifier.classify(user_input)
 

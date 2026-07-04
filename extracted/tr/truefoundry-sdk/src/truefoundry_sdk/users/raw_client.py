@@ -29,6 +29,7 @@ from ..types.http_error import HttpError
 from ..types.invite_user_response import InviteUserResponse
 from ..types.list_users_response import ListUsersResponse
 from ..types.register_users_response import RegisterUsersResponse
+from ..types.resource_type import ResourceType
 from ..types.update_user_roles_response import UpdateUserRolesResponse
 from ..types.user import User
 from pydantic import ValidationError
@@ -47,11 +48,11 @@ class RawUsersClient:
         limit: typing.Optional[int] = 100,
         offset: typing.Optional[int] = 0,
         query: typing.Optional[str] = None,
-        show_invalid_users: typing.Optional[bool] = None,
+        show_invalid_users: typing.Optional[bool] = False,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[User, ListUsersResponse]:
         """
-        List all users of tenant filtered by query and showInvalidUsers. Pagination is available based on query parameters.
+        List users in the current tenant.
 
         Parameters
         ----------
@@ -62,9 +63,10 @@ class RawUsersClient:
             Number of items to skip
 
         query : typing.Optional[str]
+            Filter users by email substring match.
 
         show_invalid_users : typing.Optional[bool]
-            Show Deactivated users
+            When true, includes deactivated users in the response.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -72,7 +74,7 @@ class RawUsersClient:
         Returns
         -------
         SyncPager[User, ListUsersResponse]
-            Returns all users of tenant and also the response includes paginated data.
+            Paginated list of users the caller has access to.
         """
         offset = offset if offset is not None else 0
 
@@ -97,7 +99,7 @@ class RawUsersClient:
                     ),
                 )
                 _items = _parsed_response.data
-                _has_next = True
+                _has_next = len(_items or []) > 0
                 _get_next = lambda: self.list(
                     limit=limit,
                     offset=offset + len(_items or []),
@@ -126,24 +128,24 @@ class RawUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[RegisterUsersResponse]:
         """
-        This endpoint allows tenant administrators to register users within their tenant.
+        Pre-register a user in the current tenant. Optionally sends an invite email if the auth provider is managed by TrueFoundry.
 
         Parameters
         ----------
         email : str
-            Email of the user
+            Email address of the user to register.
 
         send_invite_email : typing.Optional[bool]
-            Send invite email if user does not exist
+            When true, sends an invite email to the user after registration.
 
         skip_if_user_exists : typing.Optional[bool]
-            Fail if user exists
+            When true, silently skips registration if the user already exists instead of returning an error.
 
         dry_run : typing.Optional[bool]
-            Dry run
+            When true, validates the request without persisting changes.
 
         accept_invite_client_url : typing.Optional[str]
-            Url to redirect when invite is accepted
+            URL the user is redirected to when they accept the invite. Required when sendInviteEmail is true.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -151,7 +153,7 @@ class RawUsersClient:
         Returns
         -------
         HttpResponse[RegisterUsersResponse]
-            The users have been successfully registered.
+            The user has been successfully registered.
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/svc/v1/users/register",
@@ -205,9 +207,9 @@ class RawUsersClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Any,
+                        HttpError,
                         parse_obj_as(
-                            type_=typing.Any,  # type: ignore
+                            type_=HttpError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -226,22 +228,22 @@ class RawUsersClient:
         *,
         email: str,
         roles: typing.Sequence[str],
-        resource_type: typing.Optional[str] = OMIT,
+        resource_type: typing.Optional[ResourceType] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[UpdateUserRolesResponse]:
         """
-        This endpoint allows tenant administrators to update the roles of a user within their tenant.
+        Update the role assigned to a user in the current tenant.
 
         Parameters
         ----------
         email : str
-            Email of the user
+            Email of the user whose roles are being updated.
 
         roles : typing.Sequence[str]
-            Role names for the user
+            Role names to assign to the user.
 
-        resource_type : typing.Optional[str]
-            Resource Type
+        resource_type : typing.Optional[ResourceType]
+            Resource type scope for the role assignment.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -301,9 +303,9 @@ class RawUsersClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Any,
+                        HttpError,
                         parse_obj_as(
-                            type_=typing.Any,  # type: ignore
+                            type_=HttpError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -319,12 +321,12 @@ class RawUsersClient:
 
     def get(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[GetUserResponse]:
         """
-        Get User associated with provided User id
+        Get a single user by their ID.
 
         Parameters
         ----------
         id : str
-            User Id
+            System-generated user ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -332,7 +334,7 @@ class RawUsersClient:
         Returns
         -------
         HttpResponse[GetUserResponse]
-            Returns the User associated with provided User id
+            The user with the given ID.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/svc/v1/users/{encode_path_param(id)}",
@@ -377,15 +379,15 @@ class RawUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[DeleteUserResponse]:
         """
-        Delete user if they are not a collaborator in any resource and not part of any team other than everyone.
+        Permanently delete a user by ID. The user must not be a collaborator on any resource and must not belong to any team other than "everyone".
 
         Parameters
         ----------
         id : str
-            User Id
+            System-generated user ID.
 
         tenant_name : typing.Optional[str]
-            Tenant name
+            Tenant name override. Defaults to the caller's tenant when omitted.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -393,7 +395,7 @@ class RawUsersClient:
         Returns
         -------
         HttpResponse[DeleteUserResponse]
-            User has been successfully deleted.
+            The user has been deleted.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/svc/v1/users/{encode_path_param(id)}",
@@ -459,15 +461,15 @@ class RawUsersClient:
         self, *, accept_invite_client_url: str, email: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[InviteUserResponse]:
         """
-        Invite a user to the tenant
+        Invite a new user to the current tenant by email. Only available when the auth provider is managed by TrueFoundry.
 
         Parameters
         ----------
         accept_invite_client_url : str
-            Url to redirect when invite is accepted
+            URL the user is redirected to when they accept the invite.
 
         email : str
-            Email of user
+            Email address of the user to invite.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -475,7 +477,7 @@ class RawUsersClient:
         Returns
         -------
         HttpResponse[InviteUserResponse]
-            User has been successfully invited.
+            The invite has been sent successfully.
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/svc/v1/users/invite",
@@ -550,15 +552,15 @@ class RawUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[DeactivateUserResponse]:
         """
-        Deactivate user associated with the provided email within the tenant.
+        Deactivate a user by email in the current tenant. The user will no longer be able to log in.
 
         Parameters
         ----------
         email : str
-            Email of the user
+            Email of the user to deactivate.
 
         tenant_name : typing.Optional[str]
-            Tenant name
+            Tenant name override. Defaults to the caller's tenant when omitted.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -566,7 +568,7 @@ class RawUsersClient:
         Returns
         -------
         HttpResponse[DeactivateUserResponse]
-            User has been successfully deactivated.
+            The user has been deactivated.
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/svc/v1/users/deactivate",
@@ -630,15 +632,15 @@ class RawUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ActivateUserResponse]:
         """
-        Activate user associated with the provided email within the tenant.
+        Re-activate a previously deactivated user by email in the current tenant.
 
         Parameters
         ----------
         email : str
-            Email of the user
+            Email of the user to activate.
 
         tenant_name : typing.Optional[str]
-            Tenant name
+            Tenant name override. Defaults to the caller's tenant when omitted.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -646,7 +648,7 @@ class RawUsersClient:
         Returns
         -------
         HttpResponse[ActivateUserResponse]
-            User has been successfully activated.
+            The user has been activated.
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/svc/v1/users/activate",
@@ -711,18 +713,18 @@ class RawUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ChangePasswordResponse]:
         """
-        Change password for the authenticated user. Requires clientId and loginId in the request body.
+        Change the password for the authenticated user.
 
         Parameters
         ----------
         login_id : str
-            login id of the user(email)
+            Email address of the user changing their password.
 
         new_password : str
-            New password
+            New password (minimum 8 characters).
 
         old_password : str
-            Old password
+            Current password of the user for verification.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -730,7 +732,7 @@ class RawUsersClient:
         Returns
         -------
         HttpResponse[ChangePasswordResponse]
-            Password has been changed successfully.
+            The password has been changed successfully.
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/svc/v1/users/change-password",
@@ -769,12 +771,12 @@ class RawUsersClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetUserResourcesResponse]:
         """
-        Get all resources associated with a user.
+        Get all resources where the user is a collaborator.
 
         Parameters
         ----------
         id : str
-            User Id
+            System-generated user ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -782,10 +784,10 @@ class RawUsersClient:
         Returns
         -------
         HttpResponse[GetUserResourcesResponse]
-            Returns all resources for the user.
+            Returns the resources associated with the user.
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/svc/v1/users/{encode_path_param(id)}/resources",
+            f"api/svc/v1/x/users/{encode_path_param(id)}/resources",
             method="GET",
             request_options=request_options,
         )
@@ -834,12 +836,12 @@ class RawUsersClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetUserPermissionsResponse]:
         """
-        Get all role bindings associated with a user, including team-inherited bindings.
+        Get all role bindings for a user, including team-inherited bindings.
 
         Parameters
         ----------
         id : str
-            User Id
+            System-generated user ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -847,10 +849,10 @@ class RawUsersClient:
         Returns
         -------
         HttpResponse[GetUserPermissionsResponse]
-            Returns role bindings for the user (including team-inherited).
+            Returns the role bindings for the user.
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/svc/v1/users/{encode_path_param(id)}/permissions",
+            f"api/svc/v1/x/users/{encode_path_param(id)}/permissions",
             method="GET",
             request_options=request_options,
         )
@@ -899,12 +901,12 @@ class RawUsersClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetUserTeamsResponse]:
         """
-        Get all teams associated with a user, including their role in each team.
+        Get all teams a user belongs to, including their role in each team.
 
         Parameters
         ----------
         id : str
-            User Id
+            System-generated user ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -912,10 +914,10 @@ class RawUsersClient:
         Returns
         -------
         HttpResponse[GetUserTeamsResponse]
-            Returns all teams for the user with their roles.
+            Returns the teams and roles for the user.
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/svc/v1/users/{encode_path_param(id)}/teams",
+            f"api/svc/v1/x/users/{encode_path_param(id)}/teams",
             method="GET",
             request_options=request_options,
         )
@@ -971,11 +973,11 @@ class AsyncRawUsersClient:
         limit: typing.Optional[int] = 100,
         offset: typing.Optional[int] = 0,
         query: typing.Optional[str] = None,
-        show_invalid_users: typing.Optional[bool] = None,
+        show_invalid_users: typing.Optional[bool] = False,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[User, ListUsersResponse]:
         """
-        List all users of tenant filtered by query and showInvalidUsers. Pagination is available based on query parameters.
+        List users in the current tenant.
 
         Parameters
         ----------
@@ -986,9 +988,10 @@ class AsyncRawUsersClient:
             Number of items to skip
 
         query : typing.Optional[str]
+            Filter users by email substring match.
 
         show_invalid_users : typing.Optional[bool]
-            Show Deactivated users
+            When true, includes deactivated users in the response.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -996,7 +999,7 @@ class AsyncRawUsersClient:
         Returns
         -------
         AsyncPager[User, ListUsersResponse]
-            Returns all users of tenant and also the response includes paginated data.
+            Paginated list of users the caller has access to.
         """
         offset = offset if offset is not None else 0
 
@@ -1021,7 +1024,7 @@ class AsyncRawUsersClient:
                     ),
                 )
                 _items = _parsed_response.data
-                _has_next = True
+                _has_next = len(_items or []) > 0
 
                 async def _get_next():
                     return await self.list(
@@ -1053,24 +1056,24 @@ class AsyncRawUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[RegisterUsersResponse]:
         """
-        This endpoint allows tenant administrators to register users within their tenant.
+        Pre-register a user in the current tenant. Optionally sends an invite email if the auth provider is managed by TrueFoundry.
 
         Parameters
         ----------
         email : str
-            Email of the user
+            Email address of the user to register.
 
         send_invite_email : typing.Optional[bool]
-            Send invite email if user does not exist
+            When true, sends an invite email to the user after registration.
 
         skip_if_user_exists : typing.Optional[bool]
-            Fail if user exists
+            When true, silently skips registration if the user already exists instead of returning an error.
 
         dry_run : typing.Optional[bool]
-            Dry run
+            When true, validates the request without persisting changes.
 
         accept_invite_client_url : typing.Optional[str]
-            Url to redirect when invite is accepted
+            URL the user is redirected to when they accept the invite. Required when sendInviteEmail is true.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1078,7 +1081,7 @@ class AsyncRawUsersClient:
         Returns
         -------
         AsyncHttpResponse[RegisterUsersResponse]
-            The users have been successfully registered.
+            The user has been successfully registered.
         """
         _response = await self._client_wrapper.httpx_client.request(
             "api/svc/v1/users/register",
@@ -1132,9 +1135,9 @@ class AsyncRawUsersClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Any,
+                        HttpError,
                         parse_obj_as(
-                            type_=typing.Any,  # type: ignore
+                            type_=HttpError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1153,22 +1156,22 @@ class AsyncRawUsersClient:
         *,
         email: str,
         roles: typing.Sequence[str],
-        resource_type: typing.Optional[str] = OMIT,
+        resource_type: typing.Optional[ResourceType] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[UpdateUserRolesResponse]:
         """
-        This endpoint allows tenant administrators to update the roles of a user within their tenant.
+        Update the role assigned to a user in the current tenant.
 
         Parameters
         ----------
         email : str
-            Email of the user
+            Email of the user whose roles are being updated.
 
         roles : typing.Sequence[str]
-            Role names for the user
+            Role names to assign to the user.
 
-        resource_type : typing.Optional[str]
-            Resource Type
+        resource_type : typing.Optional[ResourceType]
+            Resource type scope for the role assignment.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1228,9 +1231,9 @@ class AsyncRawUsersClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Any,
+                        HttpError,
                         parse_obj_as(
-                            type_=typing.Any,  # type: ignore
+                            type_=HttpError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1248,12 +1251,12 @@ class AsyncRawUsersClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetUserResponse]:
         """
-        Get User associated with provided User id
+        Get a single user by their ID.
 
         Parameters
         ----------
         id : str
-            User Id
+            System-generated user ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1261,7 +1264,7 @@ class AsyncRawUsersClient:
         Returns
         -------
         AsyncHttpResponse[GetUserResponse]
-            Returns the User associated with provided User id
+            The user with the given ID.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/svc/v1/users/{encode_path_param(id)}",
@@ -1306,15 +1309,15 @@ class AsyncRawUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[DeleteUserResponse]:
         """
-        Delete user if they are not a collaborator in any resource and not part of any team other than everyone.
+        Permanently delete a user by ID. The user must not be a collaborator on any resource and must not belong to any team other than "everyone".
 
         Parameters
         ----------
         id : str
-            User Id
+            System-generated user ID.
 
         tenant_name : typing.Optional[str]
-            Tenant name
+            Tenant name override. Defaults to the caller's tenant when omitted.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1322,7 +1325,7 @@ class AsyncRawUsersClient:
         Returns
         -------
         AsyncHttpResponse[DeleteUserResponse]
-            User has been successfully deleted.
+            The user has been deleted.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/svc/v1/users/{encode_path_param(id)}",
@@ -1388,15 +1391,15 @@ class AsyncRawUsersClient:
         self, *, accept_invite_client_url: str, email: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[InviteUserResponse]:
         """
-        Invite a user to the tenant
+        Invite a new user to the current tenant by email. Only available when the auth provider is managed by TrueFoundry.
 
         Parameters
         ----------
         accept_invite_client_url : str
-            Url to redirect when invite is accepted
+            URL the user is redirected to when they accept the invite.
 
         email : str
-            Email of user
+            Email address of the user to invite.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1404,7 +1407,7 @@ class AsyncRawUsersClient:
         Returns
         -------
         AsyncHttpResponse[InviteUserResponse]
-            User has been successfully invited.
+            The invite has been sent successfully.
         """
         _response = await self._client_wrapper.httpx_client.request(
             "api/svc/v1/users/invite",
@@ -1479,15 +1482,15 @@ class AsyncRawUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[DeactivateUserResponse]:
         """
-        Deactivate user associated with the provided email within the tenant.
+        Deactivate a user by email in the current tenant. The user will no longer be able to log in.
 
         Parameters
         ----------
         email : str
-            Email of the user
+            Email of the user to deactivate.
 
         tenant_name : typing.Optional[str]
-            Tenant name
+            Tenant name override. Defaults to the caller's tenant when omitted.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1495,7 +1498,7 @@ class AsyncRawUsersClient:
         Returns
         -------
         AsyncHttpResponse[DeactivateUserResponse]
-            User has been successfully deactivated.
+            The user has been deactivated.
         """
         _response = await self._client_wrapper.httpx_client.request(
             "api/svc/v1/users/deactivate",
@@ -1559,15 +1562,15 @@ class AsyncRawUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ActivateUserResponse]:
         """
-        Activate user associated with the provided email within the tenant.
+        Re-activate a previously deactivated user by email in the current tenant.
 
         Parameters
         ----------
         email : str
-            Email of the user
+            Email of the user to activate.
 
         tenant_name : typing.Optional[str]
-            Tenant name
+            Tenant name override. Defaults to the caller's tenant when omitted.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1575,7 +1578,7 @@ class AsyncRawUsersClient:
         Returns
         -------
         AsyncHttpResponse[ActivateUserResponse]
-            User has been successfully activated.
+            The user has been activated.
         """
         _response = await self._client_wrapper.httpx_client.request(
             "api/svc/v1/users/activate",
@@ -1640,18 +1643,18 @@ class AsyncRawUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ChangePasswordResponse]:
         """
-        Change password for the authenticated user. Requires clientId and loginId in the request body.
+        Change the password for the authenticated user.
 
         Parameters
         ----------
         login_id : str
-            login id of the user(email)
+            Email address of the user changing their password.
 
         new_password : str
-            New password
+            New password (minimum 8 characters).
 
         old_password : str
-            Old password
+            Current password of the user for verification.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1659,7 +1662,7 @@ class AsyncRawUsersClient:
         Returns
         -------
         AsyncHttpResponse[ChangePasswordResponse]
-            Password has been changed successfully.
+            The password has been changed successfully.
         """
         _response = await self._client_wrapper.httpx_client.request(
             "api/svc/v1/users/change-password",
@@ -1698,12 +1701,12 @@ class AsyncRawUsersClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetUserResourcesResponse]:
         """
-        Get all resources associated with a user.
+        Get all resources where the user is a collaborator.
 
         Parameters
         ----------
         id : str
-            User Id
+            System-generated user ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1711,10 +1714,10 @@ class AsyncRawUsersClient:
         Returns
         -------
         AsyncHttpResponse[GetUserResourcesResponse]
-            Returns all resources for the user.
+            Returns the resources associated with the user.
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/svc/v1/users/{encode_path_param(id)}/resources",
+            f"api/svc/v1/x/users/{encode_path_param(id)}/resources",
             method="GET",
             request_options=request_options,
         )
@@ -1763,12 +1766,12 @@ class AsyncRawUsersClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetUserPermissionsResponse]:
         """
-        Get all role bindings associated with a user, including team-inherited bindings.
+        Get all role bindings for a user, including team-inherited bindings.
 
         Parameters
         ----------
         id : str
-            User Id
+            System-generated user ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1776,10 +1779,10 @@ class AsyncRawUsersClient:
         Returns
         -------
         AsyncHttpResponse[GetUserPermissionsResponse]
-            Returns role bindings for the user (including team-inherited).
+            Returns the role bindings for the user.
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/svc/v1/users/{encode_path_param(id)}/permissions",
+            f"api/svc/v1/x/users/{encode_path_param(id)}/permissions",
             method="GET",
             request_options=request_options,
         )
@@ -1828,12 +1831,12 @@ class AsyncRawUsersClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetUserTeamsResponse]:
         """
-        Get all teams associated with a user, including their role in each team.
+        Get all teams a user belongs to, including their role in each team.
 
         Parameters
         ----------
         id : str
-            User Id
+            System-generated user ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1841,10 +1844,10 @@ class AsyncRawUsersClient:
         Returns
         -------
         AsyncHttpResponse[GetUserTeamsResponse]
-            Returns all teams for the user with their roles.
+            Returns the teams and roles for the user.
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/svc/v1/users/{encode_path_param(id)}/teams",
+            f"api/svc/v1/x/users/{encode_path_param(id)}/teams",
             method="GET",
             request_options=request_options,
         )

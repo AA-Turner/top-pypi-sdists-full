@@ -111,10 +111,10 @@ pub(crate) use gam_solve::estimate::EstimationError;
 
 pub(crate) use gam_solve::evidence::arrow_log_det_from_cache;
 
+pub(crate) use gam_problem::{DeclaredHessianForm, Derivative, EfsEval, HessianResult, OuterEval};
 pub(crate) use gam_solve::rho_optimizer::{
     OuterCapability, OuterEvalOrder, OuterObjective, SeedOutcome,
 };
-pub(crate) use gam_problem::{DeclaredHessianForm, Derivative, EfsEval, HessianResult, OuterEval};
 
 pub(crate) use gam_solve::structure_search::{CollapseAction, CollapseEvent};
 
@@ -130,6 +130,7 @@ pub use crate::frames::*;
 mod amortized_routing;
 mod arrow_solver;
 mod atom;
+mod behavior;
 mod certificate;
 mod construction;
 mod construction_ard;
@@ -137,7 +138,9 @@ mod construction_aux_types;
 mod construction_cache_refresh;
 mod construction_padded_blocks;
 mod construction_reconstruction;
+mod coordinate_fidelity;
 mod fit_drivers;
+mod gauge;
 mod kronecker;
 mod loss;
 mod outer_objective;
@@ -147,6 +150,7 @@ mod rho;
 mod row_layout;
 mod schedule;
 mod shape_uncertainty;
+mod stagewise;
 mod streaming_plan;
 mod term;
 
@@ -172,16 +176,25 @@ mod tests_startup_validation_1782;
 mod tests_schur_seed_refusal_1782;
 
 #[cfg(test)]
+mod tests_streaming_materialize_chunk_1801;
+
+#[cfg(test)]
 mod tests_unit_speed_inloop_2022;
 
 #[cfg(test)]
 mod tests_structured_residual_2021;
 
 #[cfg(test)]
+mod tests_behavioral_fisher_rung1;
+
+#[cfg(test)]
 mod tests_two_tier_2023;
 
 #[cfg(test)]
 mod tests_streaming_efs_cache_1026;
+
+#[cfg(test)]
+mod tests_streaming_outer_gradient_2026;
 
 #[cfg(test)]
 mod tests_row_jet_and_outer_objective_780;
@@ -202,20 +215,38 @@ mod tests_isometry_exact_hvp_majorizer_457;
 mod tests_collapse_bar_reachable_rank_1610;
 
 #[cfg(test)]
+mod tests_s1_iteration_zero_guard;
+
+#[cfg(test)]
 mod sae_contract_probe_tests;
 
 #[cfg(test)]
 mod tests_device_engage_1783;
 
 #[cfg(test)]
+mod tests_frame_refresh_alpha_grad;
+
+#[cfg(test)]
+mod tests_cocollapse_disjoint_2027;
+
+#[cfg(test)]
+mod tests_outer_reml_probe_budget_2080;
+
+#[cfg(test)]
 mod lambda_smooth_1556_tests;
+
+#[cfg(test)]
+mod tests_behavior_twoblock_rung2;
 
 pub use arrow_solver::*;
 pub use atom::*;
+pub use behavior::*;
 pub use certificate::*;
 pub use construction_aux_types::*;
 pub use construction_cache_refresh::*;
 pub use construction_padded_blocks::*;
+pub use coordinate_fidelity::*;
+pub use gauge::*;
 pub(crate) use kronecker::*;
 pub use loss::*;
 pub use outer_objective::*;
@@ -225,5 +256,6 @@ pub use rho::*;
 pub use row_layout::*;
 pub use schedule::*;
 pub use shape_uncertainty::*;
+pub use stagewise::*;
 pub use streaming_plan::*;
 pub use term::*;

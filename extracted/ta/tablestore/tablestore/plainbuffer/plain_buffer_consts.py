@@ -39,6 +39,7 @@ const.VT_AUTO_INCREMENT = 0xb
 # othber
 const.LITTLE_ENDIAN_32_SIZE = 4
 const.LITTLE_ENDIAN_64_SIZE = 8
+const.BOOL_SIZE = 1
 const.MAX_BUFFER_SIZE = 64 * 1024 * 1024
 
 const.SYS_BITS = int(platform.architecture()[0][:2])

@@ -26,21 +26,33 @@
 //! small-`K` path. This module is reached only through its own public entry
 //! [`fit_sparse_dictionary`] (and the `gamfit` Python facade that wraps it).
 
+mod block;
+mod block_stream;
 mod codes;
 mod scoring;
 #[cfg(target_os = "linux")]
 mod scoring_gpu;
+mod stream;
 mod update;
 
 #[cfg(test)]
 mod tests;
 
+pub use block::{
+    BlockSparseConfig, BlockSparseFit, block_gates, block_projections_row,
+    block_sparse_dictionary_transform, fit_block_sparse_dictionary, reconstruct_row,
+    route_row_blocks, row_loss,
+};
+pub use block_stream::{
+    BlockEpochStats, BlockShardStats, BlockSparseStreamArtifact, BlockSparseStreamState,
+};
 pub use codes::SparseCode;
-pub use scoring::{TileScorer, top_s_online};
+pub use scoring::{ScoreRoutePath, ScoreRouteResult, ScoreRouteStats, TileScorer, top_s_online};
 #[cfg(target_os = "linux")]
 pub use scoring_gpu::{
     DEVICE_SCORE_BLOCK_MIN_ELEMS, ScoreBlockPath, score_block_cpu, score_block_required,
 };
+pub use stream::{EpochStats, ShardStats, SparseDictArtifact, SparseDictStreamState};
 
 use ndarray::{Array2, ArrayView2};
 
@@ -74,6 +86,10 @@ pub struct SparseDictConfig {
     pub decoder_ridge: f32,
     /// Relative explained-variance improvement below which training stops.
     pub tolerance: f64,
+    /// Per-fit score routing residency contract. `Required` is fail-closed: a
+    /// high-`K` route that cannot run on the CUDA score-block path returns an
+    /// error instead of silently scoring on the CPU.
+    pub score_mode: gam_gpu::GpuMode,
 }
 
 impl SparseDictConfig {
@@ -98,6 +114,7 @@ impl Default for SparseDictConfig {
             code_ridge: 1.0e-6,
             decoder_ridge: 1.0e-6,
             tolerance: 1.0e-6,
+            score_mode: gam_gpu::GpuMode::Auto,
         }
     }
 }
@@ -125,6 +142,8 @@ pub struct SparseDictFit {
     pub converged: bool,
     /// Active budget `s` actually used (`min(active, K)`).
     pub active: usize,
+    /// Aggregate CPU/GPU scoring counters over every route pass in the fit.
+    pub score_route_stats: ScoreRouteStats,
 }
 
 impl SparseDictFit {
@@ -153,11 +172,23 @@ impl SparseDictFit {
     }
 }
 
+/// Out-of-sample sparse-dictionary encode plus route-dispatch diagnostics.
+#[derive(Clone, Debug)]
+pub struct SparseDictTransform {
+    /// Active atom indices per row, `M×active`.
+    pub indices: Array2<u32>,
+    /// Sparse codes per row, `M×active`.
+    pub codes: Array2<f32>,
+    /// CPU/GPU scoring counters for this transform route.
+    pub score_route_stats: ScoreRouteStats,
+}
+
 /// Out-of-sample encode: route held-out rows `x` (`M×P`, f32) against a frozen
 /// sparse dictionary `decoder` (`K×P`) and solve the per-row active-set ridge
 /// codes, returning fixed-width `(indices, codes)` each `M×active`. This is the
 /// OOS `transform` step for a fitted sparse dictionary — the tiled routing and
-/// the active-set least squares both live in the Rust core.
+/// the active-set least squares both live in the Rust core, and the route step
+/// uses the same GPU-dispatched high-`K` scorer as fitting.
 pub fn sparse_dictionary_transform(
     x: ArrayView2<'_, f32>,
     decoder: ArrayView2<'_, f32>,
@@ -165,6 +196,30 @@ pub fn sparse_dictionary_transform(
     score_tile: usize,
     code_ridge: f32,
 ) -> Result<(Array2<u32>, Array2<f32>), String> {
+    let transform = sparse_dictionary_transform_with_mode(
+        x,
+        decoder,
+        active,
+        score_tile,
+        code_ridge,
+        gam_gpu::gpu_mode(),
+    )?;
+    Ok((transform.indices, transform.codes))
+}
+
+/// Out-of-sample encode with an explicit score routing mode and route counters.
+///
+/// This is the Rust-native high-`K` T1 transform surface: callers that require
+/// GPU scoring pass [`gam_gpu::GpuMode::Required`] and inspect
+/// [`SparseDictTransform::score_route_stats`] to verify device engagement.
+pub fn sparse_dictionary_transform_with_mode(
+    x: ArrayView2<'_, f32>,
+    decoder: ArrayView2<'_, f32>,
+    active: usize,
+    score_tile: usize,
+    code_ridge: f32,
+    score_mode: gam_gpu::GpuMode,
+) -> Result<SparseDictTransform, String> {
     let k = decoder.nrows();
     if k == 0 {
         return Err("sparse_dictionary_transform: dictionary has no atoms".to_string());
@@ -178,18 +233,24 @@ pub fn sparse_dictionary_transform(
     }
     let s = active.min(k).max(1);
     let scorer = TileScorer::new(s, score_tile.max(1));
-    let routed = scorer.route_minibatch(x, decoder);
+    let routed = scorer.route_minibatch_with_mode(x, decoder, score_mode)?;
+    let mut score_route_stats = ScoreRouteStats::default();
+    score_route_stats.record_result(&routed);
     let m = x.nrows();
     let mut indices = Array2::<u32>::zeros((m, s));
     let mut codes = Array2::<f32>::zeros((m, s));
-    for (row_idx, active_pairs) in routed.iter().enumerate() {
+    for (row_idx, active_pairs) in routed.selections.iter().enumerate() {
         let code = codes::solve_row_codes(x.row(row_idx), decoder, active_pairs, s, code_ridge);
         for j in 0..s {
             indices[[row_idx, j]] = code.indices[j];
             codes[[row_idx, j]] = code.codes[j];
         }
     }
-    Ok((indices, codes))
+    Ok(SparseDictTransform {
+        indices,
+        codes,
+        score_route_stats,
+    })
 }
 
 /// Fit a fixed-`K` sparse minibatched linear dictionary to `x` (`N×P`).

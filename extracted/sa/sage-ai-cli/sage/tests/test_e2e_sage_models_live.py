@@ -31,7 +31,7 @@ import httpx
 import pytest
 
 from sage.config import load_config
-from sage.main import _build_router
+from sage.cli_core import _build_router
 from sage.models.catalog import OLLAMA_CATALOG
 from sage.providers.base import Message
 from sage.providers.gemini import _FREE_MODELS as GEMINI_FREE, GeminiProvider

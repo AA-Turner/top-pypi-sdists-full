@@ -329,7 +329,6 @@ def auto_train(
                 feature_combinations=n_features, n_jobs=-1, random_state=42
             )
         elif model_name == "tabpfn":
-            # from tabpfn_extensions.post_hoc_ensembles.sklearn_interface import AutoTabPFNRegressor
             from tabpfn import TabPFNRegressor
 
             # Identify the column indices for cat_features in X_train
@@ -339,14 +338,63 @@ def auto_train(
                 cat_feature_indices = [X_train.columns.get_loc(col) for col in cat_features if
                     col in X_train.columns]
 
-            model = TabPFNRegressor(device="auto",
-                                    categorical_features_indices=cat_feature_indices,
-                                    ignore_pretraining_limits=True,
-                                    random_state=seed)
-
-            # model = AutoTabPFNRegressor(max_time=600,
-            #                            #categorical_feature_indices=cat_feature_indices,
-            #                            ignore_pretraining_limits=True)
+            # Tuning notes — see IDEAS.md at project root:
+            #   * n_estimators=8: tabpfn default. A/B tested 8/16/32 on
+            #     Kenya maize (0.4.787 → 0.4.790 → 0.4.791); all three
+            #     produced RMSE within 0.4% of each other (0.4723 / 0.4741
+            #     / 0.4760) and R² within 0.004. The ensemble is saturated
+            #     at ~40 training points per region-year — bumping does
+            #     nothing but burn compute (1x/1.5x/3x runtime). Kept at
+            #     tabpfn's own default to avoid the illusion of tuning.
+            #   * ignore_pretraining_limits=True: REQUIRED at our sample
+            #     size. tabpfn 8.x enforces a CPU-only guardrail that
+            #     aborts with RuntimeError "Running on CPU with more than
+            #     1000 samples is not allowed by default" when the training
+            #     set exceeds 1000 rows. Kenya has ~1700 rows per season,
+            #     so removing the flag breaks every fit. (Learned the hard
+            #     way in 0.4.789 — every prediction failed silently.)
+            #   * random_state=int(seed): guarantees deterministic ensemble
+            #     permutations across estimators, safe against float-seed
+            #     configs.
+            #   * inference_config left at None: custom PREPROCESS_TRANSFORMS
+            #     / FEATURE_SHIFT_METHOD tuning (Tier 2b) is a future
+            #     experiment — see IDEAS.md.
+            model = TabPFNRegressor(
+                device="auto",
+                categorical_features_indices=cat_feature_indices,
+                random_state=int(seed),
+                n_estimators=8,
+                ignore_pretraining_limits=True,
+            )
+        elif model_name == "tabpfn_phe":
+            # Post-Hoc Ensembling wrapper from tabpfn_extensions — runs
+            # TabPFN with multiple preprocessing configurations and
+            # ensembles their predictions. In published benchmarks it's
+            # typically the strongest zero-shot tabular regressor
+            # available, at 3-10x the runtime of base TabPFN.
+            #
+            # Named "tabpfn_phe" rather than "auto_tabpfn" to avoid the
+            # wrapper-prefix regex at the top of this function, which
+            # strips "auto_" and would route "auto_tabpfn" back to the
+            # plain "tabpfn" branch.
+            #
+            # max_time bounds the per-fit optimization budget; 600s = 10min
+            # is a reasonable operational ceiling. Cat feature indices
+            # aren't currently accepted by AutoTabPFNRegressor's ctor
+            # (the underlying PHE machinery detects them itself), so we
+            # don't pass them. See IDEAS.md for benchmarking notes.
+            from tabpfn_extensions.post_hoc_ensembles.sklearn_interface import (
+                AutoTabPFNRegressor,
+            )
+            # ignore_pretraining_limits=True passes through to the
+            # constituent TabPFN estimators, suppressing the same
+            # >1000-samples-CPU guardrail that would otherwise abort
+            # every fit on our ~1700-row Kenya training sets.
+            model = AutoTabPFNRegressor(
+                max_time=600,
+                random_state=int(seed),
+                ignore_pretraining_limits=True,
+            )
         elif model_name == "tabfm":
             # Google Research's TabFM (tabular foundation model) — zero-shot
             # inference like TabPFN, so no fit-time hyperparameters and no
@@ -572,7 +620,19 @@ def auto_train(
         elif model_name == "cubist":
             from cubist import Cubist
 
-            model = Cubist(n_committees=5, auto=True, random_state=seed)
+            # n_committees=10: default 5 (R Cubist legacy) under-boosts on
+            # yield data where errors correlate across regions.
+            # extrapolation=0.10: default 0.05 clips predictions too tightly
+            # for climate-driven yield anomalies that exceed the training range.
+            # unbiased=True: yield is right-skewed; default minimizes MAE and
+            # underestimates the high tail.
+            model = Cubist(
+                n_committees=10,
+                auto=True,
+                extrapolation=0.10,
+                unbiased=True,
+                random_state=seed,
+            )
         elif model_name == "gpr":
             from sklearn.gaussian_process import GaussianProcessRegressor
             from sklearn.gaussian_process.kernels import (

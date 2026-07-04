@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def test_normalize_platform_prefix_to_ai_platform(tmp_path: Path) -> None:
-    from sage.main import _normalize_workspace_relative_path
+    from sage.cli_core import _normalize_workspace_relative_path
 
     (tmp_path / "ai-platform").mkdir()
     normalized = _normalize_workspace_relative_path("platform/sage/main.py", tmp_path)
@@ -12,7 +12,7 @@ def test_normalize_platform_prefix_to_ai_platform(tmp_path: Path) -> None:
 
 
 def test_strip_ai_platform_prefix_when_running_inside_ai_platform(tmp_path: Path) -> None:
-    from sage.main import _normalize_workspace_relative_path
+    from sage.cli_core import _normalize_workspace_relative_path
 
     root = tmp_path / "ai-platform"
     root.mkdir()
@@ -21,7 +21,7 @@ def test_strip_ai_platform_prefix_when_running_inside_ai_platform(tmp_path: Path
 
 
 def test_normalize_platform_prefix_when_running_inside_ai_platform(tmp_path: Path) -> None:
-    from sage.main import _normalize_workspace_relative_path
+    from sage.cli_core import _normalize_workspace_relative_path
 
     root = tmp_path / "ai-platform"
     root.mkdir()
@@ -33,7 +33,7 @@ def test_normalize_platform_prefix_when_running_inside_ai_platform(tmp_path: Pat
 
 
 def test_extract_and_write_files_normalizes_and_writes_existing_file(tmp_path: Path) -> None:
-    from sage.main import _extract_and_write_files
+    from sage.cli_core import _extract_and_write_files
 
     root = tmp_path / "ai-platform"
     (root / "sage").mkdir(parents=True)

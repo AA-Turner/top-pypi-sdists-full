@@ -140,16 +140,36 @@ async def execute_headless(  # noqa: C901
         else:
             run_coro = agent.run(task, deps=deps, **run_kwargs)
 
-        if timeout is not None:
-            import asyncio
+        import httpx
+        from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior
 
-            try:
-                result = await asyncio.wait_for(run_coro, timeout=timeout)
-            except asyncio.TimeoutError:
-                _print_error("Timed out", output_json)
-                return 1
-        else:
-            result = await run_coro
+        # Transport/gateway failures that are the model provider's fault, not the
+        # agent's: an empty/garbled response, a non-JSON body (some OpenRouter
+        # preview models return an HTML error page — httpx.json() then raises
+        # JSONDecodeError), or a 429/5xx mid-run. In headless/benchmark mode none
+        # of these should hard-crash the trial (NonZeroAgentExitCode) and discard
+        # the work already on disk — exit 0 so the verifier can still grade it.
+        _TRANSPORT_ERRORS = (
+            UnexpectedModelBehavior,
+            ModelHTTPError,
+            httpx.HTTPError,
+            json.JSONDecodeError,
+        )
+
+        try:
+            if timeout is not None:
+                import asyncio
+
+                try:
+                    result = await asyncio.wait_for(run_coro, timeout=timeout)
+                except asyncio.TimeoutError:
+                    _print_error("Timed out", output_json)
+                    return 1
+            else:
+                result = await run_coro
+        except _TRANSPORT_ERRORS as exc:
+            _print_error(f"Model/transport error, ending run early: {exc}", output_json)
+            return 0
 
         if output_json:
             output = _build_json_output(result.output, result.usage)
@@ -202,8 +222,8 @@ async def _run_verbose(agent: Any, task: str, deps: Any, run_kwargs: dict[str, A
                             args_preview = str(event.part.args)[:80]
                             _log(f"[{e:6.1f}s] tool: {name}({args_preview})")
                         elif isinstance(event, FunctionToolResultEvent):
-                            name = getattr(event.result, "tool_name", "?")
-                            content = str(event.result.content)
+                            name = getattr(event.part, "tool_name", "?")
+                            content = str(event.content)
                             _log(f"[{e:6.1f}s]   -> {name}: {content[:120]}")
 
             elif isinstance(node, End):

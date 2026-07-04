@@ -19,9 +19,7 @@
 
 - name: Install apache via zypper
   community.general.zypper:
-    name:
-      - apache2
-      - apache2-utils
+    name: apache2
     state: present
   when: "ansible_facts.os_family == 'Suse'"
 

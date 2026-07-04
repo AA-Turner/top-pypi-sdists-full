@@ -129,8 +129,13 @@ class Graph(SetOpsMixin):
 
         if not is_sorted:
             # adjacency always ordered i-->j on both levels
-            ids = adjacency.index.get_level_values(0).unique().values
-            adjacency = adjacency.reindex(ids, level=0).reindex(ids, level=1)
+            ids = pd.concat(
+                (
+                    adjacency.index.get_level_values(0).to_series(),
+                    adjacency.index.get_level_values(1).to_series(),
+                )
+            ).unique()
+            adjacency = adjacency.reindex(ids, level=0).reindex(ids, level=1).fillna(0)
 
         self._adjacency = adjacency
         self.transformation = transformation
@@ -241,6 +246,111 @@ class Graph(SetOpsMixin):
         """
         return cls.from_weights_dict(dict(w))
 
+    @classmethod
+    def from_lattice(cls, nrows=5, ncols=5, rook=True, index_type="int"):
+        """
+        Create a Graph object for a regular lattice.
+
+        Parameters
+        ----------
+        nrows : int, default 5
+            Number of rows.
+        ncols : int, default 5
+            Number of columns.
+        rook : bool, default True
+            Type of contiguity. If False, queen contiguity is used.
+        index_type : {"int", "float", "string"}, default "int"
+            Type of index IDs to use in the final Graph object.
+
+        Returns
+        -------
+        Graph
+            Graph encoding lattice contiguity.
+
+        Examples
+        --------
+        >>> Graph.from_lattice()
+        <Graph of 25 nodes and 80 nonzero edges (1 component, 0 isolates) indexed by
+         [0, 1, 2, 3, 4, ...]>
+
+        >>> Graph.from_lattice(3, 5, index_type="string")
+        <Graph of 15 nodes and 44 nonzero edges (1 component, 0 isolates) indexed by
+         ['id0', 'id1', 'id2', 'id3', 'id4', ...]>
+        """
+        n = nrows * ncols
+        ids = np.arange(n)
+
+        rows = ids // ncols
+        cols = ids % ncols
+        has_north = rows > 0
+        has_south = rows < nrows - 1
+        has_west = cols > 0
+        has_east = cols < ncols - 1
+
+        degree = (has_north.astype(np.intp) + has_west + has_east + has_south).astype(
+            np.intp
+        )
+        if not rook:
+            degree += (
+                (has_north & has_west).astype(np.intp)
+                + (has_north & has_east)
+                + (has_south & has_west)
+                + (has_south & has_east)
+            )
+
+        if n == 1:
+            focal = ids
+            neighbor = ids
+            weight = np.zeros(1, dtype="int64")
+        else:
+            starts = np.empty(n + 1, dtype=np.intp)
+            starts[0] = 0
+            np.cumsum(degree, out=starts[1:])
+            total = starts[-1]
+            focal = np.repeat(ids, degree)
+            neighbor = np.empty(total, dtype=ids.dtype)
+            cursor = starts[:-1].copy()
+
+            def add(mask, offset):
+                loc = cursor[mask]
+                neighbor[loc] = ids[mask] + offset
+                cursor[mask] += 1
+
+            if rook:
+                add(has_north, -ncols)
+                add(has_west, -1)
+                add(has_east, 1)
+                add(has_south, ncols)
+            else:
+                add(has_north & has_west, -ncols - 1)
+                add(has_north, -ncols)
+                add(has_north & has_east, -ncols + 1)
+                add(has_west, -1)
+                add(has_east, 1)
+                add(has_south & has_west, ncols - 1)
+                add(has_south, ncols)
+                add(has_south & has_east, ncols + 1)
+
+            weight = np.ones(total, dtype="int64")
+
+        if index_type == "string":
+            ids = np.array([f"id{i}" for i in ids], dtype=object)
+        elif index_type == "float":
+            ids = ids.astype(float)
+
+        if index_type == "string" or index_type == "float":
+            focal = ids[focal]
+            neighbor = ids[neighbor]
+
+        adjacency = pd.Series(
+            weight,
+            name="weight",
+            index=pd.MultiIndex.from_arrays(
+                [focal, neighbor], names=["focal", "neighbor"]
+            ),
+        )
+        return cls(adjacency, is_sorted=True)
+
     def to_W(self):  # noqa: N802
         """Convert Graph to a libpysal.weights.W object
 
@@ -318,11 +428,11 @@ class Graph(SetOpsMixin):
             a dataframe formatted as an ajacency list. Should have columns
             "focal", "neighbor", and "weight", or columns that can be mapped
             to these (e.g. origin, destination, cost)
-        focal : str, optional
+        focal_col : str, optional
             name of column holding focal/origin index, by default 'focal'
-        neighbor : str, optional
+        neighbor_col : str, optional
             name of column holding neighbor/destination index, by default 'neighbor'
-        weight : str, optional
+        weight_col : str, optional
             name of column holding weight values, by default 'weight'
 
         Returns
@@ -371,6 +481,30 @@ class Graph(SetOpsMixin):
         )
 
     @classmethod
+    def from_dense(cls, dense, ids=None):
+        """Convert a ``numpy.ndarray`` of a shape (N, N) to a PySAL ``Graph`` object.
+
+        Parameters
+        ----------
+        dense : numpy.ndarray
+            dense representation of a graph
+        ids : list-like, default None
+            list-like of ids for geometries that is mappable to
+            positions from dense. If None, the positions are used as labels.
+
+        Returns
+        -------
+        Graph
+            libpysal.graph.Graph based on dense
+        """
+        from scipy import sparse
+
+        if dense.dtype == bool:
+            dense = dense.astype(int)
+
+        return cls.from_sparse(sparse.csr_array(dense), ids=ids)
+
+    @classmethod
     def from_arrays(cls, focal_ids, neighbor_ids, weight, **kwargs):
         """Generate Graph from arrays of indices and weights of the same length
 
@@ -379,9 +513,9 @@ class Graph(SetOpsMixin):
 
         Parameters
         ----------
-        focal_index : array-like
+        focal_ids : array-like
             focal indices
-        neighbor_index : array-like
+        neighbor_ids : array-like
             neighbor indices
         weight : array-like
             weights
@@ -490,6 +624,51 @@ class Graph(SetOpsMixin):
         """
         head, tail, weight = _neighbor_dict_to_edges(neighbors, weights=weights)
         return cls.from_arrays(head, tail, weight)
+
+    @classmethod
+    def from_networkx(cls, graph, weight=None):
+        """Generate a Graph from a NetworkX graph.
+
+        Parameters
+        ----------
+        graph : ``networkx`` graph object
+            representation of the graph as a :class:`networkx.Graph` or
+            :class:`networkx.DiGraph`. Multi-graphs are not supported as they do
+            not translate to a unique weight between two nodes.
+        weight : str | None, default None
+            name of the edge attribute to use as weights.
+
+        Returns
+        -------
+        Graph
+            libpysal.graph.Graph based on NetworkX graph
+
+        Examples
+        --------
+        >>> import networkx as nx
+        >>> nx_graph = nx.path_graph(5)
+        >>> g = graph.Graph.from_networkx(nx_graph)
+        >>> g.n
+        5
+        """
+        try:
+            import networkx as nx
+        except ImportError:
+            raise ImportError("NetworkX is required.") from None
+
+        nodes = list(graph.nodes())
+
+        # Check if the specified weight attribute exists on edges
+        if weight is not None:
+            for _u, _v, edge_data in graph.edges(data=True):
+                if weight not in edge_data:
+                    raise ValueError(
+                        f"The weight attribute '{weight}' does not exist on all edges."
+                    )
+
+        sparse_array = nx.to_scipy_sparse_array(graph, nodelist=nodes, weight=weight)
+
+        return cls.from_sparse(sparse_array, ids=nodes)
 
     @classmethod
     def build_block_contiguity(cls, regimes):
@@ -676,6 +855,7 @@ class Graph(SetOpsMixin):
         bandwidth=None,
         taper=True,
         decay=False,
+        tree=None,
     ):
         """Generate Graph from geometry based on a distance band
 
@@ -714,6 +894,11 @@ class Graph(SetOpsMixin):
             or negative) at some very large (possibly infinite) distance.
             Otherwise, kernel functions are treated as proper
             volume-preserving probability distributions.
+        tree : scipy.spatial.KDTree, optional
+            A pre-built scipy KDTree for distance computation. If provided,
+            the tree's data will be used as coordinates. This avoids rebuilding
+            the tree when it has already been constructed. Note that only
+            ``scipy.spatial.KDTree`` is supported for distance band computation.
         Returns
         -------
         Graph
@@ -809,9 +994,15 @@ class Graph(SetOpsMixin):
         Bronx          Manhattan        0.309825
         Name: weight, dtype: float64
         """
+        if tree is not None and hasattr(tree, "data"):
+            data = np.asarray(tree.data)
+        elif hasattr(data, "data") and hasattr(data, "query"):
+            tree = data
+            data = np.asarray(tree.data)
+
         ids = _evaluate_index(data)
 
-        dist = _distance_band(data, threshold)
+        dist = _distance_band(data, threshold, tree=tree)
 
         if binary:
             head, tail, weight = _kernel(
@@ -892,17 +1083,17 @@ class Graph(SetOpsMixin):
 
         Parameters
         ----------
-        geoms :  array-like of shapely.Geometry objects
+        geometry : array-like of shapely.Geometry objects
             Could be geopandas.GeoSeries or geopandas.GeoDataFrame, in which case the
             resulting Graph is indexed by the original index. If an array of
             shapely.Geometry objects is passed, Graph will assume a RangeIndex.
         tolerance : float, optional
             The percentage of the length of the minimum side of the bounding rectangle
-            for the ``geoms`` to use in determining the buffering distance. Either
+            for the ``geometry`` to use in determining the buffering distance. Either
             ``tolerance`` or ``buffer`` may be specified but not both.
             By default None.
         buffer : float, optional
-            Exact buffering distance in the units of ``geoms.crs``. Either
+            Exact buffering distance in the units of ``geometry.crs``. Either
             ``tolerance`` or ``buffer`` may be specified but not both.
             By default None.
         predicate : str, optional
@@ -1054,6 +1245,7 @@ class Graph(SetOpsMixin):
         coplanar="raise",
         taper=True,
         decay=False,
+        tree=None,
     ):
         """Generate Graph from geometry data based on a kernel function
 
@@ -1084,9 +1276,16 @@ class Graph(SetOpsMixin):
         k : int (default: None)
             number of nearest neighbors used to truncate the kernel. This is assumed
             to be constant across samples. If None, no truncation is conduted.
-        bandwidth : float (default: None)
+        bandwidth : float or "auto" or "adaptive" (default: None)
             distance to use in the kernel computation. Should be on the same scale as
-            the input coordinates.
+            the input coordinates. If "adaptive", a per-observation bandwidth
+            is used equal to each observation's distance to its k-th nearest
+            neighbor. This requires ``k`` to be set. If "auto", the bandwidth
+            is optimized as a function of entropy for a given kernel function.
+            This ensures that the entropy of the kernel is maximized for a given
+            distance matrix. This will result in the smoothing that provide the most
+            uniform distribution of kernel values, which is a good proxy for a
+            "moderate" level of smoothing.
         metric : string or callable (default: 'euclidean')
             distance function to apply over the input coordinates. Supported options
             depend on whether or not scikit-learn is installed. If so, then any
@@ -1109,12 +1308,23 @@ class Graph(SetOpsMixin):
             or negative) at some very large (possibly infinite) distance.
             Otherwise, kernel functions are treated as proper
             volume-preserving probability distributions.
+        tree : scipy.spatial.KDTree, sklearn.neighbors.KDTree, \
+               sklearn.neighbors.BallTree, optional
+            A pre-built tree for distance computation. If provided, the tree's
+            data will be used as coordinates. This avoids rebuilding the tree
+            when it has already been constructed.
 
         Returns
         -------
         Graph
             libpysal.graph.Graph encoding kernel weights
         """
+        if tree is not None and hasattr(tree, "data"):
+            data = np.asarray(tree.data)
+        elif hasattr(data, "data") and hasattr(data, "query"):
+            tree = data
+            data = np.asarray(tree.data)
+
         ids = _evaluate_index(data)
 
         head, tail, weight = _kernel(
@@ -1128,6 +1338,7 @@ class Graph(SetOpsMixin):
             coplanar=coplanar,
             decay=decay,
             taper=taper,
+            tree=tree,
         )
 
         return cls.from_arrays(head, tail, weight)
@@ -1142,6 +1353,7 @@ class Graph(SetOpsMixin):
         coplanar="raise",
         taper=True,
         decay=False,
+        tree=None,
     ):
         """Generate Graph from geometry data based on k-nearest neighbors search
 
@@ -1177,6 +1389,11 @@ class Graph(SetOpsMixin):
             or negative) at some very large (possibly infinite) distance.
             Otherwise, kernel functions are treated as proper
             volume-preserving probability distributions.
+        tree : scipy.spatial.KDTree, sklearn.neighbors.KDTree, \
+               sklearn.neighbors.BallTree, optional
+            A pre-built tree for distance computation. If provided, the tree's
+            data will be used as coordinates. This avoids rebuilding the tree
+            when it has already been constructed.
 
 
         Returns
@@ -1231,6 +1448,12 @@ class Graph(SetOpsMixin):
         Bronx          Manhattan    1
         Name: weight, dtype: int32
         """
+        if tree is not None and hasattr(tree, "data"):
+            data = np.asarray(tree.data)
+        elif hasattr(data, "data") and hasattr(data, "query"):
+            tree = data
+            data = np.asarray(tree.data)
+
         ids = _evaluate_index(data)
 
         head, tail, weight = _kernel(
@@ -1244,6 +1467,7 @@ class Graph(SetOpsMixin):
             coplanar=coplanar,
             taper=taper,
             decay=decay,
+            tree=tree,
         )
 
         return cls.from_arrays(head, tail, weight)
@@ -1259,7 +1483,7 @@ class Graph(SetOpsMixin):
         **metric_kwargs,
     ):
         """
-        Match locations in one dataset to at least `n_matches`
+        Match locations in one dataset to at least ``k``
         locations in another (possibly identical) dataset
         by minimizing the total distance between matched locations.
 
@@ -1277,17 +1501,12 @@ class Graph(SetOpsMixin):
 
         Parameters
         ----------
-        x : numpy.ndarray, geopandas.GeoSeries, geopandas.GeoDataFrame
-            geometries that need matches. If a geopandas.Geo* object
-            is provided, the .geometry attribute is used. If a numpy.ndarray with
-            a geometry dtype is used, then the coordinates are extracted and used.
-        y : numpy.ndarray, geopandas.GeoSeries, geopandas.GeoDataFrame (default: None)
-            geometries that are used as a source for matching. If a geopandas object
-            is provided, the .geometry attribute is used. If a numpy.ndarray with
-            a geometry dtype is used, then the coordinates are extracted and
-            used. If none, matches are made within `x`.
-        n_matches : int (default: None)
-            number of matches
+        data : numpy.ndarray, geopandas.GeoSeries, geopandas.GeoDataFrame
+            Geometries that need matches. If a geopandas object is provided, the
+            ``.geometry`` attribute is used. If a numpy.ndarray with a geometry dtype
+            is used, then the coordinates are extracted and used.
+        k : int
+            Number of matches for each observation.
         metric : string or callable (default: 'euclidean')
             distance function to apply over the input coordinates. Supported options
             depend on whether or not scikit-learn is installed. If so, then any
@@ -1297,9 +1516,6 @@ class Graph(SetOpsMixin):
             a solver defined by the pulp optimization library. If no solver is
             provided, pulp's default solver will be used. This is generally
             pulp.COIN(), but this may vary depending on your configuration.
-        return_mip : bool (default: False)
-            whether or not to return the instance of the pulp.LpProblem. By
-            default, the problem is not returned to the user.
         allow_partial_match : bool (default: False)
             whether to allow for partial matching. A partial match may have
             a weight between zero and one, while a "full" match (by default)
@@ -1566,21 +1782,21 @@ class Graph(SetOpsMixin):
         taper=True,
         decay=False,
     ):
-        """Generate a Graph based on shortest travel costs from a pandana.Network
+        """Generate a Graph based on shortest travel costs from a pandarm.Network
 
         Parameters
         ----------
         df : geopandas.GeoDataFrame
             geodataframe representing observations which are snapped to the nearest
-            node in the pandana.Network. CRS should be the same as the locations
-            of ``node_x`` and ``node_y`` in the pandana.Network (usually 4326 if network
+            node in the pandarm.Network. CRS should be the same as the locations
+            of ``node_x`` and ``node_y`` in the pandarm.Network (usually 4326 if network
             comes from OSM, but sometimes projected to improve snapping quality).
-        network : pandana.Network
-            pandana Network object describing travel costs between nodes in the study
-            area.  See <https://udst.github.io/pandana/> for more
+        network : pandarm.Network
+            pandarm Network object describing travel costs between nodes in the study
+            area.  See <https://oturns.github.io/pandarm/> for more
         threshold : int
             threshold representing maximum cost distances. This is measured in the same
-            units as the pandana.Network (not influenced by the df.crs in any way). For
+            units as the pandarm.Network (not influenced by the df.crs in any way). For
             travel modes with relatively constant speeds like walking or biking, this is
             usually distance (e.g. meters if the Network is constructed from OSM). For a
             a multimodal or auto network with variable travel speeds, this is usually
@@ -1591,7 +1807,7 @@ class Graph(SetOpsMixin):
             transformation options. Default is None, in which case the Graph weight
             is pure distance between focal and neighbor
         mapping_distance : int
-            snapping tolerance passed to ``pandana.Network.get_node_ids`` that defines
+            snapping tolerance passed to ``pandarm.Network.get_node_ids`` that defines
             the maximum range at which observations are snapped to nearest nodes in the
             network. Default is None
         taper : bool (default: True)
@@ -1614,7 +1830,7 @@ class Graph(SetOpsMixin):
         >>> import geodatasets
         >>> import geopandas as gpd
         >>> import osmnx as ox
-        >>> import pandana as pdna
+        >>> import pandarm
 
         Read an example geodataframe:
 
@@ -1626,16 +1842,16 @@ class Graph(SetOpsMixin):
         >>> nodes, edges = ox.utils_graph.graph_to_gdfs(osm_graph)
         >>> edges = edges.reset_index()
 
-        Generate a routable pandana network from the OSM nodes and edges
+        Generate a routable pandarm network from the OSM nodes and edges
 
-        >>> network = pdna.Network(
+        >>> network = pandarm.Network(
         >>>     edge_from=edges["u"],
         >>>     edge_to=edges["v"],
         >>>     edge_weights=edges[["length"]],
         >>>     node_x=nodes["x"],
         >>>     node_y=nodes["y"],)
 
-        Use the pandana network to compute shortest paths between gdf centroids and
+        Use the pandarm network to compute shortest paths between gdf centroids and
         generate a Graph
 
         >>> G = Graph.build_travel_cost(df.set_geometry(df.centroid), network, 500)
@@ -1819,8 +2035,8 @@ class Graph(SetOpsMixin):
 
         Returns
         -------
-        numpy.array
-            Array of component labels
+        pandas.Series
+            Series of component labels
         """
         return pd.Series(
             self._components[1], index=self.unique_ids, name="component labels"
@@ -1856,7 +2072,14 @@ class Graph(SetOpsMixin):
     @cached_property
     def unique_ids(self):
         """Unique IDs used in the Graph"""
-        return self._adjacency.index.get_level_values("focal").unique()
+        return pd.Index(
+            pd.concat(
+                (
+                    self._adjacency.index.get_level_values("focal").to_series(),
+                    self._adjacency.index.get_level_values("neighbor").to_series(),
+                )
+            ).unique()
+        )
 
     @cached_property
     def n(self):
@@ -2072,6 +2295,93 @@ class Graph(SetOpsMixin):
         20
         """
         return GraphSummary(self, asymmetries=asymmetries)
+
+    def make_symmetric(self, intersection=False, reduction=None):
+        r"""Create a symmetric version of this graph
+
+        Parameters
+        ----------
+        intersection : bool, optional
+            whether to use the intersection of the neighbor set
+            to make a symmetric graph. If True, then links are
+            only dropped from the graph. If False, then
+            links are only added to the graph.
+        reduction: str or None, optional
+            How to combine weights when the graph has links in both
+            directions. Options are "sum", "min", "max", or "mean".
+            By default, this is None, which means than an error is
+            raised when the weight on the edge linking node i to j
+            is not the same as the weight on the edge linking j to i.
+        """
+        valid_reductions = {"sum", "min", "max", "mean"}
+        if reduction is not None and reduction not in valid_reductions:
+            raise ValueError(
+                f"reduction {reduction} not understood."
+                " Supported options are `['sum', 'min', "
+                " 'max', 'mean']`"
+            )
+        new_adj = self.adjacency.copy(deep=True)
+        processed_pairs = set()
+        for (head, tail), fweight in new_adj.items():
+            if head == tail:
+                continue
+            pair_id = frozenset((head, tail))
+            if pair_id in processed_pairs:
+                continue
+            else:
+                processed_pairs.add(pair_id)
+            try:
+                bweight = self.adjacency.loc[tail, head]
+            except KeyError:
+                if intersection:
+                    new_adj.drop((head, tail), inplace=True)
+                else:
+                    new_adj.loc[tail, head] = fweight
+                continue
+            if fweight == bweight:
+                continue
+            elif reduction is None:
+                raise ValueError(
+                    f"Weights for {head},{tail} are not equal,"
+                    f"but no reduction was provided. Try providing"
+                    f" `reduction='sum'` to address this issue."
+                )
+            elif reduction == "sum":
+                new_adj.loc[tail, head] = new_adj.loc[head, tail] = bweight + fweight
+            elif reduction == "min":
+                new_adj.loc[tail, head] = new_adj.loc[head, tail] = min(
+                    bweight, fweight
+                )
+            elif reduction == "max":
+                new_adj.loc[tail, head] = new_adj.loc[head, tail] = max(
+                    bweight, fweight
+                )
+            elif reduction == "mean":
+                new_adj.loc[tail, head] = new_adj.loc[head, tail] = (
+                    bweight + fweight
+                ) / 2
+
+        new_unique_ids = pd.concat(
+            (
+                new_adj.index.get_level_values("focal").to_series(),
+                new_adj.index.get_level_values("neighbor").to_series(),
+            )
+        ).unique()
+        new_isolates = self.unique_ids.difference(new_unique_ids)
+
+        for isolate in new_isolates:
+            new_adj.loc[isolate, isolate] = 0
+
+        new_adj = (
+            new_adj.reindex(self.unique_ids, level=0)
+            .reindex(self.unique_ids, level=1)
+            .fillna(0)
+        )
+        output = Graph(new_adj, is_sorted=True)
+        if hasattr(self, "_xarray_index_names"):
+            output._xarray_index_names = self._xarray_index_names
+
+        return output
 
     def higher_order(self, k=2, shortest_path=True, diagonal=False, lower_order=False):
         """Contiguity weights object of order :math:`k`.

@@ -22,7 +22,7 @@ short_description: Configure FlashBlade  Management Directory Service Roles
 description:
 - Set or erase directory services role configurations.
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -87,19 +87,16 @@ RETURN = r"""
 """
 
 
-HAS_PYPURECLIENT = True
+HAS_PURITY_FB = True
 try:
     from pypureclient.flashblade import DirectoryServiceRole
 except ImportError:
-    HAS_PYPURECLIENT = False
+    HAS_PURITY_FB = False
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
-)
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
 )
 
 
@@ -110,7 +107,7 @@ def update_role(module, blade):
     if res.status_code != 200:
         module.fail_json(
             msg="fetch Directory Service Role {0} failed. Error: {1}".format(
-                module.params["role"], get_error_message(res)
+                module.params["role"], res.errors[0].message
             )
         )
     role = list(res.items)[0]
@@ -129,7 +126,7 @@ def update_role(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Update Directory Service Role {0} failed. Error: {1}".format(
-                        module.params["role"], get_error_message(res)
+                        module.params["role"], res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -146,7 +143,7 @@ def delete_role(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Delete Directory Service Role {0} failed. Error: {1}".format(
-                    module.params["role"], get_error_message(res)
+                    module.params["role"], res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -165,7 +162,7 @@ def create_role(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Create Directory Service Role {0} failed. Error: {1}".format(
-                    module.params["role"], get_error_message(res)
+                    module.params["role"], res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -192,7 +189,7 @@ def main():
         argument_spec, required_together=required_together, supports_check_mode=True
     )
 
-    if not HAS_PYPURECLIENT:
+    if not HAS_PURITY_FB:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     state = module.params["state"]

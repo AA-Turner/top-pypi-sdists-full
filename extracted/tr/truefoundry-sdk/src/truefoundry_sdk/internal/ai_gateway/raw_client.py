@@ -10,6 +10,7 @@ from ...core.jsonable_encoder import encode_path_param
 from ...core.parse_error import ParsingError
 from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
+from ...errors.bad_request_error import BadRequestError
 from ...types.gateway_configuration import GatewayConfiguration
 from .types.ai_gateway_get_gateway_config_request_type import AiGatewayGetGatewayConfigRequestType
 from pydantic import ValidationError
@@ -23,12 +24,12 @@ class RawAiGatewayClient:
         self, type: AiGatewayGetGatewayConfigRequestType, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GatewayConfiguration]:
         """
-        Get Gateway configuration based on type for the tenant.
+        Get the AI Gateway configuration for the given type.
 
         Parameters
         ----------
         type : AiGatewayGetGatewayConfigRequestType
-            Type of Config
+            The type of gateway configuration to retrieve or delete.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -36,7 +37,7 @@ class RawAiGatewayClient:
         Returns
         -------
         HttpResponse[GatewayConfiguration]
-            Gateway configuration retrieved successfully
+            The gateway configuration for the requested type.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/svc/v1/llm-gateway/config/{encode_path_param(type)}",
@@ -62,6 +63,47 @@ class RawAiGatewayClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def get_budget_usage(self, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[None]:
+        """
+        Get the current budget usage for every budget rule configured in the tenant.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[None]
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/svc/v1/llm-gateway/config/budget/usage",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return HttpResponse(response=_response, data=None)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
 
 class AsyncRawAiGatewayClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -71,12 +113,12 @@ class AsyncRawAiGatewayClient:
         self, type: AiGatewayGetGatewayConfigRequestType, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GatewayConfiguration]:
         """
-        Get Gateway configuration based on type for the tenant.
+        Get the AI Gateway configuration for the given type.
 
         Parameters
         ----------
         type : AiGatewayGetGatewayConfigRequestType
-            Type of Config
+            The type of gateway configuration to retrieve or delete.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -84,7 +126,7 @@ class AsyncRawAiGatewayClient:
         Returns
         -------
         AsyncHttpResponse[GatewayConfiguration]
-            Gateway configuration retrieved successfully
+            The gateway configuration for the requested type.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/svc/v1/llm-gateway/config/{encode_path_param(type)}",
@@ -101,6 +143,49 @@ class AsyncRawAiGatewayClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get_budget_usage(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[None]:
+        """
+        Get the current budget usage for every budget rule configured in the tenant.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[None]
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/svc/v1/llm-gateway/config/budget/usage",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return AsyncHttpResponse(response=_response, data=None)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)

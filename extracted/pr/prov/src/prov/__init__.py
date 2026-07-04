@@ -7,11 +7,9 @@ if TYPE_CHECKING:
 
 __author__ = "Trung Dong Huynh"
 __email__ = "trungdong@donggiang.com"
-__version__ = "2.1.1"
+__version__ = "2.2.0"
 
 __all__ = ["Error", "model", "read"]
-
-
 
 
 class Error(Exception):
@@ -20,7 +18,9 @@ class Error(Exception):
     pass
 
 
-def read(source: str | bytes | os.PathLike, format: str | None = None) -> ProvDocument | None:
+def read(
+    source: str | bytes | os.PathLike, format: str | None = None
+) -> ProvDocument | None:
     """
     Convenience function returning a ProvDocument instance.
 
@@ -39,6 +39,7 @@ def read(source: str | bytes | os.PathLike, format: str | None = None) -> ProvDo
     from prov.serializers import Registry
 
     Registry.load_serializers()
+    assert Registry.serializers is not None  # populated by load_serializers()
     serializers = Registry.serializers.keys()
 
     if format:
@@ -47,9 +48,10 @@ def read(source: str | bytes | os.PathLike, format: str | None = None) -> ProvDo
     for format in serializers:
         try:
             return ProvDocument.deserialize(source=source, format=format)
-        except:
-            # TODO: Specify an exception type for failing to deserialize.
-            pass
+        except (TypeError, ValueError, AttributeError, KeyError):
+            # Catch specific exceptions that can occur during deserialization
+            # This allows for better debugging information
+            continue
     else:
         raise TypeError(
             "Could not read from the source. To get a proper "

@@ -36,7 +36,7 @@ class TestP01ParseTestOutputHasCollectionErrors:
 
     def test_parse_test_output_returns_has_collection_errors_key(self):
         """CRITICAL: _parse_test_output MUST return has_collection_errors in result dict."""
-        from sage.main import _parse_test_output
+        from sage.cli_core import _parse_test_output
 
         test_output = "===== 5 passed in 1.2s ====="
         result = _parse_test_output(test_output)
@@ -49,7 +49,7 @@ class TestP01ParseTestOutputHasCollectionErrors:
 
     def test_parse_test_output_detects_collection_errors(self):
         """Should detect 'errors during collection' pattern."""
-        from sage.main import _parse_test_output
+        from sage.cli_core import _parse_test_output
 
         test_output = """
 ============================= ERRORS =============================
@@ -65,7 +65,7 @@ ModuleNotFoundError: No module named 'missing_module'
 
     def test_parse_test_output_detects_import_errors_as_collection_errors(self):
         """Should detect ImportError during collection."""
-        from sage.main import _parse_test_output
+        from sage.cli_core import _parse_test_output
 
         test_output = """
 ImportError: cannot import name 'foo' from 'bar'
@@ -79,7 +79,7 @@ ERROR collecting tests/test_module.py
 
     def test_parse_test_output_has_backwards_compatible_aliases(self):
         """P0-2: Should have backwards-compatible aliases for simple schema."""
-        from sage.main import _parse_test_output
+        from sage.cli_core import _parse_test_output
 
         test_output = "===== 10 passed, 2 failed in 3.1s ====="
         result = _parse_test_output(test_output)
@@ -110,7 +110,7 @@ class TestP02UnifiedTestParsingContract:
     def test_main_and_shell_return_same_schema(self):
         """Both main._parse_test_output and shell.parse_test_output must match."""
         from sage.core.shell import parse_test_output as shell_parser
-        from sage.main import _parse_test_output as main_parser
+        from sage.cli_core import _parse_test_output as main_parser
 
         test_output = "===== 5 passed, 3 failed, 1 error in 2.5s ====="
 
@@ -139,7 +139,7 @@ class TestP02UnifiedTestParsingContract:
         """main._parse_test_output should delegate to shell.parse_test_output."""
         # Import paths
         from sage.core.shell import parse_test_output as shell_parser
-        from sage.main import _parse_test_output as main_parser
+        from sage.cli_core import _parse_test_output as main_parser
 
         # They should produce identical results
         test_cases = [
@@ -169,7 +169,7 @@ class TestP03CLIValidationRouting:
 
     def test_execute_request_with_validation_exists(self):
         """The validation wrapper must exist."""
-        from sage.main import _execute_request_with_validation
+        from sage.cli_core import _execute_request_with_validation
 
         assert callable(_execute_request_with_validation), (
             "P0-3: _execute_request_with_validation must be callable"
@@ -177,7 +177,7 @@ class TestP03CLIValidationRouting:
 
     def test_validation_wrapper_calls_validators(self):
         """Validation wrapper must call detection functions."""
-        from sage.main import _execute_request_with_validation
+        from sage.cli_core import _execute_request_with_validation
 
         # Mock everything needed
         with patch("sage.main._call_llm") as mock_llm:
@@ -421,7 +421,7 @@ class TestP18GroundingEnforcement:
 
     def test_detect_numbered_list_without_reads(self):
         """Should detect fabricated numbered lists without file evidence."""
-        from sage.main import _detect_tool_description_vs_execution
+        from sage.cli_core import _detect_tool_description_vs_execution
 
         # This pattern: numbered list of "improvements" without reading files
         response = """
@@ -467,7 +467,7 @@ class TestP19FailureLoopHandling:
 
     def test_failure_loop_detector_exists(self):
         """FailureLoopDetector class must exist."""
-        from sage.main import FailureLoopDetector
+        from sage.cli_core import FailureLoopDetector
 
         detector = FailureLoopDetector()
         assert hasattr(detector, "record_error")
@@ -475,7 +475,7 @@ class TestP19FailureLoopHandling:
 
     def test_failure_loop_detects_repeated_errors(self):
         """Should detect when same error repeats multiple times."""
-        from sage.main import FailureLoopDetector
+        from sage.cli_core import FailureLoopDetector
 
         detector = FailureLoopDetector(max_identical_errors=3)
 
@@ -491,7 +491,7 @@ class TestP19FailureLoopHandling:
 
     def test_failure_loop_resets_on_success(self):
         """Should reset failure loop state on success."""
-        from sage.main import FailureLoopDetector
+        from sage.cli_core import FailureLoopDetector
 
         detector = FailureLoopDetector(max_identical_errors=3)
 
@@ -556,7 +556,7 @@ class TestIntegrationValidationPipeline:
         """Streaming rejections should be recorded in failure loop detector."""
         # This tests that streaming validation feeds into failure loop detection
         from sage.core.renderer import _detect_bad_streaming_patterns
-        from sage.main import FailureLoopDetector
+        from sage.cli_core import FailureLoopDetector
 
         detector = FailureLoopDetector(max_identical_errors=3)
 

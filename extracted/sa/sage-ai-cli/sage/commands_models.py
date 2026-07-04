@@ -299,7 +299,7 @@ def models(
       sage models --ollama -c coding           Coding-focused pullable Ollama models
       sage models --ollama -s deepseek         Search Ollama catalog
     """
-    from sage.main import _build_router
+    from sage.cli_core import _build_router
     if ollama or category or search:
         _show_ollama_catalog(category=category, search_query=search)
         return
@@ -545,7 +545,7 @@ def update(
     ] = False,
 ) -> None:
     """Update SAGE AI to the latest published CLI release."""
-    from sage.main import _perform_cli_update
+    from sage.cli_core import _perform_cli_update
 
     if not _perform_cli_update(check_only=check_only):
         raise typer.Exit(1)
@@ -1520,7 +1520,7 @@ def use_model(
 
     Download models first with: sage pull <name>
     """
-    from sage.main import _set_last_used_model
+    from sage.cli_core import _set_last_used_model
     cfg = load_config()
 
     # Resolve bare name to llama_cpp: prefix
@@ -1656,7 +1656,7 @@ def main(
     ] = None,
 ) -> None:
     """Sage — local-first AI coding assistant."""
-    from sage.main import run
+    from sage.cli_core import run
     _stdout_encoding = getattr(sys.stdout, "encoding", None) or ""
     _encoding_is_modern = _stdout_encoding.lower().replace("-", "") in ("utf8", "utf-8", "utf16", "utf32", "cp65001")
     if (
@@ -1761,7 +1761,7 @@ def login_cmd() -> None:
 def logout_cmd() -> None:
     """Log out of your SAGE account."""
     from sage.core.cli_auth import logout, load_auth
-    from sage.main import _sms_terminate_process
+    from sage.cli_core import _sms_terminate_process
     from sage.core.sms_bridge import SMS_PID_FILE
     
     auth = load_auth()

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import math
-import warnings
 from collections import defaultdict
 from collections.abc import AsyncGenerator, AsyncIterator, Iterable
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
-from ssl import SSLContext, create_default_context
 from typing import Any, Self, TypeAlias, TypedDict, TypeVar, cast
 
 from anyio import (
@@ -26,7 +24,7 @@ from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStre
 from anyio.streams.stapled import StapledObjectStream
 from httpx import AsyncClient
 from httpx_ws import AsyncWebSocketSession, WebSocketDisconnect, aconnect_ws
-from pydantic import model_validator
+from pydantic import ValidationError, model_validator
 
 from tastytrade import logger, version_str
 from tastytrade.account import Account, AccountBalance, CurrentPosition, TradingStatus
@@ -333,7 +331,6 @@ class DXLinkStreamer(AsyncContextManagerMixin):
         "_channels_reversed",
         "_recv",
         "_send",
-        "_ssl_context",
         "_subscription_state",
         "_websocket",
         "_wss_url",
@@ -341,7 +338,7 @@ class DXLinkStreamer(AsyncContextManagerMixin):
     )
     _websocket: AsyncWebSocketSession
 
-    def __init__(self, session: Session, ssl_context: SSLContext | None = None):
+    def __init__(self, session: Session):
         # initialize streams
         self._send: dict[str, MemoryObjectSendStream[Event]] = {}
         self._recv: dict[type[Event], MemoryObjectReceiveStream[Event]] = {}
@@ -359,16 +356,6 @@ class DXLinkStreamer(AsyncContextManagerMixin):
         }
         # mapping of channel -> subscribed event
         self._subscription_state: dict[str, AnyioEvent] = {}
-        # TODO: remove this in next breaking release
-        if ssl_context:
-            warnings.warn(
-                "The 'ssl_context' parameter is deprecated and will be removed in a "
-                "future version. Pass the `verify` parameter to `Session` instead:"
-                "https://tastyworks-api.rtfd.io/en/latest/api/session.html#tastytrade.session.Session.__init__.client_kwargs",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        self._ssl_context = ssl_context or create_default_context()
 
     @asynccontextmanager
     async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
@@ -376,9 +363,7 @@ class DXLinkStreamer(AsyncContextManagerMixin):
         data = await self.session._get("/api-quote-tokens")
         self._wss_url = data["dxlink-url"]
         self._auth_token = data["token"]
-        async with AsyncClient(
-            verify=self._ssl_context, **self.session.client_kwargs
-        ) as client:
+        async with AsyncClient(**self.session.client_kwargs) as client:
             try:
                 # default keepalive doesn't work since TT expects a specific format
                 async with aconnect_ws(
@@ -432,7 +417,7 @@ class DXLinkStreamer(AsyncContextManagerMixin):
             message: DXLinkMessage = await self._websocket.receive_json()
             logger.debug("received: %s", message)
             if message["type"] == "FEED_DATA":
-                self._map_message(message["data"])
+                self._map_message(message["data"], message["channel"])
             elif message["type"] == "SETUP" or message["type"] == "KEEPALIVE":
                 pass
             elif message["type"] == "AUTH_STATE":
@@ -458,25 +443,25 @@ class DXLinkStreamer(AsyncContextManagerMixin):
             else:
                 logger.error(f"Unknown message type: {message}")
 
-    def _map_message(self, message: list[Any]) -> None:
+    def _map_message(self, message: list[Any], channel: int) -> None:
         # takes the JSON data, parses the events and places them into their queues
         logger.debug("received message: %s", message)
-        if isinstance(message[0], str):
-            msg_type = message[0]
+        msg_type = self._channels_reversed[channel]
+        cls = MAP_EVENTS[msg_type]
+        # FULL data format: [{'eventSymbol': 'SPX', ...}]
+        if isinstance(message[0], dict):
+            results: list[Event] = []
+            for event_dict in message:
+                try:
+                    results.append(cls.model_validate(event_dict))
+                except ValidationError as e:
+                    # we skip these as they're mostly useless (eg quote without bid/ask)
+                    logger.debug(f"Failed to parse event: {e}, skipping")
+        # COMPACT data format: ['Trade', ['SPX', ...]]
         else:
-            msg_type = message[0][0]
-        data = message[1]
-        # parse type or warn for unknown type
-        if msg_type not in MAP_EVENTS:
-            logger.debug(
-                f"Unknown message type {msg_type} received: {data}, please open an "
-                f"issue!"
-            )
-        else:
-            cls = MAP_EVENTS[msg_type]
-            results = cls.from_stream(data)
-            for r in results:
-                self._send[msg_type].send_nowait(r)
+            results = cls.from_stream(message[1])
+        for r in results:
+            self._send[msg_type].send_nowait(r)
 
     async def _channel_request(
         self, event_type: str, refresh_interval: float = 0.1

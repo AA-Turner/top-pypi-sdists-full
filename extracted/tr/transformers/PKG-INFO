@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: transformers
-Version: 5.12.1
+Version: 5.13.0
 Summary: Transformers: the model-definition framework for state-of-the-art machine learning models in text, vision, audio, and multimodal models, for both inference and training.
 Home-page: https://github.com/huggingface/transformers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/transformers/graphs/contributors)
@@ -29,7 +29,7 @@ Requires-Dist: pyyaml>=5.1
 Requires-Dist: regex>=2025.10.22
 Requires-Dist: tokenizers<=0.23.0,>=0.22.0
 Requires-Dist: typer
-Requires-Dist: safetensors>=0.4.3
+Requires-Dist: safetensors>=0.8.0
 Requires-Dist: tqdm>=4.60
 Provides-Extra: torch
 Requires-Dist: torch>=2.4; extra == "torch"
@@ -59,7 +59,7 @@ Requires-Dist: transformers-mlinter==0.1.1; extra == "quality"
 Provides-Extra: docs
 Requires-Dist: hf-doc-builder; extra == "docs"
 Provides-Extra: kernels
-Requires-Dist: kernels<0.13,>=0.12.0; extra == "kernels"
+Requires-Dist: kernels<0.16,>=0.15.2; extra == "kernels"
 Provides-Extra: sentencepiece
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "sentencepiece"
 Requires-Dist: protobuf; extra == "sentencepiece"
@@ -70,7 +70,6 @@ Provides-Extra: mistral-common
 Requires-Dist: mistral-common[image]>=1.10.0; extra == "mistral-common"
 Provides-Extra: chat-template
 Requires-Dist: jinja2>=3.1.0; extra == "chat-template"
-Requires-Dist: jmespath>=1.0.1; extra == "chat-template"
 Provides-Extra: sklearn
 Requires-Dist: scikit-learn; extra == "sklearn"
 Provides-Extra: accelerate
@@ -86,7 +85,7 @@ Requires-Dist: accelerate>=1.1.0; extra == "deepspeed"
 Provides-Extra: optuna
 Requires-Dist: optuna; extra == "optuna"
 Provides-Extra: integrations
-Requires-Dist: kernels<0.13,>=0.12.0; extra == "integrations"
+Requires-Dist: kernels<0.16,>=0.15.2; extra == "integrations"
 Requires-Dist: optuna; extra == "integrations"
 Requires-Dist: codecarbon>=2.8.1; extra == "integrations"
 Requires-Dist: ray[tune]>=2.7.0; extra == "integrations"
@@ -222,14 +221,13 @@ Requires-Dist: librosa; extra == "all"
 Requires-Dist: pyctcdecode>=0.4.0; extra == "all"
 Requires-Dist: phonemizer; extra == "all"
 Requires-Dist: av; extra == "all"
-Requires-Dist: kernels<0.13,>=0.12.0; extra == "all"
+Requires-Dist: kernels<0.16,>=0.15.2; extra == "all"
 Requires-Dist: timm>=1.0.23; extra == "all"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "all"
 Requires-Dist: protobuf; extra == "all"
 Requires-Dist: tiktoken; extra == "all"
 Requires-Dist: blobfile; extra == "all"
 Requires-Dist: jinja2>=3.1.0; extra == "all"
-Requires-Dist: jmespath>=1.0.1; extra == "all"
 Requires-Dist: num2words; extra == "all"
 Requires-Dist: mistral-common[image]>=1.10.0; extra == "all"
 Provides-Extra: dev
@@ -242,14 +240,13 @@ Requires-Dist: librosa; extra == "dev"
 Requires-Dist: pyctcdecode>=0.4.0; extra == "dev"
 Requires-Dist: phonemizer; extra == "dev"
 Requires-Dist: av; extra == "dev"
-Requires-Dist: kernels<0.13,>=0.12.0; extra == "dev"
+Requires-Dist: kernels<0.16,>=0.15.2; extra == "dev"
 Requires-Dist: timm>=1.0.23; extra == "dev"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "dev"
 Requires-Dist: protobuf; extra == "dev"
 Requires-Dist: tiktoken; extra == "dev"
 Requires-Dist: blobfile; extra == "dev"
 Requires-Dist: jinja2>=3.1.0; extra == "dev"
-Requires-Dist: jmespath>=1.0.1; extra == "dev"
 Requires-Dist: num2words; extra == "dev"
 Requires-Dist: mistral-common[image]>=1.10.0; extra == "dev"
 Requires-Dist: pytest<9.0.0,>=7.2.0; extra == "dev"

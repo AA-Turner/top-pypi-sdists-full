@@ -11,12 +11,12 @@ from .team import Team
 class ListTeamsResponse(UniversalBaseModel):
     data: typing.List[Team] = pydantic.Field()
     """
-    Teams
+    Array of teams matching the query.
     """
 
     pagination: Pagination = pydantic.Field()
     """
-    Pagination Information
+    Pagination metadata.
     """
 
     if IS_PYDANTIC_V2:

@@ -23,8 +23,6 @@ from ansible.plugins import AnsiblePlugin
 
 
 class CacheModule(AnsiblePlugin):
-    _persistent = False
-
     def __init__(self, *args, **kwargs):
         super(CacheModule, self).__init__(*args, **kwargs)
         self._cache = {}

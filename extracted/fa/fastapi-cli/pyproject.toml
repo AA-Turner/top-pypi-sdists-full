@@ -38,7 +38,7 @@ dependencies = [
     "rich-toolkit >= 0.14.8",
     "tomli >= 2.0.0; python_version < '3.11'",
 ]
-version = "0.0.27"
+version = "0.0.28"
 
 [project.optional-dependencies]
 standard = [
@@ -171,9 +171,13 @@ error-on-warning = true
 extend-exclude = [
     "coverage/",
     "dist/",
-    "release-notes.md",
     "htmlcov/",
     "uv.lock",
+]
+
+[tool.typos.default]
+extend-ignore-re = [
+    "@[a-zA-Z0-9](?:-?[a-zA-Z0-9])*",
 ]
 
 [tool.typos.default.extend-identifiers]

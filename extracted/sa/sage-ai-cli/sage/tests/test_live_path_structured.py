@@ -40,7 +40,7 @@ class TestLiveLoopUsesStructuredTools:
     def test_response_processing_uses_structured_tools(self):
         """_process_response and related calls should use structured extraction."""
         from sage.core.tools import ToolCall
-        from sage.main import _extract_tool_commands_structured
+        from sage.cli_core import _extract_tool_commands_structured
 
         # Valid response with tool commands
         response = """Let me read the files:
@@ -57,7 +57,7 @@ SEARCH: def _process_response
 
     def test_structured_extraction_accepts_bare_read_syntax(self):
         """Near-miss tool syntax like READ file.py should still become a ToolCall."""
-        from sage.main import _extract_tool_commands_structured
+        from sage.cli_core import _extract_tool_commands_structured
 
         calls = _extract_tool_commands_structured("READ README.md")
 
@@ -97,7 +97,7 @@ class TestAskSimpleQAMode:
 
     def test_simple_qa_should_not_use_enhance_task_prompt(self):
         """Simple Q&A prompts should bypass _enhance_task_prompt."""
-        from sage.main import _is_simple_qa_prompt
+        from sage.cli_core import _is_simple_qa_prompt
 
         simple_prompts = [
             "What is 2+2?",
@@ -112,7 +112,7 @@ class TestAskSimpleQAMode:
 
     def test_agent_tasks_should_use_enhance_task_prompt(self):
         """Agent tasks should still use _enhance_task_prompt."""
-        from sage.main import _is_simple_qa_prompt
+        from sage.cli_core import _is_simple_qa_prompt
 
         agent_prompts = [
             "Analyze the codebase and list all improvements",
@@ -130,7 +130,7 @@ class TestAskSimpleQAMode:
         """The ask command path should check _is_simple_qa_prompt."""
         # This test documents the requirement that the ask command
         # should use _is_simple_qa_prompt to decide whether to enhance
-        from sage.main import _is_simple_qa_prompt
+        from sage.cli_core import _is_simple_qa_prompt
 
         # The function should exist and be usable
         assert callable(_is_simple_qa_prompt)
@@ -288,7 +288,7 @@ class TestStructuredToolsIntegration:
     def test_full_structured_flow(self):
         """Text -> ToolCall -> ExecutionLedger -> Validate claims."""
         from sage.core.tools import ExecutionLedger
-        from sage.main import _extract_tool_commands_structured
+        from sage.cli_core import _extract_tool_commands_structured
 
         # Model response with tool commands
         response = """I'll read the relevant files:
@@ -317,7 +317,7 @@ SEARCH: class ExecutionLedger
 
     def test_blank_commands_rejected(self):
         """Blank tool commands should be rejected."""
-        from sage.main import _extract_tool_commands_structured
+        from sage.cli_core import _extract_tool_commands_structured
 
         # Response with blank commands
         response = """READ:

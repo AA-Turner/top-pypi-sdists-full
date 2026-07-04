@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dirsql
-Version: 0.3.50
+Version: 0.3.59
 Requires-Dist: pytest>=8 ; extra == 'dev'
 Requires-Dist: pytest-describe>=2 ; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.23 ; extra == 'dev'

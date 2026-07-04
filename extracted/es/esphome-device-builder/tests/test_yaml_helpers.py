@@ -34,6 +34,7 @@ import pytest
 import yaml
 from esphome.core import EsphomeError
 
+from esphome_device_builder.helpers.api import CommandError
 from esphome_device_builder.helpers.yaml import (
     YamlUpsertNotSupportedError,
     _mapping_body_to_list_item,
@@ -51,6 +52,7 @@ from esphome_device_builder.helpers.yaml import (
     read_yaml_scalar,
     rewrite_api_encryption_key,
     rewrite_name_or_substitution,
+    rewrite_rename_content,
     rewrite_yaml_scalar,
     upsert_yaml_leaf_under_top_block,
 )
@@ -60,6 +62,7 @@ from esphome_device_builder.helpers.yaml.scalar import (
     _plain_is_fast_safe,
     _plain_is_safe,
 )
+from esphome_device_builder.models import ErrorCode
 from esphome_device_builder.models.common import ConfigEntry, ConfigEntryType
 from esphome_device_builder.models.components import (
     ComponentCatalogEntry,
@@ -226,6 +229,41 @@ def test_rewrite_name_or_substitution_handles_mixed_value_via_leaf() -> None:
     out = rewrite_name_or_substitution(yaml, ("esphome", "name"), "bedroom-bulb")
     assert "  prefix: my\n" in out  # untouched
     assert "  name: bedroom-bulb\n" in out  # leaf flipped to literal
+
+
+# ---------------------------------------------------------------------------
+# rewrite_rename_content
+# ---------------------------------------------------------------------------
+
+
+def test_rewrite_rename_content_rewrites_literal() -> None:
+    yaml = "esphome:\n  name: kitchen\n"
+    out = rewrite_rename_content(yaml, "bedroom-bulb", remedy="Fix it.")
+    assert out == "esphome:\n  name: bedroom-bulb\n"
+
+
+def test_rewrite_rename_content_redirects_through_local_substitution() -> None:
+    yaml = "substitutions:\n  devicename: kitchen\nesphome:\n  name: ${devicename}\n"
+    out = rewrite_rename_content(yaml, "bedroom-bulb", remedy="Fix it.")
+    assert "  devicename: bedroom-bulb\n" in out
+    assert "  name: ${devicename}\n" in out
+
+
+@pytest.mark.parametrize(
+    "yaml",
+    [
+        pytest.param("wifi:\n  ssid: x\n", id="missing_name"),
+        pytest.param("esphome:\n  name: kitchen_${suffix}\n", id="embedded_substitution"),
+        pytest.param("esphome:\n  name: ${devicename}\n", id="nonlocal_substitution"),
+        pytest.param("esphome:\n  name: !include name.yaml\n", id="tagged_value"),
+    ],
+)
+def test_rewrite_rename_content_refuses_non_retargetable(yaml: str) -> None:
+    """Shapes that would flatten indirection (or have no name) refuse with the remedy."""
+    with pytest.raises(CommandError) as excinfo:
+        rewrite_rename_content(yaml, "bedroom-bulb", remedy="Do the thing.")
+    assert excinfo.value.code == ErrorCode.INVALID_ARGS
+    assert excinfo.value.message.endswith("Do the thing.")
 
 
 # ---------------------------------------------------------------------------
@@ -1272,6 +1310,30 @@ def test_merge_component_yaml_multi_conf_non_canonical_list() -> None:
 
     assert "\n    - id: rtttl_2\n      output: buzz\n" in result
     assert len(yaml.safe_load(result)["rtttl"]) == 2
+
+
+def test_merge_component_yaml_adds_a_second_spi_bus() -> None:
+    """Two ``spi`` buses coexist as a list — the CYD display + touch case.
+
+    ``spi`` is ``multi_conf`` (a display bus and a separate touch bus on
+    different pins), so a second add must splice a list item, not no-op on the
+    already-present ``spi:`` block.
+    """
+    component = _component(component_id="spi", category=ComponentCategory.BUS, multi_conf=True)
+
+    config = merge_component_yaml(
+        "esphome:\n  name: cyd\n",
+        component,
+        {"id": "lcd_spi", "clk_pin": 14, "mosi_pin": 13},
+    )
+    config = merge_component_yaml(
+        config,
+        component,
+        {"id": "touch_spi", "clk_pin": 25, "mosi_pin": 32, "miso_pin": 39},
+    )
+
+    buses = yaml.safe_load(config)["spi"]
+    assert [b["id"] for b in buses] == ["lcd_spi", "touch_spi"]
 
 
 def test_merge_component_yaml_accepts_incomplete_draft() -> None:

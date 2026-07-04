@@ -215,7 +215,26 @@ class ContentReference(BaseModel):
     sequence_number: int
     source: str
     source_id: str
-    url: str
+    description: str | None = Field(
+        default=None,
+        description=(
+            "Optional free-text/structured description carried alongside the "
+            "reference. Used by MCP tool references (UN-22310) to carry an "
+            'enriched ``{"mcp": {connectorName, title, details?, mcpServerId?}}`` '
+            "JSON payload the chat frontend renders as a card. Nullable "
+            "end-to-end (node-chat persists it as a nullable column; empty "
+            "values are dropped before sending)."
+        ),
+    )
+    url: str | None = Field(
+        default=None,
+        description=(
+            "Link target for the reference. Optional: some sources (e.g. an "
+            "opaque MCP tool result with no resource link) have no URL and "
+            "render as a display-only, non-clickable citation. Nullable "
+            "end-to-end (node-chat persists it as a nullable column)."
+        ),
+    )
     original_index: list[int] = Field(
         default=[],
         description="List of indices in the ChatMessage original_text this reference refers to. This is usually the id in the functionCallResponse. List type due to implementation in node-chat",
@@ -233,6 +252,8 @@ class ContentReference(BaseModel):
             "source": reference["source"],
             "source_id": reference["sourceId"],
         }
+        if "description" in reference:
+            kwargs["description"] = reference["description"]
         if "originalIndex" in reference:
             kwargs["original_index"] = reference["originalIndex"]
 

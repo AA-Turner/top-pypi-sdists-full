@@ -48,7 +48,7 @@ class OrganizationsAdaptivePolicySettings(object):
         self.meraki = meraki
         self.new_object = dict(
             enabledNetworks=params.get("enabledNetworks"),
-            organizationId=params.get("organizationId"),
+            organization_id=params.get("organizationId"),
         )
 
     def get_all_params(self, name=None, id=None):
@@ -123,7 +123,9 @@ class OrganizationsAdaptivePolicySettings(object):
         requested_obj = self.new_object
 
         obj_params = [
-            ("enabledNetworks", "enabledNetworks"),]
+            ("enabledNetworks", "enabledNetworks"),
+            ("organizationId", "organizationId"),
+        ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update
         return any(

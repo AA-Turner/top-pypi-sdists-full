@@ -28,12 +28,12 @@ class AiGatewayClient:
         self, type: AiGatewayGetGatewayConfigRequestType, *, request_options: typing.Optional[RequestOptions] = None
     ) -> GatewayConfiguration:
         """
-        Get Gateway configuration based on type for the tenant.
+        Get the AI Gateway configuration for the given type.
 
         Parameters
         ----------
         type : AiGatewayGetGatewayConfigRequestType
-            Type of Config
+            The type of gateway configuration to retrieve or delete.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -41,7 +41,7 @@ class AiGatewayClient:
         Returns
         -------
         GatewayConfiguration
-            Gateway configuration retrieved successfully
+            The gateway configuration for the requested type.
 
         Examples
         --------
@@ -59,6 +59,32 @@ class AiGatewayClient:
         )
         """
         _response = self._raw_client.get_gateway_config(type, request_options=request_options)
+        return _response.data
+
+    def get_budget_usage(self, *, request_options: typing.Optional[RequestOptions] = None) -> None:
+        """
+        Get the current budget usage for every budget rule configured in the tenant.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        from truefoundry_sdk import TrueFoundry
+
+        client = TrueFoundry(
+            api_key="YOUR_API_KEY",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.internal.ai_gateway.get_budget_usage()
+        """
+        _response = self._raw_client.get_budget_usage(request_options=request_options)
         return _response.data
 
 
@@ -81,12 +107,12 @@ class AsyncAiGatewayClient:
         self, type: AiGatewayGetGatewayConfigRequestType, *, request_options: typing.Optional[RequestOptions] = None
     ) -> GatewayConfiguration:
         """
-        Get Gateway configuration based on type for the tenant.
+        Get the AI Gateway configuration for the given type.
 
         Parameters
         ----------
         type : AiGatewayGetGatewayConfigRequestType
-            Type of Config
+            The type of gateway configuration to retrieve or delete.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -94,7 +120,7 @@ class AsyncAiGatewayClient:
         Returns
         -------
         GatewayConfiguration
-            Gateway configuration retrieved successfully
+            The gateway configuration for the requested type.
 
         Examples
         --------
@@ -120,4 +146,38 @@ class AsyncAiGatewayClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get_gateway_config(type, request_options=request_options)
+        return _response.data
+
+    async def get_budget_usage(self, *, request_options: typing.Optional[RequestOptions] = None) -> None:
+        """
+        Get the current budget usage for every budget rule configured in the tenant.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        import asyncio
+
+        from truefoundry_sdk import AsyncTrueFoundry
+
+        client = AsyncTrueFoundry(
+            api_key="YOUR_API_KEY",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.internal.ai_gateway.get_budget_usage()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_budget_usage(request_options=request_options)
         return _response.data

@@ -23,6 +23,29 @@ from pathlib import Path
 _MAX_BASH_OUTPUT_BYTES = 256 * 1024  # 256 KB — plenty of context, safe for RAM
 
 
+def _detect_bash() -> str | None:
+    """Absolute path to bash, or None to fall back to Popen's default /bin/sh.
+
+    tool_bash runs commands under bash so the bash syntax the model naturally
+    writes — [[ ]], <<< herestrings, arrays, {1..n} brace expansion, process
+    substitution <(...), $'...' — actually works. On Debian/Ubuntu /bin/sh is
+    dash, which silently rejects all of those ("Syntax error: ... unexpected"),
+    a confusing failure the model then loops on."""
+    import shutil
+    found = shutil.which("bash")
+    if found:
+        return found
+    for p in ("/bin/bash", "/usr/bin/bash", "/usr/local/bin/bash"):
+        if os.path.exists(p):
+            return p
+    return None
+
+
+# Resolved once at import (in whatever environment drydock runs — host or the
+# task container). None → bash unavailable, fall back to the default shell.
+_BASH_SHELL = _detect_bash()
+
+
 def _collapse_repeated_lines(text: str, run: int = 20) -> str:
     """Collapse a run of >= `run` IDENTICAL consecutive lines into one line + a
     count. Repetitive output (`yes`, a spinning progress log) tokenizes densely —
@@ -85,7 +108,7 @@ SCHEMAS = [
     },
     {
         "name": "ViewImage",
-        "description": "Look at an image file with your vision — use this when you need to SEE a screenshot, mockup, diagram, photo, or rendered output (.png/.jpg/.jpeg/.gif/.webp/.bmp). The image is shown to you so you can describe it, read text from it, or debug it. (Reading an image with the Read tool gives binary garbage; use ViewImage instead.)",
+        "description": "Look at an image file with your vision — use this when you need to SEE a screenshot, mockup, diagram, photo, or rendered output (.png/.jpg/.jpeg/.gif/.webp/.bmp). The image is shown to you so you can describe it, read text from it, or debug it. To READ TEXT OR DATA out of an image — a scanned document, invoice, receipt, form, or a screenshot with text — use ViewImage FIRST (you can read it directly); prefer it over OCR tools like tesseract/pdftotext, which are often unreliable or not installed. (Reading an image with the Read tool gives binary garbage; use ViewImage instead.)",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -910,7 +933,15 @@ def tool_bash(params: dict, config: dict) -> str:
     proc = None
     try:
         proc = subprocess.Popen(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            cmd, shell=True, executable=_BASH_SHELL,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            # stdin=DEVNULL so a command that reads stdin gets immediate EOF
+            # (correct for a non-interactive tool) instead of inheriting the
+            # TUI's terminal — where it would steal the user's keystrokes or hang
+            # waiting for input Textual has captured. The agent still feeds input
+            # explicitly via a pipe/redirect (echo x | cmd, cmd < file), which
+            # overrides this.
+            stdin=subprocess.DEVNULL,
             text=True, cwd=config.get("cwd"), start_new_session=True,
         )
         config.setdefault("_abort", {})["proc"] = proc
@@ -936,6 +967,7 @@ def tool_bash(params: dict, config: dict) -> str:
         reader = threading.Thread(target=_drain, daemon=True)
         reader.start()
         start = time.monotonic()
+        backgrounded = False
         while reader.is_alive():
             reader.join(0.3)
             if capped.is_set():
@@ -945,6 +977,17 @@ def tool_bash(params: dict, config: dict) -> str:
                 kill_process_group(proc)
                 proc.wait()
                 return "[stopped by user]"
+            # The SHELL has exited but the pipe is still open → the command
+            # backgrounded a child (`cmd &`, a server the task wants to keep
+            # running) that inherited stdout. Don't wait for it (that would hang
+            # until the timeout) and DON'T kill it — return what we have so the
+            # background process survives. (Redirecting its output, `cmd >log &`,
+            # closes the pipe and never reaches here.)
+            if proc.poll() is not None:
+                reader.join(0.5)  # brief grace for any final buffered output
+                if reader.is_alive():
+                    backgrounded = True
+                    break
             if time.monotonic() - start > timeout:
                 kill_process_group(proc)
                 proc.wait()
@@ -958,11 +1001,16 @@ def tool_bash(params: dict, config: dict) -> str:
                 if _is_network_command(cmd):
                     msg += _OFFLINE_HINT
                 return msg
-        proc.wait()
+        if not backgrounded:
+            proc.wait()
         # Collapse repetitive runs FIRST (turns 256 KB of "y\n" into ~2 lines),
         # then note if we hit the byte cap. Bounds both RAM (the cap) and context
-        # tokens (the collapse).
-        output = _collapse_repeated_lines("".join(chunks))
+        # tokens (the collapse). Snapshot chunks (list()) in case the reader
+        # daemon is still appending for a backgrounded child.
+        output = _collapse_repeated_lines("".join(list(chunks)))
+        if backgrounded:
+            return (output.rstrip() + "\n[a process was left running in the background; "
+                    "the command returned. Check it with a follow-up command.]").lstrip("\n")
         if capped.is_set():
             return (
                 output.rstrip()

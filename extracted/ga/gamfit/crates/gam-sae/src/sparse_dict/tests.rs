@@ -1,6 +1,6 @@
 use super::codes::solve_row_codes;
 use super::scoring::{TileScorer, top_s_online};
-use super::{SparseDictConfig, fit_sparse_dictionary};
+use super::{SparseDictConfig, fit_sparse_dictionary, sparse_dictionary_transform_with_mode};
 use ndarray::{Array2, ArrayView2};
 
 /// Build an exact rank-1 mixture: `K` orthonormal planted atoms (rows of an
@@ -268,6 +268,110 @@ fn tile_scorer_matches_untiled_brute_force() {
 }
 
 #[test]
+fn tile_scorer_dispatch_matches_cpu_below_device_floor() {
+    let p = 5;
+    let k = 37;
+    let rows = Array2::<f32>::from_shape_fn((3, p), |(r, c)| {
+        (((r * 11 + c * 7 + 3) % 13) as f32 - 6.0) / 6.0
+    });
+    let decoder = Array2::<f32>::from_shape_fn((k, p), |(atom, c)| {
+        (((atom * 3 + c * 5 + 1) % 7) as f32 - 3.0) / 3.0
+    });
+    let scorer = TileScorer::new(4, 7);
+
+    let cpu = scorer.route_minibatch(rows.view(), decoder.view());
+    let dispatched = scorer
+        .route_minibatch_dispatch(rows.view(), decoder.view())
+        .expect("dispatch route");
+    assert_eq!(dispatched, cpu);
+}
+
+#[test]
+fn tile_scorer_required_mode_refuses_subfloor_route() {
+    let p = 5;
+    let k = 37;
+    let rows = Array2::<f32>::from_shape_fn((3, p), |(r, c)| {
+        (((r * 11 + c * 7 + 3) % 13) as f32 - 6.0) / 6.0
+    });
+    let decoder = Array2::<f32>::from_shape_fn((k, p), |(atom, c)| {
+        (((atom * 3 + c * 5 + 1) % 7) as f32 - 3.0) / 3.0
+    });
+    let scorer = TileScorer::new(4, 7);
+
+    let err = scorer
+        .route_minibatch_with_mode(rows.view(), decoder.view(), gam_gpu::GpuMode::Required)
+        .expect_err("Required mode must fail closed below the device floor");
+    assert!(
+        err.contains("below the device launch break-even"),
+        "unexpected Required-mode error: {err}"
+    );
+}
+
+#[test]
+fn sparse_transform_with_explicit_mode_reports_cpu_route_stats() {
+    let p = 5;
+    let k = 11;
+    let rows = Array2::<f32>::from_shape_fn((7, p), |(r, c)| {
+        (((r * 17 + c * 5 + 2) % 19) as f32 - 9.0) / 9.0
+    });
+    let mut decoder = Array2::<f32>::from_shape_fn((k, p), |(atom, c)| {
+        (((atom * 13 + c * 3 + 1) % 23) as f32 - 11.0) / 11.0
+    });
+    for mut row in decoder.outer_iter_mut() {
+        let norm = row.iter().map(|v| v * v).sum::<f32>().sqrt().max(1e-12);
+        row.mapv_inplace(|v| v / norm);
+    }
+
+    let transform = sparse_dictionary_transform_with_mode(
+        rows.view(),
+        decoder.view(),
+        3,
+        4,
+        1.0e-6,
+        gam_gpu::GpuMode::Off,
+    )
+    .expect("explicit-mode transform");
+    assert_eq!(transform.indices.dim(), (rows.nrows(), 3));
+    assert_eq!(transform.codes.dim(), (rows.nrows(), 3));
+    assert_eq!(transform.score_route_stats.minibatches, 1);
+    assert_eq!(transform.score_route_stats.cpu_minibatches, 1);
+    assert_eq!(transform.score_route_stats.device_minibatches, 0);
+    assert_eq!(transform.score_route_stats.device_dtoh_bytes, 0);
+    assert_eq!(
+        transform.score_route_stats.unfused_score_dtoh_bytes_avoided,
+        0
+    );
+}
+
+#[test]
+fn sparse_fit_records_score_route_stats() {
+    let (k, p, n) = (8usize, 10usize, 64usize);
+    let (x, _atoms) = planted(k, p, n, 0.1);
+    let config = SparseDictConfig {
+        n_atoms: k,
+        active: 1,
+        minibatch: 16,
+        max_epochs: 1,
+        score_tile: 8,
+        code_ridge: 1.0e-6,
+        decoder_ridge: 1.0e-6,
+        tolerance: 0.0,
+        score_mode: gam_gpu::GpuMode::Off,
+    };
+    let fit = fit_sparse_dictionary(x.view(), &config).expect("fit");
+    assert_eq!(fit.score_route_stats.minibatches, 8);
+    assert_eq!(fit.score_route_stats.cpu_minibatches, 8);
+    assert_eq!(fit.score_route_stats.device_minibatches, 0);
+    assert_eq!(fit.score_route_stats.admitted_minibatches, 0);
+    assert_eq!(fit.score_route_stats.device_dtoh_bytes, 0);
+    assert_eq!(fit.score_route_stats.unfused_score_dtoh_bytes_avoided, 0);
+    assert_eq!(
+        fit.score_route_stats.score_elements,
+        8u128 * 16u128 * k as u128
+    );
+}
+
+#[test]
 fn sparse_trainer_recovers_planted_dictionary_beats_pca_baseline() {
     // Planted K-atom rank-1 mixture; the sparse trainer with top_s=2 should
     // reconstruct it at high EV and match-or-beat a rank-K PCA baseline.
@@ -282,6 +386,7 @@ fn sparse_trainer_recovers_planted_dictionary_beats_pca_baseline() {
         code_ridge: 1.0e-6,
         decoder_ridge: 1.0e-6,
         tolerance: 1.0e-9,
+        score_mode: gam_gpu::GpuMode::Off,
     };
     let fit = fit_sparse_dictionary(x.view(), &config).expect("sparse dictionary fit");
     let baseline = pca_ev(x.view(), k);
@@ -345,6 +450,7 @@ fn sparse_trainer_beats_rank_k_pca_on_held_out_reconstruction() {
         code_ridge,
         decoder_ridge: 1.0e-6,
         tolerance: 1.0e-9,
+        score_mode: gam_gpu::GpuMode::Off,
     };
     // Fit the dictionary on TRAIN ONLY.
     let fit = fit_sparse_dictionary(x_train.view(), &config).expect("held-out trainer fit");
@@ -432,6 +538,7 @@ fn dead_atom_revival_keeps_ev_monotone_in_k_and_beats_linear_subspace() {
         code_ridge,
         decoder_ridge: 1.0e-6,
         tolerance: 1.0e-9,
+        score_mode: gam_gpu::GpuMode::Off,
     };
 
     let fit_small = fit_sparse_dictionary(x_train.view(), &mk(16)).expect("K=16 fit");
@@ -538,7 +645,10 @@ fn read_npy_f32_2d(path: &str) -> (usize, usize, Vec<f32>) {
 #[test]
 fn real_olmo_sparse_dict_ev_vs_k_parity() {
     let files = [
-        concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/data/olmo_l18_pca64_635.npy"),
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/data/olmo_l18_pca64_635.npy"
+        ),
         concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../tests/data/olmo_mixedlayer_pca64_768.npy"
@@ -565,7 +675,11 @@ fn real_olmo_sparse_dict_ev_vs_k_parity() {
         for (r, &i) in te.iter().enumerate() {
             x_te.row_mut(r).assign(&x.row(i));
         }
-        println!("\n=== {path}  (N={n}, P={p}, train={}, test={}) ===", tr.len(), te.len());
+        println!(
+            "\n=== {path}  (N={n}, P={p}, train={}, test={}) ===",
+            tr.len(),
+            te.len()
+        );
         for s in [8usize, 32usize] {
             let tile = p.max(1);
             let pca = pca_ev_held_out(x_tr.view(), x_te.view(), s);
@@ -584,11 +698,16 @@ fn real_olmo_sparse_dict_ev_vs_k_parity() {
                     code_ridge: 1.0e-6,
                     decoder_ridge: 1.0e-6,
                     tolerance: 1.0e-7,
+                    score_mode: gam_gpu::GpuMode::Off,
                 };
                 let fit = fit_sparse_dictionary(x_tr.view(), &config).expect("fit");
                 let ev_te = held_out_ev(fit.decoder.view(), x_te.view(), s, tile, 1.0e-6);
                 let dead = dead_atom_fraction(&fit);
-                let mono = if ev_te + 5.0e-3 >= prev { "" } else { "  <-- DROP" };
+                let mono = if ev_te + 5.0e-3 >= prev {
+                    ""
+                } else {
+                    "  <-- DROP"
+                };
                 println!(
                     "    K={k:5}  train_EV={:.4}  test_EV={ev_te:.4}  dead={dead:.3}  epochs={}{mono}",
                     fit.explained_variance, fit.epochs
@@ -608,6 +727,7 @@ fn fixed_width_sparse_storage_never_dense_and_reconstructs() {
         active: 1,
         max_epochs: 30,
         score_tile: 4,
+        score_mode: gam_gpu::GpuMode::Off,
         ..SparseDictConfig::new(k)
     };
     let fit = fit_sparse_dictionary(x.view(), &config).expect("fit");
@@ -743,6 +863,7 @@ fn fit_is_minibatch_size_invariant() {
         code_ridge: 1.0e-6,
         decoder_ridge: 1.0e-6,
         tolerance: 1.0e-9,
+        score_mode: gam_gpu::GpuMode::Off,
     };
     let fit_mb1 = fit_sparse_dictionary(x.view(), &base).expect("minibatch=1 fit");
     let fit_mbn = fit_sparse_dictionary(
@@ -789,6 +910,7 @@ fn scales_to_large_k_without_dense_n_by_k() {
         active: 1,
         max_epochs: 6,
         score_tile: 256,
+        score_mode: gam_gpu::GpuMode::Off,
         ..SparseDictConfig::new(k)
     };
     let fit = fit_sparse_dictionary(x.view(), &config).expect("large-K fit");
@@ -801,25 +923,13 @@ fn scales_to_large_k_without_dense_n_by_k() {
 }
 
 /// #1026 — a real large-K `fit_sparse_dictionary` whose minibatch × K route
-/// block clears the device break-even runs the route step on the GPU under the
-/// ambient (default `Auto`) residency mode, and is bit-for-bit reproducible.
-///
-/// We deliberately do NOT touch the process-wide `set_gpu_mode` (it is
-/// first-writer-wins, so a test that pinned it would poison every other test in
-/// the binary). The full-fit GPU-route == CPU-route equivalence is locked
-/// directly at the routing primitive by
-/// `scoring_gpu::tests::device_route_minibatch_matches_cpu_top_s_online`, which
-/// drives `GpuMode::Required`, asserts `ScoreBlockPath::Device`, and proves the
-/// routed top-`s` support is bit-identical to the CPU `top_s_online` oracle.
-/// Since the only mode-dependent step in the fit is where those bit-identical
-/// scores are computed, the whole alternating-minimisation trajectory is
-/// mode-invariant — which this test confirms by re-running the fit and asserting
-/// the dictionary, indices, and codes are identical to the bit.
+/// block clears the device break-even reports that admission honestly while this
+/// local test pins execution to CPU with the per-fit `score_mode`.
 #[test]
-fn large_k_fit_routes_on_gpu_above_breakeven_and_is_reproducible() {
+fn large_k_fit_reports_admitted_route_stats_and_is_reproducible() {
     // minibatch=512 × K=4096 = 2,097,152-element score block per minibatch,
-    // above DEVICE_SCORE_BLOCK_MIN_ELEMS (1<<20), so the GPU route engages on a
-    // CUDA host. p=48 is a representative residual-stream width.
+    // above DEVICE_SCORE_BLOCK_MIN_ELEMS (1<<20). p=48 is a representative
+    // residual-stream width. GpuMode::Off keeps this regression local-CPU only.
     let (planted_k, p, n) = (8usize, 48usize, 1536usize);
     let (x, _atoms) = planted(planted_k, p, n, 0.1);
     let k = 4096usize;
@@ -829,6 +939,7 @@ fn large_k_fit_routes_on_gpu_above_breakeven_and_is_reproducible() {
         minibatch: 512,
         max_epochs: 4,
         score_tile: 1024,
+        score_mode: gam_gpu::GpuMode::Off,
         ..SparseDictConfig::new(k)
     };
 
@@ -842,6 +953,13 @@ fn large_k_fit_routes_on_gpu_above_breakeven_and_is_reproducible() {
     );
     assert_eq!(fit.indices, fit2.indices);
     assert_eq!(fit.codes, fit2.codes);
+    assert_eq!(fit.score_route_stats, fit2.score_route_stats);
+    assert!(fit.score_route_stats.admitted_minibatches > 0);
+    assert_eq!(fit.score_route_stats.device_minibatches, 0);
+    assert_eq!(
+        fit.score_route_stats.cpu_minibatches,
+        fit.score_route_stats.minibatches
+    );
     assert!(
         fit.explained_variance > 0.9,
         "[#1026] large-K fit should explain the low-rank signal; got {}",

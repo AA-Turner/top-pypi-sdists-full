@@ -1,4 +1,4 @@
-from typing import List, TypedDict, Union, Required, Dict
+from typing import TypedDict, Required, List, Union, Dict
 
 
 class LwDeleteGenericEvents(TypedDict, total=False):

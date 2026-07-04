@@ -39,7 +39,7 @@ class SpecifyAssumptions(TypeCastingOp):
         out = x.type()
         return Apply(self, [x], [out])
 
-    def infer_shape(self, fgraph, node, input_shapes):
+    def infer_shape(self, node, input_shapes):
         return input_shapes
 
     def pullback(
@@ -69,6 +69,7 @@ def assume(
     orthogonal: bool | None = None,
     selection: bool | None = None,
     permutation: bool | None = None,
+    unique_indices: bool | None = None,
 ):
     """Attach structural assumptions to a symbolic tensor.
 
@@ -96,6 +97,12 @@ def assume(
         Assert that *x* is (or is not) a selection matrix
     permutation : bool, optional
         Assert that *x* is (or is not) a permutation matrix
+    unique_indices : bool, optional
+        Assert that *x*'s entries address distinct positions when used as an
+        index (or that they do not): no value repeats, and no negative entry
+        aliases a non-negative one (e.g. ``-1`` and ``n-1``). Such an index can
+        never enlarge the axis it indexes, so it can be lifted earlier through
+        operations without risk of duplicating computation.
 
     Returns
     -------
@@ -121,6 +128,7 @@ def assume(
         "orthogonal": orthogonal,
         "selection": selection,
         "permutation": permutation,
+        "unique_indices": unique_indices,
     }
     assumptions = {
         name: FactState.TRUE if value else FactState.FALSE

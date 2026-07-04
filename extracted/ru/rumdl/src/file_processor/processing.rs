@@ -31,6 +31,9 @@ pub struct FileProcessResult {
     pub warnings: Vec<rumdl_lib::rule::LintWarning>,
     pub file_index: rumdl_lib::workspace_index::FileIndex,
     pub file_index_reused: bool,
+    /// The file could not be read. A tool error (exit code 2), distinct from a
+    /// lint violation (exit code 1).
+    pub errored: bool,
 }
 
 pub fn is_rule_actually_fixable(config: &rumdl_config::Config, rule_name: &str) -> bool {
@@ -112,6 +115,7 @@ pub fn process_file_with_formatter(
         original_line_ending,
         file_index,
         file_index_reused,
+        errored,
     ) = process_file_inner(
         file_path,
         rules,
@@ -124,8 +128,27 @@ pub fn process_file_with_formatter(
         cache_hashes,
     );
 
-    // Compute filtered rules based on per-file-ignores for embedded markdown formatting
-    // This ensures embedded markdown formatting respects per-file-ignores just like linting does
+    // The file could not be read: report it as a tool error (exit code 2) and
+    // do not treat the empty content as a clean, issue-free file.
+    if errored {
+        return FileProcessResult {
+            has_issues: false,
+            issues_found: 0,
+            issues_fixed: 0,
+            summary_issues_fixed: 0,
+            fixable_issues: 0,
+            warnings: Vec::new(),
+            file_index,
+            file_index_reused,
+            errored: true,
+        };
+    }
+
+    // Compute filtered rules based on per-file-ignores. The fix coordinator, embedded
+    // markdown formatting, and Rust doc-comment formatting all run against this set so
+    // `fmt` never applies a per-file-ignored rule - matching what linting already does.
+    // Passing the unfiltered `rules` here would let the coordinator re-check and re-fix
+    // an ignored rule as a side effect of fixing a non-ignored one (issue #707).
     let ignored_rules_for_file = config.get_ignored_rules_for_file(Path::new(file_path));
     let filtered_rules: Vec<Box<dyn Rule>> = if !ignored_rules_for_file.is_empty() {
         rules
@@ -148,6 +171,7 @@ pub fn process_file_with_formatter(
             warnings: Vec::new(),
             file_index,
             file_index_reused,
+            errored: false,
         };
     }
 
@@ -173,6 +197,7 @@ pub fn process_file_with_formatter(
                 warnings: Vec::new(),
                 file_index,
                 file_index_reused,
+                errored: false,
             };
         }
     }
@@ -220,7 +245,7 @@ pub fn process_file_with_formatter(
         // In diff mode, apply fixes to a copy and show diff
         let original_content = content.clone();
         warnings_fixed = apply_fixes_coordinated(
-            rules,
+            &filtered_rules,
             &all_warnings,
             &mut content,
             true,
@@ -296,11 +321,12 @@ pub fn process_file_with_formatter(
             warnings: all_warnings,
             file_index,
             file_index_reused,
+            errored: false,
         };
     } else if fix_mode != crate::FixMode::Check {
         // Apply fixes using Fix Coordinator
         warnings_fixed = apply_fixes_coordinated(
-            rules,
+            &filtered_rules,
             &all_warnings,
             &mut content,
             quiet,
@@ -357,7 +383,11 @@ pub fn process_file_with_formatter(
             // Denormalize back to original line ending before writing
             let content_to_write = rumdl_lib::utils::normalize_line_ending(&content, original_line_ending).into_owned();
 
-            if let Err(err) = std::fs::write(file_path, &content_to_write)
+            // Write atomically (temp file + rename) so an interrupted or failed
+            // write can never truncate the user's file: the original is only
+            // ever replaced wholesale, never edited in place.
+            if let Err(err) =
+                rumdl_lib::utils::atomic_write::write_atomically(Path::new(file_path), content_to_write.as_bytes())
                 && !silent
             {
                 eprintln!(
@@ -382,6 +412,7 @@ pub fn process_file_with_formatter(
                 warnings: Vec::new(),
                 file_index,
                 file_index_reused,
+                errored: false,
             };
         }
 
@@ -472,6 +503,7 @@ pub fn process_file_with_formatter(
             warnings: remaining_warnings,
             file_index,
             file_index_reused,
+            errored: false,
         };
     }
 
@@ -484,6 +516,7 @@ pub fn process_file_with_formatter(
         warnings: all_warnings,
         file_index,
         file_index_reused,
+        errored: false,
     }
 }
 
@@ -557,6 +590,9 @@ pub struct ProcessFileResult {
     pub original_line_ending: rumdl_lib::utils::LineEnding,
     pub file_index: rumdl_lib::workspace_index::FileIndex,
     pub file_index_reused: bool,
+    /// The file could not be read (missing, unreadable, or not valid UTF-8).
+    /// A tool-level error, not a lint finding: it must surface as exit code 2.
+    pub errored: bool,
 }
 
 pub struct CacheHashes {
@@ -592,6 +628,7 @@ pub fn process_file_inner(
     rumdl_lib::utils::LineEnding,
     rumdl_lib::workspace_index::FileIndex,
     bool,
+    bool,
 ) {
     let result = process_file_with_index(
         file_path,
@@ -612,6 +649,7 @@ pub fn process_file_inner(
         result.original_line_ending,
         result.file_index,
         result.file_index_reused,
+        result.errored,
     )
 }
 
@@ -649,6 +687,7 @@ pub fn process_file_with_index(
         original_line_ending: rumdl_lib::utils::LineEnding::Lf,
         file_index: rumdl_lib::workspace_index::FileIndex::new(),
         file_index_reused: false,
+        errored: false,
     };
 
     // Read file content efficiently
@@ -659,7 +698,13 @@ pub fn process_file_with_index(
                 if !silent {
                     eprintln!("Error reading file {file_path}: {e}");
                 }
-                return empty_result;
+                // A read failure is a tool error, not a clean result: flag it so
+                // the run exits with the tool-error code instead of reporting
+                // the file as having no issues.
+                return ProcessFileResult {
+                    errored: true,
+                    ..empty_result
+                };
             }
         };
 
@@ -772,6 +817,7 @@ pub fn process_file_with_index(
                     original_line_ending,
                     file_index,
                     file_index_reused,
+                    errored: false,
                 };
             }
             Err(reason) => {
@@ -902,6 +948,7 @@ pub fn process_file_with_index(
         original_line_ending,
         file_index,
         file_index_reused: false,
+        errored: false,
     }
 }
 
@@ -1220,6 +1267,7 @@ fn process_rust_file_doc_comments(
         original_line_ending,
         file_index: rumdl_lib::workspace_index::FileIndex::new(),
         file_index_reused: false,
+        errored: false,
     }
 }
 

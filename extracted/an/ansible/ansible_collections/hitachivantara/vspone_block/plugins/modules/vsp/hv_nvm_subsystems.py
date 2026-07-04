@@ -376,10 +376,6 @@ nvm_subsystems:
           description: Port type.
           type: str
           sample: "NVME_TCP"
-        ports:
-          description: Deprecated. Use port_ids instead.
-          type: str
-          sample: ["CL1-A", "CL1-B"]
 """
 
 from ansible.module_utils.basic import AnsibleModule

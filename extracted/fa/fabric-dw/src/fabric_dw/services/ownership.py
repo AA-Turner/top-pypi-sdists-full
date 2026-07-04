@@ -5,7 +5,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from fabric_dw.exceptions import ItemKindError, PermissionDeniedError
-from fabric_dw.http_client import FabricHttpClient, HttpBase
+from fabric_dw.http_client import FabricHttpClient, HttpBase, fabric_error_code
 from fabric_dw.models import WarehouseKind
 
 __all__ = ["takeover"]
@@ -65,10 +65,12 @@ async def takeover(
     try:
         await http.request("POST", HttpBase.POWERBI, path, json=None)
     except PermissionDeniedError as exc:
-        # Detect the "already owner" case: Fabric returns 403 with errorCode
-        # ArtifactTakeOverNotAllowedByOwner when the caller already owns the item.
+        # Detect the "already owner" case: Fabric returns 403 with the
+        # ArtifactTakeOverNotAllowedByOwner code when the caller already owns
+        # the item. See fabric_error_code() for the envelope shapes this
+        # code can be nested under.
         # Surface a clear, accurate message instead of the generic role hint.
-        error_code = exc.body.get("errorCode") if exc.body is not None else None
+        error_code = fabric_error_code(exc.body)
         if error_code == _ALREADY_OWNER_ERROR_CODE:
             raise PermissionDeniedError(
                 "You are already the owner of this warehouse; nothing to take over.",

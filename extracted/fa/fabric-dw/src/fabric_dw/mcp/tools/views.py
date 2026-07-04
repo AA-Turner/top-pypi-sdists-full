@@ -16,6 +16,7 @@ from fabric_dw.mcp._guards import (
 from fabric_dw.mcp._helpers import (
     make_sql_target,
     mutating_tool,
+    parse_iso8601,
     parse_qualified_name,
     resolve_item,
     safe_rows,
@@ -63,6 +64,7 @@ def register(mcp: FastMCP) -> None:  # noqa: PLR0915
         item: str,
         qualified_name: str,
         count: Annotated[int, Field(ge=1, le=10000)] = 10,
+        as_of: str | None = None,
     ) -> dict[str, Any]:
         """Return up to *count* rows from a view as JSON-serialisable columns + rows.
 
@@ -71,8 +73,12 @@ def register(mcp: FastMCP) -> None:  # noqa: PLR0915
             item: Warehouse or SQL endpoint name or GUID.
             qualified_name: Dot-separated qualified view name, e.g. ``dbo.vw_sales``.
             count: Maximum number of rows to return (1-10000, default 10).
+            as_of: Optional ISO-8601 UTC timestamp for a point-in-time (time-travel)
+                read.  When supplied the query uses ``OPTION (FOR TIMESTAMP AS OF ...)``.
+                Omit to read the latest data.
         """
         schema, view_name = parse_qualified_name(qualified_name, kind="view")
+        as_of_dt = parse_iso8601(as_of, "as_of")
         ctx = get_context()
         assert_workspace_allowed(workspace, config_allowlist=ctx.workspace_allowlist)
         try:
@@ -81,16 +87,17 @@ def register(mcp: FastMCP) -> None:  # noqa: PLR0915
                 workspace, str(ws_id), config_allowlist=ctx.workspace_allowlist
             )
             _log.debug(
-                "read_view ws=%s item=%s view=%s.%s count=%d",
+                "read_view ws=%s item=%s view=%s.%s count=%d as_of=%s",
                 ws_id,
                 entry.id,
                 schema,
                 view_name,
                 count,
+                as_of,
             )
             target = make_sql_target(ws_id, entry, item)
             columns, rows = await views_svc.read_view(
-                target, schema, view_name, count=count, mode=ctx.auth_mode
+                target, schema, view_name, count=count, as_of=as_of_dt, mode=ctx.auth_mode
             )
         except (ValueError, FabricError) as exc:
             raise tool_err(exc) from exc
@@ -104,6 +111,7 @@ def register(mcp: FastMCP) -> None:  # noqa: PLR0915
         workspace: str,
         item: str,
         qualified_name: str,
+        as_of: str | None = None,
     ) -> dict[str, Any]:
         """Return the total row count of a view via ``SELECT COUNT_BIG(*)``.
 
@@ -113,8 +121,12 @@ def register(mcp: FastMCP) -> None:  # noqa: PLR0915
             workspace: Workspace name or GUID.
             item: Warehouse or SQL endpoint name or GUID.
             qualified_name: Dot-separated qualified view name, e.g. ``dbo.vw_sales``.
+            as_of: Optional ISO-8601 UTC timestamp for a point-in-time (time-travel)
+                count.  When supplied the query uses ``OPTION (FOR TIMESTAMP AS OF ...)``.
+                Omit to count the latest data.
         """
         schema, view_name = parse_qualified_name(qualified_name, kind="view")
+        as_of_dt = parse_iso8601(as_of, "as_of")
         ctx = get_context()
         assert_workspace_allowed(workspace, config_allowlist=ctx.workspace_allowlist)
         try:
@@ -123,15 +135,16 @@ def register(mcp: FastMCP) -> None:  # noqa: PLR0915
                 workspace, str(ws_id), config_allowlist=ctx.workspace_allowlist
             )
             _log.debug(
-                "count_view_rows ws=%s item=%s view=%s.%s",
+                "count_view_rows ws=%s item=%s view=%s.%s as_of=%s",
                 ws_id,
                 entry.id,
                 schema,
                 view_name,
+                as_of,
             )
             target = make_sql_target(ws_id, entry, item)
             row_count = await views_svc.count_view_rows(
-                target, schema, view_name, mode=ctx.auth_mode
+                target, schema, view_name, as_of=as_of_dt, mode=ctx.auth_mode
             )
         except (ValueError, FabricError) as exc:
             raise tool_err(exc) from exc
@@ -342,6 +355,54 @@ def register(mcp: FastMCP) -> None:  # noqa: PLR0915
             target = make_sql_target(ws_id, entry, item)
             result = await views_svc.rename_view(
                 target, qualified_name, new_name, mode=ctx.auth_mode
+            )
+        except (ValueError, FabricError) as exc:
+            raise tool_err(exc) from exc
+        return result.model_dump(mode="json")
+
+    @mutating_tool(mcp, "transfer_view")
+    async def transfer_view(
+        workspace: str, item: str, qualified_name: str, target_schema: str
+    ) -> dict[str, Any]:
+        """Move a SQL view to another schema via ``ALTER SCHEMA ... TRANSFER OBJECT::...``.
+
+        Works on both Data Warehouses and SQL Analytics Endpoints — no DW-only
+        guard is applied.
+
+        CAUTION: ``ALTER SCHEMA ... TRANSFER`` moves the view but does **not**
+        rewrite the schema name inside the view's stored definition
+        (``sys.sql_modules.definition``, ``OBJECT_DEFINITION()``). After a
+        transfer, the returned (and any subsequent ``get_view``) ``definition``
+        may still show the *old* schema name in the ``CREATE ... AS`` header,
+        even though the view now lives in the new schema. This tool does not
+        rewrite the definition text — doing so would require parsing and
+        regenerating SQL, which this project deliberately avoids.
+
+        Args:
+            workspace: Workspace name or GUID.
+            item: Warehouse or SQL endpoint name or GUID.
+            qualified_name: Current dot-separated qualified view name,
+                e.g. ``dbo.vw_sales``.
+            target_schema: Schema to move the view into, e.g. ``archive``.
+        """
+        parse_qualified_name(qualified_name, kind="view")
+        ctx = get_context()
+        assert_workspace_allowed(workspace, config_allowlist=ctx.workspace_allowlist)
+        try:
+            ws_id, entry = await resolve_item(ctx.resolver, workspace, item)
+            assert_workspace_allowed(
+                workspace, str(ws_id), config_allowlist=ctx.workspace_allowlist
+            )
+            _log.debug(
+                "transfer_view ws=%s item=%s qualified=%r target_schema=%r",
+                ws_id,
+                entry.id,
+                qualified_name,
+                target_schema,
+            )
+            target = make_sql_target(ws_id, entry, item)
+            result = await views_svc.transfer_view(
+                target, qualified_name, target_schema, mode=ctx.auth_mode
             )
         except (ValueError, FabricError) as exc:
             raise tool_err(exc) from exc

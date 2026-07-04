@@ -36,11 +36,11 @@ from mycli.constants import (
     DEFAULT_HOST,
     DEFAULT_PORT,
     DEFAULT_USER,
+    EMPTY_PASSWORD_FLAG_SENTINEL,
     ER_MUST_CHANGE_PASSWORD_LOGIN,
     TEST_DATABASE,
 )
 from mycli.main import (
-    EMPTY_PASSWORD_FLAG_SENTINEL,
     INT_OR_STRING_CLICK_TYPE,
     CliArgs,
     MyCli,
@@ -93,8 +93,6 @@ CLI_ARGS_WITHOUT_DB = [
     PASSWORD,
     "--myclirc",
     default_config_file,
-    "--defaults-file",
-    default_config_file,
 ]
 CLI_ARGS = CLI_ARGS_WITHOUT_DB + [TEST_DATABASE]
 
@@ -109,11 +107,6 @@ def test_binary_display_hex(executor):
         PASSWORD,
         HOST,
         PORT,
-        None,
-        None,
-        None,
-        None,
-        None,
         None,
         None,
         None,
@@ -149,11 +142,6 @@ def test_binary_display_utf8(executor):
         PASSWORD,
         HOST,
         PORT,
-        None,
-        None,
-        None,
-        None,
-        None,
         None,
         None,
         None,
@@ -350,28 +338,6 @@ def test_ssl_mode_off(executor, capsys):
 
 
 @dbtest
-def test_ssl_mode_overrides_ssl(executor, capsys):
-    runner = CliRunner()
-    ssl_mode = "off"
-    sql = "select * from performance_schema.session_status where variable_name = 'Ssl_cipher'"
-    result = runner.invoke(click_entrypoint, args=CLI_ARGS + ["--csv", "--ssl-mode", ssl_mode, "--ssl"], input=sql)
-    result_dict = next(csv.DictReader(result.stdout.split("\n")))
-    ssl_cipher = result_dict.get("VARIABLE_VALUE", None)
-    assert not ssl_cipher
-
-
-@dbtest
-def test_ssl_mode_overrides_no_ssl(executor, capsys):
-    runner = CliRunner()
-    ssl_mode = "on"
-    sql = "select * from performance_schema.session_status where variable_name = 'Ssl_cipher'"
-    result = runner.invoke(click_entrypoint, args=CLI_ARGS + ["--csv", "--ssl-mode", ssl_mode, "--no-ssl"], input=sql)
-    result_dict = next(csv.DictReader(result.stdout.split("\n")))
-    ssl_cipher = result_dict.get("VARIABLE_VALUE", None)
-    assert ssl_cipher
-
-
-@dbtest
 def test_reconnect_database_is_selected(executor, capsys):
     m = MyCli()
     m.register_special_commands()
@@ -381,11 +347,6 @@ def test_reconnect_database_is_selected(executor, capsys):
         PASSWORD,
         HOST,
         PORT,
-        None,
-        None,
-        None,
-        None,
-        None,
         None,
         None,
         None,
@@ -421,11 +382,6 @@ def test_reconnect_no_database(executor, capsys):
         None,
         None,
         None,
-        None,
-        None,
-        None,
-        None,
-        None,
     )
     sql = "\\r"
     result = next(mycli.packages.special.execute(executor, sql))
@@ -444,11 +400,6 @@ def test_reconnect_with_different_database(executor):
         PASSWORD,
         HOST,
         PORT,
-        None,
-        None,
-        None,
-        None,
-        None,
         None,
         None,
         None,
@@ -475,11 +426,6 @@ def test_reconnect_with_same_database(executor):
         PASSWORD,
         HOST,
         PORT,
-        None,
-        None,
-        None,
-        None,
-        None,
         None,
         None,
         None,
@@ -617,8 +563,6 @@ def test_no_show_warnings_overrides_myclirc_setting(executor, tmp_path, monkeypa
             PASSWORD,
             '--myclirc',
             myclirc.name,
-            '--defaults-file',
-            default_config_file,
             TEST_DATABASE,
         ]
 
@@ -828,6 +772,8 @@ def test_help_strings_end_with_periods():
     """Make sure click options have help text that end with a period."""
     for param in click_entrypoint.params:
         if isinstance(param, click.core.Option):
+            if param.hidden:
+                continue
             assert hasattr(param, "help")
             assert param.help.endswith(".")
 
@@ -917,7 +863,6 @@ def test_reserved_space_is_integer(monkeypatch):
 
 def test_list_dsn(monkeypatch):
     monkeypatch.setattr(MyCli, "system_config_files", [])
-    monkeypatch.setattr(MyCli, "pwd_config_file", os.devnull)
     runner = CliRunner()
     # keep Windows from locking the file with delete=False
     with NamedTemporaryFile(prefix=TEMPFILE_PREFIX, mode="w", delete=False) as myclirc:
@@ -938,35 +883,6 @@ def test_list_dsn(monkeypatch):
     try:
         if os.path.exists(myclirc.name):
             os.remove(myclirc.name)
-    except Exception as e:
-        print(f"An error occurred while attempting to delete the file: {e}")
-
-
-@pytest.mark.skipif(os.name == 'nt', reason='todo: unknown')
-def test_list_ssh_config():
-    runner = CliRunner()
-    # keep Windows from locking the file with delete=False
-    with NamedTemporaryFile(prefix=TEMPFILE_PREFIX, mode="w", delete=False) as ssh_config:
-        ssh_config.write(
-            dedent("""\
-            Host test
-                Hostname test.example.com
-                User joe
-                Port 22222
-                IdentityFile ~/.ssh/gateway
-        """)
-        )
-        ssh_config.flush()
-        args = ["--list-ssh-config", "--ssh-config-path", ssh_config.name]
-        result = runner.invoke(click_entrypoint, args=args)
-        assert "test\n" in result.output
-        result = runner.invoke(click_entrypoint, args=args + ["--verbose"])
-        assert "test : test.example.com\n" in result.output
-
-    # delete=False means we should try to clean up
-    try:
-        if os.path.exists(ssh_config.name):
-            os.remove(ssh_config.name)
     except Exception as e:
         print(f"An error occurred while attempting to delete the file: {e}")
 
@@ -998,7 +914,6 @@ def test_dsn(monkeypatch):
             self.main_formatter = Formatter()
             self.redirect_formatter = Formatter()
             self.ssl_mode = "auto"
-            self.my_cnf = {"client": {}, "mysqld": {}}
             self.default_keepalive_ticks = 0
 
         def connect(self, **args):
@@ -1258,7 +1173,6 @@ def test_mysql_dsn_envvar(monkeypatch):
             self.main_formatter = Formatter()
             self.redirect_formatter = Formatter()
             self.ssl_mode = 'auto'
-            self.my_cnf = {'client': {}, 'mysqld': {}}
             self.default_keepalive_ticks = 0
 
         def connect(self, **args):
@@ -1283,117 +1197,6 @@ def test_mysql_dsn_envvar(monkeypatch):
         and MockMyCli.connect_args['port'] == 7
         and MockMyCli.connect_args['database'] == 'dsn_database'
     )
-
-
-def test_legacy_dsn_envvar_warns_and_falls_back(monkeypatch):
-    class Formatter:
-        format_name = None
-
-    class Logger:
-        def debug(self, *args, **args_dict):
-            pass
-
-        def warning(self, *args, **args_dict):
-            pass
-
-    class MockMyCli:
-        config = {
-            'main': {},
-            'alias_dsn': {},
-            'connection': {
-                'default_keepalive_ticks': 0,
-            },
-        }
-
-        def __init__(self, **_args):
-            self.logger = Logger()
-            self.destructive_warning = False
-            self.main_formatter = Formatter()
-            self.redirect_formatter = Formatter()
-            self.ssl_mode = 'auto'
-            self.my_cnf = {'client': {}, 'mysqld': {}}
-            self.default_keepalive_ticks = 0
-
-        def connect(self, **args):
-            MockMyCli.connect_args = args
-
-        def run_query(self, query, new_line=True):
-            pass
-
-    import mycli.main
-
-    monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
-    monkeypatch.setenv('DSN', 'mysql://dsn_user:dsn_passwd@dsn_host:8/dsn_database')
-    runner = CliRunner()
-
-    result = runner.invoke(mycli.main.click_entrypoint)
-    assert result.exit_code == 0, result.output + ' ' + str(result.exception)
-    assert 'The DSN environment variable is deprecated' in result.output
-    assert (
-        MockMyCli.connect_args['user'] == 'dsn_user'
-        and MockMyCli.connect_args['passwd'] == 'dsn_passwd'
-        and MockMyCli.connect_args['host'] == 'dsn_host'
-        and MockMyCli.connect_args['port'] == 8
-        and MockMyCli.connect_args['database'] == 'dsn_database'
-    )
-
-
-def test_password_flag_uses_sentinel(monkeypatch):
-    class Formatter:
-        format_name = None
-
-    class Logger:
-        def debug(self, *args, **args_dict):
-            pass
-
-        def warning(self, *args, **args_dict):
-            pass
-
-    class MockMyCli:
-        config = {
-            'main': {},
-            'alias_dsn': {},
-            'connection': {
-                'default_keepalive_ticks': 0,
-            },
-        }
-
-        def __init__(self, **_args):
-            self.logger = Logger()
-            self.destructive_warning = False
-            self.main_formatter = Formatter()
-            self.redirect_formatter = Formatter()
-            self.ssl_mode = 'auto'
-            self.my_cnf = {'client': {}, 'mysqld': {}}
-            self.default_keepalive_ticks = 0
-
-        def connect(self, **args):
-            MockMyCli.connect_args = args
-
-        def run_query(self, query, new_line=True):
-            pass
-
-    import mycli.main
-
-    monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
-    runner = CliRunner()
-
-    result = runner.invoke(
-        mycli.main.click_entrypoint,
-        args=[
-            '--user',
-            'user',
-            '--host',
-            DEFAULT_HOST,
-            '--port',
-            f'{DEFAULT_PORT}',
-            '--database',
-            'database',
-            '--password',
-        ],
-    )
-    assert result.exit_code == 0, result.output + ' ' + str(result.exception)
-    assert MockMyCli.connect_args['passwd'] == EMPTY_PASSWORD_FLAG_SENTINEL
 
 
 def test_password_option_uses_cleartext_value(monkeypatch):
@@ -1422,7 +1225,6 @@ def test_password_option_uses_cleartext_value(monkeypatch):
             self.main_formatter = Formatter()
             self.redirect_formatter = Formatter()
             self.ssl_mode = 'auto'
-            self.my_cnf = {'client': {}, 'mysqld': {}}
             self.default_keepalive_ticks = 0
 
         def connect(self, **args):
@@ -1481,7 +1283,6 @@ def test_password_option_overrides_password_file_and_mysql_pwd(monkeypatch):
             self.main_formatter = Formatter()
             self.redirect_formatter = Formatter()
             self.ssl_mode = 'auto'
-            self.my_cnf = {'client': {}, 'mysqld': {}}
             self.default_keepalive_ticks = 0
 
         def connect(self, **args):
@@ -1550,7 +1351,6 @@ def test_password_file_option_reads_password(monkeypatch):
             self.main_formatter = Formatter()
             self.redirect_formatter = Formatter()
             self.ssl_mode = 'auto'
-            self.my_cnf = {'client': {}, 'mysqld': {}}
             self.default_keepalive_ticks = 0
 
         def connect(self, **args):
@@ -1632,7 +1432,6 @@ def test_username_option_and_mysql_user_envvar(monkeypatch):
             self.main_formatter = Formatter()
             self.redirect_formatter = Formatter()
             self.ssl_mode = 'auto'
-            self.my_cnf = {'client': {}, 'mysqld': {}}
             self.default_keepalive_ticks = 0
 
         def connect(self, **args):
@@ -1705,7 +1504,6 @@ def test_host_option_and_mysql_host_envvar(monkeypatch):
             self.main_formatter = Formatter()
             self.redirect_formatter = Formatter()
             self.ssl_mode = 'auto'
-            self.my_cnf = {'client': {}, 'mysqld': {}}
             self.default_keepalive_ticks = 0
 
         def connect(self, **args):
@@ -1774,7 +1572,6 @@ def test_hostname_option_alias(monkeypatch):
             self.main_formatter = Formatter()
             self.redirect_formatter = Formatter()
             self.ssl_mode = 'auto'
-            self.my_cnf = {'client': {}, 'mysqld': {}}
             self.default_keepalive_ticks = 0
 
         def connect(self, **args):
@@ -1829,7 +1626,6 @@ def test_port_option_and_mysql_tcp_port_envvar(monkeypatch):
             self.main_formatter = Formatter()
             self.redirect_formatter = Formatter()
             self.ssl_mode = 'auto'
-            self.my_cnf = {'client': {}, 'mysqld': {}}
             self.default_keepalive_ticks = 0
 
         def connect(self, **args):
@@ -1898,7 +1694,6 @@ def test_socket_option_and_mysql_unix_socket_envvar(monkeypatch):
             self.main_formatter = Formatter()
             self.redirect_formatter = Formatter()
             self.ssl_mode = 'auto'
-            self.my_cnf = {'client': {}, 'mysqld': {}}
             self.default_keepalive_ticks = 0
 
         def connect(self, **args):
@@ -1965,7 +1760,6 @@ def test_mysql_user_envvar_overrides_dsn_resolution(monkeypatch):
             self.main_formatter = Formatter()
             self.redirect_formatter = Formatter()
             self.ssl_mode = 'auto'
-            self.my_cnf = {'client': {}, 'mysqld': {}}
             self.default_keepalive_ticks = 0
 
         def connect(self, **args):
@@ -1998,108 +1792,6 @@ def test_mysql_user_envvar_overrides_dsn_resolution(monkeypatch):
         and MockMyCli.connect_args['port'] == 6
         and MockMyCli.connect_args['database'] == 'dsn_database'
     )
-
-
-@pytest.mark.skipif(os.name == 'nt', reason='todo: unknown')
-def test_ssh_config(monkeypatch):
-    # Setup classes to mock mycli.main.MyCli
-    class Formatter:
-        format_name = None
-
-    class Logger:
-        def debug(self, *args, **args_dict):
-            pass
-
-        def warning(self, *args, **args_dict):
-            pass
-
-    class MockMyCli:
-        config = {
-            "main": {},
-            "alias_dsn": {},
-            "connection": {
-                "default_keepalive_ticks": 0,
-            },
-        }
-
-        def __init__(self, **args):
-            self.logger = Logger()
-            self.destructive_warning = False
-            self.main_formatter = Formatter()
-            self.redirect_formatter = Formatter()
-            self.ssl_mode = "auto"
-            self.my_cnf = {"client": {}, "mysqld": {}}
-            self.default_keepalive_ticks = 0
-
-        def connect(self, **args):
-            MockMyCli.connect_args = args
-
-        def run_query(self, query, new_line=True):
-            pass
-
-    import mycli.main
-
-    monkeypatch.setattr(mycli.main, "MyCli", MockMyCli)
-    runner = CliRunner()
-
-    # Setup temporary configuration
-    # keep Windows from locking the file with delete=False
-    with NamedTemporaryFile(prefix=TEMPFILE_PREFIX, mode="w", delete=False) as ssh_config:
-        ssh_config.write(
-            dedent("""\
-            Host test
-                Hostname test.example.com
-                User joe
-                Port 22222
-                IdentityFile ~/.ssh/gateway
-        """)
-        )
-        ssh_config.flush()
-
-        # When a user supplies a ssh config.
-        result = runner.invoke(mycli.main.click_entrypoint, args=["--ssh-config-path", ssh_config.name, "--ssh-config-host", "test"])
-        assert result.exit_code == 0, result.output + " " + str(result.exception)
-        assert (
-            MockMyCli.connect_args["ssh_user"] == "joe"
-            and MockMyCli.connect_args["ssh_host"] == "test.example.com"
-            and MockMyCli.connect_args["ssh_port"] == 22222
-            and MockMyCli.connect_args["ssh_key_filename"] == os.path.expanduser("~") + "/.ssh/gateway"
-        )
-
-        # When a user supplies a ssh config host as argument to mycli,
-        # and used command line arguments, use the command line
-        # arguments.
-        result = runner.invoke(
-            mycli.main.click_entrypoint,
-            args=[
-                "--ssh-config-path",
-                ssh_config.name,
-                "--ssh-config-host",
-                "test",
-                "--ssh-user",
-                "arg_user",
-                "--ssh-host",
-                "arg_host",
-                "--ssh-port",
-                "3",
-                "--ssh-key-filename",
-                "/path/to/key",
-            ],
-        )
-        assert result.exit_code == 0, result.output + " " + str(result.exception)
-        assert (
-            MockMyCli.connect_args["ssh_user"] == "arg_user"
-            and MockMyCli.connect_args["ssh_host"] == "arg_host"
-            and MockMyCli.connect_args["ssh_port"] == 3
-            and MockMyCli.connect_args["ssh_key_filename"] == "/path/to/key"
-        )
-
-    # delete=False means we should try to clean up
-    try:
-        if os.path.exists(ssh_config.name):
-            os.remove(ssh_config.name)
-    except Exception as e:
-        print(f"An error occurred while attempting to delete the file: {e}")
 
 
 @dbtest
@@ -2200,7 +1892,6 @@ def noninteractive_mock_mycli(monkeypatch):
         config = {
             'main': {
                 'use_keyring': 'False',
-                'my_cnf_transition_done': 'True',
             },
             'connection': {},
         }
@@ -2211,7 +1902,6 @@ def noninteractive_mock_mycli(monkeypatch):
             self.main_formatter = Formatter()
             self.redirect_formatter = Formatter()
             self.ssl_mode = 'auto'
-            self.my_cnf = {'client': {}, 'mysqld': {}}
             self.default_keepalive_ticks = 0
             self.config_without_package_defaults = {'connection': {}}
 
@@ -2258,7 +1948,7 @@ def test_verbose_and_quiet_are_incompatible() -> None:
 def test_quiet_sets_negative_cli_verbosity(monkeypatch: pytest.MonkeyPatch) -> None:
     dummy_class = make_dummy_mycli_class(
         config={
-            'main': {'use_keyring': 'false', 'my_cnf_transition_done': 'true'},
+            'main': {'use_keyring': 'false'},
             'connection': {'default_keepalive_ticks': 0},
             'alias_dsn': {},
         }
@@ -2318,7 +2008,6 @@ def test_execute_arg_supersedes_batch_file(monkeypatch):
 @dbtest
 def test_null_string_config(monkeypatch):
     monkeypatch.setattr(MyCli, 'system_config_files', [])
-    monkeypatch.setattr(MyCli, 'pwd_config_file', os.devnull)
     runner = CliRunner()
     # keep Windows from locking the file with delete=False
     with NamedTemporaryFile(mode='w', delete=False) as myclirc:
@@ -2409,7 +2098,7 @@ def test_on_completions_refreshed_updates_completer_and_invalidates_prompt() -> 
 def test_click_entrypoint_callback_covers_dsn_list_init_commands(monkeypatch: pytest.MonkeyPatch) -> None:
     dummy_class = make_dummy_mycli_class(
         config={
-            'main': {'use_keyring': 'false', 'my_cnf_transition_done': 'true'},
+            'main': {'use_keyring': 'false'},
             'connection': {'default_keepalive_ticks': 0},
             'alias_dsn': {'prod': 'mysql://u:p@h/db'},
             'alias_dsn.init-commands': {'prod': ['set a=1', 'set b=2']},
@@ -2432,7 +2121,7 @@ def test_click_entrypoint_callback_covers_dsn_list_init_commands(monkeypatch: py
 def test_click_entrypoint_callback_uses_batch_with_progress_path(monkeypatch: pytest.MonkeyPatch) -> None:
     dummy_class = make_dummy_mycli_class(
         config={
-            'main': {'use_keyring': 'false', 'my_cnf_transition_done': 'true'},
+            'main': {'use_keyring': 'false'},
             'connection': {'default_keepalive_ticks': 0},
             'alias_dsn': {},
         }
@@ -2453,7 +2142,7 @@ def test_click_entrypoint_callback_uses_batch_with_progress_path(monkeypatch: py
 def test_click_entrypoint_callback_uses_batch_without_progress_path(monkeypatch: pytest.MonkeyPatch) -> None:
     dummy_class = make_dummy_mycli_class(
         config={
-            'main': {'use_keyring': 'false', 'my_cnf_transition_done': 'true'},
+            'main': {'use_keyring': 'false'},
             'connection': {'default_keepalive_ticks': 0},
             'alias_dsn': {},
         }
@@ -2469,27 +2158,6 @@ def test_click_entrypoint_callback_uses_batch_without_progress_path(monkeypatch:
     with pytest.raises(SystemExit) as excinfo:
         call_click_entrypoint_direct(cli_args)
     assert excinfo.value.code == 13
-
-
-def test_click_entrypoint_callback_covers_mycnf_underscore_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    click_lines: list[str] = []
-    monkeypatch.setattr(click, 'secho', lambda message='', **kwargs: click_lines.append(str(message)))
-    monkeypatch.setattr(sys, 'stdin', SimpleNamespace(isatty=lambda: True))
-    monkeypatch.setattr(sys.stderr, 'isatty', lambda: False)
-
-    dummy_class = make_dummy_mycli_class(
-        config={
-            'main': {'use_keyring': 'false', 'my_cnf_transition_done': 'false'},
-            'connection': {'default_keepalive_ticks': 0},
-            'alias_dsn': {},
-        },
-        my_cnf={'client': {'ssl_ca': '/tmp/ca.pem'}, 'mysqld': {}},
-        config_without_package_defaults={'main': {}},
-    )
-    monkeypatch.setattr(main, 'MyCli', dummy_class)
-
-    call_click_entrypoint_direct(main.CliArgs())
-    assert any('ssl-ca = /tmp/ca.pem' in line for line in click_lines)
 
 
 def test_format_sqlresult_uses_redirect_formatter_when_redirected() -> None:
@@ -2533,7 +2201,6 @@ def test_get_last_query_returns_latest_query() -> None:
 
 def test_connect_reports_expired_password_login_error(monkeypatch: pytest.MonkeyPatch) -> None:
     cli = make_bare_mycli()
-    cli.my_cnf = {'client': {}, 'mysqld': {}}
     cli.config_without_package_defaults = {'connection': {}}
     cli.config = {'connection': {}, 'main': {}}
     cli.logger = cast(Any, DummyLogger())
@@ -2556,7 +2223,6 @@ def test_connect_reports_expired_password_login_error(monkeypatch: pytest.Monkey
 
 def test_connect_sets_cli_sandbox_mode_when_sqlexecute_enters_sandbox(monkeypatch: pytest.MonkeyPatch) -> None:
     cli = make_bare_mycli()
-    cli.my_cnf = {'client': {}, 'mysqld': {}}
     cli.config_without_package_defaults = {'connection': {}}
     cli.config = {'connection': {}, 'main': {}}
     cli.logger = cast(Any, DummyLogger())
@@ -2726,6 +2392,26 @@ def test_preprocess_cli_args_rejects_same_batch_and_checkpoint_file(
 
     assert excinfo.value.code == 1
     assert 'Error: --batch and --checkpoint must be different files.' in capsys.readouterr().err
+
+
+def test_preprocess_cli_args_rejects_same_batch_and_logfile(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    batch_path = tmp_path / 'batch.sql'
+    batch_path.write_text('select 1;\n', encoding='utf-8')
+    cli_args = CliArgs()
+    cli_args.batch = str(batch_path)
+    cli_args.logfile = batch_path.open('a', encoding='utf-8')  # type: ignore[assignment]
+
+    try:
+        with pytest.raises(SystemExit) as excinfo:
+            preprocess_cli_args(cli_args, valid_connection_scheme)
+    finally:
+        cli_args.logfile.close()
+
+    assert excinfo.value.code == 1
+    assert 'Error: --batch and --logfile must be different files.' in capsys.readouterr().err
 
 
 def test_preprocess_cli_args_rejects_verbose_and_quiet(capsys: pytest.CaptureFixture[str]) -> None:

@@ -8,13 +8,13 @@ from tests.conftest import skip_if_redis_version_below
 
 
 @pytest.fixture
-def index(multi_vector_data, redis_url, worker_id):
+def index(multi_vector_data, redis_url, redis_test_name):
 
     index = SearchIndex.from_dict(
         {
             "index": {
-                "name": f"user_index_{worker_id}",
-                "prefix": f"v1_{worker_id}",
+                "name": redis_test_name("user_index"),
+                "prefix": redis_test_name("v1"),
                 "storage_type": "hash",
             },
             "fields": [
@@ -59,8 +59,9 @@ def index(multi_vector_data, redis_url, worker_id):
         redis_url=redis_url,
     )
 
-    # create the index (no data yet)
-    index.create(overwrite=True)
+    # create the index (no data yet); drop any stale docs left by an
+    # interrupted earlier run sharing this worker's Redis database
+    index.create(overwrite=True, drop=True)
 
     # prepare and load the data
     def hash_preprocess(item: dict) -> dict:
@@ -95,6 +96,7 @@ def test_hybrid_query(index):
         vector=vector,
         vector_field_name=vector_field,
         return_fields=return_fields,
+        stopwords=None,
     )
 
     results = index.query(hybrid_query)
@@ -121,6 +123,7 @@ def test_hybrid_query(index):
         vector=vector,
         vector_field_name=vector_field,
         num_results=3,
+        stopwords=None,
     )
 
     results = index.query(hybrid_query)
@@ -176,6 +179,7 @@ def test_hybrid_query_with_filter(index):
         vector_field_name=vector_field,
         filter_expression=filter_expression,
         return_fields=return_fields,
+        stopwords=None,
     )
 
     results = index.query(hybrid_query)
@@ -202,6 +206,7 @@ def test_hybrid_query_with_geo_filter(index):
         vector_field_name=vector_field,
         filter_expression=filter_expression,
         return_fields=return_fields,
+        stopwords=None,
     )
 
     results = index.query(hybrid_query)
@@ -225,6 +230,7 @@ def test_hybrid_query_alpha(index, alpha):
         vector=vector,
         vector_field_name=vector_field,
         alpha=alpha,
+        stopwords=None,
     )
 
     results = index.query(hybrid_query)
@@ -290,6 +296,7 @@ def test_hybrid_query_with_text_filter(index):
         alpha=0.5,
         filter_expression=filter_expression,
         return_fields=["job", "description"],
+        stopwords=None,
     )
 
     results = index.query(hybrid_query)
@@ -308,6 +315,7 @@ def test_hybrid_query_with_text_filter(index):
         alpha=0.5,
         filter_expression=filter_expression,
         return_fields=["description"],
+        stopwords=None,
     )
 
     results = index.query(hybrid_query)
@@ -338,6 +346,7 @@ def test_hybrid_query_word_weights(index, scorer):
         return_fields=return_fields,
         text_scorer=scorer,
         text_weights=weights,
+        stopwords=None,
     )
 
     weighted_results = index.query(weighted_query)
@@ -352,6 +361,7 @@ def test_hybrid_query_word_weights(index, scorer):
         return_fields=return_fields,
         text_scorer=scorer,
         text_weights={},
+        stopwords=None,
     )
 
     unweighted_results = index.query(unweighted_query)
@@ -371,6 +381,7 @@ def test_hybrid_query_word_weights(index, scorer):
         return_fields=return_fields,
         text_scorer=scorer,
         text_weights=weights,
+        stopwords=None,
     )
 
     weighted_results = index.query(weighted_query)
@@ -385,6 +396,7 @@ def test_hybrid_query_word_weights(index, scorer):
         return_fields=return_fields,
         text_scorer=scorer,
         text_weights=None,
+        stopwords=None,
     )
 
     new_query.set_text_weights(weights)

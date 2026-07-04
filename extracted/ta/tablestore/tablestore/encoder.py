@@ -57,6 +57,7 @@ PRIMARY_KEY_TYPE_MAP = {
     'INTEGER'   : pb2.INTEGER,
     'STRING'    : pb2.STRING,
     'BINARY'    : pb2.BINARY,
+    'BOOLEAN'   : pb2.PK_BOOLEAN,
 }
 
 PRIMARY_KEY_OPTION_MAP = {

@@ -6,7 +6,7 @@ import pytest
 
 from pathlib import Path
 
-from sage.main import (
+from sage.cli_core import (
     _build_implementation_completion_nudge,
     _resolve_implementation_test_command,
     _suggest_target_paths_for_task,

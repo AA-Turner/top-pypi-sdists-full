@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-deep
-Version: 0.3.34
+Version: 0.3.35
 Summary: Batteries-included agent harness for Python — tool-calling, sandboxed execution, multi-agent teams, and unlimited context on Pydantic AI
 Project-URL: Homepage, https://github.com/vstorm-co/pydantic-deepagents
 Project-URL: Documentation, https://github.com/vstorm-co/pydantic-deepagents
@@ -45,6 +45,7 @@ Requires-Dist: prompt-toolkit>=3.0.0; extra == 'all'
 Requires-Dist: py-key-value-aio[disk]>=0.4.5; extra == 'all'
 Requires-Dist: pydantic-ai-backend[docker]>=0.2.15; extra == 'all'
 Requires-Dist: pydantic-ai-slim[anthropic,duckduckgo,openai,openrouter,web-fetch]>=2.0.0; extra == 'all'
+Requires-Dist: pydantic-ai-slim[google]>=2.0.0; extra == 'all'
 Requires-Dist: pydantic-ai-slim[mcp]>=2.0.0; extra == 'all'
 Requires-Dist: python-dotenv>=1.0.0; extra == 'all'
 Requires-Dist: python-multipart>=0.0.21; extra == 'all'
@@ -66,6 +67,8 @@ Requires-Dist: rich>=13.0.0; extra == 'cli'
 Requires-Dist: textual>=3.0.0; extra == 'cli'
 Requires-Dist: tomli>=2.0; (python_version < '3.11') and extra == 'cli'
 Requires-Dist: typer>=0.12.0; extra == 'cli'
+Provides-Extra: google
+Requires-Dist: pydantic-ai-slim[google]>=2.0.0; extra == 'google'
 Provides-Extra: liteparse
 Requires-Dist: liteparse>=0.1.0; extra == 'liteparse'
 Provides-Extra: logfire

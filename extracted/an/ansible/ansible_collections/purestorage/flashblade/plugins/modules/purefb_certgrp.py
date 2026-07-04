@@ -22,7 +22,7 @@ short_description: Manage FlashBlade Certifcate Groups
 description:
 - Manage certifcate groups for FlashBlades
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -81,9 +81,6 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
-)
 
 
 def delete_certgrp(module, blade):
@@ -108,7 +105,7 @@ def create_certgrp(module, blade):
         if res.sttaus_code != 200:
             module.fail_json(
                 msg="Failed to create certificate group {0}. Error: {1}".format(
-                    module.params["name"], get_error_message(res)
+                    module.params["name"], res.errors[0].message
                 )
             )
         if module.params["certificates"]:
@@ -120,7 +117,7 @@ def create_certgrp(module, blade):
                 blade.delete_certificate_groups(names=[module.params["name"]])
                 module.fail_json(
                     msg="Failed to add certifcates {0}. Error: {1}".format(
-                        module.params["certificates"], get_error_message(res)
+                        module.params["certificates"], res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -135,7 +132,7 @@ def update_certgrp(module, blade):
     if res.status_code != 200:
         module.fail_json(
             msg="Failed to get certifates list for group {0}. Error: {1}".format(
-                module.params["name"], get_error_message(res)
+                module.params["name"], res.errors[0].message
             )
         )
     certs = list(res.items)
@@ -150,15 +147,15 @@ def update_certgrp(module, blade):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to add certifcates {0}. Error: {1}".format(
-                            module.params["certificates"], get_error_message(res)
+                            module.params["certificates"], res.errors[0].message
                         )
                     )
     else:
         current = []
-        for cert in certs:
-            current.append(cert.member.name)
-        for new_cert in module.params["certificates"]:
-            certificate = new_cert
+        for cert in range(len(certs)):
+            current.append(certs[cert].member.name)
+        for new_cert in range(len(module.params["certificates"])):
+            certificate = module.params["certificates"][new_cert]
             if certificate in current:
                 if module.params["state"] == "absent":
                     changed = True
@@ -172,7 +169,7 @@ def update_certgrp(module, blade):
                                 msg="Failed to delete certifcate {0} from group {1}. Error: {2}".format(
                                     certificate,
                                     module.params["name"],
-                                    get_error_message(res),
+                                    res.errors[0].message,
                                 )
                             )
             else:
@@ -188,7 +185,7 @@ def update_certgrp(module, blade):
                                 msg="Failed to add certifcate {0} to group {1}. Error: {2}".format(
                                     certificate,
                                     module.params["name"],
-                                    get_error_message(res),
+                                    res.errors[0].message,
                                 )
                             )
     module.exit_json(changed=changed)

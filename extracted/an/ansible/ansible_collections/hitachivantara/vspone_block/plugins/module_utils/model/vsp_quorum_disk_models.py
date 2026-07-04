@@ -54,9 +54,9 @@ class ExtVolumeLocalInfoList(BaseDataClass):
 class ExternalPathInfo(SingleBaseClass):
     portId: str
     externalWwn: str
-    qDepth: Optional[str] = None
-    ioTimeOut: Optional[int] = None
-    blockedPathMonitoring: Optional[int] = None
+    qDepth: str
+    ioTimeOut: int
+    blockedPathMonitoring: int
 
 
 @dataclass

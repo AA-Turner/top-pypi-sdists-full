@@ -104,8 +104,10 @@ def _is_free(model: dict) -> bool:
     """True if both prompt + completion price are zero."""
     pricing = model.get("pricing", {})
     try:
-        prompt = float(pricing.get("prompt", "1") or "1")
-        completion = float(pricing.get("completion", "1") or "1")
+        p = pricing.get("prompt")
+        prompt = float(p if p not in (None, "") else "1")
+        c = pricing.get("completion")
+        completion = float(c if c not in (None, "") else "1")
     except (ValueError, TypeError):
         return False
     return prompt == 0 and completion == 0

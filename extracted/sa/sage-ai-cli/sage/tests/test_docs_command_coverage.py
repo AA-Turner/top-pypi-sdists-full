@@ -29,7 +29,7 @@ def docs_content() -> str:
 
 @pytest.fixture(scope="module")
 def sage_app():
-    from sage.main import app
+    from sage.cli_core import app
     return app
 
 

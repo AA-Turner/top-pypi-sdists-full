@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arraykit
-Version: 1.5.0
+Version: 1.6.0
 Summary: Array utilities for StaticFrame
 Author: Christopher Ariza, Brandt Bucher, Charles Burkland
 License: MIT
@@ -47,7 +47,7 @@ arraykit
 
 The ArrayKit library provides utilities for creating and transforming NumPy arrays, implementing performance-critical StaticFrame operations as Python C extensions.
 
-Code: https://github.com/InvestmentSystems/arraykit
+Code: https://github.com/static-frame/arraykit
 
 Packages: https://pypi.org/project/arraykit
 
@@ -63,6 +63,11 @@ ArrayKit requires the following:
 
 What is New in ArrayKit
 -------------------------
+
+1.6.0
+............
+Added ``factorize``.
+
 
 1.5.0
 ............

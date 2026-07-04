@@ -53,11 +53,6 @@ if ( $content ) {
 
 $do_comparison = $False
 
-$regExecutable = "$env:SystemRoot\System32\reg.exe"
-if (-not (Test-Path -LiteralPath $regExecutable)) {
-    Fail-Json -obj $result -message "reg.exe not found at expected location '$regExecutable'"
-}
-
 If ( $compare_to ) {
     $compare_to_key = $params.compare_to.ToString()
     If (Test-Path $compare_to_key -PathType container ) {
@@ -75,7 +70,7 @@ If ( $do_comparison -eq $True ) {
     $expanded_compare_key = Convert-RegistryPath ($compare_to_key)
 
     # export from the reg key location to a file
-    $reg_args = Argv-ToString -Arguments @($regExecutable, "EXPORT", $expanded_compare_key, $exported_path)
+    $reg_args = Argv-ToString -Arguments @("reg.exe", "EXPORT", $expanded_compare_key, $exported_path)
     $res = Run-Command -command $reg_args
     if ($res.rc -ne 0) {
         $result.rc = $res.rc
@@ -89,7 +84,7 @@ If ( $do_comparison -eq $True ) {
 
     If ($null -ne $comparison_result -and (Get-Member -InputObject $comparison_result -Name "count" -MemberType Properties )) {
         # Something is different, actually do reg merge
-        $reg_import_args = Argv-ToString -Arguments @($regExecutable, "IMPORT", $path)
+        $reg_import_args = Argv-ToString -Arguments @("reg.exe", "IMPORT", $path)
         $res = Run-Command -command $reg_import_args
         if ($res.rc -ne 0) {
             $result.rc = $res.rc
@@ -110,7 +105,7 @@ If ( $do_comparison -eq $True ) {
 }
 Else {
     # not comparing, merge and report changed
-    $reg_import_args = Argv-ToString -Arguments @($regExecutable, "IMPORT", $path)
+    $reg_import_args = Argv-ToString -Arguments @("reg.exe", "IMPORT", $path)
     $res = Run-Command -command $reg_import_args
     if ($res.rc -ne 0) {
         $result.rc = $res.rc

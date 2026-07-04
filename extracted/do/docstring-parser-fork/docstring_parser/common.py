@@ -82,6 +82,7 @@ class DocstringParam(DocstringMeta):
         type_name: T.Optional[str],
         is_optional: T.Optional[bool],
         default: T.Optional[str],
+        raw_type_name: T.Optional[str] = None,
     ) -> None:
         """Initialize self."""
         super().__init__(args, description)
@@ -89,6 +90,7 @@ class DocstringParam(DocstringMeta):
         self.type_name = type_name
         self.is_optional = is_optional
         self.default = default
+        self.raw_type_name = raw_type_name
 
 
 class DocstringAttr(DocstringMeta):
@@ -102,6 +104,7 @@ class DocstringAttr(DocstringMeta):
         type_name: T.Optional[str],
         is_optional: T.Optional[bool],
         default: T.Optional[str],
+        raw_type_name: T.Optional[str] = None,
     ) -> None:
         """Initialize self."""
         super().__init__(args, description)
@@ -109,6 +112,7 @@ class DocstringAttr(DocstringMeta):
         self.type_name = type_name
         self.is_optional = is_optional
         self.default = default
+        self.raw_type_name = raw_type_name
 
 
 class DocstringReturns(DocstringMeta):

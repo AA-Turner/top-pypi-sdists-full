@@ -312,7 +312,7 @@ def _did_analysis_fail_closed() -> bool:
 
 def _emit_grounded_analysis_failure(cwd: Path, detail: str) -> str:
     """Print/store a fail-closed analysis message once per request."""
-    from sage.main import _add_to_conversation_memory, _add_to_output_history, _build_grounded_analysis_failure_message
+    from sage.cli_core import _add_to_conversation_memory, _add_to_output_history, _build_grounded_analysis_failure_message
     fail_closed_message = _build_grounded_analysis_failure_message(detail)
     ctx = _get_execution_context()
     already_emitted = bool(
@@ -334,7 +334,7 @@ def _emit_grounded_analysis_failure(cwd: Path, detail: str) -> str:
 
 def _execute_read_command(file_path: str) -> str | None:
     """Execute a READ command and return content or None if failed."""
-    from sage.main import _add_session_file_read, _get_current_cwd
+    from sage.cli_core import _add_session_file_read, _get_current_cwd
     try:
         path = Path(file_path)
         if not path.exists():
@@ -468,7 +468,7 @@ def _execute_request_with_validation(
     Raises:
         Exception: If max retries exceeded or validation fails critically
     """
-    from sage.main import _detect_phantom_implementation, _detect_repetitive_filler, _detect_tool_description_vs_execution, _validate_analysis_response, _validate_implementation_response, _validate_tdd_compliance
+    from sage.cli_core import _detect_phantom_implementation, _detect_repetitive_filler, _detect_tool_description_vs_execution, _validate_analysis_response, _validate_implementation_response, _validate_tdd_compliance
     global _current_execution_context
 
     attempt = 0

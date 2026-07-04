@@ -25,7 +25,7 @@ class UsersClient:
 
     def get_info(self, *, request_options: typing.Optional[RequestOptions] = None) -> Session:
         """
-        Get the user session details for the currently authenticated user
+        Get the session details for the currently authenticated user.
 
         Parameters
         ----------
@@ -35,7 +35,7 @@ class UsersClient:
         Returns
         -------
         Session
-            Returns the user session details
+            Returns the user session details.
 
         Examples
         --------
@@ -68,7 +68,7 @@ class AsyncUsersClient:
 
     async def get_info(self, *, request_options: typing.Optional[RequestOptions] = None) -> Session:
         """
-        Get the user session details for the currently authenticated user
+        Get the session details for the currently authenticated user.
 
         Parameters
         ----------
@@ -78,7 +78,7 @@ class AsyncUsersClient:
         Returns
         -------
         Session
-            Returns the user session details
+            Returns the user session details.
 
         Examples
         --------

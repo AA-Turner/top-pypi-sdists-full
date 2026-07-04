@@ -96,7 +96,18 @@ from ._warnings import GamInferenceWarning, emit_inference_warnings
 from ._rust import adjudicate_atom_shape  # cross-class atom-shape adjudicator (Rust)
 from ._compare import compare_models
 from ._linear_dictionary import LinearDictionaryFit, linear_dictionary_fit
-from ._sparse_dictionary import SparseDictionaryFit, sparse_dictionary_fit
+from ._sparse_dictionary import (
+    BlockSparseDictStream,
+    BlockSparseDictionaryFit,
+    BlockSparseStreamArtifact,
+    SparseDictStream,
+    SparseDictStreamArtifact,
+    SparseDictionaryFit,
+    block_sparse_dictionary_fit,
+    block_sparse_dictionary_fit_begin,
+    sparse_dictionary_fit,
+    sparse_dictionary_fit_begin,
+)
 from ._penalties import (
     ARDPenalty,
     AnalyticPenaltyKind,
@@ -295,13 +306,17 @@ from ._sae_manifold import (
     ManifoldSAE,
     SaeManifoldAtomFit,
     SaeManifoldFitResult,
+    StagewiseAtom,
+    StagewiseSAE,
     featurize,
     fit as sae_fit,
+    flat_block_assignment,
     gumbel_geometric_schedule,
     gumbel_linear_schedule,
     gumbel_reciprocal_iter_schedule,
     plot,
     sae_manifold_fit,
+    sae_manifold_fit_stagewise,
 )
 from ._sae_viz import plot_atom, plot_fit
 from ._sae_trust import atom_trust_scores, sae_trust_diagnostics

@@ -742,24 +742,22 @@ class UnifiedRequestClassifier:
         # Determine output format
         result.output_format = self._determine_output_format(text_lower, result)
 
-        # Select pipeline
-        result.pipeline = self._select_pipeline(result)
-
         # Estimate complexity
         result.complexity = self._estimate_complexity(request, result)
+
+        # Extract file patterns and instructions
+        result.file_patterns = self._file_path_pattern.findall(request)
+        result.explicit_instructions = self._extract_instructions(request)
+
+        # Select pipeline
+        result.pipeline = self._select_pipeline(result)
 
         # Extract languages and frameworks
         result.languages = self._detect_languages(text_lower)
         result.frameworks = self._detect_frameworks(text_lower)
 
-        # Extract file patterns
-        result.file_patterns = self._file_path_pattern.findall(request)
-
         # Check for priority ranking requirement
         result.priority_ranking_required = bool(self._priority_pattern.search(text_lower))
-
-        # Extract explicit instructions
-        result.explicit_instructions = self._extract_instructions(request)
 
         # Set code requirement
         result.must_include_code = result.request_type in (
@@ -811,7 +809,7 @@ class UnifiedRequestClassifier:
             if scores.get(req_type, 0) == max_score:
                 return req_type
 
-        return RequestType.ANALYSIS
+        return RequestType.ANALYSIS  # pragma: no cover
 
     def _determine_output_format(self, text: str, result: ClassificationResult) -> OutputFormat:
         """Determine expected output format."""

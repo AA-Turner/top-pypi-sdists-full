@@ -284,6 +284,88 @@ async def test_read_table_workspace_allowlist_blocks(ctx_patch) -> None:
 
 
 # ---------------------------------------------------------------------------
+# read_table — as_of (time-travel)
+# ---------------------------------------------------------------------------
+
+
+async def test_read_table_with_as_of_passes_to_service(mock_ctx, ctx_patch) -> None:
+    """read_table parses as_of ISO-8601 and threads the datetime to the service."""
+    from datetime import datetime  # noqa: PLC0415
+
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    item = make_item_entry()
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=item)
+    mock_read = AsyncMock(return_value=ResultSet(columns=["id"], rows=[(1,)]))
+
+    with (
+        ctx_patch,
+        patch("fabric_dw.services.tables.read_table", new=mock_read),
+    ):
+        await mcp._tool_manager.call_tool(
+            "read_table",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.sales",
+                "as_of": "2024-03-15T10:30:00",
+            },
+        )
+
+    _, kwargs = mock_read.call_args
+    assert kwargs.get("as_of") is not None
+    assert isinstance(kwargs["as_of"], datetime)
+
+
+async def test_read_table_without_as_of_passes_none(mock_ctx, ctx_patch) -> None:
+    """read_table without as_of calls the service with as_of=None."""
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    item = make_item_entry()
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=item)
+    mock_read = AsyncMock(return_value=ResultSet(columns=["id"], rows=[(1,)]))
+
+    with (
+        ctx_patch,
+        patch("fabric_dw.services.tables.read_table", new=mock_read),
+    ):
+        await mcp._tool_manager.call_tool(
+            "read_table",
+            {"workspace": WS_NAME, "item": WH_NAME, "qualified_name": "dbo.sales"},
+        )
+
+    _, kwargs = mock_read.call_args
+    assert kwargs.get("as_of") is None
+
+
+async def test_read_table_invalid_as_of_raises_tool_error(mock_ctx, ctx_patch) -> None:
+    """read_table raises ToolError when as_of is not a valid ISO-8601 string."""
+    from mcp.server.fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    item = make_item_entry()
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=item)
+
+    with (
+        ctx_patch,
+        pytest.raises(ToolError),
+    ):
+        await mcp._tool_manager.call_tool(
+            "read_table",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.sales",
+                "as_of": "not-a-date",
+            },
+        )
+
+
+# ---------------------------------------------------------------------------
 # delete_table — happy-path return path (line 163)
 # NOTE: SQL-endpoint guard tested in test_server.py — not duplicated here.
 # ---------------------------------------------------------------------------
@@ -660,6 +742,90 @@ async def test_count_table_rows_bad_qualified_name_raises_tool_error(ctx_patch) 
 
 
 # ---------------------------------------------------------------------------
+# count_table_rows — as_of (time-travel)
+# ---------------------------------------------------------------------------
+
+
+async def test_count_table_rows_with_as_of_passes_to_service(mock_ctx, ctx_patch) -> None:
+    """count_table_rows parses as_of ISO-8601 and threads the datetime to the service."""
+    from datetime import datetime  # noqa: PLC0415
+
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    item = make_item_entry()
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=item)
+    mock_count = AsyncMock(
+        return_value=TableRowCount(schema_name="dbo", name="sales", row_count=10)
+    )
+
+    with (
+        ctx_patch,
+        patch("fabric_dw.services.tables.count_table_rows", new=mock_count),
+    ):
+        await mcp._tool_manager.call_tool(
+            "count_table_rows",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.sales",
+                "as_of": "2024-03-15T10:30:00",
+            },
+        )
+
+    _, kwargs = mock_count.call_args
+    assert kwargs.get("as_of") is not None
+    assert isinstance(kwargs["as_of"], datetime)
+
+
+async def test_count_table_rows_without_as_of_passes_none(mock_ctx, ctx_patch) -> None:
+    """count_table_rows without as_of calls the service with as_of=None."""
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    item = make_item_entry()
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=item)
+    mock_count = AsyncMock(return_value=TableRowCount(schema_name="dbo", name="sales", row_count=0))
+
+    with (
+        ctx_patch,
+        patch("fabric_dw.services.tables.count_table_rows", new=mock_count),
+    ):
+        await mcp._tool_manager.call_tool(
+            "count_table_rows",
+            {"workspace": WS_NAME, "item": WH_NAME, "qualified_name": "dbo.sales"},
+        )
+
+    _, kwargs = mock_count.call_args
+    assert kwargs.get("as_of") is None
+
+
+async def test_count_table_rows_invalid_as_of_raises_tool_error(mock_ctx, ctx_patch) -> None:
+    """count_table_rows raises ToolError when as_of is not a valid ISO-8601 string."""
+    from mcp.server.fastmcp.exceptions import ToolError  # noqa: PLC0415
+
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    item = make_item_entry()
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=item)
+
+    with (
+        ctx_patch,
+        pytest.raises(ToolError),
+    ):
+        await mcp._tool_manager.call_tool(
+            "count_table_rows",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.sales",
+                "as_of": "not-a-date",
+            },
+        )
+
+
+# ---------------------------------------------------------------------------
 # get_cluster_columns — happy path, empty result, SQL endpoint guard, error funnel
 # ---------------------------------------------------------------------------
 
@@ -983,4 +1149,134 @@ async def test_get_table_health_metrics_warehouse_raises_tool_error(mock_ctx, ct
         await mcp._tool_manager.call_tool(
             "get_table_health_metrics",
             {"workspace": WS_NAME, "item": WH_NAME, "qualified_name": "dbo.FactSales"},
+        )
+
+
+# ---------------------------------------------------------------------------
+# transfer_table
+# ---------------------------------------------------------------------------
+
+
+async def test_transfer_table_happy_path(mock_ctx, ctx_patch) -> None:
+    """transfer_table resolves item, calls the service, and returns the moved Table dict."""
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    moved = _make_table(schema="archive", name="sales")
+    item = make_item_entry()
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=item)
+    mock_transfer = AsyncMock(return_value=moved)
+
+    with (
+        ctx_patch,
+        patch("fabric_dw.services.tables.transfer_table", new=mock_transfer),
+        patch.dict(os.environ, {"FABRIC_MCP_WRITES": "true"}),
+    ):
+        result = await mcp._tool_manager.call_tool(
+            "transfer_table",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.sales",
+                "target_schema": "archive",
+            },
+        )
+
+    mock_transfer.assert_called_once()
+    args, kwargs = mock_transfer.call_args
+    # service is called positionally: target, qualified_name, target_schema
+    assert args[1] == "dbo.sales"
+    assert args[2] == "archive"
+    assert kwargs["kind"] == item.kind
+    assert result["name"] == "sales"
+    assert result["schema_name"] == "archive"
+
+
+async def test_transfer_table_readonly_blocked(mock_ctx, ctx_patch) -> None:
+    """transfer_table raises ToolError when FABRIC_MCP_READONLY is set."""
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=make_item_entry())
+
+    with (
+        ctx_patch,
+        patch.dict(os.environ, {"FABRIC_MCP_READONLY": "1"}),
+        pytest.raises(ToolError, match="read-only"),
+    ):
+        await mcp._tool_manager.call_tool(
+            "transfer_table",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.sales",
+                "target_schema": "archive",
+            },
+        )
+
+
+async def test_transfer_table_sql_endpoint_raises_tool_error(mock_ctx, ctx_patch) -> None:
+    """transfer_table raises ToolError when the item is a SQL Analytics Endpoint."""
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    mock_ctx.resolver.workspace_id = AsyncMock(return_value=WS_ID)
+    mock_ctx.resolver.item = AsyncMock(return_value=make_sql_endpoint_entry())
+
+    with (
+        ctx_patch,
+        patch.dict(os.environ, {"FABRIC_MCP_WRITES": "true"}),
+        pytest.raises(ToolError) as exc_info,
+    ):
+        await mcp._tool_manager.call_tool(
+            "transfer_table",
+            {
+                "workspace": WS_NAME,
+                "item": "MySqlEndpoint",
+                "qualified_name": "dbo.sales",
+                "target_schema": "archive",
+            },
+        )
+
+    assert "read-only" in str(exc_info.value).lower()
+
+
+async def test_transfer_table_undotted_qualified_name_raises_tool_error(
+    mock_ctx,  # noqa: ARG001
+    ctx_patch,
+) -> None:
+    """transfer_table must raise ToolError immediately for an undotted qualified_name."""
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    with (
+        ctx_patch,
+        pytest.raises(ToolError, match="qualified name"),
+    ):
+        await mcp._tool_manager.call_tool(
+            "transfer_table",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "nodot",
+                "target_schema": "archive",
+            },
+        )
+
+
+async def test_transfer_table_workspace_allowlist_blocks(ctx_patch) -> None:
+    """transfer_table raises ToolError when workspace is not in FABRIC_MCP_WORKSPACES."""
+    from fabric_dw.mcp.server import mcp  # noqa: PLC0415
+
+    with (
+        ctx_patch,
+        patch.dict(os.environ, {"FABRIC_MCP_WORKSPACES": "other-workspace"}),
+        pytest.raises(ToolError, match="allowlist"),
+    ):
+        await mcp._tool_manager.call_tool(
+            "transfer_table",
+            {
+                "workspace": WS_NAME,
+                "item": WH_NAME,
+                "qualified_name": "dbo.sales",
+                "target_schema": "archive",
+            },
         )

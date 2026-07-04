@@ -1639,6 +1639,20 @@ fn sae_atom_basis_kind_from_str(value: &str) -> SaeAtomBasisKind {
         // QUADRATIC patch `{1, t, t²}`. `"euclidean_quadratic_patch"` is accepted
         // as an explicit synonym so callers can name the quadratic patch honestly.
         "linear" | "linear_rank1" | "affine" => SaeAtomBasisKind::Linear,
+        // #BSF — `"linear_block"` is a BSF block expressed AS a manifold-SAE atom:
+        // γ_g(t) = t·D_g with an orthonormal decoder frame D_g and block-level
+        // (norm-selection or separate-gate) gating. Mathematically it IS the
+        // `Linear` degree-1 patch (the honest encoding of "BSF ⊂ ManifoldSAE" is a
+        // frame + gating CONFIG on the linear atom, not a new basis type), so it
+        // maps to `SaeAtomBasisKind::Linear` for construction/evidence; the
+        // `"linear_block"` label is preserved by the gamfit facade so an artifact
+        // fitted as linear_block round-trips as linear_block (not linear). A
+        // first-class `LinearBlock` enum variant was DEFERRED deliberately: it
+        // would force exhaustive-match edits across ~10 manifold/ files (a large,
+        // then-unverifiable, collision-prone change) for a type-level distinction
+        // the frame+gating config already carries. Do NOT "simplify" this alias
+        // away — it is load-bearing for the executable BSF-subset claim.
+        "linear_block" | "flat_block" => SaeAtomBasisKind::Linear,
         "euclidean" | "euclidean_patch" | "euclidean_quadratic_patch" => {
             SaeAtomBasisKind::EuclideanPatch
         }
@@ -2112,9 +2126,15 @@ fn row_metric_from_fisher_provenance(
         "output_fisher_downstream" => {
             gam::inference::row_metric::RowMetric::output_fisher_downstream(u, p_out, rank)
         }
+        // Rung 1: the same output-Fisher factors, but installed as the
+        // reconstruction *likelihood weight* (GLS in nats) rather than a
+        // gauge-only metric. `rank` is the probe count `s` of the sketch.
+        "behavioral_fisher" => {
+            gam::inference::row_metric::RowMetric::behavioral_fisher(u, p_out, rank)
+        }
         other => Err(format!(
-            "fisher_provenance must be 'output_fisher' or 'output_fisher_downstream'; \
-             got {other:?}"
+            "fisher_provenance must be 'output_fisher', 'output_fisher_downstream', or \
+             'behavioral_fisher'; got {other:?}"
         )),
     }
     .map_err(py_value_error)
@@ -2131,6 +2151,7 @@ fn metric_provenance_label(
         MetricProvenance::Euclidean => "Euclidean",
         MetricProvenance::OutputFisher { .. } => "OutputFisher",
         MetricProvenance::OutputFisherDownstream { .. } => "OutputFisherDownstream",
+        MetricProvenance::BehavioralFisher { .. } => "BehavioralFisher",
         MetricProvenance::WhitenedStructured { .. } => "WhitenedStructured",
     }
 }
@@ -2141,14 +2162,14 @@ fn metric_provenance_label(
 /// pathological value cannot spin the alternation unboundedly.
 const STRUCTURED_RESIDUAL_PASSES_MAX: usize = 4;
 
-
 /// #2021 — fit the structured residual-covariance model on `term`'s
 /// post-dictionary residuals and return it (the driver then materializes the
 /// damped per-row metric via [`StructuredResidualModel::row_metric_damped`],
 /// holding the returned model as the next pass's damping anchor). `Ok(None)`
-/// when there is no factor subspace to mine (single-channel residuals) or the
-/// evidence fit degenerates — the caller then stops the alternation and keeps
-/// the current (iid or prior-pass) metric.
+/// ONLY when there is no factor subspace to mine (fewer than two output
+/// channels) — the caller then stops the alternation and keeps the current (iid
+/// or prior-pass) metric. A genuine evidence-fit failure is returned as `Err`,
+/// not silently degraded to `Ok(None)`.
 ///
 /// Residuals `R = target − term.fitted()`; the activity coordinate the scale law
 /// `c(z)` is smooth in is the per-row total assignment mass — the same
@@ -2188,9 +2209,16 @@ fn sae_structured_residual_model(
         max_factor_rank,
     }) {
         Ok(m) => Ok(Some(m)),
-        // Total numeric path: a degenerate residual yields no usable model; keep
-        // the prior-pass geometry.
-        Err(_) => Ok(None),
+        // Propagate a genuine fit failure instead of swallowing it (#2070/#2021).
+        // The only benign "nothing to mine" case — fewer than two output channels
+        // — is already handled by the early `Ok(None)` above, and the evidence
+        // ladder always scores at least rank 0, so every error reaching here is a
+        // real breakdown (non-finite residuals/activity, a dimension mismatch, or
+        // an inner-alternation numerical failure). Accepting-on-any-error would
+        // silently degrade to prior-pass geometry and hide the failure; surface it.
+        Err(e) => Err(py_value_error(format!(
+            "sae_structured_residual_model: structured residual-covariance fit failed: {e}"
+        ))),
     }
 }
 
@@ -2237,6 +2265,8 @@ fn sae_structured_residual_model(
     ibp_alpha_override = None,
     structured_residual_passes = 0,
     promote_from_residual = false,
+    run_structure_search = true,
+    run_outer_rho_search = true,
     quotient_scale = false,
     data_row_reseed = false,
 ))]
@@ -2289,6 +2319,8 @@ fn sae_manifold_fit<'py>(
     // passes (default 0 = historical iid-only path, bit-for-bit).
     structured_residual_passes: usize,
     promote_from_residual: bool,
+    run_structure_search: bool,
+    run_outer_rho_search: bool,
     quotient_scale: bool,
     data_row_reseed: bool,
 ) -> PyResult<Py<PyDict>> {
@@ -2346,9 +2378,415 @@ fn sae_manifold_fit<'py>(
         ibp_alpha_override,
         structured_residual_passes,
         promote_from_residual,
+        run_structure_search,
+        run_outer_rho_search,
         quotient_scale,
         data_row_reseed,
     )
+}
+
+/// Structural string tag for a fitted atom's basis kind (the discrete topology
+/// identity the SAC payload exposes). Exhaustive over [`SaeAtomBasisKind`] so a
+/// new topology surfaces as a compile error rather than a silent mislabel.
+fn stagewise_basis_kind_tag(kind: &SaeAtomBasisKind) -> &'static str {
+    match kind {
+        SaeAtomBasisKind::Duchon => "duchon",
+        SaeAtomBasisKind::Periodic => "periodic",
+        SaeAtomBasisKind::Sphere => "sphere",
+        SaeAtomBasisKind::Torus => "torus",
+        SaeAtomBasisKind::Cylinder => "cylinder",
+        SaeAtomBasisKind::Linear => "linear",
+        SaeAtomBasisKind::EuclideanPatch => "euclidean_patch",
+        SaeAtomBasisKind::Poincare => "poincare",
+        SaeAtomBasisKind::Precomputed(_) => "precomputed",
+    }
+}
+
+fn stagewise_birth_kind_tag(kind: gam::terms::sae::manifold::BirthKind) -> &'static str {
+    match kind {
+        gam::terms::sae::manifold::BirthKind::NewAtom => "new_atom",
+        gam::terms::sae::manifold::BirthKind::ChartExtension => "chart_extension",
+    }
+}
+
+fn stagewise_event_kind_tag(kind: gam::terms::sae::manifold::StagewiseEventKind) -> &'static str {
+    match kind {
+        gam::terms::sae::manifold::StagewiseEventKind::SeedReady => "seed_ready",
+        gam::terms::sae::manifold::StagewiseEventKind::BirthRoundStarted => "birth_round_started",
+        gam::terms::sae::manifold::StagewiseEventKind::ResidualModelStarted => {
+            "residual_model_started"
+        }
+        gam::terms::sae::manifold::StagewiseEventKind::ResidualModelFitted => {
+            "residual_model_fitted"
+        }
+        gam::terms::sae::manifold::StagewiseEventKind::CurrentEvidenceStarted => {
+            "current_evidence_started"
+        }
+        gam::terms::sae::manifold::StagewiseEventKind::CurrentEvidenceFinished => {
+            "current_evidence_finished"
+        }
+        gam::terms::sae::manifold::StagewiseEventKind::CandidateStarted => "candidate_started",
+        gam::terms::sae::manifold::StagewiseEventKind::CandidateFinished => "candidate_finished",
+        gam::terms::sae::manifold::StagewiseEventKind::BirthAccepted => "birth_accepted",
+        gam::terms::sae::manifold::StagewiseEventKind::BirthRejected => "birth_rejected",
+        gam::terms::sae::manifold::StagewiseEventKind::BackfitSweepStarted => {
+            "backfit_sweep_started"
+        }
+        gam::terms::sae::manifold::StagewiseEventKind::BackfitSweepAccepted => {
+            "backfit_sweep_accepted"
+        }
+        gam::terms::sae::manifold::StagewiseEventKind::BackfitSweepRejected => {
+            "backfit_sweep_rejected"
+        }
+        gam::terms::sae::manifold::StagewiseEventKind::TerminalEvidenceCompleted => {
+            "terminal_evidence_completed"
+        }
+    }
+}
+
+fn stagewise_atoms_py<'py>(
+    py: Python<'py>,
+    term: &gam::terms::sae::manifold::SaeManifoldTerm,
+) -> PyResult<Bound<'py, PyList>> {
+    let assignments = term.assignment.assignments();
+    let atoms_py = PyList::empty(py);
+    for atom_idx in 0..term.k_atoms() {
+        let atom = &term.atoms[atom_idx];
+        let atom_dict = PyDict::new(py);
+        atom_dict.set_item(
+            "decoder_B",
+            atom.decoder_coefficients.clone().into_pyarray(py),
+        )?;
+        atom_dict.set_item("basis_kind", stagewise_basis_kind_tag(&atom.basis_kind))?;
+        atom_dict.set_item("latent_dim", atom.latent_dim)?;
+        atom_dict.set_item(
+            "on_atom_coords_t",
+            term.assignment.coords[atom_idx]
+                .as_matrix()
+                .into_pyarray(py),
+        )?;
+        atom_dict.set_item(
+            "assignments_z",
+            assignments.column(atom_idx).to_owned().into_pyarray(py),
+        )?;
+        atoms_py.append(atom_dict)?;
+    }
+    Ok(atoms_py)
+}
+
+fn stagewise_checkpoint_py<'py>(
+    py: Python<'py>,
+    term: &gam::terms::sae::manifold::SaeManifoldTerm,
+    rho: &SaeManifoldRho,
+) -> PyResult<Bound<'py, PyDict>> {
+    let checkpoint = PyDict::new(py);
+    checkpoint.set_item("k_final", term.k_atoms())?;
+    checkpoint.set_item("atoms", stagewise_atoms_py(py, term)?)?;
+    checkpoint.set_item("logits", term.assignment.logits.clone().into_pyarray(py))?;
+    checkpoint.set_item("log_lambda_sparse", rho.log_lambda_sparse)?;
+    checkpoint.set_item(
+        "log_lambda_smooth",
+        Array1::from(rho.log_lambda_smooth.clone()).into_pyarray(py),
+    )?;
+    let log_ard_py = PyList::empty(py);
+    for atom_log_ard in &rho.log_ard {
+        log_ard_py.append(atom_log_ard.clone().into_pyarray(py))?;
+    }
+    checkpoint.set_item("log_ard", log_ard_py)?;
+    Ok(checkpoint)
+}
+
+fn stagewise_progress_py<'py>(
+    py: Python<'py>,
+    event: &gam::terms::sae::manifold::StagewiseProgress<'_>,
+) -> PyResult<Py<PyDict>> {
+    let out = PyDict::new(py);
+    out.set_item("event", stagewise_event_kind_tag(event.event))?;
+    out.set_item("birth_round", event.birth_round)?;
+    out.set_item("backfit_sweep", event.backfit_sweep)?;
+    out.set_item("candidate", event.candidate.map(stagewise_birth_kind_tag))?;
+    out.set_item("accepted", event.accepted)?;
+    out.set_item("checkpoint_available", event.checkpoint)?;
+    out.set_item("k", event.k_atoms)?;
+    out.set_item("births_accepted", event.births_accepted)?;
+    out.set_item("births_rejected", event.births_rejected)?;
+    out.set_item("ev", event.ev)?;
+    out.set_item("factor_energy", event.factor_energy)?;
+    out.set_item("joint_reml_before", event.joint_reml_before)?;
+    out.set_item("joint_reml_after", event.joint_reml_after)?;
+    out.set_item("terminal_joint_reml", event.terminal_joint_reml)?;
+    if event.checkpoint {
+        out.set_item(
+            "checkpoint",
+            stagewise_checkpoint_py(py, event.term, event.rho)?,
+        )?;
+    } else {
+        out.set_item("checkpoint", py.None())?;
+    }
+    Ok(out.unbind())
+}
+
+/// SAC — Sequential Atom Composition entry. Grows a curved dictionary from a
+/// single K=1 seed atom by forward-stagewise births + backfitting, then reports
+/// the terminal frozen joint evidence. This is the productionised
+/// [`fit_stagewise`](gam::terms::sae::manifold::fit_stagewise) driver behind a
+/// thin FFI: the seed arrays are the K=1 slice of [`sae_manifold_fit`]'s
+/// precomputed-basis inputs (every array leads with a length-1 atom axis). The
+/// returned payload is compact — the composed per-atom dictionary, the
+/// by-construction-monotone EV traces, the birth ledger, and the terminal joint
+/// REML — enough for the SAC prototype to reconstruct and score. ρ is fixed at the
+/// dispersion-scaled seed (the outer EFS cascade is the caller's job); the
+/// stagewise driver is monotone at that ρ by construction.
+#[pyfunction(signature = (
+    z,
+    atom_basis,
+    atom_dim,
+    basis_values,
+    basis_jacobian,
+    basis_sizes,
+    decoder_coefficients,
+    smooth_penalties,
+    initial_logits,
+    initial_coords,
+    alpha,
+    tau,
+    learnable_alpha,
+    assignment_kind,
+    sparsity_strength = 0.0,
+    smoothness = 1.0,
+    max_iter = 64,
+    learning_rate = 1.0,
+    ridge_ext_coord = 1.0e-6,
+    ridge_beta = 1.0e-6,
+    max_births = 32,
+    max_backfit_sweeps = 4,
+    min_effect_ev = 0.0,
+    max_factor_rank = 4,
+    structured_whitening = true,
+    row_loss_weights = None,
+    progress_callback = None,
+))]
+fn sae_manifold_fit_stagewise<'py>(
+    py: Python<'py>,
+    z: PyReadonlyArray2<'py, f64>,
+    atom_basis: Vec<String>,
+    atom_dim: Vec<usize>,
+    basis_values: PyReadonlyArray3<'py, f64>,
+    basis_jacobian: PyReadonlyArray4<'py, f64>,
+    basis_sizes: Vec<usize>,
+    decoder_coefficients: PyReadonlyArray3<'py, f64>,
+    smooth_penalties: PyReadonlyArray3<'py, f64>,
+    initial_logits: PyReadonlyArray2<'py, f64>,
+    initial_coords: PyReadonlyArray3<'py, f64>,
+    alpha: f64,
+    tau: f64,
+    learnable_alpha: bool,
+    assignment_kind: String,
+    sparsity_strength: f64,
+    smoothness: f64,
+    max_iter: usize,
+    learning_rate: f64,
+    ridge_ext_coord: f64,
+    ridge_beta: f64,
+    max_births: usize,
+    max_backfit_sweeps: usize,
+    min_effect_ev: f64,
+    max_factor_rank: usize,
+    structured_whitening: bool,
+    row_loss_weights: Option<PyReadonlyArray1<'py, f64>>,
+    progress_callback: Option<PyObject>,
+) -> PyResult<Py<PyDict>> {
+    let assignment_kind = canonicalize_assignment_kind(&assignment_kind).map_err(py_value_error)?;
+    let z_view = z.as_array();
+    let (n_obs, p_out) = z_view.dim();
+    if n_obs == 0 || p_out == 0 {
+        return Err(py_value_error(
+            "sae_manifold_fit_stagewise requires a non-empty (N, p) response".to_string(),
+        ));
+    }
+    if atom_basis.len() != 1 || atom_dim.len() != 1 || basis_sizes.len() != 1 {
+        return Err(py_value_error(format!(
+            "sae_manifold_fit_stagewise requires a single-atom (K=1) seed; got atom_basis={}, \
+             atom_dim={}, basis_sizes={}",
+            atom_basis.len(),
+            atom_dim.len(),
+            basis_sizes.len()
+        )));
+    }
+    if max_iter < 1 {
+        return Err(py_value_error(
+            "sae_manifold_fit_stagewise requires max_iter >= 1".to_string(),
+        ));
+    }
+    let d0 = atom_dim[0];
+    let coords_view = initial_coords.as_array();
+    if coords_view.shape().first().copied() != Some(1)
+        || coords_view.shape().get(1).copied() != Some(n_obs)
+        || coords_view.shape().get(2).copied().map(|dmax| d0 <= dmax) != Some(true)
+    {
+        return Err(py_value_error(format!(
+            "sae_manifold_fit_stagewise: initial_coords must be (1, {n_obs}, D_max>={d0}); got {:?}",
+            coords_view.shape()
+        )));
+    }
+    let coord_blocks = vec![coords_view.slice(s![0, 0..n_obs, 0..d0]).to_owned()];
+    let basis_kinds = vec![sae_atom_basis_kind_from_str(&atom_basis[0])];
+    let atom_centers: Vec<Option<Array2<f64>>> = vec![None];
+    let evaluators = build_sae_basis_evaluators(
+        &basis_kinds,
+        &basis_sizes,
+        &atom_dim,
+        &coord_blocks,
+        &atom_centers,
+    )
+    .map_err(py_value_error)?;
+    let mode = match assignment_kind.as_str() {
+        "softmax" => AssignmentMode::softmax(tau),
+        "ibp_map" => AssignmentMode::ibp_map(tau, alpha, learnable_alpha),
+        "threshold_gate" => AssignmentMode::threshold_gate(tau, 0.0),
+        other => {
+            return Err(py_value_error(format!(
+                "sae_manifold_fit_stagewise: assignment_kind must be softmax/ibp_map/threshold_gate; \
+                 got {other}"
+            )));
+        }
+    };
+    let base_term = term_from_padded_blocks_with_mode(
+        n_obs,
+        p_out,
+        &basis_kinds,
+        basis_values.as_array(),
+        basis_jacobian.as_array(),
+        &basis_sizes,
+        &atom_dim,
+        decoder_coefficients.as_array(),
+        smooth_penalties.as_array(),
+        initial_logits.as_array(),
+        &coord_blocks,
+        mode,
+        &evaluators,
+    )
+    .map_err(py_value_error)?;
+    // `0.0` sparsity/smoothness is the canonical "term disabled" baseline; floor
+    // to a tiny positive sentinel before the log so log-ρ stays finite (mirrors
+    // sae_manifold_fit; #184 sparsity, #2090 smoothness).
+    const SPARSITY_DISABLED_FLOOR: f64 = 1.0e-300;
+    let sparsity_strength = if sparsity_strength <= 0.0 {
+        SPARSITY_DISABLED_FLOOR
+    } else {
+        sparsity_strength
+    };
+    let smoothness = if smoothness <= 0.0 {
+        SPARSITY_DISABLED_FLOOR
+    } else {
+        smoothness
+    };
+    let seed_dispersion = base_term
+        .seed_reconstruction_dispersion(z_view)
+        .map_err(py_value_error)?;
+    let init_rho = SaeManifoldRho::new(
+        sparsity_strength.ln(),
+        smoothness.ln(),
+        vec![Array1::<f64>::zeros(d0)],
+    )
+    .seed_scaled_by_dispersion_for_assignment(seed_dispersion, mode)
+    .map_err(py_value_error)?;
+
+    let weights: Option<Vec<f64>> = row_loss_weights.as_ref().map(|w| w.as_array().to_vec());
+    let config = gam::terms::sae::manifold::StagewiseConfig {
+        inner_max_iter: max_iter,
+        learning_rate,
+        ridge_ext_coord,
+        ridge_beta,
+        max_births,
+        max_backfit_sweeps,
+        min_effect_ev,
+        max_factor_rank,
+        structured_whitening,
+    };
+    let mut progress_callback = progress_callback.map(|callback| {
+        move |event: gam::terms::sae::manifold::StagewiseProgress<'_>| -> Result<(), String> {
+            Python::attach(|py| {
+                let payload = stagewise_progress_py(py, &event).map_err(|err| err.to_string())?;
+                callback
+                    .call1(py, (payload,))
+                    .map_err(|err| err.to_string())?;
+                Ok(())
+            })
+        }
+    });
+    let progress_hook: Option<&mut gam::terms::sae::manifold::StagewiseProgressCallback<'_>> =
+        progress_callback.as_mut().map(|callback| {
+            callback as &mut gam::terms::sae::manifold::StagewiseProgressCallback<'_>
+        });
+    let result = gam::terms::sae::manifold::fit_stagewise(
+        base_term,
+        init_rho,
+        z_view,
+        None,
+        weights.as_deref(),
+        &config,
+        progress_hook,
+    )
+    .map_err(py_value_error)?;
+
+    let term = result.term;
+    let rho = result.rho;
+    let report = result.report;
+    let k_final = term.k_atoms();
+
+    let atoms_py = stagewise_atoms_py(py, &term)?;
+
+    let births_py = PyList::empty(py);
+    for rec in &report.birth_records {
+        let d = PyDict::new(py);
+        d.set_item("kind", stagewise_birth_kind_tag(rec.kind))?;
+        d.set_item("delta_ev", rec.delta_ev)?;
+        d.set_item("factor_energy", rec.factor_energy)?;
+        d.set_item("joint_reml_before", rec.joint_reml_before)?;
+        d.set_item("joint_reml_after", rec.joint_reml_after)?;
+        d.set_item("accepted", rec.accepted)?;
+        births_py.append(d)?;
+    }
+
+    let stopped_reason = match report.stopped_reason {
+        gam::terms::sae::manifold::StagewiseStop::TwoConsecutiveRejections => {
+            "two_consecutive_rejections"
+        }
+        gam::terms::sae::manifold::StagewiseStop::MaxBirths => "max_births",
+        gam::terms::sae::manifold::StagewiseStop::NoResidualStructure => "no_residual_structure",
+    };
+
+    let log_ard_py = PyList::empty(py);
+    for atom_log_ard in &rho.log_ard {
+        log_ard_py.append(atom_log_ard.clone().into_pyarray(py))?;
+    }
+
+    let out = PyDict::new(py);
+    out.set_item("k_final", k_final)?;
+    out.set_item("births_accepted", report.births_accepted)?;
+    out.set_item("births_rejected", report.births_rejected)?;
+    out.set_item("stopped_reason", stopped_reason)?;
+    out.set_item("terminal_joint_reml", report.terminal_joint_reml)?;
+    out.set_item("terminal_data_fit", report.terminal_joint_loss.data_fit)?;
+    out.set_item(
+        "ev_trace",
+        Array1::from(report.ev_trace.clone()).into_pyarray(py),
+    )?;
+    out.set_item(
+        "backfit_ev_trace",
+        Array1::from(report.backfit_ev_trace.clone()).into_pyarray(py),
+    )?;
+    out.set_item("logits", term.assignment.logits.clone().into_pyarray(py))?;
+    out.set_item("atoms", atoms_py)?;
+    out.set_item("birth_records", births_py)?;
+    out.set_item("log_ard", log_ard_py)?;
+    out.set_item(
+        "log_lambda_smooth",
+        Array1::from(rho.log_lambda_smooth.clone()).into_pyarray(py),
+    )?;
+    out.set_item("log_lambda_sparse", rho.log_lambda_sparse)?;
+    Ok(out.unbind())
 }
 
 fn sae_manifold_fit_inner<'py>(
@@ -2413,6 +2851,8 @@ fn sae_manifold_fit_inner<'py>(
     // env lever.
     structured_residual_passes: usize,
     promote_from_residual: bool,
+    run_structure_search: bool,
+    run_outer_rho_search: bool,
     quotient_scale: bool,
     data_row_reseed: bool,
 ) -> PyResult<Py<PyDict>> {
@@ -2495,7 +2935,6 @@ fn sae_manifold_fit_inner<'py>(
     for (name, value) in [
         ("alpha", alpha),
         ("tau", tau),
-        ("smoothness", smoothness),
         ("learning_rate", learning_rate),
         ("ridge_ext_coord", ridge_ext_coord),
         ("ridge_beta", ridge_beta),
@@ -2512,10 +2951,19 @@ fn sae_manifold_fit_inner<'py>(
     // resulting `lambda_sparse = exp(log(SPARSITY_DISABLED_FLOOR))` is
     // numerically equivalent to zero relative to the data-fit Hessian for
     // any realistic problem scale. Negatives, infinities, and NaN remain
-    // rejected.
+    // rejected. `smoothness == 0.0` gets the identical treatment (#2090):
+    // every other penalty weight in the public facade uses zero to disable
+    // its term, and the docstring already declares smoothness_weight
+    // "non-negative"; both weights only seed the outer REML cascade's
+    // log-rho, so the floor keeps that parametrisation finite.
     if !sparsity_strength.is_finite() || sparsity_strength < 0.0 {
         return Err(py_value_error(format!(
             "sparsity_strength must be finite and non-negative; got {sparsity_strength}"
+        )));
+    }
+    if !smoothness.is_finite() || smoothness < 0.0 {
+        return Err(py_value_error(format!(
+            "smoothness must be finite and non-negative; got {smoothness}"
         )));
     }
     const SPARSITY_DISABLED_FLOOR: f64 = 1.0e-300;
@@ -2523,6 +2971,11 @@ fn sae_manifold_fit_inner<'py>(
         SPARSITY_DISABLED_FLOOR
     } else {
         sparsity_strength
+    };
+    let smoothness = if smoothness == 0.0 {
+        SPARSITY_DISABLED_FLOOR
+    } else {
+        smoothness
     };
 
     let basis_values_shape = basis_values.shape().to_vec();
@@ -2876,13 +3329,6 @@ fn sae_manifold_fit_inner<'py>(
     // multistart insurance: the PCA projection lands each row in the decisive
     // basin and EFS refines the per-atom penalties from there. seed_budget=1 +
     // max_seeds=1 collapses the cascade to the single initial ρ.
-    let problem = gam::solver::rho_optimizer::OuterProblem::new(n_params)
-        .with_initial_rho(init_rho_flat)
-        .with_seed_config(gam::solver::seeding::SeedConfig {
-            max_seeds: 1,
-            seed_budget: 1,
-            ..Default::default()
-        });
     // #1388: the outer ρ cascade drives a SERIAL per-row jet loop
     // (`logdet_theta_adjoint` → `row_jets_for_logdet` → `gate_tower`) that builds
     // `Tower4<16>` derivative towers — each carries a `t4` channel of 16⁴ doubles
@@ -2898,19 +3344,26 @@ fn sae_manifold_fit_inner<'py>(
     // config — no borrowed Python views), so a *scoped* thread can borrow them
     // without a `'static` bound and is guaranteed to join before they drop.
     const SAE_FIT_WORKER_STACK_SIZE: usize = 512 << 20;
-    // gam#1026: bound the whole SAE manifold fit so the K>=2 outer search returns
-    // its best-so-far iterate instead of livelocking in a collapsed, near-singular
-    // basin. Cleared on every exit path so a stale deadline never leaks to a
-    // later fit on the same process.
-    const SAE_FIT_MAX_SECONDS: f64 = 1800.0;
-    gam::solver::rho_optimizer::arm_outer_wall_clock_deadline(
-        std::time::Instant::now() + std::time::Duration::from_secs_f64(SAE_FIT_MAX_SECONDS),
-    );
     let fit_scope_result = std::thread::scope(|scope| -> PyResult<()> {
         let worker = std::thread::Builder::new()
             .name("gam-sae-fit".to_string())
             .stack_size(SAE_FIT_WORKER_STACK_SIZE)
-            .spawn_scoped(scope, || problem.run(&mut objective, "SAE manifold"))
+            .spawn_scoped(scope, || {
+                if run_outer_rho_search {
+                    let problem = gam::solver::rho_optimizer::OuterProblem::new(n_params)
+                        .with_initial_rho(init_rho_flat.clone())
+                        .with_seed_config(gam::solver::seeding::SeedConfig {
+                            max_seeds: 1,
+                            seed_budget: 1,
+                            ..Default::default()
+                        });
+                    problem.run(&mut objective, "SAE manifold").map(|_| ())
+                } else {
+                    objective
+                        .fit_at_fixed_rho(init_rho_flat.view())
+                        .map_err(gam::model_types::EstimationError::RemlOptimizationFailed)
+                }
+            })
             .map_err(|err| {
                 py_value_error(format!("sae_manifold_fit: spawn fit worker thread: {err}"))
             })?;
@@ -2922,7 +3375,6 @@ fn sae_manifold_fit_inner<'py>(
             )),
         }
     });
-    gam::solver::rho_optimizer::clear_outer_wall_clock_deadline();
     fit_scope_result?;
     // Posterior shape uncertainty: per-atom φ-scaled decoder covariance and
     // ambient bands, read off the converged joint-Hessian Schur factor at the
@@ -2961,8 +3413,7 @@ fn sae_manifold_fit_inner<'py>(
     // builds a genuine WhitenedStructured blend).
     let structured_passes = structured_residual_passes.min(STRUCTURED_RESIDUAL_PASSES_MAX);
     if structured_passes > 0 && metric_provenance == "Euclidean" {
-        let mut prev_model: Option<gam::inference::residual_factor::StructuredResidualModel> =
-            None;
+        let mut prev_model: Option<gam::inference::residual_factor::StructuredResidualModel> = None;
         // #2021 Λ nursery→promotion (evidence-gated). Accumulate residual-factor
         // directions that PERSIST across passes (producer
         // `StructuredResidualModel::promotion_candidates`: energy above the
@@ -3016,10 +3467,6 @@ fn sae_manifold_fit_inner<'py>(
                     seed_budget: 1,
                     ..Default::default()
                 });
-            gam::solver::rho_optimizer::arm_outer_wall_clock_deadline(
-                std::time::Instant::now()
-                    + std::time::Duration::from_secs_f64(SAE_FIT_MAX_SECONDS),
-            );
             let pass_result = std::thread::scope(|scope| -> PyResult<()> {
                 let worker = std::thread::Builder::new()
                     .name("gam-sae-fit-structured".to_string())
@@ -3041,7 +3488,6 @@ fn sae_manifold_fit_inner<'py>(
                     )),
                 }
             });
-            gam::solver::rho_optimizer::clear_outer_wall_clock_deadline();
             pass_result?;
             // Refresh shape bands + fitted state from the FINAL pass objective
             // (decoder_shape_uncertainty must be read before `into_fitted`).
@@ -3177,6 +3623,9 @@ fn sae_manifold_fit_inner<'py>(
     // from the final post-search per-atom inner fits (below).
     let mut structure_changed = false;
     let structure_search_json = 'structure: {
+        if !run_structure_search {
+            break 'structure None;
+        }
         // #1026 — structure search is a post-fit DISCOVERY pass: each round refits
         // the full dictionary over ALL N rows, so its cost is ~(moves·rounds)
         // full-dictionary refits. At large user-fixed K it is intractable (dozens
@@ -3523,6 +3972,25 @@ fn sae_manifold_fit_inner<'py>(
                 .as_matrix()
                 .into_pyarray(py),
         )?;
+        // #2081 — the honest arc-length coordinate `u_arc = s(t_i)/L` alongside
+        // the raw (gauge-arbitrary) `on_atom_coords_t`. Pulled from the
+        // coordinate-fidelity certificate the fit diagnostics just built, so it
+        // reflects the FINAL reported chart regardless of whether the mutating
+        // canonicalization committed. `None` for atoms without a d=1 chart or a
+        // degenerate chart (verdict `degenerate`) — a coordinate consumer must
+        // then read the certificate `verdict` and refuse rather than substitute
+        // the raw `t` as if it were an angle.
+        match fit_diagnostics
+            .coordinate_fidelity
+            .get(atom_idx)
+            .and_then(|entry| entry.as_ref())
+            .and_then(|fid| fid.coords_u_arc.as_ref())
+        {
+            Some(u_arc) => {
+                atom_dict.set_item("on_atom_coords_u_arc", u_arc.clone().into_pyarray(py))?
+            }
+            None => atom_dict.set_item("on_atom_coords_u_arc", py.None())?,
+        }
         atom_dict.set_item(
             "assignments_z",
             assignments.column(atom_idx).to_owned().into_pyarray(py),
@@ -3701,6 +4169,15 @@ fn sae_manifold_fit_inner<'py>(
         "atom_inference",
         sae_atom_inference_list(py, &fit_diagnostics.atom_inference)?,
     )?;
+    // #2081 — per-atom chart coordinate-fidelity certificate: the circular
+    // coordinate-uniformity statistic (Watson U² + closed-form p-value) against
+    // the atom's invariant measure, and the arc-length (unit-speed) defect of the
+    // chart parameterization. Always present (one entry per atom); reconstruction
+    // EV does not certify coordinate quality.
+    out.set_item(
+        "coordinate_fidelity",
+        sae_coordinate_fidelity_dict(py, &fit_diagnostics.coordinate_fidelity)?,
+    )?;
     // #16 — ONE coherent certificate ledger. Every certificate this fit produced
     // implements the shared claim+evidence+conservative-verdict contract
     // ([`gam::inference::certificates::Certificate`]); the ledger folds them into
@@ -3715,6 +4192,11 @@ fn sae_manifold_fit_inner<'py>(
         use gam::inference::certificates::CertificateLedger;
         let mut ledger = CertificateLedger::new();
         ledger.record(&fit_diagnostics.residual_gauge);
+        let coordinate_fidelity_certificate =
+            gam::terms::sae::manifold::CoordinateFidelityCertificate::new(
+                &fit_diagnostics.coordinate_fidelity,
+            );
+        ledger.record(&coordinate_fidelity_certificate);
         if let Some(report) = &fit_diagnostics.incoherence_report {
             ledger.record(report);
         }
@@ -4241,6 +4723,71 @@ fn sae_curvature_report_dict<'py>(
     Ok(d)
 }
 
+/// #2081 — build the result-dict entry for the per-atom coordinate-fidelity
+/// certificate: the circular coordinate-uniformity statistic (Watson U² +
+/// closed-form asymptotic p-value) against the atom's invariant measure, and the
+/// arc-length (unit-speed) defect of the chart parameterization. One per-atom
+/// entry in atom order; atoms without a `d = 1` circle/interval chart carry a
+/// null `topology`.
+fn sae_coordinate_fidelity_dict<'py>(
+    py: Python<'py>,
+    fidelity: &[Option<gam::terms::sae::manifold::AtomCoordinateFidelity>],
+) -> PyResult<Bound<'py, PyDict>> {
+    let d = PyDict::new(py);
+    d.set_item(
+        "note",
+        "SAE per-atom coordinate-fidelity certificate (#2081). `uniformity_statistic` \
+         is Watson's U² of the fitted d=1 coordinate against the atom's uniform \
+         invariant measure (rotation/reflection invariant); `uniformity_p_value` is its \
+         closed-form asymptotic null p-value (small => coordinates flagged non-uniform). \
+         `arclength_defect` is the speed coefficient-of-variation of the decoded curve on \
+         a uniform latent grid (0 => arc-length / unit-speed chart; positive => the \
+         parameterization squishes arc length, which reconstruction EV cannot see). \
+         `verdict` is the certified reading rule: `arclength_honest` (read the raw \
+         `on_atom_coords_t`), `recoverable_via_arclength` (read `coords_u_arc` instead — \
+         the raw chart squishes arc length but the honest coordinate is recoverable), or \
+         `degenerate` (the chart collapses; refuse — no faithful coordinate exists). \
+         `certified` is `verdict != degenerate`. `coords_u_arc` is the honest arc-length \
+         coordinate s(t_i)/L in [0,1) for every fitted row (a pure read, computed \
+         regardless of whether the decoder-mutating canonicalization committed); \
+         `raw_arclength_defect_{rms,max}` is the (circular) raw-vs-`u_arc` distance at the \
+         data rows after best O(2) gauge alignment; `min_speed_over_mean` / \
+         `max_speed_over_mean` / `log_speed_rms` summarize the decoder-speed profile. \
+         Entries with null `topology` carry no d=1 chart.",
+    )?;
+    let atoms = PyList::empty(py);
+    for (atom_idx, entry) in fidelity.iter().enumerate() {
+        let a = PyDict::new(py);
+        a.set_item("atom", atom_idx)?;
+        match entry {
+            Some(fid) => {
+                a.set_item("topology", fid.topology)?;
+                a.set_item("uniformity_statistic", fid.uniformity_statistic)?;
+                a.set_item("uniformity_p_value", fid.uniformity_p_value)?;
+                a.set_item("arclength_defect", fid.arclength_defect)?;
+                a.set_item("n_coords", fid.n_coords)?;
+                a.set_item("verdict", fid.verdict.label())?;
+                a.set_item("certified", fid.certified)?;
+                match &fid.coords_u_arc {
+                    Some(u) => a.set_item("coords_u_arc", u.clone().into_pyarray(py))?,
+                    None => a.set_item("coords_u_arc", py.None())?,
+                }
+                a.set_item("raw_arclength_defect_rms", fid.raw_arclength_defect_rms)?;
+                a.set_item("raw_arclength_defect_max", fid.raw_arclength_defect_max)?;
+                a.set_item("min_speed_over_mean", fid.min_speed_over_mean)?;
+                a.set_item("max_speed_over_mean", fid.max_speed_over_mean)?;
+                a.set_item("log_speed_rms", fid.log_speed_rms)?;
+            }
+            None => {
+                a.set_item("topology", py.None())?;
+            }
+        }
+        atoms.append(a)?;
+    }
+    d.set_item("atoms", atoms)?;
+    Ok(d)
+}
+
 /// Build the result-dict entry for the curved-dictionary incoherence/curvature
 /// certificate inputs (#1008). This is a measurement payload only; it deliberately
 /// does not include a certified/uncertified verdict.
@@ -4381,6 +4928,8 @@ fn sae_manifold_fit_ibp<'py>(
         // opt-in above is left inert here (the primary `sae_manifold_fit` /
         // `sae_manifold_fit_minimal` entry points carry the typed kwargs).
         false,
+        true,
+        true,
         false,
         false,
     )
@@ -6274,6 +6823,8 @@ fn sae_build_atom_plans(
     ibp_alpha_override = None,
     structured_residual_passes = 0,
     promote_from_residual = false,
+    run_structure_search = true,
+    run_outer_rho_search = true,
     quotient_scale = false,
     data_row_reseed = false,
 ))]
@@ -6323,6 +6874,8 @@ fn sae_manifold_fit_minimal<'py>(
     // passes (default 0 = historical iid-only path, bit-for-bit).
     structured_residual_passes: usize,
     promote_from_residual: bool,
+    run_structure_search: bool,
+    run_outer_rho_search: bool,
     quotient_scale: bool,
     data_row_reseed: bool,
 ) -> PyResult<Py<PyDict>> {
@@ -6602,6 +7155,8 @@ fn sae_manifold_fit_minimal<'py>(
         ibp_alpha_override,
         structured_residual_passes,
         promote_from_residual,
+        run_structure_search,
+        run_outer_rho_search,
         quotient_scale,
         data_row_reseed,
     )?;
@@ -6942,7 +7497,6 @@ fn sae_manifold_predict_oos<'py>(
     for (name, value) in [
         ("alpha", alpha),
         ("tau", tau),
-        ("smoothness", smoothness),
         ("learning_rate", learning_rate),
         ("ridge_ext_coord", ridge_ext_coord),
         ("ridge_beta", ridge_beta),
@@ -6958,11 +7512,23 @@ fn sae_manifold_predict_oos<'py>(
             "sae_manifold_predict_oos: sparsity_strength must be finite and non-negative; got {sparsity_strength}"
         )));
     }
+    // Zero disables the term (#184 sparsity / #2090 smoothness): floor to a
+    // tiny positive sentinel so the log-rho parametrisation stays finite.
+    if !smoothness.is_finite() || smoothness < 0.0 {
+        return Err(py_value_error(format!(
+            "sae_manifold_predict_oos: smoothness must be finite and non-negative; got {smoothness}"
+        )));
+    }
     const SPARSITY_DISABLED_FLOOR: f64 = 1.0e-300;
     let sparsity_strength = if sparsity_strength == 0.0 {
         SPARSITY_DISABLED_FLOOR
     } else {
         sparsity_strength
+    };
+    let smoothness = if smoothness == 0.0 {
+        SPARSITY_DISABLED_FLOOR
+    } else {
+        smoothness
     };
 
     let mode = match assignment_kind.as_str() {
@@ -7236,6 +7802,238 @@ fn sae_manifold_predict_oos<'py>(
     )?;
     out.set_item("chosen_k", k_atoms)?;
     Ok(out.unbind())
+}
+
+/// (#1010) A frozen-dictionary Kantorovich-certified encode atlas, exposed to
+/// Python. Built once over a fitted SAE dictionary; [`Self::certified_encode`]
+/// then runs the per-atom certified batch and returns the per-row `h ≤ ½`
+/// Newton–Kantorovich certificate flag — the honesty signal an amortized encoder
+/// reads INSTEAD of a cold exact multi-start probe per row
+/// (`ManifoldSAE._oos_payload`). Uncertified rows are flagged so the caller still
+/// routes them to the exact fallback; no approximation enters silently.
+#[pyclass(name = "SaeEncodeAtlas", unsendable)]
+pub struct PySaeEncodeAtlas {
+    atlas: gam::terms::sae::encode::EncodeAtlas,
+    atoms: Vec<gam::terms::sae::manifold::SaeManifoldAtom>,
+    latent_dims: Vec<usize>,
+}
+
+#[pymethods]
+impl PySaeEncodeAtlas {
+    /// Number of atoms the atlas covers.
+    #[getter]
+    fn k_atoms(&self) -> usize {
+        self.atoms.len()
+    }
+
+    /// Per-atom latent dimensionalities.
+    #[getter]
+    fn latent_dims(&self) -> Vec<usize> {
+        self.latent_dims.clone()
+    }
+
+    /// Certified encode of `x` `(N, p)` against atom `atom_index`, at the fixed
+    /// per-row `amplitudes` `(N,)`. Returns `{coords (N, d), certified (N,) bool,
+    /// n_uncertified, latent_dim}`. `certified[i]` is the row's `h ≤ ½`
+    /// certificate; a `False` row must be routed to the exact fallback
+    /// (`ManifoldSAE.converged_latents`) — the honesty gate.
+    #[pyo3(signature = (x, amplitudes, atom_index))]
+    fn certified_encode<'py>(
+        &self,
+        py: Python<'py>,
+        x: PyReadonlyArray2<'py, f64>,
+        amplitudes: PyReadonlyArray1<'py, f64>,
+        atom_index: usize,
+    ) -> PyResult<Py<PyDict>> {
+        if atom_index >= self.atoms.len() {
+            return Err(py_value_error(format!(
+                "SaeEncodeAtlas.certified_encode: atom_index {atom_index} out of range (K={})",
+                self.atoms.len()
+            )));
+        }
+        let targets = x.as_array();
+        let amps = amplitudes.as_array();
+        if amps.len() != targets.nrows() {
+            return Err(py_value_error(format!(
+                "SaeEncodeAtlas.certified_encode: amplitudes length {} != rows {}",
+                amps.len(),
+                targets.nrows()
+            )));
+        }
+        let result = self
+            .atlas
+            .certified_encode_batch(&self.atoms[atom_index], atom_index, targets, amps)
+            .map_err(py_value_error)?;
+        let out = PyDict::new(py);
+        out.set_item("coords", result.coords.into_pyarray(py))?;
+        out.set_item("certified", result.certified)?;
+        out.set_item("n_uncertified", result.encode_uncertified_count)?;
+        out.set_item("latent_dim", self.latent_dims[atom_index])?;
+        Ok(out.unbind())
+    }
+
+    /// Decode recovered latent `coords` `(N, d)` back through atom `atom_index`'s
+    /// frozen basis + decoder, scaled per row by `amplitudes`: `x̂ = z·Φ(t)·B`.
+    /// The ambient-space companion to [`Self::certified_encode`], so a caller can
+    /// compare a certified encode's reconstruction against the exact fitted
+    /// reconstruction without touching the coordinate gauge.
+    #[pyo3(signature = (coords, amplitudes, atom_index))]
+    fn reconstruct<'py>(
+        &self,
+        py: Python<'py>,
+        coords: PyReadonlyArray2<'py, f64>,
+        amplitudes: PyReadonlyArray1<'py, f64>,
+        atom_index: usize,
+    ) -> PyResult<Py<PyArray2<f64>>> {
+        if atom_index >= self.atoms.len() {
+            return Err(py_value_error(format!(
+                "SaeEncodeAtlas.reconstruct: atom_index {atom_index} out of range (K={})",
+                self.atoms.len()
+            )));
+        }
+        let atom = &self.atoms[atom_index];
+        let coords_view = coords.as_array();
+        let amps = amplitudes.as_array();
+        if coords_view.nrows() != amps.len() {
+            return Err(py_value_error(format!(
+                "SaeEncodeAtlas.reconstruct: coords rows {} != amplitudes length {}",
+                coords_view.nrows(),
+                amps.len()
+            )));
+        }
+        let evaluator = atom.basis_evaluator.as_ref().ok_or_else(|| {
+            py_value_error("SaeEncodeAtlas.reconstruct: atom has no evaluator".into())
+        })?;
+        let (phi, _jet) = evaluator.evaluate(coords_view).map_err(py_value_error)?;
+        let mut recon = phi.dot(&atom.decoder_coefficients);
+        for i in 0..recon.nrows() {
+            let z = amps[i];
+            let mut row = recon.row_mut(i);
+            row.map_inplace(|v| *v *= z);
+        }
+        Ok(recon.into_pyarray(py).unbind())
+    }
+}
+
+/// (#1010) Build a Kantorovich-certified [`PySaeEncodeAtlas`] over a fitted SAE
+/// dictionary. `decoder_blocks[k]` is atom `k`'s frozen `(M_k, p)` decoder;
+/// `amplitude_bounds[k]` bounds `|z_k|` and `target_norm_bound` bounds `‖x‖` over
+/// the encode data. Both scale the offline Hessian-Lipschitz constant `L`, so a
+/// larger bound only SHRINKS the certified radius — it can never issue a false
+/// certificate. Precomputed bases (no analytic second jet) are rejected: they
+/// have no closed-form `L` and must route to the exact encode.
+#[pyfunction(signature = (
+    basis_kinds,
+    atom_dims,
+    decoder_blocks,
+    duchon_centers,
+    basis_sizes,
+    amplitude_bounds,
+    target_norm_bound,
+    grid_resolution = 32,
+    ridge = 1.0e-10,
+    newton_steps = 8,
+))]
+fn build_sae_encode_atlas<'py>(
+    basis_kinds: Vec<String>,
+    atom_dims: Vec<usize>,
+    decoder_blocks: Vec<PyReadonlyArray2<'py, f64>>,
+    duchon_centers: Vec<Option<PyReadonlyArray2<'py, f64>>>,
+    basis_sizes: Vec<usize>,
+    amplitude_bounds: Vec<f64>,
+    target_norm_bound: f64,
+    grid_resolution: usize,
+    ridge: f64,
+    newton_steps: usize,
+) -> PyResult<PySaeEncodeAtlas> {
+    let k_atoms = basis_kinds.len();
+    if k_atoms == 0 {
+        return Err(py_value_error(
+            "build_sae_encode_atlas: dictionary must have at least one atom".into(),
+        ));
+    }
+    if atom_dims.len() != k_atoms
+        || decoder_blocks.len() != k_atoms
+        || duchon_centers.len() != k_atoms
+        || basis_sizes.len() != k_atoms
+        || amplitude_bounds.len() != k_atoms
+    {
+        return Err(py_value_error(format!(
+            "build_sae_encode_atlas: per-atom metadata lengths must all equal K={k_atoms}"
+        )));
+    }
+    let kinds: Vec<SaeAtomBasisKind> = basis_kinds
+        .iter()
+        .map(|s| sae_atom_basis_kind_from_str(s))
+        .collect();
+    let centers: Vec<Option<Array2<f64>>> = duchon_centers
+        .iter()
+        .map(|c| c.as_ref().map(|arr| arr.as_array().to_owned()))
+        .collect();
+    // Per-atom seed coordinate (origin): the atom's stored basis values are only
+    // placeholders — the certified encode re-evaluates Φ(t) through the live
+    // evaluator — so a single valid coordinate satisfies `SaeManifoldAtom::new`.
+    let coord_blocks: Vec<Array2<f64>> = atom_dims
+        .iter()
+        .map(|&d| Array2::<f64>::zeros((1, d.max(1))))
+        .collect();
+    let evaluators =
+        build_sae_basis_evaluators(&kinds, &basis_sizes, &atom_dims, &coord_blocks, &centers)
+            .map_err(py_value_error)?;
+    let mut atoms: Vec<gam::terms::sae::manifold::SaeManifoldAtom> = Vec::with_capacity(k_atoms);
+    let mut latent_dims: Vec<usize> = Vec::with_capacity(k_atoms);
+    for k in 0..k_atoms {
+        let d = atom_dims[k];
+        let evaluator = evaluators[k].clone().ok_or_else(|| {
+            py_value_error(format!(
+                "build_sae_encode_atlas: atom {k} basis has no analytic second-jet evaluator; \
+                 cannot certify (precomputed bases route to the exact encode)"
+            ))
+        })?;
+        let (seed_phi, seed_jet) = evaluator
+            .evaluate(coord_blocks[k].view())
+            .map_err(py_value_error)?;
+        let m = seed_phi.ncols();
+        let decoder = decoder_blocks[k].as_array().to_owned();
+        if decoder.nrows() != m {
+            return Err(py_value_error(format!(
+                "build_sae_encode_atlas: decoder_blocks[{k}] has M={} but the rebuilt basis has \
+                 M={m}; basis_kinds / atom_dims / basis_sizes / duchon_centers must match the \
+                 trained design",
+                decoder.nrows()
+            )));
+        }
+        let atom = gam::terms::sae::manifold::SaeManifoldAtom::new(
+            format!("atom{k}"),
+            kinds[k].clone(),
+            d,
+            seed_phi,
+            seed_jet,
+            decoder,
+            Array2::<f64>::eye(m),
+        )
+        .map_err(py_value_error)?
+        .with_basis_second_jet(evaluator);
+        atoms.push(atom);
+        latent_dims.push(d);
+    }
+    let config = gam::terms::sae::encode::AtlasConfig {
+        grid_resolution,
+        ridge,
+        newton_steps,
+    };
+    let atlas = gam::terms::sae::encode::EncodeAtlas::build(
+        &atoms,
+        &amplitude_bounds,
+        target_norm_bound,
+        config,
+    )
+    .map_err(py_value_error)?;
+    Ok(PySaeEncodeAtlas {
+        atlas,
+        atoms,
+        latent_dims,
+    })
 }
 
 /// Compute a steering plan with output dosimetry for a fitted SAE-manifold atom

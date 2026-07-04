@@ -427,6 +427,15 @@ class SaeManifoldAtomFit:
     shape_band_mean: np.ndarray | None = None
     shape_band_sd: np.ndarray | None = None
     functional_evidence: dict[str, Any] | None = None
+    # #2081 — the honest arc-length coordinate ``u_arc = s(t_i)/L in [0, 1)`` for
+    # every training row, the gauge-fixed complement to the raw ``coords`` (which
+    # are chart-arbitrary: reconstruction EV cannot certify them). Present for a
+    # ``d = 1`` circle/interval atom whose chart is non-degenerate; ``None`` for
+    # higher-d atoms or a collapsed chart (see the coordinate-fidelity
+    # ``verdict``). Downstream angle/dose/adjacency claims should read this, not
+    # ``coords``, unless the certificate verdict is ``arclength_honest``. Use
+    # :meth:`ManifoldSAE.atom_angle_coordinate` for the certificate-gated reader.
+    coords_u_arc: np.ndarray | None = None
 
 
 @dataclass(slots=True)
@@ -541,6 +550,14 @@ class ManifoldSAE:
     # geometry summary. A curvature bound is not an estimand with a profiled
     # criterion, so no SE/CI/flatness fields are carried.
     curvature_report: dict[str, Any] | None = None
+    # Per-atom chart coordinate-fidelity certificate (#2081). ``atoms[k]`` carries
+    # the circular coordinate-uniformity statistic (Watson U² + closed-form
+    # p-value) of the fitted d=1 coordinate against the atom's uniform invariant
+    # measure, plus the arc-length (unit-speed) defect of the chart
+    # parameterization. Reconstruction EV does not certify coordinate quality;
+    # this reports it. Atoms without a d=1 circle/interval chart carry a null
+    # ``topology``.
+    coordinate_fidelity: dict[str, Any] | None = None
     # Per-atom smooth-functional inference (#1097 / #1103): one entry per fitted
     # atom, ``{"atom_index": int, "atom_name": str, "functionals": {...} | None,
     # "smooth_significance": {"log_e_nonconstant": float | None} | None}``. The
@@ -757,6 +774,7 @@ class ManifoldSAE:
                 shape_band_mean=shape_band_mean,
                 shape_band_sd=shape_band_sd,
                 functional_evidence=functional_evidence,
+                coords_u_arc=_opt_arr(atom, "on_atom_coords_u_arc"),
             ))
         fitted = np.asarray(payload["fitted"], dtype=float)
         assigns = np.asarray(payload["assignments_z"], dtype=float)
@@ -859,6 +877,11 @@ class ManifoldSAE:
                 None
                 if payload.get("curvature_report") is None
                 else dict(payload["curvature_report"])
+            ),
+            coordinate_fidelity=(
+                None
+                if payload.get("coordinate_fidelity") is None
+                else dict(payload["coordinate_fidelity"])
             ),
             atom_inference_reports=atom_inference_reports,
             certificates=(
@@ -1053,6 +1076,91 @@ class ManifoldSAE:
             )
         return dict(rows[k])
 
+    def coordinate_fidelity_report(self) -> list[dict[str, Any]]:
+        """Per-atom chart coordinate-fidelity certificate (#2081).
+
+        Returns one record per atom. An atom with a ``d = 1`` circle/interval
+        chart carries ``{"atom": int, "topology": "circle" | "interval",
+        "uniformity_statistic": float, "uniformity_p_value": float,
+        "arclength_defect": float, "n_coords": int}``:
+
+        * ``uniformity_statistic`` is Watson's ``U²`` of the fitted coordinate
+          against the atom's uniform invariant measure (rotation/reflection
+          invariant), and ``uniformity_p_value`` its closed-form asymptotic null
+          p-value — small values flag a materially non-uniform coordinate.
+        * ``arclength_defect`` is the speed coefficient-of-variation of the
+          decoded curve on a uniform latent grid: ``0`` is an arc-length
+          (unit-speed) chart, and a positive value means the parameterization
+          squishes arc length — the failure reconstruction EV cannot see.
+        * ``verdict`` is the certified reading rule — ``"arclength_honest"``
+          (read the raw ``coords``), ``"recoverable_via_arclength"`` (read
+          ``coords_u_arc`` instead), or ``"degenerate"`` (refuse; the chart
+          collapses) — and ``certified`` is ``verdict != "degenerate"``. Use
+          :meth:`atom_angle_coordinate` for the gated reader.
+        * ``coords_u_arc`` is the honest arc-length coordinate ``s(t_i)/L`` in
+          ``[0, 1)`` for every fitted row (a pure read, computed regardless of
+          whether the decoder-mutating canonicalization committed), or ``None``
+          for a degenerate chart. ``raw_arclength_defect_rms`` /
+          ``raw_arclength_defect_max`` measure the raw-vs-``u_arc`` distance at
+          the data rows after best gauge alignment, and ``min_speed_over_mean`` /
+          ``max_speed_over_mean`` / ``log_speed_rms`` summarize the speed profile.
+
+        Atoms without a ``d = 1`` chart carry a null ``topology``.
+        """
+        if self.coordinate_fidelity is None:
+            raise ValueError(
+                "this fitted model carries no SAE coordinate-fidelity report; refit to obtain one"
+            )
+        return [dict(atom) for atom in self.coordinate_fidelity.get("atoms", [])]
+
+    def atom_coordinate_fidelity(self, atom: int) -> dict[str, Any]:
+        """Coordinate-fidelity certificate record for one atom (#2081)."""
+        k = self._atom_index(atom)
+        rows = self.coordinate_fidelity_report()
+        if k >= len(rows):
+            raise ValueError(
+                f"coordinate-fidelity report has {len(rows)} atom rows but model has "
+                f"{len(self.atoms)} atoms"
+            )
+        return dict(rows[k])
+
+    def atom_angle_coordinate(self, atom: int) -> np.ndarray:
+        """The certificate-gated honest coordinate for one ``d = 1`` atom (#2081).
+
+        Returns the arc-length coordinate ``u_arc = s(t_i)/L in [0, 1)`` — the
+        gauge-fixed reading of the atom's manifold — for every training row. This
+        is the coordinate every angle / dose-in-nats / adjacency claim should
+        consume, because reconstruction EV provably does NOT certify the raw
+        latent coordinate (a chart can reconstruct its ring at high EV while
+        reading a squished, non-uniform angle).
+
+        The reader is gated on the coordinate-fidelity ``verdict``:
+
+        * ``arclength_honest`` — the raw chart is already arc-length; ``coords``
+          and ``coords_u_arc`` agree up to gauge. Returns ``coords_u_arc``.
+        * ``recoverable_via_arclength`` — the raw chart squishes arc length but
+          the honest coordinate is recoverable. Returns ``coords_u_arc``.
+        * ``degenerate`` — the chart collapses (the decoded speed vanishes
+          somewhere), so no faithful coordinate exists. **Raises** rather than
+          hand back an arbitrary chart.
+
+        Raises ``ValueError`` for an atom without a ``d = 1`` chart or without a
+        coordinate-fidelity certificate (refit to obtain one).
+        """
+        record = self.atom_coordinate_fidelity(atom)
+        if record.get("topology") is None:
+            raise ValueError(
+                f"atom {atom} has no d=1 circle/interval chart; no angle coordinate is defined"
+            )
+        verdict = record.get("verdict")
+        if verdict == "degenerate" or record.get("coords_u_arc") is None:
+            raise ValueError(
+                f"atom {atom} chart is degenerate (verdict={verdict!r}); the decoded curve "
+                "collapses, so no faithful angle coordinate exists — refusing rather than "
+                "returning an arbitrary chart"
+            )
+        return np.asarray(record["coords_u_arc"], dtype=float)
+
     def shape_uncertainty(self, atom: int = 0, *, n_sd: float = 1.96) -> dict[str, np.ndarray]:
         """Posterior ambient shape uncertainty for one atom.
 
@@ -1179,6 +1287,59 @@ class ManifoldSAE:
             x.shape == td.shape
             and x.dtype == td.dtype
             and np.array_equal(x, td)
+        )
+
+    def build_encode_atlas(
+        self,
+        *,
+        amplitude_bounds: Any | None = None,
+        target_norm_bound: float | None = None,
+        grid_resolution: int = 32,
+        ridge: float = 1.0e-10,
+        newton_steps: int = 8,
+    ) -> Any:
+        """Build the frozen-dictionary Kantorovich-certified encode atlas (#1010).
+
+        Returns the Rust ``SaeEncodeAtlas``. Its
+        ``certified_encode(X, amplitudes, atom_index)`` exposes the per-row
+        ``h <= 1/2`` Newton-Kantorovich certificate directly — the honesty signal
+        an amortized encoder reads INSTEAD of a cold exact multi-start probe per
+        row (:meth:`converged_latents`). Rows that fail the certificate are
+        flagged (``certified[i] is False``) and must be routed to that exact
+        fallback; no approximation enters silently.
+
+        This is a thin marshalling wrapper (SPEC: math lives in Rust): it hands
+        the frozen decoder blocks + basis metadata to the FFI, which reconstructs
+        the atoms with live analytic evaluators and lays down the certified charts.
+
+        ``amplitude_bounds[k]`` bounds ``|z_k|`` and ``target_norm_bound`` bounds
+        ``||x||`` over the encode data; both scale the offline Hessian-Lipschitz
+        constant, so a larger bound only shrinks the certified radius (never a
+        false certificate). When omitted they default to the trained assignment
+        magnitudes and the training-row norms, respectively.
+        """
+        if amplitude_bounds is None:
+            amp = np.abs(np.asarray(self.assignments, dtype=float))
+            amplitude_bounds = [
+                float(amp[:, k].max()) if amp.shape[0] else 1.0
+                for k in range(len(self._atom_dims))
+            ]
+        if target_norm_bound is None:
+            td = np.asarray(self.training_data, dtype=float)
+            target_norm_bound = (
+                float(np.max(np.sqrt(np.sum(td * td, axis=1)))) if td.size else 1.0
+            )
+        return rust_module().build_sae_encode_atlas(
+            list(self._basis_kinds),
+            list(self._atom_dims),
+            [np.ascontiguousarray(b) for b in self.decoder_blocks],
+            [None if c is None else np.ascontiguousarray(c) for c in self._duchon_centers],
+            [int(s) for s in self._basis_sizes],
+            [float(a) for a in amplitude_bounds],
+            float(target_norm_bound),
+            grid_resolution=int(grid_resolution),
+            ridge=float(ridge),
+            newton_steps=int(newton_steps),
         )
 
     def reconstruct(self, X: Any, *, t_init: Any = None, a_init: Any = None) -> np.ndarray:
@@ -1315,6 +1476,48 @@ class ManifoldSAE:
         x = _as_2d_float(X, "X")
         payload = self._oos_payload(x)
         return np.asarray(payload["atoms"][k]["atom_reconstruction"], dtype=float)
+
+    def attach_fisher(
+        self, fisher_factors: Any, *, provenance: str | None = None
+    ) -> "ManifoldSAE":
+        """Install (or replace) the output-Fisher metric on a fitted model.
+
+        Post-hoc companion to ``sae_manifold_fit(..., fisher_factors=...)``:
+        lets a harvest→attach→steer flow add a WP-D output-Fisher shard to an
+        already fitted model without refitting, so :meth:`steer` reports the
+        path-integrated ``predicted_nats`` dose. Accepts the same inputs as the
+        fit-time hook: a :class:`gamfit.torch.harvest.HarvestShard`, a mapping
+        with ``"U"`` ``(n, p, r)`` (plus optional ``"mass_residual"`` /
+        ``"provenance"``), or a raw ``(n, p, r)`` array. ``provenance``
+        overrides the shard's own tag when given (must be ``"output_fisher"``
+        or ``"output_fisher_downstream"``). Pass ``fisher_factors=None`` to
+        detach and revert to the Euclidean metric. Returns ``self``.
+        """
+        if fisher_factors is None:
+            self.fisher_factors = None
+            self.fisher_mass_residual = None
+            self.fisher_provenance = "output_fisher"
+            self.metric_provenance = "Euclidean"
+            return self
+        if provenance is not None:
+            # Route the override through the one normalizer so provenance
+            # validation lives in exactly one place.
+            shard_in = _normalize_fisher_factors(
+                fisher_factors, int(self.fitted.shape[0]), int(self.fitted.shape[1])
+            )
+            fisher_factors = {
+                "U": shard_in[0],
+                "mass_residual": shard_in[1],
+                "provenance": provenance,
+            }
+        u, mass_residual, shard_provenance = _normalize_fisher_factors(
+            fisher_factors, int(self.fitted.shape[0]), int(self.fitted.shape[1])
+        )
+        self.fisher_factors = u
+        self.fisher_mass_residual = mass_residual
+        self.fisher_provenance = shard_provenance
+        self.metric_provenance = "OutputFisher"
+        return self
 
     def steer(self, atom_k: int, t_from: Any, t_to: Any) -> dict[str, Any]:
         """Steering plan with output dosimetry for one atom (#980).
@@ -1574,6 +1777,7 @@ class ManifoldSAE:
                     "decoder_coefficients": a.decoder_coefficients.tolist(),
                     "assignments": a.assignments.tolist(),
                     "coords": a.coords.tolist(),
+                    "coords_u_arc": _optional_list(a.coords_u_arc),
                     "evidence": None if a.evidence is None else float(a.evidence),
                     "active_dim": int(a.active_dim),
                     "decoder_covariance": _optional_list(a.decoder_covariance),
@@ -1596,6 +1800,11 @@ class ManifoldSAE:
             ),
             "curvature_report": (
                 None if self.curvature_report is None else _jsonable(self.curvature_report)
+            ),
+            "coordinate_fidelity": (
+                None
+                if self.coordinate_fidelity is None
+                else _jsonable(self.coordinate_fidelity)
             ),
             "atom_inference": (
                 None
@@ -1663,6 +1872,7 @@ class ManifoldSAE:
                     if a.get("functional_evidence") is None
                     else dict(a["functional_evidence"])
                 ),
+                coords_u_arc=_optional_array(a, "coords_u_arc"),
             )
             for a in payload["atoms"]
         ]
@@ -1756,6 +1966,11 @@ class ManifoldSAE:
                 if payload.get("curvature_report") is None
                 else dict(payload["curvature_report"])
             ),
+            coordinate_fidelity=(
+                None
+                if payload.get("coordinate_fidelity") is None
+                else dict(payload["coordinate_fidelity"])
+            ),
             atom_inference_reports=_coerce_atom_inference(payload.get("atom_inference")),
             # F: round-trip the unified certificate ledger. to_dict() writes it,
             # so from_dict() must restore it (previously dropped on load).
@@ -1843,7 +2058,11 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
                      atom_basis: Any = None, fisher_factors: Any = None,
                      weights: Any = None,
                      separation_barrier_strength: float | None = None,
-                     ibp_alpha: float | None = None) -> ManifoldSAE:
+                     ibp_alpha: float | None = None,
+                     structured_residual_passes: int = 0,
+                     promote_from_residual: bool = False,
+                     _run_structure_search: bool = True,
+                     _run_outer_rho_search: bool = True) -> ManifoldSAE:
     """Fit an SAE-manifold model.
 
     Parameters
@@ -1960,6 +2179,19 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
         masking every atom past the first few (which underfit an equal-K linear
         dictionary and left the K=128 fit rank-deficient). A per-fit ``ibp_alpha``
         or the global ``sae_set_ibp_alpha`` setter still overrides it.
+    structured_residual_passes
+        Number of structured-residual sculpting passes run after the primary
+        joint fit. Defaults to ``0`` (off). Each pass fits the current
+        reconstruction residual and folds the recovered structure back into the
+        atom dictionary. Must be a non-negative int; the native core clamps the
+        effective count to ``STRUCTURED_RESIDUAL_PASSES_MAX`` (currently ``4``),
+        so larger values behave like ``4``. An explicit, typed opt-in — with the
+        default ``0`` the fit is bit-identical to the pre-existing behavior.
+    promote_from_residual
+        When ``True`` (default ``False``), atoms discovered in the structured
+        residual passes are promoted into the primary atom tier rather than kept
+        as a secondary residual dictionary. Only meaningful when
+        ``structured_residual_passes > 0``. Coerced to ``bool``.
     learning_rate
         Damped Newton/Gauss-Newton step size. If omitted, the Python facade uses
         ``1.0`` for IBP/softmax and ``0.05`` for JumpReLU.
@@ -2111,6 +2343,18 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
             "ibp_alpha must be finite and > 0 (or None to defer to the global "
             f"setter); got {ibp_alpha}"
         )
+    # Structured-residual sculpting is an explicit, typed opt-in. The count must
+    # be a non-negative int (it is clamped natively to
+    # `STRUCTURED_RESIDUAL_PASSES_MAX`); `promote_from_residual` is coerced to a
+    # plain bool for the pyfunction kwarg.
+    structured_residual_passes = int(structured_residual_passes)
+    if structured_residual_passes < 0:
+        raise ValueError(
+            "structured_residual_passes must be a non-negative int (it is "
+            "clamped natively to STRUCTURED_RESIDUAL_PASSES_MAX); "
+            f"got {structured_residual_passes}"
+        )
+    promote_from_residual = bool(promote_from_residual)
     if scad_mcp_gamma is None:
         scad_mcp_gamma_value = 3.7 if gate_sparsity_kind == "scad" else 2.5
     else:
@@ -2185,6 +2429,46 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
         raise ValueError(
             f"d_atom must be >= 1 for every atom; got {dims}"
         )
+    # Eager heterogeneous-d_atom validation (issue #2088). The SAE row-block
+    # analytic penalties (isometry, native ARD, SCAD/MCP coord sparsity,
+    # block-orthogonality) target the UNIFIED "t" latent block, whose width is a
+    # single `d_max` shared by every atom. With heterogeneous per-atom coord
+    # dims the arrow-Schur assembler cannot dispatch a shared-width row-block
+    # penalty per atom without silently truncating or padding axes, so
+    # `SaeManifoldTerm::validate_analytic_penalty_registry` refuses — but only
+    # deep inside the REML cascade, surfacing as a confusing
+    # `RemlConvergenceError` "before solver start". Because `isometry_weight`
+    # and `ard_per_atom` default ON, EVERY heterogeneous `d_atom` call hit that
+    # refusal, making the documented heterogeneous path unusable. Detect the
+    # incompatibility up front and raise a direct, actionable error naming the
+    # conflicting knobs. With all row-block penalties disabled the heterogeneous
+    # path runs normally (the per-atom decoder / nuclear-norm / incoherence
+    # penalties already dispatch per atom and are unaffected).
+    if len(set(dims)) > 1:
+        row_block_conflicts = []
+        if float(isometry_weight) > 0.0:
+            row_block_conflicts.append("isometry_weight>0")
+        if bool(ard_per_atom):
+            row_block_conflicts.append("ard_per_atom=True")
+        if gate_sparsity_kind in {"scad", "mcp"} and sparsity > 0.0:
+            row_block_conflicts.append(
+                f"coord_sparsity={gate_sparsity_kind!r} with sparsity_weight>0"
+            )
+        if float(block_orthogonality_weight) > 0.0:
+            row_block_conflicts.append("block_orthogonality_weight>0")
+        if row_block_conflicts:
+            raise ValueError(
+                f"sae_manifold_fit: heterogeneous d_atom ({dims}) is "
+                "incompatible with the SAE row-block analytic penalties "
+                + ", ".join(row_block_conflicts)
+                + ". These penalties target the shared 't' latent block, whose "
+                "width must match every atom, so mixed per-atom coordinate dims "
+                "cannot be dispatched (they would silently truncate or pad "
+                "axes). Either use a uniform d_atom for all atoms, or disable "
+                "the conflicting penalties (isometry_weight=0.0, "
+                "ard_per_atom=False, coord_sparsity='l1', "
+                "block_orthogonality_weight=0.0)."
+            )
     # Eager sparsity_weight validation (issue #184). The signature
     # advertises `sparsity_weight: float = 1.0`; `0.0` is the canonical
     # "no sparsity" baseline and must be accepted. Reject only negative,
@@ -2427,6 +2711,10 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
             None if separation_barrier_strength is None else float(separation_barrier_strength)
         ),
         ibp_alpha_override=None if ibp_alpha is None else float(ibp_alpha),
+        structured_residual_passes=int(structured_residual_passes),
+        promote_from_residual=bool(promote_from_residual),
+        run_structure_search=bool(_run_structure_search),
+        run_outer_rho_search=bool(_run_outer_rho_search),
     )
     payload_dict = dict(payload)
     model = ManifoldSAE.from_payload(
@@ -2444,7 +2732,495 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
     if fisher_shard is not None:
         model.fisher_factors = np.ascontiguousarray(fisher_shard[0])
         model.fisher_provenance = fisher_shard[2]
+    # #BSF — keep the "linear_block" label on a flat-block fit (from_payload reports
+    # the generic fitted "linear"); so an artifact fitted as linear_block reloads as
+    # linear_block. No-op unless the caller requested linear_block atoms.
+    model = _preserve_linear_block_labels(model, bases)
     return model
+
+
+# --------------------------------------------------------------------------- #
+# Sequential Atom Composition (SAC) — the stagewise adapter (#2027 / SAC WS-A). #
+# --------------------------------------------------------------------------- #
+#
+# The Rust ``fit_stagewise`` driver (crates/gam-sae/src/manifold/stagewise.rs)
+# grows a curved dictionary ONE atom at a time from a single K=1 seed: forward
+# births (each seeds from the running residual factor and races a new atom vs a
+# chart extension under an evidence + minimum-effect gate), backfitting sweeps
+# (keep-best, monotone at fixed ρ), then a terminal frozen joint-evidence pass.
+# It exists because the cold-start joint fit of K>1 curved atoms co-collapses on
+# real activations while every K=1 fit succeeds; SAC retires the simultaneous
+# cold start and builds K from the proven K=1 path (guards disarmed — the K=1
+# lane never trips them). The whole driver is Rust; this adapter is a THIN shell
+# (SPEC): it assembles the K=1 SEED via the proven Rust ``sae_manifold_fit`` and
+# rebuilds the atom's basis (Φ / dΦ / roughness Gram) via the Rust
+# ``basis_with_jet`` kernel, then hands those verbatim to the compact stagewise
+# FFI. No model math is computed here — only array packing.
+
+
+@dataclass(slots=True)
+class StagewiseAtom:
+    """One atom of a SAC-composed dictionary.
+
+    Attributes
+    ----------
+    decoder
+        Decoder basis coefficients ``(M_k, p)`` (same contract as
+        :attr:`SaeManifoldAtomFit.decoder_coefficients`).
+    coords
+        Recovered on-atom coordinates ``(N, d_k)``.
+    assignments
+        Per-observation gate for this atom ``(N,)``.
+    topology
+        Atom topology label (``"circle"`` / ``"sphere"`` / ...).
+    latent_dim
+        Intrinsic coordinate dimension ``d_k``.
+    delta_ev
+        The ΔEV this atom earned at its accepting birth (``None`` for the seed
+        atom, which is atom 0). This is the per-atom salience the birth ledger
+        recorded — the discriminator's "each atom earns its ΔEV" datum.
+    theta
+        Fitted turning ``Θ`` of the atom's chart. ``None`` here: the compact
+        stagewise FFI does not emit the hybrid-split turning report, so ``Θ`` is
+        left to the eval lane, which recomputes it from :attr:`decoder`. Kept in
+        the schema so the ``(Θ, ΔEV)`` frontier has a home per atom.
+    """
+
+    decoder: np.ndarray
+    coords: np.ndarray
+    assignments: np.ndarray
+    topology: str
+    latent_dim: int
+    delta_ev: float | None
+    theta: float | None = None
+
+
+@dataclass(slots=True)
+class StagewiseSAE:
+    """A SAC-composed manifold dictionary and its discriminator instrumentation.
+
+    The headline discriminator lives in the traces and the birth ledger, not in
+    a separate run (LANE_PLAN): ``ev_trace`` is non-decreasing in births *by
+    construction* (every adopted candidate cleared ``ΔEV >= min_effect_ev >= 0``),
+    ``backfit_ev_trace`` is non-decreasing under keep-best, ``birth_records`` logs
+    every round (accepted new-atom / chart-extension / rejection) with its ΔEV
+    and the frozen joint-REML before/after, and ``collapse_events`` is the
+    live-decoder collapse log — empty by construction (atoms never compete inside
+    one Hessian), which IS the answer to the old joint-vs-grown collapse question
+    on the real target.
+    """
+
+    atoms: list[StagewiseAtom]
+    logits: np.ndarray
+    ev_trace: np.ndarray
+    backfit_ev_trace: np.ndarray
+    births_accepted: int
+    births_rejected: int
+    stopped_reason: str
+    terminal_joint_reml: float
+    terminal_data_fit: float
+    birth_records: list[dict[str, Any]]
+    collapse_events: list[dict[str, Any]]
+    log_lambda_sparse: float
+    log_lambda_smooth: np.ndarray
+    log_ard: list[np.ndarray]
+    assignment: str
+    seed: ManifoldSAE
+    training_data: np.ndarray
+
+    @property
+    def k(self) -> int:
+        """Number of atoms in the composed dictionary."""
+        return len(self.atoms)
+
+    def _atom_reconstructions(self) -> list[np.ndarray]:
+        """Per-atom gated reconstructions ``a_k · (Φ_k B_k)`` over the target.
+
+        Applies each fitted decoder through the Rust ``basis_with_jet`` kernel at
+        the atom's recovered coordinates and scales by its returned gate. This is
+        decoder application (linear algebra), not model fitting — the Rust core
+        owns every coefficient; here we only evaluate them.
+        """
+        recons: list[np.ndarray] = []
+        for atom in self.atoms:
+            phi, _jet, _pen = _basis_with_jet_for_atom(
+                atom.topology, atom.coords, int(atom.decoder.shape[0]), atom.latent_dim
+            )
+            curve = phi @ atom.decoder
+            recons.append(atom.assignments[:, None] * curve)
+        return recons
+
+    def reconstruct(self, X: Any = None) -> np.ndarray:
+        """Composed reconstruction ``Σ_k a_k · (Φ_k B_k)`` of the training target.
+
+        ``X`` is accepted for API symmetry with :meth:`ManifoldSAE.reconstruct`
+        but ignored: the composed dictionary reconstructs the target it was fit
+        on (the atoms carry their converged coordinates/gates). Returns ``(N, p)``.
+        """
+        del X
+        if not self.atoms:
+            return np.zeros_like(self.training_data, dtype=np.float64)
+        return np.sum(self._atom_reconstructions(), axis=0)
+
+    def reconstruction_ev(self) -> float:
+        """Centered explained variance of :meth:`reconstruct` against the target."""
+        x = np.asarray(self.training_data, dtype=np.float64)
+        recon = self.reconstruct()
+        rss = float(np.sum((x - recon) ** 2))
+        tss = float(np.sum((x - x.mean(axis=0, keepdims=True)) ** 2))
+        return 1.0 - rss / tss if tss > 0.0 else 0.0
+
+
+def _basis_with_jet_for_atom(
+    topology: str,
+    coords: np.ndarray,
+    basis_size: int,
+    latent_dim: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Rebuild ``(Φ, dΦ/dt, roughness Gram)`` for a K=1 atom via the Rust kernel.
+
+    The stagewise FFI is a *precomputed-basis* entry point (like the low-level
+    ``sae_manifold_fit``): it carries no Duchon centers, so only the analytic,
+    centers-free bases can refresh ``Φ(t)`` as the driver moves coordinates. This
+    helper dispatches those kinds to the single Rust ``basis_with_jet`` kernel —
+    the same one the torch bridge and the shape-band reconstruct use — so no
+    basis math is reimplemented in Python.
+
+    Returns ``phi`` ``(N, M)``, ``jet`` ``(N, M, d)``, ``penalty`` ``(M, M)``.
+    Raises ``NotImplementedError`` for a centers-bearing basis (Duchon / linear /
+    euclidean), which this precomputed FFI path cannot re-evaluate.
+    """
+    canon = _canonical_topology(str(topology))
+    t = np.ascontiguousarray(np.asarray(coords, dtype=np.float64))
+    if t.ndim != 2:
+        raise ValueError(f"stagewise atom coords must be 2D (N, d); got shape {t.shape}")
+    if canon == "circle":
+        # A periodic atom's basis width is M = 2H + 1; recover H from the trained
+        # decoder width (mirrors ``_canonical_n_harmonics``) so the rebuilt Φ has
+        # exactly the atom's columns even for a born/degenerate-width atom.
+        n_harmonics = max(1, (int(basis_size) - 1) // 2)
+        phi, jet, penalty = rust_module().basis_with_jet(
+            "periodic", t[:, :1], {"n_harmonics": int(n_harmonics)}
+        )
+    elif canon == "sphere":
+        phi, jet, penalty = rust_module().basis_with_jet("sphere", t[:, : max(1, latent_dim)], {})
+    else:
+        raise NotImplementedError(
+            f"sae_manifold_fit_stagewise supports only centers-free analytic atom "
+            f"bases (circle / sphere) — the precomputed stagewise FFI carries no "
+            f"basis centers; got topology={topology!r} (canonical {canon!r}). Use "
+            f"the joint sae_manifold_fit for a Duchon/linear/euclidean dictionary."
+        )
+    phi = np.ascontiguousarray(np.asarray(phi, dtype=np.float64))
+    jet = np.ascontiguousarray(np.asarray(jet, dtype=np.float64))
+    penalty = np.ascontiguousarray(np.asarray(penalty, dtype=np.float64))
+    return phi, jet, penalty
+
+
+def sae_manifold_fit_stagewise(
+    X: Any = None,
+    *,
+    d_atom: int = 1,
+    atom_topology: str = "circle",
+    assignment: str = "ibp_map",
+    structured_whitening: bool = True,
+    min_effect_ev: float = 0.0,
+    max_births: int = 24,
+    max_backfit_sweeps: int = 4,
+    max_factor_rank: int = 4,
+    sample_weights: Any = None,
+    n_iter: int = 64,
+    seed_n_iter: int | None = None,
+    learning_rate: float | None = None,
+    sparsity_weight: float = 1.0,
+    smoothness_weight: float = 1.0,
+    isometry_weight: float = 1.0,
+    ridge_ext_coord: float = 1.0e-6,
+    ridge_beta: float = 1.0e-6,
+    alpha: float | str | None = None,
+    tau: float | None = None,
+    random_state: int = 0,
+    progress_callback: Any = None,
+) -> StagewiseSAE:
+    """Grow a curved SAE dictionary by Sequential Atom Composition (SAC).
+
+    Thin wrapper over the Rust ``fit_stagewise`` driver. It builds the single K=1
+    SEED with the proven :func:`sae_manifold_fit` (Rust-seeded + fit — so the seed
+    coordinates/decoder come from the certified K=1 path, not a Python
+    reimplementation), rebuilds that atom's basis via the Rust ``basis_with_jet``
+    kernel, and hands the arrays to the ``sae_manifold_fit_stagewise`` FFI, which
+    runs forward births + backfitting + terminal joint evidence entirely in Rust.
+
+    Parameters
+    ----------
+    X
+        Target matrix the dictionary reconstructs, ``(N, p)`` (1D reshaped to
+        ``(N, 1)``). At the composed-tier call site this is the T1 residual.
+    d_atom
+        Intrinsic coordinate dimension of the seed atom (``1`` for a circle).
+    atom_topology
+        Seed atom topology. Only centers-free analytic bases are supported by the
+        precomputed stagewise FFI: ``"circle"`` (periodic) and ``"sphere"``.
+    assignment
+        Assignment/gate family (``"ibp_map"`` / ``"softmax"`` / ``"threshold_gate"``
+        and their aliases), resolved through the shared public validator.
+    structured_whitening
+        Install the Σ-whitened per-row metric on each birth so the K=1 candidate
+        fits run under the structured residual covariance from atom one (Σ is
+        refit per birth internally). ``True`` by default.
+    min_effect_ev
+        Explicit MINIMUM-EFFECT (salience) floor a birth's ΔEV must clear ON TOP
+        of the evidence gate. ``0.0`` (default) recovers evidence-only, null-
+        recovering acceptance; a positive value suppresses true-but-trivial
+        wiggles at frontier ``n``. A config dial, never a magic constant.
+    max_births
+        Safety cap on forward births atop the seed (a BOUND, not the stop rule —
+        two consecutive rejections / an empty residual factor stop the phase).
+    max_backfit_sweeps
+        Maximum keep-best backfitting sweeps (each monotone at fixed ρ).
+    max_factor_rank
+        Residual-factor ladder cap per birth (how many candidate factor
+        directions the evidence ladder scores when mining the residual).
+    sample_weights
+        Optional length-``N`` per-row stratified importance weights (√w),
+        installed on every inner fit via the reconstruction-weight seam. ``None``
+        is the unweighted path.
+    n_iter
+        Inner Newton iterations per birth / per sweep.
+    seed_n_iter
+        Inner iterations for the K=1 SEED fit. ``None`` reuses ``n_iter``.
+    learning_rate
+        Inner step size. ``None`` uses ``0.05`` for ``threshold_gate`` and ``1.0``
+        otherwise (matching :func:`sae_manifold_fit`).
+    sparsity_weight, smoothness_weight, isometry_weight
+        Forwarded to the seed fit; ``sparsity_weight`` / ``smoothness_weight`` are
+        also handed to the stagewise driver's inner fits. (``isometry_weight`` and
+        the other analytic penalties gauge only the SEED; the compact FFI's inner
+        fits carry no analytic-penalty registry — a known scoping limit.)
+    ridge_ext_coord, ridge_beta
+        Inner coordinate / β ridges for the stagewise fits.
+    alpha, tau
+        Assignment concentration / temperature. ``None`` resolves to the seed
+        fit's values (K-aware IBP α; τ = 0.5).
+    random_state
+        Seed forwarded to the K=1 seed fit's initializer.
+    progress_callback
+        Optional callable invoked from the Rust stagewise driver with progress
+        dictionaries. Durable events carry ``checkpoint_available=True`` and a
+        compact ``checkpoint`` payload containing the current atoms, logits, and
+        ρ values so the caller can persist per-birth checkpoints.
+
+    Returns
+    -------
+    StagewiseSAE
+        The composed dictionary (per-atom decoder / coords / gate / topology /
+        latent_dim / ΔEV) plus the by-construction-monotone ``ev_trace`` and
+        ``backfit_ev_trace``, ``births_accepted``, the full ``birth_records``
+        ledger, and the (empty-by-construction) ``collapse_events`` log.
+    """
+    if X is None:
+        raise TypeError("sae_manifold_fit_stagewise requires X input array")
+    x = _as_2d_float(X, "X")
+    n_obs, p_out = int(x.shape[0]), int(x.shape[1])
+    if n_obs < 2:
+        raise ValueError(f"sae_manifold_fit_stagewise requires n >= 2; got n={n_obs}")
+    d0 = int(d_atom)
+    if d0 < 1:
+        raise ValueError(f"d_atom must be >= 1; got {d0}")
+    if int(max_births) < 0 or int(max_backfit_sweeps) < 0 or int(max_factor_rank) < 1:
+        raise ValueError(
+            "max_births / max_backfit_sweeps must be >= 0 and max_factor_rank >= 1"
+        )
+    kind = _canonical_public_assignment(assignment)
+    seed_iter = int(n_iter if seed_n_iter is None else seed_n_iter)
+    effective_lr = (0.05 if kind == "threshold_gate" else 1.0) if learning_rate is None else float(learning_rate)
+
+    weights_arr: np.ndarray | None
+    if sample_weights is None:
+        weights_arr = None
+    else:
+        weights_arr = np.ascontiguousarray(np.asarray(sample_weights, dtype=np.float64).reshape(-1))
+        if weights_arr.shape[0] != n_obs:
+            raise ValueError(
+                "sample_weights must have one entry per observation; "
+                f"got {weights_arr.shape[0]} for n={n_obs}"
+            )
+        if not np.all(np.isfinite(weights_arr)) or np.any(weights_arr <= 0.0):
+            raise ValueError("sample_weights must be finite and strictly positive")
+
+    # ── Seed: the proven Rust K=1 fit (Rust-seeded coords/decoder, no Python
+    # reimplementation of the topology-specific seeding). ─────────────────────
+    seed_fit = sae_manifold_fit(
+        x,
+        K=1,
+        d_atom=d0,
+        atom_topology=atom_topology,
+        assignment=assignment,
+        isometry_weight=isometry_weight,
+        sparsity_weight=sparsity_weight,
+        smoothness_weight=smoothness_weight,
+        n_iter=seed_iter,
+        random_state=int(random_state),
+        alpha=(_ALPHA_UNSET if alpha is None else alpha),
+        tau=tau,
+        weights=weights_arr,
+        _run_structure_search=False,
+        _run_outer_rho_search=False,
+    )
+    seed_topology = seed_fit.atom_topologies[0]
+    seed_kind = str(seed_fit._basis_kinds[0])
+    # Use the seed atom's ACTUAL intrinsic dimension, not the requested d_atom: a
+    # circle is intrinsically 1-D whatever the caller asked, and the rebuilt jet /
+    # initial_coords must agree with atom_dim the FFI installs on the term.
+    d_seed = int(seed_fit._atom_dims[0])
+    coords0 = np.ascontiguousarray(seed_fit.coords[0].astype(np.float64))
+    if coords0.ndim != 2 or coords0.shape[1] != d_seed:
+        coords0 = coords0.reshape(n_obs, d_seed)
+    decoder0 = np.ascontiguousarray(seed_fit.decoder_blocks[0].astype(np.float64))
+    m0 = int(decoder0.shape[0])
+    phi0, jet0, penalty0 = _basis_with_jet_for_atom(seed_topology, coords0, m0, d_seed)
+    if jet0.shape != (n_obs, m0, d_seed):
+        raise ValueError(
+            f"stagewise seed jet shape {jet0.shape} disagrees with (N, M, d)="
+            f"({n_obs}, {m0}, {d_seed}); the rebuilt Jacobian must match atom_dim"
+        )
+    if phi0.shape != (n_obs, m0):
+        raise ValueError(
+            f"stagewise seed basis width {phi0.shape[1]} disagrees with the seed "
+            f"decoder rows {m0}; the rebuilt Φ must match the fitted decoder basis"
+        )
+    logits_seed = np.asarray(seed_fit.low_level_logits, dtype=np.float64)
+    if logits_seed.ndim == 1:
+        if logits_seed.size != n_obs:
+            raise ValueError(
+                "stagewise seed logits must have one row per observation; "
+                f"got flat length {logits_seed.size} for n={n_obs}"
+            )
+        logits0 = logits_seed.reshape(n_obs, 1)
+    elif logits_seed.ndim == 2 and logits_seed.shape == (n_obs, 1):
+        logits0 = logits_seed
+    else:
+        raise ValueError(
+            "stagewise seed logits must be (N,) or (N, 1); "
+            f"got shape {logits_seed.shape} for n={n_obs}"
+        )
+    logits0 = np.ascontiguousarray(logits0)
+
+    basis_values = phi0[None, :, :]                    # (1, N, M)
+    basis_jacobian = jet0[None, :, :, :]               # (1, N, M, d)
+    decoder_coefficients = decoder0[None, :, :]        # (1, M, p)
+    smooth_penalties = penalty0[None, :, :]            # (1, M, M)
+    initial_coords = coords0[None, :, :]               # (1, N, d)
+
+    payload = rust_module().sae_manifold_fit_stagewise(
+        np.ascontiguousarray(x),
+        [seed_kind],
+        [d_seed],
+        np.ascontiguousarray(basis_values),
+        np.ascontiguousarray(basis_jacobian),
+        [m0],
+        np.ascontiguousarray(decoder_coefficients),
+        np.ascontiguousarray(smooth_penalties),
+        np.ascontiguousarray(logits0),
+        np.ascontiguousarray(initial_coords),
+        float(seed_fit.alpha),
+        float(seed_fit.tau),
+        bool(seed_fit.learnable_alpha),
+        str(kind),
+        sparsity_strength=float(sparsity_weight),
+        smoothness=float(smoothness_weight),
+        max_iter=int(n_iter),
+        learning_rate=float(effective_lr),
+        ridge_ext_coord=float(ridge_ext_coord),
+        ridge_beta=float(ridge_beta),
+        max_births=int(max_births),
+        max_backfit_sweeps=int(max_backfit_sweeps),
+        min_effect_ev=float(min_effect_ev),
+        max_factor_rank=int(max_factor_rank),
+        structured_whitening=bool(structured_whitening),
+        row_loss_weights=weights_arr,
+        progress_callback=progress_callback,
+    )
+    return _stagewise_from_payload(dict(payload), x, seed_fit)
+
+
+def _stagewise_from_payload(
+    payload: Mapping[str, Any],
+    x: np.ndarray,
+    seed_fit: ManifoldSAE,
+) -> StagewiseSAE:
+    """Assemble a :class:`StagewiseSAE` from the compact stagewise FFI payload."""
+    logits = np.asarray(payload["logits"], dtype=np.float64)
+    birth_records = [
+        {
+            "kind": str(rec["kind"]),
+            "delta_ev": float(rec["delta_ev"]),
+            "factor_energy": float(rec["factor_energy"]),
+            "joint_reml_before": float(rec["joint_reml_before"]),
+            "joint_reml_after": float(rec["joint_reml_after"]),
+            "accepted": bool(rec["accepted"]),
+        }
+        for rec in payload["birth_records"]
+    ]
+    # Map the ΔEV each ACCEPTED NEW-ATOM birth earned onto its atom (atom 0 is the
+    # seed; chart extensions refit the previous atom and do not create a new one).
+    new_atom_deltas = [
+        rec["delta_ev"] for rec in birth_records if rec["accepted"] and rec["kind"] == "new_atom"
+    ]
+    atoms: list[StagewiseAtom] = []
+    for atom_idx, atom in enumerate(payload["atoms"]):
+        topology = _basis_to_topology(str(atom["basis_kind"]))
+        coords = np.asarray(atom["on_atom_coords_t"], dtype=np.float64)
+        if coords.ndim == 1:
+            coords = coords.reshape(-1, 1)
+        delta_ev: float | None
+        if atom_idx == 0:
+            delta_ev = None
+        elif atom_idx - 1 < len(new_atom_deltas):
+            delta_ev = float(new_atom_deltas[atom_idx - 1])
+        else:
+            delta_ev = None
+        atoms.append(
+            StagewiseAtom(
+                decoder=np.asarray(atom["decoder_B"], dtype=np.float64),
+                coords=coords,
+                assignments=np.asarray(atom["assignments_z"], dtype=np.float64).reshape(-1),
+                topology=topology,
+                latent_dim=int(atom["latent_dim"]),
+                delta_ev=delta_ev,
+                theta=None,
+            )
+        )
+    ev_trace = np.asarray(payload["ev_trace"], dtype=np.float64)
+    backfit_ev_trace = np.asarray(payload["backfit_ev_trace"], dtype=np.float64)
+    # Live-decoder collapse log: a monotonicity violation among adopted candidates.
+    # Empty BY CONSTRUCTION (atoms never share a Hessian, every adoption cleared
+    # ΔEV >= 0) — an empty log IS the discriminator's zero-collapse verdict.
+    collapse_events = [
+        dict(rec, reason="ev_regression")
+        for rec in birth_records
+        if rec["accepted"] and rec["delta_ev"] < -1.0e-9
+    ]
+    log_ard = [np.asarray(a, dtype=np.float64) for a in payload["log_ard"]]
+    return StagewiseSAE(
+        atoms=atoms,
+        logits=logits,
+        ev_trace=ev_trace,
+        backfit_ev_trace=backfit_ev_trace,
+        births_accepted=int(payload["births_accepted"]),
+        births_rejected=int(payload["births_rejected"]),
+        stopped_reason=str(payload["stopped_reason"]),
+        terminal_joint_reml=float(payload["terminal_joint_reml"]),
+        terminal_data_fit=float(payload["terminal_data_fit"]),
+        birth_records=birth_records,
+        collapse_events=collapse_events,
+        log_lambda_sparse=float(payload["log_lambda_sparse"]),
+        log_lambda_smooth=np.asarray(payload["log_lambda_smooth"], dtype=np.float64),
+        log_ard=log_ard,
+        assignment=str(seed_fit.assignment),
+        seed=seed_fit,
+        training_data=np.asarray(x, dtype=np.float64),
+    )
 
 
 def _require_sae_row_block_penalty(kind: str, kwarg: str) -> None:
@@ -2749,6 +3525,12 @@ _TOPOLOGY_TO_BASIS = {
     "circle": "periodic", "periodic": "periodic", "periodic_spline": "periodic",
     "sphere": "sphere", "torus": "torus",
     "linear": "linear", "linear_rank1": "linear", "affine": "linear",
+    # BSF block AS a manifold-SAE atom (γ_g(t)=t·D_g, orthonormal frame + block
+    # gating): kept as its OWN basis-kind string so the "linear_block" label
+    # survives round-trip; the Rust `sae_atom_basis_kind_from_str` maps it to the
+    # `Linear` kind for construction/evidence (see the FFI doc-comment). This is
+    # the honest encoding of "BSF ⊂ ManifoldSAE" as config, not a new atom type.
+    "linear_block": "linear_block", "flat_block": "linear_block",
     "euclidean": "euclidean", "euclidean_patch": "euclidean",
     "euclidean_quadratic_patch": "euclidean",
     "duchon": "duchon",
@@ -2760,6 +3542,9 @@ _BASIS_TO_TOPOLOGY = {
     "periodic": "circle", "periodic_spline": "circle", "circle": "circle",
     "sphere": "sphere", "torus": "torus",
     "linear": "linear", "linear_rank1": "linear", "affine": "linear",
+    # linear_block reports its own topology label (it is a flat block, not a plain
+    # linear atom); the distinction is the orthonormal decoder frame + block gating.
+    "linear_block": "linear_block", "flat_block": "linear_block",
     "duchon": "euclidean", "euclidean": "euclidean", "euclidean_patch": "euclidean",
     "euclidean_quadratic_patch": "euclidean",
     "poincare": "poincare", "hyperbolic": "poincare", "poincare_patch": "poincare",
@@ -2782,6 +3567,72 @@ def _canonical_topology(name: str) -> str:
     canon = _canon_name(name)
     basis = _TOPOLOGY_TO_BASIS.get(canon, canon)
     return _basis_to_topology(basis)
+
+
+#: The two block-gating modes for ``atom_topology="linear_block"`` (BSF-as-atom).
+#: ``norm_selection`` mirrors the BSF paper exactly — a block fires by its group ℓ2
+#: coordinate norm (amplitude-driven selection), mapped to the ``ibp_map``
+#: assignment. ``separate_gate`` is our reading — presence is a SEPARATE gate from
+#: amplitude — mapped to the ``threshold_gate`` (hard-sigmoid) assignment. Both are
+#: existing manifold-SAE assignment modes, so a linear_block atom races vs a curved
+#: atom under one framework with no new solver path. No coordinate shrinkage is
+#: applied beyond ARD (the flat block keeps its signed coordinates).
+_FLAT_BLOCK_GATING_TO_ASSIGNMENT = {
+    "norm_selection": "ibp_map",
+    "norm": "ibp_map",
+    "separate_gate": "threshold_gate",
+    "separate": "threshold_gate",
+}
+
+
+def flat_block_assignment(gating: str) -> str:
+    """Resolve a ``linear_block`` block-gating mode to a manifold-SAE assignment.
+
+    Exposes the two gating modes of a BSF-block-as-manifold-atom
+    (``atom_topology="linear_block"``): ``"norm_selection"`` (the paper's group-ℓ2
+    block-TopK, → ``"ibp_map"``) and ``"separate_gate"`` (presence gate separate
+    from amplitude, → ``"threshold_gate"``). Use it as
+    ``sae_manifold_fit(..., atom_topology="linear_block",
+    assignment=flat_block_assignment("norm_selection"))`` so the flat block and a
+    curved atom race under ONE fit. Raises on an unknown mode.
+    """
+    key = _canon_name(gating)
+    if key not in _FLAT_BLOCK_GATING_TO_ASSIGNMENT:
+        raise ValueError(
+            f"flat_block gating must be one of {sorted(set(_FLAT_BLOCK_GATING_TO_ASSIGNMENT))}; "
+            f"got {gating!r}"
+        )
+    return _FLAT_BLOCK_GATING_TO_ASSIGNMENT[key]
+
+
+def _preserve_linear_block_labels(model: "ManifoldSAE", bases: list[str]) -> "ManifoldSAE":
+    """Round-trip fidelity for ``atom_topology="linear_block"``.
+
+    ``from_payload`` derives each atom's topology from the FITTED Rust kind, which
+    is the generic ``"linear"`` for a flat block (``linear_block`` maps to
+    ``SaeAtomBasisKind::Linear``). When the fit did NOT restructure the dictionary
+    (atom count unchanged), restore the ``"linear_block"`` label for the atoms the
+    caller declared as such AND that the fit left as plain ``"linear"`` — so an
+    artifact fitted as linear_block reloads as linear_block, not linear. Positions
+    the fit RETYPED (evidence-gated structure search) keep their discovered
+    topology. A first-class ``LinearBlock`` enum variant would make this automatic;
+    it was deferred (see the ``sae_atom_basis_kind_from_str`` doc-comment).
+    """
+    if not bases or len(bases) != len(model.atom_topologies):
+        return model
+    want = [_canon_name(b) in ("linear_block", "flat_block") for b in bases]
+    if not any(want):
+        return model
+    topos = list(model.atom_topologies)
+    kinds = list(model._basis_kinds)
+    for i, is_block in enumerate(want):
+        if is_block and _canon_name(topos[i]) == "linear":
+            topos[i] = "linear_block"
+            kinds[i] = "linear_block"
+    model.atom_topologies = topos
+    model._basis_kinds = kinds
+    model.atom_topology = _topology_for_bases(kinds) if kinds else model.atom_topology
+    return model
 
 
 def _bases(k_atoms: int, atom_basis: Any, atom_topology: str) -> list[str]:

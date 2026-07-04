@@ -74,7 +74,7 @@ class ActionModule(ActionBase):
             serials=params.get("serials"),
             scope=params.get("scope"),
             newNetwork=params.get("newNetwork"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
         )
         return new_object
 

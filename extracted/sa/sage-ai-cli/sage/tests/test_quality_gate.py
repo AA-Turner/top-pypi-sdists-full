@@ -31,7 +31,7 @@ class TestBoilerplateDetection:
     @pytest.fixture
     def quality_gate(self, tmp_path):
         """Create a QualityGate instance for testing."""
-        from sage.main import QualityGate
+        from sage.cli_core import QualityGate
 
         return QualityGate(tmp_path, MockRenderer())
 
@@ -166,7 +166,7 @@ class TestImplementationCompleteness:
     @pytest.fixture
     def quality_gate(self, tmp_path):
         """Create a QualityGate instance for testing."""
-        from sage.main import QualityGate
+        from sage.cli_core import QualityGate
 
         return QualityGate(tmp_path, MockRenderer())
 
@@ -241,7 +241,7 @@ class TestAllGatesIntegration:
     @pytest.fixture
     def quality_gate(self, tmp_path):
         """Create a QualityGate instance for testing."""
-        from sage.main import QualityGate
+        from sage.cli_core import QualityGate
 
         return QualityGate(tmp_path, MockRenderer())
 

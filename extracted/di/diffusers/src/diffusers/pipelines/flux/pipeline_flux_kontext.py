@@ -883,6 +883,8 @@ class FluxKontextPipeline(
             max_area (`int`, defaults to `1024 ** 2`):
                 The maximum area of the generated image in pixels. The height and width will be adjusted to fit this
                 area while maintaining the aspect ratio.
+            _auto_resize (`bool`, *optional*, defaults to `True`):
+                Whether to automatically resize the input image to the preferred resolutions.
 
         Examples:
 
@@ -947,6 +949,13 @@ class FluxKontextPipeline(
             negative_prompt_embeds is not None and negative_pooled_prompt_embeds is not None
         )
         do_true_cfg = true_cfg_scale > 1 and has_neg_prompt
+        if do_true_cfg and prompt_embeds is not None and negative_prompt_embeds is not None:
+            if prompt_embeds.shape != negative_prompt_embeds.shape:
+                raise ValueError(
+                    "`prompt_embeds` and `negative_prompt_embeds` must have the same shape when passed directly, but"
+                    f" got: `prompt_embeds` {prompt_embeds.shape} != `negative_prompt_embeds`"
+                    f" {negative_prompt_embeds.shape}."
+                )
         (
             prompt_embeds,
             pooled_prompt_embeds,

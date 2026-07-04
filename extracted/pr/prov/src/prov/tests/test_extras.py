@@ -135,7 +135,8 @@ class TestExtras(unittest.TestCase):
         add_further_attributes(inf)
 
         self.assertEqual(
-            len(inf.attributes), len(list(inf.formal_attributes) + list(inf.extra_attributes))
+            len(inf.attributes),
+            len(list(inf.formal_attributes) + list(inf.extra_attributes)),
         )
 
     def test_serialize_to_path(self):
@@ -193,8 +194,8 @@ class TestExtras(unittest.TestCase):
         document = ProvDocument()
         self.assertEqual(0, len(document.get_record("nonexistentid")))
 
-        record = document.entity(identifier=EX_NS['e1'])
-        self.assertEqual(record, document.get_record(EX_NS['e1'])[0])
+        record = document.entity(identifier=EX_NS["e1"])
+        self.assertEqual(record, document.get_record(EX_NS["e1"])[0])
 
     def test_bundle_get_records(self):
         document = ProvDocument()
@@ -272,6 +273,27 @@ class TestExtras(unittest.TestCase):
         g1 = primer_example()
         g2 = primer_example_alternate()
         self.assertEqual(g1, g2)
+
+    def test_plot_without_matplotlib_raises_helpful_error(self):
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name.startswith("matplotlib"):
+                raise ImportError("No module named %r" % name)
+            return real_import(name, *args, **kwargs)
+
+        document = ProvDocument()
+        ex = document.add_namespace("ex", "https://example.org/")
+        document.entity(ex["e1"])
+        builtins.__import__ = fake_import
+        try:
+            with self.assertRaises(ImportError) as ctx:
+                document.plot()  # no filename -> interactive path -> needs matplotlib
+            self.assertIn("prov[plot]", str(ctx.exception))
+        finally:
+            builtins.__import__ = real_import
 
 
 if __name__ == "__main__":

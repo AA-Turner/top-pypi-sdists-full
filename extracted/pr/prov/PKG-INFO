@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prov
-Version: 2.1.1
+Version: 2.2.0
 Summary: A library for W3C Provenance Data Model supporting PROV-JSON, PROV-XML and PROV-O (RDF)
 Author-email: Trung Dong Huynh <trungdong@donggiang.com>
 License-Expression: MIT
@@ -10,7 +10,7 @@ Project-URL: Repository, https://github.com/trungdong/prov
 Project-URL: Issues, https://github.com/trungdong/prov/issues
 Project-URL: Changelog, https://prov.readthedocs.io/en/latest/history.html
 Keywords: provenance,graph,model,PROV,PROV-DM,PROV-JSON,W3C,PROV-XML,PROV-N,PROV-O,RDF
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Natural Language :: English
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -37,6 +38,8 @@ Provides-Extra: rdf
 Requires-Dist: rdflib<7,>=4.2.1; extra == "rdf"
 Provides-Extra: xml
 Requires-Dist: lxml>=3.3.5; extra == "xml"
+Provides-Extra: plot
+Requires-Dist: matplotlib>=3.6; extra == "plot"
 Dynamic: license-file
 
 ============
@@ -87,3 +90,12 @@ See `a short tutorial  <http://trungdong.github.io/prov-python-short-tutorial.ht
 
 This package is used extensively by `ProvStore <https://openprovenance.org/store/>`_,
 a free online repository for provenance documents.
+
+
+Roadmap
+-------
+
+The library is undergoing a staged modernisation (tooling, type hints, tests,
+documentation, standards conformance), a batch of bug fixes, and new format support.
+See `ROADMAP.md <ROADMAP.md>`_ for the plan and the 2.x API-stability promise.
+Feedback is welcome on the `issue tracker <https://github.com/trungdong/prov/issues>`_.

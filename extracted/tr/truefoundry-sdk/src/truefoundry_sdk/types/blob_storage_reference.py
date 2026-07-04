@@ -12,16 +12,17 @@ class BlobStorageReference(UniversalBaseModel):
     A reference to content offloaded to blob storage
     """
 
-    type: typing.Literal["blob-storage"] = "blob-storage"
+    type: typing.Literal["blob-storage"] = pydantic.Field(default="blob-storage")
+    """
+    +value=blob-storage
+    """
+
     path: str = pydantic.Field()
     """
     Path to the content in blob storage
     """
 
-    mime_type: MimeType = pydantic.Field()
-    """
-    MIME type of the content
-    """
+    mime_type: MimeType
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

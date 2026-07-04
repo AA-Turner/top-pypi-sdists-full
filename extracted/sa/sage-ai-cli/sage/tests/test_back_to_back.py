@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest
-from sage.main import _execute_task_prompt, _get_current_classification
+from sage.cli_core import _execute_task_prompt, _get_current_classification
 
 class TestBackToBackBehavior:
     """Tests the back-to-back scenario: analysis followed by implementation."""
@@ -14,7 +14,7 @@ class TestBackToBackBehavior:
     def test_analysis_then_tdd_implementation(
         self, mock_create_plan, mock_send_single, mock_send_to_model, tmp_path
     ):
-        from sage.main import _set_current_cwd
+        from sage.cli_core import _set_current_cwd
         _set_current_cwd(tmp_path)
 
         # Setup dummy files
@@ -86,7 +86,7 @@ class TestBackToBackBehavior:
     def test_dynamic_plan_generation(
         self, mock_send_single, mock_send_to_model, tmp_path
     ):
-        from sage.main import _set_current_cwd
+        from sage.cli_core import _set_current_cwd
         _set_current_cwd(tmp_path)
 
         # Mock LLM response for decomposition

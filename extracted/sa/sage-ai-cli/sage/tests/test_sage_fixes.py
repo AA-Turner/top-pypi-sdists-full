@@ -155,7 +155,7 @@ def test_no_color_with_sage_env(monkeypatch):
 
 def test_build_routing_to_principal_pipeline(monkeypatch):
     """Verify that build requests route to principal pipeline inside execute_task_prompt."""
-    from sage.main import SAGEAgent
+    from sage.cli_core import SAGEAgent
     from pathlib import Path
     
     class DummyRenderer:
@@ -267,7 +267,7 @@ def test_payload_truncation_logic():
 
 def test_route_to_principal_pipeline_progress_logs(monkeypatch, tmp_path):
     """Verify that build progress logs in _route_to_principal_pipeline print to the console when output mode is normal/verbose, and are silent in clean mode."""
-    from sage.main import _route_to_principal_pipeline
+    from sage.cli_core import _route_to_principal_pipeline
     from sage.core import renderer
     from sage.core.principal_builder import PrincipalBuildReport
     
@@ -644,7 +644,7 @@ def test_verify_report_all_four_checks():
 
 def test_repl_agent_task_ok_requires_build_and_run(monkeypatch):
     """Verify that REPLAgent.execute_task_prompt requires install_ok, build_ok, runs_ok, and tests_ok to all be True/not-False."""
-    from sage.main import SAGEAgent
+    from sage.cli_core import SAGEAgent
     from pathlib import Path
 
     class DummyRenderer:
@@ -788,7 +788,7 @@ def broken_syntax(x)  # Missing colon
 
 def test_repl_agent_retries_on_failed_file_writes(monkeypatch, tmp_path):
     """Verify that SAGEAgent.process_response triggers the retry flow on failed writes."""
-    from sage.main import SAGEAgent
+    from sage.cli_core import SAGEAgent
     from pathlib import Path
 
     class DummyRenderer:
@@ -870,7 +870,7 @@ def build_me()
 
 def test_scaffold_continuation_empty_round_handling(monkeypatch, tmp_path):
     """Verify that scaffold continuation breaks after empty rounds when model returns premature SCAFFOLD_COMPLETE."""
-    from sage.main import SAGEAgent
+    from sage.cli_core import SAGEAgent
     from pathlib import Path
     
     warnings = []

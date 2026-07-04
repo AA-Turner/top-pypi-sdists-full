@@ -19876,6 +19876,7 @@ class AgentMetadataV2(sgqlc.types.Type):
         "trace_table_mcon",
         "source_type",
         "agent_reference",
+        "warehouse",
     )
     account_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="accountUuid")
     """Account UUID"""
@@ -19910,6 +19911,16 @@ class AgentMetadataV2(sgqlc.types.Type):
     reference; for a TRACE_TABLE (OTel) agent it is the
     `service_name`, which equals `agentName`. Null only when a
     platform agent's registration could not be resolved.
+    """
+
+    warehouse = sgqlc.types.Field("Warehouse", graphql_name="warehouse")
+    """Warehouse (resource) that owns this agent's trace table or
+    platform-agent registration. Pass its `uuid` (or `name`) as the
+    required `warehouse` argument of the
+    createOrUpdateAgent*MonitorFromDefinition mutations — no separate
+    warehouse lookup or trace-table MCON parsing needed. Null when the
+    agent's warehouse association cannot be resolved (e.g. the
+    warehouse was deleted).
     """
 
 

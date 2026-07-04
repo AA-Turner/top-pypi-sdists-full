@@ -6081,6 +6081,18 @@ def symexec(src: str, ctx: Ctx, argvals=None, param_kinds=None):
                                 for _nm in list(e2):
                                     if _nm != rn and _holds_identity(e2[_nm], _obj):
                                         e2[_nm] = _Opaque(_nm)
+                                # inter-parameter aliasing: the caller may pass the same object as two parameters
+                                # (f(l, l)), and the value engine cannot prove two object/container parameters
+                                # distinct. If the mutated object denotes a parameter, forget every OTHER mutable
+                                # container/object parameter, which may be that same object -- so a later read of it
+                                # is opaque, not a stale pre-mutation value (an unsound PROVED on aliased arguments).
+                                _mname = getattr(_obj, "name", None)
+                                if _mname in args:
+                                    for _pn in args:
+                                        _pv = e2.get(_pn)
+                                        if (_pn != _mname and isinstance(_pv, _Opaque)
+                                                and not (isinstance(_pv, _SafeContainer) and _pv.immutable)):
+                                            e2[_pn] = _Opaque(_pn)
                         nxt.append((e2, p))
                     else:
                         nxt.append((e, p))

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: django-reversion-compare
-Version: 0.19.2
+Version: 0.19.3
 Summary: Add compare view to django-reversion for comparing two versions of a reversion model.
 Project-URL: Documentation, https://github.com/jedie/django-reversion-compare
 Project-URL: Source, https://github.com/jedie/django-reversion-compare
 Author-email: Jens Diemer <django-reversion-compare@jensdiemer.de>
 License: GPL-3.0-or-later
 License-File: LICENSE
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Requires-Dist: diff-match-patch
 Requires-Dist: django
 Requires-Dist: django-reversion
@@ -235,6 +235,21 @@ Maybe other versions are compatible, too.
 
 [comment]: <> (✂✂✂ auto generated history start ✂✂✂)
 
+* [v0.19.3](https://github.com/jedie/django-reversion-compare/compare/v0.19.2...v0.19.3)
+  * 2026-07-03 - Fix CI
+  * 2026-07-03 - Use uv direct and fix cmd2 to <= v3
+  * 2026-07-03 - Remove "uv.lock" from git, because this is a library
+  * 2026-05-29 - Bump uv from 0.11.8 to 0.11.15
+  * 2026-05-19 - Bump idna from 3.13 to 3.15
+  * 2026-05-07 - Apply manageprojects updates + update requirements
+  * 2026-04-10 - Bump uv from 0.10.0 to 0.11.6
+  * 2026-04-08 - Bump cryptography from 46.0.6 to 46.0.7
+  * 2026-04-08 - Bump django from 5.2.12 to 5.2.13
+  * 2026-03-30 - Bump pygments from 2.19.2 to 2.20.0
+  * 2026-03-29 - Bump django from 5.2.11 to 5.2.12
+  * 2026-03-29 - Bump cryptography from 46.0.4 to 46.0.6
+  * 2026-02-06 - Bugfix nox rerun
+  * 2026-02-06 - Update requirements
 * [v0.19.2](https://github.com/jedie/django-reversion-compare/compare/v0.19.1...v0.19.2)
   * 2026-02-06 - Support django-countries v8
   * 2026-02-06 - Update requirements
@@ -246,11 +261,11 @@ Maybe other versions are compatible, too.
   * 2025-09-25 - fix packaging: Add hatchling
   * 2025-09-25 - Bugfix CI
   * 2025-09-25 - apply manageprojects updates
-* [v0.18.1](https://github.com/jedie/django-reversion-compare/compare/v0.18.0...v0.18.1)
-  * 2024-09-10 - Bugfix packaging: We use rich in production code
 
 <details><summary>Expand older history entries ...</summary>
 
+* [v0.18.1](https://github.com/jedie/django-reversion-compare/compare/v0.18.0...v0.18.1)
+  * 2024-09-10 - Bugfix packaging: We use rich in production code
 * [v0.18.0](https://github.com/jedie/django-reversion-compare/compare/v0.17.0...v0.18.0)
   * 2024-09-10 - modernized code
   * 2024-09-10 - Update test matrix and requirements

@@ -69,20 +69,6 @@ stages:
           targets:
             - name: Sanity
               test: sanity
-  - stage: Ansible_2_21
-    displayName: Ansible 2.21
-    dependsOn:
-      - Dependencies
-    jobs:
-      - template: templates/matrix.yml
-        parameters:
-          nameFormat: "{0}"
-          testFormat: "2.21/{0}"
-          targets:
-            - name: Sanity
-              test: sanity
-            - name: Lint
-              test: lint
   - stage: Ansible_2_20
     displayName: Ansible 2.20
     dependsOn:
@@ -95,6 +81,8 @@ stages:
           targets:
             - name: Sanity
               test: sanity
+            - name: Lint
+              test: lint
   - stage: Ansible_2_19
     displayName: Ansible 2.19
     dependsOn:
@@ -153,8 +141,10 @@ stages:
           nameFormat: Server {0}
           testFormat: devel/windows/{0}
           targets:
-            - name: Server 2019 WinRM HTTP
-              test: 2019/winrm/http
+            - name: Server 2016 WinRM HTTP
+              test: 2016/winrm/http
+            - name: Server 2019 WinRM HTTPS
+              test: 2019/winrm/https
             - name: Server 2022 WinRM HTTPS
               test: 2022/winrm/https
             - name: Server 2022 PSRP HTTPS
@@ -171,7 +161,6 @@ stages:
     condition: succeededOrFailed()
     dependsOn:
       - Ansible_devel
-      - Ansible_2_21
       - Ansible_2_20
       - Ansible_2_19
       - Ansible_2_18

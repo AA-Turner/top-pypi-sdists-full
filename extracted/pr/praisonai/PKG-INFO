@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PraisonAI
-Version: 4.6.111
+Version: 4.6.123
 Summary: PraisonAI is an AI Agents Framework with Self Reflection. PraisonAI application combines PraisonAI Agents, AutoGen, and CrewAI into a low-code solution for building and managing multi-agent LLM systems, focusing on simplicity, customisation, and efficient human-agent collaboration.
 Author: Mervin Praison
 License: MIT
@@ -11,8 +11,9 @@ Description-Content-Type: text/markdown
 Requires-Dist: rich>=13.7
 Requires-Dist: markdown>=3.5
 Requires-Dist: pyparsing>=3.0.0
-Requires-Dist: praisonaiagents>=1.6.111
-Requires-Dist: praisonai-code>=0.0.9
+Requires-Dist: praisonaiagents>=1.6.126
+Requires-Dist: praisonai-code>=0.0.22
+Requires-Dist: praisonai-bot>=0.0.7
 Requires-Dist: python-dotenv>=0.19.0
 Requires-Dist: litellm<2,>=1.83.14
 Requires-Dist: PyYAML>=6.0
@@ -37,11 +38,7 @@ Requires-Dist: uvicorn>=0.34.0; extra == "os"
 Requires-Dist: PyJWT>=2.8.0; extra == "os"
 Requires-Dist: sse-starlette>=1.6.0; extra == "os"
 Provides-Extra: gateway
-Requires-Dist: fastapi>=0.115.0; extra == "gateway"
-Requires-Dist: uvicorn>=0.34.0; extra == "gateway"
-Requires-Dist: sse-starlette>=1.6.0; extra == "gateway"
-Requires-Dist: websockets>=12.0; extra == "gateway"
-Requires-Dist: watchdog>=3.0.0; extra == "gateway"
+Requires-Dist: praisonai-bot[gateway]; extra == "gateway"
 Provides-Extra: agentops
 Requires-Dist: agentops>=0.3.12; extra == "agentops"
 Provides-Extra: langfuse
@@ -150,18 +147,10 @@ Requires-Dist: httpx>=0.27.0; extra == "all"
 Provides-Extra: observability
 Requires-Dist: langfuse>=3.0.0; extra == "observability"
 Provides-Extra: bot
-Requires-Dist: python-telegram-bot>=20.0; extra == "bot"
-Requires-Dist: discord.py>=2.0.0; extra == "bot"
-Requires-Dist: slack_sdk>=3.0.0; extra == "bot"
-Requires-Dist: slack-bolt>=1.18.0; extra == "bot"
-Requires-Dist: brotlicffi>=1.0.0; extra == "bot"
-Requires-Dist: aiohttp>=3.8.0; extra == "bot"
+Requires-Dist: praisonai-bot[bot]; extra == "bot"
 Requires-Dist: aiui<0.4,>=0.3.121; extra == "bot"
-Requires-Dist: ddgs>=9.0.0; extra == "bot"
-Requires-Dist: psutil>=5.9.0; extra == "bot"
 Provides-Extra: bot-whatsapp-web
-Requires-Dist: neonize>=0.3.14; extra == "bot-whatsapp-web"
-Requires-Dist: qrcode>=7.0; extra == "bot-whatsapp-web"
+Requires-Dist: praisonai-bot[bot-whatsapp-web]; extra == "bot-whatsapp-web"
 Provides-Extra: redis
 Requires-Dist: redis>=5.0.0; extra == "redis"
 Provides-Extra: mongodb
@@ -183,23 +172,13 @@ Requires-Dist: psycopg2-binary>=2.9.0; extra == "xata"
 Provides-Extra: claw
 Requires-Dist: aiui[all]<0.4,>=0.3.121; extra == "claw"
 Requires-Dist: praisonaiagents[all]>=1.5.40; extra == "claw"
+Requires-Dist: praisonai-bot[bot,gateway]>=0.0.6; extra == "claw"
 Requires-Dist: flask>=3.0.0; extra == "claw"
-Requires-Dist: fastapi>=0.115.0; extra == "claw"
-Requires-Dist: uvicorn>=0.34.0; extra == "claw"
-Requires-Dist: sse-starlette>=1.6.0; extra == "claw"
 Requires-Dist: tavily-python==0.5.0; extra == "claw"
 Requires-Dist: crawl4ai>=0.7.0; extra == "claw"
 Requires-Dist: playwright>=1.47.0; extra == "claw"
-Requires-Dist: websockets>=12.0; extra == "claw"
 Requires-Dist: ddgs>=9.0.0; extra == "claw"
-Requires-Dist: psutil>=5.9.0; extra == "claw"
 Requires-Dist: langfuse>=3.0.0; extra == "claw"
-Requires-Dist: python-telegram-bot>=20.0; extra == "claw"
-Requires-Dist: discord.py>=2.0.0; extra == "claw"
-Requires-Dist: slack_sdk>=3.0.0; extra == "claw"
-Requires-Dist: slack-bolt>=1.18.0; extra == "claw"
-Requires-Dist: brotlicffi>=1.0.0; extra == "claw"
-Requires-Dist: aiohttp>=3.8.0; extra == "claw"
 Requires-Dist: redis>=5.0.0; extra == "claw"
 Requires-Dist: pymongo>=4.6.0; extra == "claw"
 Requires-Dist: psycopg2-binary>=2.9.0; extra == "claw"

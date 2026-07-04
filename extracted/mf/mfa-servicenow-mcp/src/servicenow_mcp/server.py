@@ -1867,6 +1867,12 @@ class ServiceNowMCP:
             existing = getattr(self.mcp_server, "instructions", None) or ""
             self.mcp_server.instructions = f"{existing}\n\n{sync_flow}" if existing else sync_flow
 
+        # NOTE deliberately NO standing workspace steer here: a static paragraph
+        # is per-session noise for users who never touch local sources.
+        # Discovery is data-driven instead — sn_health's `workspace` summary
+        # appears ONLY when unfinished local work actually exists, and the
+        # push/diff gates re-check the live remote at upload time anyway.
+
         # After a local download+audit, the relationship graphs live on disk.
         # Tell the LLM so it answers relationship questions by reading those
         # files instead of re-querying the instance with the live resolvers.

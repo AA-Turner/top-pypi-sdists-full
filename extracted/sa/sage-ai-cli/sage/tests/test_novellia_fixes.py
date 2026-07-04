@@ -246,7 +246,7 @@ def test_parser_accepts_normal_file_block():
 
 def test_resolver_existing_branch_unchanged_for_explicit_ollama():
     """Sanity: explicit `ollama:X` always resolves to itself."""
-    from sage.main import _resolve_model_prefix
+    from sage.cli_core import _resolve_model_prefix
     from sage.config import SageConfig
     cfg = SageConfig()
     out = _resolve_model_prefix("ollama:llama3.2", cfg)
@@ -254,7 +254,7 @@ def test_resolver_existing_branch_unchanged_for_explicit_ollama():
 
 
 def test_resolver_existing_branch_unchanged_for_explicit_llama_cpp():
-    from sage.main import _resolve_model_prefix
+    from sage.cli_core import _resolve_model_prefix
     from sage.config import SageConfig
     cfg = SageConfig()
     out = _resolve_model_prefix("llama_cpp:custom", cfg)

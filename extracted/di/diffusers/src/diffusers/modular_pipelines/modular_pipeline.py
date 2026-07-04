@@ -1,4 +1,4 @@
-# Copyright 2025 The HuggingFace Team. All rights reserved.
+# Copyright 2026 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -119,16 +119,19 @@ def _helios_pyramid_map_fn(config_dict=None):
 MODULAR_PIPELINE_MAPPING = OrderedDict(
     [
         ("stable-diffusion-xl", _create_default_map_fn("StableDiffusionXLModularPipeline")),
+        ("stable-diffusion-3", _create_default_map_fn("StableDiffusion3ModularPipeline")),
         ("wan", _wan_map_fn),
         ("wan-i2v", _wan_i2v_map_fn),
         ("flux", _create_default_map_fn("FluxModularPipeline")),
         ("flux-kontext", _create_default_map_fn("FluxKontextModularPipeline")),
         ("flux2", _create_default_map_fn("Flux2ModularPipeline")),
         ("flux2-klein", _flux2_klein_map_fn),
+        ("ideogram4", _create_default_map_fn("Ideogram4ModularPipeline")),
         ("qwenimage", _create_default_map_fn("QwenImageModularPipeline")),
         ("qwenimage-edit", _create_default_map_fn("QwenImageEditModularPipeline")),
         ("qwenimage-edit-plus", _create_default_map_fn("QwenImageEditPlusModularPipeline")),
         ("qwenimage-layered", _create_default_map_fn("QwenImageLayeredModularPipeline")),
+        ("anima", _create_default_map_fn("AnimaModularPipeline")),
         ("z-image", _create_default_map_fn("ZImageModularPipeline")),
         ("helios", _create_default_map_fn("HeliosModularPipeline")),
         ("helios-pyramid", _helios_pyramid_map_fn),

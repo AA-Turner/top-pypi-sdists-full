@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: grimp
-Version: 3.14
+Version: 3.15
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
@@ -16,7 +16,6 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Utilities
-Requires-Dist: typing-extensions>=3.10.0.0
 License-File: LICENSE
 License-File: AUTHORS.rst
 Summary: Builds a queryable graph of the imports within one or more Python packages.

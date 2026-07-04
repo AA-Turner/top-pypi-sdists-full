@@ -1,6 +1,6 @@
 [project]
 name = "pydantic-deep"
-version = "0.3.34"
+version = "0.3.35"
 description = "Batteries-included agent harness for Python — tool-calling, sandboxed execution, multi-agent teams, and unlimited context on Pydantic AI"
 readme = "README.md"
 keywords = [
@@ -97,9 +97,12 @@ liteparse = ["liteparse>=0.1.0"]
 acp = ["agent-client-protocol>=0.8.0"]
 # Logfire tracing support
 logfire = ["logfire>=4.0"]
+# Google models (Gemini) via both the Developer API (google-gla) and Vertex AI
+# (google-vertex). Both providers are backed by the same google-genai SDK.
+google = ["pydantic-ai-slim[google]>=2.0.0"]
 # All optional dependencies
 all = [
-    "pydantic-deep[sandbox,cli,web,yaml,acp,logfire,browser,liteparse,mcp]",
+    "pydantic-deep[sandbox,cli,web,yaml,acp,logfire,browser,liteparse,mcp,google]",
 ]
 
 [project.urls]

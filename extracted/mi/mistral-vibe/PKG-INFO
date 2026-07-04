@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.18.4
+Version: 2.19.0
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -23,7 +23,7 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.12
 Requires-Dist: agent-client-protocol==0.10.1
 Requires-Dist: annotated-types==0.7.0
-Requires-Dist: anyio==4.13.0
+Requires-Dist: anyio==4.14.1
 Requires-Dist: attrs==26.1.0
 Requires-Dist: beautifulsoup4==4.14.3
 Requires-Dist: cachetools==7.0.6
@@ -43,7 +43,7 @@ Requires-Dist: h11==0.16.0
 Requires-Dist: httpcore==1.0.9
 Requires-Dist: httpx-sse==0.4.3
 Requires-Dist: httpx==0.28.1
-Requires-Dist: humanize==4.15.0
+Requires-Dist: humanize==4.16.0
 Requires-Dist: idna==3.18
 Requires-Dist: importlib-metadata==8.7.1
 Requires-Dist: jaraco-classes==3.4.0
@@ -62,7 +62,7 @@ Requires-Dist: markdownify==1.2.2
 Requires-Dist: mcp==1.28.1
 Requires-Dist: mdit-py-plugins==0.5.0
 Requires-Dist: mdurl==0.1.2
-Requires-Dist: mistralai==2.4.11
+Requires-Dist: mistralai==2.5.0
 Requires-Dist: more-itertools==11.0.2
 Requires-Dist: opentelemetry-api==1.39.1
 Requires-Dist: opentelemetry-exporter-otlp-proto-common==1.39.1
@@ -78,9 +78,9 @@ Requires-Dist: ptyprocess==0.7.0
 Requires-Dist: pyasn1-modules==0.4.2
 Requires-Dist: pyasn1==0.6.3
 Requires-Dist: pycparser==3.0; implementation_name != 'PyPy'
-Requires-Dist: pydantic-core==2.46.3
+Requires-Dist: pydantic-core==2.46.4
 Requires-Dist: pydantic-settings==2.14.2
-Requires-Dist: pydantic==2.13.3
+Requires-Dist: pydantic==2.13.4
 Requires-Dist: pygments==2.20.0
 Requires-Dist: pyjwt==2.13.0
 Requires-Dist: pyperclip==1.11.0
@@ -91,11 +91,11 @@ Requires-Dist: pywin32-ctypes==0.2.3; sys_platform == 'win32'
 Requires-Dist: pywin32==311; sys_platform == 'win32'
 Requires-Dist: pyyaml==6.0.3
 Requires-Dist: referencing==0.37.0
-Requires-Dist: requests==2.33.1
+Requires-Dist: requests==2.34.2
 Requires-Dist: rich==15.0.0
 Requires-Dist: rpds-py==0.30.0
 Requires-Dist: secretstorage==3.5.0; sys_platform == 'linux'
-Requires-Dist: sentry-sdk==2.63.0
+Requires-Dist: sentry-sdk==2.64.0
 Requires-Dist: six==1.17.0
 Requires-Dist: smmap==5.0.3
 Requires-Dist: sounddevice==0.5.5
@@ -103,7 +103,7 @@ Requires-Dist: soupsieve==2.8.3
 Requires-Dist: sse-starlette==3.4.1
 Requires-Dist: starlette==1.0.0
 Requires-Dist: textual-speedups==0.2.1
-Requires-Dist: textual==8.2.7
+Requires-Dist: textual==8.2.8
 Requires-Dist: tomli-w==1.2.0
 Requires-Dist: tree-sitter-bash==0.25.1
 Requires-Dist: tree-sitter==0.25.2
@@ -874,6 +874,20 @@ vibe --add-dir /path/to/other-project --add-dir /path/to/library
 ```
 
 Each path is implicitly trusted (no trust prompt) and contributes its `AGENTS.md` and `.vibe/` configuration (tools, skills, agents, prompts, hooks) to the session. File-tool permissions treat each `--add-dir` path the same way as your primary working directory — reads and writes inside them don't require the "outside workdir" prompt. Nested paths collapse: passing `/repo` and `/repo/sub` is equivalent to passing just `/repo`.
+
+Use `--worktree NAME` to create (or reuse) a [git worktree](https://git-scm.com/docs/git-worktree) and run inside it:
+
+```bash
+vibe --worktree my-feature
+```
+
+The worktree lives under `$VIBE_HOME/worktrees/<repo-name>-<repo-hash>/NAME` and is checked out on a branch named `NAME` (created if it doesn't exist, attached if it does). Vibe `cd`s into it before the session starts and trusts it for the session (no trust prompt). If you start Vibe from a subdirectory, Vibe enters the matching subdirectory inside the worktree.
+
+Existing worktrees are reused only when they belong to the same git repository and are checked out on branch `NAME`; otherwise Vibe exits with an error instead of running in the wrong checkout.
+
+Automatic cleanup only applies to worktrees Vibe created this run, and only after a session actually started — a startup failure (bad config, `--continue` with no sessions) never deletes anything, and a reused worktree is always left in place. When an interactive session exits, Vibe removes the worktree directory automatically if there are no uncommitted changes, untracked files, or commits beyond the commit where the worktree session started. If any of those exist, Vibe asks whether to keep or remove the worktree. When Vibe created the branch it is deleted alongside the worktree; a branch that already existed and was merely attached is kept unless you confirm its deletion. Keeping preserves the directory and branch so you can return later; removing force-deletes them, discarding changes, untracked files, and commits. Programmatic runs (`vibe -p ... --worktree NAME`) do not clean up automatically because there is no exit prompt; remove them manually with `git worktree remove`. `--worktree` is ignored with `--setup` and `--check-upgrade`.
+
+Sessions are scoped per directory, so `-c`/`--continue` and the `--resume` picker only see sessions started inside that worktree. To carry a session across worktrees, resume it explicitly by ID with `--resume <ID>`.
 
 ### Update Settings
 

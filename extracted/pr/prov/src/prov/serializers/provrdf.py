@@ -5,7 +5,8 @@ import base64
 from collections import OrderedDict
 import datetime
 import io
-from typing import Any, Optional, Generator
+from typing import Any, Optional
+from collections.abc import Generator
 import warnings
 
 import dateutil.parser
@@ -225,7 +226,7 @@ class ProvRDFSerializer(Serializer):
             if datatype == XSD["gYearMonth"]:
                 parsed_info = dateutil.parser.parse(literal)
                 return pm.Literal(
-                    "{0}-{1:02d}".format(parsed_info.year, parsed_info.month),
+                    f"{parsed_info.year}-{parsed_info.month:02d}",
                     datatype=self.valid_identifier(datatype),
                 )
             else:
@@ -253,7 +254,9 @@ class ProvRDFSerializer(Serializer):
         for item in document.bundles:
             #  encoding the sub-bundle
             bundle = self.encode_container(
-                item, identifier=item.identifier.uri, PROV_N_MAP=PROV_N_MAP  # type: ignore[union-attr]
+                item,
+                identifier=item.identifier.uri,  # type: ignore[union-attr]
+                PROV_N_MAP=PROV_N_MAP,
             )
             container.addN(bundle.quads())
         return container
@@ -274,11 +277,13 @@ class ProvRDFSerializer(Serializer):
             container.bind(namespace.prefix, namespace.uri)
 
         id_generator = AnonymousIDGenerator()
-        real_or_anon_id = lambda record: (
-            record._identifier.uri
-            if record._identifier
-            else id_generator.get_anon_id(record)
-        )
+
+        def real_or_anon_id(record: pm.ProvRecord) -> str:
+            return (
+                record._identifier.uri
+                if record._identifier
+                else id_generator.get_anon_id(record)
+            )
 
         for record in bundle._records:
             rec_type = record.get_type()
@@ -295,7 +300,7 @@ class ProvRDFSerializer(Serializer):
                     record.attributes
                 )
                 formal_qualifiers = False
-                for attrid, (attr, value) in enumerate(list(record.formal_attributes)):
+                for attrid, (_attr, value) in enumerate(list(record.formal_attributes)):
                     if (identifier is not None and value is not None) or (
                         identifier is None and value is not None and attrid > 1
                     ):
@@ -318,10 +323,6 @@ class ProvRDFSerializer(Serializer):
                             if identifier is None and subj is not None:
                                 try:
                                     obj_val = record.formal_attributes[1][1]
-                                    obj_attr = URIRef(
-                                        record.formal_attributes[1][0].uri
-                                    )
-                                    # TODO: Why is obj_attr above not used anywhere?
                                 except IndexError:
                                     obj_val = None
                                 if obj_val and (
@@ -537,17 +538,11 @@ class ProvRDFSerializer(Serializer):
     ) -> None:
         record_types = {}  # type: dict[str, pm.QualifiedName]
         PROV_CLS_MAP = {}  # type: dict[str, pm.QualifiedName]
-        formal_attributes = (
-            {}
-        )  # type: dict[str, dict[pm.QualifiedName, Optional[pm.QualifiedNameCandidate | datetime.datetime]]]
-        unique_sets = (
-            {}
-        )  # type: dict[str, dict[pm.QualifiedName, list[pm.QualifiedNameCandidate | datetime.datetime]]]
+        formal_attributes = {}  # type: dict[str, dict[pm.QualifiedName, Optional[pm.QualifiedNameCandidate | datetime.datetime]]]
+        unique_sets = {}  # type: dict[str, dict[pm.QualifiedName, list[pm.QualifiedNameCandidate | datetime.datetime]]]
         for prov_type, _ in PROV_BASE_CLS.items():
             PROV_CLS_MAP[prov_type.uri] = PROV_BASE_CLS[prov_type]
-        other_attributes = (
-            {}
-        )  # type: dict[str, list[tuple[pm.QualifiedNameCandidate, Any]]]
+        other_attributes = {}  # type: dict[str, list[tuple[pm.QualifiedNameCandidate, Any]]]
         for stmt in graph.triples((None, RDF.type, None)):
             subj = str(stmt[0])
             obj = str(stmt[2])
@@ -680,9 +675,7 @@ class ProvRDFSerializer(Serializer):
             attrs = None
             if subj in other_attributes:
                 attrs = other_attributes[subj]
-            items_to_walk = (
-                []
-            )  # type: list[tuple[pm.QualifiedName, list[pm.QualifiedNameCandidate | datetime.datetime]]]
+            items_to_walk = []  # type: list[tuple[pm.QualifiedName, list[pm.QualifiedNameCandidate | datetime.datetime]]]
             for qname, values in unique_sets[subj].items():
                 if values and len(values) > 1:
                     items_to_walk.append((qname, values))
@@ -702,14 +695,19 @@ class ProvRDFSerializer(Serializer):
                 del other_attributes[subj]
 
         if other_attributes:
-            warnings.warn(
+            # No explicit stacklevel to preserve historic warning behaviour;
+            # revisit in a follow-up.
+            warnings.warn(  # noqa: B028
                 "The following attributes were not converted: " + str(other_attributes),
                 UserWarning,
             )
 
 
 def walk(
-    children: list, level: int = 0, path: dict = None, usename: bool = True  # type: ignore[assignment]
+    children: list,
+    level: int = 0,
+    path: dict = None,  # type: ignore[assignment]
+    usename: bool = True,
 ) -> Generator[dict]:
     """Generate all the full paths in a tree, as a dict.
 
@@ -740,8 +738,7 @@ def walk(
         else:
             path[level] = child
         # Recurse into the next level
-        for child_paths in walk(tail, level + 1, path, usename):
-            yield child_paths
+        yield from walk(tail, level + 1, path, usename)
 
 
 def literal_rdf_representation(literal: pm.Literal) -> RDFLiteral:

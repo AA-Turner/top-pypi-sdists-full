@@ -31,7 +31,7 @@ except ImportError:
 
 class ClientConnectionMixin:
     if TYPE_CHECKING:
-        my_cnf: Any
+        mylogin_cnf: Any
         config: Any
         config_without_package_defaults: Any
         keepalive_ticks: int | None
@@ -39,8 +39,7 @@ class ClientConnectionMixin:
         sqlexecute: Any
         logger: Any
 
-        def read_my_cnf(self, files: Any, keys: list[str]) -> dict[str, Any]: ...
-        def merge_ssl_with_cnf(self, ssl_config: dict[str, Any], cnf: dict[str, Any]) -> dict[str, Any] | None: ...
+        def read_mylogin_cnf(self, cnf: Any) -> dict[str, Any]: ...
         def echo(self, *args: Any, **kwargs: Any) -> None: ...
 
     def connect(
@@ -54,42 +53,17 @@ class ClientConnectionMixin:
         character_set: str | None = "",
         local_infile: bool | None = False,
         ssl: dict[str, Any] | None = None,
-        ssh_user: str | None = "",
-        ssh_host: str | None = "",
-        ssh_port: int = 22,
-        ssh_password: str | None = "",
-        ssh_key_filename: str | None = "",
         init_command: str | None = "",
         unbuffered: bool | None = None,
         use_keyring: bool | None = None,
         reset_keyring: bool | None = None,
         keepalive_ticks: int | None = None,
     ) -> None:
-        cnf = {
-            "database": None,
-            "user": None,
-            "password": None,
-            "host": None,
-            "port": None,
-            "socket": None,
-            "default_socket": None,
-            "default-character-set": None,
-            "local-infile": None,
-            "loose-local-infile": None,
-            "ssl-ca": None,
-            "ssl-cert": None,
-            "ssl-key": None,
-            "ssl-cipher": None,
-            "ssl-verify-server-cert": None,
-        }
-
-        cnf = self.read_my_cnf(self.my_cnf, list(cnf.keys()))
-
-        # Fall back to config values only if user did not specify a value.
-        database = database or cnf["database"]
-        user = user or cnf["user"] or os.getenv("USER")
-        host = host or cnf["host"]
-        port = port or cnf["port"]
+        mylogin_cnf: dict[str, Any] = self.read_mylogin_cnf(self.mylogin_cnf)
+        # Fall back to .mylogin.cnf values only if user did not specify a value.
+        user = user or mylogin_cnf["user"] or os.getenv("USER")
+        host = host or mylogin_cnf["host"]
+        port = port or mylogin_cnf["port"]
         ssl_config: dict[str, Any] = ssl or {}
         user_connection_config = self.config_without_package_defaults.get('connection', {})
         self.keepalive_ticks = keepalive_ticks
@@ -98,28 +72,38 @@ class ClientConnectionMixin:
         if not int_port:
             int_port = DEFAULT_PORT
             if not host or host == DEFAULT_HOST:
-                socket = (
-                    socket
-                    or user_connection_config.get("default_socket")
-                    or cnf["socket"]
-                    or cnf["default_socket"]
-                    or guess_socket_location()
-                )
+                socket = socket or user_connection_config.get("default_socket") or mylogin_cnf["socket"] or guess_socket_location()
 
-        passwd = passwd if isinstance(passwd, (str, int)) else cnf["password"]
+        passwd = passwd if isinstance(passwd, (str, int)) else mylogin_cnf["password"]
 
-        # default_character_set doesn't check in self.config_without_package_defaults, because the
-        # option already existed before the my.cnf deprecation.  For the same reason,
-        # default_character_set can be in [connection] or [main].
         if not character_set:
-            if 'default_character_set' in self.config['connection']:
+            if 'main' in self.config_without_package_defaults and 'default_character_set' in self.config_without_package_defaults['main']:
+                # migration with notice added with mycli 2.0.0 in 2026-07
+                # todo: entirely remove support for default_character_set in [main]
+                click.secho(
+                    'Mycli 2.0 migration: automatically moving default_character_set from [main] to [connection] in ~/.myclirc .',
+                    err=True,
+                    fg='red',
+                )
+                character_set = self.config_without_package_defaults['main']['default_character_set']
+
+                self.config_without_package_defaults.encoding = 'utf-8'
+                if 'connection' not in self.config_without_package_defaults:
+                    self.config_without_package_defaults['connection'] = {}
+                if self.config_without_package_defaults['connection'].get('default_character_set', None) in (None, ''):
+                    self.config_without_package_defaults['connection']['default_character_set'] = character_set
+                else:
+                    character_set = self.config_without_package_defaults["connection"].get("default_character_set")
+                    click.secho(
+                        f'But connection.default_character_set already existed, with the value: "{character_set}".',
+                        err=True,
+                        fg='red',
+                    )
+                del self.config_without_package_defaults['main']['default_character_set']
+                self.config_without_package_defaults.write()
+
+            if not character_set and 'default_character_set' in self.config['connection']:
                 character_set = self.config['connection']['default_character_set']
-            elif 'default_character_set' in self.config['main']:
-                character_set = self.config['main']['default_character_set']
-            elif 'default_character_set' in cnf:
-                character_set = cnf['default_character_set']
-            elif 'default-character-set' in cnf:
-                character_set = cnf['default-character-set']
         if not character_set:
             character_set = DEFAULT_CHARSET
 
@@ -128,10 +112,6 @@ class ClientConnectionMixin:
         for local_infile_option in (
             local_infile,
             user_connection_config.get('default_local_infile'),
-            cnf['local_infile'],
-            cnf['local-infile'],
-            cnf['loose_local_infile'],
-            cnf['loose-local-infile'],
             False,
         ):
             try:
@@ -140,37 +120,19 @@ class ClientConnectionMixin:
             except (TypeError, ValueError):
                 pass
 
-        # temporary my.cnf override mappings
-        if 'default_ssl_ca' in user_connection_config:
-            cnf['ssl-ca'] = user_connection_config.get('default_ssl_ca') or None
-        if 'default_ssl_cert' in user_connection_config:
-            cnf['ssl-cert'] = user_connection_config.get('default_ssl_cert') or None
-        if 'default_ssl_key' in user_connection_config:
-            cnf['ssl-key'] = user_connection_config.get('default_ssl_key') or None
-        if 'default_ssl_cipher' in user_connection_config:
-            cnf['ssl-cipher'] = user_connection_config.get('default_ssl_cipher') or None
-        if 'default_ssl_verify_server_cert' in user_connection_config:
-            cnf['ssl-verify-server-cert'] = user_connection_config.get('default_ssl_verify_server_cert') or None
-
-        # todo: rewrite the merge method using self.config['connection'] instead of cnf, after removing my.cnf support
-        ssl_config_or_none: dict[str, Any] | None = self.merge_ssl_with_cnf(ssl_config, cnf)
-
-        # default_ssl_ca_path is not represented in my.cnf
-        if 'default_ssl_ca_path' in self.config['connection'] and (not ssl_config_or_none or not ssl_config_or_none.get('capath')):
-            if ssl_config_or_none is None:
-                ssl_config_or_none = {}
-            ssl_config_or_none['capath'] = self.config['connection']['default_ssl_ca_path'] or False
+        if 'default_ssl_ca_path' in self.config['connection'] and (not ssl_config or not ssl_config.get('capath')):
+            ssl_config['capath'] = self.config['connection']['default_ssl_ca_path'] or False
 
         # prune lone check_hostname=False
         if not any(v for v in ssl_config.values()):
-            ssl_config_or_none = None
+            ssl_config = {}
 
         # password hierarchy
         # 1. -p / --pass/--password CLI options
         # 2. --password-file CLI option
         # 3. envvar (MYSQL_PWD)
         # 4. DSN (mysql://user:password)
-        # 5. cnf (.my.cnf / etc)
+        # 5. .mylogin.cnf
         # 6. keyring
 
         keyring_identifier = f'{user}@{host}:{"" if socket else int_port}:{socket or ""}'
@@ -199,12 +161,7 @@ class ClientConnectionMixin:
             "socket": socket,
             "character_set": character_set,
             "local_infile": use_local_infile,
-            "ssl": ssl_config_or_none,
-            "ssh_user": ssh_user,
-            "ssh_host": ssh_host,
-            "ssh_port": int(ssh_port) if ssh_port else None,
-            "ssh_password": ssh_password,
-            "ssh_key_filename": ssh_key_filename,
+            "ssl": ssl_config,
             "init_command": init_command,
             "unbuffered": unbuffered,
         }

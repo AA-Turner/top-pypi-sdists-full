@@ -19,7 +19,7 @@ class RawUsersClient:
 
     def get_info(self, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Session]:
         """
-        Get the user session details for the currently authenticated user
+        Get the session details for the currently authenticated user.
 
         Parameters
         ----------
@@ -29,10 +29,10 @@ class RawUsersClient:
         Returns
         -------
         HttpResponse[Session]
-            Returns the user session details
+            Returns the user session details.
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/svc/v1/users/info",
+            "api/svc/v1/x/users/info",
             method="GET",
             request_options=request_options,
         )
@@ -62,7 +62,7 @@ class AsyncRawUsersClient:
 
     async def get_info(self, *, request_options: typing.Optional[RequestOptions] = None) -> AsyncHttpResponse[Session]:
         """
-        Get the user session details for the currently authenticated user
+        Get the session details for the currently authenticated user.
 
         Parameters
         ----------
@@ -72,10 +72,10 @@ class AsyncRawUsersClient:
         Returns
         -------
         AsyncHttpResponse[Session]
-            Returns the user session details
+            Returns the user session details.
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/svc/v1/users/info",
+            "api/svc/v1/x/users/info",
             method="GET",
             request_options=request_options,
         )

@@ -631,9 +631,12 @@ def _project_to_manifold(raw: torch.Tensor, manifold: str, intrinsic_rank: int) 
         lon = torch.tanh(raw[..., 1:2]) * math.pi
         return torch.cat([lat, lon], dim=-1)
     if manifold == "product":
-        ang = torch.sigmoid(raw[..., :1])
-        rest = raw[..., 1:intrinsic_rank]
-        return torch.cat([ang, rest], dim=-1)
+        # A product atom is a flat Euclidean Duchon patch (genuinely R^d, see
+        # ``basis_kind`` and ``_TOPOLOGY_MAP``); it has no periodic/bounded axis.
+        # Passing the raw coordinates straight through keeps the Jacobian
+        # identity, avoiding the artificial (0,1) boundary and saturating
+        # gradients a sigmoid on coord 0 would impose.
+        return raw[..., :intrinsic_rank]
     raise ValueError(f"unknown manifold {manifold!r}")
 
 
@@ -689,6 +692,17 @@ class _SparsityLayer(nn.Module):
         # GumbelTemperatureSchedule. We hold the descriptor and query τ through
         # the FFI accessor rather than re-deriving the decay in Python.
         self._schedule = cfg.sparsity.gumbel_schedule()
+        # The schedule is a live Rust object held only in Python, so it is NOT
+        # captured by ``state_dict``. Mirror its step index in a persistent
+        # buffer and re-sync the schedule to it on reload, so the temperature
+        # anneal continues correctly across a checkpoint/resume instead of
+        # restarting from ``tau_start`` (the decay arithmetic stays in Rust — the
+        # single source of truth — and only the integer step index round-trips).
+        # ``_sparsity_cfg`` is retained to rebuild the schedule when re-syncing.
+        self._sparsity_cfg = cfg.sparsity
+        self.register_buffer(
+            "_anneal_steps", torch.zeros((), dtype=torch.long), persistent=True
+        )
         self._init_alpha = float(cfg.sparsity.init_alpha)
         # #1282 balanced-commitment window. For the first ~15% of the anneal
         # (>=40 steps) commit each atom to a fixed balanced row partition to
@@ -743,13 +757,23 @@ class _SparsityLayer(nn.Module):
 
     @torch.no_grad()
     def advance_temperature(self) -> None:
-        """Anneal ``tau`` by advancing the Rust ``GumbelTemperatureSchedule``.
+        """Anneal ``tau`` one step via the Rust ``GumbelTemperatureSchedule``.
 
-        The schedule owns the iteration counter and evaluates the decay through
-        the Rust ``gumbel_schedule_tau`` FFI, so the annealing arithmetic lives
-        in exactly one place (no Python-side step bookkeeping).
+        The schedule owns the decay arithmetic (single source of truth), and its
+        step index is mirrored in the persistent ``_anneal_steps`` buffer so the
+        annealing position survives serialization. After a ``load_state_dict``
+        the freshly built schedule sits at step 0 while ``_anneal_steps`` carries
+        the true position, so the schedule is fast-forwarded to match before
+        stepping. Without this the anneal would restart from ``tau_start`` on
+        every checkpoint/resume, re-softening a gate that was already sharpened.
         """
+        target = int(self._anneal_steps.item())
+        if int(self._schedule.iter_count) != target:
+            self._schedule = self._sparsity_cfg.gumbel_schedule()
+            for _ in range(target):
+                self._schedule.step()
         self.tau.fill_(float(self._schedule.step()))
+        self._anneal_steps += 1
 
     def forward(self, logits: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Apply the sparsity gate. Returns ``(assignments, gate_pre)``."""
@@ -1765,6 +1789,7 @@ class ManifoldSAE(nn.Module):
         x: torch.Tensor,
         *,
         max_iter: int | None = None,
+        n_iter: int | None = None,
         random_state: int = 0,
         learning_rate: float | None = None,
     ) -> _ClosedFormManifoldSAE:
@@ -1804,6 +1829,12 @@ class ManifoldSAE(nn.Module):
         the closed-form decoder. Build a fresh, unfitted module for gradient
         training.
         """
+        if max_iter is not None and n_iter is not None and int(max_iter) != int(n_iter):
+            raise ValueError(
+                f"ManifoldSAE.fit: max_iter={max_iter} and n_iter={n_iter} "
+                "are aliases and must agree when both are given"
+            )
+        resolved_iter = max_iter if max_iter is not None else n_iter
         if not isinstance(x, torch.Tensor):
             raise TypeError("ManifoldSAE.fit expects a torch.Tensor")
         if x.dim() != 2 or x.shape[1] != self.cfg.input_dim:
@@ -1857,13 +1888,44 @@ class ManifoldSAE(nn.Module):
             atom_basis=cfg.closed_form_basis_kind(),
             assignment=cfg.closed_form_assignment(),
             schedule=cfg.sparsity.gumbel_schedule(),
-            n_iter=int(max_iter or cfg.reml.max_iter),
+            n_iter=int(resolved_iter or cfg.reml.max_iter),
             random_state=int(random_state),
             **kwargs,
         )
+        self._pad_fit_decoder_blocks_for_config(fit)
         self._last_fit = fit
         self._copy_fit_into_params(fit)
         return fit
+
+    def _pad_fit_decoder_blocks_for_config(self, fit: _ClosedFormManifoldSAE) -> None:
+        """Expose closed-form decoder blocks at the module config width.
+
+        Rust atoms can legitimately solve with narrower basis blocks than the
+        torch wrapper's fixed ``n_basis_per_atom`` (for example periodic bases
+        have width ``2H+1``).  The torch module has a rectangular
+        ``(F, K, D)`` decoder parameter and the public torch ``fit()`` contract
+        mirrors that rectangular config surface, so pad missing rows/columns
+        with zeros before returning the fit object.  This is representation-only:
+        it never alters fitted values, because padded coefficients multiply
+        basis columns that are absent/zero-padded on the torch side.
+        """
+        F = int(self.cfg.n_atoms)
+        K = int(self.cfg.n_basis_per_atom)
+        D = int(self.cfg.input_dim)
+        padded: list[np.ndarray] = []
+        for block in fit.decoder_blocks[:F]:
+            arr = np.asarray(block, dtype=np.float64)
+            out = np.zeros((K, D), dtype=np.float64)
+            if arr.ndim == 2:
+                m_i = min(int(arr.shape[0]), K)
+                d_i = min(int(arr.shape[1]), D)
+                out[:m_i, :d_i] = arr[:m_i, :d_i]
+            padded.append(out)
+        if len(padded) < F:
+            padded.extend(
+                np.zeros((K, D), dtype=np.float64) for _ in range(F - len(padded))
+            )
+        fit.decoder_blocks = padded
 
     @torch.no_grad()
     def _copy_fit_into_params(self, fit: _ClosedFormManifoldSAE) -> None:
@@ -2022,12 +2084,20 @@ class ManifoldSAE(nn.Module):
         if self.cfg.atom_manifold == "circle":
             theta = torch.linspace(0.0, 1.0, grid_size, dtype=anchor.dtype, device=anchor.device)
             probe = theta.reshape(grid_size, 1)
+            # The probe grid, config, and centers do not depend on the atom index,
+            # so on the circle the basis evaluation is loop-invariant: evaluate the
+            # Rust `basis_with_jet` kernel once and reuse it for every atom (only the
+            # per-atom decoder block `decoder_blocks[i]` differs). The sphere/product
+            # branches keep the call inside the loop because their probe genuinely
+            # varies per atom (it carries that atom's anchor coordinates); on the
+            # circle the per-atom call was F-1 redundant FFI evaluations, and F
+            # reaches tens of thousands at deployment dictionary widths.
+            curves = _eval_basis_on_manifold(
+                probe,
+                self.cfg,
+                self._forward_centers,
+            )
             for i in range(F):
-                curves = _eval_basis_on_manifold(
-                    probe,
-                    self.cfg,
-                    self._forward_centers,
-                )
                 out[i] = curves @ self.decoder_blocks[i]
         elif self.cfg.atom_manifold == "sphere":
             lat = torch.linspace(

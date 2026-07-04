@@ -2,16 +2,14 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: organizations_early_access_features_opt_ins
-short_description: Resource module for organizations _early _access _features _opt
-  _ins
+short_description: Resource module for organizations _earlyaccess _features _optins
 description:
-  - Manage operations create, update and delete of the resource organizations _early
-    _access _features _opt _ins.
+  - Manage operations create, update and delete of the resource organizations _earlyaccess
+    _features _optins.
   - Create a new early access feature opt-in for an organization.
   - Delete an early access feature opt-in.
   - Update an early access feature opt-in for an organization.

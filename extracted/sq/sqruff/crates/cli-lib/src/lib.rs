@@ -1,6 +1,7 @@
 use clap::Parser as _;
 use commands::Format;
 use sqruff_lib::core::linter::core::Linter;
+use sqruff_lib::ignore::IgnoreFile;
 use sqruff_lib::{Formatter, core::config::FluffConfig};
 use sqruff_lib_core::dialects::init::DialectKind;
 use std::path::Path;
@@ -10,9 +11,9 @@ use stdin::is_std_in_flag_input;
 use crate::commands::{Cli, Commands};
 #[cfg(feature = "codegen-docs")]
 use crate::docs::codegen_docs;
-use crate::formatters::OutputStreamFormatter;
 use crate::formatters::github_annotation_native_formatter::GithubAnnotationNativeFormatter;
 use crate::formatters::json::JsonFormatter;
+use crate::formatters::{NullFormatter, OutputStreamFormatter};
 
 pub mod commands;
 mod commands_dialects;
@@ -27,7 +28,6 @@ mod commands_templaters;
 mod docs;
 mod formatters;
 mod github_action;
-mod ignore;
 mod logger;
 mod stdin;
 
@@ -55,9 +55,21 @@ where
 
             std::process::exit(1);
         };
-        FluffConfig::from_file(Path::new(config))
+        match FluffConfig::try_from_file(Path::new(config)) {
+            Ok(config) => config,
+            Err(err) => {
+                eprintln!("{err}");
+                std::process::exit(1);
+            }
+        }
     } else {
-        FluffConfig::from_root(None, false, None).unwrap()
+        match FluffConfig::from_root(None, false, None) {
+            Ok(config) => config,
+            Err(err) => {
+                eprintln!("{err}");
+                std::process::exit(1);
+            }
+        }
     };
 
     if let Some(dialect) = cli.dialect {
@@ -77,7 +89,7 @@ where
     }
 
     let current_path = std::env::current_dir().unwrap();
-    let ignore_file = ignore::IgnoreFile::new_from_root(&current_path).unwrap();
+    let ignore_file = IgnoreFile::new_from_root(&current_path).unwrap();
     let ignore_file = Arc::new(ignore_file);
     let ignorer = {
         let ignore_file = Arc::clone(&ignore_file);
@@ -148,6 +160,10 @@ pub(crate) fn linter(
         }
         Format::Json => {
             let formatter = JsonFormatter::default();
+            Arc::new(formatter)
+        }
+        Format::None => {
+            let formatter = NullFormatter;
             Arc::new(formatter)
         }
     };

@@ -9,7 +9,7 @@ guidance instead of "processing anyway".
 
 import pytest
 
-from sage.main import (
+from sage.cli_core import (
     _detect_aider_style_diff_garbage,
     _detect_non_english_code_identifiers,
 )

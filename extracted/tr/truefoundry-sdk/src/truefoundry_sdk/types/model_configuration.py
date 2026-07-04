@@ -22,11 +22,7 @@ class ModelConfiguration(UniversalBaseModel):
     Name of the model to be used for generations. This model should be available in the provider
     """
 
-    parameters: typing.Optional[Parameters] = pydantic.Field(default=None)
-    """
-    Parameters to pass to the model when generating
-    """
-
+    parameters: typing.Optional[Parameters] = None
     extra_parameters: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
     Arbitrary extra parameters to pass to the model when generating

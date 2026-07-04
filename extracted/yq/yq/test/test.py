@@ -196,6 +196,32 @@ class TestYq(unittest.TestCase):
         with io.open(cfn_filename) as fh:
             self.assertEqual(self.run_yq("", ["-Y", ".", cfn_filename]), fh.read())
 
+    def test_yaml_comment_roundtrip(self):
+        yaml_doc = (
+            "# top\n"
+            "a: 1 # inline a\n"
+            "# before b\n"
+            "b: 2\n"
+            "parent: # parent inline\n"
+            "  # child before\n"
+            "  child: 3 # child inline\n"
+            "items:\n"
+            "  - 1 # one\n"
+            "  # before two\n"
+            "  - 2\n"
+        )
+        self.assertEqual(self.run_yq(yaml_doc, ["-Y", "."]), yaml_doc)
+        self.assertEqual(
+            self.run_yq(yaml_doc, ["-y", "."]),
+            "a: 1\nb: 2\nparent:\n  child: 3\nitems:\n  - 1\n  - 2\n",
+        )
+
+        from yq.loader import get_loader
+        from yq.yaml_support import CommentPreservingLoader
+
+        self.assertNotIn(CommentPreservingLoader, get_loader(use_annotations=False).__mro__)
+        self.assertIn(CommentPreservingLoader, get_loader(use_annotations=True).__mro__)
+
     def test_in_place_yaml(self):
         with tempfile.NamedTemporaryFile() as tf, tempfile.NamedTemporaryFile() as tf2:
             tf.write(b"- foo\n- bar\n")
@@ -237,6 +263,10 @@ class TestYq(unittest.TestCase):
         self.assertEqual(self.run_yq("<foo/>", ["--xml-item-depth=2", "."], input_format="xml"), "")
         self.assertEqual(self.run_yq("<foo/>", ["--xml-dtd", "."], input_format="xml"), "")
         self.assertEqual(self.run_yq("<foo/>", ["-x", ".foo.x=1"], input_format="xml"), "<foo>\n  <x>1</x>\n</foo>\n")
+        self.assertEqual(self.run_yq("<foo/>", ["-x", "."], input_format="xml"), "<foo></foo>\n")
+        self.assertEqual(
+            self.run_yq("<foo/>", ["-x", "--xml-short-empty-elements", "."], input_format="xml"), "<foo/>\n"
+        )
         self.assertTrue(self.run_yq("<foo/>", ["-x", "--xml-dtd", "."], input_format="xml").startswith("<?xml"))
         self.assertTrue(self.run_yq("<foo/>", ["-x", "--xml-root=R", "."], input_format="xml").startswith("<R>"))
         self.assertEqual(self.run_yq("<foo/>", ["--xml-force-list=foo", "."], input_format="xml"), "")
@@ -255,6 +285,16 @@ class TestYq(unittest.TestCase):
             self.assertEqual(
                 self.run_yq("", ["-x", ".a", self.fd_path(tf), self.fd_path(tf2)], input_format="xml"),
                 "<b></b>\n<c></c>\n",
+            )
+            tf.seek(0)
+            tf2.seek(0)
+            self.assertEqual(
+                self.run_yq(
+                    "",
+                    ["-x", "--xml-short-empty-elements", ".a", self.fd_path(tf), self.fd_path(tf2)],
+                    input_format="xml",
+                ),
+                "<b/>\n<c/>\n",
             )
         err = (
             "yq: Error converting JSON to XML: cannot represent non-object types at top level. "

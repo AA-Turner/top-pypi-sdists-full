@@ -13,7 +13,7 @@ from unittest.mock import patch
 import pytest
 
 from sage.config import SageConfig
-from sage.main import _resolve_model_prefix, _providers_with_keys
+from sage.cli_core import _resolve_model_prefix, _providers_with_keys
 
 
 @pytest.fixture

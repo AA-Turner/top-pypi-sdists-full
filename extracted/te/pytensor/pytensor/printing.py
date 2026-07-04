@@ -20,7 +20,7 @@ from pytensor.compile.debug.profiling import ProfileStats
 from pytensor.compile.executor import Function
 from pytensor.compile.io import In, Out
 from pytensor.configdefaults import config
-from pytensor.graph.basic import Apply, Constant, Variable
+from pytensor.graph.basic import AbstractApply, Apply, Constant, Variable
 from pytensor.graph.fg import FunctionGraph
 from pytensor.graph.op import HasInnerGraph, Op, StorageMapType
 from pytensor.graph.traversal import graph_inputs, toposort
@@ -681,7 +681,7 @@ def debugprint(
             profile_list.append(None)
             storage_maps.append(None)
             topo_orders.append(None)
-        elif isinstance(obj, Apply):
+        elif isinstance(obj, AbstractApply):
             outputs_to_print.extend(obj.outputs)
             profile_list.extend(None for item in obj.outputs)
             storage_maps.extend(None for item in obj.outputs)
@@ -847,28 +847,20 @@ N.B.:
         new_prefix_child = prefix + "   "
         print("Inner graphs:", file=_file)
 
-        printed_inner_graphs_nodes = set()
+        printed_inner_graph_ops = set()
         for ig_var in inner_graph_vars:
-            if ig_var.owner in printed_inner_graphs_nodes:
+            if ig_var.owner.op in printed_inner_graph_ops:
                 continue
             else:
-                printed_inner_graphs_nodes.add(ig_var.owner)
-            # This is a work-around to maintain backward compatibility
-            # (e.g. to only print inner graphs that have been compiled through
-            # a call to `Op.prepare_node`)
-            inner_fn = getattr(ig_var.owner.op, "_fn", None)
-
-            if inner_fn:
-                # If the op was compiled, print the optimized version.
-                inner_inputs = inner_fn.maker.fgraph.inputs
-                inner_outputs = inner_fn.maker.fgraph.outputs
+                printed_inner_graph_ops.add(ig_var.owner.op)
+            # ``Elemwise``/``Blockwise`` hold their inner graph on ``scalar_op``
+            # (a ``Composite``/``ScalarLoop``); other ops expose it directly.
+            if hasattr(ig_var.owner.op, "scalar_op"):
+                inner_inputs = ig_var.owner.op.scalar_op.inner_inputs
+                inner_outputs = ig_var.owner.op.scalar_op.inner_outputs
             else:
-                if hasattr(ig_var.owner.op, "scalar_op"):
-                    inner_inputs = ig_var.owner.op.scalar_op.inner_inputs
-                    inner_outputs = ig_var.owner.op.scalar_op.inner_outputs
-                else:
-                    inner_inputs = ig_var.owner.op.inner_inputs
-                    inner_outputs = ig_var.owner.op.inner_outputs
+                inner_inputs = ig_var.owner.op.inner_inputs
+                inner_outputs = ig_var.owner.op.inner_outputs
 
             outer_inputs = ig_var.owner.inputs
 
@@ -889,27 +881,31 @@ N.B.:
 
             print("", file=_file)
 
-            _debugprint(
-                ig_var,
-                prefix=prefix,
-                depth=depth,
-                done=done,
-                print_type=print_type,
-                print_shape=print_shape,
-                file=_file,
-                id_type=id_type,
-                inner_graph_ops=inner_graph_vars,
-                stop_on_name=stop_on_name,
-                inner_to_outer_inputs=inner_to_outer_inputs,
-                used_ids=used_ids,
-                op_information=op_information,
-                assumption_tags=assumption_tags,
-                parent_node=ig_var.owner,
-                print_op_info=print_op_info,
-                print_destroy_map=print_destroy_map,
-                print_view_map=print_view_map,
-                is_inner_graph_header=True,
+            # Header line: the Op, then a single "[id A, B, ...]" listing every
+            # node whose inner graph is this one (printed once below), then its
+            # destroy/view maps. Equal Ops have identical inner graphs, so
+            # membership is grouped by Op equality. It must be computed here,
+            # not before the loop: nodes nested inside other inner graphs are
+            # only discovered while printing the bodies above. Output is
+            # streamed, so a node of an equal Op discovered after this header
+            # has printed cannot be added to it retroactively.
+            op = ig_var.owner.op
+            id_strs = [
+                _assign_id(node, used_ids, done, id_type, node.outputs[0])
+                # A multi-output node appears once per output var; dedup nodes.
+                for node in dict.fromkeys(
+                    v.owner for v in inner_graph_vars if v.owner.op == op
+                )
+            ]
+            tokens = [
+                s[4:-1] for s in id_strs if s.startswith("[id ") and s.endswith("]")
+            ]
+            ids_str = f" [id {', '.join(tokens)}]" if tokens else ""
+            destroy_map_str = (
+                f" d={op.destroy_map}" if print_destroy_map and op.destroy_map else ""
             )
+            view_map_str = f" v={op.view_map}" if print_view_map and op.view_map else ""
+            print(f"{op}{ids_str}{destroy_map_str}{view_map_str}", file=_file)
 
             if print_fgraph_inputs:
                 for inp in inner_inputs:
@@ -1315,17 +1311,12 @@ def _build_rich_tree(
                 continue
             printed.add(ig_var.owner)
 
-            inner_fn = getattr(ig_var.owner.op, "_fn", None)
-            if inner_fn:
-                inner_inputs = inner_fn.maker.fgraph.inputs
-                inner_outputs = inner_fn.maker.fgraph.outputs
+            if hasattr(ig_var.owner.op, "scalar_op"):
+                inner_inputs = ig_var.owner.op.scalar_op.inner_inputs
+                inner_outputs = ig_var.owner.op.scalar_op.inner_outputs
             else:
-                if hasattr(ig_var.owner.op, "scalar_op"):
-                    inner_inputs = ig_var.owner.op.scalar_op.inner_inputs
-                    inner_outputs = ig_var.owner.op.scalar_op.inner_outputs
-                else:
-                    inner_inputs = ig_var.owner.op.inner_inputs
-                    inner_outputs = ig_var.owner.op.inner_outputs
+                inner_inputs = ig_var.owner.op.inner_inputs
+                inner_outputs = ig_var.owner.op.inner_outputs
 
             outer_inputs = ig_var.owner.inputs
             inner_to_outer: dict[Variable, Variable] | None
@@ -2072,7 +2063,7 @@ def pydotprint(
     else:
         if isinstance(fct, Variable):
             fct = [fct]
-        elif isinstance(fct, Apply):
+        elif isinstance(fct, AbstractApply):
             fct = fct.outputs
         assert isinstance(fct, list | tuple)
         assert all(isinstance(v, Variable) for v in fct)

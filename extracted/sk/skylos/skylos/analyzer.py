@@ -78,6 +78,43 @@ logger = logging.getLogger("Skylos")
 PYTHON_SIGNATURE_SUFFIXES = (".py", ".pyi", ".pyw")
 
 
+def _merge_project_config_overrides(project_cfg, overrides):
+    if not isinstance(overrides, dict):
+        return project_cfg
+    if not isinstance(project_cfg, dict):
+        project_cfg = {}
+
+    merged = dict(project_cfg)
+    for key, value in overrides.items():
+        if (
+            isinstance(value, dict)
+            and isinstance(merged.get(key), dict)
+        ):
+            nested = dict(merged[key])
+            for nested_key, nested_value in value.items():
+                existing_value = nested.get(nested_key)
+                if isinstance(existing_value, list) and isinstance(
+                    nested_value, list
+                ):
+                    nested[nested_key] = _merge_ordered_lists(
+                        existing_value, nested_value
+                    )
+                else:
+                    nested[nested_key] = nested_value
+            merged[key] = nested
+        else:
+            merged[key] = value
+    return merged
+
+
+def _merge_ordered_lists(left, right):
+    merged = []
+    for value in list(left) + list(right):
+        if value not in merged:
+            merged.append(value)
+    return merged
+
+
 def _python_signature_files(files):
     py_files = []
     for file_path in files:
@@ -1982,6 +2019,7 @@ class Skylos:
         enable_sca=False,
         trace_file=None,
         config_file=None,
+        project_config_overrides=None,
     ) -> str:
         if not isinstance(path, (str, list, tuple)):
             raise TypeError(
@@ -2012,6 +2050,10 @@ class Skylos:
 
         workspace_inventory = discover_workspace_inventory(project_root)
         project_cfg = load_config(project_root, config_file=config_file)
+        if project_config_overrides:
+            project_cfg = _merge_project_config_overrides(
+                project_cfg, project_config_overrides
+            )
         project_ignore = set(project_cfg.get("ignore", []))
 
         if not files:
@@ -2570,6 +2612,7 @@ class Skylos:
         self._global_abc_implementers = {}
         self._global_protocol_implementers = {}
         self._global_protocol_method_names = {}
+        self._global_django_path_converter_classes = set()
 
         for defs, test_flags, framework_flags, file, mod, cfg in file_contexts:
             self._global_abc_classes.update(
@@ -2606,6 +2649,10 @@ class Skylos:
                 if cls not in self._global_protocol_method_names:
                     self._global_protocol_method_names[cls] = set()
                 self._global_protocol_method_names[cls].update(methods)
+
+            self._global_django_path_converter_classes.update(
+                getattr(framework_flags, "django_path_converter_classes", set())
+            )
 
         self._duck_typed_implementers = set()
 
@@ -3037,10 +3084,20 @@ class Skylos:
                     from skylos.rules.ai_defect.test_impact import (
                         detect_test_impact_gaps,
                     )
+                    from skylos.security.contracts import resolve_diff_base_ref
+
+                    diff_base = resolve_diff_base_ref(root)
+                    changed_file_diffs = {}
+                    for cf in changed_files:
+                        rel_cf = _relative_changed_file(root, cf)
+                        diff_text = _git_diff_for_changed_file(root, rel_cf, diff_base)
+                        if diff_text:
+                            changed_file_diffs[rel_cf] = diff_text
 
                     test_impact_findings = detect_test_impact_gaps(
                         root,
                         changed_files,
+                        changed_file_diffs=changed_file_diffs,
                     )
                     _extend_unsuppressed_ai_defect_findings(
                         test_impact_findings,
@@ -3571,6 +3628,7 @@ def analyze(
     enable_sca=False,
     trace_file=None,
     config_file=None,
+    project_config_overrides=None,
 ) -> str:
     return Skylos().analyze(
         path,
@@ -3589,6 +3647,7 @@ def analyze(
         enable_sca=enable_sca,
         trace_file=trace_file,
         config_file=config_file,
+        project_config_overrides=project_config_overrides,
     )
 
 

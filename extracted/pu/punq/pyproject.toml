@@ -1,48 +1,175 @@
-[tool.poetry]
+[project]
 name = "punq"
-version = "0.7.0"
-description = "An IOC Container for Python 3.8+"
-authors = ["Bob Gregory <bob@codefiend.co.uk>"]
-license = "MIT"
-homepage = "https://github.com/bobthemighty/punq"
-repository = "https://github.com/bobthemighty/punq"
-documentation = "https://punq.readthedocs.io"
-readme = "README.rst"
+version = "v0.8.0"
+description = "An IOC Container for Python 3.10+"
+authors = [
+  { name = "Bob Gregory", email = "bob@codefiend.co.uk" },
+  { name = "Nikita Sobolev", email = "mail@sobolevn.me" },
+]
+readme = "README.md"
+keywords = ['python']
+requires-python = ">=3.10,<4.0"
 classifiers = [
-  "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.8.1,<4.0"
+dependencies = [
+    "typing-extensions>=4.16.0",
+]
 
-[tool.poetry.group.dev.dependencies]
-black = "^22.1.0"
-pytest = "^7.0.1"
-pytest-cov = "^3.0.0"
-expects = "^0.9.0"
-xdoctest = {extras = ["colors"], version = "^0.15.10"}
-coverage = {extras = ["toml"], version = "^6.1"}
-flake8 = "^6.1.0"
-flake8-bandit = "^4.1.1"
-flake8-bugbear = "^23.7.10"
-flake8-docstrings = "^1.7.0"
-flake8-rst-docstrings = "^0.3.0"
-pep8-naming = "^0.13.3"
-reorder-python-imports = "^3.10.0"
-SQLAlchemy = "^1.4.31"
-attrs = "^23.1.0"
+[project.urls]
+Homepage = "https://bobthemighty.github.io/punq/"
+Repository = "https://github.com/bobthemighty/punq"
+Documentation = "https://bobthemighty.github.io/punq/"
 
-[tool.coverage.paths]
-source = ["punq", "*/site-packages"]
-tests = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.0",
+    "pre-commit>=4.6.0",
+    "deptry>=0.25.0",
+    "pytest-cov>=4.0.0",
+    "covdefaults>=2.3.0",
+    "ruff>=0.15.20",
+    "mkdocs>=1.4.2",
+    "mkdocs-material>=8.5.10",
+    "mkdocstrings[python]>=1.0.4",
+    "expects>=0.9.0",
+    "sqlalchemy>=2.0.36",
+    "attrs>=24.2.0",
+    "mkdocs-include-markdown-plugin>=7.3.0",
+    "mypy>=1.20.1",
+    "pyright>=1.1.411",
+    "pyrefly>=1.1.1",
+]
+
+[build-system]
+requires = ["setuptools>=82.0.1"]
+build-backend = "setuptools.build_meta"
+
+[tool.mypy]
+extra_checks = true
+strict = true
+strict_equality_for_none = true
+warn_unreachable = true
+
+enable_error_code = [
+  'deprecated',
+  'exhaustive-match',
+  'explicit-override',
+  'ignore-without-code',
+  'possibly-undefined',
+  'redundant-expr',
+  'redundant-self',
+  'truthy-bool',
+  'truthy-iterable',
+  'unimported-reveal',
+  'unused-awaitable',
+]
+
+[tool.pyright]
+include = ["punq/", "tests/typing/"]
+# Strict mode:
+typeCheckingMode = "strict"
+reportImplicitStringConcatenation = "error"
+reportUninitializedInstanceVariable = "error"
+reportUnnecessaryTypeIgnoreComment = "error"
+# Don't use '# type: ignore' to suppress with pyright:
+enableTypeIgnoreComments = false
+# Don't report unused variables and classes:
+reportUnusedVariable = false
+reportUnusedClass = false
+reportPrivateUsage = false
+
+[tool.pyrefly]
+project-includes = ["punq/", "tests/typing/"]
+# Strict mode:
+preset = 'strict'
+min-severity = 'warn'
+# Don't use '# type: ignore' to suppress with pyright:
+enabled-ignores = ["pyrefly"]
+
+[tool.pytest.ini_options]
+xfail_strict = true
+
+addopts = [
+  "--strict-config",
+  "--strict-markers",
+  "--doctest-modules",
+  "--doctest-glob=*.rst",
+  "--doctest-glob=README.md",
+  # Ignores typesafety tests:
+  "--ignore=typesafety",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+fix = true
+
+[tool.ruff.lint]
+select = [
+    # flake8-2020
+    "YTT",
+    # flake8-bandit
+    "S",
+    # flake8-bugbear
+    "B",
+    # flake8-builtins
+    "A",
+    # flake8-comprehensions
+    "C4",
+    # flake8-debugger
+    "T10",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # mccabe
+    "C90",
+    # pycodestyle
+    "E", "W",
+    # pyflakes
+    "F",
+    # pygrep-hooks
+    "PGH",
+    # pyupgrade
+    "UP",
+    # ruff
+    "RUF",
+    # tryceratops
+    "TRY",
+]
+ignore = [
+    # LineTooLong
+    "E501",
+    # DoNotAssignLambda
+    "E731",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.ruff.format]
+preview = true
+
+[tool.coverage.report]
+skip_empty = true
+show_missing = true
 
 [tool.coverage.run]
 branch = true
-source = ["punq", "tests"]
+source = ["punq"]
+plugins = ["covdefaults"]
 
-[build-system]
-requires = [
-  "setuptools >= 35.0.2",
-  "setuptools_scm >= 2.0.0, <3"
-]
-build-backend = "setuptools.build_meta"
+[tool.setuptools.packages.find]
+exclude = ['site']

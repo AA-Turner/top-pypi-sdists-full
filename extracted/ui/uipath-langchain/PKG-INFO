@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uipath-langchain
-Version: 0.13.19
+Version: 0.13.22
 Summary: Python SDK that enables developers to build and deploy LangGraph agents to the UiPath Cloud Platform
 Project-URL: Homepage, https://uipath.com
 Project-URL: Repository, https://github.com/UiPath/uipath-langchain-python
@@ -29,22 +29,22 @@ Requires-Dist: pillow>=12.1.1
 Requires-Dist: pydantic-settings>=2.6.0
 Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: uipath-core<0.6.0,>=0.5.20
-Requires-Dist: uipath-langchain-client[openai]<1.15.0,>=1.14.1
-Requires-Dist: uipath-platform<0.2.0,>=0.1.86
+Requires-Dist: uipath-langchain-client[openai]<1.17.0,>=1.16.1
+Requires-Dist: uipath-platform<0.2.0,>=0.1.91
 Requires-Dist: uipath-runtime<0.12.0,>=0.11.4
-Requires-Dist: uipath<2.12.0,>=2.11.14
+Requires-Dist: uipath<2.13.0,>=2.12.7
 Provides-Extra: all
-Requires-Dist: uipath-langchain-client[all]<1.15.0,>=1.14.1; extra == 'all'
+Requires-Dist: uipath-langchain-client[all]<1.17.0,>=1.16.1; extra == 'all'
 Provides-Extra: anthropic
-Requires-Dist: uipath-langchain-client[anthropic]<1.15.0,>=1.14.1; extra == 'anthropic'
+Requires-Dist: uipath-langchain-client[anthropic]<1.17.0,>=1.16.1; extra == 'anthropic'
 Provides-Extra: bedrock
 Requires-Dist: boto3-stubs>=1.41.4; extra == 'bedrock'
-Requires-Dist: uipath-langchain-client[bedrock]<1.15.0,>=1.14.1; extra == 'bedrock'
+Requires-Dist: uipath-langchain-client[bedrock]<1.17.0,>=1.16.1; extra == 'bedrock'
 Provides-Extra: fireworks
-Requires-Dist: uipath-langchain-client[fireworks]<1.15.0,>=1.14.1; extra == 'fireworks'
+Requires-Dist: uipath-langchain-client[fireworks]<1.17.0,>=1.16.1; extra == 'fireworks'
 Provides-Extra: vertex
-Requires-Dist: uipath-langchain-client[google]<1.15.0,>=1.14.1; extra == 'vertex'
-Requires-Dist: uipath-langchain-client[vertexai]<1.15.0,>=1.14.1; extra == 'vertex'
+Requires-Dist: uipath-langchain-client[google]<1.17.0,>=1.16.1; extra == 'vertex'
+Requires-Dist: uipath-langchain-client[vertexai]<1.17.0,>=1.16.1; extra == 'vertex'
 Description-Content-Type: text/markdown
 
 # UiPath LangChain Python SDK

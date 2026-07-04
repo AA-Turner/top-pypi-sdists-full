@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from io import TextIOWrapper
 import os
 import sys
+from textwrap import dedent
 from typing import Callable
 
 import click
@@ -78,62 +79,19 @@ class CliArgs:
         '--password',
         'password',
         type=INT_OR_STRING_CLICK_TYPE,
-        is_flag=False,
-        flag_value=EMPTY_PASSWORD_FLAG_SENTINEL,
-        help='Prompt for (or pass in cleartext) the password to connect to the database.',
+        help=dedent(
+            """Password to connect to the database.
+            Use with a value to set the password at the CLI, or alone in the last position to request a prompt.
+            """
+        ),
     )
     password_file: str | None = clickdc.option(
         type=click.Path(),
         help='File or FIFO path containing the password to connect to the db if not specified otherwise.',
     )
-    ssh_user: str | None = clickdc.option(
-        type=str,
-        help='User name to connect to ssh server.',
-    )
-    ssh_host: str | None = clickdc.option(
-        type=str,
-        help='Host name to connect to ssh server.',
-    )
-    ssh_port: int = clickdc.option(
-        type=int,
-        default=22,
-        help='Port to connect to ssh server.',
-    )
-    ssh_password: str | None = clickdc.option(
-        type=str,
-        help='Password to connect to ssh server.',
-    )
-    ssh_key_filename: str | None = clickdc.option(
-        type=str,
-        help='Private key filename (identify file) for the ssh connection.',
-    )
-    ssh_config_path: str = clickdc.option(
-        type=str,
-        help='Path to ssh configuration.',
-        default=os.path.expanduser('~') + '/.ssh/config',
-    )
-    ssh_config_host: str | None = clickdc.option(
-        type=str,
-        help='Host to connect to ssh server reading from ssh configuration.',
-    )
-    list_ssh_config: bool = clickdc.option(
-        is_flag=True,
-        help='list ssh configurations in the ssh config (requires paramiko).',
-    )
-    ssh_warning_off: bool = clickdc.option(
-        is_flag=True,
-        help='Suppress the SSH deprecation notice.',
-    )
     ssl_mode: str = clickdc.option(
         type=click.Choice(['auto', 'on', 'off']),
         help='Set desired SSL behavior. auto=preferred if TCP/IP, on=required, off=off.',
-    )
-    deprecated_ssl: bool | None = clickdc.option(
-        '--ssl/--no-ssl',
-        'deprecated_ssl',
-        default=None,
-        clickdc=None,
-        help='Enable SSL for connection (automatically enabled with other flags).',
     )
     ssl_ca: str | None = clickdc.option(
         type=click.Path(exists=True),
@@ -215,14 +173,6 @@ class CliArgs:
         is_flag=True,
         help='In batch mode, resume after replaying statements in the --checkpoint file.',
     )
-    defaults_group_suffix: str | None = clickdc.option(
-        type=str,
-        help='Read MySQL config groups with the specified suffix.',
-    )
-    defaults_file: str | None = clickdc.option(
-        type=click.Path(),
-        help='Only read MySQL options from the given file.',
-    )
     myclirc: str = clickdc.option(
         type=click.Path(),
         default='~/.myclirc',
@@ -253,6 +203,10 @@ class CliArgs:
         default=None,
         clickdc=None,
         help='Warn before running a destructive query.',
+    )
+    warn_batch: bool = clickdc.option(
+        is_flag=True,
+        help='Warn before running a destructive query when executing a script.',
     )
     local_infile: bool | None = clickdc.option(
         type=bool,
@@ -289,9 +243,11 @@ class CliArgs:
         type=str,
         help='SQL script to execute in batch mode.',
     )
+    # deprecated 2026-06-20
     noninteractive: bool = clickdc.option(
         is_flag=True,
-        help="Don't prompt during batch input.  Recommended.",
+        hidden=True,
+        deprecated='See --warn-batch.',
     )
     format: str | None = clickdc.option(
         type=click.Choice(['default', 'csv', 'tsv', 'table']),
@@ -318,6 +274,60 @@ class CliArgs:
     checkup: bool = clickdc.option(
         is_flag=True,
         help='Run a checkup on your configuration.',
+    )
+    # hidden options which have no effect as of mycli 2.0.0, 2026-07.
+    # todo: remove the hidden options, since they are still advertised
+    # in spelling corrections.
+    ssl: bool | None = clickdc.option(
+        '--ssl/--no-ssl',
+        clickdc=None,
+        hidden=True,
+        deprecated='No effect. See --ssl-mode.',
+    )
+    ssh_user: str | None = clickdc.option(
+        type=str,
+        hidden=True,
+        deprecated='No effect. See https://github.com/dbcli/mycli/issues/1960 .',
+    )
+    ssh_host: str | None = clickdc.option(
+        type=str,
+        hidden=True,
+        deprecated='No effect. See https://github.com/dbcli/mycli/issues/1960 .',
+    )
+    ssh_port: int = clickdc.option(
+        type=int,
+        hidden=True,
+        deprecated='No effect. See https://github.com/dbcli/mycli/issues/1960 .',
+    )
+    ssh_password: str | None = clickdc.option(
+        type=str,
+        hidden=True,
+        deprecated='No effect. See https://github.com/dbcli/mycli/issues/1960 .',
+    )
+    ssh_key_filename: str | None = clickdc.option(
+        type=str,
+        hidden=True,
+        deprecated='No effect. See https://github.com/dbcli/mycli/issues/1960 .',
+    )
+    ssh_config_path: str = clickdc.option(
+        type=str,
+        hidden=True,
+        deprecated='No effect. See https://github.com/dbcli/mycli/issues/1960 .',
+    )
+    ssh_config_host: str | None = clickdc.option(
+        type=str,
+        hidden=True,
+        deprecated='No effect. See https://github.com/dbcli/mycli/issues/1960 .',
+    )
+    list_ssh_config: bool = clickdc.option(
+        is_flag=True,
+        hidden=True,
+        deprecated='No effect. See https://github.com/dbcli/mycli/issues/1960 .',
+    )
+    ssh_warning_off: bool = clickdc.option(
+        is_flag=True,
+        hidden=True,
+        deprecated='No effect. See https://github.com/dbcli/mycli/issues/1960 .',
     )
 
 
@@ -376,8 +386,19 @@ def preprocess_cli_args(
         and cli_args.batch != '-'
         and os.path.exists(cli_args.batch)
     ):
-        if os.stat(cli_args.batch) == os.stat(cli_args.checkpoint):
+        if os.path.samefile(cli_args.batch, cli_args.checkpoint):
             click.secho('Error: --batch and --checkpoint must be different files.', err=True, fg='red')
+            sys.exit(1)
+
+    if (
+        cli_args.logfile
+        and os.path.exists(cli_args.logfile.name)
+        and cli_args.batch
+        and cli_args.batch != '-'
+        and os.path.exists(cli_args.batch)
+    ):
+        if os.path.samefile(cli_args.batch, cli_args.logfile.name):
+            click.secho('Error: --batch and --logfile must be different files.', err=True, fg='red')
             sys.exit(1)
 
     if cli_args.verbose and cli_args.quiet:
@@ -412,7 +433,7 @@ def click_entrypoint(
 def main() -> int | None:
     try:
         result = click_entrypoint.main(
-            filtered_sys_argv(),
+            filtered_sys_argv(),  # type: ignore[arg-type]
             standalone_mode=False,  # disable builtin exception handling
             prog_name='mycli',
         )

@@ -22,7 +22,7 @@ short_description: Manage FlashBlade Object Store Virtual Hosts
 description:
 - Add or delete FlashBlade Object Store Virtual Hosts
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:

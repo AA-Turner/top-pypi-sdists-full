@@ -434,10 +434,8 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
             display.vvvv(f"Populate {inventory_hostname}")
 
             if self._filter_exclude_host(inventory_hostname, hostvars):
-                display.v(f"azure_rm inventory: host '{inventory_hostname}' excluded by exclude_host_filters/default_host_filters")
                 continue
             if not self._filter_include_host(inventory_hostname, hostvars):
-                display.v(f"azure_rm inventory: host '{inventory_hostname}' excluded by include_host_filters (no include rule matched)")
                 continue
 
             try:
@@ -469,7 +467,6 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
                 conditional = trust_as_template(conditional)
             try:
                 if boolean(self.templar.template(conditional)):
-                    display.v(f"azure_rm inventory: host '{inventory_hostname}' matched filter: {condition}")
                     return True
             except Exception as e:
                 if boolean(self.get_option('fail_on_template_errors')):
@@ -886,7 +883,7 @@ class AzureHost(object):
                 id=self._vmss['id'],
                 name=self._vmss['name'],
             ) if self._vmss else {},
-            virtual_machine_size=self._vm_model['properties']['hardwareProfile'].get('vmSize') if self._vm_model['properties'].get('hardwareProfile') else None,
+            virtual_machine_size=self._vm_model['properties']['hardwareProfile']['vmSize'] if self._vm_model['properties'].get('hardwareProfile') else None,
             plan=self._vm_model['properties']['plan']['name'] if self._vm_model['properties'].get('plan') else None,
             resource_group=parse_resource_id(self._vm_model['id']).get('resource_group').lower(),
             default_inventory_hostname=self.default_inventory_hostname,

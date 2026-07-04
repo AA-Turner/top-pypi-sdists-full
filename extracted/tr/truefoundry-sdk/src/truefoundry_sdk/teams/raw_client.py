@@ -20,10 +20,12 @@ from ..types.delete_team_response import DeleteTeamResponse
 from ..types.get_team_permissions_response import GetTeamPermissionsResponse
 from ..types.get_team_response import GetTeamResponse
 from ..types.http_error import HttpError
+from ..types.list_team_managers_response import ListTeamManagersResponse
+from ..types.list_team_members_response import ListTeamMembersResponse
 from ..types.list_teams_response import ListTeamsResponse
 from ..types.team import Team
 from ..types.team_manifest import TeamManifest
-from .types.teams_list_request_type import TeamsListRequestType
+from ..types.team_subject_row import TeamSubjectRow
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -39,11 +41,12 @@ class RawTeamsClient:
         *,
         limit: typing.Optional[int] = 100,
         offset: typing.Optional[int] = 0,
-        type: typing.Optional[TeamsListRequestType] = None,
+        role: typing.Optional[typing.Literal["manager"]] = None,
+        attributes: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Team, ListTeamsResponse]:
         """
-        Retrieve all teams associated with the authenticated user. If the user is a tenant admin, returns all teams for the tenant. Pagination is available based on query parameters
+        List teams accessible to the current user.
 
         Parameters
         ----------
@@ -53,8 +56,11 @@ class RawTeamsClient:
         offset : typing.Optional[int]
             Number of items to skip
 
-        type : typing.Optional[TeamsListRequestType]
-            Filter teams by type
+        role : typing.Optional[typing.Literal["manager"]]
+            Filter to teams where the caller holds this role. `manager` returns teams the caller can manage (team managers and admins).
+
+        attributes : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Comma-separated list of attributes to return (e.g. `id,teamName`). When provided, only the specified fields are fetched. `id` is always included.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -62,7 +68,7 @@ class RawTeamsClient:
         Returns
         -------
         SyncPager[Team, ListTeamsResponse]
-            Returns an array of teams associated with the user or tenant And also the response includes paginated data
+            Paginated list of teams the caller has access to.
         """
         offset = offset if offset is not None else 0
 
@@ -72,7 +78,8 @@ class RawTeamsClient:
             params={
                 "limit": limit,
                 "offset": offset,
-                "type": type,
+                "role": role,
+                "attributes": attributes,
             },
             request_options=request_options,
         )
@@ -86,11 +93,12 @@ class RawTeamsClient:
                     ),
                 )
                 _items = _parsed_response.data
-                _has_next = True
+                _has_next = len(_items or []) > 0
                 _get_next = lambda: self.list(
                     limit=limit,
                     offset=offset + len(_items or []),
-                    type=type,
+                    role=role,
+                    attributes=attributes,
                     request_options=request_options,
                 )
                 return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
@@ -111,15 +119,15 @@ class RawTeamsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetTeamResponse]:
         """
-        Creates a new team or updates an existing team. It ensures that the team name is unique, valid, and that the team has at least one member. The members of the team are added or updated based on the provided emails.
+        Create a new team or update an existing one using the provided TeamManifest. Matching is by name — if the name matches an existing team it is updated, otherwise a new one is created.
 
         Parameters
         ----------
         manifest : TeamManifest
-            Team manifest
+            The team manifest describing the team to create or update.
 
         dry_run : typing.Optional[bool]
-            Dry run
+            When true, validate the request without persisting any changes.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -127,7 +135,7 @@ class RawTeamsClient:
         Returns
         -------
         HttpResponse[GetTeamResponse]
-            Returns the created or updated team.
+            The created or updated team.
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/svc/v1/teams",
@@ -169,6 +177,198 @@ class RawTeamsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
+                        HttpError,
+                        parse_obj_as(
+                            type_=HttpError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def list_members(
+        self,
+        id: str,
+        *,
+        limit: typing.Optional[int] = 100,
+        offset: typing.Optional[int] = 0,
+        filter: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[TeamSubjectRow, ListTeamMembersResponse]:
+        """
+        List users who are members of a team.
+
+        Parameters
+        ----------
+        id : str
+            System-generated team ID.
+
+        limit : typing.Optional[int]
+            Number of items per page
+
+        offset : typing.Optional[int]
+            Number of items to skip
+
+        filter : typing.Optional[str]
+            JSON string: structured filter tree (AND/OR groups, column leaves on `email` and `userId`).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SyncPager[TeamSubjectRow, ListTeamMembersResponse]
+            Paginated list of team members.
+        """
+        offset = offset if offset is not None else 0
+
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/svc/v1/teams/{encode_path_param(id)}/members",
+            method="GET",
+            params={
+                "limit": limit,
+                "offset": offset,
+                "filter": filter,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _parsed_response = typing.cast(
+                    ListTeamMembersResponse,
+                    parse_obj_as(
+                        type_=ListTeamMembersResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                _items = _parsed_response.data
+                _has_next = len(_items or []) > 0
+                _get_next = lambda: self.list_members(
+                    id,
+                    limit=limit,
+                    offset=offset + len(_items or []),
+                    filter=filter,
+                    request_options=request_options,
+                )
+                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpError,
+                        parse_obj_as(
+                            type_=HttpError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def list_managers(
+        self,
+        id: str,
+        *,
+        limit: typing.Optional[int] = 100,
+        offset: typing.Optional[int] = 0,
+        filter: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[TeamSubjectRow, ListTeamManagersResponse]:
+        """
+        List users who hold the team-manager role on a team.
+
+        Parameters
+        ----------
+        id : str
+            System-generated team ID.
+
+        limit : typing.Optional[int]
+            Number of items per page
+
+        offset : typing.Optional[int]
+            Number of items to skip
+
+        filter : typing.Optional[str]
+            JSON string: structured filter tree (AND/OR groups, column leaves on `email` and `userId`).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SyncPager[TeamSubjectRow, ListTeamManagersResponse]
+            Paginated list of team managers.
+        """
+        offset = offset if offset is not None else 0
+
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/svc/v1/teams/{encode_path_param(id)}/managers",
+            method="GET",
+            params={
+                "limit": limit,
+                "offset": offset,
+                "filter": filter,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _parsed_response = typing.cast(
+                    ListTeamManagersResponse,
+                    parse_obj_as(
+                        type_=ListTeamManagersResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                _items = _parsed_response.data
+                _has_next = len(_items or []) > 0
+                _get_next = lambda: self.list_managers(
+                    id,
+                    limit=limit,
+                    offset=offset + len(_items or []),
+                    filter=filter,
+                    request_options=request_options,
+                )
+                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpError,
+                        parse_obj_as(
+                            type_=HttpError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
                         typing.Any,
                         parse_obj_as(
                             type_=typing.Any,  # type: ignore
@@ -187,12 +387,12 @@ class RawTeamsClient:
 
     def get(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[GetTeamResponse]:
         """
-        Get Team associated with provided team id
+        Get a single team by its ID.
 
         Parameters
         ----------
         id : str
-            Team Id
+            System-generated team ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -200,7 +400,7 @@ class RawTeamsClient:
         Returns
         -------
         HttpResponse[GetTeamResponse]
-            Returns the Team associated with provided team id
+            The team with the given ID.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/svc/v1/teams/{encode_path_param(id)}",
@@ -241,12 +441,12 @@ class RawTeamsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DeleteTeamResponse]:
         """
-        Deletes the Team associated with the provided Id.
+        Permanently delete the team with the given ID. This action is irreversible.
 
         Parameters
         ----------
         id : str
-            Team Id
+            System-generated team ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -311,7 +511,7 @@ class RawTeamsClient:
         Parameters
         ----------
         id : str
-            Team Id
+            System-generated team ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -319,7 +519,7 @@ class RawTeamsClient:
         Returns
         -------
         HttpResponse[GetTeamPermissionsResponse]
-            Returns role bindings for the team.
+            Role bindings for the team.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/svc/v1/teams/{encode_path_param(id)}/permissions",
@@ -377,11 +577,12 @@ class AsyncRawTeamsClient:
         *,
         limit: typing.Optional[int] = 100,
         offset: typing.Optional[int] = 0,
-        type: typing.Optional[TeamsListRequestType] = None,
+        role: typing.Optional[typing.Literal["manager"]] = None,
+        attributes: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Team, ListTeamsResponse]:
         """
-        Retrieve all teams associated with the authenticated user. If the user is a tenant admin, returns all teams for the tenant. Pagination is available based on query parameters
+        List teams accessible to the current user.
 
         Parameters
         ----------
@@ -391,8 +592,11 @@ class AsyncRawTeamsClient:
         offset : typing.Optional[int]
             Number of items to skip
 
-        type : typing.Optional[TeamsListRequestType]
-            Filter teams by type
+        role : typing.Optional[typing.Literal["manager"]]
+            Filter to teams where the caller holds this role. `manager` returns teams the caller can manage (team managers and admins).
+
+        attributes : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Comma-separated list of attributes to return (e.g. `id,teamName`). When provided, only the specified fields are fetched. `id` is always included.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -400,7 +604,7 @@ class AsyncRawTeamsClient:
         Returns
         -------
         AsyncPager[Team, ListTeamsResponse]
-            Returns an array of teams associated with the user or tenant And also the response includes paginated data
+            Paginated list of teams the caller has access to.
         """
         offset = offset if offset is not None else 0
 
@@ -410,7 +614,8 @@ class AsyncRawTeamsClient:
             params={
                 "limit": limit,
                 "offset": offset,
-                "type": type,
+                "role": role,
+                "attributes": attributes,
             },
             request_options=request_options,
         )
@@ -424,13 +629,14 @@ class AsyncRawTeamsClient:
                     ),
                 )
                 _items = _parsed_response.data
-                _has_next = True
+                _has_next = len(_items or []) > 0
 
                 async def _get_next():
                     return await self.list(
                         limit=limit,
                         offset=offset + len(_items or []),
-                        type=type,
+                        role=role,
+                        attributes=attributes,
                         request_options=request_options,
                     )
 
@@ -452,15 +658,15 @@ class AsyncRawTeamsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetTeamResponse]:
         """
-        Creates a new team or updates an existing team. It ensures that the team name is unique, valid, and that the team has at least one member. The members of the team are added or updated based on the provided emails.
+        Create a new team or update an existing one using the provided TeamManifest. Matching is by name — if the name matches an existing team it is updated, otherwise a new one is created.
 
         Parameters
         ----------
         manifest : TeamManifest
-            Team manifest
+            The team manifest describing the team to create or update.
 
         dry_run : typing.Optional[bool]
-            Dry run
+            When true, validate the request without persisting any changes.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -468,7 +674,7 @@ class AsyncRawTeamsClient:
         Returns
         -------
         AsyncHttpResponse[GetTeamResponse]
-            Returns the created or updated team.
+            The created or updated team.
         """
         _response = await self._client_wrapper.httpx_client.request(
             "api/svc/v1/teams",
@@ -510,6 +716,204 @@ class AsyncRawTeamsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
+                        HttpError,
+                        parse_obj_as(
+                            type_=HttpError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def list_members(
+        self,
+        id: str,
+        *,
+        limit: typing.Optional[int] = 100,
+        offset: typing.Optional[int] = 0,
+        filter: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[TeamSubjectRow, ListTeamMembersResponse]:
+        """
+        List users who are members of a team.
+
+        Parameters
+        ----------
+        id : str
+            System-generated team ID.
+
+        limit : typing.Optional[int]
+            Number of items per page
+
+        offset : typing.Optional[int]
+            Number of items to skip
+
+        filter : typing.Optional[str]
+            JSON string: structured filter tree (AND/OR groups, column leaves on `email` and `userId`).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncPager[TeamSubjectRow, ListTeamMembersResponse]
+            Paginated list of team members.
+        """
+        offset = offset if offset is not None else 0
+
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/svc/v1/teams/{encode_path_param(id)}/members",
+            method="GET",
+            params={
+                "limit": limit,
+                "offset": offset,
+                "filter": filter,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _parsed_response = typing.cast(
+                    ListTeamMembersResponse,
+                    parse_obj_as(
+                        type_=ListTeamMembersResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                _items = _parsed_response.data
+                _has_next = len(_items or []) > 0
+
+                async def _get_next():
+                    return await self.list_members(
+                        id,
+                        limit=limit,
+                        offset=offset + len(_items or []),
+                        filter=filter,
+                        request_options=request_options,
+                    )
+
+                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpError,
+                        parse_obj_as(
+                            type_=HttpError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def list_managers(
+        self,
+        id: str,
+        *,
+        limit: typing.Optional[int] = 100,
+        offset: typing.Optional[int] = 0,
+        filter: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[TeamSubjectRow, ListTeamManagersResponse]:
+        """
+        List users who hold the team-manager role on a team.
+
+        Parameters
+        ----------
+        id : str
+            System-generated team ID.
+
+        limit : typing.Optional[int]
+            Number of items per page
+
+        offset : typing.Optional[int]
+            Number of items to skip
+
+        filter : typing.Optional[str]
+            JSON string: structured filter tree (AND/OR groups, column leaves on `email` and `userId`).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncPager[TeamSubjectRow, ListTeamManagersResponse]
+            Paginated list of team managers.
+        """
+        offset = offset if offset is not None else 0
+
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/svc/v1/teams/{encode_path_param(id)}/managers",
+            method="GET",
+            params={
+                "limit": limit,
+                "offset": offset,
+                "filter": filter,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _parsed_response = typing.cast(
+                    ListTeamManagersResponse,
+                    parse_obj_as(
+                        type_=ListTeamManagersResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                _items = _parsed_response.data
+                _has_next = len(_items or []) > 0
+
+                async def _get_next():
+                    return await self.list_managers(
+                        id,
+                        limit=limit,
+                        offset=offset + len(_items or []),
+                        filter=filter,
+                        request_options=request_options,
+                    )
+
+                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpError,
+                        parse_obj_as(
+                            type_=HttpError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
                         typing.Any,
                         parse_obj_as(
                             type_=typing.Any,  # type: ignore
@@ -530,12 +934,12 @@ class AsyncRawTeamsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetTeamResponse]:
         """
-        Get Team associated with provided team id
+        Get a single team by its ID.
 
         Parameters
         ----------
         id : str
-            Team Id
+            System-generated team ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -543,7 +947,7 @@ class AsyncRawTeamsClient:
         Returns
         -------
         AsyncHttpResponse[GetTeamResponse]
-            Returns the Team associated with provided team id
+            The team with the given ID.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/svc/v1/teams/{encode_path_param(id)}",
@@ -584,12 +988,12 @@ class AsyncRawTeamsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DeleteTeamResponse]:
         """
-        Deletes the Team associated with the provided Id.
+        Permanently delete the team with the given ID. This action is irreversible.
 
         Parameters
         ----------
         id : str
-            Team Id
+            System-generated team ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -654,7 +1058,7 @@ class AsyncRawTeamsClient:
         Parameters
         ----------
         id : str
-            Team Id
+            System-generated team ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -662,7 +1066,7 @@ class AsyncRawTeamsClient:
         Returns
         -------
         AsyncHttpResponse[GetTeamPermissionsResponse]
-            Returns role bindings for the team.
+            Role bindings for the team.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/svc/v1/teams/{encode_path_param(id)}/permissions",

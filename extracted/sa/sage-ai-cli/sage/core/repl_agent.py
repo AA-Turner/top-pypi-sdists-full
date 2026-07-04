@@ -280,7 +280,7 @@ class SAGEAgent:
         sticky_context_files=None,
         context_manager=None,
     ):
-        from sage.main import _build_session_protected_files, _reset_evidence_tracker
+        from sage.cli_core import _build_session_protected_files, _reset_evidence_tracker
         self.cwd = cwd
         self.renderer = renderer
         self.engine = engine
@@ -345,7 +345,7 @@ class SAGEAgent:
         max_tokens: int | None = None,
     ) -> str | None:
         """Send a message to the model and stream the response."""
-        from sage.main import _add_to_conversation_memory, _add_to_output_history, _build_followup_context_from_recent_analysis, _build_messages_with_optional_resume_context, _build_resume_context_from_memory, _failure_loop_detector, _get_global_memory, _get_single_turn_agent_timeout, _run_callable_with_timeout, _update_global_memory
+        from sage.cli_core import _add_to_conversation_memory, _add_to_output_history, _build_followup_context_from_recent_analysis, _build_messages_with_optional_resume_context, _build_resume_context_from_memory, _failure_loop_detector, _get_global_memory, _get_single_turn_agent_timeout, _run_callable_with_timeout, _update_global_memory
         if save_history:
             self.engine.add_user(user_msg)
             _add_to_conversation_memory(self.cwd, "user", user_msg)
@@ -567,7 +567,7 @@ class SAGEAgent:
         3. Execute ```bash blocks
         Returns (list of written files, final model response).
         """
-        from sage.main import _add_to_conversation_memory, _build_context_aware_validation_retry_prompt, _build_tool_followup_prompt, _detect_aider_style_diff_garbage, _detect_non_english_code_identifiers, _detect_repetitive_filler, _detect_tool_description_vs_execution, _emit_grounded_analysis_failure, _execute_tool_commands, _extract_and_write_files, _extract_tool_commands_structured, _get_current_classification, _get_current_task_prompt, _get_evidence_tracker, _normalize_workspace_relative_path, _response_describes_code_without_file_blocks
+        from sage.cli_core import _add_to_conversation_memory, _build_context_aware_validation_retry_prompt, _build_tool_followup_prompt, _detect_aider_style_diff_garbage, _detect_non_english_code_identifiers, _detect_repetitive_filler, _detect_tool_description_vs_execution, _emit_grounded_analysis_failure, _execute_tool_commands, _extract_and_write_files, _extract_tool_commands_structured, _get_current_classification, _get_current_task_prompt, _get_evidence_tracker, _normalize_workspace_relative_path, _response_describes_code_without_file_blocks
         # Get classification at the very beginning to avoid UnboundLocalError (P3-71)
         effective_classification = _get_current_classification()
         is_analysis_response = bool(effective_classification and effective_classification.read_only)
@@ -579,7 +579,7 @@ class SAGEAgent:
         send = send_fn or self.send_to_model
 
         def _retry_invalid_readonly_response(violations: list[str]) -> tuple[list[str], str] | None:
-            from sage.main import _build_context_aware_validation_retry_prompt, _get_current_task_prompt
+            from sage.cli_core import _build_context_aware_validation_retry_prompt, _get_current_task_prompt
             if not (is_analysis_response and tool_depth < 4):
                 return None
             current_task_prompt = _get_current_task_prompt()
@@ -615,7 +615,7 @@ class SAGEAgent:
             that sage doesn't parse. Bounded by tool_depth to prevent
             infinite loops on persistently-broken models.
             """
-            from sage.main import _get_current_task_prompt
+            from sage.cli_core import _get_current_task_prompt
             if tool_depth >= 3:
                 return None
             current_task_prompt = _get_current_task_prompt()
@@ -653,7 +653,7 @@ class SAGEAgent:
         def _retry_failed_file_writes(failed: dict[str, str]) -> tuple[list[str], str] | None:
             if tool_depth >= 3:
                 return None
-            from sage.main import _get_current_task_prompt
+            from sage.cli_core import _get_current_task_prompt
             current_task_prompt = _get_current_task_prompt()
             if not current_task_prompt:
                 return None
@@ -1047,7 +1047,7 @@ class SAGEAgent:
         self, user_msg: str, system_prompt: str | None = None
     ) -> str | None:
         """Send a single hidden turn without replaying the full chat history."""
-        from sage.main import _get_single_turn_agent_timeout, _run_callable_with_timeout
+        from sage.cli_core import _get_single_turn_agent_timeout, _run_callable_with_timeout
         from sage.providers.base import Message
 
         provider_name = self.model_id.split(":", 1)[0] if ":" in self.model_id else ""
@@ -1057,7 +1057,7 @@ class SAGEAgent:
         ]
 
         def _generate_once(target_model: str) -> str:
-            from sage.main import _get_single_turn_agent_timeout, _run_callable_with_timeout
+            from sage.cli_core import _get_single_turn_agent_timeout, _run_callable_with_timeout
             target_provider = target_model.split(":", 1)[0] if ":" in target_model else ""
             timeout_seconds = _get_single_turn_agent_timeout(target_provider)
             return _run_callable_with_timeout(
@@ -1085,7 +1085,7 @@ class SAGEAgent:
         attempt: int = 1,
     ) -> bool:
         """Auto-validate written files and retry on failure."""
-        from sage.main import _auto_validate, _is_broken_test_file
+        from sage.cli_core import _auto_validate, _is_broken_test_file
         if not written:
             return True
 
@@ -1254,7 +1254,7 @@ class SAGEAgent:
         max_rounds: int | None = None,
     ) -> list[str]:
         """Re-prompt until the model emits FILE: blocks or we exhaust follow-up rounds."""
-        from sage.main import _build_implementation_completion_nudge, _default_test_command, _get_current_classification, _resolve_implementation_test_command, _suggest_target_paths_for_task
+        from sage.cli_core import _build_implementation_completion_nudge, _default_test_command, _get_current_classification, _resolve_implementation_test_command, _suggest_target_paths_for_task
         cls = _get_current_classification()
         if not cls or cls.read_only or getattr(cls, "is_informational", False):
             return []
@@ -1329,7 +1329,7 @@ class SAGEAgent:
         seeded_full_file_coverage_context: str = "",
     ) -> tuple[list[str], str]:
         """Execute a single phase of the multistep pipeline."""
-        from sage.main import _build_context_aware_validation_retry_prompt, _build_readonly_exploration_nudge, _build_seeded_readonly_synthesis_prompt, _collect_analysis_validation_violations, _extract_tool_commands_structured
+        from sage.cli_core import _build_context_aware_validation_retry_prompt, _build_readonly_exploration_nudge, _build_seeded_readonly_synthesis_prompt, _collect_analysis_validation_violations, _extract_tool_commands_structured
         phase_messages = {
             "planning": "Breaking task into steps...",
             "analysis": "Investigating with the model...",
@@ -1505,7 +1505,7 @@ class SAGEAgent:
         seeded_full_file_coverage_context: str = "",
     ) -> tuple[list[str], str]:
         """Execute a task via focused multi-step pipeline with real-time plan sync."""
-        from sage.main import _build_followup_context_from_recent_analysis, _build_multistep_phase_prompts, _clean_manifest_line, _is_analysis_followup_implementation_request, _persist_recent_analysis_output, _should_use_seeded_synthesis_only
+        from sage.cli_core import _build_followup_context_from_recent_analysis, _build_multistep_phase_prompts, _clean_manifest_line, _is_analysis_followup_implementation_request, _persist_recent_analysis_output, _should_use_seeded_synthesis_only
         all_step_written: list[str] = []
         accumulated_responses: list[str] = []
         last_response = ""
@@ -1753,7 +1753,7 @@ class SAGEAgent:
         (planning or mid-execution), we replace the plan tasks so the dock reflects
         exactly what the model has committed to doing.
         """
-        from sage.main import _build_cli_task_todos, _extract_steps_from_response
+        from sage.cli_core import _build_cli_task_todos, _extract_steps_from_response
         steps = _extract_steps_from_response(response)
         if not steps:
             return
@@ -1785,7 +1785,7 @@ class SAGEAgent:
         self, phase_name: str, status: str, classification: _ClassifiedRequest | None
     ) -> None:
         """Synchronize the internal execution plan with the UI dock."""
-        from sage.main import _build_cli_task_todos, _set_cli_task_stage
+        from sage.cli_core import _build_cli_task_todos, _set_cli_task_stage
         if not (self.current_plan and self.current_plan.tasks):
             # If no dynamic plan, update the generic dock items based on phase
             task_todos = _build_cli_task_todos(
@@ -1938,7 +1938,7 @@ class SAGEAgent:
             except Exception:
                 pass
 
-        from sage.main import _add_to_prompt_history, _build_cli_task_todos, _build_followup_context_from_recent_analysis, _check_context_relevance, _classify_and_store_request, _clean_manifest_line, _initialize_request_grounding_state, _route_to_principal_pipeline, _set_cli_task_stage
+        from sage.cli_core import _add_to_prompt_history, _build_cli_task_todos, _build_followup_context_from_recent_analysis, _check_context_relevance, _classify_and_store_request, _clean_manifest_line, _initialize_request_grounding_state, _route_to_principal_pipeline, _set_cli_task_stage
         global _current_execution_context
         self._model_timed_out = False  # reset per-task
         self._greenfield_manifest = []  # reset per-task so old manifests don't bleed through
@@ -2108,7 +2108,7 @@ class SAGEAgent:
                 self.renderer.warning(f"Plan generation skipped: {e}")
 
         def _advance_task_stage(stage_key: str, status_message: str) -> None:
-            from sage.main import _set_cli_task_stage
+            from sage.cli_core import _set_cli_task_stage
             if not dock_active:
                 return
             _set_cli_task_stage(task_todos, stage_key)

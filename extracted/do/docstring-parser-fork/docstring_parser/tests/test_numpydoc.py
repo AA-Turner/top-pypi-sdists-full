@@ -392,7 +392,13 @@ def test_meta_with_multiline_description() -> None:
 
 
 @pytest.mark.parametrize(
-    "source, expected_is_optional, expected_type_name, expected_default",
+    (
+        "source",
+        "expected_is_optional",
+        "expected_type_name",
+        "expected_default",
+        "expected_raw_type_name",
+    ),
     [
         (
             """
@@ -404,6 +410,7 @@ def test_meta_with_multiline_description() -> None:
             False,
             "int",
             None,
+            "int",
         ),
         (
             """
@@ -414,6 +421,19 @@ def test_meta_with_multiline_description() -> None:
                 """,
             False,
             "str",
+            None,
+            "str",
+        ),
+        (
+            """
+                Parameters
+                ----------
+                arg_without_type
+                    The arg has no type declaration.
+                """,
+            None,
+            None,
+            None,
             None,
         ),
         (
@@ -426,6 +446,7 @@ def test_meta_with_multiline_description() -> None:
             True,
             "float",
             "1.0",
+            "float, optional",
         ),
         (
             """
@@ -437,6 +458,7 @@ def test_meta_with_multiline_description() -> None:
             True,
             "float",
             "1.0",
+            "float, default=1.0",
         ),
         (
             """
@@ -448,6 +470,7 @@ def test_meta_with_multiline_description() -> None:
             True,
             "int",
             "1",
+            "int, default 1",
         ),
         (
             """
@@ -459,6 +482,7 @@ def test_meta_with_multiline_description() -> None:
             True,
             "str",
             "'hello'",
+            "str, default: 'hello'",
         ),
         (
             """
@@ -470,6 +494,7 @@ def test_meta_with_multiline_description() -> None:
             True,
             "Optional[Dict[str, Any]]",
             "None",
+            "Optional[Dict[str, Any]], optional",
         ),
         (
             """
@@ -481,6 +506,19 @@ def test_meta_with_multiline_description() -> None:
             True,
             "str",
             "DEFAULT_ARGS",
+            "str, optional",
+        ),
+        (
+            """
+                Parameters
+                ----------
+                arg8 : int
+                    The eighth arg. Default is 3.
+                """,
+            False,
+            "int",
+            "3",
+            "int",
         ),
         (
             """
@@ -492,14 +530,16 @@ def test_meta_with_multiline_description() -> None:
             False,
             "int",
             None,
+            "int",
         ),
     ],
 )
 def test_default_args(
     source: str,
-    expected_is_optional: bool,
+    expected_is_optional: T.Optional[bool],
     expected_type_name: T.Optional[str],
     expected_default: T.Optional[str],
+    expected_raw_type_name: T.Optional[str],
 ) -> None:
     """Test parsing default arguments."""
     docstring = parse(source)
@@ -510,6 +550,97 @@ def test_default_args(
     assert arg1.is_optional == expected_is_optional
     assert arg1.type_name == expected_type_name
     assert arg1.default == expected_default
+    assert arg1.raw_type_name == expected_raw_type_name
+
+
+@pytest.mark.parametrize(
+    (
+        "source",
+        "expected_is_optional",
+        "expected_type_name",
+        "expected_default",
+        "expected_raw_type_name",
+    ),
+    [
+        (
+            """
+                Attributes
+                ----------
+                attr_without_type
+                    The attr has no type declaration.
+                """,
+            None,
+            None,
+            None,
+            None,
+        ),
+        (
+            """
+                Attributes
+                ----------
+                attr1 : int, default=1
+                    The first attr.
+                """,
+            True,
+            "int",
+            "1",
+            "int, default=1",
+        ),
+        (
+            """
+                Attributes
+                ----------
+                attr2 : str, default: 'hello'
+                    The second attr.
+                """,
+            True,
+            "str",
+            "'hello'",
+            "str, default: 'hello'",
+        ),
+        (
+            """
+                Attributes
+                ----------
+                attr3 : float, optional
+                    The third attr.
+                """,
+            True,
+            "float",
+            None,
+            "float, optional",
+        ),
+        (
+            """
+                Attributes
+                ----------
+                attr4 : int
+                    The fourth attr. Default is 3.
+                """,
+            False,
+            "int",
+            "3",
+            "int",
+        ),
+    ],
+)
+def test_default_attrs(
+    source: str,
+    expected_is_optional: T.Optional[bool],
+    expected_type_name: T.Optional[str],
+    expected_default: T.Optional[str],
+    expected_raw_type_name: T.Optional[str],
+) -> None:
+    """Test parsing raw type declarations for attribute defaults."""
+    docstring = parse(source)
+    assert docstring is not None
+    assert len(docstring.attrs) == 1
+
+    attr = docstring.attrs[0]
+    assert attr.is_optional == expected_is_optional
+    assert attr.type_name == expected_type_name
+    assert attr.default == expected_default
+    assert attr.raw_type_name == expected_raw_type_name
 
 
 def test_multiple_meta() -> None:

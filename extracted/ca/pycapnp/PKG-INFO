@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pycapnp
-Version: 2.2.3
+Version: 2.2.4
 Summary: A cython wrapping of the C++ Cap'n Proto library
 Home-page: https://github.com/capnproto/pycapnp
-Download-URL: https://github.com/haata/pycapnp/archive/v2.2.3.zip
+Download-URL: https://github.com/capnproto/pycapnp/archive/v2.2.4.zip
 Author: Jacob Alexander
 Author-email: haata@kiibohd.com
 License: BSD-2-Clause
@@ -15,16 +15,18 @@ Classifier: Operating System :: Microsoft :: Windows :: Windows 10
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: C++
 Classifier: Programming Language :: Cython
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Communications
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
+Requires-Dist: jinja2
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -117,7 +119,7 @@ While not directly supported by pycapnp, a tool has been created to help generat
 
 ## Python Versions
 
-Python 3.8+ is supported.
+Python 3.9+ is supported.
 
 
 ## Development
@@ -306,6 +308,14 @@ if __name__ == '__main__':
 
 Changelog
 =============
+## v2.2.4 (2026-07-03)
+- Fix memory leak in `_DynamicCapabilityClient._send_helper()` (#398)
+- Fix SIGSEGV (NULL pointer dereference) on malformed Text field
+- Update default bundled capnproto to 1.4.0
+- Migrate project dependency management, testing, and CI to `uv`
+- Consolidate configurations into `pyproject.toml` (removed `Pipfile` and `requirements.txt`)
+- Apply small ruff linting fixes
+
 ## v2.2.3 (2026-05-30)
 - Fix test failures on Python 3.14 (#394)
 - Refine documentation for PyCustomMessageBuilder (#395)

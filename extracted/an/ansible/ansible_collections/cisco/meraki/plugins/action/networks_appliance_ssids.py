@@ -69,7 +69,7 @@ class NetworksApplianceSsids(object):
             visible=params.get("visible"),
             dhcpEnforcedDeauthentication=params.get("dhcpEnforcedDeauthentication"),
             dot11w=params.get("dot11w"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
             number=params.get("number"),
         )
 
@@ -226,7 +226,9 @@ class NetworksApplianceSsids(object):
             ("wpaEncryptionMode", "wpaEncryptionMode"),
             ("visible", "visible"),
             ("dhcpEnforcedDeauthentication", "dhcpEnforcedDeauthentication"),
-            ("dot11w", "dot11w"), ("number", "number"),
+            ("dot11w", "dot11w"),
+            ("networkId", "networkId"),
+            ("number", "number"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update

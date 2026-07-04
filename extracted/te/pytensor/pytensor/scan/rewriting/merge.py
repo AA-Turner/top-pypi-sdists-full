@@ -10,11 +10,15 @@ from itertools import chain
 
 from pytensor.graph.basic import NominalVariable, equal_computations
 from pytensor.graph.features import ReplaceValidate
-from pytensor.graph.replace import clone_replace
 from pytensor.graph.rewriting.basic import GraphRewriter, node_rewriter
-from pytensor.graph.traversal import ancestors, apply_depends_on
+from pytensor.graph.rewriting.reachability import (
+    ancestor_bitsets,
+    greedy_independent_subset,
+    update_ancestors_after_contraction,
+)
+from pytensor.graph.traversal import ancestors
 from pytensor.scan.op import Scan, ScanInfo
-from pytensor.scan.utils import ScanArgs, reconstruct_graph
+from pytensor.scan.utils import ScanArgs
 from pytensor.tensor.basic import get_scalar_constant_value
 from pytensor.tensor.exceptions import NotScalarConstantError
 
@@ -30,6 +34,11 @@ class ScanMerge(GraphRewriter):
     therefore be more computationally efficient. Also, since every `Scan` node
     involves a certain overhead, at runtime, reducing the number of `Scan` nodes in
     the graph can improve performance.
+
+    Merge candidacy is decided from data-dependency edges only (via
+    :mod:`~pytensor.graph.rewriting.reachability`), so this must run before
+    in-placing — in-place destroy/view orderings could otherwise make a merged
+    set cyclic.
 
     """
 
@@ -116,15 +125,12 @@ class ScanMerge(GraphRewriter):
             # add the condition, which was the one of nodes[0]
             inner_outs[0].append([condition])
 
-        # Clone the inner graph of each node independently
+        # Thaw the frozen inner graph of each node independently; the category
+        # slices (all existing inner variables) map through the memo.
         for idx, nd in enumerate(nodes):
-            # concatenate all inner_ins and inner_outs of nd
-            flat_inner_ins = list(chain.from_iterable(inner_ins[idx]))
-            flat_inner_outs = list(chain.from_iterable(inner_outs[idx]))
-            # clone
-            flat_inner_ins, flat_inner_outs = reconstruct_graph(
-                flat_inner_ins, flat_inner_outs
-            )
+            _, memo = nd.op.fgraph.unfreeze(return_memo=True)
+            flat_inner_ins = [memo[v] for v in chain.from_iterable(inner_ins[idx])]
+            flat_inner_outs = [memo[v] for v in chain.from_iterable(inner_outs[idx])]
             # split the new inner variables again in seq, mitmot, etc.
             new_inner_ins = []
             count = 0
@@ -204,12 +210,15 @@ class ScanMerge(GraphRewriter):
 
     def belongs_to_set(self, node, set_nodes):
         """
-        This function checks if node `node` belongs to `set_nodes`, in the
-        sense that it can be merged together with every other node in
-        `set_nodes`. In order for two nodes to be mergeable, they have to go
-        over the same number of steps, have the same condition (if any),
-        have the same value for truncate_gradient, and have the same mode.
-        Questionable, we should also consider profile ?
+        This function checks if node `node` is op-compatible with `set_nodes`,
+        i.e. whether it could be merged with them as far as the `Scan` ops are
+        concerned: they have to go over the same number of steps, have the same
+        condition (if any), have the same value for truncate_gradient, and have
+        the same mode. Questionable, we should also consider profile ?
+
+        Whether merging would actually be valid (the scans must not depend on
+        one another, else the merge would form a cycle) is a question about the
+        graph rather than the ops, and is handled by the caller.
 
         """
         op = node.op
@@ -236,11 +245,6 @@ class ScanMerge(GraphRewriter):
 
         if nsteps != rep_nsteps:
             return False
-
-        # Check to see if it is an input of a different node
-        for nd in set_nodes:
-            if apply_depends_on(node, nd) or apply_depends_on(nd, node):
-                return False
 
         if not op.info.as_while:
             return True
@@ -280,35 +284,47 @@ class ScanMerge(GraphRewriter):
         return equal_computations(conds, rep_conds)
 
     def apply(self, fgraph):
-        # Collect all scan nodes ordered according to toposort
-        scan_nodes = [nd for nd in fgraph.toposort() if isinstance(nd.op, Scan)]
+        # Need at least two Scans to merge anything.
+        if sum(isinstance(nd.op, Scan) for nd in fgraph.apply_nodes) <= 1:
+            return
 
-        # All sets of possibly mergeable nodes
-        all_sets = []
+        toposorted_nodes = fgraph.toposort()
+        scan_nodes = [nd for nd in toposorted_nodes if isinstance(nd.op, Scan)]
 
+        # Group the scans into op-compatibility classes; only classes with more
+        # than one scan are merge candidates.
+        compatible_classes: list[list] = []
         for nd in scan_nodes:
-            belongs_to_set_idx = -1
-            for pos, subset in enumerate(all_sets):
-                if self.belongs_to_set(nd, subset):
-                    belongs_to_set_idx = pos
-                    # It is possible that nd belongs to more than one subset.
-                    # For instance, if we have 3 Scan nodes X, Y and Z, if Z
-                    # depends on the output of X, then X and Z are incompatible
-                    # and would create different subsets, but Y could be
-                    # compatible with both X and Z. We choose the first one.
+            for cls in compatible_classes:
+                if self.belongs_to_set(nd, cls):
+                    cls.append(nd)
                     break
-
-            if belongs_to_set_idx == -1:
-                all_sets.append([nd])
             else:
-                all_sets[belongs_to_set_idx].append(nd)
+                compatible_classes.append([nd])
+        mergeable_classes = [cls for cls in compatible_classes if len(cls) > 1]
+        if not mergeable_classes:
+            return
 
-        for subset in all_sets:
-            if len(subset) > 1:
-                proposal = self.merge(subset)
-                fgraph.replace_all_validate_remove(
-                    proposal, remove=subset, reason="scan_merge"
-                )
+        # Rule out merging scans that depend on one another: contracting a
+        # dependent pair would create a cycle. A merge mutates the graph, so a
+        # previously independent pair can become dependent; we therefore track
+        # reachability with bitsets, refreshing them after every merge, and each
+        # round merge a maximal independent subset of what reachability now allows.
+        ancestors, bitflags = ancestor_bitsets(fgraph, toposorted_nodes)
+        for cls in mergeable_classes:
+            remaining = cls
+            while len(remaining) > 1:
+                mergeable = greedy_independent_subset(ancestors, bitflags, remaining)
+                if len(mergeable) > 1:
+                    proposal = self.merge(mergeable)
+                    fgraph.replace_all_validate_remove(
+                        proposal, remove=mergeable, reason="scan_merge"
+                    )
+                    # Downstream nodes that depended on any merged scan now depend
+                    # on all of them; keep the bitsets current for later rounds.
+                    update_ancestors_after_contraction(ancestors, bitflags, mergeable)
+                extracted = set(mergeable)
+                remaining = [nd for nd in remaining if nd not in extracted]
 
 
 def has_duplicates(l):
@@ -349,11 +365,12 @@ def scan_merge_inouts(fgraph, node):
     # Do a first pass to merge identical external inputs.
     # Equivalent inputs will be stored in inp_equiv, then a new
     # scan node created without duplicates.
+    unfrozen_fgraph = node.op.fgraph.unfreeze()
     a = ScanArgs(
         node.inputs,
         node.outputs,
-        node.op.inner_inputs,
-        node.op.inner_outputs,
+        unfrozen_fgraph.inputs,
+        unfrozen_fgraph.outputs,
         node.op.info,
     )
 
@@ -392,8 +409,10 @@ def scan_merge_inouts(fgraph, node):
         inner_inputs = a.inner_inputs
         outer_inputs = a.outer_inputs
         info = a.info
-        a_inner_outs = a.inner_outputs
-        inner_outputs = clone_replace(a_inner_outs, replace=inp_equiv)
+        unfrozen_fgraph.replace_all(list(inp_equiv.items()))
+        # Read the outputs back from the graph: an output that was itself a
+        # replaced input is rewired there, not in ``a``'s stored slices.
+        inner_outputs = list(unfrozen_fgraph.outputs)
 
         new_op = Scan(
             inner_inputs,
@@ -411,6 +430,7 @@ def scan_merge_inouts(fgraph, node):
         if not isinstance(outputs, list | tuple):
             outputs = [outputs]
 
+        # Read-only analysis below; slice the frozen inner graph directly.
         na = ScanArgs(
             outer_inputs,
             outputs,

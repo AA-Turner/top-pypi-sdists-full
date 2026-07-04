@@ -289,6 +289,26 @@ def get_stage_information_dict(stage_str, method):
         stage_dict_end = utils.dict_growth_stages_monthly_end
     # Wrap around for stages beyond the dictionary length
     n = len(stage_dict)
+    # =========================================================================
+    # Load-bearing naming convention — DO NOT CHANGE without updating parsers.
+    #
+    # For reverse-cumulative methods (``monthly_r``, ``dekad_r``,
+    # ``biweekly_r``) the raw ``Stage Name`` string uses the convention:
+    #     start_stage = the LATEST calendar-order month in the window
+    #     end_stage   = the EARLIEST calendar-order month in the window
+    # so ``start > end`` numerically signals a reverse-cumulative window.
+    # Two downstream parsers depend on this convention:
+    #   * ``geocif.utils.friendly_stage_label`` reverses the two parts to
+    #     produce a human label like ``"March - December"`` from the raw
+    #     ``"Dec 1-Apr 30"`` string. It relies on ``start > end`` to
+    #     know which part is the earlier month.
+    #   * ``geocif.yield_outlook._stage_sort_key`` computes window length
+    #     via ``(s - e) % 12`` when ``s >= e`` — assuming reverse ordering.
+    # These two parsers plus every DB row / CSV / filename in existing
+    # outputs bake in the current convention. Do not swap the two ends
+    # here; instead, we emit a second field ``Stage Window Display``
+    # (calendar-order) for analyst-facing outputs.
+    # =========================================================================
     if fldas_lead is not None:
         # Single-month FLDAS label: target = init_month + lead (mod 12).
         # For forward stages (e.g. monthly), numeric_parts[-1] == end_stage
@@ -302,11 +322,26 @@ def get_stage_information_dict(stage_str, method):
         stage_info["Stage Name"] = (
             stage_dict[target] + "-" + stage_dict_end[target]
         )
+        # Single-month FLDAS: display == raw (both endpoints are the
+        # same month).
+        stage_info["Stage Window Display"] = stage_info["Stage Name"]
     else:
+        s_key = (((int(start_stage) - 1)) % n) + 1
+        e_key = (((int(end_stage) - 1)) % n) + 1
         stage_info["Stage Name"] = (
-            stage_dict[(((int(start_stage) - 1)) % n) + 1] + "-" +
-            stage_dict_end[(((int(end_stage) - 1)) % n) + 1]
+            stage_dict[s_key] + "-" + stage_dict_end[e_key]
         )
+        # Calendar-order display label: put the EARLIER month first, so
+        # e.g. a reverse-cumulative window whose raw name is
+        # ``"Dec 1-Apr 30"`` renders as ``"Apr 1-Dec 31"`` — the actual
+        # Apr-through-Dec window the model saw. For forward-order windows
+        # (start <= end numerically) the display equals the raw name.
+        if int(start_stage) <= int(end_stage):
+            stage_info["Stage Window Display"] = stage_info["Stage Name"]
+        else:
+            stage_info["Stage Window Display"] = (
+                stage_dict[e_key] + "-" + stage_dict_end[s_key]
+            )
 
     return stage_info
 

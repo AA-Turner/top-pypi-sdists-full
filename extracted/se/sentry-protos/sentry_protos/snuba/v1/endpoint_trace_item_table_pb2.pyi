@@ -39,9 +39,53 @@ class TraceItemTableRequest(google.protobuf.message.Message):
     class OrderBy(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+        class _Sort:
+            ValueType = typing.NewType("ValueType", builtins.int)
+            V: typing_extensions.TypeAlias = ValueType
+
+        class _SortEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[TraceItemTableRequest.OrderBy._Sort.ValueType], builtins.type):
+            DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+            SORT_UNSPECIFIED: TraceItemTableRequest.OrderBy._Sort.ValueType  # 0
+            """Defaults to SORT_DEFAULT (lexicographic). This keeps the behaviour
+            backwards compatible when `sort` is left unset.
+            """
+            SORT_DEFAULT: TraceItemTableRequest.OrderBy._Sort.ValueType  # 1
+            """Default lexicographic ordering: values are compared by their Unicode
+            code points, so e.g. "item10" sorts before "item2".
+            """
+            SORT_NATURAL: TraceItemTableRequest.OrderBy._Sort.ValueType  # 2
+            """Natural ordering: embedded runs of digits are compared by their
+            numeric value, so e.g. "item2" sorts before "item10".
+            """
+
+        class Sort(_Sort, metaclass=_SortEnumTypeWrapper):
+            """Sort selects which sort order is applied when ordering by a textual
+            column. It has no effect when ordering by a numeric column.
+            """
+
+        SORT_UNSPECIFIED: TraceItemTableRequest.OrderBy.Sort.ValueType  # 0
+        """Defaults to SORT_DEFAULT (lexicographic). This keeps the behaviour
+        backwards compatible when `sort` is left unset.
+        """
+        SORT_DEFAULT: TraceItemTableRequest.OrderBy.Sort.ValueType  # 1
+        """Default lexicographic ordering: values are compared by their Unicode
+        code points, so e.g. "item10" sorts before "item2".
+        """
+        SORT_NATURAL: TraceItemTableRequest.OrderBy.Sort.ValueType  # 2
+        """Natural ordering: embedded runs of digits are compared by their
+        numeric value, so e.g. "item2" sorts before "item10".
+        """
+
         COLUMN_FIELD_NUMBER: builtins.int
         DESCENDING_FIELD_NUMBER: builtins.int
+        SORT_FIELD_NUMBER: builtins.int
         descending: builtins.bool
+        sort: global___TraceItemTableRequest.OrderBy.Sort.ValueType
+        """The sort order to apply when ordering by a textual column. Defaults to
+        SORT_DEFAULT (lexicographic) when unset, preserving the historical
+        behaviour. Set to SORT_NATURAL to order alphanumeric values naturally
+        (e.g. "item2" before "item10"). Ignored for numeric columns.
+        """
         @property
         def column(self) -> global___Column: ...
         def __init__(
@@ -49,9 +93,10 @@ class TraceItemTableRequest(google.protobuf.message.Message):
             *,
             column: global___Column | None = ...,
             descending: builtins.bool = ...,
+            sort: global___TraceItemTableRequest.OrderBy.Sort.ValueType = ...,
         ) -> None: ...
         def HasField(self, field_name: typing.Literal["column", b"column"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing.Literal["column", b"column", "descending", b"descending"]) -> None: ...
+        def ClearField(self, field_name: typing.Literal["column", b"column", "descending", b"descending", "sort", b"sort"]) -> None: ...
 
     META_FIELD_NUMBER: builtins.int
     COLUMNS_FIELD_NUMBER: builtins.int

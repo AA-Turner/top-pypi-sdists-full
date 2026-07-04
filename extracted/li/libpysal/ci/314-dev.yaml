@@ -1,0 +1,45 @@
+name: test
+channels:
+  - conda-forge
+dependencies:
+  - python=3.14
+  - beautifulsoup4
+  - jinja2
+  - pandarm
+  - platformdirs
+  - requests
+  # testing
+  - codecov
+  - matplotlib
+  - h3-py
+  - rioxarray
+  - pytest
+  - pytest-cov
+  - pytest-mpl
+  - pytest-xdist
+  # optional
+  - fiona
+  - geodatasets
+  - joblib
+  - networkx
+  - numba
+  - packaging
+  - pyarrow
+  - pyproj
+  - sqlalchemy
+  - zstd
+  - pandarm
+  - pip
+  - pip:
+    # dev versions of packages
+    - --pre \
+      --index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
+      --extra-index-url https://pypi.org/simple
+    - pandas
+    - pulp<4
+    - scikit-learn
+    - scipy
+    - shapely
+    - xarray
+    - git+https://github.com/geopandas/geopandas.git@main
+    - git+https://github.com/pysal/tobler.git@main

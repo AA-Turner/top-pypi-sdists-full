@@ -24,7 +24,7 @@ description:
 - You must have a correctly configured remote array or target
 - This module is B(not) idempotent when updating existing remote credentials
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -84,26 +84,20 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PYPURECLIENT = True
+HAS_PURITY_FB = True
 try:
     from pypureclient.flashblade import (
         ObjectStoreRemoteCredentialsPost,
         ObjectStoreRemoteCredentialsPatch,
     )
 except ImportError:
-    HAS_PYPURECLIENT = False
+    HAS_PURITY_FB = False
 
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
-)
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
-)
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
 )
 
 CONTEXT_API_VERSION = "2.17"
@@ -118,29 +112,31 @@ def get_connected(module, blade):
         )
     else:
         connected_blades = list(blade.get_array_connections().items)
-    for target in connected_blades:
+    for target in range(len(connected_blades)):
         if (
-            target.remote.name == module.params["target"]
-            or target.management_address == module.params["target"]
-        ) and target.status in [
+            connected_blades[target].remote.name == module.params["target"]
+            or connected_blades[target].management_address == module.params["target"]
+        ) and connected_blades[target].status in [
             "connected",
             "connecting",
             "partially_connected",
         ]:
-            return target.remote.name
+            return connected_blades[target].remote.name
     if CONTEXT_API_VERSION in api_version:
         connected_targets = list(
             blade.get_targets(context_names=[module.params["context"]]).items
         )
     else:
         connected_targets = list(blade.get_targets().items)
-    for target in connected_targets:
-        if target.name == module.params["target"] and target.status in [
+    for target in range(len(connected_targets)):
+        if connected_targets[target].name == module.params[
+            "target"
+        ] and connected_targets[target].status in [
             "connected",
             "connecting",
             "partially_connected",
         ]:
-            return target.name
+            return connected_targets[target].name
     return None
 
 
@@ -184,7 +180,7 @@ def create_credential(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create remote credential {0}. Error: {1}".format(
-                    remote_cred, get_error_message(res)
+                    remote_cred, res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -213,7 +209,7 @@ def update_credential(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to update remote credential {0}. Error: {1}".format(
-                    remote_cred, get_error_message(res)
+                    remote_cred, res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -234,7 +230,7 @@ def delete_credential(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to delete remote credential {0}. Error: {1}".format(
-                    remote_cred, get_error_message(res)
+                    remote_cred, res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -259,7 +255,7 @@ def main():
         argument_spec, required_if=required_if, supports_check_mode=True
     )
 
-    if not HAS_PYPURECLIENT:
+    if not HAS_PURITY_FB:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     blade = get_system(module)

@@ -2808,6 +2808,21 @@ def run_self_tests(fast=False):
     assert check("def f(s):\n    return s.get_field() + '.y'\n").status == UNKNOWN
     assert check("def f(s, loc):\n    if loc is None:\n        x = s.get_field()\n    else:\n        x = loc\n    return x + '.y'\n").status != REFUTED
     assert check("def f():\n    y = None\n    return y + 'x'\n").status == REFUTED
+    # inter-parameter aliasing: the caller may pass one object as two parameters (f(l, l)), and the value engine
+    # has no shared identity, so a mutation of one object/container parameter must forget every OTHER mutable
+    # object/container parameter -- else a later read of it is a stale pre-mutation value, an unsound PROVED on
+    # aliased arguments (GitHub issue #1). So a post that reads b after a is mutated is not proved (even asserting
+    # a is b), while a mutation that reads only a fresh local or an int result still proves.
+    _cmb = "def f(a: list, b: list):\n    n = len(a)\n    a.clear()\n    return n + len(b)\n"
+    assert prove(_cmb, "result == 6", requires="len(a) == 3 and len(b) == 3 and a is b", target="f").status != PROVED
+    assert prove(_cmb, "result == 6", requires="len(a) == 3 and len(b) == 3", target="f").status != PROVED
+    assert prove("def f(a: list, b: list):\n    a.append(1)\n    return len(b)\n", "result == 2",
+                 requires="len(b) == 2", target="f").status != PROVED
+    assert prove("def f(a: dict, b: dict):\n    a.clear()\n    return len(b)\n", "result == 3",
+                 requires="len(b) == 3", target="f").status != PROVED
+    assert prove("def f(a: list):\n    c = [1, 2, 3, 4]\n    a.clear()\n    return len(c)\n", "result == 4",
+                 target="f").status == PROVED   # a fresh local cannot alias a parameter
+    assert prove("def f(a: list):\n    a.append(9)\n    return 0\n", "result == 0", target="f").status == PROVED
     # a str / bytes-typed parameter is outside the integer CHC model, so the no-raise engine abstains rather
     # than proving a FALSE trap freedom: int(s) / float(s) of a string may ValueError and str + int / str // int
     # is a TypeError -- none of which an integer relation, binding every parameter to an int, can see. check()

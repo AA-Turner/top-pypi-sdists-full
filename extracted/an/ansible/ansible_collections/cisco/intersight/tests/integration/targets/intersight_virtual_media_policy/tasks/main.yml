@@ -1,4 +1,0 @@
----
-- block:
-  - name: Run tests
-    include_tasks: tests.yml

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hatch-polylith-bricks
-Version: 1.5.6
+Version: 1.5.7
 Summary: Hatch build hook plugin for Polylith
 License: MIT
 Author: David Vujic
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: hatchling (>=1.21.0,<2.0.0)
+Requires-Dist: hatchling (==1.*)
 Requires-Dist: tomlkit (==0.*)
 Project-URL: Homepage, https://davidvujic.github.io/python-polylith-docs/
 Project-URL: Repository, https://github.com/davidvujic/python-polylith

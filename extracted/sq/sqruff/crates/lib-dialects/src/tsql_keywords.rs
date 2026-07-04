@@ -499,6 +499,41 @@ pub(crate) fn tsql_future_keywords() -> HashSet<&'static str> {
 /// T-SQL additional unreserved keywords (to be added to ANSI keywords)
 pub(crate) fn tsql_additional_unreserved_keywords() -> HashSet<&'static str> {
     [
+        // PERIOD FOR SYSTEM_TIME (temporal tables, #4654)
+        "PERIOD",
+        "SYSTEM_TIME",
+        // sqlcmd commands (#4653)
+        "R",
+        "SETVAR",
+        // CREATE EXTERNAL FILE FORMAT (#4647)
+        "FORMAT_TYPE",
+        "FORMAT_OPTIONS",
+        "DATA_COMPRESSION",
+        "FIELD_TERMINATOR",
+        "STRING_DELIMITER",
+        "DATE_FORMAT",
+        "PARSER_VERSION",
+        "FIRST_ROW",
+        "USE_TYPE_DEFAULT",
+        "ENCODING",
+        "SERDE_METHOD",
+        "DELIMITEDTEXT",
+        "RCFILE",
+        "ORC",
+        "PARQUET",
+        "JSON",
+        "DELTA",
+        "FORMAT",
+        // OPENJSON (#4652)
+        "OPENJSON",
+        // CREATE EXTERNAL TABLE (#4642)
+        "DATA_SOURCE",
+        "FILE_FORMAT",
+        "REJECT_TYPE",
+        "REJECT_VALUE",
+        "REJECT_SAMPLE_VALUE",
+        "REJECTED_ROW_LOCATION",
+        "PERCENTAGE",
         // T-SQL SET options that can be used as identifiers
         "NOCOUNT",
         "XACT_ABORT",
@@ -513,6 +548,12 @@ pub(crate) fn tsql_additional_unreserved_keywords() -> HashSet<&'static str> {
         "DATEFIRST",
         "DATEFORMAT",
         "DELAYED_DURABILITY",
+        // CREATE EXTERNAL DATA SOURCE (#4634)
+        "SOURCE",
+        "LOCATION",
+        "USER_DB",
+        "CONNECTION_OPTIONS",
+        "PUSHDOWN",
         // Function names that can be used as identifiers
         "NEWID",
         // T-SQL priority and format values
@@ -550,6 +591,10 @@ pub(crate) fn tsql_additional_unreserved_keywords() -> HashSet<&'static str> {
         "SCHEMABINDING",
         "CALLER",
         "OWNER",
+        // CREATE DATABASE SCOPED CREDENTIAL keywords
+        "CREDENTIAL",
+        "SCOPED",
+        "SECRET",
     ]
     .into_iter()
     .collect()

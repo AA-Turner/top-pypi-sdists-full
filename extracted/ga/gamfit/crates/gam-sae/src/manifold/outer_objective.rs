@@ -44,68 +44,54 @@ pub(crate) fn reconstruction_explained_variance(
     }
 }
 
-/// Rank-`q` PCA explained-variance ceiling of a column-centered `target`: the
-/// fraction of centered total variance captured by its top-`q` principal
-/// directions (the Eckart-Young optimum at rank `q`). This is the BEST
-/// reconstruction EV any rank-`q` linear dictionary can achieve on this data, so
-/// it is the natural data-derived scale for a collapse acceptance bar (#1522):
-/// `0.5 × pca_ev_ceiling(target, K)` tracks the data's achievable EV instead of a
-/// corpus-tuned magic constant.
+/// S1 (guard surgery) — the ABSOLUTE-DEGENERACY explained-variance floor: a fit
+/// whose reconstruction EV sits at or below this value explains no more of the
+/// centered target than a SIGNAL-FREE dictionary of the same reachable rank would
+/// by finite-sample chance, so it is a structural collapse rather than a
+/// merely-uncompetitive fit. It is the SINGLE source both collapse-detection sites
+/// share (the fitted-data verdict feeding the outer wall, and the co-collapse
+/// reseed arm), so both measure degeneracy against one and the same threshold.
 ///
-/// Returns a value in `[0, 1]` on a finite target; `f64::NAN` when the SVD fails
-/// or the centered target has no variance (an all-constant target), so callers
-/// can detect the degenerate case and fall back to their absolute floor rather
-/// than silently key on a meaningless ceiling.
-pub(crate) fn pca_ev_ceiling(target: ArrayView2<'_, f64>, q: usize) -> f64 {
-    let (n, p) = target.dim();
-    if n == 0 || p == 0 {
+/// The floor is the classical null coefficient of determination `q / n`
+/// (`#free-reconstruction-directions / #observations`): fitting `q =
+/// dictionary_rank` arbitrary linear directions to `n` centered rows of a
+/// signal-free target captures, IN EXPECTATION, a fraction `q / n` of the variance
+/// (the textbook null-`R²` of a `q`-regressor / `n`-observation least squares). It
+/// is therefore a SAMPLING NOISE-FLOOR bound — the EV a collapsed dictionary
+/// reaches purely from finite-sample fitting noise — carrying no magnitude fit to
+/// any corpus and shrinking toward 0 as `n` grows, exactly as the null fitting
+/// noise does. `dictionary_rank` is the dictionary's GEOMETRICALLY REACHABLE rank
+/// (`reachable_dictionary_rank` = `Σ_k rank(Φ_k)`, read from the chart designs
+/// alone so a co-collapsed decoder still reports full reach), capped at
+/// `min(n, p) ≤ n`, so the floor stays in `[0, 1]`.
+///
+/// This REPLACES the former `0.5 × rank-q PCA/Eckart-Young EV ceiling` bar, which
+/// compared a `k_active`-SPARSE fit against a DENSE rank-`q` linear ceiling and so
+/// sat ABOVE the honest sparse optimum on real (non-sparse) activations, flagging
+/// healthy-but-below-ceiling fits as collapses (the K≥2-real-data false positive
+/// that opened every fit with a spurious "co-collapse"). A degeneracy detector may
+/// catch only states from which descent cannot recover — EV at the null floor AND
+/// the decoder output co-vanished (the original #853/#976 meaning) — never a
+/// merely-uncompetitive state, which is the optimizer's job mid-fit and the
+/// evidence framework's job after convergence. `f64::NAN` when there are no rows
+/// (`n == 0`), which the callers' `ev <= floor` comparison treats as "no verdict".
+pub(crate) fn absolute_degeneracy_ev_floor(
+    target: ArrayView2<'_, f64>,
+    dictionary_rank: usize,
+) -> f64 {
+    let n = target.nrows();
+    if n == 0 {
         return f64::NAN;
     }
-    let mut centered = target.to_owned();
-    for c in 0..p {
-        let mean = (0..n).map(|r| target[[r, c]]).sum::<f64>() / n as f64;
-        for r in 0..n {
-            centered[[r, c]] -= mean;
-        }
-    }
-    let sst: f64 = centered.iter().map(|v| v * v).sum();
-    if !(sst > 0.0) || !sst.is_finite() {
-        return f64::NAN;
-    }
-    let sv = match centered.svd(false, false) {
-        Ok((_, sv, _)) => sv,
-        Err(_) => return f64::NAN,
-    };
-    let captured: f64 = sv.iter().take(q).map(|s| s * s).sum();
-    captured / sst
-}
-
-/// #1522 — the data-derived co-collapse acceptance bar: a fit whose
-/// reconstruction EV sits at or below this value on `target` is a structural
-/// collapse. It is [`SAE_COLLAPSE_PCA_EV_FRACTION`] times the rank-`q` PCA /
-/// Eckart-Young EV ceiling (`pca_ev_ceiling`), i.e. a fixed fraction of the BEST
-/// EV any rank-`q` linear dictionary could reach on THIS centered target, so the
-/// bar tracks what the data actually admits rather than a corpus-tuned constant.
-/// When the ceiling is un-computable (constant target / SVD failure →
-/// non-finite) it falls back to the absolute [`SAE_FIT_DATA_COLLAPSE_EV_FLOOR`]
-/// so the guard always keys on a finite number. This is the SINGLE source every
-/// collapse-guard site shares, so the fitted-data acceptance check and the
-/// co-collapse reseed measure degeneracy against one and the same threshold.
-pub(crate) fn collapse_ev_bar(target: ArrayView2<'_, f64>, dictionary_rank: usize) -> f64 {
-    let derived = SAE_COLLAPSE_PCA_EV_FRACTION * pca_ev_ceiling(target, dictionary_rank);
-    if derived.is_finite() {
-        derived
-    } else {
-        SAE_FIT_DATA_COLLAPSE_EV_FLOOR
-    }
+    dictionary_rank as f64 / n as f64
 }
 
 /// #1610 — the GEOMETRICALLY REACHABLE linear rank of a dictionary, used as the
-/// rank `q` at which the co-collapse bar evaluates its PCA / Eckart-Young EV
-/// ceiling (`collapse_ev_bar(target, reachable_dictionary_rank(...))`).
+/// rank `q` in the signal-free null degeneracy floor
+/// (`absolute_degeneracy_ev_floor(target, reachable_dictionary_rank(...))` = `q / n`).
 ///
-/// The collapse bar compares a fit against the best EV a rank-`q` LINEAR
-/// dictionary could reach. The previous `q = Σ_k basis_size_k` (nominal
+/// The null floor scales with the number of directions the dictionary can reach.
+/// The previous `q = Σ_k basis_size_k` (nominal
 /// coefficient count) is biased HIGH for a NONLINEAR dictionary: a curved
 /// `latent_dim = d` atom decoded through a smooth chart does not linearly span
 /// all `basis_size_k` of its coefficient directions in the output — its decoded
@@ -115,31 +101,65 @@ pub(crate) fn collapse_ev_bar(target: ArrayView2<'_, f64>, dictionary_rank: usiz
 /// dictionary's union of chart images can actually reach on this sample, which
 /// is the principled rank for the linear PCA ceiling that the bar uses.
 ///
-/// `rank(Φ_k)` is read from the CHART design alone (not the decoder magnitude),
+/// The charts are read from the CHART design alone (not the decoder magnitude),
 /// so a co-collapsed atom (`‖B_k‖ → 0`) still reports its full geometric reach
 /// — the collapse guard must NOT silently lower its own bar at the very
-/// degenerate state it exists to catch. Because each per-atom term is
-/// `≤ basis_size_k`, the reachable rank is `≤ Σ_k basis_size_k`, so the bar can
-/// only move DOWN from the old (biased-high) value, never up. When any atom's
-/// chart rank is un-computable (SVD failure) the function falls back to that
-/// atom's nominal `basis_size_k` for that atom only, so a numerical failure
-/// degrades to the historical behavior rather than corrupting the rank. The
-/// total is capped at the data rank `min(n, p)`.
-pub(crate) fn reachable_dictionary_rank(
-    atoms: &[SaeManifoldAtom],
-    n: usize,
-    p: usize,
-) -> usize {
-    let reachable: usize = atoms
-        .iter()
-        .map(|atom| match atom.realized_chart_image_rank() {
-            Ok(r) => r,
-            // SVD failure on this atom's chart: fall back to the nominal count
-            // (capped at p) for this atom only, never poisoning the sum.
-            Err(_) => atom.basis_size().min(p),
-        })
-        .sum();
-    reachable.min(n).min(p)
+/// degenerate state it exists to catch.
+///
+/// #C5: `q` is the rank of the HORIZONTALLY CONCATENATED realized chart design
+/// `[Φ_1 … Φ_K]` (`n × Σ_k M_k`), NOT `Σ_k rank(Φ_k)`. `rank([Φ_1 … Φ_K]) ≤
+/// Σ_k rank(Φ_k)`, with equality only when the atoms' column spaces are linearly
+/// INDEPENDENT; summing double-counts shared directions (two identical atoms:
+/// true reachable rank 1, the sum claims 2), biasing the null floor `q/n` upward
+/// and manufacturing false collapse verdicts. The number of FREE reconstruction
+/// directions a signal-free dictionary fits is exactly this concatenated rank.
+/// Capped at the data rank `min(n, p)`. If any atom's design is non-finite or the
+/// concatenated SVD fails, the whole function degrades to the historical summed
+/// per-atom ranks rather than corrupting `q`.
+pub(crate) fn reachable_dictionary_rank(atoms: &[SaeManifoldAtom], n: usize, p: usize) -> usize {
+    if atoms.is_empty() || n == 0 || p == 0 {
+        return 0;
+    }
+    // Historical Σ_k rank(Φ_k) (each capped at p) — the graceful-degradation
+    // fallback when the concatenated design cannot be formed or decomposed.
+    let summed_fallback = || -> usize {
+        atoms
+            .iter()
+            .map(|atom| match atom.realized_chart_image_rank() {
+                Ok(r) => r,
+                Err(_) => atom.basis_size().min(p),
+            })
+            .sum::<usize>()
+            .min(n)
+            .min(p)
+    };
+    let total_cols: usize = atoms.iter().map(|atom| atom.basis_values.ncols()).sum();
+    if total_cols == 0 {
+        return 0;
+    }
+    let mut concat = Array2::<f64>::zeros((n, total_cols));
+    let mut col = 0usize;
+    for atom in atoms {
+        let phi = &atom.basis_values;
+        // A shape mismatch or a non-finite entry would poison the joint SVD;
+        // degrade to the per-atom summed ranks instead.
+        if phi.nrows() != n || !phi.iter().all(|v| v.is_finite()) {
+            return summed_fallback();
+        }
+        let m = phi.ncols();
+        concat.slice_mut(s![.., col..col + m]).assign(phi);
+        col += m;
+    }
+    let sv = match concat.svd(false, false) {
+        Ok((_, sv, _)) => sv,
+        Err(_) => return summed_fallback(),
+    };
+    let max_sv = sv.iter().copied().fold(0.0_f64, f64::max);
+    if !(max_sv > 0.0) {
+        return 0;
+    }
+    let tol = SAE_MANIFOLD_SPECTRAL_RANK_CUTOFF * max_sv;
+    sv.iter().filter(|&&v| v > tol).count().min(n).min(p)
 }
 
 /// #1207 — observable telemetry for the amortized warm-start (Design A). The
@@ -226,6 +246,71 @@ impl AmortizedWarmStartTelemetry {
 /// (task v2 wires the selected-inverse block-trace ρ-gradient), so this
 /// is a cost-only objective and the engine routes it to a derivative-free /
 /// central-difference outer strategy per the planner.
+/// #2080 — probe telemetry for the outer REML ρ-search. Counts how the outer
+/// objective spends its criterion evaluations so the wide-`p` acceptance test can
+/// assert a BOUNDED probe budget (not a wall-clock limit — SPEC bans time
+/// budgets). Every counter is a plain evaluation tally; the fields are read after
+/// a fit via [`SaeManifoldOuterObjective::probe_telemetry`].
+///
+/// The load-bearing metric is `infeasible_*`: at a wide-`p` planted-circle fit the
+/// outer line search overshoots into the adjacent indefinite (non-PD Laplace)
+/// basin on nearly every probe. Historically each such probe ground the inner
+/// refinement budget (up to `64×inner_max_iter`) before refusing; the #2080 fix
+/// makes an infeasible PROBE return the typed refusal after a single diagnostic
+/// pass, so `infeasible_*` can be large while the fit still terminates in a
+/// bounded number of criterion evals.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct OuterProbeTelemetry {
+    /// Full REML criterion evaluations requested through the generic outer
+    /// lanes. Accepted gradient/EFS lanes commit their solved basin; value-only
+    /// comparison probes restore the incumbent state before returning. The
+    /// lighter FD-safeguard probes are counted under `fd_probe_calls`.
+    pub criterion_calls: usize,
+    /// Finite-difference / directional value probes issued by the
+    /// value-consistent-gradient safeguard. Each runs on a clone of `self.term`
+    /// (pure — never mutates the accepted basin).
+    pub fd_probe_calls: usize,
+    /// Infeasible probes by refusal kind (non-PD Laplace log-det at that ρ).
+    pub infeasible_non_pd_per_row: usize,
+    pub infeasible_cross_row: usize,
+    pub infeasible_schur: usize,
+    /// Probes refused because the inner solve did not converge at fixed ρ.
+    pub infeasible_inner_not_converged: usize,
+    /// Value probes that resolved to the finite collapse/refusal wall
+    /// (`cost ≥ SAE_FIT_DATA_COLLAPSE_COST`) rather than a real REML value.
+    pub wall_cost_value_probes: usize,
+    /// #2080 defect 3 — FD/line-search value probes issued by the
+    /// value-consistent-gradient safeguard that mutated the accepted `self.term`
+    /// basin. The fix routes every such probe through a THROWAWAY clone
+    /// (`probe_outer_criterion_value`), so this stays 0: a rejected line-search /
+    /// FD probe can no longer drag the per-row routing off the decisive seed basin
+    /// (the stateful-objective corruption of #629/#630/#2080). A nonzero count is a
+    /// regression — a probe lane that mutates the committed state.
+    pub mutating_value_probes: usize,
+}
+
+impl OuterProbeTelemetry {
+    fn record_refusal_kind(&mut self, err: &str) {
+        if err.contains("inner solve did not converge at fixed ρ") {
+            self.infeasible_inner_not_converged += 1;
+        } else if err.contains("cross-row IBP joint Hessian is non-PD") {
+            self.infeasible_cross_row += 1;
+        } else if err.contains("Schur complement Cholesky failed") {
+            self.infeasible_schur += 1;
+        } else if err.contains("non-PD per-row H_tt block") {
+            self.infeasible_non_pd_per_row += 1;
+        }
+    }
+
+    /// Total infeasible probes across all refusal kinds.
+    pub fn infeasible_total(&self) -> usize {
+        self.infeasible_non_pd_per_row
+            + self.infeasible_cross_row
+            + self.infeasible_schur
+            + self.infeasible_inner_not_converged
+    }
+}
+
 pub struct SaeManifoldOuterObjective {
     pub(crate) term: SaeManifoldTerm,
     /// Pristine term to restore from on `reset` (multi-start baseline).
@@ -258,6 +343,9 @@ pub struct SaeManifoldOuterObjective {
     /// opt-in lever for the n-independent outer loop; the n-scaling timing is
     /// verified on the cluster.
     pub(crate) routing_frozen: bool,
+    /// #2080 — outer probe telemetry (criterion/FD/infeasible counts). Read via
+    /// [`Self::probe_telemetry`] after the fit for the wide-`p` acceptance test.
+    pub(crate) probe_telemetry: OuterProbeTelemetry,
 }
 
 impl SaeManifoldOuterObjective {
@@ -293,7 +381,15 @@ impl SaeManifoldOuterObjective {
             seeded_beta: None,
             warm_start_telemetry: AmortizedWarmStartTelemetry::default(),
             routing_frozen: false,
+            probe_telemetry: OuterProbeTelemetry::default(),
         }
+    }
+
+    /// #2080 — the accumulated outer probe telemetry (criterion/FD/infeasible
+    /// evaluation counts). The wide-`p` acceptance test asserts these counts stay
+    /// bounded (a PROBE-COUNT budget, per SPEC's ban on wall-clock budgets).
+    pub fn probe_telemetry(&self) -> OuterProbeTelemetry {
+        self.probe_telemetry
     }
 
     /// #1033 — opt into AMORTIZED (frozen) routing for the ρ-search: freeze the
@@ -465,9 +561,18 @@ impl SaeManifoldOuterObjective {
                     reconstruction_explained_variance(target.view(), settled_fit.view()),
                 )
             {
+                // S1 (guard surgery) — keep the BEST-of-candidates by finiteness
+                // and strict EV improvement alone; do NOT additionally gate the
+                // seed on clearing an absolute `SAE_FIT_DATA_COLLAPSE_EV_FLOOR`.
+                // The old floor made a genuinely-better seed unrecoverable whenever
+                // both candidates sat below it — unreachable for cold PC-pair seeds
+                // on real activations, the proximate cause of #1782's "no candidate
+                // seeds passed outer startup validation". A multi-start must return
+                // the best finite basin it visited, whatever its absolute EV; a
+                // truly degenerate seed is caught downstream by the null-floor
+                // detector, not by refusing to keep the better of two candidates.
                 seed_won = seed_ev.is_finite()
                     && settled_ev.is_finite()
-                    && seed_ev >= SAE_FIT_DATA_COLLAPSE_EV_FLOOR
                     && settled_ev + SAE_FINAL_EV_DEGRADATION_TOL < seed_ev;
             }
         }
@@ -484,7 +589,7 @@ impl SaeManifoldOuterObjective {
         ) && let (Some(seed_ev), Some(returned_ev)) = (
             reconstruction_explained_variance(target.view(), seed_fit.view()),
             reconstruction_explained_variance(target.view(), returned_fit.view()),
-        ) && seed_ev >= SAE_FIT_DATA_COLLAPSE_EV_FLOOR
+        ) && seed_ev.is_finite()
             && returned_ev + SAE_FINAL_EV_DEGRADATION_TOL < seed_ev
             && let Ok(seed_loss) = pristine_seed_term.loss(target.view(), &pristine_seed_rho)
         {
@@ -1275,9 +1380,20 @@ impl SaeManifoldOuterObjective {
     /// infeasible ρ probe (non-PD joint Hessian), so the consistency safeguard
     /// differentiates the objective shape the line search actually sees instead
     /// of reintroducing an `+∞` lane for the #1782 refusal class.
-    fn probe_outer_criterion_value(&self, rho: &SaeManifoldRho) -> Result<f64, String> {
+    fn probe_outer_criterion_value(&mut self, rho: &SaeManifoldRho) -> Result<f64, String> {
+        self.probe_telemetry.fd_probe_calls += 1;
+        // #2080 — a PURE line-search / FD probe: run on a THROWAWAY clone so the
+        // accepted warm-start basin in `self.term` is never mutated (defect 3),
+        // and on the PROBE refine budget (`refine_progress_extension = false`) so
+        // an infeasible ρ (non-PD Laplace log-det) returns the typed refusal after
+        // a single diagnostic pass instead of grinding the accepted 16×/64× inner
+        // refinement budget (defect 2). The value it returns is the same quantity
+        // `eval` reports as `cost` (floored to the finite collapse wall when the
+        // Laplace normaliser is non-finite, and to the recoverable refusal wall for
+        // an infeasible ρ), so the outer central-difference differentiates the
+        // objective shape the line search actually sees.
         let mut probe = self.term.clone();
-        let reml = match probe.reml_criterion_with_cache(
+        let reml = match probe.reml_criterion_with_cache_refine_policy(
             self.target.view(),
             rho,
             self.registry.as_ref(),
@@ -1285,9 +1401,12 @@ impl SaeManifoldOuterObjective {
             self.learning_rate,
             self.ridge_ext_coord,
             self.ridge_beta,
+            false,
         ) {
             Ok(evaluated) => evaluated.0,
             Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
+                self.probe_telemetry.record_refusal_kind(&err);
+                self.probe_telemetry.wall_cost_value_probes += 1;
                 return Ok(Self::recoverable_refusal_wall_cost());
             }
             Err(err) => return Err(err),
@@ -1297,6 +1416,15 @@ impl SaeManifoldOuterObjective {
         } else {
             SAE_FIT_DATA_COLLAPSE_COST
         })
+    }
+
+    /// #2080 — whether a probe value resolved to the finite collapse/refusal wall
+    /// (an infeasible ρ or a data-collapsed fit) rather than a real REML value.
+    /// Differencing the objective across such a wall is meaningless, so the
+    /// value-consistent-gradient safeguard treats it exactly like a non-finite
+    /// probe and keeps the analytic gradient.
+    fn probe_value_is_wall(value: f64) -> bool {
+        !value.is_finite() || value >= SAE_FIT_DATA_COLLAPSE_COST
     }
 
     /// Value-consistent outer-ρ gradient safeguard for the small (BFGS) regime.
@@ -1328,7 +1456,7 @@ impl SaeManifoldOuterObjective {
     /// direction is exactly consistent with what the line search minimises (a
     /// real gradient of the real criterion, used only as a descent direction).
     fn value_consistent_outer_gradient(
-        &self,
+        &mut self,
         rho_state: &SaeManifoldRho,
         cost: f64,
         analytic: Array1<f64>,
@@ -1372,18 +1500,48 @@ impl SaeManifoldOuterObjective {
             dir_plus[i] += step * d;
             dir_minus[i] -= step * d;
         }
-        let vp_dir =
-            self.probe_outer_criterion_value(&self.baseline_rho.from_flat(dir_plus.view()))?;
-        let vm_dir =
-            self.probe_outer_criterion_value(&self.baseline_rho.from_flat(dir_minus.view()))?;
-        if !(vp_dir.is_finite() && vm_dir.is_finite()) {
-            // A probe hit an infeasible wall adjacent to this ρ; differencing
-            // across it is meaningless, so keep the analytic gradient.
+        let rho_plus = self.baseline_rho.from_flat(dir_plus.view());
+        let rho_minus = self.baseline_rho.from_flat(dir_minus.view());
+        let vp_dir = self.probe_outer_criterion_value(&rho_plus)?;
+        let vm_dir = self.probe_outer_criterion_value(&rho_minus)?;
+        if Self::probe_value_is_wall(vp_dir) || Self::probe_value_is_wall(vm_dir) {
+            // #2080 — a probe hit an infeasible (non-PD Laplace) or collapse wall
+            // adjacent to this ρ; the finite wall cost is astronomically larger
+            // than any real REML value, so differencing across it produces a
+            // spurious huge slope. Keep the analytic gradient, exactly as for a
+            // non-finite probe.
             return Ok(analytic);
         }
         let fd_dir = (vp_dir - vm_dir) / (2.0 * step);
         if fd_dir >= 0.5 * na {
             // Analytic gradient is descent-consistent along its own direction.
+            return Ok(analytic);
+        }
+        // #2080 (defect 4) — the desync is only SUSPECTED here (the cheap 2-probe
+        // directional check tripped). Confirming it needs the FULL 2·d_ρ
+        // central-difference gradient, each probe a fresh dense inner solve. Gate
+        // that escalation on the inner-criterion cost, not on d_ρ alone: when the
+        // dense evidence factor is WIDE (the aggregate factor work of the 2·d_ρ
+        // escalation probes exceeds the in-core budget's worth of factor slabs),
+        // the escalation is disproportionately expensive relative to the safeguard
+        // it provides, so keep the analytic gradient rather than pay it. The
+        // gate is derived from the streaming plan's in-core budget machinery, not a
+        // bare magic threshold. Narrow (small-`p`) fits — every current fixture —
+        // fall through and run the full escalation exactly as before.
+        let plan = self.term.streaming_plan();
+        let escalation_probe_factor_work = plan
+            .estimated_dense_schur_bytes
+            .saturating_mul(2usize.saturating_mul(n));
+        if escalation_probe_factor_work > plan.in_core_budget_bytes {
+            log::info!(
+                "[SAE/#2080] value-consistent outer-gradient safeguard: skipping the \
+                 2·d_ρ full-FD escalation at a wide criterion (dense factor slab \
+                 {schur} B × {probes} probes exceeds in-core budget {budget} B); \
+                 descending with the analytic outer gradient",
+                schur = plan.estimated_dense_schur_bytes,
+                probes = 2 * n,
+                budget = plan.in_core_budget_bytes,
+            );
             return Ok(analytic);
         }
         // Stage 2 — desync suspected: assemble the FULL central-difference gradient
@@ -1398,9 +1556,11 @@ impl SaeManifoldOuterObjective {
             let mut minus = flat.clone();
             plus[i] += h;
             minus[i] -= h;
-            let vp = self.probe_outer_criterion_value(&self.baseline_rho.from_flat(plus.view()))?;
-            let vm = self.probe_outer_criterion_value(&self.baseline_rho.from_flat(minus.view()))?;
-            if !(vp.is_finite() && vm.is_finite()) {
+            let rho_plus = self.baseline_rho.from_flat(plus.view());
+            let rho_minus = self.baseline_rho.from_flat(minus.view());
+            let vp = self.probe_outer_criterion_value(&rho_plus)?;
+            let vm = self.probe_outer_criterion_value(&rho_minus)?;
+            if Self::probe_value_is_wall(vp) || Self::probe_value_is_wall(vm) {
                 return Ok(analytic);
             }
             fd[i] = (vp - vm) / (2.0 * h);
@@ -1410,11 +1570,7 @@ impl SaeManifoldOuterObjective {
             return Ok(analytic);
         }
         let cosine = analytic.dot(&fd) / (na * nf);
-        if cosine < 0.5 {
-            Ok(fd)
-        } else {
-            Ok(analytic)
-        }
+        if cosine < 0.5 { Ok(fd) } else { Ok(analytic) }
     }
 
     /// #1782 — the finite outer-cost a recoverable infeasible-ρ REFUSAL presents
@@ -1487,6 +1643,19 @@ impl SaeManifoldOuterObjective {
             // and is not silently masked as a recoverable probe.
             || (err.contains("Schur complement Cholesky failed")
                 && err.contains("not positive definite"))
+            // #2087 — at a seed ρ a K>1 jumprelu/threshold-gate assignment can gate an
+            // atom OFF at every row, so the sequential-deflation refit's gated design
+            // `diag(a_·k)·Φ_k` is all-zero and the reduced joint problem is
+            // rank-deficient with an undefined Laplace evidence — the SAME infeasible-ρ
+            // class as the non-PD Schur / Hessian refusals above. `run_joint_fit_arrow_schur`
+            // → `enforce_decoder_norm_guard` → `refit_decoder_sequential_deflation`
+            // surfaces the DISTINCT "gated off at every row (all-zero gated design)"
+            // marker (NOT the generic `solve_design_least_squares` "zero numerical rank",
+            // which stays fatal for genuinely defective designs), so the outer solver
+            // reads it as the finite collapse wall and steers ρ back to where the gate
+            // turns atoms on (or ships best-so-far) rather than aborting the whole fit
+            // with "no candidate seeds passed outer startup validation".
+            || err.contains("gated off at every row (all-zero gated design)")
     }
 
     /// Shared cost path: evaluate the REML criterion at `rho_flat`, updating
@@ -1569,6 +1738,35 @@ impl SaeManifoldOuterObjective {
         Ok((cost, beta_hat))
     }
 
+    /// Fit the SAE inner problem once at a caller-selected rho, committing the
+    /// resulting basin without running the outer-rho search or its derivative
+    /// lanes.
+    pub fn fit_at_fixed_rho(&mut self, rho_flat: ArrayView1<'_, f64>) -> Result<(), String> {
+        self.evaluate_with_refine_policy(rho_flat, true, false)
+            .map(|_| ())
+    }
+
+    /// Evaluate a value-only rho probe without committing the inner basin it
+    /// reaches. The generic line search may reject this point, so its solved
+    /// coordinates/decoder must not become the warm-start state for later
+    /// probes or for the accepted iterate.
+    fn evaluate_value_probe_with_refine_policy(
+        &mut self,
+        rho_flat: ArrayView1<'_, f64>,
+        fold_cotrain: bool,
+    ) -> Result<(f64, Array1<f64>), String> {
+        let saved_term = self.term.clone();
+        let saved_rho = self.current_rho.clone();
+        let saved_loss = self.last_loss.clone();
+        let saved_seeded_beta = self.seeded_beta.clone();
+        let result = self.evaluate_with_refine_policy(rho_flat, false, fold_cotrain);
+        self.term = saved_term;
+        self.current_rho = saved_rho;
+        self.last_loss = saved_loss;
+        self.seeded_beta = saved_seeded_beta;
+        result
+    }
+
     /// #1154 — add the amortized-encoder consistency fold to an already-computed
     /// REML criterion at the converged dictionary for `rho`. The fold has NO
     /// analytic gradient: under Design A the inner solve converges to the same
@@ -1625,6 +1823,7 @@ impl SaeManifoldOuterObjective {
     ///   point exists; it stays cost-driven (the cascade still moves it via
     ///   the cost path when EFS is not the active lane for that coord).
     pub(crate) fn efs_step(&mut self, rho_flat: ArrayView1<'_, f64>) -> Result<EfsEval, String> {
+        self.probe_telemetry.criterion_calls += 1;
         let rho = self.baseline_rho.from_flat(rho_flat);
         if let Some(beta) = self.seeded_beta.take()
             && beta.len() == self.term.beta_dim()
@@ -1685,6 +1884,8 @@ impl SaeManifoldOuterObjective {
             // the bridge as a seed refusal, so the wall must stay finite. Genuine
             // (non-recoverable) defects still propagate as a hard error.
             Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
+                self.probe_telemetry.record_refusal_kind(&err);
+                self.probe_telemetry.wall_cost_value_probes += 1;
                 let n_params = rho.to_flat().len();
                 self.current_rho = rho;
                 return Ok(EfsEval {
@@ -1724,12 +1925,18 @@ impl SaeManifoldOuterObjective {
         // λ_smooth (indices 1..1+K): per-atom Wood-Fasiolo EFS multiplicative
         // update (#1556). The EFS fixed point is already per-coordinate, so each
         // atom `k` gets `λ_k_new = φ̂·(rank_k − edof_k)/energy_k` written into its
-        // own step slot. `rank_k = p·rank(S_k)`, `edof_k = tr_k(H⁻¹ M_k)`, and
+        // own step slot. `rank_k = r_k·rank(S_k)`, `edof_k = tr_k(H⁻¹ M_k)`, and
         // `energy_k = <B_k, S_k B_k>` are the per-atom splits of the historical
-        // global totals.
+        // global totals. The penalized-dimension `rank_k` uses the atom's
+        // `border_frame_rank()` r_k — the number of decoder channels the `S_k`
+        // roughness penalty actually acts on (`r_k == p` on the full-`B` path, the
+        // smaller frame rank when a Grassmann frame is active), NOT the full output
+        // dim `p`. This matches the criterion's EDF trace / penalty energy / Occam
+        // derivative (all `border_frame_rank`-based); using `p` when `r_k < p`
+        // overcounted the FS numerator by `(p−r_k)·rank(S_k)` and drove
+        // `λ_smooth` too high on frame-active fits.
         let k_smooth = rho.log_lambda_smooth.len();
         let lambda_smooth_vec = rho.lambda_smooth_vec();
-        let p_out = self.term.output_dim() as f64;
         let quad_per_atom = self.term.decoder_smoothness_quadratic_form_per_atom();
         let eff_dof_per_atom = self
             .term
@@ -1737,7 +1944,7 @@ impl SaeManifoldOuterObjective {
             .map_err(|e| format!("SaeManifoldOuterObjective::efs_step: smooth dof: {e}"))?;
         for atom_idx in 0..k_smooth {
             let lambda_k = lambda_smooth_vec[atom_idx];
-            let rank_k = p_out
+            let rank_k = (self.term.atoms[atom_idx].border_frame_rank() as f64)
                 * (SaeManifoldTerm::symmetric_rank(&self.term.atoms[atom_idx].smooth_penalty)?
                     as f64);
             let quad_k = quad_per_atom[atom_idx];
@@ -1754,19 +1961,49 @@ impl SaeManifoldOuterObjective {
         }
 
         // ARD axes (indices 1+K..): Mackay fixed point with posterior variance.
-        let mut cursor = 1 + k_smooth;
-        for (k, axis_logard) in rho.log_ard.iter().enumerate() {
-            let d = axis_logard.len();
-            for j in 0..d {
-                let denom = sumsq[k][j] + traces[k][j];
-                if denom > 0.0 {
-                    let alpha_new = dispersion * n_obs / denom;
-                    if alpha_new.is_finite() && alpha_new > 0.0 {
-                        steps[cursor + j] = alpha_new.ln() - axis_logard[j];
+        // #1026 shared-ARD: in `Shared` mode several atoms alias ONE outer
+        // coordinate `1+K+axis`, so the fixed point pools the evidence across the
+        // atoms owning the axis — `α_axis_new = φ̂·(count·n) / Σ_k(‖t_kj‖²+tr_kj)` —
+        // and writes a single step. Walking a raw per-atom cursor there indexes
+        // past the flat length `1+K+max_d` (OOB) and splits one shared strength
+        // across phantom slots. In `PerAtom` mode each `(k, axis)` is its own
+        // coordinate and this reduces to the historical per-atom Mackay update.
+        match rho.ard_sharing() {
+            ArdSharing::PerAtom => {
+                for (k, axis_logard) in rho.log_ard.iter().enumerate() {
+                    for (j, &logard_kj) in axis_logard.iter().enumerate() {
+                        let denom = sumsq[k][j] + traces[k][j];
+                        if denom > 0.0 {
+                            let alpha_new = dispersion * n_obs / denom;
+                            if alpha_new.is_finite() && alpha_new > 0.0 {
+                                steps[rho.ard_flat_index(k, j)] = alpha_new.ln() - logard_kj;
+                            }
+                        }
                     }
                 }
             }
-            cursor += d;
+            ArdSharing::Shared => {
+                let max_d = rho.max_ard_axes();
+                for axis in 0..max_d {
+                    let mut denom = 0.0_f64;
+                    let mut count = 0usize;
+                    let mut shared_logard = 0.0_f64;
+                    for (k, axis_logard) in rho.log_ard.iter().enumerate() {
+                        if axis < axis_logard.len() {
+                            denom += sumsq[k][axis] + traces[k][axis];
+                            // Broadcast table: every owner carries the same value.
+                            shared_logard = axis_logard[axis];
+                            count += 1;
+                        }
+                    }
+                    if count > 0 && denom > 0.0 {
+                        let alpha_new = dispersion * n_obs * (count as f64) / denom;
+                        if alpha_new.is_finite() && alpha_new > 0.0 {
+                            steps[rho.ard_flat_index(0, axis)] = alpha_new.ln() - shared_logard;
+                        }
+                    }
+                }
+            }
         }
 
         let beta_hat = self.term.flatten_beta();
@@ -1840,7 +2077,8 @@ impl OuterObjective for SaeManifoldOuterObjective {
         // (seed screening, cross-seed final selection, EFS backtracking). No `∇f`
         // is ever paired with this cost, so it is the correct place to carry the
         // derivative-free co-training fold `f+c` (`fold_cotrain = true`).
-        match self.evaluate_with_refine_policy(rho.view(), false, true) {
+        self.probe_telemetry.criterion_calls += 1;
+        match self.evaluate_value_probe_with_refine_policy(rho.view(), true) {
             Ok((cost, _beta)) => Ok(cost),
             // #1782 — a recoverable infeasible-ρ refusal presents the SAME finite
             // collapse wall the EFS lane returns, not `+∞`. A finite (huge) wall is
@@ -1850,6 +2088,8 @@ impl OuterObjective for SaeManifoldOuterObjective {
             // neighbourhood to a fatal seed rejection (see
             // `recoverable_refusal_wall_cost`).
             Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
+                self.probe_telemetry.record_refusal_kind(&err);
+                self.probe_telemetry.wall_cost_value_probes += 1;
                 Ok(Self::recoverable_refusal_wall_cost())
             }
             Err(err) => Err(EstimationError::RemlOptimizationFailed(err)),
@@ -1857,6 +2097,7 @@ impl OuterObjective for SaeManifoldOuterObjective {
     }
 
     fn eval(&mut self, rho: &Array1<f64>) -> Result<OuterEval, EstimationError> {
+        self.probe_telemetry.criterion_calls += 1;
         let rho_state = self.baseline_rho.from_flat(rho.view());
         // #1026 — matrix-free (streaming) regime: the dense joint-Hessian evidence
         // cache does not exist, so the analytic gradient lane below
@@ -1873,25 +2114,27 @@ impl OuterObjective for SaeManifoldOuterObjective {
         // proceeds on the EFS lane. Dense-admitted fits never enter this branch and
         // are byte-for-byte unchanged.
         if !self.term.streaming_plan().direct_logdet_admitted() {
-            let (cost, _beta_hat) =
-                match self.evaluate_with_refine_policy(rho.view(), false, false) {
-                    Ok(evaluated) => evaluated,
-                    // #1782 — recoverable infeasible-ρ refusal → finite collapse
-                    // wall (zero gradient), not `+∞`. The wall still steers the
-                    // outer descent away from the infeasible basin, but keeps the
-                    // seed neighbourhood bounded so a globally-refused seed ships
-                    // the best-so-far dictionary instead of aborting the fit (see
-                    // `recoverable_refusal_wall_cost`).
-                    Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
-                        return Ok(OuterEval {
-                            cost: Self::recoverable_refusal_wall_cost(),
-                            gradient: Array1::zeros(rho.len()),
-                            hessian: HessianResult::Unavailable,
-                            inner_beta_hint: None,
-                        });
-                    }
-                    Err(err) => return Err(EstimationError::RemlOptimizationFailed(err)),
-                };
+            let (cost, _beta_hat) = match self.evaluate_with_refine_policy(rho.view(), false, false)
+            {
+                Ok(evaluated) => evaluated,
+                // #1782 — recoverable infeasible-ρ refusal → finite collapse
+                // wall (zero gradient), not `+∞`. The wall still steers the
+                // outer descent away from the infeasible basin, but keeps the
+                // seed neighbourhood bounded so a globally-refused seed ships
+                // the best-so-far dictionary instead of aborting the fit (see
+                // `recoverable_refusal_wall_cost`).
+                Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
+                    self.probe_telemetry.record_refusal_kind(&err);
+                    self.probe_telemetry.wall_cost_value_probes += 1;
+                    return Ok(OuterEval {
+                        cost: Self::recoverable_refusal_wall_cost(),
+                        gradient: Array1::zeros(rho.len()),
+                        hessian: HessianResult::Unavailable,
+                        inner_beta_hint: None,
+                    });
+                }
+                Err(err) => return Err(EstimationError::RemlOptimizationFailed(err)),
+            };
             return Ok(OuterEval {
                 cost,
                 gradient: Array1::zeros(rho.len()),
@@ -1963,6 +2206,8 @@ impl OuterObjective for SaeManifoldOuterObjective {
             // dictionary instead (see `recoverable_refusal_wall_cost`). Genuine
             // (non-recoverable) defects still hard-error below.
             Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
+                self.probe_telemetry.record_refusal_kind(&err);
+                self.probe_telemetry.wall_cost_value_probes += 1;
                 return Ok(OuterEval {
                     cost: Self::recoverable_refusal_wall_cost(),
                     gradient: Array1::zeros(rho.len()),
@@ -2112,23 +2357,19 @@ impl OuterObjective for SaeManifoldOuterObjective {
                 // can stall or wander. The fold is carried only by the value-only
                 // cross-seed ranking lane (`eval_cost`).
                 let (cost, _beta_hat) =
-                    match self.evaluate_with_refine_policy(rho.view(), false, false) {
+                    match self.evaluate_value_probe_with_refine_policy(rho.view(), false) {
                         Ok(evaluated) => evaluated,
-                        // #1782 — recoverable infeasible-ρ refusal → finite collapse
-                        // wall (zero gradient), matching the gradient/EFS lanes. The
-                        // wall still fails the Armijo/Wolfe sufficient-decrease test
-                        // (it dwarfs any real REML cost) so the line search steers
-                        // back into the PD region, but a BOUNDED cost keeps a
-                        // globally-refused seed neighbourhood from tripping the
-                        // bridge's non-termination guard (see
-                        // `recoverable_refusal_wall_cost`).
+                        // #2080 — the `Value` order is the BFGS / ARC line-search
+                        // probe lane, where the bridge can distinguish an
+                        // infeasible trial and count it in the recoverable-probe
+                        // guard. Do not hide this behind the finite #1782 wall:
+                        // a non-PD Laplace probe is not an ordinary Wolfe value.
+                        // The finite wall remains on `eval_cost` / EFS / startup
+                        // lanes, where it is deliberately used for seed survival.
                         Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
-                            return Ok(OuterEval {
-                                cost: Self::recoverable_refusal_wall_cost(),
-                                gradient: Array1::zeros(rho.len()),
-                                hessian: HessianResult::Unavailable,
-                                inner_beta_hint: None,
-                            });
+                            self.probe_telemetry.record_refusal_kind(&err);
+                            self.probe_telemetry.wall_cost_value_probes += 1;
+                            return Ok(OuterEval::infeasible(rho.len()));
                         }
                         Err(err) => return Err(EstimationError::RemlOptimizationFailed(err)),
                     };
@@ -2738,6 +2979,39 @@ mod linear_parity_anchor_1026_tests {
     //! linear component carry full-rank variance while curved atoms stay sparse.
 
     use super::*;
+
+    /// Rank-`q` PCA / Eckart-Young explained-variance ceiling of a column-centered
+    /// `target` — the best reconstruction EV any rank-`q` LINEAR dictionary can
+    /// reach. S1 (guard surgery): this is now a TEST ORACLE only. It was the
+    /// reference for the retired `0.5 × ceiling` collapse bar; the live collapse
+    /// detector keys on the signal-free null floor
+    /// (`super::absolute_degeneracy_ev_floor` = `q / n`), so no production code
+    /// consumes this ceiling. The linear-anchor parity tests below still compare the
+    /// anchor's reconstruction against it, so it lives here as their oracle. Returns
+    /// `[0, 1]` on a finite target; `f64::NAN` on SVD failure / zero-variance target.
+    fn pca_ev_ceiling(target: ArrayView2<'_, f64>, q: usize) -> f64 {
+        let (n, p) = target.dim();
+        if n == 0 || p == 0 {
+            return f64::NAN;
+        }
+        let mut centered = target.to_owned();
+        for c in 0..p {
+            let mean = (0..n).map(|r| target[[r, c]]).sum::<f64>() / n as f64;
+            for r in 0..n {
+                centered[[r, c]] -= mean;
+            }
+        }
+        let sst: f64 = centered.iter().map(|v| v * v).sum();
+        if !(sst > 0.0) || !sst.is_finite() {
+            return f64::NAN;
+        }
+        let sv = match centered.svd(false, false) {
+            Ok((_, sv, _)) => sv,
+            Err(_) => return f64::NAN,
+        };
+        let captured: f64 = sv.iter().take(q).map(|s| s * s).sum();
+        captured / sst
+    }
 
     /// Build a K-atom LINEAR (degree-1, d=1) SAE term over distinct 1-D coords
     /// with a known rank-`r_true` linear target `X = Z @ D`. The decoder seed is

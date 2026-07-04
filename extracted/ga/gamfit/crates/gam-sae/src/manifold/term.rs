@@ -134,47 +134,19 @@ impl SaeBetaPenaltyAssembly {
     }
 }
 
-/// ABSOLUTE FALLBACK explained-variance floor for the reconstruction-collapse
-/// guard (#1023), used ONLY when the data-derived bar is un-computable.
+/// ABSOLUTE "worse than a constant predictor" explained-variance floor (#1023),
+/// used by the curved-ARRIVAL quality gate and the inner-fit incumbent-restore
+/// gate as the point below which a CONVERGED fit is degenerate whatever the data's
+/// achievable ceiling. `0.10` is a deliberately conservative "must explain at least
+/// a tenth of the variance or it is structurally degenerate" floor for those
+/// post-convergence quality checks; it is NOT a tuned operating point.
 ///
-/// #1522 retired this as the primary collapse threshold: the live bar is
-/// [`SAE_COLLAPSE_PCA_EV_FRACTION`]`·pca_ev_ceiling(target, K)` (see
-/// `collapse_ev_bar`), which tracks the data's own achievable EV instead of a
-/// corpus-tuned constant. This number is reached only on a degenerate target
-/// (constant columns / SVD failure → non-finite ceiling), where any positive
-/// floor is arbitrary; `0.10` is a deliberately conservative "the fitted matrix
-/// must explain at least a tenth of the variance or it is a structural collapse"
-/// fallback so the guard still keys on *something* finite in that corner. It is
-/// NOT a tuned operating point — a fit on real data is judged against the PCA
-/// ceiling, never this constant.
+/// S1 (guard surgery) — this is NO LONGER used by the collapse DETECTOR: the
+/// co-collapse verdict and reseed arm now key on the signal-free null floor
+/// ([`super::outer_objective::absolute_degeneracy_ev_floor`] = `q / n`), not on any
+/// fraction of a dense PCA ceiling. This constant survives only where a fixed
+/// "worse than the mean" reference is genuinely wanted (arrival / incumbent gates).
 pub(crate) const SAE_FIT_DATA_COLLAPSE_EV_FLOOR: f64 = 0.10;
-
-/// #1522/#1610 — fraction of the REACHABLE-rank PCA / Eckart-Young EV ceiling
-/// below which a fit counts as a structural co-collapse. The collapse bar is
-/// `SAE_COLLAPSE_PCA_EV_FRACTION · pca_ev_ceiling(target, dictionary_rank)`,
-/// where `dictionary_rank` is the dictionary's GEOMETRICALLY REACHABLE rank
-/// ([`super::outer_objective::reachable_dictionary_rank`] = `Σ_k rank(Φ_k)`),
-/// not the nominal coefficient count `Σ_k basis_size_k`. The ceiling is the BEST
-/// EV any rank-`dictionary_rank` LINEAR dictionary could reach on THIS centered
-/// target, so the bar is data-derived (scales with what the data actually
-/// admits) rather than an absolute corpus-tuned number.
-///
-/// #1610 — the previous rank `Σ_k basis_size_k` was biased HIGH for a NONLINEAR
-/// dictionary (the owner's audit table: "nonlinear dict vs linear PCA ceiling
-/// (biased high)"): a curved `latent_dim = d` atom decoded through a smooth
-/// chart spans only `rank(Φ_k) ≤ basis_size_k` linear output directions, so
-/// summing the nominal coefficient counts over-stated the linearly-achievable
-/// ceiling the fraction is taken against. Keying the rank on each chart's
-/// REALIZED image rank `rank(Φ_k)` (read from the chart design alone, so a
-/// co-collapsed decoder still reports full geometric reach) calibrates the bar
-/// against what the dictionary geometry can actually reach.
-///
-/// `0.5` encodes the decision "a fit that explains less than HALF of the variance
-/// a reachable-rank dictionary could has structurally collapsed, whatever its
-/// absolute EV" — a dimensionless ratio with that single, explicit meaning, not
-/// a magnitude tuned to any one corpus. It is the sole source for the ratio used
-/// at every collapse-guard site.
-pub(crate) const SAE_COLLAPSE_PCA_EV_FRACTION: f64 = 0.5;
 
 /// #1189/#1217/#1610 — the finite BFGS INFEASIBILITY WALL substituted for a
 /// non-finite / collapsed REML criterion so the outer line search REJECTS the
@@ -553,7 +525,12 @@ pub struct SaeManifoldTerm {
     /// (often catastrophic) attempt. `None` until the first co-collapse reseed;
     /// reset to `None` alongside [`Self::dictionary_cocollapse_reseeds`] at the
     /// start of each outer optimization.
-    pub(crate) best_cocollapse_incumbent: Option<(f64, SaeManifoldMutableState)>,
+    ///
+    /// #2081 — the middle `Option<f64>` is the incumbent basin's aggregate
+    /// coordinate-uniformity score ([`SaeManifoldTerm::coordinate_uniformity_aggregate`]),
+    /// carried alongside the EV so the multi-start can break (near-)equal-EV ties
+    /// on coordinate fidelity ([`prefer_candidate_basin`]).
+    pub(crate) best_cocollapse_incumbent: Option<(f64, Option<f64>, SaeManifoldMutableState)>,
     /// #1026 decoder-repulsion gate, frozen per assembly (lagged-diffusivity
     /// discipline, exactly like [`SaeManifoldAtom::smooth_penalty`]): the
     /// symmetric `(K, K)` matrix of collinearity gate weights
@@ -622,8 +599,7 @@ pub struct SaeManifoldTerm {
     /// also profiled); a per-atom `None` means that atom had no active rows or a
     /// degenerate inner design. Read by [`Self::to_residual_gauge_model`], which
     /// attaches each onto its [`crate::identifiability::FittedAtom`].
-    pub(crate) atom_inner_fits:
-        Option<Vec<Option<crate::identifiability::AtomInnerFit>>>,
+    pub(crate) atom_inner_fits: Option<Vec<Option<crate::identifiability::AtomInnerFit>>>,
     /// #1228 — the trained dictionary's hybrid-collapsed linear images, attached
     /// to an OOS term so held-out reconstruction decodes verdict-linear `d = 1`
     /// slots by the SAME straight sub-model the training reconstruction used.
@@ -656,6 +632,28 @@ pub struct SaeManifoldTerm {
     /// (default false). Set from the FFI via the typed `data_row_reseed` kwarg —
     /// no env lever. Carried across clones.
     pub(crate) data_row_reseed: bool,
+    /// SAC — whether the #976 Layer-1 collapse-guard stack (active-mass /
+    /// decoder-norm re-seed, co-collapse reseed-all) is armed on this term's
+    /// inner joint fits. Default `true` (bit-for-bit historical path). The
+    /// Sequential Atom Composition driver ([`super::stagewise`]) fits one atom at
+    /// a time and drives this to `false` on the K=1 path: a single atom never
+    /// trips the guards (there is no dictionary peer to collapse against), so the
+    /// guards are pure no-ops there, and disarming them makes the per-atom /
+    /// backfitting refits provably reseed-free — a reseed mid-refit would break
+    /// the block-coordinate monotonicity the composition rests on. Carried across
+    /// clones like the other per-fit config so a cloned candidate keeps the lane.
+    pub(crate) guards_enabled: bool,
+    /// Rung-2 behavioral data block: when `Some`, this term's output is the
+    /// AUGMENTED stack `[activation | √λ_y · behavior-tangent]` and each atom's
+    /// decoder is the widened `[B_k | C_k]`. The block records the sphere-tangent
+    /// chart, the unscaled nats-unit behavior target, the activation/behavior
+    /// output split, and the REML-selected relative weight `λ_y`. `None` ⇒ the
+    /// ordinary single-block (activation-only) term, bit-for-bit unchanged. It is
+    /// pure descriptor state (which output columns are behavior, and how to decode
+    /// them back to distributions); the joint fit itself needs no special path,
+    /// because the augmented output shares `t` and `a` by construction. Carried
+    /// across clones so a cloned candidate keeps its behavioral identity.
+    pub(crate) behavior: Option<crate::manifold::BehaviorBlock>,
 }
 
 /// #1777 — PER-FIT configuration overrides the FFI sets on a term to isolate a
@@ -721,6 +719,11 @@ impl Clone for SaeManifoldTerm {
             separation_barrier_strength_override: self.separation_barrier_strength_override,
             quotient_scale: self.quotient_scale,
             data_row_reseed: self.data_row_reseed,
+            guards_enabled: self.guards_enabled,
+            // Rung-2 behavioral identity is persisted configuration (like the
+            // assignment mode / barrier override), carried across clones so a
+            // cloned candidate fits the same augmented two-block problem.
+            behavior: self.behavior.clone(),
         }
     }
 }

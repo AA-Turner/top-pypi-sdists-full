@@ -3,12 +3,14 @@
 import typing
 
 import pydantic
-from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from .mcp_server_o_auth2grant_type import McpServerOAuth2GrantType
 from .mcp_server_o_auth2jwt_source import McpServerOAuth2JwtSource
+from .mcp_server_o_auth2provider import McpServerOAuth2Provider
+from .mcp_server_o_auth2provider_auth0settings import McpServerOAuth2ProviderAuth0Settings
 
 
-class McpServerOAuth2(UniversalBaseModel):
+class McpServerOAuth2(McpServerOAuth2ProviderAuth0Settings):
     """
     OAuth2
     """
@@ -48,6 +50,16 @@ class McpServerOAuth2(UniversalBaseModel):
     URL for dynamic client registration (RFC 7591). If provided, client credentials will be obtained automatically using the Dynamic Client Registration (DCR) process.
     """
 
+    introspection_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    URL to fetch token expiry (RFC 7662) when the provider does not return expires_in (e.g. Salesforce). Requires client_id and client_secret.
+    """
+
+    provider: McpServerOAuth2Provider = pydantic.Field()
+    """
+    Select the OAuth provider. Provider-specific configuration (e.g. Auth0 organization) is unlocked based on this value.
+    """
+
     code_challenge_methods_supported: typing.Optional[typing.List[typing.Literal["S256"]]] = pydantic.Field(
         default=None
     )
@@ -63,6 +75,11 @@ class McpServerOAuth2(UniversalBaseModel):
     scopes: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
     List of scopes to request from the OAuth2 provider.
+    """
+
+    additional_token_params: typing.Optional[typing.Dict[str, str]] = pydantic.Field(default=None)
+    """
+    Extra key/value pairs sent on every token endpoint request (e.g. Auth0 'audience').
     """
 
     if IS_PYDANTIC_V2:

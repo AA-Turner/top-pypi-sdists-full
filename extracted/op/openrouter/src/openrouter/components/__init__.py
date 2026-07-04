@@ -1330,6 +1330,10 @@ if TYPE_CHECKING:
         ListWorkspaceBudgetsResponse,
         ListWorkspaceBudgetsResponseTypedDict,
     )
+    from .listworkspacemembersresponse import (
+        ListWorkspaceMembersResponse,
+        ListWorkspaceMembersResponseTypedDict,
+    )
     from .listworkspacesresponse import (
         ListWorkspacesResponse,
         ListWorkspacesResponseTypedDict,
@@ -1888,6 +1892,11 @@ if TYPE_CHECKING:
         OutputFileSearchServerToolItem,
         OutputFileSearchServerToolItemType,
         OutputFileSearchServerToolItemTypedDict,
+    )
+    from .outputfilesservertoolitem import (
+        OutputFilesServerToolItem,
+        OutputFilesServerToolItemType,
+        OutputFilesServerToolItemTypedDict,
     )
     from .outputfunctioncallitem import (
         OutputFunctionCallItem,
@@ -3686,6 +3695,8 @@ __all__ = [
     "ListPresetsResponseTypedDict",
     "ListWorkspaceBudgetsResponse",
     "ListWorkspaceBudgetsResponseTypedDict",
+    "ListWorkspaceMembersResponse",
+    "ListWorkspaceMembersResponseTypedDict",
     "ListWorkspacesResponse",
     "ListWorkspacesResponseTypedDict",
     "LocalShellCallItem",
@@ -4015,6 +4026,9 @@ __all__ = [
     "OutputFileSearchServerToolItem",
     "OutputFileSearchServerToolItemType",
     "OutputFileSearchServerToolItemTypedDict",
+    "OutputFilesServerToolItem",
+    "OutputFilesServerToolItemType",
+    "OutputFilesServerToolItemTypedDict",
     "OutputFunctionCallItem",
     "OutputFunctionCallItemStatusCompleted",
     "OutputFunctionCallItemStatusInProgress",
@@ -5651,6 +5665,8 @@ _dynamic_imports: dict[str, str] = {
     "ListPresetVersionsResponseTypedDict": ".listpresetversionsresponse",
     "ListWorkspaceBudgetsResponse": ".listworkspacebudgetsresponse",
     "ListWorkspaceBudgetsResponseTypedDict": ".listworkspacebudgetsresponse",
+    "ListWorkspaceMembersResponse": ".listworkspacemembersresponse",
+    "ListWorkspaceMembersResponseTypedDict": ".listworkspacemembersresponse",
     "ListWorkspacesResponse": ".listworkspacesresponse",
     "ListWorkspacesResponseTypedDict": ".listworkspacesresponse",
     "LocalShellCallItem": ".localshellcallitem",
@@ -6104,6 +6120,9 @@ _dynamic_imports: dict[str, str] = {
     "OutputFileSearchServerToolItem": ".outputfilesearchservertoolitem",
     "OutputFileSearchServerToolItemType": ".outputfilesearchservertoolitem",
     "OutputFileSearchServerToolItemTypedDict": ".outputfilesearchservertoolitem",
+    "OutputFilesServerToolItem": ".outputfilesservertoolitem",
+    "OutputFilesServerToolItemType": ".outputfilesservertoolitem",
+    "OutputFilesServerToolItemTypedDict": ".outputfilesservertoolitem",
     "OutputFunctionCallItem": ".outputfunctioncallitem",
     "OutputFunctionCallItemStatusCompleted": ".outputfunctioncallitem",
     "OutputFunctionCallItemStatusInProgress": ".outputfunctioncallitem",

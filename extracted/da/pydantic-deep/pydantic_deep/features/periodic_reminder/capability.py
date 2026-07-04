@@ -76,8 +76,8 @@ class PeriodicReminderConfig:
     """Configuration for :class:`PeriodicReminderCapability`.
 
     Args:
-        every_n_turns: Fire a reminder every N turns after the first one (default 10).
-        first_after: Turn on which to fire the *first* reminder (default: 5).
+        every_n_turns: Fire a reminder every N turns after the first one (default 15).
+        first_after: Turn on which to fire the *first* reminder (default: 15).
             Pass `None` to use `every_n_turns`.
         max_reminders_per_run: Cap on total reminders per run. None means unlimited.
         render_style: How to wrap the reminder before injecting it.
@@ -90,8 +90,8 @@ class PeriodicReminderConfig:
             :class:`ReminderGenerator` → async callable / class.
     """
 
-    every_n_turns: int = 10
-    first_after: int | None = 5
+    every_n_turns: int = 15
+    first_after: int | None = 15
     max_reminders_per_run: int | None = None
     render_style: Literal["system_reminder_tag", "user_prompt", "developer_note"] = (
         "system_reminder_tag"
@@ -325,8 +325,10 @@ def make_config_for_mode(mode: str) -> PeriodicReminderConfig:
 
     return PeriodicReminderConfig(
         generator=generator,
-        every_n_turns=15 if mode == "llm" else 10,
-        max_reminders_per_run=3 if mode == "llm" else None,
+        every_n_turns=15,
+        # No cap: fire consistently every 15 turns for the whole run, so long
+        # runs stay anchored instead of drifting after the first few reminders.
+        max_reminders_per_run=None,
     )
 
 

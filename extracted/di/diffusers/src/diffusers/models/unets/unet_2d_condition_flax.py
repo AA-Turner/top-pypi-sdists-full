@@ -1,4 +1,4 @@
-# Copyright 2025 The HuggingFace Team. All rights reserved.
+# Copyright 2026 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -166,7 +166,7 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
 
     def setup(self) -> None:
         logger.warning(
-            "Flax classes are deprecated and will be removed in Diffusers v1.0.0. We "
+            "Flax classes are deprecated and will be removed in Diffusers v0.40.0. We "
             "recommend migrating to PyTorch classes or pinning your version of Diffusers."
         )
 

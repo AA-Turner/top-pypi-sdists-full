@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: devices_camera_quality_and_retention
-short_description: Resource module for devices _camera _quality _and _retention
+short_description: Resource module for devices _camera _qualityandretention
 description:
-  - Manage operation update of the resource devices _camera _quality _and _retention.
+  - Manage operation update of the resource devices _camera _qualityandretention.
   - Update quality and retention settings for the given camera.
 version_added: '1.0.0'
 extends_documentation_fragment:
@@ -104,13 +103,5 @@ meraki_response:
   returned: always
   type: dict
   sample: >
-    {
-      "profileId": {},
-      "motionBasedRetentionEnabled": true,
-      "audioRecordingEnabled": true,
-      "restrictedBandwidthModeEnabled": true,
-      "quality": "string",
-      "resolution": "string",
-      "motionDetectorVersion": 0
-    }
+    {}
 """

@@ -71,7 +71,7 @@ _logger = logging.getLogger("pytensor.tensor.subtensor")
 T = TypeVar("T")
 
 
-def flatten_index_variables(
+def flatten_index_variables[T](
     idx_vars: Sequence[T | None | slice],
 ) -> tuple[list[int | slice], list[T]]:
     counter = 0
@@ -99,7 +99,7 @@ def flatten_index_variables(
     return idx_list, flat_vars
 
 
-def unflatten_index_variables(
+def unflatten_index_variables[T](
     flat_indices: Sequence[T],
     idx_list: Sequence[slice | int],
 ) -> tuple[slice | T, ...]:
@@ -832,7 +832,7 @@ def slice_static_length(slc, dim_length):
 
 
 class BaseSubtensor:
-    """Base class for Subtensor operations that handles idx_list and hash/equality."""
+    """Base class for Subtensor operations that handles idx_list."""
 
     def __init__(self, idx_list: Sequence[int | slice]):
         index_counter = -1
@@ -867,26 +867,6 @@ class BaseSubtensor:
         self.n_index_vars = index_counter + 1
         self.idx_list = tuple(idx_list)
 
-    def _hashable_idx_list(self):
-        """Return a hashable version of idx_list (slices converted to tuples).
-
-        Slices are not hashable in Python < 3.12, so we convert them to tuples.
-        """
-        return tuple(
-            (slice, entry.start, entry.stop, entry.step)
-            if isinstance(entry, slice)
-            else entry
-            for entry in self.idx_list
-        )
-
-    def __hash__(self):
-        # Temporary workaround: slices are hashable in Python 3.12+
-        props_values = tuple(
-            self._hashable_idx_list() if prop == "idx_list" else getattr(self, prop)
-            for prop in self.__props__
-        )
-        return hash((type(self), props_values))
-
 
 class Subtensor(BaseSubtensor, COp):
     """Basic NumPy indexing operator."""
@@ -895,7 +875,6 @@ class Subtensor(BaseSubtensor, COp):
     view_map = {0: [0]}
     _f16_ok = True
     __props__ = ("idx_list",)
-    __hash__ = BaseSubtensor.__hash__
 
     def make_node(self, x, *inputs):
         """
@@ -943,7 +922,7 @@ class Subtensor(BaseSubtensor, COp):
         cdata = unflatten_index_variables(index_variables, self.idx_list)
         out[0] = np.asarray(x.__getitem__(tuple(cdata)))
 
-    def infer_shape(self, fgraph, node, shapes):
+    def infer_shape(self, node, shapes):
         def _is_constant(const, x):
             return isinstance(const, Constant) and const.data.item() == x
 
@@ -1487,7 +1466,6 @@ class IncSubtensor(BaseSubtensor, COp):
         "set_instead_of_inc",
         "destroyhandler_tolerate_aliased",
     )
-    __hash__ = BaseSubtensor.__hash__
 
     def __init__(
         self,
@@ -1789,7 +1767,7 @@ class IncSubtensor(BaseSubtensor, COp):
                 {fail};
             }}"""
 
-    def infer_shape(self, fgraph, node, shapes):
+    def infer_shape(self, node, shapes):
         return [shapes[0]]
 
     def pushforward(self, inputs, outputs, eval_points):
@@ -1967,7 +1945,7 @@ class AdvancedSubtensor1(COp):
         _x, *index_variables = inputs
         return self.make_node(eval_points[0], *index_variables).outputs
 
-    def infer_shape(self, fgraph, node, ishapes):
+    def infer_shape(self, node, ishapes):
         x, ilist = ishapes
         return [ilist + x[1:]]
 
@@ -2317,7 +2295,7 @@ class AdvancedIncSubtensor1(BaseSubtensor, COp):
 
         output_storage[0][0] = x
 
-    def infer_shape(self, fgraph, node, ishapes):
+    def infer_shape(self, node, ishapes):
         x, _y, _ilist = ishapes
         return [x]
 
@@ -2375,7 +2353,6 @@ class AdvancedSubtensor(BaseSubtensor, COp):
     """Implements NumPy's advanced indexing."""
 
     __props__ = ("idx_list",)
-    __hash__ = BaseSubtensor.__hash__
 
     def c_code_cache_version(self):
         hv = Subtensor.helper_c_code_cache_version()
@@ -2492,7 +2469,7 @@ class AdvancedSubtensor(BaseSubtensor, COp):
         _x, *index_variables = inputs
         return self.make_node(eval_points[0], *index_variables).outputs
 
-    def infer_shape(self, fgraph, node, ishapes):
+    def infer_shape(self, node, ishapes):
         def is_bool_index(idx):
             return (
                 isinstance(idx, np.bool_ | bool)
@@ -2661,7 +2638,6 @@ class AdvancedIncSubtensor(BaseSubtensor, Op):
         "set_instead_of_inc",
         "ignore_duplicates",
     )
-    __hash__ = BaseSubtensor.__hash__
 
     def __init__(
         self,
@@ -2719,7 +2695,7 @@ class AdvancedIncSubtensor(BaseSubtensor, Op):
         else:
             np.add.at(out[0], tuple(full_indices), y)
 
-    def infer_shape(self, fgraph, node, ishapes):
+    def infer_shape(self, node, ishapes):
         return [ishapes[0]]
 
     def connection_pattern(self, node):

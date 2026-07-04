@@ -24,7 +24,7 @@ class TestAnalysisRequestEnforcement:
 
     def test_analysis_response_rejected_without_file_reads(self):
         """Analysis responses must read files or be rejected with retry."""
-        from sage.main import _execute_request_with_validation
+        from sage.cli_core import _execute_request_with_validation
 
         user_request = "Analyze the codebase and list 100 items that should be improved"
 
@@ -67,7 +67,7 @@ Here are 100 improvements for the codebase:
 
     def test_analysis_response_accepted_with_sufficient_reads(self):
         """Analysis responses with sufficient file reads should be accepted."""
-        from sage.main import _execute_request_with_validation
+        from sage.cli_core import _execute_request_with_validation
 
         user_request = "Analyze the codebase and list 10 items that should be improved"
 
@@ -101,7 +101,7 @@ Based on analyzing the codebase (5 files read), here are improvements:
 
     def test_descriptive_tool_mentions_trigger_rejection(self):
         """Responses that ONLY describe tools without executing should be rejected."""
-        from sage.main import _execute_request_with_validation
+        from sage.cli_core import _execute_request_with_validation
 
         user_request = "Analyze the authentication system"
 
@@ -143,7 +143,7 @@ Let me start by examining these key areas.
 
     def test_repetitive_filler_triggers_rejection(self):
         """Responses with high repetition score should be rejected."""
-        from sage.main import _execute_request_with_validation
+        from sage.cli_core import _execute_request_with_validation
 
         user_request = "List 20 security improvements"
 
@@ -197,7 +197,7 @@ class TestImplementationRequestEnforcement:
 
     def test_phantom_implementation_rejected(self):
         """Implementation claims without FILE: blocks should be rejected."""
-        from sage.main import _execute_request_with_validation
+        from sage.cli_core import _execute_request_with_validation
 
         user_request = "Implement a ProxyCore class with routing logic"
 
@@ -244,7 +244,7 @@ Implementation complete!
 
     def test_valid_implementation_with_file_blocks_accepted(self):
         """Implementation with FILE: blocks and actual writes should be accepted."""
-        from sage.main import _execute_request_with_validation
+        from sage.cli_core import _execute_request_with_validation
 
         user_request = "Implement a ProxyCore class"
 
@@ -277,7 +277,7 @@ def test_proxy_core():
 
     def test_tdd_compliance_enforced(self):
         """TDD implementation must have both tests and implementation files."""
-        from sage.main import _execute_request_with_validation
+        from sage.cli_core import _execute_request_with_validation
 
         user_request = "Implement feature X using TDD"
 
@@ -331,7 +331,7 @@ class TestPostActionVerification:
         """SAGE must verify files exist before claiming write success."""
         from pathlib import Path
 
-        from sage.main import _execute_file_write_and_verify
+        from sage.cli_core import _execute_file_write_and_verify
 
         file_path = "/tmp/test_sage_verification.py"
         content = "print('hello')"
@@ -350,7 +350,7 @@ class TestPostActionVerification:
 
     def test_command_execution_verification_before_showing_output(self):
         """SAGE must verify commands actually ran before showing output."""
-        from sage.main import _execute_command_and_verify
+        from sage.cli_core import _execute_command_and_verify
 
         command = "pytest tests/test_feature.py -v"
 
@@ -377,7 +377,7 @@ class TestPostActionVerification:
         """Verify written file content matches what was requested."""
         from pathlib import Path
 
-        from sage.main import _execute_file_write_and_verify
+        from sage.cli_core import _execute_file_write_and_verify
 
         file_path = "/tmp/test_sage_content.py"
         expected_content = "def foo():\n    return 42"
@@ -409,7 +409,7 @@ class TestValidationRetryLoop:
 
     def test_retry_loop_includes_validation_violations(self):
         """Retry prompts must include specific validation violations."""
-        from sage.main import _execute_request_with_validation
+        from sage.cli_core import _execute_request_with_validation
 
         user_request = "Analyze the codebase"
 
@@ -448,7 +448,7 @@ I will analyze the codebase:
 
     def test_retry_loop_has_max_attempts(self):
         """Retry loop should have maximum attempts to prevent infinite loops."""
-        from sage.main import _execute_request_with_validation
+        from sage.cli_core import _execute_request_with_validation
 
         user_request = "List 10 improvements for the codebase"
 
@@ -475,7 +475,7 @@ Here are 10 improvements:
 
     def test_successful_retry_stops_loop(self):
         """Retry loop should stop when validation passes."""
-        from sage.main import _execute_request_with_validation
+        from sage.cli_core import _execute_request_with_validation
 
         # Request that requires file reads (asks for a list of items)
         user_request = "List 10 improvements for the codebase"
@@ -510,7 +510,7 @@ class TestFailClosedBehavior:
 
     def test_missing_read_command_results_fails_closed(self):
         """If files aren't read, response must be rejected."""
-        from sage.main import _execute_request_with_validation
+        from sage.cli_core import _execute_request_with_validation
 
         user_request = "Analyze backend/nonexistent.py and list 5 improvements"
 
@@ -570,7 +570,7 @@ class TestFailureLoopDetection:
 
     def test_failure_loop_detector_records_errors(self):
         """Failure loop detector should track repeated errors."""
-        from sage.main import _FailureLoopDetector
+        from sage.cli_core import _FailureLoopDetector
 
         detector = _FailureLoopDetector(max_identical_errors=3)
 
@@ -587,7 +587,7 @@ class TestFailureLoopDetection:
 
     def test_failure_loop_detector_tracks_validation_failures(self):
         """Failure loop detector should track repeated validation failures."""
-        from sage.main import _FailureLoopDetector
+        from sage.cli_core import _FailureLoopDetector
 
         detector = _FailureLoopDetector()
 
@@ -601,7 +601,7 @@ class TestFailureLoopDetection:
 
     def test_failure_loop_detector_resets(self):
         """Failure loop detector should reset on success."""
-        from sage.main import _FailureLoopDetector
+        from sage.cli_core import _FailureLoopDetector
 
         detector = _FailureLoopDetector(max_identical_errors=2)
 
@@ -616,7 +616,7 @@ class TestFailureLoopDetection:
 
     def test_failure_loop_indicator_in_tdd_gate_error(self):
         """P1-D: TDD gate errors should include failure_loop indicator."""
-        from sage.main import _FailureLoopDetector
+        from sage.cli_core import _FailureLoopDetector
 
         # This tests that the failure_loop key is used in error responses
         detector = _FailureLoopDetector(max_identical_errors=2)

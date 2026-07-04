@@ -9,18 +9,22 @@ import click
 from fabric_dw.cli._context import CliContext
 from fabric_dw.cli._render import confirm, render
 from fabric_dw.cli.commands._utils import (
+    AS_OF_OPTION,
+    TIME_TRAVEL_AGO_OPTION,
     build_http_client,
     build_sql_target,
     confirm_destructive,
     coro,
     load_sql_body,
     parse_qualified_name,
+    resolve_as_of,
     resolve_warehouse_arg,
     resolve_workspace,
 )
 from fabric_dw.exceptions import FabricError
 from fabric_dw.services import views as _views_svc
 from fabric_dw.services.columns import get_object_columns_or_raise as _get_columns
+from fabric_dw.services.load import infer_file_format
 from fabric_dw.sql_io import OutputFormat, columns_rows_to_arrow, write_arrow
 
 
@@ -65,6 +69,8 @@ async def list_cmd(ctx: CliContext, item: str | None, schema: str | None) -> Non
     help="Output format.",
 )
 @click.option("--output", default=None, help="Write to this file instead of stdout.")
+@AS_OF_OPTION
+@TIME_TRAVEL_AGO_OPTION
 @click.pass_obj
 @coro
 async def read_cmd(
@@ -74,12 +80,15 @@ async def read_cmd(
     count: int,
     fmt: str,
     output: str | None,
+    as_of: str | None,
+    ago: str | None,
 ) -> None:
     """Read up to COUNT rows from QUALIFIED_NAME (schema.view) on ITEM."""
     ws = resolve_workspace(ctx)
     wh = resolve_warehouse_arg(ctx, item)
     schema, view_name = parse_qualified_name(qualified_name, kind="view")
     output_path = Path(output) if output else None
+    as_of_dt = resolve_as_of(as_of, ago)
 
     # --format takes precedence when explicitly supplied (i.e. differs from the default
     # JSON value); if --format is omitted (or is the default "json"), the global --json
@@ -93,7 +102,7 @@ async def read_cmd(
         async with build_http_client(ctx) as http:
             target, _entry = await build_sql_target(http, ws, wh)
             columns, rows = await _views_svc.read_view(
-                target, schema, view_name, count=count, mode=ctx.auth
+                target, schema, view_name, count=count, as_of=as_of_dt, mode=ctx.auth
             )
             arrow_table = columns_rows_to_arrow(columns, rows)
             write_arrow(arrow_table, effective_fmt, output_path)
@@ -132,21 +141,28 @@ async def columns_cmd(
 @views_group.command("count")
 @click.argument("item", required=False, default=None)
 @click.argument("qualified_name")
+@AS_OF_OPTION
+@TIME_TRAVEL_AGO_OPTION
 @click.pass_obj
 @coro
 async def count_cmd(
     ctx: CliContext,
     item: str | None,
     qualified_name: str,
+    as_of: str | None,
+    ago: str | None,
 ) -> None:
     """Count rows in QUALIFIED_NAME (schema.view) on ITEM."""
     ws = resolve_workspace(ctx)
     wh = resolve_warehouse_arg(ctx, item)
     schema, view_name = parse_qualified_name(qualified_name, kind="view")
+    as_of_dt = resolve_as_of(as_of, ago)
     try:
         async with build_http_client(ctx) as http:
             target, _entry = await build_sql_target(http, ws, wh)
-            row_count = await _views_svc.count_view_rows(target, schema, view_name, mode=ctx.auth)
+            row_count = await _views_svc.count_view_rows(
+                target, schema, view_name, as_of=as_of_dt, mode=ctx.auth
+            )
             render(
                 {"schema": schema, "name": view_name, "row_count": row_count},
                 json_output=ctx.json_output,
@@ -154,6 +170,93 @@ async def count_cmd(
             )
     except (ValueError, FabricError) as exc:
         raise click.ClickException(str(exc)) from exc
+
+
+@views_group.command("export")
+@click.argument("item", required=False, default=None)
+@click.argument("qualified_name")
+@click.option("--output", required=True, type=click.Path(), help="Destination file path.")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice([f.value for f in OutputFormat], case_sensitive=False),
+    default=None,
+    help="Output format (inferred from --output extension when omitted).",
+)
+@click.option(
+    "--limit",
+    default=None,
+    type=click.IntRange(min=1),
+    help="Export at most N rows (sampling). Must be >= 1.",
+)
+@click.option(
+    "--no-overwrite",
+    "no_overwrite",
+    is_flag=True,
+    default=False,
+    help="Fail if the output file already exists instead of overwriting.",
+)
+@AS_OF_OPTION
+@TIME_TRAVEL_AGO_OPTION
+@click.pass_obj
+@coro
+async def export_cmd(
+    ctx: CliContext,
+    item: str | None,
+    qualified_name: str,
+    output: str,
+    fmt: str | None,
+    limit: int | None,
+    no_overwrite: bool,
+    as_of: str | None,
+    ago: str | None,
+) -> None:
+    """Export all rows of QUALIFIED_NAME (schema.view) on ITEM to a local file.
+
+    The output format is inferred from the --output extension (.parquet, .csv, .json)
+    when --format is omitted.  Pass --format to override.
+
+    WARNING: exporting large views loads all rows into memory. Use --limit for sampling.
+    """
+    ws = resolve_workspace(ctx)
+    wh = resolve_warehouse_arg(ctx, item)
+    schema, view_name = parse_qualified_name(qualified_name, kind="view")
+    as_of_dt = resolve_as_of(as_of, ago)
+    output_path = Path(output)
+
+    # Infer format from extension when --format is omitted.
+    if fmt is None:
+        try:
+            fmt = infer_file_format(output_path)
+        except ValueError as exc:
+            raise click.UsageError(str(exc)) from exc
+
+    if no_overwrite and output_path.exists():
+        raise click.UsageError(f"Output file already exists: {output_path}")
+
+    try:
+        async with build_http_client(ctx) as http:
+            target, _entry = await build_sql_target(http, ws, wh)
+            row_count = await _views_svc.export_view(
+                target,
+                schema,
+                view_name,
+                output_path,
+                fmt,
+                as_of=as_of_dt,
+                limit=limit,
+                mode=ctx.auth,
+            )
+    except (ValueError, FabricError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if ctx.json_output:
+        import json  # noqa: PLC0415
+
+        payload = {"status": "exported", "rows": row_count, "output": str(output_path)}
+        click.echo(json.dumps(payload))
+    else:
+        click.echo(f"Exported {row_count} row(s) to {output_path}.")
 
 
 @views_group.command("get")
@@ -319,6 +422,39 @@ async def rename_cmd(
                 click.echo("Aborted.")
                 return
             v = await _views_svc.rename_view(target, qualified_name, new_name, mode=ctx.auth)
+            render(v.model_dump(by_alias=True, mode="json"), json_output=ctx.json_output)
+    except (ValueError, FabricError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
+@views_group.command("transfer")
+@click.argument("item", required=False, default=None)
+@click.argument("qualified_name")
+@click.option("--target-schema", required=True, help="Schema to move the view into.")
+@click.pass_obj
+@coro
+async def transfer_cmd(
+    ctx: CliContext,
+    item: str | None,
+    qualified_name: str,
+    target_schema: str,
+) -> None:
+    """Move QUALIFIED_NAME (schema.view) on ITEM to --target-schema."""
+    ws = resolve_workspace(ctx)
+    wh = resolve_warehouse_arg(ctx, item)
+    schema, view_name = parse_qualified_name(qualified_name, kind="view")
+    try:
+        async with build_http_client(ctx) as http:
+            target, entry = await build_sql_target(http, ws, wh)
+            confirmed = confirm(
+                f"Move view [{schema}].[{view_name}] on {entry.display_name!r} "
+                f"to schema {target_schema!r}?",
+                yes=ctx.yes,
+            )
+            if not confirmed:
+                click.echo("Aborted.")
+                return
+            v = await _views_svc.transfer_view(target, qualified_name, target_schema, mode=ctx.auth)
             render(v.model_dump(by_alias=True, mode="json"), json_output=ctx.json_output)
     except (ValueError, FabricError) as exc:
         raise click.ClickException(str(exc)) from exc

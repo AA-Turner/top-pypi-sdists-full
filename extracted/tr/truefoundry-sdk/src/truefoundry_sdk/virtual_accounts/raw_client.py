@@ -18,6 +18,7 @@ from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.delete_virtual_account_response import DeleteVirtualAccountResponse
 from ..types.get_token_for_virtual_account_response import GetTokenForVirtualAccountResponse
 from ..types.get_virtual_account_response import GetVirtualAccountResponse
+from ..types.http_error import HttpError
 from ..types.list_virtual_account_response import ListVirtualAccountResponse
 from ..types.sync_virtual_account_token_response import SyncVirtualAccountTokenResponse
 from ..types.virtual_account import VirtualAccount
@@ -44,7 +45,7 @@ class RawVirtualAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[VirtualAccount, ListVirtualAccountResponse]:
         """
-        List virtual accounts for the tenant.
+        List virtual accounts accessible to the current user.
 
         Parameters
         ----------
@@ -55,16 +56,16 @@ class RawVirtualAccountsClient:
             Number of items to skip
 
         name_search_query : typing.Optional[str]
-            Return virtual accounts with names that contain this string
+            Return virtual accounts with names that contain this string.
 
         owned_by_teams : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Return virtual accounts owned by these teams
+            Comma-separated team names. Return virtual accounts owned by these teams.
 
         is_expired : typing.Optional[bool]
-            Filter virtual accounts by expiration status. true = expired, false = not expired
+            Filter by expiration status. `true` = expired only, `false` = not expired only.
 
         filter : typing.Optional[str]
-            JSON string: structured filter tree (AND/OR groups, column leaves on `name`, json_map leaves on manifest.tags).
+            JSON string: structured filter tree (AND/OR groups, column leaves on `name`, json_map leaves on `manifest.tags`).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -72,7 +73,7 @@ class RawVirtualAccountsClient:
         Returns
         -------
         SyncPager[VirtualAccount, ListVirtualAccountResponse]
-            Return all virtual accounts for the tenant
+            Paginated list of virtual accounts the caller has access to.
         """
         offset = offset if offset is not None else 0
 
@@ -99,7 +100,7 @@ class RawVirtualAccountsClient:
                     ),
                 )
                 _items = _parsed_response.data
-                _has_next = True
+                _has_next = len(_items or []) > 0
                 _get_next = lambda: self.list(
                     limit=limit,
                     offset=offset + len(_items or []),
@@ -127,15 +128,15 @@ class RawVirtualAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetVirtualAccountResponse]:
         """
-        Creates a new virtual account or updates an existing one based on the provided manifest.
+        Create a new virtual account or update an existing one using the provided VirtualAccountManifest. Matching is by name — if the name matches an existing virtual account it is updated, otherwise a new one is created.
 
         Parameters
         ----------
         manifest : VirtualAccountManifest
-            Virtual account manifest
+            The virtual account manifest describing the virtual account to create or update.
 
         dry_run : typing.Optional[bool]
-            Dry run
+            When true, validate the request without persisting any changes.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -143,7 +144,7 @@ class RawVirtualAccountsClient:
         Returns
         -------
         HttpResponse[GetVirtualAccountResponse]
-            Virtual account created/updated successfully
+            The created or updated virtual account.
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/svc/v1/virtual-accounts",
@@ -185,9 +186,9 @@ class RawVirtualAccountsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Any,
+                        HttpError,
                         parse_obj_as(
-                            type_=typing.Any,  # type: ignore
+                            type_=HttpError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -205,12 +206,12 @@ class RawVirtualAccountsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetVirtualAccountResponse]:
         """
-        Get virtual account by id
+        Get a single virtual account by its ID.
 
         Parameters
         ----------
         id : str
-            serviceaccount id
+            System-generated service account ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -218,7 +219,7 @@ class RawVirtualAccountsClient:
         Returns
         -------
         HttpResponse[GetVirtualAccountResponse]
-            Returns the virtual account associated with the provided virtual account id
+            The virtual account with the given ID.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/svc/v1/virtual-accounts/{encode_path_param(id)}",
@@ -235,8 +236,8 @@ class RawVirtualAccountsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -259,12 +260,12 @@ class RawVirtualAccountsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DeleteVirtualAccountResponse]:
         """
-        Delete a virtual account associated with the provided virtual account id.
+        Permanently delete the virtual account with the given ID. This action is irreversible.
 
         Parameters
         ----------
         id : str
-            serviceaccount id
+            System-generated service account ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -272,7 +273,7 @@ class RawVirtualAccountsClient:
         Returns
         -------
         HttpResponse[DeleteVirtualAccountResponse]
-            Virtual account deleted successfully
+            Successfully deleted the virtual account.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/svc/v1/virtual-accounts/{encode_path_param(id)}",
@@ -313,12 +314,12 @@ class RawVirtualAccountsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetTokenForVirtualAccountResponse]:
         """
-        Get token for a virtual account by id
+        Retrieve the current authentication token for a virtual account by its ID.
 
         Parameters
         ----------
         id : str
-            serviceaccount id
+            System-generated service account ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -326,7 +327,7 @@ class RawVirtualAccountsClient:
         Returns
         -------
         HttpResponse[GetTokenForVirtualAccountResponse]
-            Token for the virtual account
+            The authentication token for the virtual account.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/svc/v1/virtual-accounts/{encode_path_param(id)}/token",
@@ -343,6 +344,17 @@ class RawVirtualAccountsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -356,12 +368,12 @@ class RawVirtualAccountsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[SyncVirtualAccountTokenResponse]:
         """
-        Syncs the virtual account token to the configured secret store. Returns the updated JWT with sync metadata including timestamp and error (if any).
+        Sync the virtual account token to the configured secret store. Returns the sync metadata including timestamp and error (if any).
 
         Parameters
         ----------
         id : str
-            serviceaccount id
+            System-generated service account ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -369,7 +381,7 @@ class RawVirtualAccountsClient:
         Returns
         -------
         HttpResponse[SyncVirtualAccountTokenResponse]
-            Token synced successfully to secret store
+            Token synced successfully to the secret store.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/svc/v1/virtual-accounts/{encode_path_param(id)}/sync-to-secret-store",
@@ -421,12 +433,12 @@ class RawVirtualAccountsClient:
         self, id: str, *, grace_period_in_days: float, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetTokenForVirtualAccountResponse]:
         """
-        Regenerate token for a virtual account by id. The old token will remain valid for the specified grace period.
+        Regenerate the authentication token for a virtual account. The old token remains valid for the specified grace period.
 
         Parameters
         ----------
         id : str
-            serviceaccount id
+            System-generated service account ID.
 
         grace_period_in_days : float
             Grace period in days for which the old token will remain valid after regeneration
@@ -437,7 +449,7 @@ class RawVirtualAccountsClient:
         Returns
         -------
         HttpResponse[GetTokenForVirtualAccountResponse]
-            Token for the virtual account
+            The newly generated token for the virtual account.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/svc/v1/virtual-accounts/{encode_path_param(id)}/regenerate-token",
@@ -461,6 +473,17 @@ class RawVirtualAccountsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -474,15 +497,15 @@ class RawVirtualAccountsClient:
         self, id: str, jwt_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[None]:
         """
-        Delete a JWT for a virtual account by id
+        Delete a specific JWT token belonging to a virtual account. The virtual account itself is not affected.
 
         Parameters
         ----------
         id : str
-            virtual account id
+            System-generated virtual account ID that owns the JWT.
 
         jwt_id : str
-            JWT id
+            System-generated JWT ID to delete.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -525,7 +548,7 @@ class AsyncRawVirtualAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[VirtualAccount, ListVirtualAccountResponse]:
         """
-        List virtual accounts for the tenant.
+        List virtual accounts accessible to the current user.
 
         Parameters
         ----------
@@ -536,16 +559,16 @@ class AsyncRawVirtualAccountsClient:
             Number of items to skip
 
         name_search_query : typing.Optional[str]
-            Return virtual accounts with names that contain this string
+            Return virtual accounts with names that contain this string.
 
         owned_by_teams : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Return virtual accounts owned by these teams
+            Comma-separated team names. Return virtual accounts owned by these teams.
 
         is_expired : typing.Optional[bool]
-            Filter virtual accounts by expiration status. true = expired, false = not expired
+            Filter by expiration status. `true` = expired only, `false` = not expired only.
 
         filter : typing.Optional[str]
-            JSON string: structured filter tree (AND/OR groups, column leaves on `name`, json_map leaves on manifest.tags).
+            JSON string: structured filter tree (AND/OR groups, column leaves on `name`, json_map leaves on `manifest.tags`).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -553,7 +576,7 @@ class AsyncRawVirtualAccountsClient:
         Returns
         -------
         AsyncPager[VirtualAccount, ListVirtualAccountResponse]
-            Return all virtual accounts for the tenant
+            Paginated list of virtual accounts the caller has access to.
         """
         offset = offset if offset is not None else 0
 
@@ -580,7 +603,7 @@ class AsyncRawVirtualAccountsClient:
                     ),
                 )
                 _items = _parsed_response.data
-                _has_next = True
+                _has_next = len(_items or []) > 0
 
                 async def _get_next():
                     return await self.list(
@@ -611,15 +634,15 @@ class AsyncRawVirtualAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetVirtualAccountResponse]:
         """
-        Creates a new virtual account or updates an existing one based on the provided manifest.
+        Create a new virtual account or update an existing one using the provided VirtualAccountManifest. Matching is by name — if the name matches an existing virtual account it is updated, otherwise a new one is created.
 
         Parameters
         ----------
         manifest : VirtualAccountManifest
-            Virtual account manifest
+            The virtual account manifest describing the virtual account to create or update.
 
         dry_run : typing.Optional[bool]
-            Dry run
+            When true, validate the request without persisting any changes.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -627,7 +650,7 @@ class AsyncRawVirtualAccountsClient:
         Returns
         -------
         AsyncHttpResponse[GetVirtualAccountResponse]
-            Virtual account created/updated successfully
+            The created or updated virtual account.
         """
         _response = await self._client_wrapper.httpx_client.request(
             "api/svc/v1/virtual-accounts",
@@ -669,9 +692,9 @@ class AsyncRawVirtualAccountsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Any,
+                        HttpError,
                         parse_obj_as(
-                            type_=typing.Any,  # type: ignore
+                            type_=HttpError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -689,12 +712,12 @@ class AsyncRawVirtualAccountsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetVirtualAccountResponse]:
         """
-        Get virtual account by id
+        Get a single virtual account by its ID.
 
         Parameters
         ----------
         id : str
-            serviceaccount id
+            System-generated service account ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -702,7 +725,7 @@ class AsyncRawVirtualAccountsClient:
         Returns
         -------
         AsyncHttpResponse[GetVirtualAccountResponse]
-            Returns the virtual account associated with the provided virtual account id
+            The virtual account with the given ID.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/svc/v1/virtual-accounts/{encode_path_param(id)}",
@@ -719,8 +742,8 @@ class AsyncRawVirtualAccountsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -743,12 +766,12 @@ class AsyncRawVirtualAccountsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DeleteVirtualAccountResponse]:
         """
-        Delete a virtual account associated with the provided virtual account id.
+        Permanently delete the virtual account with the given ID. This action is irreversible.
 
         Parameters
         ----------
         id : str
-            serviceaccount id
+            System-generated service account ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -756,7 +779,7 @@ class AsyncRawVirtualAccountsClient:
         Returns
         -------
         AsyncHttpResponse[DeleteVirtualAccountResponse]
-            Virtual account deleted successfully
+            Successfully deleted the virtual account.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/svc/v1/virtual-accounts/{encode_path_param(id)}",
@@ -797,12 +820,12 @@ class AsyncRawVirtualAccountsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetTokenForVirtualAccountResponse]:
         """
-        Get token for a virtual account by id
+        Retrieve the current authentication token for a virtual account by its ID.
 
         Parameters
         ----------
         id : str
-            serviceaccount id
+            System-generated service account ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -810,7 +833,7 @@ class AsyncRawVirtualAccountsClient:
         Returns
         -------
         AsyncHttpResponse[GetTokenForVirtualAccountResponse]
-            Token for the virtual account
+            The authentication token for the virtual account.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/svc/v1/virtual-accounts/{encode_path_param(id)}/token",
@@ -827,6 +850,17 @@ class AsyncRawVirtualAccountsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -840,12 +874,12 @@ class AsyncRawVirtualAccountsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[SyncVirtualAccountTokenResponse]:
         """
-        Syncs the virtual account token to the configured secret store. Returns the updated JWT with sync metadata including timestamp and error (if any).
+        Sync the virtual account token to the configured secret store. Returns the sync metadata including timestamp and error (if any).
 
         Parameters
         ----------
         id : str
-            serviceaccount id
+            System-generated service account ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -853,7 +887,7 @@ class AsyncRawVirtualAccountsClient:
         Returns
         -------
         AsyncHttpResponse[SyncVirtualAccountTokenResponse]
-            Token synced successfully to secret store
+            Token synced successfully to the secret store.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/svc/v1/virtual-accounts/{encode_path_param(id)}/sync-to-secret-store",
@@ -905,12 +939,12 @@ class AsyncRawVirtualAccountsClient:
         self, id: str, *, grace_period_in_days: float, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetTokenForVirtualAccountResponse]:
         """
-        Regenerate token for a virtual account by id. The old token will remain valid for the specified grace period.
+        Regenerate the authentication token for a virtual account. The old token remains valid for the specified grace period.
 
         Parameters
         ----------
         id : str
-            serviceaccount id
+            System-generated service account ID.
 
         grace_period_in_days : float
             Grace period in days for which the old token will remain valid after regeneration
@@ -921,7 +955,7 @@ class AsyncRawVirtualAccountsClient:
         Returns
         -------
         AsyncHttpResponse[GetTokenForVirtualAccountResponse]
-            Token for the virtual account
+            The newly generated token for the virtual account.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/svc/v1/virtual-accounts/{encode_path_param(id)}/regenerate-token",
@@ -945,6 +979,17 @@ class AsyncRawVirtualAccountsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -958,15 +1003,15 @@ class AsyncRawVirtualAccountsClient:
         self, id: str, jwt_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[None]:
         """
-        Delete a JWT for a virtual account by id
+        Delete a specific JWT token belonging to a virtual account. The virtual account itself is not affected.
 
         Parameters
         ----------
         id : str
-            virtual account id
+            System-generated virtual account ID that owns the JWT.
 
         jwt_id : str
-            JWT id
+            System-generated JWT ID to delete.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

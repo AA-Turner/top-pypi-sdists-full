@@ -8,16 +8,14 @@ module-name = "grimp._rustgrimp"
 
 [project]
 name = "grimp"
-version = "3.14"
+version = "3.15"
 license = {text = "BSD 2-Clause License"}
 description = "Builds a queryable graph of the imports within one or more Python packages."
 authors = [
     {name = "David Seddon", email = "david@seddonym.me"},
 ]
 requires-python = ">=3.10"
-dependencies = [
-    "typing-extensions>=3.10.0.0",
-]
+dependencies = []
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -43,6 +41,7 @@ Source-code = "https://github.com/python-grimp/grimp/"
 
 [dependency-groups]
 dev = [
+    "maturin>=1.0,<2.0",
     "import-linter>=2.5",
     "mypy>=1.18.2",
     "pre-commit>=4.3.0",
@@ -60,7 +59,6 @@ dev = [
     "requests==2.32.3",
     "sqlalchemy==2.0.35",
     "google-cloud-audit-log==0.3.0",
-    "pyupgrade>=3.21.0",
 ]
 docs = [
     "sphinx>=7.4.7",
@@ -70,17 +68,5 @@ benchmark_ci = [
     "pytest-codspeed>=4.2.0",
 ]
 
-[tool.setuptools]
-include-package-data = true
-zip-safe = false
-
-[tool.setuptools.package-data]
-grimp = ["py.typed"]
-
-[tool.setuptools.packages.find]
-where = ["src"]
-namespaces = false
-
-[tool.ruff]
-line-length = 99
-exclude = ['tests/assets'] # These are sample packages for tests to run under - we don't want ruff to mess with them.
+[tool.pytest.ini_options]
+xfail_strict = true

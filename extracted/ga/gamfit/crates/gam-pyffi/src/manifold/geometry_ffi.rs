@@ -4008,6 +4008,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
         required_saved_model_payload_string,
         module
     )?)?;
+    module.add_function(wrap_pyfunction!(saved_model_predict_class_name, module)?)?;
     module.add_function(wrap_pyfunction!(build_extend_group_payload_json, module)?)?;
     module.add_function(wrap_pyfunction!(extend_model_with_group, module)?)?;
     module.add_function(wrap_pyfunction!(validate_formula_json, module)?)?;
@@ -4212,9 +4213,12 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(sae_select_k, module)?)?;
     module.add_function(wrap_pyfunction!(sae_auto_k_recommendation, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_fit, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_manifold_fit_stagewise, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_fit_ibp, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_fit_minimal, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_predict_oos, module)?)?;
+    module.add_function(wrap_pyfunction!(build_sae_encode_atlas, module)?)?;
+    module.add_class::<PySaeEncodeAtlas>()?;
     module.add_function(wrap_pyfunction!(sae_steer_delta, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_reconstruction_r2, module)?)?;
     module.add_function(wrap_pyfunction!(sae_streaming_plan, module)?)?;
@@ -4347,6 +4351,13 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(linear_dictionary_transform_ffi, module)?)?;
     module.add_function(wrap_pyfunction!(sparse_dictionary_fit, module)?)?;
     module.add_function(wrap_pyfunction!(sparse_dictionary_transform_ffi, module)?)?;
+    module.add_function(wrap_pyfunction!(block_sparse_dictionary_fit, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        block_sparse_dictionary_transform_ffi,
+        module
+    )?)?;
+    module.add_class::<SparseDictStream>()?;
+    module.add_class::<BlockSparseDictStream>()?;
     module.add_function(wrap_pyfunction!(
         identifiable_factor_select_weights_array,
         module
@@ -4765,6 +4776,44 @@ fn linear_dictionary_transform_ffi<'py>(
 /// (`indices[N, active]`, `codes[N, active]`) so very large `K` stays tractable.
 /// All heavy state is FP32. The exact manifold engine is untouched; this is an
 /// additive path.
+fn score_route_stats_dict<'py>(
+    py: Python<'py>,
+    stats: gam::terms::sae::sparse_dict::ScoreRouteStats,
+) -> PyResult<Bound<'py, PyDict>> {
+    let out = PyDict::new(py);
+    out.set_item("minibatches", stats.minibatches)?;
+    out.set_item("admitted_minibatches", stats.admitted_minibatches)?;
+    out.set_item("device_minibatches", stats.device_minibatches)?;
+    out.set_item("cpu_minibatches", stats.cpu_minibatches)?;
+    out.set_item("score_elements", stats.score_elements.to_string())?;
+    out.set_item("score_tiles", stats.score_tiles)?;
+    out.set_item("peak_score_bytes", stats.peak_score_bytes)?;
+    out.set_item("device_dtoh_bytes", stats.device_dtoh_bytes.to_string())?;
+    out.set_item(
+        "unfused_score_dtoh_bytes_avoided",
+        stats.unfused_score_dtoh_bytes_avoided.to_string(),
+    )?;
+    out.set_item(
+        "dot_flops_lower_bound",
+        stats.dot_flops_lower_bound.to_string(),
+    )?;
+    Ok(out)
+}
+
+fn parse_sparse_dict_score_mode(score_mode: &str) -> PyResult<gam::gpu::GpuMode> {
+    if score_mode.eq_ignore_ascii_case("auto") {
+        Ok(gam::gpu::GpuMode::Auto)
+    } else if score_mode.eq_ignore_ascii_case("required") {
+        Ok(gam::gpu::GpuMode::Required)
+    } else if score_mode.eq_ignore_ascii_case("off") {
+        Ok(gam::gpu::GpuMode::Off)
+    } else {
+        Err(py_value_error(format!(
+            "sparse dictionary score_mode must be 'auto', 'required', or 'off'; got {score_mode:?}"
+        )))
+    }
+}
+
 #[pyfunction(signature = (
     x,
     k,
@@ -4774,7 +4823,8 @@ fn linear_dictionary_transform_ffi<'py>(
     score_tile = 4096,
     code_ridge = 1.0e-6,
     decoder_ridge = 1.0e-6,
-    tolerance = 1.0e-6
+    tolerance = 1.0e-6,
+    score_mode = "required"
 ))]
 fn sparse_dictionary_fit<'py>(
     py: Python<'py>,
@@ -4787,7 +4837,9 @@ fn sparse_dictionary_fit<'py>(
     code_ridge: f32,
     decoder_ridge: f32,
     tolerance: f64,
+    score_mode: &str,
 ) -> PyResult<Py<PyDict>> {
+    let score_mode = parse_sparse_dict_score_mode(score_mode)?;
     let x_values = x.as_array().to_owned();
     let config = SparseDictConfig {
         n_atoms: k,
@@ -4798,6 +4850,7 @@ fn sparse_dictionary_fit<'py>(
         code_ridge,
         decoder_ridge,
         tolerance,
+        score_mode,
     };
     let fit = detach_py_result(py, "sparse_dictionary_fit", move || {
         fit_sparse_dictionary(x_values.view(), &config)
@@ -4812,13 +4865,24 @@ fn sparse_dictionary_fit<'py>(
     out.set_item("epochs", fit.epochs)?;
     out.set_item("converged", fit.converged)?;
     out.set_item("active", fit.active)?;
+    out.set_item(
+        "score_route_stats",
+        score_route_stats_dict(py, fit.score_route_stats)?,
+    )?;
     Ok(out.unbind())
 }
 
 /// Out-of-sample encode: route held-out rows `x` (`M x P`, f32) through a fitted
 /// sparse dictionary `decoder` (`K x P`) via the Rust tiled router + active-set
 /// ridge solve, returning `(indices, codes)` each `M x active`.
-#[pyfunction(signature = (x, decoder, active, score_tile = 4096, code_ridge = 1.0e-6))]
+#[pyfunction(signature = (
+    x,
+    decoder,
+    active,
+    score_tile = 4096,
+    code_ridge = 1.0e-6,
+    score_mode = "required"
+))]
 fn sparse_dictionary_transform_ffi<'py>(
     py: Python<'py>,
     x: PyReadonlyArray2<'py, f32>,
@@ -4826,22 +4890,405 @@ fn sparse_dictionary_transform_ffi<'py>(
     active: usize,
     score_tile: usize,
     code_ridge: f32,
-) -> PyResult<(Py<PyArray2<u32>>, Py<PyArray2<f32>>)> {
+    score_mode: &str,
+) -> PyResult<Py<PyDict>> {
+    let score_mode = parse_sparse_dict_score_mode(score_mode)?;
     let x_values = x.as_array().to_owned();
     let decoder_values = decoder.as_array().to_owned();
-    let (indices, codes) = detach_py_result(py, "sparse_dictionary_transform", move || {
-        sparse_dictionary_transform(
+    let transform = detach_py_result(py, "sparse_dictionary_transform", move || {
+        sparse_dictionary_transform_with_mode(
             x_values.view(),
             decoder_values.view(),
             active,
             score_tile,
             code_ridge,
+            score_mode,
         )
     })?;
+    let out = PyDict::new(py);
+    out.set_item("indices", transform.indices.into_pyarray(py))?;
+    out.set_item("codes", transform.codes.into_pyarray(py))?;
+    out.set_item(
+        "score_route_stats",
+        score_route_stats_dict(py, transform.score_route_stats)?,
+    )?;
+    Ok(out.unbind())
+}
+
+/// #1026 block-sparse lane — fit a **block-sparse** dictionary: the `K = G·b`
+/// atoms are grouped into `G` blocks of `b` orthonormal atoms, routing selects
+/// whole blocks by their group ℓ₂ gate `‖z_g‖₂` (block-TopK, signed codes, no
+/// ReLU), and each block is a Stiefel-constrained frame refreshed by polar steps.
+/// Presence (`gates`) and amplitude (`codes`) are returned as separate arrays;
+/// every selection is invariant to each block's internal `O(b)` gauge. Returns
+/// per-block utilisation + stable rank for the MDL lane. Additive path; the atom
+/// lane and the exact manifold engine are untouched.
+#[pyfunction(signature = (
+    x,
+    n_blocks,
+    block_size = 2,
+    block_topk = 1,
+    max_epochs = 30,
+    minibatch = 512,
+    block_tile = 1024,
+    frame_ridge = 1.0e-9,
+    aux_k = 0,
+    tolerance = 1.0e-6
+))]
+fn block_sparse_dictionary_fit<'py>(
+    py: Python<'py>,
+    x: PyReadonlyArray2<'py, f32>,
+    n_blocks: usize,
+    block_size: usize,
+    block_topk: usize,
+    max_epochs: usize,
+    minibatch: usize,
+    block_tile: usize,
+    frame_ridge: f64,
+    aux_k: usize,
+    tolerance: f64,
+) -> PyResult<Py<PyDict>> {
+    let x_values = x.as_array().to_owned();
+    let config = BlockSparseConfig {
+        n_blocks,
+        block_size,
+        block_topk,
+        max_epochs,
+        minibatch,
+        block_tile,
+        frame_ridge,
+        aux_k,
+        tolerance,
+    };
+    let fit = detach_py_result(py, "block_sparse_dictionary_fit", move || {
+        fit_block_sparse_dictionary(x_values.view(), &config)
+    })?;
+    let fitted = fit.reconstruct();
+    let out = PyDict::new(py);
+    out.set_item("decoder", fit.decoder.into_pyarray(py))?;
+    out.set_item("blocks", fit.blocks.into_pyarray(py))?;
+    out.set_item("gates", fit.gates.into_pyarray(py))?;
+    out.set_item("codes", fit.codes.into_pyarray(py))?;
+    out.set_item("fitted", fitted.into_pyarray(py))?;
+    out.set_item("gamma", fit.gamma)?;
+    out.set_item("block_utilization", fit.block_utilization)?;
+    out.set_item("block_stable_rank", fit.block_stable_rank)?;
+    out.set_item("explained_variance", fit.explained_variance)?;
+    out.set_item("epochs", fit.epochs)?;
+    out.set_item("converged", fit.converged)?;
+    out.set_item("block_topk", fit.block_topk)?;
+    out.set_item("block_size", fit.block_size)?;
+    Ok(out.unbind())
+}
+
+/// Out-of-sample BLOCK encode: route held-out rows `x` (`M×P`, f32) through frozen
+/// block frames `decoder` (`K×P`, `K = G·b`) with tied scalar `gamma`, returning the
+/// fixed-width sparse block routing `(blocks[M,k], gates[M,k], codes[M,k,b])` via the
+/// Rust core — the same group-ℓ₂ gate + block-TopK + tied signed codes the trainer
+/// uses. Lets the Python `transform` delegate instead of reimplementing the routing.
+#[pyfunction(signature = (x, decoder, gamma, block_size, block_topk, block_tile = 1024))]
+fn block_sparse_dictionary_transform_ffi<'py>(
+    py: Python<'py>,
+    x: PyReadonlyArray2<'py, f32>,
+    decoder: PyReadonlyArray2<'py, f32>,
+    gamma: f32,
+    block_size: usize,
+    block_topk: usize,
+    block_tile: usize,
+) -> PyResult<(Py<PyArray2<u32>>, Py<PyArray2<f32>>, Py<PyArray3<f32>>)> {
+    let x_values = x.as_array().to_owned();
+    let decoder_values = decoder.as_array().to_owned();
+    let (blocks, gates, codes) =
+        detach_py_result(py, "block_sparse_dictionary_transform", move || {
+            block_sparse_dictionary_transform(
+                x_values.view(),
+                decoder_values.view(),
+                gamma,
+                block_size,
+                block_topk,
+                block_tile,
+            )
+        })?;
     Ok((
-        indices.into_pyarray(py).unbind(),
+        blocks.into_pyarray(py).unbind(),
+        gates.into_pyarray(py).unbind(),
         codes.into_pyarray(py).unbind(),
     ))
+}
+
+/// Streaming (partial-fit) handle for the collapsed linear lane: a native-side
+/// [`SparseDictStreamState`] so a Python loop can stream epochs over shards
+/// without round-tripping the `K×P` decoder or any `N×K` object through Python.
+///
+/// `fit_begin` is the constructor (seed sample + config); `partial_fit(shard)`
+/// routes and accumulates one shard; `end_epoch()` refreshes the decoder and
+/// revives dead atoms; `finalize()` returns the decoder + metadata. The decoder
+/// and dead-atom revival state warm-start across every call.
+#[pyclass(module = "gam_pyffi._rust", name = "SparseDictStream")]
+struct SparseDictStream {
+    inner: SparseDictStreamState,
+}
+
+#[pymethods]
+impl SparseDictStream {
+    #[new]
+    #[pyo3(signature = (
+        seed,
+        k,
+        active = 1,
+        minibatch = 512,
+        max_epochs = 30,
+        score_tile = 4096,
+        code_ridge = 1.0e-6,
+        decoder_ridge = 1.0e-6,
+        tolerance = 1.0e-6,
+        score_mode = "required"
+    ))]
+    fn new(
+        py: Python<'_>,
+        seed: PyReadonlyArray2<'_, f32>,
+        k: usize,
+        active: usize,
+        minibatch: usize,
+        max_epochs: usize,
+        score_tile: usize,
+        code_ridge: f32,
+        decoder_ridge: f32,
+        tolerance: f64,
+        score_mode: &str,
+    ) -> PyResult<Self> {
+        let score_mode = parse_sparse_dict_score_mode(score_mode)?;
+        let seed_values = seed.as_array().to_owned();
+        let config = SparseDictConfig {
+            n_atoms: k,
+            active,
+            minibatch,
+            max_epochs,
+            score_tile,
+            code_ridge,
+            decoder_ridge,
+            tolerance,
+            score_mode,
+        };
+        let inner = py
+            .detach(|| SparseDictStreamState::new(seed_values.view(), &config))
+            .map_err(py_value_error)?;
+        Ok(Self { inner })
+    }
+
+    /// Route + sparse-code one shard against the current decoder and fold its
+    /// contributions into the running epoch. Returns `{rows, rss, alive_atoms,
+    /// score_route_stats}`.
+    fn partial_fit<'py>(
+        &mut self,
+        py: Python<'py>,
+        shard: PyReadonlyArray2<'py, f32>,
+    ) -> PyResult<Py<PyDict>> {
+        let shard_values = shard.as_array().to_owned();
+        let stats = py
+            .detach(|| self.inner.partial_fit(shard_values.view()))
+            .map_err(py_value_error)?;
+        let out = PyDict::new(py);
+        out.set_item("rows", stats.rows)?;
+        out.set_item("rss", stats.rss)?;
+        out.set_item("alive_atoms", stats.alive_atoms)?;
+        out.set_item(
+            "score_route_stats",
+            score_route_stats_dict(py, stats.score_route_stats)?,
+        )?;
+        Ok(out.unbind())
+    }
+
+    /// Refresh the decoder from the epoch's accumulated normal equations, revive
+    /// dead atoms onto worst-reconstructed residual rows, and reset the epoch.
+    /// Returns `{explained_variance, revived, dead, converged, epoch}`.
+    fn end_epoch(&mut self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+        let stats = py
+            .detach(|| self.inner.end_epoch())
+            .map_err(py_value_error)?;
+        let out = PyDict::new(py);
+        out.set_item("explained_variance", stats.explained_variance)?;
+        out.set_item("revived", stats.revived)?;
+        out.set_item("dead", stats.dead)?;
+        out.set_item("converged", stats.converged)?;
+        out.set_item("epoch", stats.epoch)?;
+        Ok(out.unbind())
+    }
+
+    /// Hand back the trained decoder (`K×P`, unit-norm) plus run metadata and
+    /// aggregate score-route telemetry.
+    fn finalize(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+        let artifact = self.inner.finalize();
+        let out = PyDict::new(py);
+        out.set_item("decoder", artifact.decoder.into_pyarray(py))?;
+        out.set_item("active", artifact.active)?;
+        out.set_item("epochs", artifact.epochs)?;
+        out.set_item("explained_variance", artifact.explained_variance)?;
+        out.set_item("converged", artifact.converged)?;
+        out.set_item(
+            "score_route_stats",
+            score_route_stats_dict(py, artifact.score_route_stats)?,
+        )?;
+        Ok(out.unbind())
+    }
+
+    /// A live copy of the current warm-started decoder (`K×P`, unit-norm rows).
+    fn decoder(&self, py: Python<'_>) -> Py<PyArray2<f32>> {
+        self.inner.decoder().to_owned().into_pyarray(py).unbind()
+    }
+
+    /// Active budget `s` in use (`min(active, K)`).
+    #[getter]
+    fn active(&self) -> usize {
+        self.inner.active()
+    }
+
+    /// Epochs closed so far.
+    #[getter]
+    fn epochs_run(&self) -> usize {
+        self.inner.epochs_run()
+    }
+}
+
+/// Streaming (partial-fit) handle for the block-sparse lane: a native-side
+/// [`BlockSparseStreamState`] so a Python loop can stream epochs over shards of a
+/// sharded corpus without round-tripping the `K×P` frames or any `N×k` object.
+/// Mirrors [`SparseDictStream`]: `fit_begin` (seed + config), `partial_fit(shard)`
+/// routes + accumulates one shard, `end_epoch()` refreshes γ + frames and revives
+/// dead blocks, `finalize()` returns the frames + γ + per-block report. The frames,
+/// γ, and revival state warm-start across every call.
+#[pyclass(module = "gam_pyffi._rust", name = "BlockSparseDictStream")]
+struct BlockSparseDictStream {
+    inner: BlockSparseStreamState,
+}
+
+#[pymethods]
+impl BlockSparseDictStream {
+    #[new]
+    #[pyo3(signature = (
+        seed,
+        n_blocks,
+        block_size = 2,
+        block_topk = 1,
+        max_epochs = 30,
+        minibatch = 512,
+        block_tile = 1024,
+        frame_ridge = 1.0e-9,
+        aux_k = 0,
+        tolerance = 1.0e-6
+    ))]
+    fn new(
+        py: Python<'_>,
+        seed: PyReadonlyArray2<'_, f32>,
+        n_blocks: usize,
+        block_size: usize,
+        block_topk: usize,
+        max_epochs: usize,
+        minibatch: usize,
+        block_tile: usize,
+        frame_ridge: f64,
+        aux_k: usize,
+        tolerance: f64,
+    ) -> PyResult<Self> {
+        let seed_values = seed.as_array().to_owned();
+        let config = BlockSparseConfig {
+            n_blocks,
+            block_size,
+            block_topk,
+            max_epochs,
+            minibatch,
+            block_tile,
+            frame_ridge,
+            aux_k,
+            tolerance,
+        };
+        let inner = py
+            .detach(|| BlockSparseStreamState::new(seed_values.view(), &config))
+            .map_err(py_value_error)?;
+        Ok(Self { inner })
+    }
+
+    /// Route + tied-code one shard against the current frames and fold its
+    /// contributions into the running epoch. Returns `{rows, rss, alive_blocks}`.
+    fn partial_fit<'py>(
+        &mut self,
+        py: Python<'py>,
+        shard: PyReadonlyArray2<'py, f32>,
+    ) -> PyResult<Py<PyDict>> {
+        let shard_values = shard.as_array().to_owned();
+        let stats = py
+            .detach(|| self.inner.partial_fit(shard_values.view()))
+            .map_err(py_value_error)?;
+        let out = PyDict::new(py);
+        out.set_item("rows", stats.rows)?;
+        out.set_item("rss", stats.rss)?;
+        out.set_item("alive_blocks", stats.alive_blocks)?;
+        Ok(out.unbind())
+    }
+
+    /// Refresh γ + block frames from the epoch's accumulators, revive dead blocks
+    /// onto worst-reconstructed residual rows, and reset the epoch. Returns
+    /// `{explained_variance, revived, dead, gamma, converged, epoch}`.
+    fn end_epoch(&mut self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+        let stats = py
+            .detach(|| self.inner.end_epoch())
+            .map_err(py_value_error)?;
+        let out = PyDict::new(py);
+        out.set_item("explained_variance", stats.explained_variance)?;
+        out.set_item("revived", stats.revived)?;
+        out.set_item("dead", stats.dead)?;
+        out.set_item("gamma", stats.gamma)?;
+        out.set_item("converged", stats.converged)?;
+        out.set_item("epoch", stats.epoch)?;
+        Ok(out.unbind())
+    }
+
+    /// Hand back the trained block frames (`K×P`) + γ + per-block report + metadata:
+    /// `{decoder, gamma, block_topk, block_size, block_utilization,
+    /// block_stable_rank, epochs, explained_variance, converged}`.
+    fn finalize(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+        let artifact = self.inner.finalize();
+        let out = PyDict::new(py);
+        out.set_item("decoder", artifact.decoder.into_pyarray(py))?;
+        out.set_item("gamma", artifact.gamma)?;
+        out.set_item("block_topk", artifact.block_topk)?;
+        out.set_item("block_size", artifact.block_size)?;
+        out.set_item("block_utilization", artifact.block_utilization)?;
+        out.set_item("block_stable_rank", artifact.block_stable_rank)?;
+        out.set_item("epochs", artifact.epochs)?;
+        out.set_item("explained_variance", artifact.explained_variance)?;
+        out.set_item("converged", artifact.converged)?;
+        Ok(out.unbind())
+    }
+
+    /// A live copy of the current warm-started frames (`K×P`, block-orthonormal).
+    fn decoder(&self, py: Python<'_>) -> Py<PyArray2<f32>> {
+        self.inner.decoder().to_owned().into_pyarray(py).unbind()
+    }
+
+    /// Current shared tied scalar γ.
+    #[getter]
+    fn gamma(&self) -> f32 {
+        self.inner.gamma()
+    }
+
+    /// Block routing budget `k` in use (`min(block_topk, G)`).
+    #[getter]
+    fn block_topk(&self) -> usize {
+        self.inner.block_topk()
+    }
+
+    /// Block size `b`.
+    #[getter]
+    fn block_size(&self) -> usize {
+        self.inner.block_size()
+    }
+
+    /// Epochs closed so far.
+    #[getter]
+    fn epochs_run(&self) -> usize {
+        self.inner.epochs_run()
+    }
 }
 
 fn inject_scalar_fisher_rao_weight(
@@ -4924,13 +5371,11 @@ fn fit_dataset_impl(
     // `unknown family 'expectile(τ)'`. The driver returns an ordinary
     // `StandardFitResult`, so the persistence payload is built by the same
     // `build_standard_payload` used for every other standard fit.
-    if let Some(expectile_result) =
-        gam::families::fit_orchestration::fit_expectile_if_requested(
-            &formula,
-            &dataset,
-            &fit_config,
-        )?
-    {
+    if let Some(expectile_result) = gam::families::fit_orchestration::fit_expectile_if_requested(
+        &formula,
+        &dataset,
+        &fit_config,
+    )? {
         let family = expectile_result
             .fit
             .likelihood_family
@@ -5783,14 +6228,11 @@ fn validate_formula_json_impl(
         dataset
             .column_kinds
             .push(gam::data::ColumnKindTag::Continuous);
-        dataset
-            .schema
-            .columns
-            .push(gam::data::SchemaColumn {
-                name: VALIDATION_PLACEHOLDER_Z.to_string(),
-                kind: gam::data::ColumnKindTag::Continuous,
-                levels: Vec::new(),
-            });
+        dataset.schema.columns.push(gam::data::SchemaColumn {
+            name: VALIDATION_PLACEHOLDER_Z.to_string(),
+            kind: gam::data::ColumnKindTag::Continuous,
+            levels: Vec::new(),
+        });
         fit_config.z_column = Some(VALIDATION_PLACEHOLDER_Z.to_string());
     }
     let materialized = materialize(&formula, &dataset, &fit_config)?;
@@ -6055,6 +6497,23 @@ fn predict_columns(
     let offset = resolve_offset_column(&dataset, &col_map, model.offset_column.as_deref())?;
     let offset_noise =
         resolve_offset_column(&dataset, &col_map, model.noise_offset_column.as_deref())?;
+    // Resolve the analytic prior-weights column from the PREDICTION frame exactly
+    // as `generative_replicates_impl`/`sample_replicates` does (#2077). A weighted
+    // Gaussian fit has `Var(y_i) = σ²/w_i`, so the analytic observation
+    // (prediction) interval's conditional response variance is per-row `σ̂²/w_i`,
+    // not the pooled scalar `σ̂²` broadcast to every row. `resolve_weight_column`
+    // returns unit weights when the model carried no weight column, and we only
+    // forward weights when the model was actually fitted with a weight column that
+    // is present in the prediction frame — so unweighted fits stay byte-identical
+    // and a missing column degrades to unit weights (the correct default).
+    let weight_column = model
+        .weight_column
+        .as_deref()
+        .filter(|name| col_map.contains_key(*name));
+    let observation_prior_weights = match weight_column {
+        Some(_) => Some(resolve_weight_column(&dataset, &col_map, weight_column)?),
+        None => None,
+    };
     let predict_input = build_predict_input_for_model(
         &model,
         dataset.values.view(),
@@ -6114,9 +6573,7 @@ fn predict_columns(
             // (#812). The posterior-mean *point* stays conditional regardless of
             // mode (issue #398); only the reported uncertainty responds.
             let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?
-                .unwrap_or(
-                gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
-            );
+                .unwrap_or(gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred);
             let posterior_options = gam_predict::PosteriorMeanOptions {
                 confidence_level: Some(confidence_level),
                 covariance_mode,
@@ -6176,9 +6633,7 @@ fn predict_columns(
             // user-selectable, mirroring `gam predict --covariance-mode` and the
             // engine's `includeobservation_interval` switch.
             let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?
-                .unwrap_or(
-                gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
-            );
+                .unwrap_or(gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred);
             let includeobservation_interval = options.observation_interval.unwrap_or(false);
             let uncertainty_options = gam_predict::PredictUncertaintyOptions {
                 confidence_level,
@@ -6186,6 +6641,10 @@ fn predict_columns(
                 mean_interval_method: gam_predict::MeanIntervalMethod::TransformEta,
                 includeobservation_interval,
                 apply_bias_correction: false,
+                // Weighted-Gaussian observation band is heteroscedastic in the
+                // per-row prior weight `Var(y_i)=σ̂²/w_i` (#2077); unweighted fits
+                // pass `None` and stay byte-identical.
+                observation_prior_weights: observation_prior_weights.clone(),
                 ..gam_predict::PredictUncertaintyOptions::default()
             };
             let prediction = predictor
@@ -6348,9 +6807,8 @@ fn predict_columns_conformal(
     let fit = fit_result_from_saved_model_for_prediction(model)?;
     let family = model_likelihood_spec(model);
 
-    let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?.unwrap_or(
-        gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
-    );
+    let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?
+        .unwrap_or(gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred);
     let uncertainty_options = gam_predict::PredictUncertaintyOptions {
         confidence_level: level,
         covariance_mode,
@@ -6870,8 +7328,9 @@ fn generative_replicates_impl(
         &family,
     );
     // Build the generative specification (mean + noise model).
-    let spec = generativespec_from_predict(prediction, family, gaussian_scale, Some(&prior_weights))
-        .map_err(|e| format!("generative_replicates: spec error: {e}"))?;
+    let spec =
+        generativespec_from_predict(prediction, family, gaussian_scale, Some(&prior_weights))
+            .map_err(|e| format!("generative_replicates: spec error: {e}"))?;
     let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
     let draws = sampleobservation_replicates(&spec, n_draws, &mut rng)
         .map_err(|e| format!("generative_replicates: sampling failed: {e}"))?;

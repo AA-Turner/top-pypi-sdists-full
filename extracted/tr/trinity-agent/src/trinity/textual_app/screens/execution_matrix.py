@@ -17,10 +17,12 @@ from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.execution_log_modal import ExecutionLogModal
 from trinity.textual_app.widgets.status_label import (
+    compact_status_group,
     compact_status_label,
     display_status_value,
     is_no_peer_review_skip,
 )
+from trinity.textual_app.workspace_labels import compact_workspace_target
 from trinity.textual_app.widgets.work_package_detail_modal import WorkPackageDetailModal
 from trinity.textual_app.widgets.workspace_picker import WorkspacePreflight
 
@@ -29,7 +31,7 @@ _EXECUTION_MATRIX_LABELS = {
         "activity": "활동",
         "blocked": "차단됨",
         "compact_tasks": "작업 접기",
-        "earlier_log_lines_hidden": "... 이전 로그 {count}줄 숨김",
+        "earlier_log_lines_hidden": "... 이전 로그 {count}줄 숨김 · 전체 로그에서 보기",
         "execution_matrix": "실행 매트릭스",
         "execution_not_started": "실행이 시작되지 않았습니다.",
         "executor": "실행자",
@@ -72,7 +74,7 @@ _EXECUTION_MATRIX_LABELS = {
         "activity": "Activity",
         "blocked": "Blocked",
         "compact_tasks": "Compact Tasks",
-        "earlier_log_lines_hidden": "... {count} earlier log lines hidden",
+        "earlier_log_lines_hidden": "... {count} earlier log lines hidden · open Full Log",
         "execution_matrix": "Execution Matrix",
         "execution_not_started": "Execution not started.",
         "executor": "Executor",
@@ -130,6 +132,7 @@ class _PackageRowProjection:
     assignee: str
     executor: str
     status: str
+    status_group: str
     review_status: str
     risk: str
     button_id: str
@@ -152,6 +155,7 @@ class _PackageRowProjection:
             self.assignee,
             self.executor,
             self.status,
+            self.status_group,
             self.review_status,
             self.risk,
             self.button_id,
@@ -214,6 +218,7 @@ class ExecutionPackageRow(Horizontal):
         review_label: str = "",
         review_enabled: bool = False,
         detail_enabled: bool = True,
+        status_group: str = "unknown",
         lang: str = "en",
     ) -> None:
         super().__init__(classes="execution-package-row")
@@ -222,6 +227,7 @@ class ExecutionPackageRow(Horizontal):
         self.assignee = assignee
         self.executor = executor
         self.status = status
+        self.status_group = status_group
         self.review_status = review_status
         self.risk = risk
         self.button_id = button_id
@@ -255,7 +261,7 @@ class ExecutionPackageRow(Horizontal):
                 )
                 status = Static(
                     _clip(self.status, 10),
-                    classes="execution-package-status",
+                    classes=f"execution-package-status execution-status-{self.status_group}",
                 )
                 self._static_cache[".execution-package-task"] = task
                 self._static_cache[".execution-package-executor"] = executor
@@ -341,6 +347,8 @@ class ExecutionPackageRow(Horizontal):
         self.assignee = projection.assignee
         self.executor = projection.executor
         self.status = projection.status
+        previous_status_group = self.status_group
+        self.status_group = projection.status_group
         self.review_status = projection.review_status
         self.risk = projection.risk
         self.button_id = projection.button_id
@@ -358,6 +366,8 @@ class ExecutionPackageRow(Horizontal):
         for selector, text in next_fields.items():
             if text != previous_fields[selector]:
                 self._static_for(selector).update(text)
+        if self.status_group != previous_status_group:
+            self._sync_status_class()
         if previous_detail != (
             self.button_id,
             self.button_label,
@@ -418,6 +428,11 @@ class ExecutionPackageRow(Horizontal):
                 18,
             ),
         }
+
+    def _sync_status_class(self) -> None:
+        status = self._static_for(".execution-package-status")
+        for group in ("running", "waiting", "idle", "done", "issue", "unknown"):
+            status.set_class(group == self.status_group, f"execution-status-{group}")
 
     def _static_for(self, selector: str) -> Static:
         widget = self._static_cache.get(selector)
@@ -914,6 +929,7 @@ class ExecutionMatrixScreen(Screen[None]):
                         package.status or "pending",
                         lang=self.lang,
                     ),
+                    status_group=compact_status_group(package.status or "pending"),
                     review_status=_review_label(package, self.lang),
                     risk=_risk_lane_label(package, self.lang),
                     button_id=f"wp-detail-{index}",
@@ -941,6 +957,7 @@ class ExecutionMatrixScreen(Screen[None]):
                     assignee=assignee,
                     executor="-",
                     status=compact_status_label(status, lang=self.lang),
+                    status_group=compact_status_group(status),
                     review_status="-",
                     risk=_label(self.lang, "unknown_risk"),
                     button_id=f"wp-detail-legacy-{index}",
@@ -958,6 +975,7 @@ class ExecutionMatrixScreen(Screen[None]):
             assignee=projection.assignee,
             executor=projection.executor,
             status=projection.status,
+            status_group=projection.status_group,
             review_status=projection.review_status,
             risk=projection.risk,
             button_id=projection.button_id,
@@ -1047,9 +1065,10 @@ class ExecutionMatrixScreen(Screen[None]):
                 f"{self._label('execution_matrix')} · "
                 f"{self._label('workspace')}: {self._label('not_selected')}"
             )
+        display_target = _compact_execution_header_target(target)
         return (
             f"{self._label('execution_matrix')} · "
-            f"{self._label('workspace')}: {target}"
+            f"{self._label('workspace')}: {display_target}"
         )
 
     def _target_workspace_text(self) -> str:
@@ -1347,12 +1366,50 @@ def _risk_lane_label(package: object, lang: str = "en") -> str:
         risk = _label(lang, "unknown_risk")
     else:
         risk = display_risk_value(risk, lang=lang)
+    note = _status_note_label(package, lang=lang)
+    if note:
+        risk = f"{risk} {note}"
     if not bool(getattr(package, "parallelizable", True)):
         return f"{risk} {_label(lang, 'serial_summary')}"
     group = getattr(package, "parallel_group", None)
     if group is None:
         return risk
     return f"{risk} g{group}"
+
+
+def _status_note_label(package: object, lang: str = "en") -> str:
+    labels = (
+        {
+            "retry": "재시도",
+            "second": "2차",
+            "review": "리뷰",
+            "issue": "문제",
+            "wait": "대기",
+        }
+        if lang == "ko"
+        else {
+            "retry": "retry",
+            "second": "2nd",
+            "review": "review",
+            "issue": "issue",
+            "wait": "wait",
+        }
+    )
+    if bool(getattr(package, "retryable", False)):
+        return labels["retry"]
+    review_status = str(getattr(package, "review_status", "") or "").strip().lower()
+    if review_status == "needs_second_review":
+        return labels["second"]
+    if _is_pending_review_package(package):
+        return labels["review"]
+    status = str(getattr(package, "status", "") or "").strip().lower()
+    if status in {"blocked", "failed", "interrupted"} or str(
+        getattr(package, "repair_blocked_reason", "") or ""
+    ).strip():
+        return labels["issue"]
+    if status in {"pending", "queued", "waiting"}:
+        return labels["wait"]
+    return ""
 
 
 def _execution_lane_label(package: object, lang: str = "en") -> str:
@@ -1396,6 +1453,18 @@ def _agent_short_label(agent: str) -> str:
         "codex": "codex",
     }
     return aliases.get(normalized, _clip(agent, 8))
+
+
+def _compact_execution_header_target(target: str) -> str:
+    clean = " ".join(str(target).split())
+    if len(clean) <= 120:
+        return clean
+    tail = clean.rstrip("/\\").replace("\\", "/").rsplit("/", 1)[-1]
+    suffix = f".../{tail}" if tail else "..."
+    max_chars = 48
+    if len(suffix) >= max_chars:
+        return compact_workspace_target(clean, max_chars=max_chars)
+    return f"{clean[: max_chars - len(suffix)]}{suffix}"
 
 
 def _clip(value: str, width: int) -> str:

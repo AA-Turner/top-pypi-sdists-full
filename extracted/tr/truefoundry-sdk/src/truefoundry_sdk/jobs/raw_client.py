@@ -121,7 +121,7 @@ class RawJobsClient:
                     ),
                 )
                 _items = _parsed_response.data
-                _has_next = True
+                _has_next = len(_items or []) > 0
                 _get_next = lambda: self.list_runs(
                     job_id,
                     limit=limit,
@@ -161,9 +161,9 @@ class RawJobsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Any,
+                        HttpError,
                         parse_obj_as(
-                            type_=typing.Any,  # type: ignore
+                            type_=HttpError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -424,9 +424,9 @@ class RawJobsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Any,
+                        HttpError,
                         parse_obj_as(
-                            type_=typing.Any,  # type: ignore
+                            type_=HttpError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -518,9 +518,9 @@ class RawJobsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Any,
+                        HttpError,
                         parse_obj_as(
-                            type_=typing.Any,  # type: ignore
+                            type_=HttpError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -620,7 +620,7 @@ class AsyncRawJobsClient:
                     ),
                 )
                 _items = _parsed_response.data
-                _has_next = True
+                _has_next = len(_items or []) > 0
 
                 async def _get_next():
                     return await self.list_runs(
@@ -663,9 +663,9 @@ class AsyncRawJobsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Any,
+                        HttpError,
                         parse_obj_as(
-                            type_=typing.Any,  # type: ignore
+                            type_=HttpError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -926,9 +926,9 @@ class AsyncRawJobsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Any,
+                        HttpError,
                         parse_obj_as(
-                            type_=typing.Any,  # type: ignore
+                            type_=HttpError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1020,9 +1020,9 @@ class AsyncRawJobsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Any,
+                        HttpError,
                         parse_obj_as(
-                            type_=typing.Any,  # type: ignore
+                            type_=HttpError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

@@ -918,6 +918,26 @@ class Model:
             else:
                 template[name] = "0"
 
+        # For a ``by=``-factor smooth block, the block name carries the factor
+        # level as a ``:by=<var>[<level>]`` suffix (e.g. ``s(x, by=g):by=g[a]``).
+        # Pin the grouping factor at the block's OWN level so that partial
+        # dependence reflects a fixed model property rather than the arbitrary
+        # value found in the first row of the passed frame (issue #2076).
+        by_marker = ":by="
+        by_pos = term.rfind(by_marker)
+        if by_pos != -1 and term.endswith("]"):
+            by_suffix = term[by_pos + len(by_marker) :]
+            bracket = by_suffix.find("[")
+            if bracket != -1:
+                by_var = by_suffix[:bracket]
+                by_level = by_suffix[bracket + 1 : -1]
+                if by_var in names:
+                    by_col = schema_cols[names.index(by_var)]
+                    by_levels = [str(lvl) for lvl in (by_col.get("levels") or [])]
+                    template[by_var] = next(
+                        (lvl for lvl in by_levels if lvl == by_level), by_level
+                    )
+
         term_args: tuple[str, ...] = ()
         if "(" in term and ")" in term:
             inside = term[term.index("(") + 1 : term.rindex(")")]
@@ -1010,12 +1030,17 @@ class Model:
 
     @property
     def evidence(self) -> float:
-        """Minimised REML / LAML cost for this fit (penalised negative log
-        marginal likelihood plus Laplace correction), on the same
-        rank-normalized comparison scale used by ``gamfit.compare_models``.
+        """Model-selection cost for this fit, on the same rank scale used by
+        ``gamfit.compare_models`` to pick its winner: the Occam-penalised
+        conditional AIC (``-2*loglik + 2*edf``) when the log-likelihood and
+        effective degrees of freedom are available, falling back to the raw
+        (TK-normalized) REML / LAML marginal-likelihood cost otherwise (#2079).
         It is a *cost*, so **lower is better** -- the model with the smaller
-        ``evidence`` is the better-supported one. Use :meth:`bayes_factor_vs`
-        or ``gamfit.compare_models`` for a direct comparison.
+        ``evidence`` is the better-supported one, agreeing with the winner
+        reported by ``gamfit.compare_models``. Use :meth:`bayes_factor_vs` or
+        ``gamfit.compare_models`` for a direct comparison. (The raw,
+        un-penalised REML/LAML evidence headline remains available as
+        ``Summary.reml_score`` / the ``score_table`` column.)
         """
         return float(rust_module().model_evidence(self._model_bytes))
 
@@ -1037,9 +1062,7 @@ class Model:
         return math.exp(log_diff)
 
     def _model_class_from_payload(self) -> str:
-        return rust_module().required_saved_model_payload_string(
-            self._model_bytes, "model_kind"
-        )
+        return rust_module().saved_model_predict_class_name(self._model_bytes)
 
     def _family_from_payload(self) -> str:
         return rust_module().required_saved_model_payload_string(
@@ -1221,6 +1244,19 @@ class MultinomialModel:
     @property
     def n_iter_(self) -> int:
         return int(self._metadata["iterations"])
+
+    # ------------------------------------------------------------------ persistence
+    def save(self, path: str | Path) -> None:
+        """Serialise the fitted multinomial model to ``path``.
+
+        Mirrors :meth:`Model.save`; the resulting file round-trips through
+        :func:`gamfit.load`, which reconstructs a :class:`MultinomialModel`.
+        """
+        Path(path).write_bytes(self._model_bytes)
+
+    def dumps(self) -> bytes:
+        """Return the serialised multinomial model as raw bytes."""
+        return self._model_bytes
 
     # ------------------------------------------------------------------ predict
     def predict(self, data: Any, *, interval: str | None = None, level: float = 0.95) -> Any:

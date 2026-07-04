@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docstring_parser_fork
-Version: 0.0.15
+Version: 0.0.16
 Summary: Parse Python docstrings in reST, Google and Numpydoc format
 Project-URL: homepage, https://github.com/rr-/docstring_parser
 Project-URL: repository, https://github.com/rr-/docstring_parser

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 from ...helpers.api import CommandError
 from ...helpers.subprocess import run_subprocess_capture
 from ...models import (
+    OTA_PORT,
     ErrorCode,
     EventType,
     FirmwareJob,
@@ -107,14 +108,14 @@ def _names_touched_by_job(job: FirmwareJob) -> set[str]:
     Used by the rename-lock check to spot collisions between an
     in-flight rename and any other job. A rename has two: the old
     YAML it's reading from (``configuration``) and the new YAML it
-    will create on install success (``new_name + ".yaml"``). Every
+    writes (``new_name + ".yaml"``). Every
     other job type touches just one — its ``configuration``.
     """
     names: set[str] = set()
     if job.configuration:
         names.add(job.configuration)
     if job.job_type == JobType.RENAME and job.new_name:
-        names.add(f"{job.new_name}.yaml")
+        names.add(job.new_filename)
     return names
 
 
@@ -195,7 +196,7 @@ def _parse_progress(line: str) -> int | None:
 
 def _validate_port(port: str) -> None:
     """Accept ``""`` / ``"OTA"`` / SERIAL / IPv4-6 / hostname; raise ``INVALID_ARGS`` otherwise."""
-    if not port or port == "OTA":
+    if not port or port == OTA_PORT:
         return
     if get_port_type(port) is PortType.SERIAL:
         return

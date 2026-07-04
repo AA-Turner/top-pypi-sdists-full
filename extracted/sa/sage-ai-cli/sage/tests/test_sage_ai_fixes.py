@@ -121,7 +121,7 @@ class TestEvidenceGrounding:
 
     def test_file_read_records_evidence(self):
         """Reading files should record evidence in tracker."""
-        from sage.main import _record_file_read, _reset_evidence_tracker
+        from sage.cli_core import _record_file_read, _reset_evidence_tracker
 
         tracker = _reset_evidence_tracker()
         assert len(tracker.verified_files) == 0
@@ -134,7 +134,7 @@ class TestEvidenceGrounding:
 
     def test_failed_read_not_counted_as_evidence(self):
         """Failed reads should not count as verified evidence."""
-        from sage.main import _record_file_read, _reset_evidence_tracker
+        from sage.cli_core import _record_file_read, _reset_evidence_tracker
 
         tracker = _reset_evidence_tracker()
 
@@ -147,7 +147,7 @@ class TestEvidenceGrounding:
 
     def test_search_records_evidence(self):
         """Search operations should record evidence."""
-        from sage.main import _record_search, _reset_evidence_tracker
+        from sage.cli_core import _record_search, _reset_evidence_tracker
 
         tracker = _reset_evidence_tracker()
 
@@ -158,7 +158,7 @@ class TestEvidenceGrounding:
 
     def test_synthesis_gate_blocks_without_evidence(self):
         """Synthesis should be blocked if no evidence gathered."""
-        from sage.main import _check_synthesis_gate, _reset_evidence_tracker
+        from sage.cli_core import _check_synthesis_gate, _reset_evidence_tracker
 
         _reset_evidence_tracker()
 
@@ -170,7 +170,7 @@ class TestEvidenceGrounding:
 
     def test_synthesis_gate_allows_with_evidence(self):
         """Synthesis should be allowed with verified evidence."""
-        from sage.main import _check_synthesis_gate, _record_file_read, _reset_evidence_tracker
+        from sage.cli_core import _check_synthesis_gate, _record_file_read, _reset_evidence_tracker
 
         _reset_evidence_tracker()
         _record_file_read("test.py", success=True)
@@ -330,7 +330,7 @@ class TestPromptEnhancement:
 
     def test_enhance_prompt_adds_specificity_requirements(self):
         """Prompt enhancement should add specificity requirements."""
-        from sage.main import _enhance_task_prompt
+        from sage.cli_core import _enhance_task_prompt
 
         original = "Analyze the codebase and list 100 items"
         enhanced = _enhance_task_prompt(original)
@@ -347,7 +347,7 @@ class TestPromptEnhancement:
 
     def test_enhance_list_prompt_adds_file_reference_requirement(self):
         """List generation prompts should require file references."""
-        from sage.main import _enhance_task_prompt
+        from sage.cli_core import _enhance_task_prompt
 
         original = "List 100 improvements"
         enhanced = _enhance_task_prompt(original)
@@ -357,7 +357,7 @@ class TestPromptEnhancement:
 
     def test_enhance_prompt_adds_evidence_requirement(self):
         """Prompts should require evidence-based findings."""
-        from sage.main import _enhance_task_prompt
+        from sage.cli_core import _enhance_task_prompt
 
         original = "Find issues in the code"
         enhanced = _enhance_task_prompt(original)
@@ -422,7 +422,7 @@ class TestSageAIIntegration:
     def test_list_generation_workflow_requires_evidence(self):
         """Complete workflow: classify -> gather evidence -> synthesize."""
         from sage.core.request_classifier import RequestClassifier
-        from sage.main import _check_synthesis_gate, _reset_evidence_tracker
+        from sage.cli_core import _check_synthesis_gate, _reset_evidence_tracker
 
         # 1. Classify request
         classifier = RequestClassifier()

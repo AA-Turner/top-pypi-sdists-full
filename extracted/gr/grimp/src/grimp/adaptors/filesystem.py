@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import os
 import tokenize
 from collections.abc import Iterator
 
-from grimp.application.ports.filesystem import AbstractFileSystem, BasicFileSystem
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
+from grimp.application.ports.filesystem import AbstractFileSystem, BasicFileSystem
 
 
 class FileSystem(AbstractFileSystem):

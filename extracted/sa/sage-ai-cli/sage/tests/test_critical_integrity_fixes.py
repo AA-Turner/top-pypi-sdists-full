@@ -155,7 +155,7 @@ Implementation complete! The proxy system is now ready to use.
         files_written = []
 
         # Should detect phantom implementation
-        from sage.main import _detect_phantom_implementation
+        from sage.cli_core import _detect_phantom_implementation
 
         is_phantom, reason = _detect_phantom_implementation(
             response_text, files_written, is_implementation_request=True
@@ -181,7 +181,7 @@ def test_proxy_core():
 
         files_written = ["proxy_core.py", "test_proxy.py"]
 
-        from sage.main import _detect_phantom_implementation
+        from sage.cli_core import _detect_phantom_implementation
 
         is_phantom, _ = _detect_phantom_implementation(
             response_text, files_written, is_implementation_request=True
@@ -203,7 +203,7 @@ That's the implementation plan.
 
         files_written = []
 
-        from sage.main import _validate_implementation_response
+        from sage.cli_core import _validate_implementation_response
 
         is_valid, reason = _validate_implementation_response(
             response_text, files_written, is_implementation_request=True
@@ -227,7 +227,7 @@ Done!
 
         files_written = []
 
-        from sage.main import _validate_implementation_response
+        from sage.cli_core import _validate_implementation_response
 
         is_valid, _ = _validate_implementation_response(
             response_text, files_written, is_implementation_request=True
@@ -243,7 +243,7 @@ RUN: pytest tests/test_proxy.py -v
 All done!
 """
 
-        from sage.main import _validate_implementation_response
+        from sage.cli_core import _validate_implementation_response
 
         is_valid, reason = _validate_implementation_response(
             response_text, [], is_implementation_request=True
@@ -462,7 +462,7 @@ pytest tests/test_feature.py -v
 
         files_written = []
 
-        from sage.main import _validate_tdd_compliance
+        from sage.cli_core import _validate_tdd_compliance
 
         is_compliant, reason = _validate_tdd_compliance(
             response, files_written, is_implementation_request=True

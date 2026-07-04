@@ -294,6 +294,94 @@ class TestBase:
         assert w.id_order_set
         np.testing.assert_array_equal(w.id_order, self.letters[:10])
 
+    @pytest.mark.parametrize("shape", [(3, 3), (4, 5)])
+    @pytest.mark.parametrize("rook", [True, False])
+    def test_from_lattice(self, shape, rook):
+        w = weights.lat2W(*shape, rook=rook)
+        g = graph.Graph.from_lattice(*shape, rook=rook)
+        expected = graph.Graph.from_W(w)
+        assert g == expected
+
+    def test_from_lattice_rook_structure(self):
+        g = graph.Graph.from_lattice(3, 3)
+        assert g.neighbors == {
+            0: (1, 3),
+            1: (0, 2, 4),
+            2: (1, 5),
+            3: (0, 4, 6),
+            4: (1, 3, 5, 7),
+            5: (2, 4, 8),
+            6: (3, 7),
+            7: (4, 6, 8),
+            8: (5, 7),
+        }
+        assert g.cardinalities.to_dict() == {
+            0: 2,
+            1: 3,
+            2: 2,
+            3: 3,
+            4: 4,
+            5: 3,
+            6: 2,
+            7: 3,
+            8: 2,
+        }
+        assert g.nonzero == 24
+        assert g.isolates.empty
+
+    def test_from_lattice_queen_structure(self):
+        g = graph.Graph.from_lattice(3, 3, rook=False)
+        assert g.neighbors == {
+            0: (1, 3, 4),
+            1: (0, 2, 3, 4, 5),
+            2: (1, 4, 5),
+            3: (0, 1, 4, 6, 7),
+            4: (0, 1, 2, 3, 5, 6, 7, 8),
+            5: (1, 2, 4, 7, 8),
+            6: (3, 4, 7),
+            7: (3, 4, 5, 6, 8),
+            8: (4, 5, 7),
+        }
+        assert g.cardinalities.to_dict() == {
+            0: 3,
+            1: 5,
+            2: 3,
+            3: 5,
+            4: 8,
+            5: 5,
+            6: 3,
+            7: 5,
+            8: 3,
+        }
+        assert g.nonzero == 40
+        assert g.isolates.empty
+
+    def test_from_lattice_single_cell(self):
+        w = weights.lat2W(1, 1)
+        g = graph.Graph.from_lattice(1, 1)
+        assert g.n == len(w.id_order)
+        assert g.isolates.tolist() == w.id_order
+        assert g.adjacency.loc[(0, 0)] == 0
+
+    @pytest.mark.parametrize("index_type", ["int", "float", "string"])
+    def test_from_lattice_index_type(self, index_type):
+        w = weights.lat2W(3, 4, id_type=index_type)
+        g = graph.Graph.from_lattice(3, 4, index_type=index_type)
+        expected = graph.Graph.from_W(w)
+        assert g == expected
+
+    def test_from_lattice_string_index_structure(self):
+        g = graph.Graph.from_lattice(2, 3, index_type="string")
+        assert g.unique_ids.tolist() == ["id0", "id1", "id2", "id3", "id4", "id5"]
+        assert g.neighbors == {
+            "id0": ("id1", "id3"),
+            "id1": ("id0", "id2", "id4"),
+            "id2": ("id1", "id5"),
+            "id3": ("id0", "id4"),
+            "id4": ("id1", "id3", "id5"),
+            "id5": ("id2", "id4"),
+        }
+
     def test_from_sparse(self):
         row = np.array([0, 0, 1, 2, 3, 3])
         col = np.array([1, 3, 3, 2, 1, 3])
@@ -383,6 +471,92 @@ class TestBase:
         with pytest.raises(ValueError, match="The length of ids "):
             graph.Graph.from_sparse(sp, ids=["staten_island", "queens"])
 
+    def test_from_dense(self):
+        dense = np.array(
+            [
+                [0.0, 0.1, 0.0, 0.5],
+                [0.0, 0.0, 0.0, 0.9],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.3, 0.0, 0.1],
+            ]
+        )
+        g = graph.Graph.from_dense(dense)
+        # Include isolate node 2 in expected
+        expected = graph.Graph.from_arrays(
+            [0, 0, 1, 2, 3, 3], [1, 3, 3, 2, 1, 3], [0.1, 0.5, 0.9, 0.0, 0.3, 0.1]
+        )
+        pd.testing.assert_series_equal(g._adjacency, expected._adjacency)
+
+        ids = ["zero", "one", "two", "three"]
+        g_named = graph.Graph.from_dense(dense, ids=ids)
+        expected = graph.Graph.from_arrays(
+            ["zero", "zero", "one", "two", "three", "three"],
+            ["one", "three", "three", "two", "one", "three"],
+            [0.1, 0.5, 0.9, 0.0, 0.3, 0.1],
+        )
+        pd.testing.assert_series_equal(g_named._adjacency, expected._adjacency)
+
+        dense_binary = np.array(
+            [
+                [0, 0, 1, 1, 0],
+                [0, 0, 1, 1, 0],
+                [0, 1, 0, 1, 0],
+                [0, 1, 0, 0, 1],
+                [0, 1, 0, 1, 0],
+            ]
+        )
+        g = graph.Graph.from_dense(
+            dense_binary,
+            ids=["staten_island", "queens", "brooklyn", "manhattan", "bronx"],
+        )
+        expected = graph.Graph.from_arrays(
+            [
+                "staten_island",
+                "staten_island",
+                "queens",
+                "queens",
+                "brooklyn",
+                "brooklyn",
+                "manhattan",
+                "manhattan",
+                "bronx",
+                "bronx",
+            ],
+            [
+                "brooklyn",
+                "manhattan",
+                "brooklyn",
+                "manhattan",
+                "queens",
+                "manhattan",
+                "queens",
+                "bronx",
+                "queens",
+                "manhattan",
+            ],
+            np.ones(10, dtype="int64"),
+        )
+        pd.testing.assert_series_equal(g._adjacency, expected._adjacency)
+        np.testing.assert_array_equal(g.sparse.todense(), dense_binary)
+
+        with pytest.raises(ValueError, match="The length of ids "):
+            graph.Graph.from_dense(dense_binary, ids=["staten_island", "queens"])
+
+    def test_from_dense_boolean(self):
+        dense = np.array(
+            [[True, False, True], [False, True, False], [True, False, True]]
+        )
+        g = graph.Graph.from_dense(dense)
+        expected = graph.Graph.from_arrays(
+            np.array([0, 0, 1, 2, 2], dtype="int32"),
+            np.array([0, 2, 1, 0, 2], dtype="int32"),
+            [1, 1, 1, 1, 1],
+        )
+        pd.testing.assert_series_equal(
+            g._adjacency,
+            expected._adjacency,
+        )
+
     def test_from_arrays(self):
         focal_ids = np.arange(9)
         neighbor_ids = np.array([1, 2, 5, 4, 5, 8, 7, 8, 7])
@@ -465,6 +639,31 @@ class TestBase:
             check_dtype=True,
             check_index_type=False,
         )
+
+    def test_from_networkx(self):
+        nx = pytest.importorskip("networkx")
+
+        nxg = nx.path_graph(5)
+        g = graph.Graph.from_networkx(nxg)
+        assert g.n == 5
+        assert g.nonzero == 8
+
+        nxg = nx.Graph()
+        nxg.add_edge(0, 1, custom_weight=0.5)
+        nxg.add_edge(1, 2, custom_weight=1.5)
+        g = graph.Graph.from_networkx(nxg, weight="custom_weight")
+        expected = graph.Graph.from_arrays(
+            [0, 1, 1, 2], [1, 0, 2, 1], [0.5, 0.5, 1.5, 1.5]
+        )
+        assert g == expected
+
+        nxg = nx.Graph()
+        nxg.add_edge(0, 1, other_attr=0.5)
+        nxg.add_edge(1, 2, other_attr=1.5)
+        with pytest.raises(
+            ValueError, match="The weight attribute 'nonexistent_weight' does not exist"
+        ):
+            graph.Graph.from_networkx(nxg, weight="nonexistent_weight")
 
     @pytest.mark.parametrize("y", [3, 5])
     @pytest.mark.parametrize("id_type", ["int", "str"])
@@ -932,6 +1131,50 @@ class TestBase:
 
         pd.testing.assert_series_equal(self.g_int.asymmetry(False), empty)
 
+    def test_make_symmetric(self):
+        neighbors = {
+            "a": ["b", "c"],
+            "b": ["b", "c", "d"],
+            "c": ["a", "b"],
+            "d": ["a", "b"],
+        }
+        weights_d = {"a": [1, 0.5], "b": [1, 1, 1], "c": [1, 1], "d": [1, 1]}
+        g = graph.Graph.from_dicts(neighbors, weights_d)
+        with pytest.raises(ValueError):
+            g.make_symmetric(reduction=None)
+        gint = g.make_symmetric(intersection=True, reduction="min")
+        guni = g.make_symmetric(intersection=False, reduction="min")
+        gmax = g.make_symmetric(intersection=True, reduction="max")
+        gsum = g.make_symmetric(intersection=True, reduction="sum")
+        gmean = g.make_symmetric(intersection=True, reduction="mean")
+
+        assert len(gmax) == len(gint), "intersections should be the same length"
+        assert (gmax.adjacency == 1).all(), (
+            "the largest weight for asymmetries should be 1"
+        )
+        assert len(gint) < len(guni), "intersection should be smaller than the union"
+        assert (
+            guni.adjacency.index.intersection(gmax.adjacency.index)
+            == gmax.adjacency.index
+        ).all(), "the intersection is a subset of the union"
+
+        # additional checks for alternative reductions
+        assert len(gsum) == len(gint)
+        assert len(gmean) == len(gint)
+        # for any pair of reciprocal weights, min <= mean <= max <= sum
+        adj_min = gint.adjacency
+        adj_mean = gmean.adjacency
+        adj_max = gmax.adjacency
+        adj_sum = gsum.adjacency
+        assert (adj_min <= adj_mean).all()
+        assert (adj_mean <= adj_max).all()
+        assert (adj_max <= adj_sum).all()
+
+        # invalid reduction strings should raise even when the
+        # graph is already symmetric
+        with pytest.raises(ValueError):
+            gmax.make_symmetric(reduction="invalid")
+
     def test_parquet(self):
         pytest.importorskip("pyarrow")
 
@@ -1109,7 +1352,7 @@ class TestBase:
         nybb = graph.Graph.build_contiguity(self.nybb)
         expected = pd.Series(
             [0, 1, 1, 1, 1],
-            index=pd.Index(self.nybb.index.values, name="focal"),
+            index=pd.Index(self.nybb.index.values),
             dtype=int,
             name="component labels",
         )
@@ -1170,7 +1413,6 @@ class TestBase:
             [1.62382200e09, 3.76087588e09, 3.68168493e09, 6.16961834e09, 3.68168493e09],
             index=pd.Index(
                 ["Staten Island", "Queens", "Brooklyn", "Manhattan", "Bronx"],
-                name="focal",
             ),
         )
         pd.testing.assert_series_equal(contig.apply(self.nybb.area, "sum"), expected)
@@ -1180,7 +1422,6 @@ class TestBase:
             [1.62382200e09, 1.18692629e09, 1.84084247e09, 1.93747835e09, 1.84084247e09],
             index=pd.Index(
                 ["Staten Island", "Queens", "Brooklyn", "Manhattan", "Bronx"],
-                name="focal",
             ),
         )
         pd.testing.assert_series_equal(
@@ -1192,11 +1433,10 @@ class TestBase:
             [2.06271959e09, 6.68788190e09, 7.57087991e09, 8.78957337e09, 7.57087991e09],
             index=pd.Index(
                 ["Staten Island", "Queens", "Brooklyn", "Manhattan", "Bronx"],
-                name="focal",
             ),
         )
         pd.testing.assert_series_equal(
-            contig.apply(self.nybb.geometry, lambda x: x.unary_union.convex_hull.area),
+            contig.apply(self.nybb.geometry, lambda x: x.union_all().convex_hull.area),
             expected,
         )
 
@@ -1212,7 +1452,6 @@ class TestBase:
             columns=["Shape_Leng", "Shape_Area"],
             index=pd.Index(
                 ["Staten Island", "Queens", "Brooklyn", "Manhattan", "Bronx"],
-                name="focal",
             ),
         )
         pd.testing.assert_frame_equal(
@@ -1227,7 +1466,6 @@ class TestBase:
             [1.62382200e09, 3.76087588e09, 3.68168493e09, 6.16961834e09, 3.68168493e09],
             index=pd.Index(
                 ["Staten Island", "Queens", "Brooklyn", "Manhattan", "Bronx"],
-                name="focal",
             ),
         )
         pd.testing.assert_series_equal(
@@ -1245,7 +1483,6 @@ class TestBase:
             ],
             index=pd.Index(
                 ["Staten Island", "Queens", "Brooklyn", "Manhattan", "Bronx"],
-                name="focal",
             ),
         )
         pd.testing.assert_frame_equal(

@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_sm_bypass_activation_lock_attempts_info
-short_description: Information module for networks _sm _bypass _activation _lock _attempts
+short_description: Information module for networks _sm _bypassactivationlockattempts
 description:
-  - Get networks _sm _bypass _activation _lock _attempts by id.
+  - Information module for Networks Sm Bypassactivationlockattempts Info.
+  - Get networks _sm _bypassactivationlockattempts by id.
   - Bypass activation lock attempt status.
 version_added: '1.0.0'
 extends_documentation_fragment:
@@ -21,10 +21,12 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Sm Bypassactivationlockattempts Info.
       - NetworkId path parameter. Network ID.
     type: str
   attemptId:
     description:
+      - Information module for Networks Sm Bypassactivationlockattempts Info.
       - AttemptId path parameter. Attempt ID.
     type: str
 requirements:
@@ -43,7 +45,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get networks _sm _bypass _activation _lock _attempts by id
+- name: Get networks _sm _bypassactivationlockattempts by id
   cisco.meraki.networks_sm_bypass_activation_lock_attempts_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

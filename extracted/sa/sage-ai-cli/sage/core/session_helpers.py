@@ -497,7 +497,7 @@ def _ensure_model_available(
     For bare names: resolves the provider prefix first.
     Returns the (possibly updated) config.
     """
-    from sage.main import _llama_cpp_runtime_bootstrap_error, _ollama_exe, _ollama_install_hint
+    from sage.cli_core import _llama_cpp_runtime_bootstrap_error, _ollama_exe, _ollama_install_hint
     # Resolve bare model names to prefixed ones
     resolved = _resolve_model_prefix(model_id, cfg)
 
@@ -1524,7 +1524,7 @@ def _seed_recursive_analysis_context(
     This gives weaker models a grounded, repo-wide starting point without
     requiring them to invent the initial exploration sequence themselves.
     """
-    from sage.main import _record_file_read, _scan_project_context_with_files
+    from sage.cli_core import _record_file_read, _scan_project_context_with_files
     from sage.core.tools import ToolCall, ToolType
 
     context, previewed_files = _scan_project_context_with_files(
@@ -1958,7 +1958,7 @@ def _filter_recovered_tasks_for_workspace(
 
 def _normalize_actionable_task_list_text(content: str, min_items: int = 1) -> str:
     """Normalize a recent analysis response into a parseable numbered task list."""
-    from sage.main import _looks_like_actionable_numbered_list
+    from sage.cli_core import _looks_like_actionable_numbered_list
     text = (content or "").strip()
     if not text:
         return ""
@@ -2303,7 +2303,7 @@ def _is_explicit_resume_request(prompt: str) -> bool:
 
 def _is_resume_memory_entry_safe(entry: dict) -> bool:
     """Filter obviously bad prior assistant outputs from resume context."""
-    from sage.main import _detect_tool_description_vs_execution
+    from sage.cli_core import _detect_tool_description_vs_execution
     role = str(entry.get("role", "")).strip().lower()
     content = str(entry.get("content", "")).strip()
     if not content:

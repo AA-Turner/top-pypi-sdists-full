@@ -114,7 +114,7 @@ class Focus(Experiment):
 
         self.AcousticFields = listAcousticFields
 
-    def load_experiment_data(self, file_path, withTumor=True):
+    def load_experiment_data(self, file_path, withTumor=True, N_average=None, start_index=0):
         self.expParams = {}
         f = loadmat(file_path)
         self.expParams['data_raw'] = np.array(f['raw']) if f.get('raw') is not None else None
@@ -133,9 +133,9 @@ class Focus(Experiment):
         else:
             self.expParams['data_raw'] = self.expParams['data_raw'].reshape(-1, self.expParams['Naverage'], self.expParams['Nlines'])
             if withTumor:
-                self.AOsignal_withTumor = np.mean(self.expParams['data_raw'], axis=1)
+                self.AOsignal_withTumor = np.mean(self.expParams['data_raw'][:, start_index:start_index+N_average, :], axis=1) if N_average is not None else np.mean(self.expParams['data_raw'], axis=1)
             else:   
-                self.AOsignal_withoutTumor = np.mean(self.expParams['data_raw'], axis=1)
+                self.AOsignal_withoutTumor = np.mean(self.expParams['data_raw'][:, start_index:start_index+N_average, :], axis=1) if N_average is not None else np.mean(self.expParams['data_raw'], axis=1)
 
     def recon_focus(self, withTumor=True, signals_AO=None, isFiltered=True):
         """

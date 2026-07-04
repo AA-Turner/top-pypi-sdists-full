@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 
@@ -18,27 +20,28 @@ class Module:
         return self.name.split(".")[0]
 
     @property
-    def root(self) -> "Module":
+    def root(self) -> Module:
         """
         The root package.
         """
         return Module(self.package_name)
 
     @property
-    def parent(self) -> "Module":
+    def parent(self) -> Module:
         components = self.name.split(".")
         if len(components) == 1:
-            raise ValueError("Module has no parent.")
+            msg = "Module has no parent."
+            raise ValueError(msg)
         return Module(".".join(components[:-1]))
 
-    def is_child_of(self, module: "Module") -> bool:
+    def is_child_of(self, module: Module) -> bool:
         try:
             return module == self.parent
         except ValueError:
             # If this module has no parent, then it cannot be a child of the supplied module.
             return False
 
-    def is_descendant_of(self, module: "Module") -> bool:
+    def is_descendant_of(self, module: Module) -> bool:
         return self.name.startswith(f"{module.name}.")
 
 

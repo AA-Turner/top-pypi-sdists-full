@@ -1,39 +1,58 @@
 from __future__ import annotations
 
-from collections import defaultdict
 import re
 from typing import TYPE_CHECKING, Any
 
 from configobj import ConfigObj
 
-from mycli.config import str_to_bool, strip_matching_quotes
+from mycli.config import strip_matching_quotes
 
 if TYPE_CHECKING:
     from mycli.client import MyCli
 
 
-def normalize_ssl_mode(config: ConfigObj) -> tuple[str | None, str | None]:
-    ssl_mode = config['main'].get('ssl_mode', None) or config['connection'].get('default_ssl_mode', None)
+def normalize_ssl_mode(
+    config: ConfigObj,
+    config_without_package_defaults: ConfigObj,
+) -> tuple[str | None, str | None]:
+    error_notice: str | None = None
+    ssl_mode: str | None = None
+
+    if 'main' in config_without_package_defaults and 'ssl_mode' in config_without_package_defaults['main']:
+        # migration with notice added with mycli 2.0.0 in 2026-07
+        # todo: entirely remove support for ssl_mode in [main]
+        error_notice = (
+            'Mycli 2.0 migration: automatically moving ssl_mode under [main] to default_ssl_mode under [connection] in ~/.myclirc .'
+        )
+
+        ssl_mode = config_without_package_defaults['main']['ssl_mode']
+
+        config_without_package_defaults.encoding = 'utf-8'
+        if 'connection' not in config_without_package_defaults:
+            config_without_package_defaults['connection'] = {}
+        if config_without_package_defaults['connection'].get('default_ssl_mode', None) in (None, ''):
+            config_without_package_defaults['connection']['default_ssl_mode'] = ssl_mode
+        else:
+            ssl_mode = config_without_package_defaults['connection'].get('default_ssl_mode')
+            error_notice += f'\nBut connection.default_ssl_mode already existed, with the value: "{ssl_mode}".'
+        del config_without_package_defaults['main']['ssl_mode']
+        config_without_package_defaults.write()
+
+    if not ssl_mode and 'default_ssl_mode' in config['connection']:
+        ssl_mode = config['connection']['default_ssl_mode']
     if ssl_mode not in ('auto', 'on', 'off', None):
-        return None, f'Invalid config option provided for ssl_mode ({ssl_mode}); ignoring.'
-    return ssl_mode, None
-
-
-def ensure_my_cnf_sections(my_cnf: ConfigObj) -> None:
-    if not my_cnf.get('client'):
-        my_cnf['client'] = {}
-    if not my_cnf.get('mysqld'):
-        my_cnf['mysqld'] = {}
+        error_notice = f'Invalid config option provided for ssl_mode ({ssl_mode}); ignoring.'
+        return None, error_notice
+    return ssl_mode, error_notice
 
 
 def configure_prompt_state(
     mycli: MyCli,
     config: ConfigObj,
     prompt: str | None,
-    prompt_cnf: str | None,
     toolbar_format: str | None,
 ) -> None:
-    mycli.prompt_format = prompt or prompt_cnf or config['main']['prompt'] or mycli.default_prompt
+    mycli.prompt_format = prompt or config['main']['prompt'] or mycli.default_prompt
     mycli.prompt_lines = 0
     mycli.multiline_continuation_char = config['main']['prompt_continuation']
     mycli.toolbar_format = toolbar_format or config['main']['toolbar']
@@ -61,47 +80,22 @@ def llm_prompt_truncation(config: ConfigObj) -> tuple[int, int]:
 
 
 class AppStateMixin:
-    defaults_suffix: str | None
     login_path: str | None
 
-    def read_my_cnf(self, cnf: ConfigObj, keys: list[str]) -> dict[str, Any]:
-        sections = ['client', 'mysqld']
-        key_transformations = {
-            'mysqld': {
-                'socket': 'default_socket',
-                'port': 'default_port',
-                'user': 'default_user',
-            },
-        }
-
-        if self.login_path and self.login_path != 'client':
-            sections.append(self.login_path)
-
-        if self.defaults_suffix:
-            sections.extend([sect + self.defaults_suffix for sect in sections])
-
-        configuration: dict[str, Any] = defaultdict(lambda: None)
-        for key in keys:
-            for section in cnf:
-                if section not in sections or key not in cnf[section]:
-                    continue
-                new_key = key_transformations.get(section, {}).get(key) or key
-                configuration[new_key] = strip_matching_quotes(cnf[section][key])
+    def read_mylogin_cnf(self, cnf: ConfigObj) -> dict[str, Any]:
+        allowed_keys = [
+            'user',
+            'password',
+            'host',
+            'port',
+            'socket',
+        ]
+        configuration: dict[str, Any] = dict.fromkeys(allowed_keys)
+        for section in cnf:
+            if section != self.login_path:
+                continue
+            for key in allowed_keys:
+                if key in cnf[section]:
+                    configuration[key] = strip_matching_quotes(cnf[section][key])
 
         return configuration
-
-    def merge_ssl_with_cnf(self, ssl: dict[str, Any], cnf: dict[str, Any]) -> dict[str, Any]:
-        merged = {}
-        merged.update(ssl)
-        prefix = 'ssl-'
-        for key, value in cnf.items():
-            if not key.startswith(prefix):
-                continue
-            if value is None:
-                continue
-            if key == 'ssl-verify-server-cert':
-                merged['check_hostname'] = str_to_bool(value)
-            else:
-                merged[key[len(prefix) :]] = value
-
-        return merged

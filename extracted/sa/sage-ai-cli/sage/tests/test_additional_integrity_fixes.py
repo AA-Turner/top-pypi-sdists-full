@@ -41,7 +41,7 @@ class TestAutopilotRepetitionDetection:
 
     def test_detect_code_repetition_identical_responses(self):
         """Should detect when autopilot generates identical code multiple times."""
-        from sage.main import _detect_code_repetition
+        from sage.cli_core import _detect_code_repetition
 
         response1 = """
 FILE: fix.py
@@ -62,7 +62,7 @@ def broken_function():
 
     def test_detect_code_repetition_different_responses(self):
         """Should not flag different code as repetition."""
-        from sage.main import _detect_code_repetition
+        from sage.cli_core import _detect_code_repetition
 
         response1 = """
 FILE: fix.py
@@ -82,7 +82,7 @@ def broken_function():
 
     def test_autopolit_stops_after_repeated_identical_fixes(self):
         """Autopilot should stop after generating same broken fix multiple times."""
-        from sage.main import _should_stop_autopolit_cycle
+        from sage.cli_core import _should_stop_autopolit_cycle
 
         cycle_history = [
             {"response": "FILE: fix.py\ncode_v1", "success": False},
@@ -96,7 +96,7 @@ def broken_function():
 
     def test_autopolit_tracks_file_content_hash(self):
         """Autopilot should track content hashes to detect subtle repetition."""
-        from sage.main import _compute_response_hash
+        from sage.cli_core import _compute_response_hash
 
         response1 = "FILE: test.py\ndef foo(): pass"
         response2 = "FILE: test.py\ndef foo(): pass  "  # Extra space
@@ -119,7 +119,7 @@ class TestImplementationClaimValidation:
 
     def test_reject_implementation_claim_without_file_blocks(self):
         """Should reject claims like 'I've implemented X' without FILE: blocks."""
-        from sage.main import _validate_implementation_claim
+        from sage.cli_core import _validate_implementation_claim
 
         response = """
 I've implemented the authentication system with the following features:
@@ -136,7 +136,7 @@ The implementation is complete and ready to use.
 
     def test_accept_implementation_with_file_blocks(self):
         """Should accept implementation claims with FILE: blocks."""
-        from sage.main import _validate_implementation_claim
+        from sage.cli_core import _validate_implementation_claim
 
         response = """
 I've implemented the authentication system:
@@ -151,7 +151,7 @@ def login(username, password):
 
     def test_reject_done_claim_without_evidence(self):
         """Should reject 'Done!' or 'Complete!' without code or execution."""
-        from sage.main import _validate_completion_claim
+        from sage.cli_core import _validate_completion_claim
 
         response = "All done! The feature is implemented."
 
@@ -169,7 +169,7 @@ class TestTestValidationAccuracy:
 
     def test_reject_green_claim_when_tests_failed(self):
         """Should detect false 'tests passing' claims."""
-        from sage.main import _validate_test_claim
+        from sage.cli_core import _validate_test_claim
 
         response = "All tests are passing!"
         test_output = """
@@ -187,7 +187,7 @@ test_auth.py::test_logout PASSED
 
     def test_accept_green_claim_when_tests_passed(self):
         """Should accept 'tests passing' when they actually pass."""
-        from sage.main import _validate_test_claim
+        from sage.cli_core import _validate_test_claim
 
         response = "All tests are passing!"
         test_output = """
@@ -205,7 +205,7 @@ test_auth.py::test_logout PASSED
 
     def test_detect_test_success_misinterpretation(self):
         """Should detect when SAGE misinterprets test results."""
-        from sage.main import _parse_test_result_accurately
+        from sage.cli_core import _parse_test_result_accurately
 
         test_output = "===== 5 failed, 0 passed ====="
 
@@ -225,7 +225,7 @@ class TestWorkspacePathValidation:
 
     def test_reject_absolute_path_outside_workspace(self):
         """Should reject file writes to absolute paths outside workspace."""
-        from sage.main import _validate_file_path_in_workspace
+        from sage.cli_core import _validate_file_path_in_workspace
 
         workspace = Path("/home/user/project")
         file_path = Path("/etc/passwd")
@@ -236,7 +236,7 @@ class TestWorkspacePathValidation:
 
     def test_reject_path_traversal_attempt(self):
         """Should reject path traversal like '../../../etc/passwd'."""
-        from sage.main import _validate_file_path_in_workspace
+        from sage.cli_core import _validate_file_path_in_workspace
 
         workspace = Path("/home/user/project")
         file_path = Path("../../../etc/passwd")
@@ -247,7 +247,7 @@ class TestWorkspacePathValidation:
 
     def test_accept_relative_path_within_workspace(self):
         """Should accept relative paths within workspace."""
-        from sage.main import _validate_file_path_in_workspace
+        from sage.cli_core import _validate_file_path_in_workspace
 
         workspace = Path("/home/user/project")
         file_path = Path("src/auth.py")
@@ -257,7 +257,7 @@ class TestWorkspacePathValidation:
 
     def test_normalize_absolute_to_relative_path(self):
         """Should normalize absolute paths to relative when possible."""
-        from sage.main import _normalize_file_path
+        from sage.cli_core import _normalize_file_path
 
         workspace = Path("/home/user/project")
         file_path = Path("/home/user/project/src/auth.py")
@@ -299,7 +299,7 @@ class TestToolRetryEvidenceRequirement:
 
     def test_reject_retry_without_new_tool_commands(self):
         """Should reject retry responses that don't use tools."""
-        from sage.main import _validate_retry_has_evidence
+        from sage.cli_core import _validate_retry_has_evidence
 
         original_response = "READ: test.py"
         retry_response = "I think the issue is in the authentication logic."
@@ -309,7 +309,7 @@ class TestToolRetryEvidenceRequirement:
 
     def test_accept_retry_with_new_tool_usage(self):
         """Should accept retry responses that use new tools."""
-        from sage.main import _validate_retry_has_evidence
+        from sage.cli_core import _validate_retry_has_evidence
 
         original_response = "READ: test.py"
         retry_response = """
@@ -322,7 +322,7 @@ SEARCH: authentication
 
     def test_require_tool_results_before_conclusions(self):
         """Should require tool execution before making claims."""
-        from sage.main import _response_has_tool_results
+        from sage.cli_core import _response_has_tool_results
 
         response_without_results = """
 SEARCH: authentication
@@ -349,7 +349,7 @@ class TestToolCommandParserRobustness:
 
     def test_parse_indented_tool_commands(self):
         """Should parse tool commands with leading indentation."""
-        from sage.main import _extract_tool_commands_robust as _extract_tool_commands
+        from sage.cli_core import _extract_tool_commands_robust as _extract_tool_commands
 
         response = """
 Let me investigate:
@@ -364,7 +364,7 @@ Let me investigate:
 
     def test_parse_tool_commands_with_bullets(self):
         """Should parse tool commands with bullet points."""
-        from sage.main import _extract_tool_commands_robust as _extract_tool_commands
+        from sage.cli_core import _extract_tool_commands_robust as _extract_tool_commands
 
         response = """
 - READ: auth.py
@@ -376,7 +376,7 @@ Let me investigate:
 
     def test_parse_tool_commands_with_mixed_whitespace(self):
         """Should handle mixed tabs and spaces."""
-        from sage.main import _extract_tool_commands_robust as _extract_tool_commands
+        from sage.cli_core import _extract_tool_commands_robust as _extract_tool_commands
 
         response = "	READ: auth.py\n    SEARCH: login"
 
@@ -394,7 +394,7 @@ class TestListGenerationValidation:
 
     def test_reject_empty_list_with_done_claim(self):
         """Should reject empty list results claiming completion."""
-        from sage.main import _validate_list_generation_result
+        from sage.cli_core import _validate_list_generation_result
 
         response = "I've found all the relevant files. The analysis is complete."
         extracted_list = []
@@ -407,7 +407,7 @@ class TestListGenerationValidation:
 
     def test_accept_valid_non_empty_list(self):
         """Should accept non-empty list results."""
-        from sage.main import _validate_list_generation_result
+        from sage.cli_core import _validate_list_generation_result
 
         response = "Found 3 authentication files"
         extracted_list = ["auth.py", "login.py", "session.py"]
@@ -419,7 +419,7 @@ class TestListGenerationValidation:
 
     def test_detect_hallucinated_list_items(self):
         """Should detect when LLM lists files that don't exist."""
-        from sage.main import _validate_list_items_exist
+        from sage.cli_core import _validate_list_items_exist
 
         listed_files = ["auth.py", "nonexistent.py", "phantom.py"]
         workspace = Path("/tmp/test_workspace")
@@ -450,7 +450,7 @@ class TestLearningDatabaseSchemaValidation:
 
     def test_learning_db_validates_entry_schema(self):
         """Should validate learning entries against schema."""
-        from sage.main import IntelligentExecutionEngine
+        from sage.cli_core import IntelligentExecutionEngine
 
         mock_renderer = MagicMock()
         engine = IntelligentExecutionEngine(cwd=Path("/tmp"), renderer=mock_renderer)
@@ -473,7 +473,7 @@ class TestLearningDatabaseSchemaValidation:
 
     def test_learning_db_rejects_invalid_data_types(self):
         """Should reject entries with wrong data types."""
-        from sage.main import IntelligentExecutionEngine
+        from sage.cli_core import IntelligentExecutionEngine
 
         mock_renderer = MagicMock()
         engine = IntelligentExecutionEngine(cwd=Path("/tmp"), renderer=mock_renderer)
@@ -492,7 +492,7 @@ class TestLearningDatabaseSchemaValidation:
         """Should detect corrupted learning database."""
         import tempfile
 
-        from sage.main import IntelligentExecutionEngine
+        from sage.cli_core import IntelligentExecutionEngine
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write("{corrupted json content")
@@ -517,7 +517,7 @@ class TestTestOutputParsingAccuracy:
 
     def test_parse_zero_passed_as_failure(self):
         """Should parse '0 passed' as test failure, not success."""
-        from sage.main import _parse_test_output
+        from sage.cli_core import _parse_test_output
 
         test_output = "===== 5 failed, 0 passed in 2.5s ====="
 
@@ -528,7 +528,7 @@ class TestTestOutputParsingAccuracy:
 
     def test_parse_all_passed_as_success(self):
         """Should parse all tests passed as success."""
-        from sage.main import _parse_test_output
+        from sage.cli_core import _parse_test_output
 
         test_output = "===== 10 passed in 2.5s ====="
 
@@ -539,7 +539,7 @@ class TestTestOutputParsingAccuracy:
 
     def test_parse_mixed_results_as_failure(self):
         """Should parse mixed results (some passed, some failed) as failure."""
-        from sage.main import _parse_test_output
+        from sage.cli_core import _parse_test_output
 
         test_output = "===== 8 passed, 2 failed in 3.1s ====="
 
@@ -550,7 +550,7 @@ class TestTestOutputParsingAccuracy:
 
     def test_parse_pytest_verbose_output(self):
         """Should handle verbose pytest output."""
-        from sage.main import _parse_test_output
+        from sage.cli_core import _parse_test_output
 
         test_output = """
 test_auth.py::test_login PASSED
@@ -579,7 +579,7 @@ class TestExecutionBatchingPriorities:
     def test_execution_batches_high_priority_first(self):
         """Should execute high priority tasks before low priority."""
         from sage.execution import ExecutionTask, TaskPriority
-        from sage.main import IntelligentExecutionEngine
+        from sage.cli_core import IntelligentExecutionEngine
 
         mock_renderer = MagicMock()
         engine = IntelligentExecutionEngine(cwd=Path("/tmp"), renderer=mock_renderer)
@@ -614,7 +614,7 @@ class TestExecutionBatchingPriorities:
     def test_execution_batches_within_same_priority(self):
         """Should batch tasks of same priority together."""
         from sage.execution import ExecutionTask, TaskPriority
-        from sage.main import IntelligentExecutionEngine
+        from sage.cli_core import IntelligentExecutionEngine
 
         mock_renderer = MagicMock()
         engine = IntelligentExecutionEngine(cwd=Path("/tmp"), renderer=mock_renderer)
@@ -646,7 +646,7 @@ class TestContextOverflowRecovery:
 
     def test_context_overflow_preserves_file_writes(self):
         """Should preserve FILE: blocks when truncating context."""
-        from sage.main import _handle_context_overflow
+        from sage.cli_core import _handle_context_overflow
 
         context = (
             """
@@ -672,7 +672,7 @@ More context...
 
     def test_context_overflow_preserves_tool_results(self):
         """Should preserve tool command results."""
-        from sage.main import _handle_context_overflow
+        from sage.cli_core import _handle_context_overflow
 
         context = (
             """
@@ -693,7 +693,7 @@ RESULT: Found in auth.py line 42
 
     def test_context_overflow_smart_truncation(self):
         """Should use smart truncation strategy."""
-        from sage.main import _truncate_context_smartly
+        from sage.cli_core import _truncate_context_smartly
 
         messages = [
             {"role": "user", "content": "Do task 1"},
@@ -718,7 +718,7 @@ class TestModelFallbackTransparency:
 
     def test_warn_user_on_model_fallback(self):
         """Should warn user when falling back to weaker model."""
-        from sage.main import _handle_model_fallback
+        from sage.cli_core import _handle_model_fallback
 
         with patch("sage.main.renderer") as mock_renderer:
             _handle_model_fallback(
@@ -734,7 +734,7 @@ class TestModelFallbackTransparency:
 
     def test_log_model_fallback_events(self):
         """Should log all model fallback events."""
-        from sage.main import _log_model_fallback
+        from sage.cli_core import _log_model_fallback
 
         with patch("sage.main.logger") as mock_logger:
             _log_model_fallback(requested="gpt-4", actual="gpt-3.5-turbo", reason="API error")
@@ -746,7 +746,7 @@ class TestModelFallbackTransparency:
 
     def test_track_fallback_frequency(self):
         """Should track frequency of model fallbacks."""
-        from sage.main import _get_fallback_statistics
+        from sage.cli_core import _get_fallback_statistics
 
         stats = _get_fallback_statistics()
 

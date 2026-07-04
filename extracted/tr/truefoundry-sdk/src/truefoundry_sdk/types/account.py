@@ -11,9 +11,17 @@ from .subject import Subject
 
 
 class Account(UniversalBaseModel):
-    id: typing.Optional[str] = None
+    id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    System-generated account ID.
+    """
+
     tenant_name: typing_extensions.Annotated[str, FieldMetadata(alias="tenantName"), pydantic.Field(alias="tenantName")]
-    fqn: str
+    fqn: str = pydantic.Field()
+    """
+    Human-readable Fully Qualified Name of the account.
+    """
+
     manifest: typing.Dict[str, typing.Any] = pydantic.Field()
     """
     Account manifest

@@ -43,13 +43,19 @@ class PlainBufferCodedInputStream(object):
             input_stream.read_tag()
             return (string_value, cell_check_sum)
         elif column_type == VT_BLOB:
-            value_size = input_stream.read_int32() 
+            value_size = input_stream.read_int32()
             binary_value = input_stream.read_bytes(value_size)
             cell_check_sum = PlainBufferCrc8.crc_int8(cell_check_sum, VT_BLOB)
             cell_check_sum = PlainBufferCrc8.crc_int32(cell_check_sum, value_size)
-            cell_check_sum = PlainBufferCrc8.crc_string(cell_check_sum, binary_value)            
+            cell_check_sum = PlainBufferCrc8.crc_string(cell_check_sum, binary_value)
             input_stream.read_tag()
             return (bytearray(binary_value), cell_check_sum)
+        elif column_type == VT_BOOLEAN:
+            bool_value = input_stream.read_boolean()
+            cell_check_sum = PlainBufferCrc8.crc_int8(cell_check_sum, VT_BOOLEAN)
+            cell_check_sum = PlainBufferCrc8.crc_int8(cell_check_sum, bool_value)
+            input_stream.read_tag()
+            return (bool_value, cell_check_sum)
         else:
             raise OTSClientError("Unsupported primary key type:" + str(column_type))
 
@@ -258,6 +264,12 @@ class PlainBufferCodedOutputStream(object):
             self.output_stream.write_raw_little_endian32(1)
             self.output_stream.write_raw_byte(VT_AUTO_INCREMENT)
             cell_check_sum = PlainBufferCrc8.crc_int8(cell_check_sum, VT_AUTO_INCREMENT)
+        elif isinstance(value, bool):
+            self.output_stream.write_raw_little_endian32(1 + const.BOOL_SIZE)
+            self.output_stream.write_raw_byte(VT_BOOLEAN)
+            self.output_stream.write_boolean(value)
+            cell_check_sum = PlainBufferCrc8.crc_int8(cell_check_sum, VT_BOOLEAN)
+            cell_check_sum = PlainBufferCrc8.crc_int8(cell_check_sum, 1 if value else 0)
         elif isinstance(value, int):
             self.output_stream.write_raw_little_endian32(1 + const.LITTLE_ENDIAN_64_SIZE)
             self.output_stream.write_raw_byte(VT_INTEGER)
