@@ -74,8 +74,6 @@
 
 use ndarray::{Array1, Array2, ArrayView2};
 
-use faer::Side;
-use gam_linalg::faer_ndarray::FaerEigh;
 use gam_solve::inference::residual_factor::{ResidualFactorInput, StructuredResidualModel};
 use gam_solve::structure_search::StructureMove;
 
@@ -439,6 +437,32 @@ fn birth_anchor_weights(term: &SaeManifoldTerm) -> Array1<f64> {
     }
 }
 
+/// A birth-candidate seed. `decoder` is the born atom's decoder in atom-0's basis;
+/// `energy` is the chosen direction's explained variance (the reported dose). When
+/// the residual carries a genuine rank-2 (circular) structure, `circle_coords` is
+/// `Some(t)` — a PHASE-ALIGNED per-row coordinate `(n, 1)` — so the born atom is
+/// seeded directly ON a circle (harmonic decoder rows + aligned chart) rather than
+/// at the DC-row stationary point that leaves cos/sin dead (#2101). `None` is the
+/// rank-1 / shared-factor fallback: the historical row-0 (DC) seed that
+/// [`crate::structure_harvest::apply_structure_move`]'s `Birth` races the topology on.
+struct BirthSeed {
+    decoder: Array2<f64>,
+    energy: f64,
+    circle_coords: Option<Array2<f64>>,
+    /// Per-row OWN-PRESENCE gate seed for the born circle (#2109): on a row where its
+    /// 2-plane energy `ρ_i²` clears the derived noise floor `2·λ₊`, the entry is the
+    /// log signal-to-noise ratio `ln(ρ_i² / 2·λ₊)` — a routing logit derived from the
+    /// born circle's OWN presence strength, not incumbent activity. Absent rows carry
+    /// `f64::NEG_INFINITY` (the conservative birth default). `born_circle_atom` routes
+    /// each present row at the STRONGER of this own-presence gate and the incumbent
+    /// per-row logit scale, so a circle genuinely present on incumbent-SPARSE rows
+    /// (low/negative `inc_max`) still gets a gate strong enough to ESTABLISH under IBP
+    /// (the flat `BIRTH_SEED_LOGIT` starves it, and the incumbent scale is weak where
+    /// the circle actually lives). Derived from `ρ_i` + the existing `λ₊` floor, no new
+    /// constant. `None` for the rank-1 / shared-factor DC fallback.
+    circle_gate: Option<Vec<f64>>,
+}
+
 /// Lift a residual-factor direction to an `(m, p)` birth decoder in atom 0's basis:
 /// the `p`-vector direction placed on the constant (row-0) basis row, exactly the
 /// contract [`crate::structure_harvest::apply_structure_move`]'s `Birth` expects
@@ -460,7 +484,7 @@ fn top_factor_birth_decoder(
     term: &SaeManifoldTerm,
     model: &StructuredResidualModel,
     residual: ArrayView2<'_, f64>,
-) -> Option<(Array2<f64>, f64)> {
+) -> Option<BirthSeed> {
     let r = model.factor_rank();
     if r == 0 {
         return None;
@@ -470,6 +494,21 @@ fn top_factor_birth_decoder(
     let (n, p_res) = residual.dim();
     if p_res != p || n == 0 {
         return None;
+    }
+    // #2109 — MIRROR the #2101 rank-2 circle seed + presence-derived gate into the
+    // shared-factor (entangled-residual) birth path. When the residual actually
+    // carries a genuine DEGENERATE 2-plane (a real circle, not a rank-1 shared
+    // factor), seed the born atom directly ON that circle with the own-presence gate
+    // — exactly the disjoint principal path — rather than the flat row-0 DC seed that
+    // dies under IBP on incumbent-sparse rows. Only a real circle (`circle_coords`
+    // Some) is adopted; a genuine rank-1 shared factor returns a DC seed here, which
+    // we IGNORE and fall through to the anchor-scored factor pick below, so the #2080
+    // factor-selection behavior on non-circle residuals is unchanged. The circle
+    // detection + its noise floor are derived from the SAME residual, no new constant.
+    if let Some(circle) = residual_principal_birth_candidate(term, residual) {
+        if circle.circle_coords.is_some() {
+            return Some(circle);
+        }
     }
     let anchor_w = birth_anchor_weights(term);
     let anchor_total: f64 = anchor_w.iter().sum();
@@ -522,7 +561,15 @@ fn top_factor_birth_decoder(
     for out in 0..p {
         decoder[[0, out]] = factor[[out, chosen]];
     }
-    Some((decoder, energy))
+    // Genuine rank-1 shared factor: keep the historical row-0 (DC) seed + topology
+    // race. (A degenerate 2-plane circle in this residual was already caught and
+    // returned as a rank-2 circle seed by the #2109 mirror at the top of this fn.)
+    Some(BirthSeed {
+        decoder,
+        energy,
+        circle_coords: None,
+        circle_gate: None,
+    })
 }
 
 /// #2080 DISJOINT-extraction fallback birth candidate. [`StructuredResidualModel`]
@@ -555,63 +602,26 @@ fn top_factor_birth_decoder(
 fn residual_principal_birth_candidate(
     term: &SaeManifoldTerm,
     residual: ArrayView2<'_, f64>,
-) -> Option<(Array2<f64>, f64)> {
+) -> Option<BirthSeed> {
     let (n, p) = residual.dim();
     if n < 2 || p == 0 || term.atoms.is_empty() {
         return None;
     }
-    // Column-centered residual second moment S = (1/n) R_cᵀ R_c (p×p).
-    let mut mean = Array1::<f64>::zeros(p);
-    for row in 0..n {
-        for j in 0..p {
-            mean[j] += residual[[row, j]];
-        }
-    }
-    mean.mapv_inplace(|v| v / n as f64);
-    let mut s = Array2::<f64>::zeros((p, p));
-    for row in 0..n {
-        for a in 0..p {
-            let ra = residual[[row, a]] - mean[a];
-            for b in 0..p {
-                s[[a, b]] += ra * (residual[[row, b]] - mean[b]);
-            }
-        }
-    }
-    s.mapv_inplace(|v| v / n as f64);
-    let (evals, evecs) = s.eigh(Side::Lower).ok()?; // ascending eigenvalues
-    if evals.is_empty() {
-        return None;
-    }
-    // Derived Marchenko–Pastur noise floor. `σ̂²` is the MEDIAN eigenvalue — a robust
-    // noise-scale estimate that sits in the noise bulk whenever the signal directions
-    // are a minority (the disjoint-recovery regime), unbiased by the strong signal
-    // eigenvalues. `λ₊ = σ̂²·(1+√(p/n))²` is the analytic top edge of the MP law, the
-    // largest eigenvalue white noise at aspect `p/n` produces; a direction above it is
-    // real structure, not a noise fluctuation.
-    let mut ascending: Vec<f64> = evals.iter().copied().collect();
-    ascending.sort_by(|a, b| a.total_cmp(b));
-    let mid = ascending.len() / 2;
-    let sigma2 = if ascending.len() % 2 == 1 {
-        ascending[mid]
-    } else {
-        0.5 * (ascending[mid - 1] + ascending[mid])
-    }
-    .max(f64::MIN_POSITIVE);
-    let gamma = p as f64 / n as f64;
-    let mp_edge = sigma2 * (1.0 + gamma.sqrt()).powi(2);
-    // Above-floor principal directions, strongest first.
-    let mut above: Vec<usize> = (0..evals.len()).filter(|&k| evals[k] > mp_edge).collect();
-    above.sort_by(|&a, &b| evals[b].total_cmp(&evals[a]));
-    if above.is_empty() {
-        return None; // residual is noise ⇒ stop growing (the derived-floor stop)
-    }
+    // Residual eigenstructure + the derived Marchenko-Pastur floor context,
+    // computed by the shared ISA producer module (`isa_seed::isa_eigen_parts`):
+    // the median-eigenvalue noise scale, the analytic MP top edge
+    // `lambda_plus = sigma^2 (1 + sqrt(p/n))^2`, the above-floor index set, and the
+    // bottom-quartile certificate noise scale. `None` means no direction clears
+    // the floor: the residual is noise and the forward-birth phase stops (the
+    // derived-floor stop, not `factor_rank == 0`).
+    let parts = isa_eigen_parts(residual).ok()??;
     // Anchor-score the above-floor directions exactly like the factor path.
     let anchor_w = birth_anchor_weights(term);
-    let mut best = above[0];
+    let mut best = parts.above[0];
     if anchor_w.iter().sum::<f64>() > 0.0 {
         let mut best_score = f64::NEG_INFINITY;
-        for &k in &above {
-            let col = evecs.column(k); // unit-norm eigenvector
+        for &k in &parts.above {
+            let col = parts.evecs.column(k); // unit-norm eigenvector
             let mut num = 0.0_f64;
             let mut den = 0.0_f64;
             for i in 0..n {
@@ -632,20 +642,63 @@ fn residual_principal_birth_candidate(
             }
         }
     }
-    let energy = evals[best].max(0.0);
+    let energy = parts.evals[best].max(0.0);
     if !(energy > 0.0) {
         return None;
     }
-    // Lift to a birth decoder: the principal p-direction scaled by its amplitude
-    // √λ on the constant (row-0) basis row (matches top_factor_birth_decoder's
-    // energy-scaled convention, so the reported dose is the direction's variance).
-    let amp = energy.sqrt();
     let m = term.atoms[0].basis_size();
+
+    // #2101 / #2111 CIRCLE SEED via the ISA deflationary producer. A disjoint
+    // circle occupies a rank-2 PLANE (its cos/sin axes carry ~equal variance),
+    // so the residual's dominant structure is a 2-plane, not one direction; and
+    // on a DENSE product-of-circles residual whitening exhausts second order,
+    // so eigenvector pairing returns Davis-Kahan BLENDS across circles (the
+    // K >= 2 co-collapse). The identifying signal blends cannot mimic is FOURTH
+    // order: `isa_extract_certified_plane` whitens the above-floor subspace,
+    // runs multistart 2-plane Jacobi rotations maximizing the independence
+    // contrast `(kappa - 2)^2` (dense clean circle kappa ~ 1, gated circle 1/q,
+    // Gaussian blend exactly 2), and accepts only on the analytic-anchor
+    // certificate — see `isa_seed` for the math and derivations. ONE clean
+    // circle per birth; the stagewise fit+subtract loop is the deflation
+    // (deflate-by-fitted-curve, which is what refitting on the new residual
+    // does). A residual carrying only blends/saddles certifies nothing and
+    // falls through to the rank-1 seed (no hallucinated circle birth).
+    let template_is_circle =
+        matches!(term.atoms[0].basis_kind, SaeAtomBasisKind::Periodic) && m >= 3;
+    if template_is_circle && parts.above.len() >= 2 {
+        if let Some(cand) =
+            isa_extract_certified_plane(residual, &parts, &IsaSeedConfig::default())
+        {
+            // Decoder on the cos/sin harmonic rows at the LS harmonic
+            // amplitudes; phase chart + own-presence gate carried through
+            // unchanged (the #2109 contract).
+            let mut decoder = Array2::<f64>::zeros((m, p));
+            for j in 0..p {
+                decoder[[1, j]] = cand.amplitudes[0] * cand.basis[[j, 0]];
+                decoder[[2, j]] = cand.amplitudes[1] * cand.basis[[j, 1]];
+            }
+            return Some(BirthSeed {
+                decoder,
+                energy,
+                circle_coords: Some(cand.phases_turns),
+                circle_gate: Some(cand.gate_logits),
+            });
+        }
+    }
+
+    // Rank-1 fallback (a genuine line, a partially-extracted circle, or a
+    // non-periodic template): keep the historical row-0 (DC) seed + topology race.
+    let amp = energy.sqrt();
     let mut decoder = Array2::<f64>::zeros((m, p));
     for j in 0..p {
-        decoder[[0, j]] = amp * evecs[[j, best]];
+        decoder[[0, j]] = amp * parts.evecs[[j, best]];
     }
-    Some((decoder, energy))
+    Some(BirthSeed {
+        decoder,
+        energy,
+        circle_coords: None,
+        circle_gate: None,
+    })
 }
 
 /// Refit a SINGLE atom `k` in place on its leave-one-atom-out partial residual —
@@ -897,12 +950,12 @@ pub fn fit_stagewise(
         // noise floor inside the fallback is now the stop criterion (residual is noise
         // ⇒ `None` ⇒ stop), not `factor_rank == 0`; the evidence gate below stays the
         // birth-or-stop quality control, so a variance-seeded candidate is safe.
-        let Some((birth_decoder, factor_energy)) =
-            top_factor_birth_decoder(&term, &model, residual.view())
-                .or_else(|| residual_principal_birth_candidate(&term, residual.view()))
+        let Some(seed) = top_factor_birth_decoder(&term, &model, residual.view())
+            .or_else(|| residual_principal_birth_candidate(&term, residual.view()))
         else {
             break StagewiseStop::NoResidualStructure;
         };
+        let factor_energy = seed.energy;
         if config.structured_whitening {
             // Install Σ^{-1} as the per-row whitened metric (carried into clones).
             term.set_row_metric(model.row_metric(n)?)?;
@@ -995,29 +1048,44 @@ pub fn fit_stagewise(
                 rho: &rho,
             },
         )?;
-        let mut cand_a = apply_structure_move(
-            &term,
-            &rho,
-            &StructureMove::Birth { candidate: 0 },
-            std::slice::from_ref(&birth_decoder),
-        )
-        .and_then(|(mut cand_term, mut cand_rho)| {
-            cand_term.set_guards_enabled(false);
-            let born = cand_term.k_atoms() - 1;
-            fit_single_atom_response_in_place(
-                &mut cand_term,
-                &mut cand_rho,
-                born,
-                residual.view(),
-                registry,
-                config,
-            )?;
-            let (reml, _) =
-                frozen_joint_evidence(&mut cand_term, target, &cand_rho, registry, config)?;
-            let ev = ev_of(&cand_term, target);
-            Ok((cand_term, cand_rho, reml, ev))
-        })
-        .ok();
+        // #2101: a circle seed (rank-2 2-plane + phase-aligned coordinate) is built
+        // DIRECTLY as a Periodic atom — bypassing the topology race, which
+        // parameterizes the born circle with the TEMPLATE's coordinate (the wrong
+        // phase for a fresh disjoint circle). The rank-1 / shared-factor fallback
+        // keeps the historical DC-row seed + race.
+        let born_move = match &seed.circle_coords {
+            Some(coords) => crate::structure_harvest::born_circle_atom(
+                &term,
+                &rho,
+                seed.decoder.clone(),
+                coords.clone(),
+                seed.circle_gate.clone().unwrap_or_else(|| vec![0.0; n]),
+            ),
+            None => apply_structure_move(
+                &term,
+                &rho,
+                &StructureMove::Birth { candidate: 0 },
+                std::slice::from_ref(&seed.decoder),
+            ),
+        };
+        let mut cand_a = born_move
+            .and_then(|(mut cand_term, mut cand_rho)| {
+                cand_term.set_guards_enabled(false);
+                let born = cand_term.k_atoms() - 1;
+                fit_single_atom_response_in_place(
+                    &mut cand_term,
+                    &mut cand_rho,
+                    born,
+                    residual.view(),
+                    registry,
+                    config,
+                )?;
+                let (reml, _) =
+                    frozen_joint_evidence(&mut cand_term, target, &cand_rho, registry, config)?;
+                let ev = ev_of(&cand_term, target);
+                Ok((cand_term, cand_rho, reml, ev))
+            })
+            .ok();
         if let Some((cand_term, cand_rho, reml, ev)) = cand_a.as_ref() {
             emit_stagewise_progress(
                 &mut progress,
@@ -1720,8 +1788,9 @@ mod tests {
             act[0],
             act[n - 1]
         );
-        let (decoder, _energy) =
-            top_factor_birth_decoder(&contrast_term, &model, residual.view()).unwrap();
+        let decoder = top_factor_birth_decoder(&contrast_term, &model, residual.view())
+            .unwrap()
+            .decoder;
         // Chosen p-direction sits on the constant (row-0) basis row.
         let pick_strong = decoder[[0, 0]].hypot(decoder[[0, 1]]); // contested dA (0,1)
         let pick_anchor = decoder[[0, 2]].hypot(decoder[[0, 3]]); // uncontested dB (2,3)
@@ -1734,8 +1803,9 @@ mod tests {
         // FALLBACK: uniform routing ⇒ no anchor contrast ⇒ dominant-energy column 0
         // (channel 0, the higher-variance planted factor).
         let uniform_term = build_ibp(&|_| 0.5);
-        let (decoder_u, _e) =
-            top_factor_birth_decoder(&uniform_term, &model, residual.view()).unwrap();
+        let decoder_u = top_factor_birth_decoder(&uniform_term, &model, residual.view())
+            .unwrap()
+            .decoder;
         let u_strong = decoder_u[[0, 0]].hypot(decoder_u[[0, 1]]);
         let u_anchor = decoder_u[[0, 2]].hypot(decoder_u[[0, 3]]);
         assert!(
@@ -1781,12 +1851,19 @@ mod tests {
                 residual[[i, j]] += 0.03 * rng();
             }
         }
-        let got = residual_principal_birth_candidate(&term, residual.view());
-        let (decoder, energy) = got.expect(
+        let seed = residual_principal_birth_candidate(&term, residual.view()).expect(
             "disjoint block-diagonal residual must yield a fallback candidate \
              (structure above the derived MP noise floor)",
         );
+        let (decoder, energy) = (seed.decoder, seed.energy);
         assert!(energy > 0.0 && energy.is_finite());
+        // Two UNEQUAL independent signals (var 4 vs 2.25) are NOT a circle — the
+        // eigenvalue-degeneracy gate rejects the 2-plane, so this exercises the
+        // rank-1 row-0 fallback (circle_coords None, direction on the constant row).
+        assert!(
+            seed.circle_coords.is_none(),
+            "unequal independent signals must NOT be seeded as a circle"
+        );
         // The chosen direction must be a real signal direction (mass on channels 0-3),
         // not a noise channel.
         let sig_mass: f64 = (0..4).map(|j| decoder[[0, j]].powi(2)).sum();
@@ -1807,6 +1884,491 @@ mod tests {
         assert!(
             residual_principal_birth_candidate(&term, noise.view()).is_none(),
             "pure-noise residual must be below the derived MP floor ⇒ no candidate (stop)"
+        );
+    }
+
+    /// #2101 RECOVERY GUARD — a genuine disjoint CIRCLE residual must be seeded as a
+    /// rank-2 circle: the 2-plane on the cos/sin HARMONIC rows (NOT the DC row-0), a
+    /// phase-aligned coordinate that SPANS and recovers the planted angle up to gauge.
+    /// This is the birth-seed fix that breaks the DC stationary point (#2101); the
+    /// old row-0 seed produced a constant (cos/sin dead) and this asserts against it.
+    #[test]
+    fn residual_principal_seeds_circle_as_rank2_not_dc_2101() {
+        let n = 240usize;
+        let p = 8usize;
+        let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
+        let coords = Array2::<f64>::from_shape_fn((n, 1), |(row, _)| row as f64 / n as f64);
+        let (atom0, cb0) = circle_atom("t0", &evaluator, &coords, 0, 1, p);
+        let (term, _rho) = build_term(vec![atom0], vec![cb0], &vec![vec![true]; n]);
+
+        // A real circle on channels (2,3): equal-variance cos/sin axes + tiny noise.
+        let mut state = 0x5EED_2101_u64;
+        let mut rng = || {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            ((state >> 33) as f64) / ((1u64 << 31) as f64)
+        };
+        let mut residual = Array2::<f64>::zeros((n, p));
+        let mut planted = vec![0.0_f64; n];
+        for i in 0..n {
+            let theta = std::f64::consts::TAU * rng();
+            planted[i] = theta;
+            residual[[i, 2]] = theta.cos();
+            residual[[i, 3]] = theta.sin();
+            for j in 0..p {
+                residual[[i, j]] += 0.02 * (rng() - 0.5);
+            }
+        }
+        let seed = residual_principal_birth_candidate(&term, residual.view())
+            .expect("a real circle residual must yield a birth candidate");
+        let born_coords = seed.circle_coords.clone().expect(
+            "a circle residual must be seeded as a rank-2 CIRCLE (circle_coords Some), \
+             not a DC direction",
+        );
+
+        // Harmonic (cos/sin) rows carry the mass; the DC row-0 is ~0.
+        let dc: f64 = (0..p)
+            .map(|j| seed.decoder[[0, j]].powi(2))
+            .sum::<f64>()
+            .sqrt();
+        let harm: f64 = (0..p)
+            .map(|j| seed.decoder[[1, j]].powi(2) + seed.decoder[[2, j]].powi(2))
+            .sum::<f64>()
+            .sqrt();
+        assert!(
+            harm > 10.0 * dc.max(1e-9),
+            "circle seed must put mass on the cos/sin rows, not the DC row: harm={harm:.3} dc={dc:.3}"
+        );
+        // The 2-plane must land on the planted channels (2,3), not elsewhere.
+        let on_plane: f64 = [2usize, 3]
+            .iter()
+            .map(|&j| seed.decoder[[1, j]].powi(2) + seed.decoder[[2, j]].powi(2))
+            .sum();
+        let off_plane: f64 = (0..p)
+            .filter(|&j| j != 2 && j != 3)
+            .map(|j| seed.decoder[[1, j]].powi(2) + seed.decoder[[2, j]].powi(2))
+            .sum();
+        assert!(
+            on_plane > off_plane,
+            "circle seed 2-plane must land on the planted channels (2,3): on={on_plane:.3} off={off_plane:.3}"
+        );
+
+        // The phase-aligned coordinate SPANS (breaks the DC stationary point).
+        let cmin = born_coords.iter().copied().fold(f64::INFINITY, f64::min);
+        let cmax = born_coords
+            .iter()
+            .copied()
+            .fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            cmax - cmin > 0.5,
+            "seeded coordinate must span the circle (breaks the stationary point); range={:.3}",
+            cmax - cmin
+        );
+        // ...and recovers the planted angle up to gauge (reflection ± + phase). Score
+        // the best-aligned circular RMSE over both reflections.
+        let mut best_rmse = f64::INFINITY;
+        for &sign in &[1.0_f64, -1.0] {
+            let (mut cs, mut sn) = (0.0_f64, 0.0_f64);
+            for i in 0..n {
+                let r = std::f64::consts::TAU * born_coords[[i, 0]] - sign * planted[i];
+                cs += r.cos();
+                sn += r.sin();
+            }
+            let phase = sn.atan2(cs);
+            let mut sse = 0.0_f64;
+            for i in 0..n {
+                let mut e =
+                    (std::f64::consts::TAU * born_coords[[i, 0]] - sign * planted[i] - phase)
+                        .rem_euclid(std::f64::consts::TAU);
+                if e > std::f64::consts::PI {
+                    e -= std::f64::consts::TAU;
+                }
+                sse += e * e;
+            }
+            best_rmse = best_rmse.min((sse / n as f64).sqrt());
+        }
+        assert!(
+            best_rmse < 0.15,
+            "seeded coordinate must recover the planted circle phase up to gauge; \
+             gauge-aligned circular RMSE = {best_rmse:.3} rad"
+        );
+    }
+
+    /// #2111 κ-NULL CERTIFICATE — the born-circle producer must REJECT a blended 2-plane.
+    /// Positive control: a clean single circle is seeded as a rank-2 circle (`circle_coords`
+    /// Some). Null: TWO independent circles superimposed on the SAME output 2-plane form a
+    /// genuine BLEND (`radius² = 2 + 2cos Δ` for independent angles ⇒ `κ = 3/2`, not a
+    /// constant-radius circle) — the κ-null certificate must refuse to seed it as a clean
+    /// circle and fall through to the rank-1 seed (`circle_coords` None). This is exactly the
+    /// case a flat κ cutoff would miss (a two-circle blend sits at `κ = 5/4`, far below the
+    /// CLT value 2) but the analytic-anchor midpoint gate catches.
+    #[test]
+    fn certificate_rejects_two_circle_blend_2111() {
+        let n = 400usize;
+        let p = 8usize;
+        let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
+        let coords = Array2::<f64>::from_shape_fn((n, 1), |(row, _)| row as f64 / n as f64);
+        let (atom0, cb0) = circle_atom("t0", &evaluator, &coords, 0, 1, p);
+        let (term, _rho) = build_term(vec![atom0], vec![cb0], &vec![vec![true]; n]);
+
+        let mut state = 0x2111_B1E4_u64;
+        let mut rng = || {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            ((state >> 11) as f64) / ((1u64 << 53) as f64)
+        };
+
+        // Positive control: a clean single circle on channels (2, 3) — must seed a circle.
+        let mut clean = Array2::<f64>::zeros((n, p));
+        for i in 0..n {
+            let th = std::f64::consts::TAU * rng();
+            clean[[i, 2]] = th.cos();
+            clean[[i, 3]] = th.sin();
+            for j in 0..p {
+                clean[[i, j]] += 0.02 * (rng() - 0.5);
+            }
+        }
+        let clean_seed = residual_principal_birth_candidate(&term, clean.view())
+            .expect("clean circle must yield a birth candidate");
+        assert!(
+            clean_seed.circle_coords.is_some(),
+            "positive control: a clean single circle must be seeded as a rank-2 circle"
+        );
+
+        // Null: two INDEPENDENT circles on the SAME 2-plane (channels 0, 1). The plane's
+        // radius is not constant (κ ≈ 3/2), so no clean circle lives in it.
+        let mut blend = Array2::<f64>::zeros((n, p));
+        for i in 0..n {
+            let a = std::f64::consts::TAU * rng();
+            let b = std::f64::consts::TAU * rng();
+            blend[[i, 0]] = a.cos() + b.cos();
+            blend[[i, 1]] = a.sin() + b.sin();
+            for j in 0..p {
+                blend[[i, j]] += 0.02 * (rng() - 0.5);
+            }
+        }
+        let blend_seed = residual_principal_birth_candidate(&term, blend.view())
+            .expect("blend residual still yields a (rank-1) birth candidate");
+        assert!(
+            blend_seed.circle_coords.is_none(),
+            "κ-null certificate must REJECT the two-circle blend (κ≈1.5 > analytic-anchor \
+             gate) and fall through to the rank-1 seed, not born it as a clean circle"
+        );
+    }
+
+    /// #2111 κ-DEFLATION extraction on the DENSE torus — the load-bearing case (d > 2). A
+    /// residual carrying ALL SIX circles (dense product-of-circles, the regime where
+    /// eigenvector pairing returns a Davis–Kahan blend) must yield ONE CLEAN circle: the
+    /// born 2-plane concentrates on a single true circle's channels (2c, 2c+1) — max
+    /// energy-fraction ≫ the second circle's. This is the Rust mirror of the prototype's
+    /// 6/6 @ overlap 0.999 at n ≥ 300 (#2111); n = 320 puts the 4th-order stats out of the
+    /// small-sample floor.
+    #[test]
+    fn kappa_deflation_extracts_clean_circle_from_dense_torus_2111() {
+        let n = 320usize;
+        let p = 16usize;
+        let ncirc = 6usize;
+        let amps: Vec<f64> = (0..ncirc)
+            .map(|c| 1.0 - 0.45 * (c as f64) / ((ncirc - 1) as f64))
+            .collect();
+        let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
+        let coords = Array2::<f64>::from_shape_fn((n, 1), |(row, _)| row as f64 / n as f64);
+        let (atom0, cb0) = circle_atom("t0", &evaluator, &coords, 0, 1, p);
+        let (term, _rho) = build_term(vec![atom0], vec![cb0], &vec![vec![true]; n]);
+
+        let mut s = 0x2111_D0BE_u64;
+        let mut rng = || {
+            s = s
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            ((s >> 11) as f64) / ((1u64 << 53) as f64)
+        };
+        let mut residual = Array2::<f64>::zeros((n, p));
+        for i in 0..n {
+            for c in 0..ncirc {
+                let th = std::f64::consts::TAU * rng();
+                residual[[i, 2 * c]] += amps[c] * th.cos();
+                residual[[i, 2 * c + 1]] += amps[c] * th.sin();
+            }
+            for j in 0..p {
+                residual[[i, j]] += 0.05 * (rng() - 0.5);
+            }
+        }
+
+        let seed = residual_principal_birth_candidate(&term, residual.view())
+            .expect("dense torus must yield a birth candidate");
+        let dec =
+            seed.circle_coords.as_ref().map(|_| &seed.decoder).expect(
+                "dense torus must be seeded as a CLEAN rank-2 circle (κ-deflation), not DC",
+            );
+
+        // Per-circle energy fraction of the born 2-plane (cos/sin rows on channels 2c,2c+1).
+        let total: f64 = (0..p)
+            .map(|j| dec[[1, j]].powi(2) + dec[[2, j]].powi(2))
+            .sum();
+        assert!(total > 0.0, "born plane must carry mass");
+        let mut fracs: Vec<f64> = (0..ncirc)
+            .map(|c| {
+                let e = dec[[1, 2 * c]].powi(2)
+                    + dec[[2, 2 * c]].powi(2)
+                    + dec[[1, 2 * c + 1]].powi(2)
+                    + dec[[2, 2 * c + 1]].powi(2);
+                e / total
+            })
+            .collect();
+        fracs.sort_by(|a, b| b.total_cmp(a));
+        assert!(
+            fracs[0] > 0.80 && fracs[1] < 0.20,
+            "κ-deflation must isolate ONE clean circle from the dense torus: top channel-pair \
+             energy fraction {:.3} (want > 0.80), second {:.3} (want < 0.20) — a blended plane \
+             would spread across circles",
+            fracs[0],
+            fracs[1]
+        );
+    }
+
+    /// #2109 — a born circle PRESENT on incumbent-SPARSE rows must SURVIVE. The
+    /// #2101 fix routed the born gate at the incumbent per-row logit scale
+    /// (`inc_max`), which is low/negative exactly where an incumbent-sparse circle
+    /// lives, so the born circle re-collapses under IBP (the #3 starvation
+    /// resurfacing at scale). The #2109 fix routes each present row at the STRONGER
+    /// of `inc_max` and the born circle's OWN presence gate `ln(ρ_i²/2·λ₊)`, so the
+    /// circle keeps a strong gate where the incumbents do not cover it. This test
+    /// FAILS with the `inc_max`-only gate (the born logit on the circle's rows is the
+    /// incumbent's very-negative `inc_max`, and the K=1 IBP sub-fit collapses ‖B‖ to
+    /// ~1e-4) and PASSES with the own-presence gate.
+    #[test]
+    fn born_circle_survives_on_incumbent_sparse_rows_2109() {
+        let n = 160usize;
+        let p = 8usize;
+        let h = n / 2; // rows [0,h): incumbent-active, NO circle. [h,n): the circle.
+        let mut state = 0x2109_5A17_0000_0001u64;
+        let mut rng = || {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            ((state >> 33) as f64) / ((1u64 << 31) as f64)
+        };
+        // Residual: a real circle on channels (0,1) with UNIFORM (deterministic) phase
+        // so its cos/sin axes carry EXACTLY equal population variance (a robustly
+        // DEGENERATE 2-plane the seed detector accepts), present ONLY on the incumbent-
+        // SPARSE rows [h,n); rows [0,h) carry no circle, only tiny isotropic noise.
+        let m = n - h;
+        let mut residual = Array2::<f64>::zeros((n, p));
+        for i in 0..n {
+            if i >= h {
+                let theta = std::f64::consts::TAU * ((i - h) as f64) / m as f64;
+                residual[[i, 0]] = theta.cos();
+                residual[[i, 1]] = theta.sin();
+            }
+            for j in 0..p {
+                residual[[i, j]] += 0.02 * (rng() - 0.5);
+            }
+        }
+
+        // Incumbent K=1 IBP term: one circle atom on channels (4,5), co-present on
+        // [0,h) (high logit) and INACTIVE on [h,n) (very negative logit) — so `inc_max`
+        // is deeply negative exactly where the born circle lives.
+        let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
+        let coords = Array2::<f64>::from_shape_fn((n, 1), |(row, _)| row as f64 / n as f64);
+        let (inc_atom, inc_cb) = circle_atom("inc", &evaluator, &coords, 4, 5, p);
+        let mut inc_logits = Array2::<f64>::zeros((n, 1));
+        for row in 0..n {
+            inc_logits[[row, 0]] = if row < h { 4.0 } else { -6.0 };
+        }
+        let inc_assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            inc_logits,
+            vec![inc_cb],
+            vec![LatentManifold::Circle { period: 1.0 }],
+            AssignmentMode::ibp_map(0.7, 1.0, false),
+        )
+        .unwrap();
+        let mut term = SaeManifoldTerm::new(vec![inc_atom], inc_assignment).unwrap();
+        term.set_guards_enabled(false);
+        let rho = SaeManifoldRho::new(0.0, 0.0, vec![Array1::<f64>::zeros(1)]);
+
+        // The disjoint principal path seeds the circle with the OWN-presence gate.
+        let seed = residual_principal_birth_candidate(&term, residual.view())
+            .expect("an incumbent-sparse circle must still yield a birth candidate");
+        let born_coords = seed
+            .circle_coords
+            .clone()
+            .expect("residual must be seeded as a rank-2 circle");
+        let gate = seed
+            .circle_gate
+            .clone()
+            .expect("a circle seed must carry the own-presence gate");
+        // Presence is detected on the circle's rows [h,n) (finite gate), not [0,h).
+        let present_on_circle = (h..n).filter(|&i| gate[i].is_finite()).count();
+        let present_off_circle = (0..h).filter(|&i| gate[i].is_finite()).count();
+        assert!(
+            present_on_circle > (n - h) / 2 && present_off_circle < h / 4,
+            "own-presence must fire on the circle's rows, not the empty ones: \
+             on={present_on_circle}/{} off={present_off_circle}/{h}",
+            n - h
+        );
+
+        // Build the born atom and read its seeded gate column BEFORE the sub-fit.
+        let (child, mut child_rho) = crate::structure_harvest::born_circle_atom(
+            &term,
+            &rho,
+            seed.decoder.clone(),
+            born_coords,
+            gate,
+        )
+        .expect("born_circle_atom");
+        let born = child.k_atoms() - 1;
+        // DETERMINISTIC gate guard: on the circle's rows the born logit must be routed
+        // at the STRONG own-presence gate (≫0), NOT the incumbent's deeply-negative
+        // inc_max (−6). This is the exact discriminator: `inc_max`-only would seed −6.
+        let mut min_born_logit_on_circle = f64::INFINITY;
+        for row in h..n {
+            min_born_logit_on_circle =
+                min_born_logit_on_circle.min(child.assignment.logits[[row, born]]);
+        }
+        assert!(
+            min_born_logit_on_circle > 1.0,
+            "born circle on incumbent-sparse rows must seed a STRONG own-presence gate \
+             (>1), not the incumbent's negative inc_max (−6); got min={min_born_logit_on_circle:.3}"
+        );
+
+        // BEHAVIORAL guard: the K=1 IBP birth sub-fit must keep the born circle
+        // ESTABLISHED — ‖B‖ stays O(1) rather than collapsing to ~1e-4.
+        let config = StagewiseConfig {
+            inner_max_iter: 40,
+            learning_rate: 1.0,
+            ridge_ext_coord: 1e-6,
+            ridge_beta: 1e-6,
+            max_births: 1,
+            max_backfit_sweeps: 1,
+            min_effect_ev: 0.0,
+            max_factor_rank: 3,
+            structured_whitening: false,
+        };
+        let mut child = child;
+        fit_single_atom_response_in_place(
+            &mut child,
+            &mut child_rho,
+            born,
+            residual.view(),
+            None,
+            &config,
+        )
+        .expect("K=1 born-circle sub-fit must complete");
+        let born_norm = child.atoms[born]
+            .decoder_coefficients
+            .iter()
+            .map(|v| v * v)
+            .sum::<f64>()
+            .sqrt();
+        assert!(
+            born_norm.is_finite() && born_norm > 0.3,
+            "born circle must SURVIVE the IBP sub-fit on incumbent-sparse rows \
+             (‖B‖ O(1)); got ‖B‖={born_norm:.3e} (a collapse to ~1e-4 is the #2109 bug)"
+        );
+    }
+
+    /// #2109 — the shared-factor / ENTANGLED birth path must MIRROR the #2101 rank-2
+    /// circle seed. When the entangled residual (a genuine shared factor makes the
+    /// model rank ≥ 1, so `top_factor_birth_decoder` is the primary path) ALSO carries
+    /// a degenerate 2-plane circle, the born atom must be seeded ON that circle (cos/sin
+    /// harmonic rows + phase coordinate + own-presence gate), not the flat row-0 DC seed
+    /// that dies under IBP. A genuine rank-1 shared factor still gets the DC seed.
+    #[test]
+    fn top_factor_birth_mirrors_circle_seed_2109() {
+        use gam_solve::inference::residual_factor::{ResidualFactorInput, StructuredResidualModel};
+        let n = 200usize;
+        let p = 8usize;
+        // Residual = an ENTANGLED (shared-factor) circle: its cos axis loads on the
+        // CORRELATED channel pair (0,1) and its sin axis on the CORRELATED pair (2,3),
+        // so the structured factor model reads a genuine rank-2 SHARED factor (off-
+        // diagonal correlation ⇒ `top_factor_birth_decoder` is the active path, the
+        // entangled regime) — while the two equal-variance axes (uniform phase) form a
+        // degenerate 2-plane the #2109 mirror must detect and seed as a circle, not the
+        // flat row-0 DC factor seed that dies under IBP on incumbent-sparse rows.
+        let mut residual = Array2::<f64>::zeros((n, p));
+        for i in 0..n {
+            let theta = std::f64::consts::TAU * (i as f64) / n as f64;
+            let (c, s) = (theta.cos(), theta.sin());
+            // The circle's cos axis loads on channels (0,1) and its sin axis on (2,3),
+            // so each axis is a CORRELATED 2-channel direction (cov(0,1)=cov(2,3)=½ ≠ 0)
+            // — the structured factor model reads the residual as a genuine rank-2
+            // SHARED factor (`top_factor_birth_decoder` is the active path, the entangled
+            // regime). Yet the two axes carry EQUAL variance (uniform phase ⇒ exactly
+            // degenerate), so it is also a 2-plane circle the #2109 mirror must detect.
+            residual[[i, 0]] = c;
+            residual[[i, 1]] = c;
+            residual[[i, 2]] = s;
+            residual[[i, 3]] = s;
+            for j in 0..p {
+                residual[[i, j]] += 0.02 * ((i * 7 + j * 5) as f64).sin();
+            }
+        }
+
+        let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
+        let coords = Array2::<f64>::from_shape_fn((n, 1), |(row, _)| row as f64 / n as f64);
+        let (atom0, cb0) = circle_atom("t0", &evaluator, &coords, 0, 1, p);
+        // Uniform routing (matches the proven factor-detection regime): the mirror fires
+        // on the degenerate 2-plane before the anchor scoring, independent of contrast.
+        let logits = Array2::<f64>::from_elem((n, 1), 0.5);
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            logits,
+            vec![cb0],
+            vec![LatentManifold::Circle { period: 1.0 }],
+            AssignmentMode::ibp_map(0.7, 1.0, false),
+        )
+        .unwrap();
+        let term = SaeManifoldTerm::new(vec![atom0], assignment).unwrap();
+
+        let activity = activity_of(&term);
+        let model = StructuredResidualModel::fit(ResidualFactorInput {
+            residuals: residual.view(),
+            activity: activity.view(),
+            max_factor_rank: 2,
+        })
+        .unwrap();
+        assert!(
+            model.factor_rank() >= 1,
+            "the correlated cos/sin axes must make the factor model rank ≥ 1 so \
+             top_factor_birth_decoder is the active path; got rank {}",
+            model.factor_rank()
+        );
+
+        let seed = top_factor_birth_decoder(&term, &model, residual.view())
+            .expect("the entangled path must yield a birth seed");
+        // MIRROR: the entangled path now seeds a rank-2 CIRCLE, not a DC row.
+        assert!(
+            seed.circle_coords.is_some(),
+            "top_factor_birth_decoder must MIRROR the #2101 circle seed on a degenerate \
+             2-plane residual (circle_coords Some), not the flat DC seed"
+        );
+        let gate = seed
+            .circle_gate
+            .clone()
+            .expect("the mirrored circle seed must carry the own-presence gate");
+        assert!(
+            gate.iter().filter(|g| g.is_finite()).count() > n / 2,
+            "the mirrored circle must mark its present rows with a finite own-presence gate"
+        );
+        // The 2-plane must land on the planted circle channels (0,1,2,3), on the cos/sin
+        // harmonic rows — the hallmark of the rank-2 seed vs the DC row-0 seed.
+        let dc: f64 = (0..p)
+            .map(|j| seed.decoder[[0, j]].powi(2))
+            .sum::<f64>()
+            .sqrt();
+        let harm_on: f64 = [0usize, 1, 2, 3]
+            .iter()
+            .map(|&j| seed.decoder[[1, j]].powi(2) + seed.decoder[[2, j]].powi(2))
+            .sum();
+        let harm_off: f64 = (4..p)
+            .map(|j| seed.decoder[[1, j]].powi(2) + seed.decoder[[2, j]].powi(2))
+            .sum();
+        assert!(
+            harm_on > harm_off && harm_on.sqrt() > 10.0 * dc.max(1e-9),
+            "mirrored circle seed must put its 2-plane on the cos/sin rows of channels \
+             (0,1,2,3): harm_on={harm_on:.3} harm_off={harm_off:.3} dc={dc:.3}"
         );
     }
 

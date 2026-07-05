@@ -1993,7 +1993,7 @@ mod tests {
             .gamma_shape()
             .expect("gamma fit should expose fitted shape");
         let profiled_shape =
-            super::estimate_gamma_shape_from_eta(y.view(), &result.final_eta, w.view());
+            super::estimate_gamma_shape_from_eta(y.view(), &result.final_eta.to_owned(), w.view());
 
         assert!(fitted_shape > 1.0, "shape should not stay fixed at one");
         assert_relative_eq!(
@@ -4185,5 +4185,275 @@ mod reporting_loglikelihood_tests {
         let pw = pointwise_loglikelihood(y.view(), &mu, &glm, w.view());
         let total = calculate_loglikelihood(y.view(), &mu, &glm, w.view());
         assert!((total - pw.sum()).abs() < 1e-12);
+    }
+}
+
+/// #2105: the exact compound-Poisson–gamma Tweedie density used for variance-
+/// power estimation. The reported AIC uses the saddlepoint approximation, but
+/// the `p`-profile MUST use the exact series (`tweedie_series_loglik` /
+/// `tweedie_exact_loglik_total`): the saddlepoint's missing `O(1/λ)` normalizer
+/// biases the profile maximizer of `p` low, which inflates the reported Pearson
+/// dispersion `φ̂` and every SE / interval derived from it.
+#[cfg(test)]
+mod tweedie_exact_series_tests {
+    use super::super::{
+        tweedie_exact_loglik, tweedie_exact_loglik_total, tweedie_saddlepoint_loglik,
+        tweedie_series_loglik,
+    };
+    use ndarray::Array1;
+    use rand::RngExt;
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
+    use statrs::function::gamma::ln_gamma;
+
+    /// Standard normal via Box–Muller (only `rand`'s uniform is available here).
+    fn normal_draw(rng: &mut StdRng) -> f64 {
+        let u1: f64 = rng.random::<f64>().max(1e-300);
+        let u2: f64 = rng.random::<f64>();
+        (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos()
+    }
+
+    /// Brute-force reference: sum a very wide, fixed window of the mixture terms
+    /// with an explicit log-sum-exp. Independent of the adaptive climb/tail logic
+    /// in `tweedie_series_loglik`, so agreement certifies that logic.
+    fn series_bruteforce(yi: f64, mui: f64, w: f64, p: f64, phi: f64) -> f64 {
+        let phi_i = phi / w;
+        let lambda = mui.powf(2.0 - p) / (phi_i * (2.0 - p));
+        if yi <= 0.0 {
+            return -lambda;
+        }
+        let alpha = (2.0 - p) / (p - 1.0);
+        let scale = phi_i * (p - 1.0) * mui.powf(p - 1.0);
+        let k_hi = (lambda * 4.0) as usize + 20_000;
+        let terms: Vec<f64> = (1..=k_hi)
+            .map(|k| {
+                let kf = k as f64;
+                -lambda + kf * lambda.ln() - ln_gamma(kf + 1.0) + (kf * alpha - 1.0) * yi.ln()
+                    - yi / scale
+                    - kf * alpha * scale.ln()
+                    - ln_gamma(kf * alpha)
+            })
+            .collect();
+        let m = terms.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        m + terms.iter().map(|t| (t - m).exp()).sum::<f64>().ln()
+    }
+
+    #[test]
+    fn series_matches_brute_force_across_regimes() {
+        // (mu, phi, p) spanning small/large mean, small/large dispersion, and
+        // the whole open power interval.
+        let cases = [
+            (2.0, 0.6, 1.5),
+            (0.5, 0.6, 1.5),
+            (4.0, 0.6, 1.5),
+            (50.0, 0.3, 1.5),
+            (2.0, 2.0, 1.7),
+            (1.0, 0.1, 1.3),
+            (200.0, 0.5, 1.6),
+        ];
+        for (mu, phi, p) in cases {
+            for &y in &[0.0, 0.3, 2.0, 8.0, mu] {
+                let got = tweedie_series_loglik(y, mu, 1.0, p, phi);
+                let want = series_bruteforce(y, mu, 1.0, p, phi);
+                assert!(
+                    (got - want).abs() < 1e-9,
+                    "series != brute force at mu={mu} phi={phi} p={p} y={y}: {got} vs {want}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn series_density_normalizes_to_one() {
+        // P(Y=0) + ∫₀^∞ f(y) dy ≈ 1 (trapezoid on a fine grid to a far tail).
+        // Restricted to gamma-shape α = (2−p)/(p−1) ≥ 1 (i.e. p ≤ 1.5) so the
+        // density is finite at y→0⁺ and the uniform-grid trapezoid is accurate;
+        // the p>1.5 / α<1 spike at the origin is an integrable singularity that a
+        // uniform trapezoid cannot resolve (its density VALUES are certified
+        // exact by `series_matches_brute_force_across_regimes`).
+        for (mu, phi, p) in [(2.0_f64, 0.6_f64, 1.5_f64), (1.0, 0.1, 1.3), (3.0, 0.4, 1.4)] {
+            let lambda = mu.powf(2.0 - p) / (phi * (2.0 - p));
+            let mass0 = (-lambda).exp();
+            let hi = mu * 30.0;
+            let steps = 300_000usize;
+            let h = hi / steps as f64;
+            let mut integral = 0.0;
+            for k in 0..=steps {
+                let y = (k as f64) * h + 1e-9;
+                let f = tweedie_series_loglik(y, mu, 1.0, p, phi).exp();
+                let wgt = if k == 0 || k == steps { 0.5 } else { 1.0 };
+                integral += wgt * f;
+            }
+            integral *= h;
+            let total = mass0 + integral;
+            assert!(
+                (total - 1.0).abs() < 5e-3,
+                "Tweedie series density must integrate to 1 (mu={mu} phi={phi} p={p}): \
+                 P(0)={mass0} + ∫={integral} = {total}"
+            );
+        }
+    }
+
+    #[test]
+    fn exact_loglik_transitions_seamlessly_to_saddlepoint() {
+        // Above the dominant-index threshold the exact fallback returns the
+        // saddlepoint verbatim (μ = 1e8, p = 1.5 ⇒ index ≈ λ = 4e4 > 1e4).
+        let (mu, phi, p) = (1.0e8_f64, 0.5_f64, 1.5_f64);
+        let y = mu;
+        let exact = tweedie_exact_loglik(y, mu, 1.0, p, phi);
+        let saddle = tweedie_saddlepoint_loglik(y, mu, 1.0, p, phi);
+        assert!(
+            (exact - saddle).abs() < 1e-12,
+            "above the index threshold the exact path must equal the saddlepoint: \
+             {exact} vs {saddle}"
+        );
+        // Just below the threshold the series is used and agrees with the
+        // saddlepoint to O(1/index) — a seamless (small-gap) crossover, no jump.
+        let (mu2, phi2) = (5.0e3_f64, 1.0_f64); // index ≈ 283, below threshold
+        let series = tweedie_series_loglik(mu2, mu2, 1.0, p, phi2);
+        let saddle2 = tweedie_saddlepoint_loglik(mu2, mu2, 1.0, p, phi2);
+        assert!(
+            (series - saddle2).abs() < 1e-2,
+            "series and saddlepoint must agree closely near the crossover: {series} vs {saddle2}"
+        );
+    }
+
+    /// Compound-Poisson–gamma (Jørgensen) Tweedie sample generator.
+    fn tweedie_sample(mu: f64, p: f64, phi: f64, rng: &mut StdRng) -> f64 {
+        let lambda = mu.powf(2.0 - p) / (phi * (2.0 - p));
+        let shape = (2.0 - p) / (p - 1.0);
+        let scale = phi * (p - 1.0) * mu.powf(p - 1.0);
+        // Knuth Poisson.
+        let l = (-lambda).exp();
+        let mut k = 0u32;
+        let mut prod = 1.0_f64;
+        loop {
+            prod *= rng.random::<f64>();
+            if prod <= l {
+                break;
+            }
+            k += 1;
+            if k > 100_000 {
+                break;
+            }
+        }
+        // Sum of `k` Gamma(shape, scale) draws via Marsaglia–Tsang.
+        let mut y = 0.0;
+        for _ in 0..k {
+            y += gamma_draw(shape, scale, rng);
+        }
+        y
+    }
+
+    fn gamma_draw(shape: f64, scale: f64, rng: &mut StdRng) -> f64 {
+        if shape < 1.0 {
+            let u: f64 = rng.random::<f64>().max(1e-300);
+            return gamma_draw(shape + 1.0, scale, rng) * u.powf(1.0 / shape);
+        }
+        let d = shape - 1.0 / 3.0;
+        let c = 1.0 / (9.0 * d).sqrt();
+        loop {
+            let z: f64 = normal_draw(rng);
+            let v = (1.0 + c * z).powi(3);
+            if v <= 0.0 {
+                continue;
+            }
+            let u: f64 = rng.random::<f64>().max(1e-300);
+            if u.ln() < 0.5 * z * z + d - d * v + d * v.ln() {
+                return d * v * scale;
+            }
+        }
+    }
+
+    fn pearson_phi(y: &Array1<f64>, mu: &Array1<f64>, p: f64) -> f64 {
+        let mut num = 0.0;
+        for (&yi, &mui) in y.iter().zip(mu.iter()) {
+            num += (yi - mui).powi(2) / mui.powf(p);
+        }
+        num / y.len() as f64
+    }
+
+    fn golden_max_p<F: Fn(f64) -> f64>(f: F) -> f64 {
+        let (mut a, mut b) = (1.001_f64, 1.999_f64);
+        let gr = (5.0_f64.sqrt() - 1.0) / 2.0;
+        let (mut c, mut d) = (b - gr * (b - a), a + gr * (b - a));
+        let (mut fc, mut fd) = (f(c), f(d));
+        while b - a > 1e-3 {
+            if fc >= fd {
+                b = d;
+                d = c;
+                fd = fc;
+                c = b - gr * (b - a);
+                fc = f(c);
+            } else {
+                a = c;
+                c = d;
+                fc = fd;
+                d = a + gr * (b - a);
+                fd = f(d);
+            }
+        }
+        0.5 * (a + b)
+    }
+
+    #[test]
+    fn exact_profile_recovers_power_where_saddlepoint_is_biased_low() {
+        // Synthetic Tweedie data at the TRUE mean (isolates the density
+        // approximation from the mean fit). The exact-series profile recovers
+        // p_true; the saddlepoint profile is biased conspicuously low — the
+        // #2105 root cause at the density level.
+        let mut rng = StdRng::seed_from_u64(2_105_015);
+        let n = 6000usize;
+        let (p_true, phi_true) = (1.5_f64, 0.6_f64);
+        let mut mu = Array1::<f64>::zeros(n);
+        let mut y = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            let x: f64 = -1.5 + 3.0 * rng.random::<f64>();
+            let m = (0.7 + 0.5 * x).exp();
+            mu[i] = m;
+            y[i] = tweedie_sample(m, p_true, phi_true, &mut rng);
+        }
+        let w = Array1::<f64>::ones(n);
+
+        let exact_obj = |p: f64| {
+            let phi = pearson_phi(&y, &mu, p);
+            tweedie_exact_loglik_total(y.view(), &mu, w.view(), p, phi)
+        };
+        let saddle_obj = |p: f64| {
+            let phi = pearson_phi(&y, &mu, p);
+            (0..n)
+                .map(|i| tweedie_saddlepoint_loglik(y[i], mu[i], w[i], p, phi))
+                .sum::<f64>()
+        };
+
+        let p_exact = golden_max_p(exact_obj);
+        let p_saddle = golden_max_p(saddle_obj);
+        eprintln!("#2105 density profile: p_exact={p_exact:.4} p_saddle={p_saddle:.4}");
+
+        // Exact profile lands near the truth ...
+        assert!(
+            (p_exact - p_true).abs() < 0.06,
+            "exact-series profile must recover p_true={p_true}: got {p_exact}"
+        );
+        // ... while the saddlepoint is biased low by a wide margin (this is the
+        // bug — assert the pre-fix estimator would have failed a tight bound).
+        assert!(
+            p_saddle < p_exact - 0.1,
+            "saddlepoint profile should be biased low relative to exact: \
+             p_saddle={p_saddle}, p_exact={p_exact}"
+        );
+
+        // The dispersion at the recovered power is unbiased under the exact
+        // profile and INFLATED under the saddlepoint's low power.
+        let phi_exact = pearson_phi(&y, &mu, p_exact);
+        let phi_saddle = pearson_phi(&y, &mu, p_saddle);
+        assert!(
+            (phi_exact - phi_true).abs() < 0.05,
+            "φ̂ at the exact power must recover φ_true={phi_true}: got {phi_exact}"
+        );
+        assert!(
+            phi_saddle > phi_exact * 1.05,
+            "the saddlepoint's low power must inflate φ̂: {phi_saddle} vs {phi_exact}"
+        );
     }
 }

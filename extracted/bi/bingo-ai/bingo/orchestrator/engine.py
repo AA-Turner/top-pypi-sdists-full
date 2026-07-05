@@ -1,5 +1,5 @@
 """
-bingo/orchestrator/engine.py — LLM 오케스트레이터 엔진  (v3.5.0)
+bingo/orchestrator/engine.py — LLM 오케스트레이터 엔진  (v4.3.0)
 
 【설계 철학】
   고정 6단계 파이프라인 대신, LLM이 매 스텝마다
@@ -234,20 +234,37 @@ class OrchestratorEngine:
         self._running = False
 
     # ── LLM 결정 호출 ─────────────────────────────────────────────────
-    def _call_decision_llm(self, prompt: str) -> str:
-        """결정 전용 미니 LLM 세션 (terminal 대화와 완전 분리)."""
+    def _call_decision_llm(self, prompt: str, board_ctx: str = "", chain_ctx: str = "") -> str:
+        """결정 전용 미니 LLM 세션 (terminal 대화와 완전 분리).
+        v4.0.0: Amplifier 연동 — CoT + RAG 자동 주입, 단 자기수정은 스킵 (속도 우선)
+        """
         try:
             from ..models.registry import ModelRegistry
             model_cfg = self._config.get_active_model_config()
             if not model_cfg:
                 return ""
             model = ModelRegistry.build(model_cfg)
-            msgs = [
+
+            # ── v4.0.0: Amplifier 전처리 ──────────────────────────────────
+            base_msgs = [
                 {"role": "system", "content": _get_orch_system(self._lang)},
                 {"role": "user",   "content": prompt},
             ]
+            try:
+                from ..core.amplifier import get_amplifier
+                amp = get_amplifier(self._lang)
+                msgs = amp.pre_process(
+                    base_msgs,
+                    target=self._target,
+                    blackboard_ctx=board_ctx,
+                    chain_ctx=chain_ctx,
+                )
+            except Exception:
+                msgs = base_msgs
+
             result = ""
-            for chunk in model.chat_stream(msgs):
+            # _amp_skip=True: 오케스트레이터 내부 LLM은 이중 앰플리파이어 방지
+            for chunk in model.chat_stream(msgs, _amp_skip=True):
                 # ★ v3.5.15: 정지 요청 시 즉시 LLM 결정 중단
                 if self._stop_evt.is_set():
                     return ""
@@ -358,6 +375,50 @@ Respond ONLY in JSON."""
             except OSError:
                 pass
 
+        # ── v4.0.0: Amplifier 통계 시작 알림 ─────────────────────────────
+        try:
+            from ..core.amplifier import get_amplifier as _get_amp
+            _amp_inst = _get_amp(self._lang)
+            _print(
+                f"[dim]{_s.get('amp_active', '⚡ [AMPLIFIER] CoT+RAG+SelfCorrect+Decompose ACTIVE')}[/dim]"
+            )
+        except Exception:
+            pass
+
+        # ── v4.1.0: ZeroHal Engine 초기화 알림 ────────────────────────────
+        _zh_engine = None
+        try:
+            from ..core.zero_hal_v5 import reset_zero_hal
+            _zh_engine = reset_zero_hal(session_target=self._target, lang=self._lang)
+            _print(
+                f"[dim]{_s.get('zerohal_active', '🛡️ [ZERO-HAL v5] 9-Layer Zero Hallucination ACTIVE')}[/dim]"
+            )
+        except Exception:
+            pass
+
+        # ── v4.2.0: AutoProxy Rotator 초기화 ─────────────────────────────
+        _proxy_rotator = None
+        try:
+            from ..core.proxy_rotator import get_rotator as _get_rotator
+            _proxy_rotator = _get_rotator(self._target, prefill=True)
+            _proxy_rotator.start()
+            _print(
+                f"[dim]{_s.get('proxy_active', '🔄 [AUTO-PROXY] IP Block Detector + Free Proxy Pool ACTIVE')}[/dim]"
+            )
+        except Exception:
+            pass
+
+        # ── v4.3.0: ExecutionAnchor 초기화 ────────────────────────────────
+        _exec_anchor = None
+        try:
+            from ..core.execution_anchor import ExecutionAnchorEngine as _EAE
+            _exec_anchor = _EAE(session_target=self._target, lang=self._lang)
+            _print(
+                f"[dim]{_s.get('anchor_active', '⚓ [EXEC-ANCHOR] 실행결과 앵커링 엔진 v1.0 ACTIVE')}[/dim]"
+            )
+        except Exception:
+            pass
+
         _print(
             f"\n[bold cyan]{_s.get('orch_ui_started', '🤖 [ORCHESTRATOR] Started')}[/bold cyan]\n"
             f"  target : {self._target}\n"
@@ -375,10 +436,10 @@ Respond ONLY in JSON."""
             board_ctx = board.as_context()
             chain_ctx = chain.summary() if chain.steps() else "(no steps yet)"
 
-            # 2. 결정 요청
+            # 2. 결정 요청 (v4.0.0: board_ctx + chain_ctx 를 Amplifier RAG에 전달)
             _print(f"[dim]{_s.get('orch_ui_deciding', '🧠 LLM deciding...')}[/dim]")
             decision_prompt = self._build_decision_prompt(board_ctx, chain_ctx)
-            raw_decision = self._call_decision_llm(decision_prompt)
+            raw_decision = self._call_decision_llm(decision_prompt, board_ctx=board_ctx, chain_ctx=chain_ctx)
 
             if not raw_decision and not self._stop_evt.is_set():
                 _print(f"[yellow]{_s.get('orch_ui_no_decision', '⚠ Decision LLM returned empty — running default scan')}[/yellow]")
@@ -424,6 +485,25 @@ Respond ONLY in JSON."""
             )
             self._log.append(orch_step)
 
+            # ── v4.2.0: 명령 실행 전 IP 차단 감지 → 자동 프록시 교체 ────────
+            if _proxy_rotator is not None and not self._stop_evt.is_set():
+                try:
+                    _rotate_res = _proxy_rotator.auto_rotate_if_blocked()
+                    if _rotate_res.rotated:
+                        _br = _rotate_res.block_result
+                        if _rotate_res.new_proxy:
+                            _print(
+                                f"[bold yellow]"
+                                f"{_s.get('proxy_auto_rotated', '🔄 [AUTO-PROXY] IP blocked! Rotated → {url}').format(url=_rotate_res.new_proxy.url)}"
+                                f"[/bold yellow]"
+                            )
+                        else:
+                            _print(
+                                f"[red]{_s.get('proxy_exhausted', '⚠ [AUTO-PROXY] All proxies exhausted — continuing direct')}[/red]"
+                            )
+                except Exception:
+                    pass
+
             # 8. 실제 명령 실행
             if command and not self._stop_evt.is_set():
                 # ── 타겟 URL 하드 주입 guardrail ──────────────────────────────
@@ -438,14 +518,54 @@ Respond ONLY in JSON."""
                     command = _target_prefix + command
                 _cmd_disp = f"{command[:120]}..." if len(command) > 120 else command
                 _print(f"[cyan]{_s.get('orch_ui_executing', '▶ Executing: {cmd}').format(cmd=_cmd_disp)}[/cyan]")
+                _exec_result = str(raw_decision) if raw_decision else ""
                 try:
                     send_fn(command)
                 except Exception as e:
                     self._error = str(e)
                     _print(f"[red]{_s.get('orch_ui_exec_error', '❌ Execution error: {err}').format(err=e)}[/red]")
+
+                # ── v4.1.0: ZeroHal FactRegistry에 실행 결과 사전 등록 ────────
+                # decision 자체를 exec_output 대용으로 등록 (action/reason에 숫자 포함 시)
+                if _zh_engine is not None:
+                    _zh_engine.register_exec(raw_decision)
+
                 # ★ v3.5.15: send_fn 완료 후 정지 요청 확인 → 즉시 루프 탈출
                 if self._stop_evt.is_set():
                     break
+
+            # ── v4.1.0: decision LLM 응답에 ZeroHal 검증 적용 ────────────────
+            if _zh_engine is not None and raw_decision:
+                try:
+                    _zh_result = _zh_engine.process(raw_decision, exec_output=action)
+                    if _zh_result.blocked:
+                        _print(
+                            f"[red]{_s.get('zerohal_blocked', '⛔ [ZERO-HAL] Blocked: {reason}').format(reason=_zh_result.block_reason)}[/red]"
+                        )
+                    elif _zh_result.warned and _zh_result.inject_message:
+                        _print(
+                            f"[yellow][ZERO-HAL WARN] {_zh_result.inject_message[:120]}[/yellow]"
+                        )
+                except Exception:
+                    pass
+
+            # ── v4.3.0: ExecutionAnchor — 추측 언어 + 기술 주장 하드 차단 ─────
+            if _exec_anchor is not None and raw_decision:
+                try:
+                    _anchor_result = _exec_anchor.check(
+                        response_text=raw_decision,
+                        exec_output=_exec_result if command else "",
+                    )
+                    if _anchor_result.blocked:
+                        _print(
+                            f"[bold red]{_s.get('anchor_blocked', '⛔ [EXEC-ANCHOR] 0-환각 위반 차단: {reason}').format(reason=_anchor_result.block_reason)}[/bold red]"
+                        )
+                        if _anchor_result.inject_message:
+                            _print(
+                                f"[dim]{_anchor_result.inject_message[:200]}[/dim]"
+                            )
+                except Exception:
+                    pass
 
             # 9. 목표 달성 확인
             if goal_done:
@@ -463,6 +583,18 @@ Respond ONLY in JSON."""
             _print(
                 f"\n[bold yellow]{_s.get('orch_ui_completed', '⏹ [ORCHESTRATOR] Completed (steps: {step}/{total})').format(step=self._step, total=self._max_steps)}[/bold yellow]"
             )
+
+        # ── v4.2.0: 세션 종료 시 프록시 환경변수 정리 ──────────────────────
+        if _proxy_rotator is not None:
+            try:
+                _stat = _proxy_rotator.status()
+                _print(
+                    f"[dim]{_s.get('proxy_session_end', '🔄 [AUTO-PROXY] Session ended | rotations={n} pool={p}').format(n=_stat['rotation_count'], p=_stat['pool_size'])}[/dim]"
+                )
+                _proxy_rotator.clear_env()
+                _proxy_rotator.stop()
+            except Exception:
+                pass
 
         self._running = False
 

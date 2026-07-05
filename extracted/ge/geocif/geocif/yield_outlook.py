@@ -11,6 +11,7 @@ import os
 import sqlite3
 import warnings
 from pathlib import Path
+from typing import Optional
 
 import arrow as ar
 import geopandas as gpd
@@ -301,61 +302,49 @@ def _compute_outlook_index(df, current_year, n_years, aggregation,
     return df_outlook
 
 
-def _bma_blend(
+# Default effective parameter counts per model, used by _bma_bic_blend to
+# compute BIC = N log(RMSE^2) + p log(N). These are order-of-magnitude
+# estimates — foundation models like TabPFN have 100M+ raw parameters
+# but "effective" complexity for the in-context few-shot regime is far
+# smaller. Users override per-project via [ML] bma_effective_params
+# in geocif.txt. Models NOT in this dict (or in the config override)
+# are SKIPPED by _bma_bic_blend with a warning — we won't fabricate
+# a p_k when we have no basis for the value.
+_BMA_BIC_DEFAULT_PARAMS = {
+    "null":     1,   # rolling mean baseline
+    "trend":    2,   # slope + intercept (Theil-Sen 10yr)
+    "catboost": 50,  # boosted trees; effective params << total leaf count
+    "tabpfn":  100,  # foundation model, in-context few-shot ≈ context width
+    "cubist":   30,  # rules × committees (n_committees=10, ~3 rules each)
+}
+
+
+def _collect_per_region_rmse(
     df_all: pd.DataFrame,
     df_pred_store: dict,
     min_history_years: int = 3,
-    epsilon: float = 1e-6,
-) -> pd.DataFrame:
-    """Per-(region, forecast_year) inverse-RMSE weighted blend across models.
+):
+    """Iterator: yields (group_keys, grp, rmse_by_model, N_by_model) tuples.
 
-    Implements the "engineering" flavor of Bayesian Model Averaging (see
-    IDEAS.md Tier-3-BMA): for each (Country, Region, Forecast Year), look
-    at each model's prior performance on that region using observations
-    with ``Harvest Year < Forecast Year`` (leak-safe), compute weights
-    proportional to 1/RMSE, then blend the current-year and historical-
-    mean predictions with those weights. Recompute ``outlook_index`` from
-    the blended values.
+    Shared prep for both _inv_rmse_stack and _bma_bic_blend. Computes each
+    model's per-region RMSE on leak-safe history (Harvest Year < Forecast
+    Year), plus the number of historical rows (N) used — BIC needs N.
 
-    Args:
-        df_all: outlook_index rows produced by _compute_outlook_index,
-            with columns Country / Region / Country Region / Crop /
-            Forecast Year / Model / current_predicted / hist_predicted /
-            outlook_index / Stage Name.
-        df_pred_store: dict keyed by (country, crop, model) with raw
-            per-year predictions (Region, Harvest Year, Predicted Yield,
-            Observed Yield). This is the leak-safe source for the RMSE
-            history — using it directly avoids re-querying the DB.
-        min_history_years: fewer than this and the model gets skipped
-            for this (region, year) — its weight goes to zero. If NO
-            model has enough history for a (region, year), the whole
-            row is skipped (no BMA output). 3 is the minimum to compute
-            a stable RMSE.
-        epsilon: added to RMSE denominator to avoid ÷0 when a model is
-            temporarily perfect on the small historical window.
-
-    Returns:
-        DataFrame in the same schema as df_all, with:
-          * Model = 'bma'
-          * blended current_predicted / hist_predicted / outlook_index
-          * one extra column per source model: ``w_<model>`` in [0, 1]
-            summing to 1 (analyst-facing weight diagnostic).
-        Empty DataFrame if no group had enough history.
+    Yields nothing for a group when fewer than 2 models have valid history.
     """
-    bma_rows = []
     group_keys = ["Country", "Region", "Country Region", "Crop", "Forecast Year"]
     for keys, grp in df_all.groupby(group_keys):
-        country, region, cr, crop, forecast_year = keys
+        country, region, _cr, crop, forecast_year = keys
         try:
             forecast_year_int = int(forecast_year)
         except (TypeError, ValueError):
             continue
         models = grp["Model"].tolist()
         if len(models) < 2:
-            continue  # nothing to blend
+            continue
 
-        # Per-model RMSE on history (Harvest Year < Forecast Year)
         rmse_by_model = {}
+        n_by_model = {}
         for m in models:
             df_hist_all = df_pred_store.get((country, crop, m))
             if df_hist_all is None or df_hist_all.empty:
@@ -373,61 +362,168 @@ def _bma_blend(
             obs = df_hist["Observed Yield (tn per ha)"].astype(float).values
             pred = df_hist["Predicted Yield (tn per ha)"].astype(float).values
             rmse_by_model[m] = float(np.sqrt(np.mean((pred - obs) ** 2)))
+            n_by_model[m] = int(len(df_hist))
 
-        if not rmse_by_model:
-            continue  # no valid history for any model at this (region, year)
+        if len(rmse_by_model) < 2:
+            continue  # need >=2 models with valid history to blend
+        yield keys, grp, rmse_by_model, n_by_model
 
+
+def _apply_weights_and_emit_row(
+    keys, grp, weights, model_name: str,
+) -> Optional[dict]:
+    """Shared row emitter: blends current_predicted + hist_predicted using
+    the supplied ``weights`` dict, computes outlook_index from the blend,
+    returns a row dict tagged with ``Model = model_name`` (plus per-model
+    weight diagnostic columns).
+    """
+    country, region, cr, crop, forecast_year = keys
+    cur = 0.0
+    hist = 0.0
+    w_sum = 0.0
+    for _, row in grp.iterrows():
+        m = row["Model"]
+        w = weights.get(m)
+        if w is None:
+            continue
+        cp = float(row["current_predicted"]) if pd.notna(row["current_predicted"]) else None
+        hp = float(row["hist_predicted"])    if pd.notna(row["hist_predicted"])    else None
+        if cp is None or hp is None:
+            continue
+        cur += w * cp
+        hist += w * hp
+        w_sum += w
+    if w_sum <= 0:
+        return None
+    cur /= w_sum
+    hist /= w_sum
+    outlook_idx = ((cur - hist) / hist * 100.0) if hist != 0 else np.nan
+
+    out = {
+        "Country": country,
+        "Region": region,
+        "Country Region": cr,
+        "Crop": crop,
+        "Forecast Year": forecast_year,
+        "current_predicted": cur,
+        "hist_predicted": hist,
+        "outlook_index": outlook_idx,
+        "Model": model_name,
+        "Stage Name": grp["Stage Name"].iloc[-1] if "Stage Name" in grp.columns else "",
+    }
+    if "Stage Window Display" in grp.columns:
+        out["Stage Window Display"] = grp["Stage Window Display"].iloc[-1]
+    for m, w in weights.items():
+        out[f"w_{m}"] = w
+    return out
+
+
+def _inv_rmse_stack(
+    df_all: pd.DataFrame,
+    df_pred_store: dict,
+    min_history_years: int = 3,
+    epsilon: float = 1e-6,
+) -> pd.DataFrame:
+    """Per-(region, forecast_year) inverse-RMSE weighted stack across models.
+
+    This is the "engineering flavor" ensemble sometimes called BMA in
+    applied papers, but it is NOT proper Bayesian Model Averaging — no
+    likelihood, no complexity penalty, no parameter integration. It's a
+    stacking method where weights are proportional to precision (1/RMSE)
+    estimated on per-region leak-safe history (Harvest Year < Forecast Year).
+
+    For real BMA (BIC-based), see :func:`_bma_bic_blend`.
+
+    Args, kwargs, and return schema mirror the original BMA function; the
+    emitted pseudo-model name is ``'inv_rmse'``.
+    """
+    rows = []
+    for keys, grp, rmse_by_model, _n_by_model in _collect_per_region_rmse(
+        df_all, df_pred_store, min_history_years=min_history_years
+    ):
         # Inverse-RMSE weights, normalized to unit sum
         inv = {m: 1.0 / (r + epsilon) for m, r in rmse_by_model.items()}
         total = sum(inv.values())
         weights = {m: w / total for m, w in inv.items()}
+        row = _apply_weights_and_emit_row(keys, grp, weights, model_name="inv_rmse")
+        if row is not None:
+            rows.append(row)
+    return pd.DataFrame(rows)
 
-        # Blend current_predicted and hist_predicted across the same set
-        # of models. Missing model → zero weight → excluded from blend.
-        cur = 0.0
-        hist = 0.0
-        w_sum = 0.0
-        for _, row in grp.iterrows():
-            m = row["Model"]
-            w = weights.get(m)
-            if w is None:
+
+def _bma_bic_blend(
+    df_all: pd.DataFrame,
+    df_pred_store: dict,
+    effective_params: Optional[dict] = None,
+    min_history_years: int = 3,
+) -> pd.DataFrame:
+    """Per-(region, forecast_year) BIC-weighted Bayesian Model Averaging.
+
+    Under Gaussian residuals and flat prior over models, BMA weights are
+    approximated by exp(-BIC/2). BIC = N log(RMSE^2) + p log(N), where
+    N is the per-region historical sample size and p is the model's
+    effective parameter count.
+
+    Weight computation (numerically stable via log-sum-exp):
+        log w_k  = -N log(RMSE_k) - (p_k / 2) log(N)
+        w_k      = softmax(log w_k)  over models with valid p_k
+
+    Models NOT present in ``effective_params`` are SKIPPED with a warning
+    — BIC requires p_k, and fabricating a value would corrupt the ranking.
+    Defaults for common geocif models are in ``_BMA_BIC_DEFAULT_PARAMS``.
+
+    Emits pseudo-model name ``'bma'`` (the classical BMA label).
+
+    Args:
+        df_all: same as _inv_rmse_stack.
+        df_pred_store: same as _inv_rmse_stack.
+        effective_params: dict {model_name: p_k}. Merged with
+            :data:`_BMA_BIC_DEFAULT_PARAMS`, then user-provided values win.
+        min_history_years: same as _inv_rmse_stack.
+    """
+    params = dict(_BMA_BIC_DEFAULT_PARAMS)
+    if effective_params:
+        params.update(effective_params)
+
+    rows = []
+    skipped_models = set()
+    for keys, grp, rmse_by_model, n_by_model in _collect_per_region_rmse(
+        df_all, df_pred_store, min_history_years=min_history_years
+    ):
+        # Compute log-weight = -N log(RMSE) - (p/2) log(N) for each model
+        # that has an effective_params entry. Skip unknowns.
+        log_w = {}
+        for m, rmse in rmse_by_model.items():
+            p = params.get(m)
+            if p is None:
+                skipped_models.add(m)
                 continue
-            cp = float(row["current_predicted"]) if pd.notna(row["current_predicted"]) else None
-            hp = float(row["hist_predicted"])    if pd.notna(row["hist_predicted"])    else None
-            if cp is None or hp is None:
+            N = n_by_model[m]
+            if N <= 0 or rmse <= 0:
                 continue
-            cur += w * cp
-            hist += w * hp
-            w_sum += w
-        if w_sum <= 0:
-            continue
-        # Re-normalize in case some models had NaN preds and got dropped
-        cur /= w_sum
-        hist /= w_sum
-        outlook_idx = ((cur - hist) / hist * 100.0) if hist != 0 else np.nan
+            log_w[m] = -N * np.log(rmse) - 0.5 * p * np.log(N)
 
-        # Emit BMA row; carry the last-model's Stage Name for consistency
-        # with how the existing ensemble aggregation labels stage.
-        out = {
-            "Country": country,
-            "Region": region,
-            "Country Region": cr,
-            "Crop": crop,
-            "Forecast Year": forecast_year,
-            "current_predicted": cur,
-            "hist_predicted": hist,
-            "outlook_index": outlook_idx,
-            "Model": "bma",
-            "Stage Name": grp["Stage Name"].iloc[-1] if "Stage Name" in grp.columns else "",
-        }
-        if "Stage Window Display" in grp.columns:
-            out["Stage Window Display"] = grp["Stage Window Display"].iloc[-1]
-        # Weight diagnostics — one column per source model
-        for m, w in weights.items():
-            out[f"w_{m}"] = w
-        bma_rows.append(out)
+        if len(log_w) < 2:
+            continue  # need >=2 valid models to blend
 
-    return pd.DataFrame(bma_rows)
+        # Softmax normalization (numerically stable)
+        log_w_max = max(log_w.values())
+        exp_shifted = {m: np.exp(v - log_w_max) for m, v in log_w.items()}
+        total = sum(exp_shifted.values())
+        weights = {m: v / total for m, v in exp_shifted.items()}
+
+        row = _apply_weights_and_emit_row(keys, grp, weights, model_name="bma")
+        if row is not None:
+            rows.append(row)
+
+    if skipped_models:
+        logger.warning(
+            f"BMA-BIC: skipped {len(skipped_models)} model(s) with no "
+            f"effective_params entry: {sorted(skipped_models)}. Add them "
+            f"to [ML] bma_effective_params in geocif.txt if you want them "
+            f"in the BMA blend."
+        )
+    return pd.DataFrame(rows)
 
 
 def _load_observed_baselines(countries, crop, parser, current_year=None):
@@ -2175,6 +2271,209 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
         df_year.to_csv(dir_csvs_comp / f"metrics_by_year_{country}_{crop}.csv", index=False)
         base_title = f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')}"
 
+        # ------------------------------------------------------------------
+        # Error-vs-area scatter: per-region model error against the region's
+        # share of national cropland area. Answers "how well do we predict
+        # the regions that MATTER most?" Latest stage only (matches
+        # yield_outlook map default of use_latest_stage=True). Panels: one
+        # per model. Area weight = mean of last-5-years of non-null Area (ha).
+        # ------------------------------------------------------------------
+        # Compute per-region last-5-year mean area from any model_df (Area
+        # column is a target-side attribute, so it's identical across models).
+        _sample_df = next(iter(model_dfs.values()))
+        _area_cols_needed = {"Region", "Harvest Year", "Area (ha)"}
+        if _area_cols_needed.issubset(_sample_df.columns):
+            # Include observed yield so we can compute production =
+            # area * yield on the same 5-year slice. Both columns must
+            # be non-null for a row to count.
+            _cols_for_prod = ["Region", "Harvest Year", "Area (ha)", obs_col]
+            _area_src = (
+                _sample_df[_cols_for_prod]
+                .dropna(subset=["Area (ha)", obs_col])
+                .query("`Area (ha)` > 0")
+                .drop_duplicates(subset=["Region", "Harvest Year"])
+                .sort_values("Harvest Year", ascending=False)
+            )
+            _recent = _area_src.groupby("Region", group_keys=False).head(5)
+            _area_5yr = (
+                _recent.groupby("Region")["Area (ha)"].mean()
+                .rename("area_5yr_mean_ha")
+            )
+            # Production per (region, year) = area * yield. Mean of the 5-year
+            # slice gives an annualized-production stat comparable across
+            # regions. Country total = sum across regions.
+            _prod_rows = _recent.assign(
+                _prod=lambda x: x["Area (ha)"] * x[obs_col]
+            )
+            _prod_5yr = (
+                _prod_rows.groupby("Region")["_prod"].mean()
+                .rename("production_5yr_mean_tons")
+            )
+            # Mean observed yield across the same 5-year slice.
+            _yield_5yr = (
+                _recent.groupby("Region")[obs_col].mean()
+                .rename("obs_yield_5yr_mean")
+            )
+            _country_area_total = float(_area_5yr.sum()) if not _area_5yr.empty else 0.0
+            _country_prod_total = float(_prod_5yr.sum()) if not _prod_5yr.empty else 0.0
+            _area_pct = (
+                100.0 * _area_5yr / _country_area_total
+            ).rename("area_pct_of_country") if _country_area_total > 0 else None
+            _prod_pct = (
+                100.0 * _prod_5yr / _country_prod_total
+            ).rename("production_pct_of_country") if _country_prod_total > 0 else None
+        else:
+            _area_pct = None
+            _prod_pct = None
+            _area_5yr = None
+            _prod_5yr = None
+            _yield_5yr = None
+            logger.info(
+                f"error_vs_area: skipping {country}/{crop} — no 'Area (ha)' "
+                f"in df_pred_store (production stats CSV lacks area column)"
+            )
+
+        if _area_pct is not None and not _area_pct.empty:
+            # Recompute per-region MAPE/RMSE using LATEST stage only (matches
+            # map default). Reuses model_dfs but filters each to its own
+            # last-stage rows. If no Stage Name column, uses all rows.
+            _rows_area = []
+            for _mdl, _mdf in model_dfs.items():
+                _d = _mdf.dropna(subset=[obs_col, pred_col])
+                _d = _d[_d[obs_col] != 0].copy()
+                if _d.empty:
+                    continue
+                if "Stage Name" in _d.columns and _d["Stage Name"].notna().any():
+                    _stages_sorted = sorted(_d["Stage Name"].dropna().unique())
+                    _latest = _stages_sorted[-1]
+                    _d = _d[_d["Stage Name"] == _latest]
+                for _reg, _rd in _d.groupby("Region"):
+                    if len(_rd) < 2:
+                        continue
+                    _mape = float(
+                        ((_rd[pred_col] - _rd[obs_col]).abs() / _rd[obs_col]).mean() * 100
+                    )
+                    _rmse = float(np.sqrt(((_rd[pred_col] - _rd[obs_col]) ** 2).mean()))
+                    _apct = float(_area_pct.get(_reg, np.nan))
+                    _area = float(_area_5yr.get(_reg, np.nan))
+                    _prod = float(_prod_5yr.get(_reg, np.nan)) if _prod_5yr is not None else np.nan
+                    _ppct = float(_prod_pct.get(_reg, np.nan)) if _prod_pct is not None else np.nan
+                    _yield_mean = float(_yield_5yr.get(_reg, np.nan)) if _yield_5yr is not None else np.nan
+                    if not np.isnan(_apct):
+                        _rows_area.append({
+                            "Region": _reg, "Model": _mdl,
+                            "area_5yr_mean_ha": _area,
+                            "area_pct_of_country": _apct,
+                            "production_5yr_mean_tons": _prod,
+                            "production_pct_of_country": _ppct,
+                            "obs_yield_5yr_mean": _yield_mean,
+                            "MAPE": _mape, "RMSE": _rmse,
+                            "n_years_used": int(len(_rd)),
+                        })
+            if _rows_area:
+                _df_area = pd.DataFrame(_rows_area).sort_values(
+                    ["Model", "area_pct_of_country"], ascending=[True, False]
+                )
+                _df_area.to_csv(
+                    dir_csvs_comp / f"error_vs_area_{country}_{crop}.csv",
+                    index=False,
+                )
+                # One PNG per metric: MAPE panel + RMSE panel.
+                _models_ordered = sorted(_df_area["Model"].unique())
+                _n_models = len(_models_ordered)
+                # Local palette — can't reference the later _MODEL_COLORS
+                # definition from here because Python's function-scope name
+                # resolution treats it as local (UnboundLocalError).
+                _EV_PALETTE = [
+                    (0.122, 0.467, 0.706, 1.0),  # steel blue
+                    (0.839, 0.153, 0.157, 1.0),  # brick red
+                    (0.173, 0.627, 0.173, 1.0),  # forest green
+                    (0.580, 0.404, 0.741, 1.0),  # muted purple
+                    (1.000, 0.498, 0.055, 1.0),  # orange
+                    (0.549, 0.337, 0.294, 1.0),  # brown
+                    (0.890, 0.467, 0.761, 1.0),  # pink
+                    (0.498, 0.498, 0.498, 1.0),  # grey
+                ]
+                _ev_colors = {
+                    m: _EV_PALETTE[i % len(_EV_PALETTE)]
+                    for i, m in enumerate(_models_ordered)
+                }
+                # Combined per-region error diagnostic: one big figure per
+                # metric (MAPE, RMSE) with 3 rows × N-models columns. Rows
+                # cover different regional-scale attributes; columns are
+                # per-model panels. Sharing Y across all panels; sharing X
+                # within each row (same X-dim across models). No Pearson r
+                # annotations (removed per user request 2026-07-04).
+                _row_dims = [
+                    ("area_pct_of_country", "Region % of country area"),
+                    ("production_pct_of_country", "Region % of country production"),
+                    ("obs_yield_5yr_mean", f"Mean obs yield ({yield_units})"),
+                ]
+                # Filter out rows whose column is missing / all-NaN
+                _row_dims = [
+                    (c, l) for (c, l) in _row_dims
+                    if c in _df_area.columns and _df_area[c].notna().any()
+                ]
+                _n_rows = len(_row_dims)
+                _metrics = [
+                    ("MAPE", "MAPE (%)"),
+                    ("RMSE", f"RMSE ({yield_units})"),
+                ]
+                for _metric, _ylabel in _metrics:
+                    _fname = f"region_error_{_metric}_{country}_{crop}.png"
+                    with plt.style.context(["science", "no-latex"]):
+                        fig, axes = plt.subplots(
+                            _n_rows, _n_models,
+                            figsize=(max(10.0, 3.0 * _n_models), 3.5 * _n_rows),
+                            sharey=True, sharex='row',
+                            squeeze=False,
+                        )
+                        _global_mean = float(_df_area[_metric].mean())
+                        for _ri, (_xcol, _xlabel) in enumerate(_row_dims):
+                            for _ci, _mdl in enumerate(_models_ordered):
+                                _ax = axes[_ri, _ci]
+                                _sub = _df_area[_df_area["Model"] == _mdl].dropna(subset=[_xcol])
+                                _color = _ev_colors.get(_mdl, "steelblue")
+                                if not _sub.empty:
+                                    _ax.scatter(
+                                        _sub[_xcol], _sub[_metric],
+                                        s=45, color=_color, edgecolor="black",
+                                        linewidth=0.4, alpha=0.85, zorder=3,
+                                    )
+                                    for _, _r in _sub.iterrows():
+                                        _ax.annotate(
+                                            _r["Region"][:12],
+                                            xy=(_r[_xcol], _r[_metric]),
+                                            xytext=(3, 2), textcoords="offset points",
+                                            fontsize=6.5, alpha=0.75,
+                                        )
+                                _ax.axhline(
+                                    _global_mean, color="gray", linestyle="--",
+                                    linewidth=0.8, alpha=0.7,
+                                )
+                                _ax.grid(True, linestyle="--", alpha=0.4)
+                                # Column titles on TOP row only
+                                if _ri == 0:
+                                    _ax.set_title(_display_model_name(_mdl), fontsize=10)
+                                # X labels on BOTTOM row of each row-group.
+                                # Since each row shares X but rows are stacked,
+                                # put X-label on the last panel of the row.
+                                if _ci == _n_models - 1 or _n_rows == 1:
+                                    pass  # let x label be on all panels for clarity
+                                _ax.set_xlabel(_xlabel if _ci == 0 else "")
+                                if _ci == 0:
+                                    _ax.set_ylabel(_ylabel)
+                        fig.suptitle(
+                            f"Per-region {_metric} vs regional scale — {base_title} (latest stage)",
+                            fontweight="bold", fontsize=11,
+                        )
+                        plt.tight_layout()
+                        fig.savefig(
+                            dir_comp / _fname,
+                            dpi=250, bbox_inches="tight",
+                        )
+                        plt.close(fig)
+
         # Consistent model colors across all plots
         all_models_sorted = sorted(df_region["Model"].unique())
         # Hand-picked high-contrast palette for small model counts
@@ -2221,8 +2520,8 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
 
                 # Conditional cap: only clip + break when MAPE/RRMSE
                 # exceeds the cap by a LARGE amount (>= 1.5x). Below
-                # that, just draw bars naturally. Winner star + clip
-                # annotations only fire when we actually cap.
+                # that, just draw bars naturally. Clip annotations only
+                # fire when we actually cap.
                 METRIC_CAP = 100.0
                 metric_max = float(np.nanmax(pivot.values)) if not pivot.empty else 0.0
                 do_cap = metric in ("MAPE", "RRMSE") and metric_max > METRIC_CAP * 1.5
@@ -2247,29 +2546,7 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
                     ax.set_xlim(0, METRIC_CAP + 10)
                     diag._draw_axis_break(ax, axis="x", position=METRIC_CAP)
 
-                # Winner star per region (lowest metric) — fires for any
-                # MAPE/RRMSE/RMSE plot regardless of capping. Skip R²
-                # because higher is better there.
-                if metric != "R2":
-                    winners = pivot.idxmin(axis=1)
-                    col_to_idx = {c: i for i, c in enumerate(pivot.columns)}
-                    for r_idx, region in enumerate(pivot.index):
-                        winner_col = winners.iloc[r_idx]
-                        if pd.isna(winner_col):
-                            continue
-                        m_idx = col_to_idx[winner_col]
-                        winner_val = pivot.iloc[r_idx, m_idx]
-                        patch = ax.containers[m_idx][r_idx]
-                        x_star = (
-                            min(winner_val, METRIC_CAP) + 1.5
-                            if do_cap else winner_val + 1.5
-                        )
-                        y_star = patch.get_y() + patch.get_height() / 2
-                        ax.scatter(
-                            x_star, y_star, marker="*", s=70,
-                            color="gold", edgecolors="black",
-                            linewidths=0.5, zorder=10,
-                        )
+                # (Winner-star markers removed per user request 2026-07-04.)
 
                 # Per-model mean across regions (dashed vertical line, same
                 # color as bars, numeric value annotated at the top edge).
@@ -3651,53 +3928,97 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                         col_label=f"% departure from {period_label} observed mean\n{crop_val.title()}, {current_year}",
                     )
 
-        # Bayesian Model Averaging blend (config-gated). Uses per-(region,
-        # forecast_year) inverse-RMSE weighting on leak-safe historical
-        # predictions in df_pred_store. Emits as pseudo-model 'bma'
-        # alongside the simple 'ensemble' so the long/wide CSVs and per-
-        # model diagnostics get it for free. See IDEAS.md Tier-3-BMA.
-        df_bma = None
-        use_bma = parser.getboolean("ML", "use_bma_blend", fallback=False)
-        if use_bma and n_models > 1:
-            df_bma = _bma_blend(df_all, df_pred_store)
-            if df_bma is not None and not df_bma.empty:
+        # Config-gated ensemble blends. Two flavors, both leak-safe (per-
+        # region history filtered to Harvest Year < Forecast Year):
+        #   * ``use_inv_rmse_stack``  → weights ∝ 1/RMSE  (pseudo-model 'inv_rmse')
+        #   * ``use_bma_bic``         → weights ∝ exp(-BIC/2), proper BMA
+        #                                (pseudo-model 'bma')
+        # Both can run in parallel — outputs appear as separate pseudo-
+        # models in long/wide CSVs, maps, and diagnostics.
+        blends = []  # list of (flag_name, blend_df, pseudo_model_name)
+
+        use_inv_rmse_stack = parser.getboolean(
+            "ML", "use_inv_rmse_stack", fallback=False,
+        )
+        if use_inv_rmse_stack and n_models > 1:
+            df_inv_rmse = _inv_rmse_stack(df_all, df_pred_store)
+            if df_inv_rmse is not None and not df_inv_rmse.empty:
                 logger.info(
-                    f"BMA blend: emitted {len(df_bma)} rows across "
-                    f"{df_bma['Region'].nunique()} regions, "
-                    f"{df_bma['Country'].nunique()} countries."
+                    f"inv_rmse_stack: emitted {len(df_inv_rmse)} rows across "
+                    f"{df_inv_rmse['Region'].nunique()} regions, "
+                    f"{df_inv_rmse['Country'].nunique()} countries."
                 )
-                # Per-country BMA maps — under maps/bma/{country}/
-                dir_bma = dir_outlook / "maps" / "bma"
-                os.makedirs(dir_bma, exist_ok=True)
-                for (country_val, crop_val), df_group in df_bma.groupby(["Country", "Crop"]):
-                    map_countries_val = countries if country_val == "pooled" else [country_val]
-                    stage_val = df_group["Stage Name"].iloc[0] if "Stage Name" in df_group.columns else ""
-                    dir_bma_country = dir_bma / country_val
-                    os.makedirs(dir_bma_country, exist_ok=True)
-                    _generate_outlook_map(
-                        dg, df_group, map_countries_val, crop_val,
-                        "bma", current_year, n_years, aggregation, dir_bma_country,
-                        stage_name=stage_val, annotate_regions=False,
-                    )
+                blends.append(("inv_rmse", df_inv_rmse))
             else:
                 logger.warning(
-                    "BMA blend produced no rows — insufficient historical "
+                    "inv_rmse_stack produced no rows — insufficient historical "
                     "predictions across models. Ensure at least "
                     "min_history_years=3 forecast_seasons in the DB."
                 )
 
-        # Long-format CSV
+        use_bma_bic = parser.getboolean("ML", "use_bma_bic", fallback=False)
+        if use_bma_bic and n_models > 1:
+            # Load per-project effective parameter overrides if present
+            eff_params_override = None
+            if parser.has_option("ML", "bma_effective_params"):
+                try:
+                    eff_params_override = ast.literal_eval(
+                        parser.get("ML", "bma_effective_params")
+                    )
+                    if not isinstance(eff_params_override, dict):
+                        eff_params_override = None
+                except (ValueError, SyntaxError):
+                    logger.warning(
+                        "Could not parse [ML] bma_effective_params — must be a "
+                        "Python literal dict. Using built-in defaults."
+                    )
+                    eff_params_override = None
+            df_bma = _bma_bic_blend(
+                df_all, df_pred_store, effective_params=eff_params_override
+            )
+            if df_bma is not None and not df_bma.empty:
+                logger.info(
+                    f"bma_bic: emitted {len(df_bma)} rows across "
+                    f"{df_bma['Region'].nunique()} regions, "
+                    f"{df_bma['Country'].nunique()} countries."
+                )
+                blends.append(("bma", df_bma))
+            else:
+                logger.warning(
+                    "bma_bic produced no rows — either insufficient history "
+                    "OR every model was skipped for missing effective_params. "
+                    "Check [ML] bma_effective_params in geocif.txt."
+                )
+
+        # Emit per-country maps for each active blend under maps/{blend}/
+        for blend_name, df_blend in blends:
+            dir_blend = dir_outlook / "maps" / blend_name
+            os.makedirs(dir_blend, exist_ok=True)
+            for (country_val, crop_val), df_group in df_blend.groupby(["Country", "Crop"]):
+                map_countries_val = countries if country_val == "pooled" else [country_val]
+                stage_val = df_group["Stage Name"].iloc[0] if "Stage Name" in df_group.columns else ""
+                dir_blend_country = dir_blend / country_val
+                os.makedirs(dir_blend_country, exist_ok=True)
+                _generate_outlook_map(
+                    dg, df_group, map_countries_val, crop_val,
+                    blend_name, current_year, n_years, aggregation, dir_blend_country,
+                    stage_name=stage_val, annotate_regions=False,
+                )
+
+        # Long-format CSV — one row per (region, year, model) including
+        # ensemble + every active blend
         df_long_parts = [df_all]
         if df_ensemble is not None:
             df_long_parts.append(df_ensemble)
-        if df_bma is not None and not df_bma.empty:
-            df_long_parts.append(df_bma)
+        for _blend_name, df_blend in blends:
+            df_long_parts.append(df_blend)
         df_long = pd.concat(df_long_parts, ignore_index=True)
         csv_path = dir_outlook / f"yield_outlook_{scope}_{crops_str}_{current_year}.csv"
         df_long.to_csv(csv_path, index=False)
         logger.info(f"Outlook CSV saved to {csv_path}")
 
-        # Wide-format CSV: one outlook_index column per model + ensemble column
+        # Wide-format CSV: one outlook_index column per model + ensemble
+        # + one column per active blend
         pivot_cols = ["Country", "Region", "Crop", "Forecast Year"]
         df_wide = df_all.pivot_table(
             index=pivot_cols, columns="Model", values="outlook_index"
@@ -3706,12 +4027,11 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         model_cols = [c for c in df_wide.columns if c not in pivot_cols]
         if len(model_cols) > 1:
             df_wide["ensemble"] = df_wide[model_cols].mean(axis=1)
-        # Merge BMA outlook_index column into the wide CSV so analysts
-        # can compare bma vs individual models vs simple ensemble in
-        # one row per (region, year).
-        if df_bma is not None and not df_bma.empty:
+        for blend_name, df_blend in blends:
             df_wide = df_wide.merge(
-                df_bma[pivot_cols + ["outlook_index"]].rename(columns={"outlook_index": "bma"}),
+                df_blend[pivot_cols + ["outlook_index"]].rename(
+                    columns={"outlook_index": blend_name}
+                ),
                 on=pivot_cols, how="left",
             )
         csv_wide = dir_outlook / f"yield_outlook_{scope}_{crops_str}_{current_year}_wide.csv"
@@ -3720,22 +4040,24 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     else:
         logger.warning("No outlook data generated — check DB has predictions.")
 
-    # Inject the BMA blend as a synthetic ordinary "model" in df_pred_store
-    # so every downstream diagnostic (rRMSEp bar, per-region MAPE/RMSE
-    # bars, per-year scatter, model_comparison figures, best-model-per-
-    # region map) treats BMA as first-class. BMA lives ONLY in the outlook
-    # long CSV in the DB era — its raw hindcast predictions per (region,
-    # harvest year) come from df_bma.current_predicted (the weighted
-    # blend of the four constituent models' current_predicted values).
-    # Observed yield + stage name are copied from any source model's
-    # df_pred_store entry for the same (country, crop) — the observed
-    # values are model-independent.
+    # Inject each ensemble blend as a synthetic ordinary "model" in
+    # df_pred_store so every downstream diagnostic (rRMSEp bar, per-region
+    # MAPE/RMSE bars, per-year scatter, model_comparison figures, best-
+    # model-per-region map) treats the blend as first-class. The blend
+    # lives ONLY in the outlook long CSV in the DB era — its raw hindcast
+    # predictions per (region, harvest year) come from
+    # df_blend.current_predicted (the weighted blend of the constituent
+    # models' current_predicted values). Observed yield + stage name are
+    # copied from any source model's df_pred_store entry for the same
+    # (country, crop) — the observed values are model-independent.
     try:
-        _df_bma_ref = df_bma  # noqa: F821 — defined inside the outlook block
+        _blends_for_diag = blends  # noqa: F821 — defined inside the outlook block
     except NameError:
-        _df_bma_ref = None
-    if _df_bma_ref is not None and not _df_bma_ref.empty and df_pred_store:
-        for (country_val, crop_val), grp in _df_bma_ref.groupby(["Country", "Crop"]):
+        _blends_for_diag = []
+    for _blend_name, _df_blend in _blends_for_diag:
+        if _df_blend is None or _df_blend.empty or not df_pred_store:
+            continue
+        for (country_val, crop_val), grp in _df_blend.groupby(["Country", "Crop"]):
             src_df = None
             for _key, _val in df_pred_store.items():
                 if _key[0] == country_val and _key[1] == crop_val:
@@ -3743,45 +4065,36 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     break
             if src_df is None or src_df.empty:
                 continue
-            # Pull Region + Harvest Year + Observed Yield from source; carry
-            # Stage Name from the BMA df itself when the outlook layer
-            # produced it (all rows already share one stage under
-            # run_time_steps=current — a single label like "Jun 1-Mar 31").
             has_stage_src = "Stage Name" in src_df.columns
-            has_stage_bma = "Stage Name" in grp.columns
+            has_stage_blend = "Stage Name" in grp.columns
             join_cols = ["Region", "Harvest Year"]
             obs_cols = join_cols + ["Observed Yield (tn per ha)"]
             obs_lookup = src_df[obs_cols].drop_duplicates(subset=join_cols)
 
             take = ["Region", "Forecast Year", "current_predicted"]
-            if has_stage_bma:
+            if has_stage_blend:
                 take.append("Stage Name")
-            bma_hind = grp[take].rename(columns={
+            blend_hind = grp[take].rename(columns={
                 "Forecast Year": "Harvest Year",
                 "current_predicted": "Predicted Yield (tn per ha)",
             })
-            # Match dtypes for the merge (Forecast Year is often int; Harvest Year
-            # in df_pred_store may be Int64/string depending on the DB round-trip).
             try:
-                bma_hind["Harvest Year"] = bma_hind["Harvest Year"].astype(
+                blend_hind["Harvest Year"] = blend_hind["Harvest Year"].astype(
                     obs_lookup["Harvest Year"].dtype
                 )
             except (TypeError, ValueError):
                 pass
-            bma_hind = bma_hind.merge(obs_lookup, on=join_cols, how="left")
-            # Fill Stage Name from source if BMA layer didn't carry it — some
-            # downstream diagnostics (per-stage grouping) need the column
-            # present even if uniform. Guard against missing on both sides.
-            if not has_stage_bma and has_stage_src:
+            blend_hind = blend_hind.merge(obs_lookup, on=join_cols, how="left")
+            if not has_stage_blend and has_stage_src:
                 stage_lookup = (
                     src_df[join_cols + ["Stage Name"]]
                     .drop_duplicates(subset=join_cols)
                 )
-                bma_hind = bma_hind.merge(stage_lookup, on=join_cols, how="left")
-            df_pred_store[(country_val, crop_val, "bma")] = bma_hind
+                blend_hind = blend_hind.merge(stage_lookup, on=join_cols, how="left")
+            df_pred_store[(country_val, crop_val, _blend_name)] = blend_hind
             logger.info(
-                f"BMA in df_pred_store: added {len(bma_hind)} rows for "
-                f"{country_val} {crop_val} (bma will now appear in "
+                f"{_blend_name} in df_pred_store: added {len(blend_hind)} rows for "
+                f"{country_val} {crop_val} ({_blend_name} will now appear in "
                 f"rrmsep / MAPE / RMSE / scatter / model_comparison plots)"
             )
 
@@ -3830,15 +4143,39 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             experiment_name="outlook",
         )
 
-    # End-of-run signal — makes it possible to tell "finished" apart from
-    # "hung" in the log. Post-diagnostic code emits few logger.info lines,
-    # so the log otherwise appears to stop at "Plotting 100% 5/5" for both
-    # cases. This line is the last thing run() emits before returning.
-    logger.info(
-        f"yield_outlook.run: complete "
-        f"({'reuse_db' if reuse_db is not None else 'full ML'} mode) "
-        f"→ {dir_outlook}"
-    )
+    # End-of-run signal + forced exit.
+    #
+    # Two problems the naive `logger.info` alone couldn't solve:
+    #   1. Log buffering — logzero output can sit in a buffer during
+    #      interpreter shutdown and never reach the log file if the
+    #      process is killed / hangs before flush.
+    #   2. Interpreter-shutdown hang — after all work is written to
+    #      disk (rrmsep CSVs, plots, DB), Python's atexit chain
+    #      (multiprocessing.resource_tracker, matplotlib backend
+    #      cleanup, lingering ML-library threads) can block indefinitely
+    #      in full-ML mode (the 60+ min hangs we observed in 0.4.799).
+    #
+    # Fix: write a plain-file completion marker BEFORE the logger call
+    # (guaranteed to hit disk immediately, no buffering); then log +
+    # flush stdio; then os._exit(0) to skip the atexit chain. All work
+    # is already persisted at this point, so bypassing the atexit
+    # cleanup costs nothing but avoids the hang. Skipped when the
+    # process was launched via a test harness that expects normal
+    # returns (detected by GEOCIF_NO_FORCE_EXIT env var).
+    import sys as _sys
+    import os as _os
+    _mode = "reuse_db" if reuse_db is not None else "full_ML"
+    _msg = f"yield_outlook.run: complete ({_mode} mode) → {dir_outlook}"
+    try:
+        _marker = Path(dir_outlook) / ".yield_outlook_complete"
+        _marker.write_text(f"{_msg}\n", encoding="utf-8")
+    except OSError:
+        pass  # marker is best-effort; not fatal
+    logger.info(_msg)
+    _sys.stdout.flush()
+    _sys.stderr.flush()
+    if not _os.environ.get("GEOCIF_NO_FORCE_EXIT"):
+        _os._exit(0)
 
 
 if __name__ == "__main__":

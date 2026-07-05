@@ -10,13 +10,25 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   build:
+    name: Test on ${{ matrix.platform }} with Python ${{ matrix.python-version }}${{ matrix.root-version != '' && format(' and ROOT {0}', matrix.root-version) || '' }}
     strategy:
       fail-fast: false
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
         python-version: ['3.10', '3.14', 3.14 python-freethreading]
+        root-version: ['']
+        include:
+          - platform: ubuntu-latest
+            python-version: '3.10'
+            root-version: latest
+          - platform: ubuntu-latest
+            python-version: '3.10'
+            root-version: '6.32'
 
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 30
@@ -27,10 +39,12 @@ jobs:
         shell: bash -l {0}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - name: Get micromamba
-        uses: mamba-org/setup-micromamba@v3
+        uses: mamba-org/setup-micromamba@d7c9bd84e824b79d2af72a2d4196c7f4300d3476 # v3.0.0
         with:
           environment-name: test-env
           init-shell: bash
@@ -38,22 +52,19 @@ jobs:
             --strict-channel-priority
             conda-forge/label/python_rc::_python_rc
             python=${{ matrix.python-version }}
+            ${{ matrix.root-version == 'latest' && 'root' || matrix.root-version == '6.32' && 'root=6.32.*' || '' }}
+          micromamba-version: 2.6.0-0   # unpin when there is a release newer than 2.6.1-0
 
       - name: Set PYTHON_GIL=0 for free-threaded builds
         if: contains(matrix.python-version, 'python-freethreading')
         run: echo "PYTHON_GIL=0" >> $GITHUB_ENV
 
-      - uses: astral-sh/setup-uv@v8.1.0
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
 
       - name: Check active Python version
-        run: python -c "import sys; assert '.'.join(str(s) for s in sys.version_info[:2]) == '${{ matrix.python-version }}'.split()[0], f'{version} incorrect!'"
-
-      - name: Install ROOT
-        if: matrix.python-version == 3.10  &&  runner.os == 'Linux'
-        run: |
-          micromamba env list
-          micromamba install root
-          micromamba list
+        env:
+          EXPECTED_PYTHON_VERSION: ${{ matrix.python-version }}
+        run: python -c "import os, sys; actual = '.'.join(str(s) for s in sys.version_info[:2]); expected = os.environ['EXPECTED_PYTHON_VERSION'].split()[0]; assert actual == expected, f'{actual} incorrect!'"
 
       - name: Install sshd for fsspec ssh tests
         if: runner.os == 'Linux'
@@ -67,11 +78,9 @@ jobs:
           ssh -o StrictHostKeyChecking=no localhost echo "ssh connection successful"
 
       - name: Install XRootD
-        if: runner.os != 'Windows'
+        if: runner.os != 'Windows' && !contains(matrix.python-version, 'python-freethreading')
         run: |
-          micromamba env list
-          micromamba install xrootd
-          micromamba list
+          uv pip install --group=test-xrootd
 
       - name: Pip install the package
         run: uv pip install --system -e. --group=dev
@@ -81,6 +90,7 @@ jobs:
           python -m pytest -vv tests --reruns 10 --reruns-delay 30 --only-rerun "(?i)http|ssl|timeout|expired|connection|socket"
 
   vanilla-build:
+    name: Vanilla test on ${{ matrix.platform }} with Python ${{ matrix.python-version }}
     strategy:
       fail-fast: false
       matrix:
@@ -91,14 +101,16 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
 
-      - uses: astral-sh/setup-uv@v8.1.0
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
 
       - name: Pip install the package
         run: uv pip install --system -e. --group=dev
@@ -108,6 +120,7 @@ jobs:
           python -m pytest -vv tests --reruns 10 --reruns-delay 30 --only-rerun "(?i)http|ssl|timeout|expired|connection|socket"
 
   numpy1-build:
+    name: NumPy 1 test on ${{ matrix.platform }} with Python ${{ matrix.python-version }}
     strategy:
       fail-fast: false
       matrix:
@@ -118,13 +131,15 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: ${{ matrix.python-version }}
 
-      - uses: astral-sh/setup-uv@v8.1.0
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
 
       - name: Pip install the package
         run: |
@@ -136,23 +151,26 @@ jobs:
           uv run --no-sync pytest -vv tests --reruns 10 --reruns-delay 30 --only-rerun "(?i)http|ssl|timeout|expired|connection|socket"
 
   pyodide-build:
+    name: Pyodide test
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      PYODIDE_VERSION: 0.28.1
-      PYODIDE_BUILD_VERSION: 0.30.5
+      PYODIDE_VERSION: 0.29.4
+      PYODIDE_BUILD_VERSION: 0.34.4
       AWKWARD_VERSION: v2.8.5
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: '3.13'
 
-      - uses: astral-sh/setup-uv@v8.1.0
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
 
       - name: Install pyodide-build
         run: python3 -m pip install pyodide-build==$PYODIDE_BUILD_VERSION
@@ -166,7 +184,7 @@ jobs:
           echo "emsdk-version=$EMSCRIPTEN_VERSION" >> $GITHUB_OUTPUT
 
       - name: Install EMSDK
-        uses: mymindstorm/setup-emsdk@v16
+        uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
         with:
           version: ${{ steps.compute-emsdk-version.outputs.emsdk-version }}
 
@@ -180,13 +198,13 @@ jobs:
           rm -rf dependencies/
 
       - name: Download Pyodide
-        uses: pyodide/pyodide-actions/download-pyodide@v2
+        uses: pyodide/pyodide-actions/download-pyodide@012fa537869d343726d01863a34b773fc4d96a14 # v2
         with:
           version: ${{ env.PYODIDE_VERSION }}
           to: pyodide-dist
 
       - name: Install browser
-        uses: pyodide/pyodide-actions/install-browser@v2
+        uses: pyodide/pyodide-actions/install-browser@012fa537869d343726d01863a34b773fc4d96a14 # v2
         with:
           runner: selenium
           browser: chrome firefox
@@ -205,6 +223,7 @@ jobs:
           pytest -vv --dist-dir=./pyodide-dist/ --runner=selenium --runtime=firefox tests-wasm
 
   gpu-build:
+    name: GPU test with CUDA ${{ matrix.cuda-version }}
     strategy:
       fail-fast: false
       matrix:
@@ -224,10 +243,12 @@ jobs:
           rm -rf * .[!.]* || echo "Nothing to clean"
           rm -rf ~/micromamba* || echo "Nothing to clean"
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - name: Get micromamba
-        uses: mamba-org/setup-micromamba@v3
+        uses: mamba-org/setup-micromamba@d7c9bd84e824b79d2af72a2d4196c7f4300d3476 # v3.0.0
         with:
           environment-name: test-env
           init-shell: bash
@@ -245,7 +266,7 @@ jobs:
             ${{ matrix.cuda-version == 13 && 'root' || '' }}
 
       - name: Pip install the package
-        run: pip install --group=dev .
+        run: pip install --group=dev --group=test-xrootd .
 
       - name: Run only GPU tests
         if: matrix.cuda-version != 13
@@ -260,24 +281,25 @@ jobs:
 
       - name: Upload coverage reports to Codecov
         if: matrix.cuda-version == 13
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() && matrix.cuda-version == 13 }}
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
 
   pass:
+    name: Check required tests
     if: always()
     needs: [build, vanilla-build, numpy1-build, pyodide-build]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
       - name: Decide whether the needed jobs succeeded or failed
-        uses: re-actors/alls-green@release/v1
+        uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
         with:
           jobs: ${{ toJSON(needs) }}

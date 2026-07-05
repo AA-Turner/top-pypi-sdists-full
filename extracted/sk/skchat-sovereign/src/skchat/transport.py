@@ -725,6 +725,17 @@ class ChatTransport:
 
                 msg = msg.model_copy(update={"delivery_status": DeliveryStatus.DELIVERED})
                 self._history.store_message(msg)
+                # Also append to the JSONL history that the webui /inbox reads
+                # (store_message only writes the SKMemory index). Without this,
+                # RECEIVED messages never surface in the client — only sent ones.
+                # Skip presence/CoT beacons (<event …>): they are not chat and
+                # would flood the history + client inbox (thousands per day) and
+                # can bog down the webui's /inbox read.
+                if not (msg.content or "").lstrip().startswith("<event "):
+                    try:
+                        self._history.save(msg)
+                    except Exception as save_exc:  # noqa: BLE001
+                        logger.debug("history.save on receive failed: %s", save_exc)
                 messages.append(msg)
 
                 # Gate-4: if this is a contact-grant/ACCEPT carrying a delivery token,
@@ -963,6 +974,17 @@ class ChatTransport:
                         pass
                 msg = msg.model_copy(update={"delivery_status": DeliveryStatus.DELIVERED})
                 self._history.store_message(msg)
+                # Also append to the JSONL history that the webui /inbox reads
+                # (store_message only writes the SKMemory index). Without this,
+                # RECEIVED messages never surface in the client — only sent ones.
+                # Skip presence/CoT beacons (<event …>): they are not chat and
+                # would flood the history + client inbox (thousands per day) and
+                # can bog down the webui's /inbox read.
+                if not (msg.content or "").lstrip().startswith("<event "):
+                    try:
+                        self._history.save(msg)
+                    except Exception as save_exc:  # noqa: BLE001
+                        logger.debug("history.save on receive failed: %s", save_exc)
                 messages.append(msg)
             except Exception as exc:
                 logger.debug(

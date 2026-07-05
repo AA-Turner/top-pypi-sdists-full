@@ -108,10 +108,11 @@ class XMLSignatureProcessor(XMLProcessor):
         namespace = "ds"
         if ":" in query:
             namespace, _, query = query.partition(":")
-        result = element.find(f"{xpath}{namespace}:{query}", namespaces=namespaces)
+        expression = f"{xpath}{namespace}:{query}"
+        result = element.find(expression, namespaces=namespaces)
 
         if require and result is None:
-            raise InvalidInput(f"Expected to find XML element {query} in {element.tag}")
+            raise InvalidInput(f"Expected to find XML element {query} in {element.tag} using XPath {expression}")
         return result
 
     def _findall(self, element, query, xpath=""):

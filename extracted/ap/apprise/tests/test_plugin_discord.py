@@ -252,6 +252,22 @@ apprise_url_tests = (
             "include_image": False,
         },
     ),
+    # Test batch attachment mode enabled (default)
+    (
+        "discord://{}/{}?batch=yes".format("i" * 24, "t" * 64),
+        {
+            "instance": NotifyDiscord,
+            "requests_response_code": requests.codes.no_content,
+        },
+    ),
+    # Test batch attachment mode disabled (legacy one-per-message)
+    (
+        "discord://{}/{}?batch=no".format("i" * 24, "t" * 64),
+        {
+            "instance": NotifyDiscord,
+            "requests_response_code": requests.codes.no_content,
+        },
+    ),
     (
         "discord://{}/{}/".format("a" * 24, "b" * 64),
         {
@@ -1214,3 +1230,598 @@ def test_plugin_discord_attach_memory(mock_post):
 
     assert obj.notify(body="Test", attach=mem) is True
     assert mock_post.call_count >= 1
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_html_to_markdown_format(mock_post):
+    """NotifyDiscord(): HTML body is converted to Markdown."""
+
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    mock_post.return_value = requests.Request()
+    mock_post.return_value.status_code = requests.codes.ok
+    mock_post.return_value.content = ""
+    mock_post.return_value.headers = {}
+
+    # Instantiate a Discord plugin in Markdown mode with fields
+    # disabled so the body lands in embeds[0]["description"] directly
+    obj = Apprise.instantiate(
+        f"discord://{webhook_id}/{webhook_token}/?format=markdown&fields=no"
+    )
+
+    aobj = Apprise()
+    aobj.add(obj)
+
+    # Notify with an HTML body; the framework should convert it
+    # to Markdown before dispatching to Discord
+    assert (
+        aobj.notify(
+            body="<b>hello</b> <i>world</i>",
+            body_format=NotifyFormat.HTML,
+        )
+        is True
+    )
+    assert mock_post.call_count == 1
+
+    # The body must arrive in the embed description as Markdown,
+    # not as stripped plain text
+    payload = loads(mock_post.call_args_list[0][1]["data"])
+    assert payload["embeds"][0]["description"] == "**hello** *world*"
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_template_content(mock_post, tmpdir):
+    """NotifyDiscord() template with 'content' field."""
+
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    # Prepare a good mock response
+    mock_post.return_value = mock.Mock(
+        status_code=requests.codes.ok,
+        content=b"",
+        headers={},
+    )
+
+    # Write a minimal Discord webhook template to disk
+    template = tmpdir.join("discord.json")
+    template.write('{"content": "{{app_body}}"}')
+
+    # Instantiate via URL with template path
+    obj = Apprise.instantiate(
+        "discord://{}/{}/".format(webhook_id, webhook_token)
+        + "?template={}".format(str(template))
+    )
+    assert isinstance(obj, NotifyDiscord)
+
+    # Verify the template was loaded
+    assert obj.template
+
+    # Notification must succeed
+    assert (
+        obj.notify(body="hello", title="world", notify_type=NotifyType.INFO)
+        is True
+    )
+    assert mock_post.called is True
+
+    # Verify the payload sent - content field contains the body
+    posted = loads(mock_post.call_args_list[0][1]["data"])
+    assert posted["content"] == "hello"
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_template_embeds(mock_post, tmpdir):
+    """NotifyDiscord() template with 'embeds' field."""
+
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    # Prepare a good mock response
+    mock_post.return_value = mock.Mock(
+        status_code=requests.codes.ok,
+        content=b"",
+        headers={},
+    )
+
+    # Write a template that uses the embeds structure
+    template = tmpdir.join("embeds.json")
+    template.write(
+        '{"embeds": [{"title": "{{app_title}}", '
+        '"description": "{{app_body}}"}]}'
+    )
+
+    # Instantiate via URL with template path
+    obj = Apprise.instantiate(
+        "discord://{}/{}/".format(webhook_id, webhook_token)
+        + "?template={}".format(str(template))
+    )
+    assert isinstance(obj, NotifyDiscord)
+    assert obj.template
+
+    # Notification must succeed
+    assert (
+        obj.notify(
+            body="my body", title="my title", notify_type=NotifyType.INFO
+        )
+        is True
+    )
+    assert mock_post.called is True
+
+    # Verify the embed payload
+    posted = loads(mock_post.call_args_list[0][1]["data"])
+    assert "embeds" in posted
+    assert posted["embeds"][0]["title"] == "my title"
+    assert posted["embeds"][0]["description"] == "my body"
+
+
+def test_plugin_discord_template_tokens(tmpdir):
+    """NotifyDiscord() template tokens and URL round-trip."""
+
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    # Write a minimal content template to disk
+    template = tmpdir.join("discord.json")
+    template.write('{"content": "{{app_body}}"}')
+
+    # Instantiate with explicit tokens dict
+    obj = NotifyDiscord(
+        webhook_id=webhook_id,
+        webhook_token=webhook_token,
+        template=str(template),
+        tokens={"mykey": "myval", "count": "42"},
+    )
+    assert obj.template
+    assert obj.tokens["mykey"] == "myval"
+    assert obj.tokens["count"] == "42"
+
+    # Round-trip through url() and parse_url()
+    url = obj.url()
+    result = NotifyDiscord.parse_url(url)
+    assert result is not None
+    assert "mykey" in result["tokens"]
+    assert result["tokens"]["mykey"] == "myval"
+
+    obj2 = NotifyDiscord(**result)
+    assert obj2.template
+    assert obj2.tokens.get("mykey") == "myval"
+    assert obj2.url_identifier == obj.url_identifier
+
+
+def test_plugin_discord_template_token_invalid():
+    """NotifyDiscord() non-dict tokens raises TypeError."""
+
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    with pytest.raises(TypeError):
+        NotifyDiscord(
+            webhook_id=webhook_id,
+            webhook_token=webhook_token,
+            tokens="not-a-dict",
+        )
+
+
+def test_plugin_discord_template_add_failure():
+    """NotifyDiscord() template add() failure raises TypeError."""
+
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    # Force add() to report failure so len(self.template) == 0
+    with (
+        mock.patch(
+            "apprise.plugins.discord.AppriseAttachment.add",
+            return_value=False,
+        ),
+        pytest.raises(TypeError),
+    ):
+        NotifyDiscord(
+            webhook_id=webhook_id,
+            webhook_token=webhook_token,
+            template="file:///some/template.json",
+        )
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_template_inaccessible(mock_post, tmpdir):
+    """NotifyDiscord() inaccessible template fails gracefully."""
+
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    # Prepare a mock response (should never be called)
+    mock_post.return_value = mock.Mock(
+        status_code=requests.codes.ok,
+        content=b"",
+        headers={},
+    )
+
+    # Create the template so that add() succeeds during init
+    template = tmpdir.join("discord.json")
+    template.write('{"content": "{{app_body}}"}')
+
+    obj = Apprise.instantiate(
+        "discord://{}/{}/".format(webhook_id, webhook_token)
+        + "?template={}".format(str(template))
+    )
+    assert isinstance(obj, NotifyDiscord)
+
+    # Remove the file so the template becomes inaccessible
+    os.remove(str(template))
+
+    # Notification must fail; no HTTP call should be made
+    assert (
+        obj.notify(body="test", title="t", notify_type=NotifyType.INFO)
+        is False
+    )
+    assert mock_post.called is False
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_template_oserror(mock_post, tmpdir):
+    """NotifyDiscord() OSError during template read fails gracefully."""
+
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    # Prepare a mock response (should never be called)
+    mock_post.return_value = mock.Mock(
+        status_code=requests.codes.ok,
+        content=b"",
+        headers={},
+    )
+
+    # Write a file so the attachment resolves but open() will be mocked
+    template = tmpdir.join("discord.json")
+    template.write('{"content": "hello"}')
+
+    obj = Apprise.instantiate(
+        "discord://{}/{}/".format(webhook_id, webhook_token)
+        + "?template={}".format(str(template))
+    )
+    assert isinstance(obj, NotifyDiscord)
+
+    # Patch open() to raise OSError when the template is read
+    with mock.patch("builtins.open", side_effect=OSError):
+        assert (
+            obj.notify(body="test", title="t", notify_type=NotifyType.INFO)
+            is False
+        )
+    assert mock_post.called is False
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_template_invalid_json(mock_post, tmpdir):
+    """NotifyDiscord() invalid JSON template fails gracefully."""
+
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    # Prepare a mock response (should never be called)
+    mock_post.return_value = mock.Mock(
+        status_code=requests.codes.ok,
+        content=b"",
+        headers={},
+    )
+
+    # Write a syntactically invalid JSON file
+    template = tmpdir.join("bad.json")
+    template.write("{ not valid json }")
+
+    obj = Apprise.instantiate(
+        "discord://{}/{}/".format(webhook_id, webhook_token)
+        + "?template={}".format(str(template))
+    )
+    assert isinstance(obj, NotifyDiscord)
+
+    # Notification must fail due to parse error
+    assert (
+        obj.notify(body="test", title="t", notify_type=NotifyType.INFO)
+        is False
+    )
+    assert mock_post.called is False
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_template_not_dict(mock_post, tmpdir):
+    """NotifyDiscord() template root must be a JSON object, not array."""
+
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    # Prepare a mock response (should never be called)
+    mock_post.return_value = mock.Mock(
+        status_code=requests.codes.ok,
+        content=b"",
+        headers={},
+    )
+
+    # Write a JSON array instead of an object
+    template = tmpdir.join("array.json")
+    template.write('[{"content": "hello"}]')
+
+    obj = Apprise.instantiate(
+        "discord://{}/{}/".format(webhook_id, webhook_token)
+        + "?template={}".format(str(template))
+    )
+    assert isinstance(obj, NotifyDiscord)
+
+    # Notification must fail because the root is not a dict
+    assert (
+        obj.notify(body="test", title="t", notify_type=NotifyType.INFO)
+        is False
+    )
+    assert mock_post.called is False
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_template_payload_validation(mock_post, tmpdir):
+    """NotifyDiscord() template payload field validation cases."""
+
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    # Prepare a mock response (should never be called during failures)
+    mock_post.return_value = mock.Mock(
+        status_code=requests.codes.ok,
+        content=b"",
+        headers={},
+    )
+
+    template = tmpdir.join("t.json")
+
+    # Case 1: no content and no embeds
+    template.write('{"username": "bot"}')
+    obj = Apprise.instantiate(
+        "discord://{}/{}/".format(webhook_id, webhook_token)
+        + "?template={}".format(str(template))
+    )
+    assert isinstance(obj, NotifyDiscord)
+    assert (
+        obj.notify(body="test", title="t", notify_type=NotifyType.INFO)
+        is False
+    )
+    assert mock_post.called is False
+
+    # Case 2: content is an empty string
+    template.write('{"content": ""}')
+    obj = Apprise.instantiate(
+        "discord://{}/{}/".format(webhook_id, webhook_token)
+        + "?template={}".format(str(template))
+    )
+    assert isinstance(obj, NotifyDiscord)
+    assert (
+        obj.notify(body="test", title="t", notify_type=NotifyType.INFO)
+        is False
+    )
+
+    # Case 3: embeds is an empty list
+    template.write('{"embeds": []}')
+    obj = Apprise.instantiate(
+        "discord://{}/{}/".format(webhook_id, webhook_token)
+        + "?template={}".format(str(template))
+    )
+    assert isinstance(obj, NotifyDiscord)
+    assert (
+        obj.notify(body="test", title="t", notify_type=NotifyType.INFO)
+        is False
+    )
+    assert mock_post.called is False
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_template_bad_embeds(mock_post, tmpdir):
+    """NotifyDiscord() template embeds containing non-dict entries fails."""
+
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    # Prepare a mock response (should never be called)
+    mock_post.return_value = mock.Mock(
+        status_code=requests.codes.ok,
+        content=b"",
+        headers={},
+    )
+
+    # Write a template where embeds contains a non-dict entry
+    template = tmpdir.join("bad_embeds.json")
+    template.write('{"embeds": ["not-a-dict"]}')
+
+    obj = Apprise.instantiate(
+        "discord://{}/{}/".format(webhook_id, webhook_token)
+        + "?template={}".format(str(template))
+    )
+    assert isinstance(obj, NotifyDiscord)
+
+    # Notification must fail because the embed entry is not a dict
+    assert (
+        obj.notify(body="test", title="t", notify_type=NotifyType.INFO)
+        is False
+    )
+    assert mock_post.called is False
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_template_send_failure(mock_post, tmpdir):
+    """NotifyDiscord() HTTP failure in template mode."""
+
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    # Write a valid template
+    template = tmpdir.join("discord.json")
+    template.write('{"content": "hello"}')
+
+    obj = Apprise.instantiate(
+        "discord://{}/{}/".format(webhook_id, webhook_token)
+        + "?template={}".format(str(template))
+    )
+    assert isinstance(obj, NotifyDiscord)
+
+    # Simulate an HTTP error response
+    mock_post.return_value = mock.Mock(
+        status_code=requests.codes.internal_server_error,
+        content=b"",
+        headers={},
+    )
+    assert (
+        obj.notify(body="test", title="t", notify_type=NotifyType.INFO)
+        is False
+    )
+    assert mock_post.called is True
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_template_with_attachments(mock_post, tmpdir):
+    """NotifyDiscord() template mode still sends attachments."""
+
+    webhook_id = "C" * 24
+    webhook_token = "D" * 64
+
+    # Write a valid template
+    template = tmpdir.join("discord.json")
+    template.write('{"content": "{{app_body}}"}')
+
+    obj = Apprise.instantiate(
+        "discord://{}/{}/".format(webhook_id, webhook_token)
+        + "?template={}".format(str(template))
+    )
+    assert isinstance(obj, NotifyDiscord)
+
+    # Prepare a good mock response for both the template call and attachment
+    mock_post.return_value = mock.Mock(
+        status_code=requests.codes.ok,
+        content=b"",
+        headers={},
+    )
+
+    # Attach a test file
+    attach = AppriseAttachment(os.path.join(TEST_VAR_DIR, "apprise-test.gif"))
+    assert (
+        obj.notify(
+            body="test",
+            title="t",
+            notify_type=NotifyType.INFO,
+            attach=attach,
+        )
+        is True
+    )
+
+    # Both the template message and the attachment should have been posted
+    assert mock_post.call_count == 2
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_attach_multi_batch(mock_post):
+    """NotifyDiscord() multi-attachment batching."""
+
+    webhook_id = "C" * 24
+    webhook_token = "D" * 64
+
+    response = mock.Mock()
+    response.status_code = requests.codes.ok
+    response.content = b""
+    response.headers = {}
+    mock_post.return_value = response
+
+    obj = Apprise.instantiate(
+        f"discord://{webhook_id}/{webhook_token}/?format=markdown"
+    )
+    assert isinstance(obj, NotifyDiscord)
+    assert obj.batch is True
+
+    # Three test attachments
+    gif = os.path.join(TEST_VAR_DIR, "apprise-test.gif")
+    png = os.path.join(TEST_VAR_DIR, "apprise-test.png")
+    jpg = os.path.join(TEST_VAR_DIR, "apprise-test.jpeg")
+    attach = AppriseAttachment([gif, png, jpg])
+
+    # Default batch mode: all 3 files go in one POST (plus 1 for the message)
+    assert obj.send(body="test", attach=attach) is True
+    assert mock_post.call_count == 2
+    mock_post.reset_mock()
+
+    # Reduce max per batch to 1: each file gets its own POST (4 calls total)
+    obj.discord_max_attachments = 1
+    assert obj.send(body="test", attach=attach) is True
+    assert mock_post.call_count == 4
+    mock_post.reset_mock()
+    obj.discord_max_attachments = 10
+
+    # Size-based split: force a tiny per-batch byte budget
+    obj.discord_max_attach_bytes = 1
+    assert obj.send(body="test", attach=attach) is True
+    assert mock_post.call_count == 4
+    mock_post.reset_mock()
+    obj.discord_max_attach_bytes = 25 * 1024 * 1024
+
+    # batch=False: reverts to legacy one-per-message regardless of max
+    obj_no_batch = Apprise.instantiate(
+        f"discord://{webhook_id}/{webhook_token}/?batch=no"
+    )
+    assert isinstance(obj_no_batch, NotifyDiscord)
+    assert obj_no_batch.batch is False
+    assert obj_no_batch.send(body="test", attach=attach) is True
+    assert mock_post.call_count == 4
+    mock_post.reset_mock()
+
+    # URL round-trip preserves batch flag
+    url_on = NotifyDiscord(
+        webhook_id=webhook_id,
+        webhook_token=webhook_token,
+        batch=True,
+    ).url()
+    assert "batch=yes" in url_on
+    url_off = NotifyDiscord(
+        webhook_id=webhook_id,
+        webhook_token=webhook_token,
+        batch=False,
+    ).url()
+    assert "batch=no" in url_off
+    parsed = NotifyDiscord.parse_url(url_off)
+    assert parsed["batch"] is False
+
+    # Guard 1: inaccessible file causes failure; body POST still goes out
+    with mock.patch("os.path.isfile", return_value=False):
+        assert obj.send(body="test", attach=attach) is False
+    assert mock_post.call_count == 1
+    mock_post.reset_mock()
+
+    # Guard 2: OSError on open causes failure; body POST still goes out
+    with mock.patch("builtins.open", side_effect=OSError()):
+        assert obj.send(body="test", attach=attach) is False
+    assert mock_post.call_count == 1
+    mock_post.reset_mock()
+
+    # HTTP error on the attachment batch POST; body POST succeeds
+    bad_response = mock.Mock()
+    bad_response.status_code = requests.codes.internal_server_error
+    bad_response.content = b""
+    bad_response.headers = {}
+    mock_post.side_effect = [response, bad_response]
+    assert obj.send(body="test", attach=attach) is False
+    mock_post.side_effect = None
+    mock_post.reset_mock()
+
+    # RequestException on the attachment batch POST
+    mock_post.side_effect = [response, requests.RequestException()]
+    assert obj.send(body="test", attach=attach) is False
+    mock_post.side_effect = None
+    mock_post.reset_mock()
+
+    # OSError raised by requests.post() during attachment send
+    mock_post.side_effect = [response, OSError()]
+    assert obj.send(body="test", attach=attach) is False
+    mock_post.side_effect = None
+    mock_post.reset_mock()
+
+    # Partial batch failure: first batch (files 0+1) succeeds, second fails.
+    # Set max=2 so 3 files split into [gif, png] and [jpg].
+    obj.discord_max_attachments = 2
+    mock_post.side_effect = [response, response, bad_response]
+    assert obj.send(body="test", attach=attach) is False
+    assert mock_post.call_count == 3
+    mock_post.side_effect = None
+    obj.discord_max_attachments = 10

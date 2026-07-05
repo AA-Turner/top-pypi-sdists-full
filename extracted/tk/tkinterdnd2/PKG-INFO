@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tkinterdnd2
-Version: 0.5.0
+Version: 0.6.2
 Summary: TkinterDnD2 is a python wrapper for George Petasis'' tkDnD Tk extension version 2
 Home-page: https://github.com/Eliav2/tkinterdnd2
 Author: petasis\pmgagne\eliav2\squiblydoo
@@ -28,17 +28,11 @@ This repo was originally forked and edited for the purpose of publishing to pypi
 This repository is being maintained to ensure availability of `tkinterdnd2` into the future, providing Tkinter native drag and drop support for windows, unix and Mac OSX.
 
 
-### What is TkDnD2
+### What is TkDnD
 
 [tkDnD2](https://github.com/petasis/tkdnd) is a tcl/Tk extension adding native drag and drop support.
 
-### What this repository is about
-
-This repo package TkinterDnD2 and tkdnd2 into a standard python module.
-
-When the extension is imported in python its location will be automatically added to the Tk search path.
-
-This repository contains the compiled binaries from https://github.com/petasis/tkdnd/releases/tag/tkdnd-release-test-v2.9.4. In order to provide support on ARM, we include built binaries from the now defunct [tkinterdnd2-universal](https://pypi.org/project/tkinterdnd2-universal/#files) which added ARM support.
+This repository contains the compiled binaries from https://github.com/petasis/tkdnd/releases/tag/tkdnd-release-test-v2.9.5 and my own compiled binaries for full Tcl 9 support: https://github.com/Squiblydoo/tkdnd.
 
 
 ## Install
@@ -57,15 +51,22 @@ root = TkinterDnD.Tk()  # notice - use this instead of tk.Tk()
 lb = tk.Listbox(root)
 lb.insert(1, "drag files to here")
 
+def on_drop(event):
+    # event.data is a raw Tcl list string, not a Python list - see note below
+    for path in root.tk.splitlist(event.data):
+        lb.insert(tk.END, path)
+
 # register the listbox as a drop target
 lb.drop_target_register(DND_FILES)
-lb.dnd_bind('<<Drop>>', lambda e: lb.insert(tk.END, e.data))
+lb.dnd_bind('<<Drop>>', on_drop)
 
 lb.pack()
 root.mainloop()
 ```
 ![tkinterdnd2 example usage](https://i.stack.imgur.com/jnOWd.png)
 
+> [!NOTE]
+> `event.data` is a raw Tcl list, not a Python list or plain string. When multiple files are dropped, their paths come back space-separated in a single string, and any path containing a space is wrapped in `{braces}` so it can still be told apart from the others. Use `root.tk.splitlist(event.data)` (as above) to get a clean Python list of paths — don't split the string yourself, since that will break on braced/spaced paths.
 
 see any of the [demos](./demos) for usage examples.
 
@@ -82,7 +83,9 @@ import PySimpleGUI as sg
 from tkinterdnd2 import TkinterDnD, DND_FILES
 
 def on_drop(event):
-    window["-FILE-"].update(event.data)
+    # event.data is a raw Tcl list; use splitlist to handle multiple/spaced paths, see note above
+    files = window.TKroot.tk.splitlist(event.data)
+    window["-FILE-"].update(files[0])
 
 layout = [
     [sg.Text("Drag & Drop a File Here")],
@@ -114,8 +117,10 @@ import customtkinter as ctk
 from tkinterdnd2 import TkinterDnD, DND_FILES
 
 def on_drop(event):
+    # event.data is a raw Tcl list; use splitlist to handle multiple/spaced paths, see note above
+    files = app.tk.splitlist(event.data)
     entry.delete(0, "end")
-    entry.insert(0, event.data)
+    entry.insert(0, files[0])
 
 app = ctk.CTk()
 app.title("File Drop")

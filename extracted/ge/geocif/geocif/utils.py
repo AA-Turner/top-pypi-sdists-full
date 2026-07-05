@@ -15,6 +15,9 @@ import matplotlib.pyplot as plt
 MODEL_DISPLAY_NAMES = {
     "catboost": "CatBoost",
     "tabpfn": "TabPFN",
+    "null": "Null",
+    "trend": "Trend",
+    "trend_all": "Trend All",
     "curated_tabpfn": "TabPFN (curated, monthly)",
     "curated_catboost": "CatBoost (curated, monthly)",
     "curated_gam": "GAM (curated, monthly)",
@@ -32,6 +35,10 @@ MODEL_DISPLAY_NAMES = {
     "merf": "MERF",
     "desreg": "DesReg",
     "gpr": "GPR",
+    # Ensemble blend pseudo-models emitted by yield_outlook:
+    "inv_rmse": "Inv-RMSE Stack",   # 1/RMSE weighted blend (engineering flavor)
+    "bma":      "BMA (BIC)",        # proper Bayesian Model Averaging via BIC weights
+    "ensemble": "Simple Mean",       # unweighted mean across ML models
 }
 
 

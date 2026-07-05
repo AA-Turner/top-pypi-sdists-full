@@ -4,7 +4,7 @@ name = "dirsql-py-ext"
 # pypi/maturin handler can rewrite it via `write-version` before
 # `maturin build`. `pyproject.toml` declares `dynamic = ["version"]`
 # and maturin reads this field. Mirrors `packages/rust/Cargo.toml`.
-version = "0.3.59"
+version = "0.3.67"
 edition.workspace = true
 publish = false
 readme = "README.md"

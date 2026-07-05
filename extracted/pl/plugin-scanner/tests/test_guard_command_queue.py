@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import urllib.error
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -820,7 +821,6 @@ def test_poll_once_leases_heartbeats_executes_and_posts_result(
                 "resolvedComplete": True,
                 "pendingLimit": command_executors.LOCAL_REQUEST_PENDING_SNAPSHOT_LIMIT,
                 "resolvedLimit": command_executors.LOCAL_REQUEST_RESOLVED_SNAPSHOT_LIMIT,
-                "maxBytes": command_executors.LOCAL_REQUEST_SNAPSHOT_MAX_BYTES,
                 "pendingCount": 0,
                 "resolvedCount": 0,
             },
@@ -837,6 +837,40 @@ def test_poll_once_leases_heartbeats_executes_and_posts_result(
     assert "machineInstallationId" not in calls[1][2]
     assert "machineInstallationId" not in calls[2][2]
     assert "machineInstallationId" not in calls[3][2]
+
+
+def test_lease_payload_strips_local_snapshot_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = _oauth_store(tmp_path)
+    monkeypatch.setattr(
+        command_queue,
+        "_local_request_snapshot_payload",
+        lambda _store: {
+            "requests": [],
+            "pendingComplete": True,
+            "resolvedComplete": True,
+            "pendingLimit": 125,
+            "resolvedLimit": 25,
+            "pendingCount": 0,
+            "resolvedCount": 0,
+            "maxBytes": 900000,
+            "debugOnly": "drop-me",
+        },
+    )
+
+    payload = command_queue._lease_payload(store)
+
+    assert payload["localRequestsSnapshot"] == {
+        "requests": [],
+        "pendingComplete": True,
+        "resolvedComplete": True,
+        "pendingLimit": 125,
+        "resolvedLimit": 25,
+        "pendingCount": 0,
+        "resolvedCount": 0,
+    }
 
 
 def test_executor_app_remove_never_uses_local_daemon_client(
@@ -1033,6 +1067,60 @@ def test_poll_once_persists_result_retry_when_result_upload_fails(
     assert isinstance(state, dict)
     assert state["state"] == "result_pending"
     assert isinstance(state["pending_result"], dict)
+
+
+def test_poll_once_persists_result_when_result_upload_http_error(tmp_path: Path, monkeypatch) -> None:
+    """Regression: HTTPError 500/429 on result upload must persist pending_result (PR #1308)."""
+    store = FakeStore(tmp_path / "guard-home")
+
+    monkeypatch.setattr(
+        command_queue,
+        "_resolve_guard_sync_auth_context",
+        lambda current_store: {"sync_url": "https://hol.test/api/guard/receipts/sync", "access_token": "token"},
+    )
+    monkeypatch.setattr(command_executors, "package_shim_status", lambda context: {"active_managers": []})
+
+    class FakeHTTPError(urllib.error.HTTPError):
+        def __init__(self) -> None:
+            super().__init__(
+                "https://hol.test/api/guard/commands/job-3/result",
+                500,
+                "Internal Server Error",
+                {},
+                None,
+            )
+
+    def fake_json_request(
+        auth_context: dict[str, object],
+        *,
+        method: str,
+        path: str,
+        payload: dict[str, object],
+    ) -> dict[str, object]:
+        if path == "/lease":
+            return {
+                "item": {
+                    "id": "job-3",
+                    "leaseId": "lease-3",
+                    "operation": "guard.packageShims.status",
+                }
+            }
+        if path.endswith("/result"):
+            raise FakeHTTPError()
+        return {"ok": True}
+
+    monkeypatch.setattr(command_queue, "_json_request", fake_json_request)
+
+    with pytest.raises(urllib.error.HTTPError):
+        command_queue.poll_command_queue_once(store, _context(tmp_path))
+
+    state = store.get_sync_payload(command_queue.COMMAND_QUEUE_STATE_KEY)
+    assert isinstance(state, dict)
+    assert state["state"] == "result_pending"
+    pending = state["pending_result"]
+    assert isinstance(pending, dict)
+    assert pending["job"]["id"] == "job-3"
+    assert "payload" in pending
 
 
 def test_poll_once_clears_active_job_when_heartbeat_fails(tmp_path: Path, monkeypatch) -> None:
@@ -1482,8 +1570,8 @@ def test_poll_once_keeps_auth_expired_state_when_auth_refresh_fails(
         "2026-06-23T10:00:00+00:00",
     )
 
-    def fake_auth_context(current_store, *, allow_primary_repair: bool = True):
-        del current_store, allow_primary_repair
+    def fake_auth_context(current_store, *, allow_primary_repair: bool = True, force_refresh: bool = False):
+        del current_store, allow_primary_repair, force_refresh
         raise guard_runner_module.GuardSyncAuthorizationExpiredError(existing_error)
 
     monkeypatch.setattr(command_queue, "_resolve_guard_sync_auth_context", fake_auth_context)
@@ -1494,6 +1582,41 @@ def test_poll_once_keeps_auth_expired_state_when_auth_refresh_fails(
     status = command_queue.command_queue_status(store)
     assert status["state"] == "auth_expired"
     assert status["last_error"] == existing_error
+
+
+def test_poll_once_repairs_oauth_storage_and_retries_before_leasing(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    store = _oauth_store(tmp_path)
+    resolve_calls = {"count": 0}
+
+    def fake_auth_context(current_store, *, allow_primary_repair: bool = True, force_refresh: bool = False):
+        del current_store, allow_primary_repair, force_refresh
+        resolve_calls["count"] += 1
+        if resolve_calls["count"] == 1:
+            raise guard_runner_module.GuardSyncNotConfiguredError("Guard is not logged in.")
+        return {
+            "access_token": "access-token-1",
+            "sync_url": "https://hol.org/api/guard/receipts/sync",
+        }
+
+    def fake_repair(current_store):
+        del current_store
+        return {
+            "existing_sign_in_valid": True,
+            "repaired_storage": True,
+        }
+
+    monkeypatch.setattr(command_queue, "_resolve_guard_sync_auth_context", fake_auth_context)
+    monkeypatch.setattr(command_queue, "repair_guard_cloud_connect_storage", fake_repair)
+    monkeypatch.setattr(command_queue, "_json_request", lambda *args, **kwargs: {})
+
+    status = command_queue.poll_command_queue_once(store, _context(tmp_path))
+
+    assert resolve_calls["count"] == 2
+    assert status["state"] == "idle"
+    assert status["last_poll_was_empty"] is True
 
 
 def test_commands_status_outputs_command_queue_state(tmp_path: Path, capsys, monkeypatch) -> None:
@@ -2308,3 +2431,217 @@ def test_executor_rejects_loose_policy_memory_payload(tmp_path: Path) -> None:
     )
     assert "failureCode" in result
     assert "missing" in result["failureCode"]
+
+
+def test_executor_rejects_remote_approval_for_unsupported_scope(tmp_path: Path) -> None:
+    class UnsupportedScopeStore(FakeStore):
+        def __init__(self, guard_home: Path) -> None:
+            super().__init__(guard_home)
+            self.claimed_receipts: list[str] = []
+            self.resolved: list[dict[str, object]] = []
+            self.request_row = _approval_request_row(
+                "request-broad-scope",
+                policy_action="require-reapproval",
+                recommended_scope="workspace",
+            )
+
+        def get_approval_request(self, request_id: str) -> dict[str, object] | None:
+            return self.request_row if request_id == "request-broad-scope" else None
+
+        def claim_remote_once_receipt(
+            self,
+            receipt_id: str,
+            *,
+            request_id: str,
+            claimed_at: str,
+        ) -> bool:
+            del request_id, claimed_at
+            self.claimed_receipts.append(receipt_id)
+            return True
+
+        def resolve_request_with_signed_remote_result(
+            self,
+            request_id: str,
+            *,
+            resolution_action: str,
+            resolution_scope: str,
+            reason: str | None,
+            resolved_at: str,
+        ) -> dict[str, object]:
+            self.resolved.append(
+                {
+                    "request_id": request_id,
+                    "resolution_action": resolution_action,
+                    "resolution_scope": resolution_scope,
+                    "reason": reason,
+                    "resolved_at": resolved_at,
+                }
+            )
+            return {"resolved": True, "resolved_request": {"request_id": request_id}}
+
+    store = UnsupportedScopeStore(tmp_path / "guard-home")
+    remote_approval = _signed_remote_approval(store, store.request_row)
+
+    result = command_executors.execute_guard_command_job(
+        {
+            "operation": "guard.approval.resolve",
+            "payload": {
+                "localRequestId": "request-broad-scope",
+                "action": "allow_once",
+                "remoteApproval": remote_approval,
+            },
+        },
+        context=_context(tmp_path),
+        store=store,  # type: ignore[arg-type]
+        now=lambda: "2026-06-13T00:00:00+00:00",
+    )
+
+    assert result["failureCode"] == "remote_approval_not_permitted"
+    assert store.claimed_receipts == []
+    assert store.resolved == []
+
+
+def test_executor_resolves_one_time_scope_with_allow(tmp_path: Path) -> None:
+    """Prove `recommended_scope='one-time'` flows into `resolution_scope` on allow."""
+
+    class OneTimeAllowStore(FakeStore):
+        def __init__(self, guard_home: Path) -> None:
+            super().__init__(guard_home)
+            self.request_row = _approval_request_row(
+                "request-ot-allow",
+                policy_action="require-reapproval",
+                recommended_scope="one-time",
+            )
+            self.resolved: list[dict[str, object]] = []
+            self.claimed_receipts: list[dict[str, str]] = []
+
+        def get_approval_request(self, request_id: str) -> dict[str, object] | None:
+            return self.request_row if request_id == "request-ot-allow" else None
+
+        def claim_remote_once_receipt(
+            self,
+            receipt_id: str,
+            *,
+            request_id: str,
+            claimed_at: str,
+        ) -> bool:
+            self.claimed_receipts.append({"receipt_id": receipt_id})
+            return True
+
+        def resolve_request_with_signed_remote_result(
+            self,
+            request_id: str,
+            *,
+            resolution_action: str,
+            resolution_scope: str,
+            reason: str | None,
+            resolved_at: str,
+        ) -> dict[str, object]:
+            self.resolved.append(
+                {
+                    "request_id": request_id,
+                    "resolution_action": resolution_action,
+                    "resolution_scope": resolution_scope,
+                }
+            )
+            return {"resolved": True, "resolved_request": {"request_id": request_id}}
+
+    store = OneTimeAllowStore(tmp_path / "guard-home")
+    remote_approval = _signed_remote_approval(store, store.request_row)
+    result = command_executors.execute_guard_command_job(
+        {
+            "operation": "guard.approval.resolve",
+            "payload": {
+                "action": "allow_once",
+                "localRequestId": "request-ot-allow",
+                "remoteApproval": remote_approval,
+            },
+        },
+        context=_context(tmp_path),
+        store=store,  # type: ignore[arg-type]
+        now=lambda: "2026-06-13T00:00:00+00:00",
+    )
+
+    assert result["generatedAt"] == "2026-06-13T00:00:00+00:00"
+    assert result["data"]["status"] == "completed"
+    assert store.resolved == [
+        {
+            "request_id": "request-ot-allow",
+            "resolution_action": "allow",
+            "resolution_scope": "one-time",
+        }
+    ]
+    assert len(store.claimed_receipts) == 1
+
+
+def test_executor_resolves_one_time_scope_with_block(tmp_path: Path) -> None:
+    """Prove `recommended_scope='one-time'` flows into `resolution_scope` on block."""
+
+    class OneTimeBlockStore(FakeStore):
+        def __init__(self, guard_home: Path) -> None:
+            super().__init__(guard_home)
+            self.request_row = _approval_request_row(
+                "request-ot-block",
+                policy_action="require-reapproval",
+                recommended_scope="one-time",
+            )
+            self.resolved: list[dict[str, object]] = []
+            self.claimed_receipts: list[dict[str, str]] = []
+
+        def get_approval_request(self, request_id: str) -> dict[str, object] | None:
+            return self.request_row if request_id == "request-ot-block" else None
+
+        def claim_remote_once_receipt(
+            self,
+            receipt_id: str,
+            *,
+            request_id: str,
+            claimed_at: str,
+        ) -> bool:
+            self.claimed_receipts.append({"receipt_id": receipt_id})
+            return True
+
+        def resolve_request_with_signed_remote_result(
+            self,
+            request_id: str,
+            *,
+            resolution_action: str,
+            resolution_scope: str,
+            reason: str | None,
+            resolved_at: str,
+        ) -> dict[str, object]:
+            self.resolved.append(
+                {
+                    "request_id": request_id,
+                    "resolution_action": resolution_action,
+                    "resolution_scope": resolution_scope,
+                }
+            )
+            return {"resolved": True, "resolved_request": {"request_id": request_id}}
+
+    store = OneTimeBlockStore(tmp_path / "guard-home")
+    remote_approval = _signed_remote_approval(store, store.request_row, decision="block")
+    result = command_executors.execute_guard_command_job(
+        {
+            "operation": "guard.approval.resolve",
+            "payload": {
+                "action": "allow_once",
+                "localRequestId": "request-ot-block",
+                "remoteApproval": remote_approval,
+            },
+        },
+        context=_context(tmp_path),
+        store=store,  # type: ignore[arg-type]
+        now=lambda: "2026-06-13T00:00:00+00:00",
+    )
+
+    assert result["generatedAt"] == "2026-06-13T00:00:00+00:00"
+    assert result["data"]["status"] == "completed"
+    assert store.resolved == [
+        {
+            "request_id": "request-ot-block",
+            "resolution_action": "block",
+            "resolution_scope": "one-time",
+        }
+    ]
+    assert len(store.claimed_receipts) == 1

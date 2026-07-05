@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "prek"
-version = "0.4.6"
+version = "0.4.8"
 description = "A fast Git hook manager written in Rust, designed as a drop-in alternative to pre-commit, reimagined."
 authors = [{ name = "j178", email = "hi@j178.dev" }]
 requires-python = ">=3.8"
@@ -13,7 +13,7 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE", "licenses/*"]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Environment :: Console",
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
@@ -32,7 +32,7 @@ dev = ["rooster"]
 docs = ["llmstxt-standalone>=0.2.0", "zensical>=0.0.24"]
 
 [tool.uv.sources]
-rooster = { git = "https://github.com/j178/rooster", rev = "747d16f" }
+rooster = { git = "https://github.com/j178/rooster", rev = "c1901e113611dbe4c2c30917a4d4d392e6d0c679" }
 
 [tool.uv.dependency-groups]
 dev = { requires-python = ">=3.12" }
@@ -47,7 +47,7 @@ python-source = "python"
 [tool.rooster]
 version-format = "cargo"
 version_tag_prefix = "v"
-major_labels = [] # We do not use the major version number yet
+major_labels = []  # We do not use the major version number yet
 minor_labels = ["breaking"]
 changelog_ignore_labels = ["internal", "ci", "testing"]
 changelog_sections.breaking = "Breaking changes"

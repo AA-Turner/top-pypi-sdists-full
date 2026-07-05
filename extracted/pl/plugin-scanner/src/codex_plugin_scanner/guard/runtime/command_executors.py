@@ -16,6 +16,10 @@ from ..cli.install_commands import (
     list_harness_setup_items,
     uninstall_confirmation_token,
 )
+from ..cli.update_commands import (
+    build_guard_update_status_payload,
+    run_guard_update,
+)
 from ..config import load_guard_config
 from ..local_supply_chain import (
     build_workspace_audit_payload,
@@ -61,6 +65,8 @@ APP_OPERATIONS: tuple[str, ...] = (
     "guard.app.repair",
     "guard.app.connect",
     "guard.app.remove",
+    "guard.app.update",
+    "guard.app.updateCheck",
 )
 APPROVAL_OPERATIONS: tuple[str, ...] = (
     "guard.approval.resolve",
@@ -203,6 +209,16 @@ def _execute_app_operation(
             return _result({"items": list_harness_setup_items(context, store)}, generated_at=generated_at)
         get_adapter(harness)
         return _result(build_harness_verification(harness, context, store, surface=surface), generated_at=generated_at)
+    if operation == "guard.app.update":
+        return _result(
+            _execute_app_update(context=context, store=store, generated_at=generated_at),
+            generated_at=generated_at,
+        )
+    if operation == "guard.app.updateCheck":
+        return _result(
+            _execute_app_update_check(generated_at=generated_at),
+            generated_at=generated_at,
+        )
     if harness is None:
         return {"failureCode": "harness_required", "failureMessage": "App command requires a harness."}
     get_adapter(harness)
@@ -233,6 +249,30 @@ def _execute_app_operation(
         "failureCode": "unsupported_operation",
         "failureMessage": f"Unsupported app operation: {operation}",
     }
+
+
+def _execute_app_update(
+    *,
+    context: HarnessContext,
+    store: GuardStore,
+    generated_at: str,
+) -> dict[str, object]:
+    update_payload, exit_code = run_guard_update(
+        dry_run=False,
+        context=context,
+        store=store,
+        workspace=str(context.workspace_dir) if context.workspace_dir is not None else None,
+        now=generated_at,
+    )
+    return {
+        "update": update_payload,
+        "exitCode": exit_code,
+        "succeeded": exit_code == 0,
+    }
+
+
+def _execute_app_update_check(generated_at: str) -> dict[str, object]:
+    return build_guard_update_status_payload()
 
 
 def _execute_approval_operation(
@@ -280,6 +320,13 @@ def _execute_approval_operation(
         oauth=oauth,
         store=store,
     )
+    request_policy_action = _optional_string(request_row.get("policy_action"))
+    resolution_scope = _optional_string(request_row.get("recommended_scope"))
+    if request_policy_action not in {"pause", "review", "require-reapproval"} or resolution_scope not in {
+        "artifact",
+        "one-time",
+    }:
+        raise ValueError("remote_approval_not_permitted")
     receipt_id = _optional_string(envelope.get("receiptId"))
     if receipt_id is None:
         raise ValueError("invalid_remote_approval_receipt")
@@ -293,12 +340,13 @@ def _execute_approval_operation(
     if envelope_decision not in {"allow_once", "block"}:
         store.release_remote_once_receipt(receipt_id)
         raise ValueError("invalid_remote_approval_decision")
+    resolution_scope = resolution_scope or "artifact"
     resolution_action = "block" if envelope_decision == "block" else "allow"
     try:
         result = store.resolve_request_with_signed_remote_result(
             local_request_id,
             resolution_action=resolution_action,
-            resolution_scope="artifact",
+            resolution_scope=resolution_scope,
             reason=_optional_string(payload.get("reason")) or "Guard Cloud signed remote approval",
             resolved_at=generated_at,
         )

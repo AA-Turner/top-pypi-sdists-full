@@ -35,7 +35,9 @@ from quack.gemm_tvm_ffi_utils import (
     make_fake_varlen_args,
     div_for_dtype,
     make_fake_gemm_tensors,
+    make_fake_sf_tensor,
     compile_gemm_kernel,
+    validate_blockscaled_sf,
 )
 from quack.cache import jit_cache
 import quack.layout_utils as layout_utils
@@ -161,8 +163,7 @@ class GemmActMixin(ComposableEpiMixin):
             raw_vec = convert_f32_to_bf16_sr(src_vec, seed, tidx)
             tRS_rAuxOut_out.store(TensorSSA(raw_vec, src_vec.shape, self.aux_out_dtype))
         else:
-            tRS_rAuxOut_out = cute.make_rmem_tensor_like(tRS_rAuxOut, self.aux_out_dtype)
-            tRS_rAuxOut_out.store(tRS_rAuxOut.load().to(self.aux_out_dtype))
+            tRS_rAuxOut_out = tRS_rAuxOut.to(self.aux_out_dtype)
         return tRS_rAuxOut_out
 
     @cute.jit
@@ -374,6 +375,8 @@ def _compile_gemm_act(
     rounding_mode=RoundingMode.RN,
     sr_seed_mode=0,
     use_tma_gather=False,
+    sf_dtype=None,
+    sf_vec_size=None,
 ):
     sm_to_cls = {
         "act": {
@@ -441,6 +444,11 @@ def _compile_gemm_act(
         (is_dynamic_persistent and device_capacity[0] == 9), False, l
     )
     varlen_args = make_fake_varlen_args(varlen_m, False, gather_A, m if varlen_m else None)
+    if sf_dtype is not None:
+        mSFA = make_fake_sf_tensor(sf_dtype, l)
+        mSFB = make_fake_sf_tensor(sf_dtype, l)
+    else:
+        mSFA, mSFB = None, None
     return compile_gemm_kernel(
         GemmCls,
         a_dtype,
@@ -458,8 +466,11 @@ def _compile_gemm_act(
         epi_args,
         scheduler_args,
         varlen_args,
+        mSFA=mSFA,
+        mSFB=mSFB,
         use_tma_gather=use_tma_gather,
         concat_layout=concat_layout or None,
+        sf_vec_size=sf_vec_size,
     )
 
 
@@ -488,6 +499,8 @@ def gemm_act(
     sr_seed: int | Tensor = 0,
     use_tma_gather: bool = False,
     concat_layout: tuple | None = None,
+    SFA: Optional[Tensor] = None,  # (l, rm, rk, 32, 4, 4) blocked scale factors
+    SFB: Optional[Tensor] = None,  # (l, rn, rk, 32, 4, 4)
 ) -> None:
     if activation in gate_fn_map:
         gemm_cls_name = "gated"
@@ -497,6 +510,7 @@ def gemm_act(
 
     varlen_m = cu_seqlens_m is not None
     gather_A = A_idx is not None
+    blockscaled = SFA is not None
     if varlen_m:
         assert persistent, "varlen_m requires persistent=True"
         assert A.stride(-1) == 1, "varlen_m requires A to be k-major"
@@ -530,6 +544,13 @@ def gemm_act(
     assert device_capacity[0] in [8, 9, 10, 11, 12], (
         "Only SM8x, SM90, SM100, SM110, and SM120 are supported"
     )
+    sf_dtype, sf_vec_size = None, None
+    if blockscaled:
+        assert not varlen_m and not gather_A, "Blockscaled GEMM does not support varlen/gather yet"
+        assert not concat_layout, "Blockscaled GEMM does not support concat_layout"
+        assert tile_K is None, "Blockscaled GEMM derives tile_K from the MMA instruction"
+        # A / B are still (l, m, k) / (l, n, k) here (perm3d only made views).
+        sf_dtype, sf_vec_size = validate_blockscaled_sf(A, B, SFA, SFB, device_capacity)
     if rounding_mode == RoundingMode.RS:
         assert device_capacity[0] == 10, "Stochastic rounding (RoundingMode.RS) requires SM100"
 
@@ -570,12 +591,9 @@ def gemm_act(
         rounding_mode=rounding_mode,
         sr_seed_mode=sr_seed_mode,
         use_tma_gather=use_tma_gather,
+        sf_dtype=sf_dtype,
+        sf_vec_size=sf_vec_size,
     )
-
-    from quack.cache import is_compile_only
-
-    if is_compile_only():
-        return
 
     max_active_clusters = get_max_active_clusters(cluster_M * cluster_N) if persistent else 0
 
@@ -603,7 +621,7 @@ def gemm_act(
     varlen_args = make_varlen_args(cu_seqlens_m, None, A_idx)
 
     if device_capacity[0] in [10, 11]:
-        compiled_fn(A_p, B_p, D_p, C_p, epi_args, scheduler_args, varlen_args, None, None)
+        compiled_fn(A_p, B_p, D_p, C_p, epi_args, scheduler_args, varlen_args, SFA, SFB)
     else:
         compiled_fn(A_p, B_p, D_p, C_p, epi_args, scheduler_args, varlen_args)
 

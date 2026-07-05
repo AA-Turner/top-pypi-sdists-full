@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apprise
-Version: 1.11.0
+Version: 1.12.0
 Summary: Push Notifications that work with just about every platform!
 Author-email: Chris Caron <lead2gold@gmail.com>
 License: BSD-2-Clause
@@ -8,7 +8,7 @@ Project-URL: Homepage, https://appriseit.com
 Project-URL: Source, https://github.com/caronc/apprise
 Project-URL: Tracker, https://github.com/caronc/apprise/issues
 Project-URL: Documentation, https://appriseit.com
-Keywords: 46elks,Africas Talking,Alerts,Apprise API,Automated Packet Reporting System,Amazon Chime,AWS,Bark,Blink(1),BlueSky,Brevo,BulkSMS,BulkVS,Burst SMS,Chanify,Chat,CLI,Clickatell,ClickSend,D7Networks,Dapnet,DBus,DingTalk,Discord,Dot,Email,Emby,Enigma2,Evolution API,Exotel,FCM,Feishu,Flock,Fluxer,Form,Free Mobile,Gnome,Google Chat,Gotify,GroupMe,Growl,Guilded,Home Assistant,httpSMS,HumHub,IFTTT,IRC,Jellyfin,Jira,Join,JSON,Kavenegar,KODI,Kumulos,LaMetric,Lark,Line,MacOSX,Mailgun,Mastodon,Matrix,Mattermost,MessageBird,Microsoft,Misskey,MQTT,MSG91,MSTeams,Nextcloud,NextcloudTalk,Notica,NotificationAPI,Notifiarr,Notifico,Ntfy,Office365,OneSignal,Opsgenie,PagerDuty,PagerTree,ParsePlatform,Plivo,PopcornNotify,Postmark,Power Automate,Prowl,Push Notifications,PushBullet,PushDeer,Pushed,Pushjet,PushMe,Pushover,Pushplus,PushSafer,Pushy,QQ Push,Quote/0,Reddit,Resend,Revolt,RingCentral,Rocket.Chat,RSyslog,Ryver,SendGrid,SendPulse,ServerChan,Session Open Group Server,SES,Seven,SFR,Signal,SIGNL4,SimplePush,Sinch,Slack,SMPP,SMS Manager,SMSEagle,SMTP2Go,SNS,SparkPost,Spike,Splunk,SpugPush,Streamlabs,Stride,Synology Chat,Syslog,Techulus,Telegram,Threema Gateway,Twilio,Twist,Twitter,Vapid,Viber,VictorOps,Voipms,Vonage,Webex,Webpush,WeChat (WeCom),WeCom Bot,WhatsApp,Windows,Workflows,WxPusher,XBMC,XML,XMPP,Zoom,Zulip
+Keywords: 46elks,800.com,Africas Talking,Alerts,Apprise API,Automated Packet Reporting System,Amazon Chime,AWS,Bark,Blink(1),BlueSky,Brevo,BulkSMS,BulkVS,Burst SMS,Chanify,Chat,CLI,Clickatell,ClickSend,D7Networks,Dapnet,DBus,DingTalk,Discord,Dot,Email,Emby,Enigma2,Evolution API,Exotel,FCM,Feishu,Flock,Flowtriq,Fluxer,Form,Free Mobile,Gnome,Google Chat,Gotify,GroupMe,Growl,Guilded,Home Assistant,httpSMS,HumHub,IFTTT,IRC,Jellyfin,Jira,Join,JSON,Kavenegar,KODI,Kook,Kumulos,LaMetric,Lark,Line,MacOSX,Mailgun,MailerSend,Mastodon,Matrix,Mattermost,MessageBird,Microsoft,Misskey,MQTT,MSG91,MSTeams,Nextcloud,NextcloudTalk,Notica,NotificationAPI,Notifiarr,Notifico,Notifyre,Ntfy,Office365,OneSignal,Opsgenie,PagerDuty,PagerTree,ParsePlatform,Plivo,Postmark,Power Automate,Prowl,Push Notifications,PushBullet,PushDeer,Pushed,Pushjet,PushMe,Pushover,Pushplus,PushSafer,PushWard,Pushy,QQ Push,Quote/0,Reddit,Resend,Revolt,RingCentral,Rocket.Chat,RSyslog,Ryver,SendGrid,SendPulse,ServerChan,SerwerSMS,Session Open Group Server,SES,Seven,SFR,Signal,SIGNL4,SimplePush,Sinch,Slack,SMPP,SMS Manager,SMSC,SMSEagle,SMTP2Go,SNS,SparkPost,Spike,Splunk,SpugPush,Stackfield,Streamlabs,Stride,Synology Chat,Syslog,Techulus,Telegram,Threema Gateway,Twilio,Twist,Twitter,Vapid,Viber,VictorOps,Voipms,Vonage,Webex,Webpush,WeChat (WeCom),WeCom Bot,WhatsApp,Windows,Workflows,WxPusher,XBMC,XML,XMPP,Zoom,Zulip
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
@@ -50,7 +50,7 @@ Requires-Dist: paho-mqtt>=2.1.0; extra == "all-plugins"
 Requires-Dist: PGPy; extra == "all-plugins"
 Requires-Dist: hidapi; extra == "all-plugins"
 Requires-Dist: smpplib; extra == "all-plugins"
-Requires-Dist: slixmpp>=1.10.0; extra == "all-plugins"
+Requires-Dist: slixmpp>=1.16.0; extra == "all-plugins"
 Provides-Extra: windows
 Requires-Dist: pywin32; extra == "windows"
 Requires-Dist: tzdata; extra == "windows"
@@ -135,6 +135,7 @@ The table below identifies the services this tool supports and some example serv
 | [FCM](https://appriseit.com/services/fcm/) | fcm://    | (TCP) 443    | fcm://project@apikey/DEVICE_ID<br />fcm://project@apikey/#TOPIC<br/>fcm://project@apikey/DEVICE_ID1/#topic1/#topic2/DEVICE_ID2/
 | [Feishu](https://appriseit.com/services/feishu/) | feishu://    | (TCP) 443    | feishu://token
 | [Flock](https://appriseit.com/services/flock/) | flock://    | (TCP) 443    | flock://token<br/>flock://botname@token<br/>flock://app_token/u:userid<br/>flock://app_token/g:channel_id<br/>flock://app_token/u:userid/g:channel_id
+| [Flowtriq](https://appriseit.com/services/flowtriq/) | flowtriq:// or flowtriqs://    | (TCP) 80 or 443    | flowtriq://apikey@hostname/webhook/path<br />flowtriqs://apikey@hostname/webhook/path
 | [Google Chat](https://appriseit.com/services/googlechat/) | gchat://    | (TCP) 443    | gchat://workspace/key/token
 | [Gotify](https://appriseit.com/services/gotify/) | gotify:// or gotifys://   | (TCP) 80 or 443    | gotify://hostname/token<br />gotifys://hostname/token?priority=high
 | [GroupMe](https://appriseit.com/services/groupme/) | groupme://   | (TCP) 443   | groupme://bot_id<br />groupme://bot_id/access_token
@@ -148,11 +149,13 @@ The table below identifies the services this tool supports and some example serv
 | [Jira](https://appriseit.com/services/jira/) | jira:// | (TCP) 443 | jira://APIKey<br/>jira://APIKey/@UserID<br/>jira://APIKey/#Team<br/>jira://APIKey/\*Schedule<br/>jira://APIKey/^Escalation
 | [Join](https://appriseit.com/services/join/) | join://   | (TCP) 443    | join://apikey/device<br />join://apikey/device1/device2/deviceN/<br />join://apikey/group<br />join://apikey/groupA/groupB/groupN<br />join://apikey/DeviceA/groupA/groupN/DeviceN/
 | [KODI](https://appriseit.com/services/kodi/) | kodi:// or kodis://    | (TCP) 8080 or 443   | kodi://hostname<br />kodi://user@hostname<br />kodi://user:password@hostname:port
+| [Kook](https://appriseit.com/services/kook/) | kook:// | (TCP) 443 | kook://token/channel_id<br/>kook://token/channel1/channel2<br/>kook://token/@user_id<br/>kook://webhook_key?mode=webhook
 | [Kumulos](https://appriseit.com/services/kumulos/) | kumulos:// | (TCP) 443 | kumulos://apikey/serverkey
 | [LaMetric Time](https://appriseit.com/services/lametric/) | lametric:// | (TCP) 443 | lametric://apikey@device_ipaddr<br/>lametric://apikey@hostname:port<br/>lametric://client_id@client_secret
 | [Lark](https://appriseit.com/services/lark/) | lark://  | (TCP) 443   | lark://BotToken
 | [Line](https://appriseit.com/services/line/) | line:// | (TCP) 443 | line://Token@User<br/>line://Token/User1/User2/UserN
 | [Mailgun](https://appriseit.com/services/mailgun/) | mailgun:// | (TCP) 443 | mailgun://user@hostname/apikey<br />mailgun://user@hostname/apikey/email<br />mailgun://user@hostname/apikey/email1/email2/emailN<br />mailgun://user@hostname/apikey/?name="From%20User"
+| [MailerSend](https://appriseit.com/services/mailersend/) | mailersend://  | (TCP) 443   | mailersend://APIToken:FromEmail/<br />mailersend://APIToken:FromEmail/ToEmail<br />mailersend://APIToken:FromEmail/ToEmail1/ToEmail2/ToEmailN/
 | [Mastodon](https://appriseit.com/services/mastodon/) | mastodon:// or mastodons://| (TCP) 80 or 443  | mastodon://access_key@hostname<br />mastodon://access_key@hostname/@user<br />mastodon://access_key@hostname/@user1/@user2/@userN
 | [Matrix](https://appriseit.com/services/matrix/) | matrix:// or matrixs://  | (TCP) 80 or 443 | matrix://hostname<br />matrix://user@hostname<br />matrixs://user:pass@hostname:port/#room_alias<br />matrixs://user:pass@hostname:port/!room_id<br />matrixs://user:pass@hostname:port/#room_alias/!room_id/#room2<br />matrixs://token@hostname:port/?webhook=matrix<br />matrix://user:token@hostname/?webhook=slack&format=markdown
 | [Mattermost](https://appriseit.com/services/mattermost/) | mmost:// or mmosts:// | (TCP) 8065 | mmost://hostname/authkey<br />mmost://hostname:80/authkey<br />mmost://user@hostname:80/authkey<br />mmost://hostname/authkey?channel=channel<br />mmosts://hostname/authkey<br />mmosts://user@hostname/authkey<br />
@@ -173,7 +176,6 @@ The table below identifies the services this tool supports and some example serv
 | [PagerDuty](https://appriseit.com/services/pagerduty/) | pagerduty:// | (TCP) 443 | pagerduty://IntegrationKey@ApiKey<br/>pagerduty://IntegrationKey@ApiKey/Source/Component
 | [PagerTree](https://appriseit.com/services/pagertree/) | pagertree:// | (TCP) 443 | pagertree://integration_id
 | [ParsePlatform](https://appriseit.com/services/parseplatform/) | parsep:// or parseps:// | (TCP) 80 or 443 | parsep://AppID:MasterKey@Hostname<br/>parseps://AppID:MasterKey@Hostname
-| [PopcornNotify](https://appriseit.com/services/popcornnotify/) | popcorn://  | (TCP) 443   | popcorn://ApiKey/ToPhoneNo<br/>popcorn://ApiKey/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/<br/>popcorn://ApiKey/ToEmail<br/>popcorn://ApiKey/ToEmail1/ToEmail2/ToEmailN/<br/>popcorn://ApiKey/ToPhoneNo1/ToEmail1/ToPhoneNoN/ToEmailN
 | [Postmark](https://appriseit.com/services/postmark/) | postmark://  | (TCP) 443   | postmark://APIToken:FromEmail/<br />postmark://APIToken:FromEmail/ToEmail<br />postmark://APIToken:FromEmail/ToEmail1/ToEmail2/ToEmailN/
 | [Prowl](https://appriseit.com/services/prowl/) | prowl://   | (TCP) 443    | prowl://apikey<br />prowl://apikey/providerkey
 | [PushBullet](https://appriseit.com/services/pushbullet/) | pbul://    | (TCP) 443    | pbul://accesstoken<br />pbul://accesstoken/#channel<br/>pbul://accesstoken/A_DEVICE_ID<br />pbul://accesstoken/email@address.com<br />pbul://accesstoken/#channel/#channel2/email@address.net/DEVICE
@@ -184,6 +186,7 @@ The table below identifies the services this tool supports and some example serv
 | [Pushover](https://appriseit.com/services/pushover/)  | pover://   | (TCP) 443   | pover://user@token<br />pover://user@token/DEVICE<br />pover://user@token/DEVICE1/DEVICE2/DEVICEN<br />**Note**: you must specify both your user_id and token
 | [Pushplus](https://appriseit.com/services/pushplus/) | pushplus://  | (TCP) 443   | pushplus://Token
 | [PushSafer](https://appriseit.com/services/pushsafer/)  | psafer:// or psafers://  | (TCP) 80 or 443  | psafer://privatekey<br />psafers://privatekey/DEVICE<br />psafer://privatekey/DEVICE1/DEVICE2/DEVICEN
+| [PushWard](https://appriseit.com/services/pushward/)  | pushward://  | (TCP) 443  | pushward://hlk_apikey<br />pushward://hlk_apikey?level=critical&volume=0.8
 | [Pushy](https://appriseit.com/services/pushy/)  | pushy://  | (TCP) 443  | pushy://apikey/DEVICE<br />pushy://apikey/DEVICE1/DEVICE2/DEVICEN<br />pushy://apikey/TOPIC<br />pushy://apikey/TOPIC1/TOPIC2/TOPICN
 | [PushDeer](https://appriseit.com/services/pushdeer/) | pushdeer:// or pushdeers:// | (TCP) 80 or 443 | pushdeer://pushKey<br />pushdeer://hostname/pushKey<br />pushdeer://hostname:port/pushKey
 | [QQ Push](https://appriseit.com/services/qq/) | qq://  | (TCP) 443   | qq://Token
@@ -206,6 +209,7 @@ The table below identifies the services this tool supports and some example serv
 | [Spike.sh](https://appriseit.com/services/spike/) | spike://  | (TCP) 443   | spike://Token
 | [Splunk](https://appriseit.com/services/splunk/) | splunk:// or victorops:/ | (TCP) 443 | splunk://route_key@apikey<br />splunk://route_key@apikey/entity_id
 | [Spug Push](https://appriseit.com/services/spugpush/) | spugpush://  | (TCP) 443   | spugpush://Token
+| [Stackfield](https://appriseit.com/services/stackfield/) | stackfield://  | (TCP) 443   | stackfield://WebhookToken
 | [Streamlabs](https://appriseit.com/services/streamlabs/) | strmlabs:// | (TCP) 443 | strmlabs://AccessToken/<br/>strmlabs://AccessToken/?name=name&identifier=identifier&amount=0&currency=USD
 | [Synology Chat](https://appriseit.com/services/synology_chat/) | synology:// or synologys:// |  (TCP) 80 or 443 | synology://hostname/token<br />synology://hostname:port/token
 | [Syslog](https://appriseit.com/services/syslog/) | syslog://  | n/a | syslog://<br />syslog://Facility
@@ -231,6 +235,7 @@ SMS Notifications for the most part do not have a both a `title` and `body`.  Th
 | Notification Service | Service ID | Default Port | Example Syntax |
 | -------------------- | ---------- | ------------ | -------------- |
 | [46elks](https://appriseit.com/services/46elks/) | 46elks://  | (TCP) 443   | 46elks://user:password@FromPhoneNo<br/>46elks://user:password@FromPhoneNo/ToPhoneNo<br/>46elks://user:password@FromPhoneNo/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/
+| [800.com](https://appriseit.com/services/eight00com/) | eight00com://  | (TCP) 443   | eight00com://Token@FromPhoneNo<br/>eight00com://Token@FromPhoneNo/ToPhoneNo<br/>eight00com://Token@FromPhoneNo/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/
 | [Africas Talking](https://appriseit.com/services/africas_talking/) | atalk://  | (TCP) 443   | atalk://AppUser@ApiKey/ToPhoneNo<br/>atalk://AppUser@ApiKey/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/
 | [Automated Packet Reporting System (ARPS)](https://appriseit.com/services/aprs/)  | aprs:// | (TCP) 10152 | aprs://user:pass@callsign<br/>aprs://user:pass@callsign1/callsign2/callsignN
 | [AWS SNS](https://appriseit.com/services/sns/)  | sns://   | (TCP) 443   | sns://AccessKeyID/AccessSecretKey/RegionName/+PhoneNo<br/>sns://AccessKeyID/AccessSecretKey/RegionName/+PhoneNo1/+PhoneNo2/+PhoneNoN<br/>sns://AccessKeyID/AccessSecretKey/RegionName/Topic<br/>sns://AccessKeyID/AccessSecretKey/RegionName/Topic1/Topic2/TopicN
@@ -250,6 +255,7 @@ SMS Notifications for the most part do not have a both a `title` and `body`.  Th
 | [MSG91](https://appriseit.com/services/msg91/) | msg91://  | (TCP) 443   | msg91://TemplateID@AuthKey/ToPhoneNo<br/>msg91://TemplateID@AuthKey/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/
 | [Plivo](https://appriseit.com/services/plivo/) | plivo://  | (TCP) 443   | plivo://AuthID@Token@FromPhoneNo<br/>plivo://AuthID@Token/FromPhoneNo/ToPhoneNo<br/>plivo://AuthID@Token/FromPhoneNo/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/
 | [RingCentral](https://appriseit.com/services/ringcentral/) | ringc://  | (TCP) 443   | ringc://SourcePhoneNo:Password@ClientID/ClientSecret<br/>ringc://SourcePhoneNo:JWTToken@ClientID/ClientSecret/ToPhoneNo<br/>ringc://SourcePhoneNo:JWTToken@ClientID/ClientSecret/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/
+| [SerwerSMS](https://appriseit.com/services/serwersms/) | serwersms://  | (TCP) 443   | serwersms://user:password@SenderName/+ToPhoneNo<br/>serwersms://user:password@SenderName/+ToPhoneNo1/+ToPhoneNo2<br/>serwersms://user:password@SenderName/%23GroupID
 | [Seven](https://appriseit.com/services/seven/)                                   | seven://                    | (TCP) 443   | seven://ApiKey/FromPhoneNo<br/>seven://ApiKey/FromPhoneNo/ToPhoneNo<br/>seven://ApiKey/FromPhoneNo/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/
 | [Société Française du Radiotéléphone (SFR)](https://appriseit.com/services/sfr/) | sfr://   | (TCP) 443    | sfr://user:password>@spaceId/ToPhoneNo<br/>sfr://user:password>@spaceId/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/
 | [Signal API](https://appriseit.com/services/signal/) | signal://  or signals:// | (TCP) 80 or 443  | signal://hostname:port/FromPhoneNo<br/>signal://hostname:port/FromPhoneNo/ToPhoneNo<br/>signal://hostname:port/FromPhoneNo/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/
@@ -257,7 +263,9 @@ SMS Notifications for the most part do not have a both a `title` and `body`.  Th
 | [SMPP](https://appriseit.com/services/smpp/)    | smpp:// or smpps://  | (TCP) 443  | smpp://user:password@hostname:port/FromPhoneNo/ToPhoneNo<br/>smpps://user:password@hostname:port/FromPhoneNo/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN
 | [SMSEagle](https://appriseit.com/services/smseagle/) | smseagle:// or smseagles:// | (TCP) 80 or 443  | smseagles://hostname:port/ToPhoneNo<br/>smseagles://hostname:port/@ToContact<br/>smseagles://hostname:port/#ToGroup<br/>smseagles://hostname:port/ToPhoneNo1/#ToGroup/@ToContact/
 | [SMS Manager](https://appriseit.com/services/sms_manager/) | smsmgr://  | (TCP) 443   | smsmgr://ApiKey@ToPhoneNo<br/>smsmgr://ApiKey@ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/
+| [SMSC](https://appriseit.com/services/smsc/) | smsc://  | (TCP) 443   | smsc://login:password@ToPhoneNo<br/>smsc://login:password@ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/
 | [Threema Gateway](https://appriseit.com/services/threema/) | threema://  | (TCP) 443   | threema://GatewayID@secret/ToPhoneNo<br/>threema://GatewayID@secret/ToEmail<br/>threema://GatewayID@secret/ToThreemaID/<br/>threema://GatewayID@secret/ToEmail/ToThreemaID/ToPhoneNo/...
+| [Notifyre](https://appriseit.com/services/notifyre/) | notifyre://  | (TCP) 443   | notifyre://ApiKey/ToPhoneNo<br/>notifyre://ApiKey/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN<br/>notifyre://ApiKey/ToFaxNo?mode=fax<br/>notifyre://ApiKey/ToFaxNo?mode=fax&from=+FromNo
 | [Twilio](https://appriseit.com/services/twilio/) | twilio://  | (TCP) 443   | twilio://AccountSid:AuthToken@FromPhoneNo<br/>twilio://AccountSid:AuthToken@FromPhoneNo/ToPhoneNo<br/>twilio://AccountSid:AuthToken@FromPhoneNo/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/<br/>twilio://AccountSid:AuthToken@FromPhoneNo/ToPhoneNo?apikey=Key<br/>twilio://AccountSid:AuthToken@ShortCode/ToPhoneNo<br/>twilio://AccountSid:AuthToken@ShortCode/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/<br/>twilio://AccountSid:AuthToken@FromPhoneNo/ToPhoneNo?method=call<br/>twilio://AccountSid:AuthToken@FromPhoneNo/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN?method=call
 | [Voipms](https://appriseit.com/services/voipms/) | voipms://  | (TCP) 443   | voipms://password:email/FromPhoneNo<br/>voipms://password:email/FromPhoneNo/ToPhoneNo<br/>voipms://password:email/FromPhoneNo/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/
 | [Vonage](https://appriseit.com/services/vonage/) (formerly Nexmo) | vonage://  | (TCP) 443   | vonage://ApiKey:ApiSecret@FromPhoneNo<br/>vonage://ApiKey:ApiSecret@FromPhoneNo/ToPhoneNo<br/>vonage://ApiKey:ApiSecret@FromPhoneNo/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/
@@ -693,7 +701,7 @@ There are 3 Persistent Storage operational states Apprise can operate using:
    * Developers who choose to use this operational mode can also force cached information manually if they choose.
    * The CLI will use this operational mode by default.
 1. `flush`: Flushes any cache information to the filesystem during every transaction.
-1. `memory`: Effectively disable Persistent Storage.  Any caching of data required by each plugin used is done in memory.  Apprise effectively operates as it always did before peristent storage was available. This setting ensures no content is every written to disk.
+1. `memory`: Effectively disable Persistent Storage.  Any caching of data required by each plugin used is done in memory.  Apprise effectively operates as it always did before peristent storage was available. This setting ensures no content is ever written to disk.
    * By default this is the mode Apprise will operate under for those developing with it unless they configure it to otherwise operate as `auto` or `flush`.  This is done through the `AppriseAsset()` object and is explained further on in this documentation.
 
 ## CLI Persistent Storage Commands

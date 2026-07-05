@@ -57,7 +57,8 @@ from ClusterShell.CLI.Display import Display, sys_stdin
 from ClusterShell.CLI.Display import VERB_QUIET, VERB_STD, VERB_VERB, VERB_DEBUG
 from ClusterShell.CLI.OptionParser import OptionParser
 from ClusterShell.CLI.Error import GENERIC_ERRORS, handle_generic_error
-from ClusterShell.CLI.Utils import bufnodeset_cmpkey, human_bi_bytes_unit
+from ClusterShell.CLI.Utils import bufnodeset_cmpkey, human_bi_bytes_unit, \
+    parse_fold_axis
 
 from ClusterShell.Event import EventHandler
 from ClusterShell.MsgTree import MsgTree
@@ -133,6 +134,14 @@ class OutputHandler(EventHandler):
         """Bytes written on worker"""
         if self._runtimer:
             self._runtimer.eh.bytes_written += size
+
+    def _ev_routing(self, worker, arg):
+        prefix = "clush: "
+        self._display.vprint_err(VERB_DEBUG, prefix + "_ev_routing: %s" % arg)
+        if "reroute" in arg.get("event", ""):
+            info_fmt = "rerouting commands for {targets} due to the failure " \
+                       "of gateway {gateway}"
+            self._display.vprint_err(VERB_STD, prefix + info_fmt.format(**arg))
 
 class DirectOutputHandler(OutputHandler):
     """Direct output event handler class."""
@@ -936,11 +945,13 @@ def main():
     # Specified engine prevails over default engine
     DEFAULTS.engine = options.engine
 
+    # User-specified nD-nodeset fold axis for output display (#356)
+    if options.axis:
+        DEFAULTS.fold_axis = parse_fold_axis(options.axis)
+
     # Do we have nodes group?
     task = task_self()
     task.set_info("debug", config.verbosity >= VERB_DEBUG)
-    if config.verbosity == VERB_DEBUG:
-        std_group_resolver().set_verbosity(1)
     if options.nodes_all:
         all_nodeset = NodeSet.fromall()
         display.vprint(VERB_DEBUG, "Adding nodes from option -a: %s" % \

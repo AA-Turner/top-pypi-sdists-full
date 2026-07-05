@@ -1,6 +1,6 @@
 from pathlib import Path
 from polylith_cli.polylith import interactive, project
-from polylith_cli.polylith.bricks import base, component
+from polylith_cli.polylith.bricks import create_base, create_component
 from polylith_cli.polylith.cli import options
 from polylith_cli.polylith.commands.create import create
 from polylith_cli.polylith.workspace.create import create_workspace
@@ -18,12 +18,12 @@ def _try_create(name: str, description: str, fn):
 @app.command('base')
 def base_command(name: Annotated[str, Option(help='Name of the base.')], description: Annotated[str, Option(help='Description of the base.')]=''):
     """Creates a Polylith base."""
-    _try_create(name, description, base.create_base)
+    _try_create(name, description, create_base)
 
 @app.command('component')
 def component_command(name: Annotated[str, Option(help='Name of the component.')], description: Annotated[str, Option(help='Description of the component.')]=''):
     """Creates a Polylith component."""
-    _try_create(name, description, component.create_component)
+    _try_create(name, description, create_component)
 
 def _create_project(root: Path, options: dict):
     name = options['package']

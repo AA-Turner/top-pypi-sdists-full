@@ -918,11 +918,13 @@ class _SafeContainer(_Opaque):
     (IndexError when out of [-len, len)); the oracle samples an indexed parameter as a real list so that
     out-of-range trap is witnessable, and an iteration- or method-only one as a benign stand-in. `immutable`
     marks a tuple, whose item assignment c[i] = v always raises (TypeError)."""
-    __slots__ = ("immutable", "length", "unindexable", "byteslike", "elem", "unsized", "tuple_arity")
+    __slots__ = ("immutable", "length", "unindexable", "byteslike", "elem", "unsized", "tuple_arity", "nonneg")
     def __init__(self, name, immutable=False, length=None, unindexable=False, byteslike=False, elem=None,
-                 unsized=False, tuple_arity=None):
+                 unsized=False, tuple_arity=None, nonneg=False):
         super().__init__(name)
         self.immutable = immutable
+        self.nonneg = nonneg        # every element is provably >= 0 (a range with start >= 0 and step > 0), so
+        #                             sum() over it is non-negative; default False loses only precision, never sound
         self.length = length        # an explicit, provably-nonnegative length term (a range); else a fresh
         #                             symbolic length keyed by name (an opaque list/tuple parameter)
         self.unindexable = unindexable   # a set / frozenset: sized and iterable, but s[i] raises TypeError
@@ -1151,7 +1153,9 @@ _reg_tf(_STDLIB_TF, "opaque", "os.getenv os.environ.get os.stat os.listdir os.sc
         "pathlib.Path pathlib.PurePath pathlib.PurePosixPath pathlib.PureWindowsPath")
 _reg_tf(_STDLIB_TF, "str", "html.escape html.unescape urllib.parse.quote urllib.parse.quote_plus "
         "urllib.parse.unquote urllib.parse.unquote_plus shlex.quote")     # total str transforms: no raise on any str
-_reg_tf(_STDLIB_TF, "opaque", "binascii.hexlify")                          # total bytes -> hex bytes, no raise
+_reg_tf(_STDLIB_TF, "opaque", "binascii.hexlify binascii.b2a_hex binascii.b2a_base64 "   # total bytes transforms,
+        "hashlib.sha3_256 hashlib.sha3_512 hashlib.blake2b hashlib.blake2s "               # no raise on any bytes;
+        "base64.urlsafe_b64encode base64.standard_b64encode base64.b32encode base64.b16encode base64.b85encode")   # hash / encode siblings
 # the bare imported leaf names (from os.path import dirname), minus leaves that collide with a builtin, a str
 # method, or a common identifier -- those keep the qualified form only.
 _TF_BARE_DENY = frozenset({"join", "split", "get", "copy", "error", "system", "log", "reduce", "ref", "walk",
@@ -3459,6 +3463,8 @@ def ev(node, env: Dict[str, z3.ExprRef], ctx: Ctx) -> z3.ExprRef:
             else:
                 res = z3.BoolVal(False)
             return res if op is ast.Is else z3.Not(res)
+        if (op is ast.Is or op is ast.IsNot) and l is r:      # x is x: the same symbolic term is the same object at
+            return z3.BoolVal(op is ast.Is)                   # runtime (return a; result is a / an alias b = a), so True
         if op in (ast.Lt, ast.LtE, ast.Gt, ast.GtE):
             _unord = (_SafeContainer, _DictParam, _DictLit, _MapVal, _NoneVal)   # a container or None
             _scal = lambda v: z3.is_expr(v) and (z3.is_int(v) or z3.is_bool(v) or _is_fp(v))
@@ -3516,7 +3522,16 @@ def ev(node, env: Dict[str, z3.ExprRef], ctx: Ctx) -> z3.ExprRef:
                 ctx.traps.append(z3.And(ctx.pc, z3.BoolVal(True)))   # a trap on this path, like div-by-zero
             return z3.BoolVal(False)                         # poison: never trusted once the trap fires
         if op is ast.Is or op is ast.IsNot:                  # identity of two non-None values is opaque; `is` never raises
-            res = z3.FreshConst(z3.BoolSort(), "is")
+            _isc = getattr(ctx, "is_cache", None)            # a is b has ONE truth value for given operands and is
+            _k = None                                        # symmetric; memoize by operand identity so the same `a is
+            if _isc is not None:                             # b` in a precondition and in the body denote the same
+                _k = (id(l), id(r)) if id(l) <= id(r) else (id(r), id(l))   # boolean (an `is` precondition is load-bearing)
+            if _k is not None and _k in _isc:
+                res = _isc[_k]
+            else:
+                res = z3.FreshConst(z3.BoolSort(), "is")
+                if _k is not None:
+                    _isc[_k] = res
             return res if op is ast.Is else z3.Not(res)
         if _is_fp(l) or _is_fp(r):
             return _FP_CMP[op](_to_fp(l), _to_fp(r))
@@ -3733,7 +3748,9 @@ def ev(node, env: Dict[str, z3.ExprRef], ctx: Ctx) -> z3.ExprRef:
             # the floor identity floor((k + s - 1) / s) == ceil(k / s) exact, and the clamp handles the empty case.
             length = (stop - start + (s - 1)) / s if s > 0 else (start - stop + (-s - 1)) / (-s)
             length = z3.If(length > 0, length, z3.IntVal(0))
-            return _SafeContainer("range", immutable=True, length=length)
+            _st = z3.simplify(start)                          # every element >= start (increasing) when step > 0, so a
+            _ne = s > 0 and z3.is_int_value(_st) and _st.as_long() >= 0   # non-negative start gives non-negative elements
+            return _SafeContainer("range", immutable=True, length=length, nonneg=_ne)
         if name in ("set", "frozenset") and name not in ctx.repo and len(node.args) <= 1 and not node.keywords:
             # set(it) / frozenset(it): a sized, iterable, membership-queryable container that is not subscriptable.
             # Empty with no argument; an iterable argument is trap-checked; a non-iterable scalar abstains.
@@ -3869,11 +3886,14 @@ def ev(node, env: Dict[str, z3.ExprRef], ctx: Ctx) -> z3.ExprRef:
                         acc = acc + _as_int(v)
                 return acc
             if _TRAPFREE and isinstance(seq, _SafeContainer):   # the sum of an arbitrary container is an arbitrary int
-                return z3.Int("__sum_" + seq.name)              # that never traps; a stable named int (not a withheld
+                _sm = z3.Int("__sum_" + seq.name)               # that never traps; a stable named int (not a withheld
                 #                                                 over-approximation) so a guard `if sum(xs): ...`
                 #                                                 constrains it, and a division by it or by an
                 #                                                 independent len(xs) refutes -- both sound, since the
                 #                                                 sum can be zero (the empty list, or [1, -1])
+                if getattr(seq, "nonneg", False) and ctx.facts is not None:
+                    ctx.facts.append(_sm >= 0)                  # a sum of provably non-negative elements is >= 0
+                return _sm
             raise Unsupported("sum() over an unmodeled iterable")
         _math_vis = not getattr(node.func, "_ts_freename", False)   # the bare math reading needs its from-import
         #                                                             visible (_mark_free_math_names); an unmarked
@@ -4963,7 +4983,9 @@ def ev(node, env: Dict[str, z3.ExprRef], ctx: Ctx) -> z3.ExprRef:
             return _Opaque("noneattr")
         base = getattr(v, "name", None)                      # an opaque object's field: a stable value keyed by its
         if base is not None:                                 # path (o.x, o.a.x), duck-typed numeric in arithmetic so
-            return _FieldVal(base + "." + node.attr)         # o.x + o.y decides; len / a method / a subscript stay opaque
+            if node.attr in getattr(ctx, "dirty_attrs", ()):   # a prior attribute store may have changed this field
+                return z3.FreshInt("dirty_" + node.attr)       # (possibly via aliasing): an unconstrained value, not the
+            return _FieldVal(base + "." + node.attr)         # stable field. o.x + o.y decides; len / method / subscript opaque
         return _Opaque("attr")                               # attribute access raises at most AttributeError
     if _TRAPFREE and isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
         env2 = dict(env)                                     # a comprehension: trap-check the iterables, element,
@@ -5246,6 +5268,12 @@ def ev_bool(node, env: Dict[str, z3.ExprRef], ctx: Ctx) -> z3.ExprRef:
             ctx.pc = guard
             pv = ev_bool(v, env, ctx)
             parts.append(pv)
+            # Python short-circuits: `True or _` is True and `False and _` is False without evaluating the rest.
+            # Honor it for a concrete operand, so a later untranslatable one (e.g. None > 0 in `x is None or x > 0`
+            # read at x = None) is never reached -- exactly as Python never evaluates it.
+            if (z3.is_true(pv) and not is_and) or (z3.is_false(pv) and is_and):
+                ctx.pc = old
+                return pv
             guard = z3.And(guard, pv) if is_and else z3.And(guard, z3.Not(pv))
         ctx.pc = old
         return z3.And(*parts) if is_and else z3.Or(*parts)
@@ -5871,6 +5899,8 @@ def symexec(src: str, ctx: Ctx, argvals=None, param_kinds=None):
     saved_traps, saved_pc = ctx.traps, ctx.pc
     saved_td, saved_po = ctx.tracked_dicts, ctx.mutate_once
     saved_np, saved_fa = ctx.numeric_params, ctx.func_aliases
+    saved_dirty = getattr(ctx, "dirty_attrs", None)
+    ctx.dirty_attrs = set()                                   # object attributes stored in this run: a later read is fresh
     ctx.func_aliases = _functional_aliases(_mod)              # names bound to torch.nn.functional in this module
     ctx.tracked_dicts = _tracked_dict_names(fn)               # this function's value-engine-modeled dicts
     ctx.readonly_dicts = _readonly_dict_names(fn)             # dict params whose reads d[k] memoize to a stable value
@@ -5889,10 +5919,10 @@ def symexec(src: str, ctx: Ctx, argvals=None, param_kinds=None):
             for e, p in falls:
                 ctx.pc = p
                 if isinstance(s, ast.Return):
-                    if s.value is None:
-                        none_list.append(p)                       # bare return -> None
-                    else:
-                        rets.append((p, ev(s.value, e, ctx)))
+                    if s.value is None or (isinstance(s.value, ast.Constant) and s.value.value is None):
+                        none_list.append(p)                       # bare return / return None -> the None-path
+                    else:                                         # condition, so a mixed int/None function keeps its
+                        rets.append((p, ev(s.value, e, ctx)))     # int returns foldable and the None path separate
                 elif isinstance(s, ast.Assign):
                     if len(s.targets) != 1:
                         if _TRAPFREE and all(isinstance(t, (ast.Name, ast.Subscript, ast.Attribute))
@@ -5969,6 +5999,12 @@ def symexec(src: str, ctx: Ctx, argvals=None, param_kinds=None):
                         nxt.append((e2, p))
                     elif _TRAPFREE and isinstance(tgt, ast.Attribute):
                         ev(s.value, e, ctx); ev(tgt.value, e, ctx)   # a.b = v: a store raises at most AttributeError
+                        if getattr(ctx, "dirty_attrs", None) is not None and isinstance(tgt.attr, str):
+                            # an UNREWRITTEN attribute store (an aliased or method-called object the store-to-local
+                            # rewrite left in place) changes this field -- and, since two object parameters may be the
+                            # same object (f(o, o)), a store through one alters it on every alias. So a later read of
+                            # any object's .attr is no longer the stable pre-store field but a fresh value.
+                            ctx.dirty_attrs.add(tgt.attr)
                         nxt.append((e, p))
                     elif _TRAPFREE and isinstance(tgt, ast.Subscript):
                         val = ev(s.value, e, ctx)            # a[i] = v: the stored value is trap-checked
@@ -6005,7 +6041,26 @@ def symexec(src: str, ctx: Ctx, argvals=None, param_kinds=None):
                                     and z3.is_expr(idx) and idx.sort() == z3.IntSort():
                                 n = _container_len(base, ctx)
                                 ctx.traps.append(z3.And(p, z3.Or(idx < -n, idx >= n)))   # IndexError on store
-                        nxt.append((e, p))
+                        e2 = dict(e)
+                        _bn = getattr(base, "name", None)        # a[k] = v mutates the container in place. Only when the
+                        if _bn in args:                          # base is a PARAMETER (directly, or through an alias whose
+                            # value carries the parameter's name) can it alias another parameter (f(d, d)) or be read
+                            # stale after its own store, so forget the root name, every alias by identity, and every
+                            # other mutable container/object parameter -- a later read is opaque, not a stale pre-store
+                            # value (an unsound PROVED on aliased arguments). A genuine LOCAL container (a tracked dict,
+                            # a list literal, a defaultdict) is not aliasable across the call and keeps its precise model.
+                            _rn2 = _recv_root_name(tgt.value)
+                            if _rn2 is not None and _rn2 in e2:
+                                e2[_rn2] = _Opaque(_rn2)
+                            for _nm in list(e2):
+                                if _nm != _rn2 and _holds_identity(e2[_nm], base):
+                                    e2[_nm] = _Opaque(_nm)
+                            for _pn in args:
+                                _pv = e2.get(_pn)
+                                if (_pn != _bn and isinstance(_pv, _Opaque)
+                                        and not (isinstance(_pv, _SafeContainer) and _pv.immutable)):
+                                    e2[_pn] = _Opaque(_pn)
+                        nxt.append((e2, p))
                     else:
                         raise Unsupported("complex assignment target")
                 elif isinstance(s, ast.If):
@@ -6021,6 +6076,8 @@ def symexec(src: str, ctx: Ctx, argvals=None, param_kinds=None):
                             e2.pop(tg.id, None)               # del unbinds the name
                         elif _TRAPFREE and isinstance(tg, ast.Attribute):
                             ev(tg.value, e2, ctx)             # del o.attr: at most AttributeError, no modeled trap
+                            if getattr(ctx, "dirty_attrs", None) is not None and isinstance(tg.attr, str):
+                                ctx.dirty_attrs.add(tg.attr)  # the attribute is removed: a later read is not the stable field
                         elif _TRAPFREE and isinstance(tg, ast.Subscript):
                             load = ast.copy_location(ast.Subscript(value=tg.value, slice=tg.slice, ctx=ast.Load()), tg)
                             ev(load, e2, ctx)                 # del c[i]: the IndexError / KeyError a read would raise
@@ -6031,9 +6088,14 @@ def symexec(src: str, ctx: Ctx, argvals=None, param_kinds=None):
                     nxt.append((e2, p))
                 elif isinstance(s, ast.Assert) and _TRAPFREE:
                     c = ev_bool(s.test, e, ctx)
-                    if ctx.traps is not None:                 # a failing assert is an AssertionError trap
+                    if getattr(ctx, "assert_assume", False) and getattr(ctx, "diverge", None) is not None:
+                        # a value spec reads an assert as a documented precondition: the failing path diverges
+                        # (raises AssertionError, returns no value), so it carries no postcondition obligation --
+                        # NOT a refutation. Trap freedom keeps the AssertionError trap (the assert is the bug).
+                        ctx.diverge.append(z3.And(p, z3.Not(c)))
+                    elif ctx.traps is not None:               # a failing assert is an AssertionError trap
                         ctx.traps.append(z3.And(p, z3.Not(c)))
-                    nxt.append((e, p))
+                    nxt.append((e, z3.And(p, c)))             # past the assert, the condition held -- assume it
                 elif isinstance(s, ast.Raise) and _TRAPFREE:
                     nm = (s.exc.func.id if isinstance(s.exc, ast.Call) and isinstance(s.exc.func, ast.Name)
                           else s.exc.id if isinstance(s.exc, ast.Name) else None)
@@ -6041,8 +6103,11 @@ def symexec(src: str, ctx: Ctx, argvals=None, param_kinds=None):
                         for a2 in s.exc.args:                 # trap-check the exception's arguments
                             if not isinstance(a2, ast.Starred):
                                 ev(a2, e, ctx)
-                    if nm in _MODELED_TRAP_NAMES and ctx.traps is not None:
-                        ctx.traps.append(p)                   # raising a modeled exception is a reachable trap
+                    if getattr(ctx, "assert_assume", False) and getattr(ctx, "diverge", None) is not None:
+                        ctx.diverge.append(p)                 # a value spec: a raise diverges (returns no value), so
+                        #                                       its path carries no postcondition obligation
+                    elif nm in _MODELED_TRAP_NAMES and ctx.traps is not None:
+                        ctx.traps.append(p)                   # trap freedom: raising a modeled exception is a reachable trap
                     # the raise terminates this path (no fall-through)
                 elif isinstance(s, (ast.Break, ast.Continue)) and _TRAPFREE:
                     pass                                      # terminates this path within the havoc'd loop
@@ -6244,6 +6309,7 @@ def symexec(src: str, ctx: Ctx, argvals=None, param_kinds=None):
     finally:
         ctx.traps, ctx.pc, ctx.tracked_dicts, ctx.mutate_once = saved_traps, saved_pc, saved_td, saved_po
         ctx.numeric_params, ctx.func_aliases = saved_np, saved_fa
+        ctx.dirty_attrs = saved_dirty
     none_pc = z3.Or(*none_list) if none_list else z3.BoolVal(False)
     return args, z3args, rets, local_traps, none_pc
 
@@ -6273,6 +6339,8 @@ def fold(rets) -> z3.ExprRef:
         base, coerce = z3.fpNaN(_F64), _to_fp
     else:
         base, coerce = z3.IntVal(0), _as_int
+    if len(rets) == 1 and z3.is_true(rets[0][0]):            # a single unconditional return: the coerced value itself,
+        return coerce(rets[0][1])                            # not If(True, v, base) -- preserves identity for `result is a`
     expr = base
     try:
         for pc, val in reversed(rets):

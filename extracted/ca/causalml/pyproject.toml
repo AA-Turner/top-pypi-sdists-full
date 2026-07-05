@@ -1,6 +1,6 @@
 [project]
 name = "causalml"
-version = "0.16.0"
+version = "0.17.0"
 description = "Python Package for Uplift Modeling and Causal Inference with Machine Learning Algorithms"
 readme = { file = "README.md", content-type = "text/markdown" }
 
@@ -44,9 +44,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+polars = ["polars>=1.0.0"]
 test = [
     "pytest>=4.6",
-    "pytest-cov>=4.0"
+    "pytest-cov>=4.0",
+    "causalml[polars]"
 ]
 tf = [
     "tensorflow>=2.4.0"
@@ -54,6 +56,12 @@ tf = [
 torch = [
     "torch",
     "pyro-ppl"
+]
+jax = [
+    "jax>=0.4.1",
+    "flax>=0.11.0",
+    "optax>=0.1.4",
+    "orbax-checkpoint>=0.10.0",
 ]
 
 [build-system]

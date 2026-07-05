@@ -1017,12 +1017,15 @@ def _prove_via_havoc(prop, target, impl_src, pre_node, post_node, repo):
     complex assignment targets, comprehensions, and annotated assignments the exact engine declines. The
     over-approximation widens the reachable states, so a post holding over all of them holds for the real ones
     (PROVED is sound); a violation may be spurious, so this only ever PROVES, never refutes."""
-    try:
+    impl_src = _rewrite_object_attrs(impl_src)                  # model a simple object's attribute stores as locals
+    try:                                                        # (a store-then-read is precise; an aliased store abstains)
         from .domains import _infer_param_kinds
         kinds = _infer_param_kinds(_fndef(impl_src))
     except Exception:
         kinds = None
     ctx = Ctx(repo or {}); ctx.facts = []
+    ctx.assert_assume = True; ctx.diverge = []                 # an assert is a documented precondition: its failing
+    #                                                            path diverges, carrying no postcondition obligation
     saved = core._TRAPFREE; core._TRAPFREE = True
     try:
         args, z3args, rets, traps, inone = symexec(impl_src, ctx, param_kinds=kinds)
@@ -1036,8 +1039,9 @@ def _prove_via_havoc(prop, target, impl_src, pre_node, post_node, repo):
         core._TRAPFREE = saved
     if getattr(ctx, "none_havoc", False):                     # a None masked by havoc could violate the post
         return Verdict(UNKNOWN, prop, target, "property (over-approximation)", reason="a None may survive a loop")
-    claim_false = z3.And(pre_t, *ctx.facts, z3.Or(_trap_or(traps), inone, z3.Not(post_t))) if ctx.facts \
-        else z3.And(pre_t, z3.Or(_trap_or(traps), inone, z3.Not(post_t)))
+    _div = z3.Or(*ctx.diverge) if getattr(ctx, "diverge", None) else z3.BoolVal(False)
+    _oblig = z3.Or(_trap_or(traps), z3.And(z3.Not(_div), z3.Or(inone, z3.Not(post_t))))   # an assert-failing path
+    claim_false = z3.And(pre_t, *ctx.facts, _oblig) if ctx.facts else z3.And(pre_t, _oblig)  # diverges: no obligation
     if _solve(claim_false)[0] == PROVED:
         return Verdict(PROVED, prop, target, "property (over-approximation, all inputs)",
                        reason="holds over the loop / value over-approximation")
@@ -1127,6 +1131,8 @@ def _prove_core(impl_src, ensures, requires, repo, prop, target):
             _fns = [n for n in _parse(impl_src).body if isinstance(n, ast.FunctionDef)]
     impl_src = _isolate_target(impl_src, _fns, target)           # a multi-function module: prove about `target` alone
     spec = Ctx(repo); spec.traps = None; spec.pc = z3.BoolVal(True)
+    spec.is_cache = {}                                        # `a is b` memoized by operand identity, shared with the
+    #                                                          body ctx so an `is` in the precondition is load-bearing
     try:
         pre_node = core.parse_spec(requires)
         post_node = core.parse_spec(ensures)
@@ -1186,8 +1192,12 @@ def _prove_core(impl_src, ensures, requires, repo, prop, target):
         bw = verify_bitwise(prop, target, impl_src, post_node, pre_node, repo, width=_w)   # when the precondition bounds
         if bw.status != UNKNOWN:                                               # the operands to a finite width, decide it
             return bw                                                          # exactly via bitvectors (else fall through)
+    impl_src = _rewrite_object_attrs(impl_src)                   # model a simple object's attribute stores as locals
     ctx = Ctx(repo); ctx.facts = []
-    try:
+    ctx.assert_assume = True; ctx.diverge = []                  # an assert is a documented precondition: its failing
+    #                                                            path diverges, carrying no postcondition obligation
+    ctx.is_cache = spec.is_cache                                # share the `is` memo so a precondition `a is b` binds
+    try:                                                        # the body's `a is b` to the same boolean
         args, z3args, rets, itraps, inone = symexec(impl_src, ctx, param_kinds=_float_kinds(impl_src))
         if core.ALLOW_SUBJECT_EXECUTION:
             soundness_probe(impl_src, z3args, rets, args, repo)
@@ -1200,7 +1210,21 @@ def _prove_core(impl_src, ensures, requires, repo, prop, target):
             return hv
         return Verdict(UNKNOWN, prop, target, "property (Python spec)",
                        reason=f"could not translate the property: {u}")
-    claim_false = _with_facts(ctx, z3.And(pre_term, z3.Or(_trap_or(itraps), inone, z3.Not(post_term))))
+    # A None return (falling off the end, a bare return) satisfies the postcondition exactly when the post
+    # holds at result = None: it is a violation only when the post FAILS there. `result is None` holds, so a
+    # None-returning function proves it (not a false REFUTED); `result is not None` / `result > 0` fail at None
+    # and refute. Evaluating the post at None can itself be untranslatable (None > 0 is a TypeError, not a
+    # bool) -- then None does not satisfy it, so it counts as a violation, as before.
+    try:
+        post_none = ev_bool(post_node, {**z3args, "result": core._NoneVal()}, spec)
+    except (Unsupported, KeyError, z3.Z3Exception, TypeError, AttributeError):
+        post_none = z3.BoolVal(False)
+    _div = z3.Or(*ctx.diverge) if getattr(ctx, "diverge", None) else z3.BoolVal(False)
+    claim_false = _with_facts(ctx, z3.And(pre_term, z3.Or(
+        _trap_or(itraps),
+        z3.And(z3.Not(_div), z3.Or(                          # the postcondition binds only on a RETURNING path;
+            z3.And(inone, z3.Not(post_none)),                # an assert-failing path diverges (no obligation)
+            z3.And(z3.Not(inone), z3.Not(post_term)))))))    # a non-None return the post rejects
     if core.REQUIRE_CORROBORATION and not ctx.overapprox:
         status, model, corr = solve_corroborated(claim_false)
     else:
@@ -1210,13 +1234,17 @@ def _prove_core(impl_src, ensures, requires, repo, prop, target):
     if status == REFUTED:
         # prefer a non-trapping, returning counterexample (a genuine postcondition violation) over one that
         # merely traps or returns None, when one exists -- x % y < 0 is shown at y < 0, not the y = 0 trap.
-        clean = _with_facts(ctx, z3.And(pre_term, z3.Not(_trap_or(itraps)), z3.Not(inone), z3.Not(post_term)))
+        clean = _with_facts(ctx, z3.And(pre_term, z3.Not(_div), z3.Not(_trap_or(itraps)), z3.Not(inone), z3.Not(post_term)))
         cst, cm = _solve(clean)
         if cst == REFUTED:
             model = minimize_witness(clean, z3args, args) or cm or model
+            cex, cex_in = _model_cex(model, z3args, args)
+        elif _solve(_with_facts(ctx, z3.And(pre_term, inone, z3.Not(post_none))))[0] == REFUTED:
+            cex, cex_in = "the function returns None", {}   # the post rejects a None result: input-independent,
+            #                                                 so name that rather than an empty model
         else:
             model = minimize_witness(claim_false, z3args, args) or model
-        cex, cex_in = _model_cex(model, z3args, args)
+            cex, cex_in = _model_cex(model, z3args, args)
     elif status == UNKNOWN and getattr(ctx, "overapprox", False):   # sample real sin/cos/exp/log for a witness
         w = _refute_overapprox(args, z3args, pre_term, post_term)
         if w is not None:
@@ -6136,6 +6164,17 @@ def _rewrite_object_attrs(src):
                 if p is not None:
                     stored.add(p)
     if not stored:
+        return src
+    # inter-object aliasing: two object PARAMETERS may be the same object (f(o, o)), so a store to o.x through
+    # one changes it on the other -- which the per-name rewrite (o.x -> _attr_o_x) treats as independent, an
+    # unsound PROVED on aliased arguments. If any stored attribute is also accessed through a DIFFERENT simple
+    # object parameter, do not rewrite: the store stays an attribute node, which the value engine declines.
+    _stored_attrs = {p.split(".")[1] for p in stored if p.count(".") >= 1}
+    _attr_params = {}
+    for n in ast.walk(fn):
+        if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id in simple:
+            _attr_params.setdefault(n.attr, set()).add(n.value.id)
+    if any(len(_attr_params.get(a, ())) >= 2 for a in _stored_attrs):
         return src
     tr = _ModelAttrStores(stored)
     tr.visit(fn); ast.fix_missing_locations(fn)

@@ -1516,11 +1516,15 @@ def kml_to_shp(in_kml, out_shp):
 
     check_package(name="geopandas", URL="https://geopandas.org")
 
-    import fiona
     import geopandas as gpd
 
-    # print(fiona.supported_drivers)
-    fiona.drvsupport.supported_drivers["KML"] = "rw"
+    try:
+        import fiona
+
+        fiona.drvsupport.supported_drivers["KML"] = "rw"
+    except ImportError:
+        # fiona is optional; the default pyogrio engine reads KML natively.
+        pass
     df = gpd.read_file(in_kml, driver="KML")
     df.to_file(out_shp)
 
@@ -1555,12 +1559,15 @@ def kml_to_geojson(in_kml, out_geojson=None):
 
     check_package(name="geopandas", URL="https://geopandas.org")
 
-    import fiona
     import geopandas as gpd
 
-    # import fiona
-    # print(fiona.supported_drivers)
-    fiona.drvsupport.supported_drivers["KML"] = "rw"
+    try:
+        import fiona
+
+        fiona.drvsupport.supported_drivers["KML"] = "rw"
+    except ImportError:
+        # fiona is optional; the default pyogrio engine reads KML natively.
+        pass
     gdf = gpd.read_file(in_kml, driver="KML")
 
     if out_geojson is not None:
@@ -1693,7 +1700,6 @@ def vector_to_geojson(
 
     warnings.filterwarnings("ignore")
     check_package(name="geopandas", URL="https://geopandas.org")
-    import fiona
     import geopandas as gpd
 
     if not filename.startswith("http"):
@@ -1702,7 +1708,13 @@ def vector_to_geojson(
             filename = "zip://" + filename
     ext = os.path.splitext(filename)[1].lower()
     if ext == ".kml":
-        fiona.drvsupport.supported_drivers["KML"] = "rw"
+        try:
+            import fiona
+
+            fiona.drvsupport.supported_drivers["KML"] = "rw"
+        except ImportError:
+            # fiona is optional; the default pyogrio engine reads KML natively.
+            pass
         df = gpd.read_file(
             filename,
             bbox=bbox,
@@ -3526,21 +3538,26 @@ def get_local_tile_url(
     for key in client_args:
         kwargs[key] = client_args[key]
 
-    # Make it compatible with binder and JupyterHub
-    if os.environ.get("JUPYTERHUB_SERVICE_PREFIX") is not None:
-        os.environ["LOCALTILESERVER_CLIENT_PREFIX"] = (
-            f"{os.environ['JUPYTERHUB_SERVICE_PREFIX'].lstrip('/')}/proxy/{{port}}"
-        )
+    # Only override LOCALTILESERVER_CLIENT_PREFIX if it's unset
+    if os.environ.get("LOCALTILESERVER_CLIENT_PREFIX") is None:
+        # Make it compatible with binder and JupyterHub
+        if os.environ.get("JUPYTERHUB_SERVICE_PREFIX") is not None:
+            os.environ["LOCALTILESERVER_CLIENT_PREFIX"] = (
+                f"{os.environ['JUPYTERHUB_SERVICE_PREFIX'].strip('/')}/proxy/{{port}}"
+            )
 
-    if is_studio_lab():
-        os.environ["LOCALTILESERVER_CLIENT_PREFIX"] = (
-            f"studiolab/default/jupyter/proxy/{{port}}"
-        )
-    elif is_on_aws():
-        os.environ["LOCALTILESERVER_CLIENT_PREFIX"] = "proxy/{port}"
-    elif "prefix" in kwargs:
-        os.environ["LOCALTILESERVER_CLIENT_PREFIX"] = kwargs["prefix"]
-        kwargs.pop("prefix")
+        if is_studio_lab():
+            os.environ["LOCALTILESERVER_CLIENT_PREFIX"] = (
+                "studiolab/default/jupyter/proxy/{port}"
+            )
+        elif is_on_aws():
+            os.environ["LOCALTILESERVER_CLIENT_PREFIX"] = "proxy/{port}"
+
+    # The prefix kwarg has final precedence
+    if "prefix" in kwargs:
+        prefix = kwargs.pop("prefix")
+        if prefix is not None:
+            os.environ["LOCALTILESERVER_CLIENT_PREFIX"] = str(prefix)
 
     from localtileserver import TileClient
 
@@ -3571,6 +3588,22 @@ def get_local_tile_url(
         colormap = colormap.lower()
 
     client = TileClient(source, port=port, **client_args)
+
+    # Route tile URLs through the jupyter-loopback comm bridge so that rasters
+    # render in webview-based frontends (VS Code, Colab, Solara, marimo, etc.)
+    # and in containerized/remote Jupyter environments where the browser cannot
+    # reach the jupyter-server origin directly. The `get_leaflet_tile_layer` and
+    # `get_folium_tile_layer` helpers used by `get_local_tile_layer` do this
+    # automatically, but a bare `TileClient` does not. See
+    # https://github.com/opengeos/leafmap/issues/1331
+    if hasattr(client, "enable_jupyter_loopback"):
+        try:
+            client.enable_jupyter_loopback()
+        except Exception as e:
+            warnings.warn(
+                f"Failed to enable jupyter loopback for the local tile client: {e}"
+            )
+
     url = client.get_tile_url(
         indexes=indexes,
         colormap=colormap,
@@ -3950,9 +3983,45 @@ def geojson_to_gdf(in_geojson, encoding="utf-8", **kwargs: Any):
         with open(out_file, "w") as f:
             json.dump(in_geojson, f)
             in_geojson = out_file
+    elif isinstance(in_geojson, str) and in_geojson.startswith("http"):
+        try:
+            return gpd.read_file(in_geojson, encoding=encoding, **kwargs)
+        except Exception:
+            response = requests.get(in_geojson, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            if isinstance(data, dict) and data.get("type") == "Feature":
+                return gpd.GeoDataFrame.from_features([data], **kwargs)
+            return gpd.GeoDataFrame.from_features(data, **kwargs)
 
     gdf = gpd.read_file(in_geojson, encoding=encoding, **kwargs)
     return gdf
+
+
+def sanitize_geojson(obj: Any) -> Any:
+    """Recursively converts NumPy types in a GeoJSON-like object to native Python types.
+
+    GeoDataFrame.__geo_interface__ can leave NumPy arrays/scalars in feature
+    properties (e.g. list-valued columns are read back as ndarrays), which are
+    not JSON serializable and break widget serialization. This makes the object
+    safe for ``json.dumps``.
+
+    Args:
+        obj (Any): A GeoJSON dict, list, or scalar that may contain NumPy types.
+
+    Returns:
+        Any: The same structure with NumPy arrays converted to lists and NumPy
+        scalars to native Python types.
+    """
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, np.generic):
+        return obj.item()
+    elif isinstance(obj, dict):
+        return {key: sanitize_geojson(value) for key, value in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [sanitize_geojson(value) for value in obj]
+    return obj
 
 
 def geojson_to_df(in_geojson, encoding="utf-8", drop_geometry=True):

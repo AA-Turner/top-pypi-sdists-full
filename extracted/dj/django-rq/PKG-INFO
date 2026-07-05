@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-rq
-Version: 4.1.0
+Version: 4.1.1
 Summary: An app that provides django integration for RQ (Redis Queue)
 Project-URL: changelog, https://github.com/rq/django-rq/blob/master/CHANGELOG.md
 Project-URL: homepage, https://python-rq.org/patterns/django/
@@ -19,8 +19,6 @@ Classifier: Intended Audience :: System Administrators
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -32,7 +30,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Distributed Computing
 Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: System :: Systems Administration
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: django>=4.2
 Requires-Dist: redis>=3.5
 Requires-Dist: rq>=2.6.1
@@ -55,7 +53,7 @@ If you find `django-rq` useful, please consider supporting its development via [
 
 ## Requirements
 
-- [Django](https://www.djangoproject.com/) (3.2+)
+- [Django](https://www.djangoproject.com/) (4.2+)
 - [RQ](https://github.com/nvie/rq)
 
 ## Installation

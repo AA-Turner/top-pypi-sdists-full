@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: dcc-mcp-core
-Version: 0.19.5
+Version: 0.19.7
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -36,7 +37,7 @@ Summary: Foundational library for the DCC Model Context Protocol (MCP) ecosystem
 Keywords: dcc,mcp,maya,blender,houdini,rust,pyo3
 Author-email: Hal Long <hal.long@outlook.com>
 License: MIT
-Requires-Python: >=3.8
+Requires-Python: >=3.7
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/dcc-mcp/dcc-mcp-core
 Project-URL: Issues, https://github.com/dcc-mcp/dcc-mcp-core/issues

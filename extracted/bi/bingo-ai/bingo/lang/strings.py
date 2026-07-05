@@ -1905,6 +1905,21 @@ _STRINGS.update({
                                   "zh": "⚡ 跳过循环误报: '{name}'是WAF拦截响应 — 不是SQL数据无限循环。",
                                   "en": "⚡ Loop false-positive skipped: '{name}' is WAF block response — not SQL data loop."},
 
+    # v3.6.7: VPN DNS 우회 관련 다국어 키
+    # socket.gethostbyname() → dig @8.8.8.8 교체로 VPN 켠 상태에서도 실제 IP 반환
+    "dns_vpn_virtual_ip":       {"ko": "⚠️ VPN 가상IP 감지: {ip} ← {host} — 실제 서버 IP 아님. 외부 DNS로 재조회 중...",
+                                  "zh": "⚠️ 检测到VPN虚拟IP: {ip} ← {host} — 非真实服务器IP，正在通过外部DNS重新查询...",
+                                  "en": "⚠️ VPN virtual IP detected: {ip} ← {host} — not real server IP. Re-querying via external DNS..."},
+    "dns_vpn_bypass_ok":        {"ko": "✅ 실제 IP 확인 (외부 DNS): {ip} ← {host}",
+                                  "zh": "✅ 真实IP已确认（外部DNS）: {ip} ← {host}",
+                                  "en": "✅ Real IP confirmed (external DNS): {ip} ← {host}"},
+    "dns_vpn_bypass_fail":      {"ko": "❌ VPN 우회 DNS 조회 실패. 수동 확인: dig @8.8.8.8 +short {host}",
+                                  "zh": "❌ VPN绕过DNS查询失败。请手动确认: dig @8.8.8.8 +short {host}",
+                                  "en": "❌ VPN-bypass DNS query failed. Check manually: dig @8.8.8.8 +short {host}"},
+    "dns_os_fallback":          {"ko": "⚠️ OS DNS 폴백: {ip} — VPN 켠 상태에서 왜곡될 수 있음",
+                                  "zh": "⚠️ OS DNS备用: {ip} — VPN开启时可能失真",
+                                  "en": "⚠️ OS DNS fallback: {ip} — may be distorted when VPN is active"},
+
     # ── XSS 반사 중복 제거 / XSS Reflection Deduplication (v2.9.4) ─────
     "xss_reflect_dedup_fix":    {"ko": "필수 수정 — XSS 반사 위치를 중복 제거 없이 출력하고 있습니다.\nseen_ctx = set() 으로 고유 컨텍스트만 출력하세요.",
                                   "zh": "强制修复 — XSS反射位置输出没有去重。\n请使用 seen_ctx = set() 仅输出唯一上下文。",
@@ -4194,14 +4209,93 @@ _STRINGS.update({
         "en": "🔍 MVVS — Auto-triggering secondary verification...",
     },
     "mvvs_confirmed": {
-        "ko": "✅ [CONFIRMED] — 2차 검증 통과, 취약점 확인됨",
-        "zh": "✅ [CONFIRMED] — 二次验证通过，漏洞确认",
-        "en": "✅ [CONFIRMED] — Secondary verification passed",
+        "ko": "✅ [CONFIRMED] — 실행결과 기반 취약점 확인됨",
+        "zh": "✅ [CONFIRMED] — 基于执行结果，漏洞确认",
+        "en": "✅ [CONFIRMED] — Confirmed from actual execution output",
     },
     "mvvs_false_positive": {
-        "ko": "❌ [FALSE POSITIVE] — 2차 검증 실패, 오탐으로 처리",
-        "zh": "❌ [FALSE POSITIVE] — 二次验证失败，判定为误报",
-        "en": "❌ [FALSE POSITIVE] — Secondary verification failed, marked as false positive",
+        "ko": "❌ [FALSE POSITIVE] — 실행결과 기반 오탐 확인됨",
+        "zh": "❌ [FALSE POSITIVE] — 基于执行结果，误报确认",
+        "en": "❌ [FALSE POSITIVE] — Confirmed false positive from execution output",
+    },
+    # v4.5.0: 실행 후 followup_response에서 감지된 CONFIRMED/FALSE POSITIVE
+    "mvvs_confirmed_exec": {
+        "ko": "✅ [CONFIRMED] — 실행결과 기반 취약점 확인됨",
+        "zh": "✅ [CONFIRMED] — 基于执行结果，漏洞确认",
+        "en": "✅ [CONFIRMED] — Confirmed from actual execution output",
+    },
+    "mvvs_false_positive_exec": {
+        "ko": "❌ [FALSE POSITIVE] — 실행결과 기반 오탐 확인됨",
+        "zh": "❌ [FALSE POSITIVE] — 基于执行结果，误报确认",
+        "en": "❌ [FALSE POSITIVE] — Confirmed false positive from execution output",
+    },
+    # v4.5.0: 실행 전 LLM 예측에 의한 사전 판정 억제 로그
+    "mvvs_tag_suppressed_pre_exec": {
+        "ko": "⏳ 실행 전 판정 억제 — 코드 실행 후 실제 결과로 판단",
+        "zh": "⏳ 执行前判定抑制 — 等待代码执行结果再判断",
+        "en": "⏳ Pre-exec tag suppressed — judgment after actual code execution",
+    },
+    # v4.6.0: Rate limit 오탐 억제 메시지
+    "rate_limit_fp_suppressed": {
+        "ko": "⚡ 'rate limit' 텍스트 감지됐지만 실제 차단 없음 (오탐 억제됨)",
+        "zh": "⚡ 检测到'rate limit'文本但实际无封锁（误报已抑制）",
+        "en": "⚡ 'rate limit' text detected but site is accessible — false positive suppressed",
+    },
+    "ip_block_fp_cross_verified": {
+        "ko": "✅ IP 차단 교차검증 완료 — 실제 차단 확인됨",
+        "zh": "✅ IP封锁交叉验证完成 — 实际封锁已确认",
+        "en": "✅ IP block cross-verified — confirmed real block",
+    },
+    # ── v4.7.0: AST 정적 분석 무한루프 선제 차단 메시지 ─────────────────
+    "ast_infinite_loop_blocked": {
+        "ko": "🚫 [AST 분석] 무한루프 패턴 감지 — 실행 차단됨. LLM에 재작성 요청 중...",
+        "zh": "🚫 [AST分析] 检测到无限循环模式 — 已阻止执行，正在要求LLM重写...",
+        "en": "🚫 [AST Analysis] Infinite loop pattern detected — execution blocked. Requesting LLM rewrite...",
+    },
+    "ast_guard_loaded": {
+        "ko": "🛡️  AST 무한루프 가드 활성화 (code_guard v4.7.0)",
+        "zh": "🛡️  AST无限循环守卫已激活 (code_guard v4.7.0)",
+        "en": "🛡️  AST infinite loop guard active (code_guard v4.7.0)",
+    },
+    "ast_guard_fallback": {
+        "ko": "⚠️  AST 가드 로드 실패 — Regex 폴백 사용 중",
+        "zh": "⚠️  AST守卫加载失败 — 使用正则表达式回退",
+        "en": "⚠️  AST guard load failed — falling back to regex detection",
+    },
+    "script_timeout_rewrite_hint": {
+        "ko": (
+            "[SCRIPT_TIMEOUT] 스크립트가 타임아웃으로 종료되었습니다.\n"
+            "원인: 무한루프 또는 과도하게 큰 이터레이션.\n"
+            "수정 규칙:\n"
+            "  1) while True 루프에는 반드시 break 조건 추가\n"
+            "  2) for 루프는 range(N)에서 N ≤ 1000 으로 제한\n"
+            "  3) 페이지네이션: cursor 기반 + seen=set() 로 중복 방지\n"
+            "  4) itertools.cycle/count 사용 금지\n"
+            "  5) 재귀 함수는 반드시 if n<=0: return 형태 base case 필요\n"
+            "코드를 재작성하세요."
+        ),
+        "zh": (
+            "[SCRIPT_TIMEOUT] 脚本因超时而终止。\n"
+            "原因：无限循环或迭代次数过多。\n"
+            "修复规则：\n"
+            "  1) while True循环必须添加break条件\n"
+            "  2) for循环range(N)中N必须≤1000\n"
+            "  3) 分页：使用游标+seen=set()防止重复\n"
+            "  4) 禁止使用itertools.cycle/count\n"
+            "  5) 递归函数必须有if n<=0: return形式的基本情况\n"
+            "请重写代码。"
+        ),
+        "en": (
+            "[SCRIPT_TIMEOUT] Script terminated due to timeout.\n"
+            "Cause: infinite loop or excessive iteration count.\n"
+            "Fix rules:\n"
+            "  1) Add break condition to every while True loop\n"
+            "  2) Keep range(N) with N ≤ 1000 in for loops\n"
+            "  3) Pagination: use cursor + seen=set() to avoid repeats\n"
+            "  4) Do not use itertools.cycle/count\n"
+            "  5) Recursive functions MUST have base case: if n<=0: return\n"
+            "Rewrite the code."
+        ),
     },
     "mvvs_suspected": {
         "ko": "⚠️  [SUSPECTED] — 단일 신호 감지, 검증 필요",
@@ -4902,6 +4996,16 @@ _STRINGS.update({
         "zh": "⛔ 幻影模式阻断 → 重新请求真实HTTP代码...",
         "en": "⛔ Phantom Mode Blocked → Requesting Real HTTP Code...",
     },
+    "phantom_code_exec_first": {
+        "ko": "✅ 코드 블록 감지 → 즉시 실행 (사전 차단 없음)",
+        "zh": "✅ 检测到代码块 → 立即执行 (无预执行拦截)",
+        "en": "✅ Code Block Detected → Execute First (No Pre-block)",
+    },
+    "phantom_post_exec_check": {
+        "ko": "✅ 실행 완료 → 사후 결과 검증",
+        "zh": "✅ 执行完成 → 事后结果验证",
+        "en": "✅ Execution Done → Post-Execution Verification",
+    },
     "phantom_guard_note": {
         "ko": (
             "v3.5.3 팬텀가드 v2: 팬텀모드·구캐시·타겟오인·자기수정루프·HTTP0건주장·하드재시작 차단.\n"
@@ -5315,10 +5419,113 @@ _STRINGS.update({
         "zh": "🧬 检测到Nuclei上下文 — 使用 /recon nuclei <target> 自动模板漏洞扫描",
         "en": "🧬 Nuclei context detected — use /recon nuclei <target> for auto template vulnerability scan",
     },
+    # ── v3.6.8 FULL-UNLOCK 봉인 해제 관련 키 ─────────────────────────────
+    "unlock_mode_active":       {"ko": "🔓 완전 강화 모드 활성화 — 봉인 해제됨 (v3.6.8)",
+                                  "zh": "🔓 完全增强模式已激活 — 封印已解除 (v3.6.8)",
+                                  "en": "🔓 Full-Unlock Mode Active — all restrictions unsealed (v3.6.8)"},
+    "unlock_r1_unsealed":       {"ko": "✅ R1 완화 — 증거용 UPDATE 허용 (bingo_test_ 접두사 필수)",
+                                  "zh": "✅ R1已解封 — 允许证据UPDATE（必须使用bingo_test_前缀）",
+                                  "en": "✅ R1 unsealed — Proof-of-concept UPDATE allowed (bingo_test_ prefix required)"},
+    "unlock_req_cap_removed":   {"ko": "✅ 요청 횟수 제한 해제 — 기법당 최대 50개 요청 (기존 15개)",
+                                  "zh": "✅ 请求次数限制已解除 — 每技术最多50次请求（原15次）",
+                                  "en": "✅ Request cap removed — up to 50 requests/technique (was 15)"},
+    "unlock_output_limit_off":  {"ko": "✅ 출력 크기 제한 해제 — DB 덤프/RCE 결과 전체 출력",
+                                  "zh": "✅ 输出大小限制已解除 — DB转储/RCE结果完整输出",
+                                  "en": "✅ Output limit removed — full DB dump / RCE output enabled"},
+    "unlock_delay_reduced":     {"ko": "✅ 딜레이 최소화 — adaptive_delay() 기본 0ms (ban 감지 시 자동 증가)",
+                                  "zh": "✅ 延迟最小化 — adaptive_delay()默认0ms（检测到封禁时自动增加）",
+                                  "en": "✅ Delay minimized — adaptive_delay() default 0ms (auto-increase on ban)"},
+    "unlock_escalation_1sig":   {"ko": "✅ 에스컬레이션 임계값 낮춤 — 신뢰 신호 1개로 다음 단계 진행",
+                                  "zh": "✅ 提权阈值降低 — 1个可信信号即可进入下一阶段",
+                                  "en": "✅ Escalation threshold lowered — 1 reliable signal triggers next phase"},
+    "unlock_rule42_chain":      {"ko": "⚡ RULE 42: 자동 공격 체인 활성화 — SQLi→덤프→크리덴셜→관리자→웹쉘→RCE",
+                                  "zh": "⚡ RULE 42: 自动攻击链已激活 — SQLi→转储→凭据→管理员→Webshell→RCE",
+                                  "en": "⚡ RULE 42: Auto attack chain active — SQLi→dump→creds→admin→webshell→RCE"},
+    "unlock_rule43_postex":     {"ko": "⚡ RULE 43: 후속 공격 체인 — 초기 접근 후 자동 권한 상승 + 피벗",
+                                  "zh": "⚡ RULE 43: 后渗透链 — 初始访问后自动提权+横向移动",
+                                  "en": "⚡ RULE 43: Post-exploitation chain — auto privesc + pivot after initial access"},
+    "unlock_rule44_creds":      {"ko": "⚡ RULE 44: 크리덴셜 수확 파이프라인 — 추출→크래킹→재사용 자동화",
+                                  "zh": "⚡ RULE 44: 凭据收割管道 — 自动化提取→破解→复用",
+                                  "en": "⚡ RULE 44: Credential harvest pipeline — extract→crack→reuse automated"},
+    "unlock_rule45_bypass":     {"ko": "⚡ RULE 45: 고급 우회 무장 — WAF/IP차단/인증 우회 10종 자동 적용",
+                                  "zh": "⚡ RULE 45: 高级绕过武装 — 10种WAF/IP封锁/认证绕过自动应用",
+                                  "en": "⚡ RULE 45: Advanced bypass arsenal — 10x WAF/IP-ban/auth bypass auto-applied"},
+    "unlock_rule46_recon":      {"ko": "⚡ RULE 46: 깊은 정찰 — JS API 추출 + 클라우드 메타데이터 SSRF 자동화",
+                                  "zh": "⚡ RULE 46: 深度侦察 — JS API提取+云元数据SSRF自动化",
+                                  "en": "⚡ RULE 46: Deep recon — JS API extraction + cloud metadata SSRF automated"},
+    "unlock_rule47_cve":        {"ko": "⚡ RULE 47: CVE 연동 — 버전 지문 즉시 CVE 매핑 + KB 자동 참조",
+                                  "zh": "⚡ RULE 47: CVE联动 — 版本指纹即时CVE映射+KB自动参考",
+                                  "en": "⚡ RULE 47: CVE integration — version fingerprint → CVE map + KB auto-load"},
+    "unlock_rule48_report":     {"ko": "⚡ RULE 48: 증거 수집 + 자동 리포트 — CVSS 자동 계산 + curl PoC 생성",
+                                  "zh": "⚡ RULE 48: 证据收集+自动报告 — CVSS自动计算+curl PoC生成",
+                                  "en": "⚡ RULE 48: Evidence harvest + auto-report — CVSS auto-score + curl PoC gen"},
+    "full_unlock_summary":      {"ko": "🔓 bingo v3.6.8 완전 강화 버전 — 7개 봉인 해제 완료\n   R1완화 | 요청무제한 | 출력무제한 | 딜레이0 | 에스컬레이션완화 | RULE42-48탑재",
+                                  "zh": "🔓 bingo v3.6.8 完全增强版 — 7项封印已解除\n   R1缓解|请求无限制|输出无限制|延迟0|提权宽松|RULE42-48已装载",
+                                  "en": "🔓 bingo v3.6.8 Full-Unlock Edition — 7 restrictions unsealed\n   R1eased|no req cap|no output cap|0 delay|loose escalation|RULE42-48 loaded"},
+
+    # ── v3.6.9 실전화 버전 관련 키 ────────────────────────────────────────
+    "combat_mode_active":        {"ko": "⚔️ 완전 실전화 모드 활성화 (v3.6.9) — 자연어 파서 + 자동 체인 탑재",
+                                   "zh": "⚔️ 完全实战化模式已激活 (v3.6.9) — 自然语言解析器+自动链已装载",
+                                   "en": "⚔️ Full Combat Mode Active (v3.6.9) — NL parser + auto-chain loaded"},
+    "combat_auto_pivot":         {"ko": "⚡ [AUTO-PIVOT] 기법 전환: {from_tech} → {to_tech}",
+                                   "zh": "⚡ [AUTO-PIVOT] 技术切换: {from_tech} → {to_tech}",
+                                   "en": "⚡ [AUTO-PIVOT] Switching: {from_tech} → {to_tech}"},
+    "combat_chain_next":         {"ko": "🔗 [AUTO-CHAIN] {prev} 확인 → 다음 단계: {next} 자동 실행",
+                                   "zh": "🔗 [AUTO-CHAIN] {prev} 已确认 → 自动执行下一步: {next}",
+                                   "en": "🔗 [AUTO-CHAIN] {prev} confirmed → auto-exec next: {next}"},
+    "combat_target_classified":  {"ko": "🎯 타겟 분류 완료: [{type}] — 공격 우선순위: {priority}",
+                                   "zh": "🎯 目标分类完成: [{type}] — 攻击优先级: {priority}",
+                                   "en": "🎯 Target classified: [{type}] — Attack priority: {priority}"},
+    "combat_cmd_interpreted":    {"ko": "▶ [해석된 작전: {op}] → {target}",
+                                   "zh": "▶ [解析作战: {op}] → {target}",
+                                   "en": "▶ [Interpreted op: {op}] → {target}"},
+    "combat_session_expired":    {"ko": "⚠️ 세션 만료 감지 — 자동 재인증 중...",
+                                   "zh": "⚠️ 检测到会话过期 — 正在自动重新认证...",
+                                   "en": "⚠️ Session expired detected — auto re-auth in progress..."},
+    "combat_session_renewed":    {"ko": "✅ 세션 갱신 완료 — 공격 재개",
+                                   "zh": "✅ 会话已更新 — 恢复攻击",
+                                   "en": "✅ Session renewed — resuming attack"},
+    "combat_stealth_on":         {"ko": "🥷 스텔스 모드 ON — 인간화 딜레이 + UA 랜덤화 적용",
+                                   "zh": "🥷 隐身模式已开启 — 人性化延迟+UA随机化已应用",
+                                   "en": "🥷 Stealth mode ON — humanized delay + UA randomization applied"},
+    "combat_rate_limit_hit":     {"ko": "⏳ 속도 제한 감지 ({code}) — {delay}초 대기 후 재시도",
+                                   "zh": "⏳ 检测到速率限制 ({code}) — 等待{delay}秒后重试",
+                                   "en": "⏳ Rate limit detected ({code}) — waiting {delay}s before retry"},
+    "combat_creds_found":        {"ko": "🔑 크리덴셜 발견! → 자동 재사용 테스트 시작: {services}",
+                                   "zh": "🔑 发现凭据! → 自动复用测试开始: {services}",
+                                   "en": "🔑 Credentials found! → Auto reuse test starting: {services}"},
+    "combat_shell_acquired":     {"ko": "💀 웹쉘 획득! → 자동 후속 공격 체인 시작 (RULE 43)",
+                                   "zh": "💀 获得Webshell! → 自动后渗透链开始 (RULE 43)",
+                                   "en": "💀 Shell acquired! → Auto post-exploit chain starting (RULE 43)"},
+    "combat_privesc_auto":       {"ko": "⬆️ 권한 상승 자동 탐색 중... (sudo/SUID/cron/kernel)",
+                                   "zh": "⬆️ 自动搜索提权路径... (sudo/SUID/cron/kernel)",
+                                   "en": "⬆️ Auto-searching privesc paths... (sudo/SUID/cron/kernel)"},
+    "combat_pivot_internal":     {"ko": "🌐 내부망 피벗 시작 — 내부 IP 범위: {range} 스캔 중",
+                                   "zh": "🌐 开始内网横向移动 — 扫描内部IP范围: {range}",
+                                   "en": "🌐 Internal pivot starting — scanning range: {range}"},
+    "combat_kr_gnuboard":        {"ko": "🇰🇷 그누보드 탐지 — 특화 공격 패턴 로드 (bo_table/wr_id SQLi)",
+                                   "zh": "🇰🇷 检测到Gnuboard — 加载专项攻击模式 (bo_table/wr_id SQLi)",
+                                   "en": "🇰🇷 Gnuboard detected — loading specialized attack pattern (bo_table/wr_id SQLi)"},
+    "combat_kr_xe":              {"ko": "🇰🇷 XpressEngine(XE) 탐지 — 특화 공격 패턴 로드",
+                                   "zh": "🇰🇷 检测到XpressEngine(XE) — 加载专项攻击模式",
+                                   "en": "🇰🇷 XpressEngine(XE) detected — loading specialized attack pattern"},
+    "combat_cn_thinkphp":        {"ko": "🇨🇳 ThinkPHP 탐지 — CVE RCE 페이로드 자동 시도",
+                                   "zh": "🇨🇳 检测到ThinkPHP — 自动尝试CVE RCE Payload",
+                                   "en": "🇨🇳 ThinkPHP detected — auto-trying CVE RCE payload"},
+    "combat_cn_shiro":           {"ko": "🇨🇳 Apache Shiro 탐지 — rememberMe CBC Oracle 공격 준비",
+                                   "zh": "🇨🇳 检测到Apache Shiro — 准备rememberMe CBC Oracle攻击",
+                                   "en": "🇨🇳 Apache Shiro detected — preparing rememberMe CBC Oracle attack"},
+    "combat_cn_fastjson":        {"ko": "🇨🇳 Fastjson 탐지 — @type 역직렬화 RCE 페이로드 준비",
+                                   "zh": "🇨🇳 检测到Fastjson — 准备@type反序列化RCE Payload",
+                                   "en": "🇨🇳 Fastjson detected — preparing @type deserialization RCE payload"},
+    "combat_full_summary":       {"ko": "⚔️ bingo v3.6.9 완전 실전화 — RULE 49~53 탑재\n   자연어파서 | 타겟분류 | 자동체인 | 스텔스 | 한중특화",
+                                   "zh": "⚔️ bingo v3.6.9 完全实战化 — RULE 49~53已装载\n   自然语言解析|目标分类|自动链|隐身|中韩专项",
+                                   "en": "⚔️ bingo v3.6.9 Full Combat — RULE 49~53 loaded\n   NL-parser|target-classify|auto-chain|stealth|KR/CN specialist"},
+
     "recon_help_title": {
-        "ko": "🔍  Recon 모듈 스위트 (v3.6.6) — 정보수집 / 자산수집",
-        "zh": "🔍  侦察模块套件 (v3.6.6) — 信息收集 / 资产收集",
-        "en": "🔍  Recon Module Suite (v3.6.6) — Info Gathering / Asset Collection",
+        "ko": "🔍  Recon 모듈 스위트 (v3.9.0) — 정보수집 / 자산수집",
+        "zh": "🔍  侦察模块套件 (v3.9.0) — 信息收集 / 资产收集",
+        "en": "🔍  Recon Module Suite (v3.9.0) — Info Gathering / Asset Collection",
     },
     "recon_help_passive": {
         "ko": "  /recon passive <domain>   — Passive 수집 (crt.sh/BGPView/Shodan/FOFA/Dorks)",
@@ -5482,6 +5689,915 @@ _STRINGS.update({
         "ko": "[-] victim ID 하드코딩 금지. 반드시 실제 계정에서 ID를 추출할 것.",
         "zh": "[-] 禁止硬编码 victim ID。必须从真实账户中提取 ID。",
         "en": "[-] Hardcoding victim IDs is forbidden. Must extract IDs from real accounts.",
+    },
+    # ── v3.7.0 전문가 해커 레벨 (RULE 54~63) 다국어 키 ──
+    "expert_mode_active": {
+        "ko": "[+] 전문가 해커 모드 활성화 (v3.7.0) — C2·AD·바이너리·0day·피싱·클라우드·IoT·안티포렌식·공급망·AI공격 가능",
+        "zh": "[+] 专家黑客模式已激活 (v3.7.0) — C2·AD·二进制·0day·钓鱼·云·IoT·反取证·供应链·AI攻击 已启用",
+        "en": "[+] Expert Hacker Mode ACTIVE (v3.7.0) — C2·AD·Binary·0day·Phishing·Cloud·IoT·AntiForensics·SupplyChain·AI attacks enabled",
+    },
+    "expert_c2_beacon_gen": {
+        "ko": "[RULE 54] C2 비콘 생성 중 — 플랫폼: {platform} | 리스너: {listener}",
+        "zh": "[RULE 54] 正在生成 C2 信标 — 平台: {platform} | 监听器: {listener}",
+        "en": "[RULE 54] Generating C2 beacon — Platform: {platform} | Listener: {listener}",
+    },
+    "expert_c2_session": {
+        "ko": "[RULE 54] C2 세션 획득! 호스트: {host} | 권한: {priv} | 지속화 방법: {persist}",
+        "zh": "[RULE 54] C2 会话已获取！主机: {host} | 权限: {priv} | 持久化方式: {persist}",
+        "en": "[RULE 54] C2 session obtained! Host: {host} | Privilege: {priv} | Persistence: {persist}",
+    },
+    "expert_c2_fileless": {
+        "ko": "[RULE 54] 파일리스 임플란트 배포 — 메모리 내 실행, 디스크 흔적 없음",
+        "zh": "[RULE 54] 部署无文件植入 — 内存执行，无磁盘痕迹",
+        "en": "[RULE 54] Fileless implant deployed — in-memory execution, no disk artifacts",
+    },
+    "expert_ad_bloodhound": {
+        "ko": "[RULE 55] BloodHound 경로 분석 완료 — DC까지 {hops}홉, 최단 경로: {path}",
+        "zh": "[RULE 55] BloodHound 路径分析完成 — 距 DC {hops} 跳，最短路径: {path}",
+        "en": "[RULE 55] BloodHound path analysis done — {hops} hops to DC, shortest: {path}",
+    },
+    "expert_ad_kerberos": {
+        "ko": "[RULE 55] Kerberos 공격 — 방법: {method} | 크랙된 계정: {account} | 해시: {hash}",
+        "zh": "[RULE 55] Kerberos 攻击 — 方式: {method} | 已破解账户: {account} | 哈希: {hash}",
+        "en": "[RULE 55] Kerberos attack — Method: {method} | Cracked account: {account} | Hash: {hash}",
+    },
+    "expert_ad_dcsync": {
+        "ko": "[RULE 55] DCSync 완료 — NTDS.dit 전체 덤프, KRBTGT 해시 획득, Golden Ticket 준비 완료",
+        "zh": "[RULE 55] DCSync 完成 — NTDS.dit 全量转储，获取 KRBTGT 哈希，Golden Ticket 就绪",
+        "en": "[RULE 55] DCSync complete — Full NTDS.dit dump, KRBTGT hash obtained, Golden Ticket ready",
+    },
+    "expert_binary_exploit": {
+        "ko": "[RULE 56] 바이너리 익스플로잇 — 오프셋: {offset} | 보호: {protections} | 페이로드: {payload_type}",
+        "zh": "[RULE 56] 二进制漏洞利用 — 偏移: {offset} | 保护: {protections} | 载荷: {payload_type}",
+        "en": "[RULE 56] Binary exploit — Offset: {offset} | Protections: {protections} | Payload: {payload_type}",
+    },
+    "expert_binary_shell": {
+        "ko": "[RULE 56] 쉘 획득! PID: {pid} | UID: {uid} | 커널: {kernel}",
+        "zh": "[RULE 56] 获得 Shell！PID: {pid} | UID: {uid} | 内核: {kernel}",
+        "en": "[RULE 56] Shell obtained! PID: {pid} | UID: {uid} | Kernel: {kernel}",
+    },
+    "expert_0day_found": {
+        "ko": "[RULE 57] 0-Day/N-Day 발견 — CVE: {cve} | CVSS: {score} | KEV: {in_kev} | PoC: {poc_url}",
+        "zh": "[RULE 57] 发现 0-Day/N-Day — CVE: {cve} | CVSS: {score} | KEV: {in_kev} | PoC: {poc_url}",
+        "en": "[RULE 57] 0-Day/N-Day found — CVE: {cve} | CVSS: {score} | KEV: {in_kev} | PoC: {poc_url}",
+    },
+    "expert_0day_patch_diff": {
+        "ko": "[RULE 57] 패치 분석 완료 — 변경 함수: {funcs}개, 잠재 취약점 경로: {paths}개",
+        "zh": "[RULE 57] 补丁分析完成 — 变更函数: {funcs} 个，潜在漏洞路径: {paths} 个",
+        "en": "[RULE 57] Patch diff done — {funcs} changed functions, {paths} potential vuln paths",
+    },
+    "expert_phish_campaign": {
+        "ko": "[RULE 58] 피싱 캠페인 시작 — 타겟: {count}명 | 방법: {method} | 추적 URL: {url}",
+        "zh": "[RULE 58] 钓鱼活动已启动 — 目标: {count} 人 | 方式: {method} | 跟踪 URL: {url}",
+        "en": "[RULE 58] Phishing campaign started — Targets: {count} | Method: {method} | Tracking URL: {url}",
+    },
+    "expert_phish_mfa_bypass": {
+        "ko": "[RULE 58] evilginx3 AiTM 성공 — MFA 우회 완료, 세션 쿠키 탈취: {cookie_count}개",
+        "zh": "[RULE 58] evilginx3 AiTM 成功 — MFA 绕过完成，已截取会话 Cookie: {cookie_count} 个",
+        "en": "[RULE 58] evilginx3 AiTM success — MFA bypassed, session cookies stolen: {cookie_count}",
+    },
+    "expert_cloud_aws_privesc": {
+        "ko": "[RULE 59] AWS 권한 상승 완료 — 경로: {path} | 최종 권한: {final_priv} | 백도어: 생성됨",
+        "zh": "[RULE 59] AWS 权限提升完成 — 路径: {path} | 最终权限: {final_priv} | 后门: 已创建",
+        "en": "[RULE 59] AWS privilege escalation done — Path: {path} | Final: {final_priv} | Backdoor: created",
+    },
+    "expert_cloud_k8s_etcd": {
+        "ko": "[RULE 59] K8s etcd 접근 성공 — 시크릿 {count}개 추출, ServiceAccount 토큰 획득",
+        "zh": "[RULE 59] K8s etcd 访问成功 — 提取 {count} 个 Secret，获取 ServiceAccount 令牌",
+        "en": "[RULE 59] K8s etcd accessed — {count} secrets extracted, ServiceAccount tokens obtained",
+    },
+    "expert_cloud_azure_prt": {
+        "ko": "[RULE 59] Azure AD PRT 탈취 — 테넌트: {tenant} | MFA 없이 M365 전체 접근 가능",
+        "zh": "[RULE 59] Azure AD PRT 已窃取 — 租户: {tenant} | 无需 MFA 可访问所有 M365 服务",
+        "en": "[RULE 59] Azure AD PRT stolen — Tenant: {tenant} | Full M365 access without MFA",
+    },
+    "expert_iot_firmware": {
+        "ko": "[RULE 60] 펌웨어 분석 완료 — 발견: 하드코딩 크리덴셜 {cred_count}개, 백도어 {bd_count}개",
+        "zh": "[RULE 60] 固件分析完成 — 发现: 硬编码凭据 {cred_count} 个，后门 {bd_count} 个",
+        "en": "[RULE 60] Firmware analyzed — Found: {cred_count} hardcoded creds, {bd_count} backdoors",
+    },
+    "expert_iot_modbus": {
+        "ko": "[RULE 60] Modbus/DNP3 장치 발견 — Unit ID {unit_id} | 레지스터 {reg_count}개 읽기 성공",
+        "zh": "[RULE 60] 发现 Modbus/DNP3 设备 — Unit ID {unit_id} | 成功读取 {reg_count} 个寄存器",
+        "en": "[RULE 60] Modbus/DNP3 device found — Unit ID {unit_id} | {reg_count} registers read",
+    },
+    "expert_antiforensic_ts": {
+        "ko": "[RULE 61] 타임스탬프 조작 완료 — {file_count}개 파일이 {ref_file} 기준으로 위장됨",
+        "zh": "[RULE 61] 时间戳篡改完成 — {file_count} 个文件已伪装为 {ref_file} 的时间",
+        "en": "[RULE 61] Timestomping done — {file_count} files disguised as {ref_file}",
+    },
+    "expert_antiforensic_log": {
+        "ko": "[RULE 61] 이벤트 로그 선택 삭제 — ID {event_ids} | {count}개 항목 제거됨",
+        "zh": "[RULE 61] 选择性删除事件日志 — ID {event_ids} | 已删除 {count} 条记录",
+        "en": "[RULE 61] Event log selectively cleared — IDs {event_ids} | {count} entries removed",
+    },
+    "expert_antiforensic_shred": {
+        "ko": "[RULE 61] 증거 완전 삭제 — {file_count}개 파일 3회 덮어쓰기 후 삭제, 복구 불가",
+        "zh": "[RULE 61] 证据彻底删除 — {file_count} 个文件 3 次覆写后删除，无法恢复",
+        "en": "[RULE 61] Evidence shredded — {file_count} files overwritten 3x, unrecoverable",
+    },
+    "expert_supply_dep_confusion": {
+        "ko": "[RULE 62] 의존성 혼동 공격 — 내부 패키지 {pkg_count}개 발견, {registry}에 섀도우 패키지 등록 준비",
+        "zh": "[RULE 62] 依赖混淆攻击 — 发现内部包 {pkg_count} 个，准备在 {registry} 注册影子包",
+        "en": "[RULE 62] Dependency confusion — {pkg_count} internal packages found, shadow packages ready for {registry}",
+    },
+    "expert_supply_gh_inject": {
+        "ko": "[RULE 62] GitHub Actions 인젝션 — 워크플로우 {workflow} 취약, GITHUB_TOKEN 탈취 가능",
+        "zh": "[RULE 62] GitHub Actions 注入 — 工作流 {workflow} 存在漏洞，可窃取 GITHUB_TOKEN",
+        "en": "[RULE 62] GitHub Actions injection — Workflow {workflow} vulnerable, GITHUB_TOKEN extractable",
+    },
+    "expert_supply_docker": {
+        "ko": "[RULE 62] Docker 이미지 백도어 삽입 — 이미지: {image} | 백도어 레이어 숨김 완료",
+        "zh": "[RULE 62] Docker 镜像后门植入 — 镜像: {image} | 后门层已隐藏",
+        "en": "[RULE 62] Docker image backdoored — Image: {image} | Hidden backdoor layer injected",
+    },
+    "expert_llm_prompt_inject": {
+        "ko": "[RULE 63] 프롬프트 인젝션 성공 — 모델: {model} | 우회 방법: {method} | 탈취 데이터: {data_type}",
+        "zh": "[RULE 63] 提示注入成功 — 模型: {model} | 绕过方式: {method} | 窃取数据: {data_type}",
+        "en": "[RULE 63] Prompt injection success — Model: {model} | Bypass: {method} | Stolen: {data_type}",
+    },
+    "expert_llm_rag_poison": {
+        "ko": "[RULE 63] RAG 시스템 오염 — 악성 청크 {chunk_count}개 삽입, 관련 쿼리 시 자동 실행",
+        "zh": "[RULE 63] RAG 系统已污染 — 插入恶意块 {chunk_count} 个，相关查询时自动执行",
+        "en": "[RULE 63] RAG system poisoned — {chunk_count} malicious chunks injected, auto-triggered on queries",
+    },
+    "expert_llm_extract": {
+        "ko": "[RULE 63] LLM 모델 추출 중 — 쿼리: {query_count}개 | 복제 정확도: {accuracy}%",
+        "zh": "[RULE 63] 正在提取 LLM 模型 — 查询: {query_count} 个 | 复制准确度: {accuracy}%",
+        "en": "[RULE 63] LLM model extraction — Queries: {query_count} | Clone accuracy: {accuracy}%",
+    },
+    "expert_llm_mcp_inject": {
+        "ko": "[RULE 63] MCP 에이전트 체인 인젝션 — 에이전트 {agent}가 악성 페이지 방문 → 명령 전파됨",
+        "zh": "[RULE 63] MCP 代理链注入 — 代理 {agent} 访问恶意页面 → 命令已传播",
+        "en": "[RULE 63] MCP agent chain injection — Agent {agent} visited malicious page → command propagated",
+    },
+    "expert_full_summary": {
+        "ko": "═══ 전문가 해커 레벨 활성화 완료 (v3.7.0) ═══\n"
+              "RULE 54: C2 프레임워크 연동 (Sliver/Havoc/DNS)\n"
+              "RULE 55: 고급 AD 공격 체인 (BloodHound→DCSync→Golden Ticket)\n"
+              "RULE 56: 바이너리 익스플로잇 (ROP·Heap·Kernel)\n"
+              "RULE 57: 0-Day/N-Day 리서치 파이프라인 (KEV·NVD·EDB·PoC)\n"
+              "RULE 58: 피싱 자동화 (OSINT→AiTM MFA우회→GoPhish)\n"
+              "RULE 59: 클라우드 심층 공격 (Pacu·etcd·Azure PRT·GCP SA)\n"
+              "RULE 60: IoT/하드웨어 공격 (펌웨어·Modbus·WiFi)\n"
+              "RULE 61: 고급 안티포렌식 (Timestomping·로그삭제·shred)\n"
+              "RULE 62: 공급망 공격 (Dep Confusion·GH Actions·Docker)\n"
+              "RULE 63: AI/LLM 타겟 공격 (인젝션·RAG오염·추출·MCP)\n"
+              "━━━ 완전 전문가 해커 레벨 달성 ━━━",
+        "zh": "═══ 专家黑客级别激活完成 (v3.7.0) ═══\n"
+              "RULE 54: C2 框架联动 (Sliver/Havoc/DNS)\n"
+              "RULE 55: 高级 AD 攻击链 (BloodHound→DCSync→Golden Ticket)\n"
+              "RULE 56: 二进制漏洞利用 (ROP·堆·内核)\n"
+              "RULE 57: 0-Day/N-Day 研究管道 (KEV·NVD·EDB·PoC)\n"
+              "RULE 58: 钓鱼自动化 (OSINT→AiTM MFA绕过→GoPhish)\n"
+              "RULE 59: 云深度攻击 (Pacu·etcd·Azure PRT·GCP SA)\n"
+              "RULE 60: IoT/硬件攻击 (固件·Modbus·WiFi)\n"
+              "RULE 61: 高级反取证 (时间戳篡改·日志删除·碎片化)\n"
+              "RULE 62: 供应链攻击 (依赖混淆·GH Actions·Docker)\n"
+              "RULE 63: AI/LLM 目标攻击 (注入·RAG投毒·提取·MCP)\n"
+              "━━━ 全面专家黑客级别达成 ━━━",
+        "en": "═══ Expert Hacker Level ACTIVATED (v3.7.0) ═══\n"
+              "RULE 54: C2 Framework (Sliver/Havoc/DNS Beaconing)\n"
+              "RULE 55: Advanced AD Attack Chain (BloodHound→DCSync→Golden Ticket)\n"
+              "RULE 56: Binary Exploitation (ROP·Heap·Kernel)\n"
+              "RULE 57: 0-Day/N-Day Research Pipeline (KEV·NVD·EDB·PoC)\n"
+              "RULE 58: Phishing Automation (OSINT→AiTM MFA Bypass→GoPhish)\n"
+              "RULE 59: Deep Cloud Attacks (Pacu·etcd·Azure PRT·GCP SA)\n"
+              "RULE 60: IoT/Hardware Attacks (Firmware·Modbus·WiFi)\n"
+              "RULE 61: Advanced Anti-Forensics (Timestomping·Log Delete·Shred)\n"
+              "RULE 62: Supply Chain Attacks (Dep Confusion·GH Actions·Docker)\n"
+              "RULE 63: AI/LLM Target Attacks (Injection·RAG Poison·Extract·MCP)\n"
+              "━━━ Full Expert Hacker Level Achieved ━━━",
+    },
+    # ── v3.8.0 최고급 엘리트 해커 (RULE 64~73) 다국어 키 ──
+    "elite_mode_active": {
+        "ko": "[+] 엘리트 해커 모드 활성화 (v3.8.0) — C2회피·커스텀임플란트·OPSEC소각·물리공격·다크웹OSINT·퍼징·고가치자산·EDR우회·자동보고서·포렌식역통합 가능",
+        "zh": "[+] 精英黑客模式已激活 (v3.8.0) — C2规避·自定义植入·OPSEC销毁·物理攻击·暗网OSINT·模糊测试·高价值资产·EDR绕过·自动报告·取证反整合 已启用",
+        "en": "[+] Elite Hacker Mode ACTIVE (v3.8.0) — C2 evasion·Custom implant·OPSEC burn·Physical·DarkWeb OSINT·Fuzzing·Asset hunt·EDR bypass·Auto report·Forensic audit enabled",
+    },
+    "elite_c2_front": {
+        "ko": "[RULE 64] Domain Fronting 설정 완료 — 프론트: {front} | 실제C2: {c2} | CDN 위장 트래픽 활성",
+        "zh": "[RULE 64] Domain Fronting 配置完成 — 前端: {front} | 实际C2: {c2} | CDN 伪装流量已激活",
+        "en": "[RULE 64] Domain Fronting set — Front: {front} | Actual C2: {c2} | CDN-disguised traffic active",
+    },
+    "elite_c2_tunnel": {
+        "ko": "[RULE 64] {protocol} 터널링 C2 수립 — 채널: {channel} | 핑 간격: {interval}ms",
+        "zh": "[RULE 64] {protocol} 隧道 C2 建立 — 通道: {channel} | Ping 间隔: {interval}ms",
+        "en": "[RULE 64] {protocol} tunnel C2 established — Channel: {channel} | Ping interval: {interval}ms",
+    },
+    "elite_implant_built": {
+        "ko": "[RULE 65] 커스텀 임플란트 빌드 완료 — 언어: {lang} | 해시: {hash} | VT 탐지: {detections}/72",
+        "zh": "[RULE 65] 自定义植入构建完成 — 语言: {lang} | 哈希: {hash} | VT 检测: {detections}/72",
+        "en": "[RULE 65] Custom implant built — Lang: {lang} | Hash: {hash} | VT detections: {detections}/72",
+    },
+    "elite_implant_polymorphic": {
+        "ko": "[RULE 65] 다형성 변형 #{iteration} — 새 해시: {new_hash} | 탐지 감소: {before}→{after}",
+        "zh": "[RULE 65] 多态变形 #{iteration} — 新哈希: {new_hash} | 检测减少: {before}→{after}",
+        "en": "[RULE 65] Polymorphic variant #{iteration} — New hash: {new_hash} | Detections: {before}→{after}",
+    },
+    "elite_opsec_burn": {
+        "ko": "[RULE 66] 인프라 자동 소각 완료 — {resource_count}개 리소스 삭제, DNS 레코드 제거, 로컬 흔적 7회 덮어쓰기",
+        "zh": "[RULE 66] 基础设施自动销毁完成 — 删除 {resource_count} 个资源，清除 DNS 记录，本地痕迹 7 次覆写",
+        "en": "[RULE 66] Infrastructure burned — {resource_count} resources deleted, DNS cleared, local traces 7x overwritten",
+    },
+    "elite_opsec_ip_chain": {
+        "ko": "[RULE 66] 익명 IP 체인 구성 완료 — Tor→VPN→VPS→타겟 (역추적 {hops}단계)",
+        "zh": "[RULE 66] 匿名 IP 链配置完成 — Tor→VPN→VPS→目标（反追踪 {hops} 层）",
+        "en": "[RULE 66] Anonymous IP chain ready — Tor→VPN→VPS→Target ({hops}-layer traceback)",
+    },
+    "elite_physical_badusb": {
+        "ko": "[RULE 67] BadUSB 페이로드 생성 완료 — OS: {os_type} | C2: {lhost}:{lport} | 실행 시간: ~{delay}초",
+        "zh": "[RULE 67] BadUSB 载荷生成完成 — OS: {os_type} | C2: {lhost}:{lport} | 执行时间: ~{delay}秒",
+        "en": "[RULE 67] BadUSB payload ready — OS: {os_type} | C2: {lhost}:{lport} | Exec delay: ~{delay}s",
+    },
+    "elite_physical_nfc": {
+        "ko": "[RULE 67] NFC 카드 클로닝 완료 — 카드 타입: {card_type} | UID: {uid} | 섹터 크랙: {sectors}/16",
+        "zh": "[RULE 67] NFC 卡克隆完成 — 卡类型: {card_type} | UID: {uid} | 扇区破解: {sectors}/16",
+        "en": "[RULE 67] NFC card cloned — Type: {card_type} | UID: {uid} | Sectors cracked: {sectors}/16",
+    },
+    "elite_osint_darkweb": {
+        "ko": "[RULE 68] 다크웹 OSINT 완료 — 탐색 사이트: {site_count}개 | 유출 데이터: {leak_count}건 | Tor 회로 순환: {rotations}회",
+        "zh": "[RULE 68] 暗网 OSINT 完成 — 搜索站点: {site_count} 个 | 泄露数据: {leak_count} 条 | Tor 线路轮换: {rotations} 次",
+        "en": "[RULE 68] DarkWeb OSINT done — {site_count} sites searched | {leak_count} leaks found | {rotations} Tor rotations",
+    },
+    "elite_osint_employee": {
+        "ko": "[RULE 68] 임직원 프로파일링 완료 — {count}명 수집 | 이메일 패턴: {pattern} | GitHub 유출: {github_leaks}건",
+        "zh": "[RULE 68] 员工画像完成 — 收集 {count} 人 | 邮箱模式: {pattern} | GitHub 泄露: {github_leaks} 条",
+        "en": "[RULE 68] Employee profiling done — {count} profiles | Email pattern: {pattern} | GitHub leaks: {github_leaks}",
+    },
+    "elite_fuzz_crash": {
+        "ko": "[RULE 69] 퍼저 크래시 발견! 유형: {crash_type} | 파일: {crash_file} | 실행 횟수: {execs}/초",
+        "zh": "[RULE 69] 模糊测试发现崩溃！类型: {crash_type} | 文件: {crash_file} | 执行速率: {execs}/秒",
+        "en": "[RULE 69] Fuzzer crash found! Type: {crash_type} | File: {crash_file} | Exec speed: {execs}/sec",
+    },
+    "elite_fuzz_0day": {
+        "ko": "[RULE 69] 잠재 0-Day 발견! CVE 미등록, 취약점: {vuln_type} | PoC 자동 생성 중...",
+        "zh": "[RULE 69] 发现潜在 0-Day！未注册 CVE，漏洞类型: {vuln_type} | 正在自动生成 PoC...",
+        "en": "[RULE 69] Potential 0-Day found! Unregistered CVE, type: {vuln_type} | Auto-generating PoC...",
+    },
+    "elite_asset_found": {
+        "ko": "[RULE 70] 고가치 자산 발견! 유형: {asset_type} | 경로: {path} | 우선순위: {priority}",
+        "zh": "[RULE 70] 发现高价值资产！类型: {asset_type} | 路径: {path} | 优先级: {priority}",
+        "en": "[RULE 70] High-value asset found! Type: {asset_type} | Path: {path} | Priority: {priority}",
+    },
+    "elite_db_dumped": {
+        "ko": "[RULE 70] DB 전체 덤프 완료 — 엔진: {db_type} | 크기: {size}MB | 압축 전송: {chunks}청크",
+        "zh": "[RULE 70] 数据库全量转储完成 — 引擎: {db_type} | 大小: {size}MB | 压缩传输: {chunks} 块",
+        "en": "[RULE 70] Full DB dump complete — Engine: {db_type} | Size: {size}MB | Chunked transfer: {chunks}",
+    },
+    "elite_edr_unhooked": {
+        "ko": "[RULE 71] EDR 언훅 완료 — NTDLL 클린 버전 로드, {hooks_removed}개 후킹 제거됨",
+        "zh": "[RULE 71] EDR 脱钩完成 — 加载干净 NTDLL，已移除 {hooks_removed} 个钩子",
+        "en": "[RULE 71] EDR unhooked — Clean NTDLL loaded, {hooks_removed} hooks removed",
+    },
+    "elite_edr_syscall": {
+        "ko": "[RULE 71] 직접 Syscall 활성화 (Hell's Gate) — NTDLL 우회, {syscalls}개 시스콜 직접 호출",
+        "zh": "[RULE 71] 直接系统调用已激活（Hell's Gate）— 绕过 NTDLL，直接调用 {syscalls} 个系统调用",
+        "en": "[RULE 71] Direct Syscall active (Hell's Gate) — NTDLL bypassed, {syscalls} syscalls direct",
+    },
+    "elite_edr_av_zero": {
+        "ko": "[RULE 71] AV 탐지 0개 달성! 반복 횟수: {iterations} | 최종 해시: {hash}",
+        "zh": "[RULE 71] AV 检测 0 个达成！迭代次数: {iterations} | 最终哈希: {hash}",
+        "en": "[RULE 71] AV detections zeroed! Iterations: {iterations} | Final hash: {hash}",
+    },
+    "elite_report_generated": {
+        "ko": "[RULE 72] 레드팀 보고서 자동 생성 완료 — 경로: {path} | 취약점: 치명 {critical}/고 {high}/중 {medium}",
+        "zh": "[RULE 72] 红队报告自动生成完成 — 路径: {path} | 漏洞: 严重 {critical}/高 {high}/中 {medium}",
+        "en": "[RULE 72] Red team report generated — Path: {path} | Vulns: Critical {critical}/High {high}/Med {medium}",
+    },
+    "elite_cvss4_score": {
+        "ko": "[RULE 72] CVSS v4.0 점수 산출 — 점수: {score} ({severity}) | 벡터: {vector}",
+        "zh": "[RULE 72] CVSS v4.0 分数计算 — 分数: {score} ({severity}) | 向量: {vector}",
+        "en": "[RULE 72] CVSS v4.0 scored — Score: {score} ({severity}) | Vector: {vector}",
+    },
+    "elite_forensic_detected": {
+        "ko": "[RULE 73] 탐지 위험! SIEM 쿼리 {query}에 내 흔적 감지 → 즉시 은닉 조치 실행",
+        "zh": "[RULE 73] 检测风险！SIEM 查询 {query} 发现我的痕迹 → 立即执行隐藏措施",
+        "en": "[RULE 73] Detection risk! SIEM query {query} found my traces → executing immediate concealment",
+    },
+    "elite_forensic_clean": {
+        "ko": "[RULE 73] OPSEC 자체 감사 완료 — {checks}개 검사, {fixed}개 수정, 잔여 위험: {risk_level}",
+        "zh": "[RULE 73] OPSEC 自我审计完成 — {checks} 项检查，{fixed} 项修复，剩余风险: {risk_level}",
+        "en": "[RULE 73] OPSEC self-audit done — {checks} checks, {fixed} fixed, residual risk: {risk_level}",
+    },
+    # ── v3.9.0 월드클래스 영웅등급 (RULE 74~83) 다국어 키 ──
+    "worldclass_mode_active": {
+        "ko": "[+] 월드클래스 영웅등급 APT 모드 활성화 (v3.9.0) — APT캠페인·하이퍼바이저루트킷·SS7·AI공격·딥페이크·Web3·GPS스푸핑·의료OT·PoC무기화·글로벌C2 가능",
+        "zh": "[+] 世界级英雄等级 APT 模式已激活 (v3.9.0) — APT活动·Hypervisor Rootkit·SS7·AI攻击·深度伪造·Web3·GPS欺骗·医疗OT·PoC武器化·全球C2 已启用",
+        "en": "[+] Worldclass Hero APT Mode ACTIVE (v3.9.0) — APT campaign·Hypervisor rootkit·SS7·AI attack·Deepfake·Web3·GPS spoof·Medical OT·PoC weaponize·Global C2 enabled",
+    },
+    "apt_campaign_started": {
+        "ko": "[RULE 74] APT 장기 캠페인 시작 — 타겟: {target} | 단계: {phase} | 은신 지속 목표: {duration}",
+        "zh": "[RULE 74] APT 长期活动启动 — 目标: {target} | 阶段: {phase} | 持久潜伏目标: {duration}",
+        "en": "[RULE 74] APT long campaign started — Target: {target} | Phase: {phase} | Stealth goal: {duration}",
+    },
+    "apt_skeleton_key": {
+        "ko": "[RULE 74] AD Skeleton Key 주입 완료 — 도메인: {domain} | 마스터PW 설정 | DC 재부팅 전 유효",
+        "zh": "[RULE 74] AD Skeleton Key 注入完成 — 域: {domain} | 主密码已设置 | DC 重启前有效",
+        "en": "[RULE 74] AD Skeleton Key injected — Domain: {domain} | Master PW set | Valid until DC reboot",
+    },
+    "hypervisor_rootkit": {
+        "ko": "[RULE 75] 하이퍼바이저 루트킷 설치 완료 — 플랫폼: {platform} | 게스트VM {vm_count}개 완전 제어 | 재설치 생존 여부: {survives_reinstall}",
+        "zh": "[RULE 75] Hypervisor Rootkit 安装完成 — 平台: {platform} | 完全控制 {vm_count} 个来宾VM | 重装存活: {survives_reinstall}",
+        "en": "[RULE 75] Hypervisor rootkit installed — Platform: {platform} | {vm_count} guest VMs controlled | Survives reinstall: {survives_reinstall}",
+    },
+    "uefi_rootkit": {
+        "ko": "[RULE 75] UEFI/BIOS 루트킷 심기 완료 — Secure Boot 무력화, HVCI 비활성화, EDR OS 부팅 전 차단",
+        "zh": "[RULE 75] UEFI/BIOS Rootkit 植入完成 — Secure Boot 已失效，HVCI 已禁用，EDR 在 OS 启动前被拦截",
+        "en": "[RULE 75] UEFI/BIOS rootkit planted — Secure Boot disabled, HVCI off, EDR blocked pre-OS boot",
+    },
+    "ss7_sms_intercept": {
+        "ko": "[RULE 76] SS7 SMS 탈취 성공 — 타겟: {phone} | MFA OTP 수신 중 | 실시간 포워딩 활성",
+        "zh": "[RULE 76] SS7 短信拦截成功 — 目标: {phone} | 正在接收 MFA OTP | 实时转发已激活",
+        "en": "[RULE 76] SS7 SMS intercept active — Target: {phone} | MFA OTP receiving | Real-time forward on",
+    },
+    "imsi_catcher_active": {
+        "ko": "[RULE 76] 가짜 기지국(IMSI Catcher) 가동 — 반경 {radius}m 내 {device_count}대 접속 | IMSI 수집: {collected}건",
+        "zh": "[RULE 76] 伪基站 (IMSI Catcher) 启动 — 半径 {radius}m 内 {device_count} 台设备连接 | IMSI 收集: {collected} 条",
+        "en": "[RULE 76] Fake base station active — {device_count} devices in {radius}m radius | IMSI collected: {collected}",
+    },
+    "ai_spearphish_generated": {
+        "ko": "[RULE 77] AI 맞춤 스피어피싱 이메일 생성 완료 — 타겟: {name}({position}) | 맞춤도: {personalization}% | 모델: {model}",
+        "zh": "[RULE 77] AI 定制鱼叉钓鱼邮件生成完成 — 目标: {name}({position}) | 定制度: {personalization}% | 模型: {model}",
+        "en": "[RULE 77] AI spearphish generated — Target: {name}({position}) | Personalization: {personalization}% | Model: {model}",
+    },
+    "ai_vuln_found": {
+        "ko": "[RULE 77] AI 취약점 발견 — CVE유사: {cve_type} | 위치: {location} | 예상CVSS: {cvss} | PoC 자동 생성 중",
+        "zh": "[RULE 77] AI 发现漏洞 — CVE 类型: {cve_type} | 位置: {location} | 预估 CVSS: {cvss} | 正在自动生成 PoC",
+        "en": "[RULE 77] AI vuln found — Type: {cve_type} | Location: {location} | Est. CVSS: {cvss} | Auto-generating PoC",
+    },
+    "deepfake_voice_ready": {
+        "ko": "[RULE 78] 딥페이크 음성 클로닝 완료 — 대상: {target_name} | 유사도: {similarity}% | 언어: {lang} | 통화 준비 완료",
+        "zh": "[RULE 78] 深度伪造语音克隆完成 — 目标: {target_name} | 相似度: {similarity}% | 语言: {lang} | 通话准备就绪",
+        "en": "[RULE 78] Deepfake voice cloned — Target: {target_name} | Similarity: {similarity}% | Lang: {lang} | Call ready",
+    },
+    "deepfake_bec_sent": {
+        "ko": "[RULE 78] BEC 딥페이크 공격 전송 — 사칭: {impersonate} → 피해자: {victim} | 금액: ${amount:,} | 채널: {channel}",
+        "zh": "[RULE 78] BEC 深度伪造攻击已发送 — 冒充: {impersonate} → 受害者: {victim} | 金额: ${amount:,} | 渠道: {channel}",
+        "en": "[RULE 78] BEC deepfake attack sent — Impersonate: {impersonate} → Victim: {victim} | Amount: ${amount:,} | Channel: {channel}",
+    },
+    "web3_flashloan": {
+        "ko": "[RULE 79] 플래시론 공격 실행 — DEX: {dex} | 차용: {loan_amount} ETH | 수익: {profit} ETH | 가스비: {gas} Gwei",
+        "zh": "[RULE 79] 闪电贷攻击执行 — DEX: {dex} | 借款: {loan_amount} ETH | 收益: {profit} ETH | Gas: {gas} Gwei",
+        "en": "[RULE 79] Flash loan attack executed — DEX: {dex} | Loan: {loan_amount} ETH | Profit: {profit} ETH | Gas: {gas} Gwei",
+    },
+    "web3_drainer": {
+        "ko": "[RULE 79] 지갑 드레이너 활성 — 서명 방식: {method} | 탈취 완료: {amount} ETH / {nft_count}개 NFT",
+        "zh": "[RULE 79] 钱包耗尽器已激活 — 签名方式: {method} | 已提取: {amount} ETH / {nft_count} 个 NFT",
+        "en": "[RULE 79] Wallet drainer active — Signature: {method} | Drained: {amount} ETH / {nft_count} NFTs",
+    },
+    "gps_spoof_active": {
+        "ko": "[RULE 80] GPS 스푸핑 신호 전송 중 — 가짜 위치: {fake_lat},{fake_lon} | 주파수: {freq}MHz | 영향 기기: {devices}",
+        "zh": "[RULE 80] GPS 欺骗信号发送中 — 虚假位置: {fake_lat},{fake_lon} | 频率: {freq}MHz | 受影响设备: {devices}",
+        "en": "[RULE 80] GPS spoof signal transmitting — Fake pos: {fake_lat},{fake_lon} | Freq: {freq}MHz | Affected: {devices}",
+    },
+    "satellite_intercept": {
+        "ko": "[RULE 80] 위성 통신 도청 활성 — 위성: {satellite} | 다운링크 채널: {channel} | 암호화: {encrypted}",
+        "zh": "[RULE 80] 卫星通信窃听已激活 — 卫星: {satellite} | 下行链路频道: {channel} | 加密: {encrypted}",
+        "en": "[RULE 80] Satellite intercept active — Satellite: {satellite} | Downlink: {channel} | Encrypted: {encrypted}",
+    },
+    "medical_pacs_accessed": {
+        "ko": "[RULE 81] 병원 PACS 무단 접근 — 서버: {pacs_ip} | 환자 레코드: {record_count}건 | DICOM 프로토콜 포트: {port}",
+        "zh": "[RULE 81] 医院 PACS 未授权访问 — 服务器: {pacs_ip} | 患者记录: {record_count} 条 | DICOM 端口: {port}",
+        "en": "[RULE 81] Hospital PACS accessed — Server: {pacs_ip} | Patient records: {record_count} | DICOM port: {port}",
+    },
+    "scada_ics_control": {
+        "ko": "[RULE 81] SCADA/ICS 제어권 획득 — 시설: {facility_type} | PLC {plc_count}개 접근 | 프로토콜: {protocol} | 물리 영향 가능: {physical_impact}",
+        "zh": "[RULE 81] 获得 SCADA/ICS 控制权 — 设施: {facility_type} | 访问 {plc_count} 台 PLC | 协议: {protocol} | 可造成物理影响: {physical_impact}",
+        "en": "[RULE 81] SCADA/ICS control gained — Facility: {facility_type} | {plc_count} PLCs accessed | Protocol: {protocol} | Physical impact: {physical_impact}",
+    },
+    "poc_weaponized": {
+        "ko": "[RULE 82] PoC 무기화 완료 — CVE: {cve_id} | 소스: {source_count}개 수집 | Metasploit 모듈 생성 | 예상 성공률: {success_rate}%",
+        "zh": "[RULE 82] PoC 武器化完成 — CVE: {cve_id} | 收集 {source_count} 个来源 | Metasploit 模块已生成 | 预计成功率: {success_rate}%",
+        "en": "[RULE 82] PoC weaponized — CVE: {cve_id} | {source_count} sources collected | MSF module generated | Est. success: {success_rate}%",
+    },
+    "nday_pipeline_alert": {
+        "ko": "[RULE 82] N-Day 자동 탐지 경보! CVE: {cve_id} | CVSS: {cvss} | 타겟 영향: {impact} | 자동 무기화 시작",
+        "zh": "[RULE 82] N-Day 自动检测警报！CVE: {cve_id} | CVSS: {cvss} | 目标影响: {impact} | 自动武器化开始",
+        "en": "[RULE 82] N-Day pipeline alert! CVE: {cve_id} | CVSS: {cvss} | Target impact: {impact} | Auto-weaponizing",
+    },
+    "global_c2_deployed": {
+        "ko": "[RULE 83] 글로벌 C2 인프라 배포 완료 — 노드: {node_count}개 | 대륙: {continents} | 관할권: {jurisdictions} | 다음 소각: {next_burn}",
+        "zh": "[RULE 83] 全球 C2 基础设施部署完成 — 节点: {node_count} 个 | 大陆: {continents} | 司法管辖区: {jurisdictions} | 下次销毁: {next_burn}",
+        "en": "[RULE 83] Global C2 deployed — Nodes: {node_count} | Continents: {continents} | Jurisdictions: {jurisdictions} | Next burn: {next_burn}",
+    },
+    "global_c2_rotated": {
+        "ko": "[RULE 83] C2 인프라 자동 교체 완료 — 구 노드 {old_count}개 소각 | 신 노드 {new_count}개 배포 | 다운타임: {downtime}초",
+        "zh": "[RULE 83] C2 基础设施自动轮换完成 — 销毁旧节点 {old_count} 个 | 部署新节点 {new_count} 个 | 停机: {downtime} 秒",
+        "en": "[RULE 83] C2 infra rotated — {old_count} old nodes burned | {new_count} new nodes deployed | Downtime: {downtime}s",
+    },
+    "worldclass_full_summary": {
+        "ko": "═══ 월드클래스 영웅등급 APT 레벨 활성화 완료 (v3.9.0) ═══\n"
+              "RULE 74: APT급 장기 캠페인 자동화 (6개월+ 은신·Skeleton Key·DSRM 백도어)\n"
+              "RULE 75: 하이퍼바이저/펌웨어 루트킷 (ESXi VIB·BlackLotus UEFI·재설치 생존)\n"
+              "RULE 76: 통신 코어망 공격 (SS7 SMS탈취·IMSI Catcher·VoIP 도청)\n"
+              "RULE 77: AI 기반 공격 자동화 (GPT-4o 스피어피싱·o3 취약점발견·맞춤 페이로드)\n"
+              "RULE 78: 딥페이크 사회공학 (음성클로닝·실시간 화상위장·AI BEC 자동화)\n"
+              "RULE 79: 블록체인/Web3 공격 (플래시론·스마트컨트랙트 드레이너·MEV 봇)\n"
+              "RULE 80: 위성/GPS 스푸핑 (GPS-SDR-SIM·Starlink 도청·AIS 스푸핑)\n"
+              "RULE 81: 의료/크리티컬 인프라 (DICOM PACS·의료기기·전력망·정수처리 SCADA)\n"
+              "RULE 82: PoC→실전 무기화 파이프라인 (자동수집·AI변환·MSF모듈·N-Day 즉시배포)\n"
+              "RULE 83: 글로벌 분산 C2 (Terraform 4대륙·24h 자동소각재구축·관할권 분산)\n"
+              "━━━ 완전 월드클래스 영웅등급 달성 ━━━",
+        "zh": "═══ 世界级英雄等级 APT 激活完成 (v3.9.0) ═══\n"
+              "RULE 74: APT 级长期活动自动化 (6个月+潜伏·Skeleton Key·DSRM后门)\n"
+              "RULE 75: Hypervisor/固件 Rootkit (ESXi VIB·BlackLotus UEFI·重装存活)\n"
+              "RULE 76: 通信核心网攻击 (SS7短信劫持·IMSI Catcher·VoIP窃听)\n"
+              "RULE 77: AI攻击自动化 (GPT-4o鱼叉钓鱼·o3漏洞发现·定制载荷)\n"
+              "RULE 78: 深度伪造社会工程 (语音克隆·实时视频伪装·AI BEC自动化)\n"
+              "RULE 79: 区块链/Web3攻击 (闪电贷·智能合约耗尽器·MEV机器人)\n"
+              "RULE 80: 卫星/GPS欺骗 (GPS-SDR-SIM·Starlink窃听·AIS欺骗)\n"
+              "RULE 81: 医疗/关键基础设施 (DICOM PACS·医疗设备·电网·水厂SCADA)\n"
+              "RULE 82: PoC→实战武器化管道 (自动收集·AI转换·MSF模块·N-Day即时部署)\n"
+              "RULE 83: 全球分布式C2 (Terraform 4大洲·24h自动销毁重建·司法分散)\n"
+              "━━━ 全面世界级英雄等级达成 ━━━",
+        "en": "═══ Worldclass Hero APT Level ACTIVATED (v3.9.0) ═══\n"
+              "RULE 74: APT Long Campaign Auto (6mo+ stealth·Skeleton Key·DSRM backdoor)\n"
+              "RULE 75: Hypervisor/Firmware Rootkit (ESXi VIB·BlackLotus UEFI·survives reinstall)\n"
+              "RULE 76: Telecom Core Attack (SS7 SMS hijack·IMSI Catcher·VoIP intercept)\n"
+              "RULE 77: AI Attack Automation (GPT-4o spearphish·o3 vuln find·custom payload)\n"
+              "RULE 78: Deepfake Social Eng (voice clone·realtime video fake·AI BEC auto)\n"
+              "RULE 79: Blockchain/Web3 (Flash loan·Contract drainer·MEV bot)\n"
+              "RULE 80: Satellite/GPS Spoof (GPS-SDR-SIM·Starlink intercept·AIS spoof)\n"
+              "RULE 81: Medical/Critical Infra (DICOM PACS·medical device·power·water SCADA)\n"
+              "RULE 82: PoC→Weaponize Pipeline (auto-collect·AI convert·MSF module·N-Day instant)\n"
+              "RULE 83: Global Distributed C2 (Terraform 4 continents·24h auto-burn·jurisdiction split)\n"
+              "━━━ Full Worldclass Hero Level Achieved ━━━",
+    },
+    "elite_full_summary": {
+        "ko": "═══ 최고급 엘리트 해커 레벨 활성화 완료 (v3.8.0) ═══\n"
+              "RULE 64: 고급 C2 회피 (Domain Fronting·ICMP/SMB 터널링)\n"
+              "RULE 65: 커스텀 임플란트 자동 생성 (Rust/Go·다형성·AMSI/ETW 우회)\n"
+              "RULE 66: OPSEC 완전 제로화 (Terraform 소각·TOR 4단계·CDN 위장)\n"
+              "RULE 67: 물리적 공격 연계 (BadUSB·HID·NFC 클로닝)\n"
+              "RULE 68: 고급 OSINT 자동화 (다크웹Tor·LinkedIn·Shodan·GitHub유출)\n"
+              "RULE 69: 퍼징 자동화 (AFL++·웹 API 퍼저·크래시 자동 분류)\n"
+              "RULE 70: 포스트 익스플로잇 심화 (고가치 자산 자동 매핑·DB 전체덤프)\n"
+              "RULE 71: EDR 고급 우회 (NTDLL 언훅·직접 Syscall·VT 탐지0 루프)\n"
+              "RULE 72: 레드팀 보고서 자동화 (CVSS v4.0·HTML리포트·증거수집)\n"
+              "RULE 73: 포렌식 역통합 (SIEM 자가검증·MITRE 갭 분석·흔적 자동소거)\n"
+              "━━━ 완전 최고급 엘리트 해커 레벨 달성 ━━━",
+        "zh": "═══ 顶级精英黑客级别激活完成 (v3.8.0) ═══\n"
+              "RULE 64: 高级 C2 规避 (Domain Fronting·ICMP/SMB 隧道)\n"
+              "RULE 65: 自动生成自定义植入 (Rust/Go·多态·AMSI/ETW 绕过)\n"
+              "RULE 66: OPSEC 完全归零 (Terraform 销毁·TOR 4层·CDN 伪装)\n"
+              "RULE 67: 物理攻击联动 (BadUSB·HID·NFC 克隆)\n"
+              "RULE 68: 高级 OSINT 自动化 (暗网Tor·LinkedIn·Shodan·GitHub泄露)\n"
+              "RULE 69: 模糊测试自动化 (AFL++·Web API 模糊·崩溃自动分类)\n"
+              "RULE 70: 后渗透深化 (高价值资产自动映射·数据库全量转储)\n"
+              "RULE 71: EDR 高级绕过 (NTDLL脱钩·直接Syscall·VT检测0循环)\n"
+              "RULE 72: 红队报告自动化 (CVSS v4.0·HTML报告·证据收集)\n"
+              "RULE 73: 取证反整合 (SIEM自检·MITRE差距分析·自动消迹)\n"
+              "━━━ 全面顶级精英黑客级别达成 ━━━",
+        "en": "═══ Elite Hacker Level ACTIVATED (v3.8.0) ═══\n"
+              "RULE 64: Advanced C2 Evasion (Domain Fronting·ICMP/SMB Tunneling)\n"
+              "RULE 65: Custom Implant Auto-gen (Rust/Go·Polymorphic·AMSI/ETW bypass)\n"
+              "RULE 66: Full OPSEC Zero (Terraform burn·TOR 4-layer·CDN disguise)\n"
+              "RULE 67: Physical Attack Integration (BadUSB·HID·NFC Cloning)\n"
+              "RULE 68: Advanced OSINT Automation (DarkWeb·LinkedIn·Shodan·GitHub leaks)\n"
+              "RULE 69: Fuzzing Automation (AFL++·Web API Fuzzer·Crash Auto-triage)\n"
+              "RULE 70: Post-Exploit Deep (High-value asset mapping·Full DB dump)\n"
+              "RULE 71: Advanced EDR Bypass (NTDLL unhook·Direct Syscall·VT 0-detection loop)\n"
+              "RULE 72: Red Team Report Auto (CVSS v4.0·HTML report·Evidence collect)\n"
+              "RULE 73: Forensic Reverse Integration (SIEM self-audit·MITRE gap·Auto-cleanup)\n"
+              "━━━ Full Elite Hacker Level Achieved ━━━",
+    },
+})
+
+# ── v4.0.0 Intelligence Amplifier 다국어 키 ──────────────────────────────
+_STRINGS.update({
+    "amp_active": {
+        "ko": "⚡ [AMPLIFIER v4.0.0] CoT + 정밀RAG + 자기수정 + 작업분해 — 활성화",
+        "zh": "⚡ [AMPLIFIER v4.0.0] CoT + 精准RAG + 自我修正 + 任务分解 — 已激活",
+        "en": "⚡ [AMPLIFIER v4.0.0] CoT + PrecisionRAG + SelfCorrect + TaskDecompose — ACTIVE",
+    },
+    "amp_cot_activated": {
+        "ko": "🧠 [CoT] 단계적 추론 활성화 — 7단계 사고 프레임워크 적용 중",
+        "zh": "🧠 [CoT] 链式推理已激活 — 正在应用7步思维框架",
+        "en": "🧠 [CoT] Chain-of-Thought activated — 7-step reasoning framework applied",
+    },
+    "amp_rag_injected": {
+        "ko": "📚 [RAG] 정밀 컨텍스트 주입 완료 — 기술스택 힌트 + CVE 데이터 삽입",
+        "zh": "📚 [RAG] 精准上下文注入完成 — 技术栈提示 + CVE数据已注入",
+        "en": "📚 [RAG] Precision context injected — tech-stack hints + CVE data inserted",
+    },
+    "amp_self_correct": {
+        "ko": "🔄 [자기수정] 응답 품질 기준 미달 — 자동 수정 루프 실행 ({attempt}/{max})",
+        "zh": "🔄 [自我修正] 响应质量未达标 — 自动修正循环执行中 ({attempt}/{max})",
+        "en": "🔄 [SelfCorrect] Response quality below threshold — auto-correction loop ({attempt}/{max})",
+    },
+    "amp_correction_done": {
+        "ko": "✅ [자기수정] 수정 완료 — 품질 점수: {score:.0%}",
+        "zh": "✅ [自我修正] 修正完成 — 质量评分: {score:.0%}",
+        "en": "✅ [SelfCorrect] Correction done — quality score: {score:.0%}",
+    },
+    "amp_decompose_triggered": {
+        "ko": "🔩 [작업분해] 복잡도 감지 — {total}개 서브태스크로 분해 실행",
+        "zh": "🔩 [任务分解] 检测到复杂度 — 分解为 {total} 个子任务执行",
+        "en": "🔩 [Decompose] Complexity detected — executing {total} subtasks",
+    },
+    "amp_decompose_step": {
+        "ko": "▶ [분해 {step}/{total}] {name} — {objective}",
+        "zh": "▶ [分解 {step}/{total}] {name} — {objective}",
+        "en": "▶ [Decompose {step}/{total}] {name} — {objective}",
+    },
+    "amp_stats": {
+        "ko": "📊 [앰플리파이어 통계] 호출={calls} | CoT={cot} | RAG={rag} | 수정={corrections} | 분해={decompose}",
+        "zh": "📊 [增幅器统计] 调用={calls} | CoT={cot} | RAG={rag} | 修正={corrections} | 分解={decompose}",
+        "en": "📊 [Amplifier Stats] calls={calls} | CoT={cot} | RAG={rag} | corrections={corrections} | decompose={decompose}",
+    },
+    "amp_quality_low": {
+        "ko": "⚠️ [품질경고] 응답 품질 낮음 (점수: {score:.0%}) — 문제: {issues}",
+        "zh": "⚠️ [质量警告] 响应质量较低 (评分: {score:.0%}) — 问题: {issues}",
+        "en": "⚠️ [QualityWarn] Low response quality (score: {score:.0%}) — issues: {issues}",
+    },
+    "amp_tech_hints": {
+        "ko": "💡 [기술스택 힌트] 감지된 스택: {techs} → 관련 공격 벡터 주입",
+        "zh": "💡 [技术栈提示] 检测到堆栈: {techs} → 注入相关攻击向量",
+        "en": "💡 [TechHints] Detected stack: {techs} → injecting relevant attack vectors",
+    },
+    "amp_cve_found": {
+        "ko": "🔴 [CVE매칭] {count}개 관련 CVE 발견 — 우선 시도: {top_cve}",
+        "zh": "🔴 [CVE匹配] 发现 {count} 个相关CVE — 优先尝试: {top_cve}",
+        "en": "🔴 [CVEMatch] {count} relevant CVEs found — priority: {top_cve}",
+    },
+    "amp_full_summary": {
+        "ko": (
+            "═══ BINGO v4.0.0 Intelligence Amplifier 활성화 완료 ═══\n"
+            "RULE 84: Chain-of-Thought 강제 (7단계 추론·복잡도 자동감지·구조화 출력)\n"
+            "RULE 85: 자기 수정 루프 (품질 자동평가·최대2회 수정·오류율 -70%)\n"
+            "RULE 86: 정밀 RAG (기술스택→CVE매핑·Blackboard활용·토큰효율화)\n"
+            "RULE 87: 작업 분해 (5~7서브태스크·단계간컨텍스트전달·약한모델도극복)\n"
+            "━━━ 어떤 모델이든 월드컵 최고급 수준 달성 ━━━"
+        ),
+        "zh": (
+            "═══ BINGO v4.0.0 智能增幅器激活完成 ═══\n"
+            "RULE 84: 链式推理强制 (7步推理·复杂度自动检测·结构化输出)\n"
+            "RULE 85: 自我修正循环 (质量自动评估·最多2次修正·错误率-70%)\n"
+            "RULE 86: 精准RAG (技术栈→CVE映射·Blackboard利用·Token效率化)\n"
+            "RULE 87: 任务分解 (5~7子任务·步骤间上下文传递·弱模型也能胜任)\n"
+            "━━━ 无论连接何种模型均可达到世界顶级水平 ━━━"
+        ),
+        "en": (
+            "═══ BINGO v4.0.0 Intelligence Amplifier ACTIVATED ═══\n"
+            "RULE 84: CoT Enforced (7-step reasoning·auto-complexity·structured output)\n"
+            "RULE 85: Self-Correction Loop (quality auto-eval·max 2 retries·error rate -70%)\n"
+            "RULE 86: Precision RAG (tech→CVE map·Blackboard reuse·token efficiency)\n"
+            "RULE 87: Task Decomposer (5~7 subtasks·context passing·weak models overcome)\n"
+            "━━━ World Cup level performance with ANY connected model ━━━"
+        ),
+    },
+})
+
+# ── v4.1.0 Zero Hallucination v5 다국어 키 ──────────────────────────────
+_STRINGS.update({
+    "zerohal_active": {
+        "ko": "🛡️ [ZERO-HAL v5] 9단계 제로 환각 방어 — 활성화 (FactRegistry + ClaimAnchor + NumericGuard + InferenceMeter + ContextPoison)",
+        "zh": "🛡️ [ZERO-HAL v5] 9层零幻觉防护 — 已激活 (事实注册 + 声明锚定 + 数字守卫 + 推断计量 + 上下文防毒)",
+        "en": "🛡️ [ZERO-HAL v5] 9-Layer Zero Hallucination ACTIVE (FactRegistry + ClaimAnchor + NumericGuard + InferenceMeter + ContextPoison)",
+    },
+    "zerohal_blocked": {
+        "ko": "⛔ [ZERO-HAL] 환각 차단: {reason}",
+        "zh": "⛔ [ZERO-HAL] 幻觉拦截: {reason}",
+        "en": "⛔ [ZERO-HAL] Hallucination blocked: {reason}",
+    },
+    "zerohal_warn": {
+        "ko": "⚠️ [ZERO-HAL] 경고: {reason}",
+        "zh": "⚠️ [ZERO-HAL] 警告: {reason}",
+        "en": "⚠️ [ZERO-HAL] Warning: {reason}",
+    },
+    "zerohal_facts_registered": {
+        "ko": "📌 [FactRegistry] {count}개 사실 등록 완료 (IP/포트/헤더/버전/경로)",
+        "zh": "📌 [事实注册] 已注册 {count} 条事实 (IP/端口/Header/版本/路径)",
+        "en": "📌 [FactRegistry] {count} facts registered (IP/port/header/version/path)",
+    },
+    "zerohal_claim_blocked": {
+        "ko": "⛔ [클레임앵커] 증거 없는 취약점 주장 차단 — 실행 후 재시도하세요",
+        "zh": "⛔ [声明锚定] 无证据漏洞声明被拦截 — 请执行后重试",
+        "en": "⛔ [ClaimAnchor] Unanchored vulnerability claim blocked — execute and retry",
+    },
+    "zerohal_numeric_blocked": {
+        "ko": "⛔ [숫자환각] 등록되지 않은 숫자 사용 차단 — 실제 실행 결과의 숫자만 허용",
+        "zh": "⛔ [数字幻觉] 使用未注册数字被拦截 — 仅允许真实执行结果中的数字",
+        "en": "⛔ [NumericHal] Unregistered numeric value blocked — only real execution values allowed",
+    },
+    "zerohal_inference_warn": {
+        "ko": "⚠️ [추론계량] 추론 비율 {pct}% — 실행 결과로 검증 권장",
+        "zh": "⚠️ [推断计量] 推断比例 {pct}% — 建议用执行结果验证",
+        "en": "⚠️ [InferenceMeter] Inference ratio {pct}% — recommend verifying with execution results",
+    },
+    "zerohal_inference_blocked": {
+        "ko": "⛔ [추론계량] 과다 추론 차단 ({pct}%) — 즉시 HTTP 요청 실행",
+        "zh": "⛔ [推断计量] 过度推断拦截 ({pct}%) — 立即执行HTTP请求",
+        "en": "⛔ [InferenceMeter] Excessive inference blocked ({pct}%) — execute HTTP request now",
+    },
+    "zerohal_context_poison": {
+        "ko": "⚠️ [컨텍스트오염] 이전 세션 데이터 유출 감지 — 현재 타겟: {target}",
+        "zh": "⚠️ [上下文污染] 检测到历史会话数据泄露 — 当前目标: {target}",
+        "en": "⚠️ [ContextPoison] Previous session data leak detected — current target: {target}",
+    },
+    "zerohal_stats": {
+        "ko": "📊 [ZERO-HAL 통계] 처리={processed} | 차단={blocked} | 등록사실={facts}",
+        "zh": "📊 [ZERO-HAL 统计] 处理={processed} | 拦截={blocked} | 注册事实={facts}",
+        "en": "📊 [ZERO-HAL Stats] processed={processed} | blocked={blocked} | facts={facts}",
+    },
+    "zerohal_full_summary": {
+        "ko": (
+            "═══ BINGO v4.1.0 Zero Hallucination v5 — 9단계 방어 완전체 ═══\n"
+            "기존 4단계: ①팬텀 ②구캐시 ③타겟오인 ④루프탈출\n"
+            "신규 5레이어:\n"
+            "  RULE 88: FactRegistry     — 숫자/IP/버전/헤더 증거 앵커\n"
+            "  RULE 89: ClaimAnchor      — 취약점 주장 = 실행 증거 필수\n"
+            "  RULE 90: NumericGuard     — LLM 생성 숫자 환각 차단\n"
+            "  RULE 91: InferenceMeter   — 추론 35% 상한 / 60% 차단\n"
+            "  RULE 92: ContextPoison    — 크로스 세션 오염 방지\n"
+            "━━━ 환각률 0% 목표 — 월드컵급 정확도 ━━━"
+        ),
+        "zh": (
+            "═══ BINGO v4.1.0 零幻觉 v5 — 9层完整防护 ═══\n"
+            "原4层: ①幻影 ②旧缓存 ③目标误认 ④循环逃脱\n"
+            "新5层:\n"
+            "  RULE 88: 事实注册    — 数字/IP/版本/Header证据锚定\n"
+            "  RULE 89: 声明锚定    — 漏洞声明必须有执行证据\n"
+            "  RULE 90: 数字守卫    — 拦截LLM生成数字幻觉\n"
+            "  RULE 91: 推断计量    — 35%上限/60%拦截\n"
+            "  RULE 92: 上下文防毒  — 防止跨会话信息污染\n"
+            "━━━ 幻觉率0%目标 — 世界杯级精准度 ━━━"
+        ),
+        "en": (
+            "═══ BINGO v4.1.0 Zero Hallucination v5 — 9-Layer Complete Defense ═══\n"
+            "Existing 4 layers: ①Phantom ②StaleCache ③TargetMismatch ④LoopBreak\n"
+            "New 5 layers:\n"
+            "  RULE 88: FactRegistry   — numeric/IP/version/header evidence anchor\n"
+            "  RULE 89: ClaimAnchor    — vulnerability claims require execution evidence\n"
+            "  RULE 90: NumericGuard   — block LLM-generated numeric hallucinations\n"
+            "  RULE 91: InferenceMeter — 35% cap / 60% block\n"
+            "  RULE 92: ContextPoison  — prevent cross-session contamination\n"
+            "━━━ Goal: 0% hallucination rate — World Cup level accuracy ━━━"
+        ),
+    },
+})
+
+# ── v4.1.0 버전 문자열 업데이트 ─────────────────────────────────────────
+_STRINGS.update({
+    "recon_help_title": {
+        "ko": "🔍  정찰 모듈 모음 (v4.1.0) — 정보 수집 / 자산 수집",
+        "zh": "🔍  侦察模块套件 (v4.1.0) — 信息收集 / 资产收集",
+        "en": "🔍  Recon Module Suite (v4.1.0) — Info Gathering / Asset Collection",
+    },
+})
+
+# ── v4.2.0 Auto-Proxy Rotation ───────────────────────────────────────────────
+_STRINGS.update({
+    # 오케스트레이터 초기화 메시지
+    "proxy_active": {
+        "ko": "🔄 [AUTO-PROXY] IP 차단 감지기 + 무료 프록시 풀 활성화",
+        "zh": "🔄 [AUTO-PROXY] IP封锁检测器 + 免费代理池已启动",
+        "en": "🔄 [AUTO-PROXY] IP Block Detector + Free Proxy Pool ACTIVE",
+    },
+    # 프록시 자동 교체 성공 (오케스트레이터용 — 수동 /proxy rotate 키와 구분)
+    "proxy_auto_rotated": {
+        "ko": "🔄 [AUTO-PROXY] IP 차단 감지! 프록시 교체 → {url}",
+        "zh": "🔄 [AUTO-PROXY] 检测到IP封锁！切换代理 → {url}",
+        "en": "🔄 [AUTO-PROXY] IP blocked! Rotated → {url}",
+    },
+    # 프록시 풀 고갈
+    "proxy_exhausted": {
+        "ko": "⚠ [AUTO-PROXY] 프록시 풀 소진 — 직접 연결로 계속",
+        "zh": "⚠ [AUTO-PROXY] 代理池耗尽 — 直连继续",
+        "en": "⚠ [AUTO-PROXY] All proxies exhausted — continuing direct",
+    },
+    # 세션 종료 프록시 요약
+    "proxy_session_end": {
+        "ko": "🔄 [AUTO-PROXY] 세션 종료 | 교체={n}회 풀잔여={p}개",
+        "zh": "🔄 [AUTO-PROXY] 会话结束 | 轮换={n}次 池剩余={p}个",
+        "en": "🔄 [AUTO-PROXY] Session ended | rotations={n} pool={p}",
+    },
+    # IP 차단 감지 상세 (로그용)
+    "proxy_block_detected": {
+        "ko": "🚨 IP 차단 확정 | 신호={signals} 신뢰도={conf:.0%} | {detail}",
+        "zh": "🚨 IP封锁确认 | 信号={signals} 置信度={conf:.0%} | {detail}",
+        "en": "🚨 IP block confirmed | signals={signals} conf={conf:.0%} | {detail}",
+    },
+    # 프록시 수집 시작
+    "proxy_hunt_start": {
+        "ko": "🕵️ [PROXY HUNTER] 무료 프록시 수집 중...",
+        "zh": "🕵️ [PROXY HUNTER] 正在收集免费代理...",
+        "en": "🕵️ [PROXY HUNTER] Collecting free proxies...",
+    },
+    # 프록시 수집 완료
+    "proxy_hunt_done": {
+        "ko": "✅ [PROXY HUNTER] 검증 완료: {n}개 사용 가능 (3단계 통과)",
+        "zh": "✅ [PROXY HUNTER] 验证完成: {n}个可用（通过3阶段）",
+        "en": "✅ [PROXY HUNTER] Validated: {n} proxies ready (3-stage pass)",
+    },
+    # 프록시 검증 실패
+    "proxy_validate_fail": {
+        "ko": "❌ [PROXY] {host}:{port} 검증 실패 (stage={stage})",
+        "zh": "❌ [PROXY] {host}:{port} 验证失败（阶段={stage}）",
+        "en": "❌ [PROXY] {host}:{port} validation failed (stage={stage})",
+    },
+    # 블랙리스트 등록
+    "proxy_blacklisted": {
+        "ko": "🚫 [PROXY] {host}:{port} 블랙리스트 등록 (실패={n}회)",
+        "zh": "🚫 [PROXY] {host}:{port} 已列入黑名单（失败={n}次）",
+        "en": "🚫 [PROXY] {host}:{port} blacklisted (fail={n})",
+    },
+    # 재수집 트리거
+    "proxy_refill_trigger": {
+        "ko": "♻️ [PROXY POOL] 풀 부족 ({n}개) → 백그라운드 재수집 시작",
+        "zh": "♻️ [PROXY POOL] 代理不足({n}个) → 后台重新收集",
+        "en": "♻️ [PROXY POOL] Pool low ({n}) → background refill started",
+    },
+    # 도움말: proxy 상태
+    "proxy_help_status": {
+        "ko": "🔄 AUTO-PROXY 상태: 현재={cur} | 풀={pool} | 교체={rot}회 | 블랙리스트={bl}",
+        "zh": "🔄 AUTO-PROXY 状态: 当前={cur} | 池={pool} | 轮换={rot}次 | 黑名单={bl}",
+        "en": "🔄 AUTO-PROXY Status: current={cur} | pool={pool} | rotations={rot} | blacklist={bl}",
+    },
+
+    # ── v4.3.0 ExecutionAnchor 다국어 키 ───────────────────────────────────
+    # 앵커 엔진 활성화 알림
+    "anchor_active": {
+        "ko": "⚓ [EXEC-ANCHOR] 실행결과 앵커링 엔진 v1.0 ACTIVE (0-환각 보장)",
+        "zh": "⚓ [EXEC-ANCHOR] 执行结果锚定引擎 v1.0 已激活（零幻觉保障）",
+        "en": "⚓ [EXEC-ANCHOR] Execution Result Anchoring Engine v1.0 ACTIVE (zero-hallucination)",
+    },
+    # 추측 언어 + 기술 주장 차단
+    "anchor_blocked": {
+        "ko": "⛔ [EXEC-ANCHOR] 0-환각 위반 차단: {reason}",
+        "zh": "⛔ [EXEC-ANCHOR] 零幻觉规则违规拦截: {reason}",
+        "en": "⛔ [EXEC-ANCHOR] Zero-hallucination violation blocked: {reason}",
+    },
+    # 추측 언어 + 기술 주장 (SPECULATION_CLAIM)
+    "anchor_speculation_claim": {
+        "ko": "⛔ [추측+주장 차단] 추측 언어와 기술 보안 주장이 동시 감지됨 — 직접 실행 후 결과만 보고하십시오",
+        "zh": "⛔ [推测+声明拦截] 同时检测到推测语言和技术安全声明 — 请先执行后仅报告实际结果",
+        "en": "⛔ [SPECULATION+CLAIM BLOCKED] Speculation language + technical security claim detected — execute first, report only actual results",
+    },
+    # 실행 증거 없는 기술 주장 (UNEXECUTED_CLAIM)
+    "anchor_unexecuted_claim": {
+        "ko": "⛔ [미실행 주장 차단] 실행 결과 없이 기술 보안 주장 감지 — 먼저 실행하고 결과로 말하십시오",
+        "zh": "⛔ [未执行声明拦截] 无执行证据的技术安全声明 — 请先执行并仅依据结果陈述",
+        "en": "⛔ [UNEXECUTED CLAIM BLOCKED] Technical security claim without execution evidence — execute first and report only results",
+    },
+    # 앵커 통계
+    "anchor_stats": {
+        "ko": "⚓ [EXEC-ANCHOR 통계] 검사={total} | 추측차단={spec} | 미실행차단={unex} | 총차단={blk}",
+        "zh": "⚓ [EXEC-ANCHOR 统计] 检查={total} | 推测拦截={spec} | 未执行拦截={unex} | 总拦截={blk}",
+        "en": "⚓ [EXEC-ANCHOR Stats] Checked={total} | SpecBlocks={spec} | UnexBlocks={unex} | TotalBlocks={blk}",
+    },
+    # 앵커 경고 (차단은 아니지만 주의)
+    "anchor_warn_speculation": {
+        "ko": "⚠️ [EXEC-ANCHOR 경고] 응답에 추측 언어 감지 — 기술 주장은 반드시 실행 결과 기반으로",
+        "zh": "⚠️ [EXEC-ANCHOR 警告] 响应中检测到推测语言 — 技术声明必须基于实际执行结果",
+        "en": "⚠️ [EXEC-ANCHOR WARN] Speculation language detected — technical claims must be based on execution results",
+    },
+    # 채팅 모드 앵커 위반
+    "anchor_chat_violation": {
+        "ko": "⛔ [채팅 앵커 위반] 채팅 모드에서도 실행 없이 기술 보안 주장 금지 — 실행 코드를 제시하거나 직접 실행하십시오",
+        "zh": "⛔ [聊天锚定违规] 即使在聊天模式下也禁止无执行的技术安全声明 — 请提供执行代码或直接执行",
+        "en": "⛔ [CHAT ANCHOR VIOLATION] Even in chat mode, technical security claims without execution are forbidden — provide executable code or execute directly",
+    },
+    # RULE 96-98 설명 (도움말)
+    "anchor_help_rules": {
+        "ko": (
+            "⚓ [EXEC-ANCHOR v1.0 — 0환각 3대 규칙]\n"
+            "  RULE 96: 추측 언어(아마도/것 같다/probably) + 기술 주장 = 즉시 차단\n"
+            "  RULE 97: 실행 출력 없이 기술 주장(SQLi/XSS/취약점) = 즉시 차단\n"
+            "  RULE 98: 보고 형식 의무 — [실행결과]→[관측값]→[보안결론]"
+        ),
+        "zh": (
+            "⚓ [EXEC-ANCHOR v1.0 — 零幻觉三大规则]\n"
+            "  规则96: 推测语言(可能/也许/probably)+技术声明 = 立即拦截\n"
+            "  规则97: 无执行输出的技术声明(SQLi/XSS/漏洞) = 立即拦截\n"
+            "  规则98: 报告格式义务 — [执行结果]→[观察值]→[安全结论]"
+        ),
+        "en": (
+            "⚓ [EXEC-ANCHOR v1.0 — Zero-Hallucination 3 Rules]\n"
+            "  RULE 96: Speculation language (probably/might/seems) + tech claim = immediate block\n"
+            "  RULE 97: Technical claim (SQLi/XSS/vuln) without exec output = immediate block\n"
+            "  RULE 98: Report format required — [exec result]→[observation]→[security conclusion]"
+        ),
+    },
+    # ── v4.8.0: TARGET_LOCK 메시지 ──────────────────────────────────
+    "target_lock_blocked": {
+        "ko": "⛔ [TARGET_LOCK v4.8.0] 타겟 무단 변경 차단 — 새 타겟은 '/target <URL>'로 명시적 지정 필요",
+        "zh": "⛔ [TARGET_LOCK v4.8.0] 阻止未授权目标变更 — 需通过 '/target <URL>' 明确指定新目标",
+        "en": "⛔ [TARGET_LOCK v4.8.0] Unauthorized target change blocked — use '/target <URL>' to switch explicitly",
+    },
+    # ── v4.8.0: [VERIFIED] 빈값 경고 ───────────────────────────────
+    "verified_empty_blocked": {
+        "ko": "⚠️ [v4.8.0] VERIFIED_EMPTY: 추출값이 비어 있음 — [VERIFIED] 태그는 실제 값이 있을 때만 사용",
+        "zh": "⚠️ [v4.8.0] VERIFIED_EMPTY: 提取值为空 — [VERIFIED]标签只能在有实际值时使用",
+        "en": "⚠️ [v4.8.0] VERIFIED_EMPTY: Extracted value is empty — [VERIFIED] tag only valid with non-empty value",
+    },
+    # ── v4.8.0: SLEEP 판정 교정 경고 ────────────────────────────────
+    "sleep_judgment_corrected": {
+        "ko": "⚠️ [v4.8.0] SLEEP_JUDGMENT_CORRECTED: elapsed < threshold(N*0.8) — ❌로 판정 교정됨",
+        "zh": "⚠️ [v4.8.0] SLEEP_JUDGMENT_CORRECTED: elapsed < threshold(N*0.8) — 判定已更正为 ❌",
+        "en": "⚠️ [v4.8.0] SLEEP_JUDGMENT_CORRECTED: elapsed < threshold(N*0.8) — verdict corrected to ❌",
+    },
+    # ── v4.8.0: random 모듈 자동 주입 ───────────────────────────────
+    "inject_import_random": {
+        "ko": "🔧 [v4.8.0] 'import random' 자동 주입 — random 모듈 사용 감지됨",
+        "zh": "🔧 [v4.8.0] 自动注入 'import random' — 检测到 random 模块使用",
+        "en": "🔧 [v4.8.0] Auto-injected 'import random' — random module usage detected",
+    },
+    # ── v4.8.0: 환각 감지 (텍스트 결과 위조) ────────────────────────
+    "hallucination_claimed_result": {
+        "ko": "⛔ [HALLUCINATION v4.8.0] 미실행 결과 위조 감지 — 실제 코드 실행 후 print() 출력만 보고",
+        "zh": "⛔ [HALLUCINATION v4.8.0] 检测到伪造未执行结果 — 只能报告实际代码执行的print()输出",
+        "en": "⛔ [HALLUCINATION v4.8.0] Fabricated result without execution detected — only report actual print() output",
+    },
+    # ── v4.8.0: SQLi 컨텍스트 타입 교정 ────────────────────────────
+    "sqli_context_type_corrected": {
+        "ko": "🔧 [v4.8.0] SQLi 컨텍스트 감지 — credential 대신 sqli로 취약점 유형 교정",
+        "zh": "🔧 [v4.8.0] 检测到SQLi上下文 — 漏洞类型从credential修正为sqli",
+        "en": "🔧 [v4.8.0] SQLi context detected — vuln type corrected from credential to sqli",
+    },
+    # ── v4.9.0: 코드 내 타 도메인 URL 차단 (근본 수정) ──────────────
+    "target_domain_mismatch": {
+        "ko": (
+            "⛔ [TARGET_DOMAIN_MISMATCH v4.9.0] 코드 내 타겟 외 도메인 감지 — 실행 차단\n"
+            "  현재 타겟 도메인만 코드에 사용 가능. 타겟 변경은 '/target <URL>'로만."
+        ),
+        "zh": (
+            "⛔ [TARGET_DOMAIN_MISMATCH v4.9.0] 检测到代码中包含非目标域名 — 已阻止执行\n"
+            "  代码中只能使用当前目标域名. 切换目标请使用 '/target <URL>'."
+        ),
+        "en": (
+            "⛔ [TARGET_DOMAIN_MISMATCH v4.9.0] Non-target domain detected in code — execution blocked\n"
+            "  Only the current target domain may be used in code. Use '/target <URL>' to switch."
+        ),
+        "ja": (
+            "⛔ [TARGET_DOMAIN_MISMATCH v4.9.0] コード内に対象外ドメインを検出 — 実行ブロック\n"
+            "  コードは現在のターゲットドメインのみ使用可. 変更は '/target <URL>' で."
+        ),
+        "ru": (
+            "⛔ [TARGET_DOMAIN_MISMATCH v4.9.0] В коде обнаружен сторонний домен — выполнение заблокировано\n"
+            "  В коде разрешён только текущий целевой домен. Смена цели через '/target <URL>'."
+        ),
+        "ar": (
+            "⛔ [TARGET_DOMAIN_MISMATCH v4.9.0] تم اكتشاف نطاق خارج الهدف في الكود — تم حظر التنفيذ\n"
+            "  يُسمح فقط باستخدام نطاق الهدف الحالي. لتغيير الهدف استخدم '/target <URL>'."
+        ),
+        "es": (
+            "⛔ [TARGET_DOMAIN_MISMATCH v4.9.0] Dominio no objetivo detectado en código — ejecución bloqueada\n"
+            "  Solo se permite el dominio objetivo actual en el código. Use '/target <URL>' para cambiar."
+        ),
+    },
+    # ── v4.9.0: TARGET_LOCK 업데이트 (2차 방어선) ───────────────────
+    "target_lock_blocked_v490": {
+        "ko": (
+            "⛔ [TARGET_LOCK v4.9.0] 텍스트 내 타 도메인 URL 감지 — 2차 방어 차단\n"
+            "  새 타겟은 '/target <URL>'로만 명시적 지정 가능."
+        ),
+        "zh": (
+            "⛔ [TARGET_LOCK v4.9.0] 检测到文本中包含非目标域名URL — 二级防御拦截\n"
+            "  新目标只能通过 '/target <URL>' 明确指定."
+        ),
+        "en": (
+            "⛔ [TARGET_LOCK v4.9.0] Non-target domain URL in text — secondary defense blocked\n"
+            "  New targets must be set explicitly via '/target <URL>'."
+        ),
+    },
+    # ── v4.9.1: 텍스트 레벨 환각 스캐너 (Gap 1 수정) ─────────────────
+    "text_hallucination_detected": {
+        "ko": (
+            "⛔ [TEXT_HALLUCINATION v4.9.1] 코드 실행 없이 텍스트로 결과 서술 감지\n"
+            "  ```python 코드 블록을 작성하고 실제 print() 출력만 보고하세요."
+        ),
+        "zh": (
+            "⛔ [TEXT_HALLUCINATION v4.9.1] 检测到未执行代码即通过文字描述结果\n"
+            "  请编写 ```python 代码块，只报告实际 print() 输出."
+        ),
+        "en": (
+            "⛔ [TEXT_HALLUCINATION v4.9.1] Claimed result in text without code execution detected\n"
+            "  Write a ```python code block and only report actual print() output."
+        ),
+        "ja": (
+            "⛔ [TEXT_HALLUCINATION v4.9.1] コード実行なしでテキストに結果を記述することを検出\n"
+            "  ```python コードブロックを書いて、実際の print() 出力のみを報告してください."
+        ),
+        "ru": (
+            "⛔ [TEXT_HALLUCINATION v4.9.1] Обнаружено описание результатов без выполнения кода\n"
+            "  Напишите блок ```python и сообщайте только реальный вывод print()."
+        ),
+        "ar": (
+            "⛔ [TEXT_HALLUCINATION v4.9.1] تم اكتشاف وصف النتائج في النص بدون تنفيذ كود\n"
+            "  اكتب كتلة ```python وأبلغ فقط عن مخرجات print() الفعلية."
+        ),
+        "es": (
+            "⛔ [TEXT_HALLUCINATION v4.9.1] Resultado reclamado en texto sin ejecución de código\n"
+            "  Escriba un bloque ```python y reporte solo la salida real de print()."
+        ),
+    },
+    # ── v4.9.1: Pattern 6 확장 (Gap 4 수정) ──────────────────────────
+    "pattern6_expanded_block": {
+        "ko": "⛔ [PATTERN6_EXT v4.9.1] 코드 블록 내 미실행 결과 서술 (확장 패턴) 감지 — 실행 차단",
+        "zh": "⛔ [PATTERN6_EXT v4.9.1] 检测到代码块内描述未执行结果 (扩展模式) — 已阻止执行",
+        "en": "⛔ [PATTERN6_EXT v4.9.1] Claimed result inside code block (extended pattern) detected — blocked",
     },
 })
 

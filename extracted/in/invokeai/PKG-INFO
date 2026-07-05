@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: InvokeAI
-Version: 6.13.0
+Version: 6.13.5
 Summary: A full-featured AI-assisted image generation environment designed for creatives and enthusiasts.
 Author-email: Invoke <support@invoke.ai>
 License:                                  Apache License
@@ -211,7 +211,7 @@ License-File: LICENSE-SD1+SD2.txt
 License-File: LICENSE-SDXL.txt
 Requires-Dist: accelerate
 Requires-Dist: bitsandbytes; sys_platform != "darwin"
-Requires-Dist: compel==2.1.1
+Requires-Dist: compel<3,>=2.4.0
 Requires-Dist: diffusers[torch]==0.37.0
 Requires-Dist: gguf
 Requires-Dist: mediapipe==0.10.14
@@ -222,10 +222,11 @@ Requires-Dist: opencv-contrib-python
 Requires-Dist: safetensors
 Requires-Dist: sentencepiece==0.2.0
 Requires-Dist: spandrel
-Requires-Dist: torch~=2.7.0
+Requires-Dist: torch<3.0,>=2.7.0; sys_platform != "darwin"
+Requires-Dist: torch<2.8.0,>=2.7.0; sys_platform == "darwin"
 Requires-Dist: torchsde
 Requires-Dist: torchvision
-Requires-Dist: transformers>=4.56.0
+Requires-Dist: transformers<5.6,>=5.5
 Requires-Dist: fastapi-events
 Requires-Dist: fastapi==0.118.3
 Requires-Dist: huggingface-hub
@@ -259,9 +260,9 @@ Provides-Extra: cuda
 Requires-Dist: torch==2.7.1+cu128; extra == "cuda"
 Requires-Dist: torchvision==0.22.1+cu128; extra == "cuda"
 Provides-Extra: rocm
-Requires-Dist: torch==2.7.1+rocm6.3; extra == "rocm"
-Requires-Dist: torchvision==0.22.1+rocm6.3; extra == "rocm"
-Requires-Dist: pytorch-triton-rocm; extra == "rocm"
+Requires-Dist: torch==2.10.0+rocm7.1; sys_platform == "linux" and extra == "rocm"
+Requires-Dist: torchvision==0.25.0+rocm7.1; sys_platform == "linux" and extra == "rocm"
+Requires-Dist: triton-rocm==3.6.0; sys_platform == "linux" and extra == "rocm"
 Provides-Extra: onnx
 Requires-Dist: onnxruntime; extra == "onnx"
 Provides-Extra: onnx-cuda
@@ -394,6 +395,15 @@ Get started with contributing by reading our [contribution documentation][contri
 
 We hope you enjoy using Invoke as much as we enjoy creating it, and we hope you will elect to become part of our community.
 
+## Sponsors
+
+Invoke's open-source development is powered by our sponsors. If Invoke is valuable to you or your business, please consider [sponsoring us][sponsor link] — it directly funds maintenance, new features, and community support.
+
+<!-- Sponsor logos can be added below, or automated with a GitHub Action
+     such as `JamesIves/github-sponsors-readme-action` to keep them in sync. -->
+
+[![Sponsor Invoke](https://img.shields.io/badge/Sponsor-Invoke-ea4aaa?logo=githubsponsors&logoColor=white)][sponsor link]
+
 ## Thanks
 
 Invoke is a combined effort of [passionate and talented people from across the world][contributors]. We thank them for their time, hard work and effort.
@@ -406,6 +416,7 @@ Original portions of the software are Copyright © 2024 by respective contributo
 [github issues]: https://github.com/invoke-ai/InvokeAI/issues
 [docs home]: https://invoke.ai
 [installation docs]: https://invoke.ai/start-here/installation/
+[sponsor link]: https://github.com/sponsors/invoke-ai
 [#dev-chat]: https://discord.com/channels/1020123559063990373/1049495067846524939
 [contributing docs]: https://invoke.ai/contributing/
 [CI checks on main badge]: https://flat.badgen.net/github/checks/invoke-ai/InvokeAI/main?label=CI%20status%20on%20main&cache=900&icon=github

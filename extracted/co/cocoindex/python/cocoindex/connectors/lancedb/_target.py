@@ -8,7 +8,7 @@ This module provides a two-level target state system for LanceDB:
 
 from __future__ import annotations
 
-import asyncio
+import datetime as _datetime
 import json
 import logging
 from dataclasses import dataclass
@@ -56,6 +56,17 @@ import msgspec
 from cocoindex._internal.context_keys import ContextKey, ContextProvider
 
 _logger = logging.getLogger(__name__)
+
+_MAX_SMALL_FRAGMENTS = 200
+_MAX_DELETION_FILES = 64
+_MAX_UNINDEXED_ROWS = 20_000
+_UNINDEXED_FRACTION = 0.05
+_MIN_UNINDEXED_ROWS_FOR_FRACTION = 50
+_MAX_PRUNABLE_OLD_VERSIONS = 1_000
+_DEFAULT_VERSION_PRUNE_AGE = _datetime.timedelta(days=7)
+_VERSION_PRUNE_MARGIN = _datetime.timedelta(days=1)
+_MUTATED_ROWS_BETWEEN_STATS_CHECKS = 25
+_MIN_MUTATED_ROWS_BETWEEN_OPTIMIZE_ATTEMPTS = 1_000
 
 # Type aliases
 _RowKey = tuple[Any, ...]  # Primary key values as tuple
@@ -330,8 +341,7 @@ async def _drop_index_if_exists(
     """Drop an index by name if it currently exists on the table.
 
     LanceDB's ``drop_index`` only detaches the index from the table; the storage
-    is reclaimed on the next ``table.optimize()``, which the row handler already
-    schedules periodically after mutation batches.
+    is reclaimed on a later stats-driven ``table.optimize()`` from the row handler.
     """
     existing = {idx.name for idx in await table.list_indices()}
     if index_name not in existing:
@@ -347,6 +357,40 @@ class _RowAction(NamedTuple):
 
     key: _RowKey
     value: _RowValue | None  # None means delete
+    track_only: bool = False  # True means advance tracking without mutating LanceDB.
+
+
+class _OptimizeDecision(NamedTuple):
+    should: bool
+    reasons: tuple[str, ...]
+
+
+def _metadata_int(metadata: dict[str, Any], key: str) -> int:
+    value = metadata.get(key)
+    if value is None:
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _count_prunable_old_versions(versions: Sequence[dict[str, Any]]) -> int:
+    cutoff = _datetime.datetime.now(_datetime.timezone.utc) - (
+        _DEFAULT_VERSION_PRUNE_AGE + _VERSION_PRUNE_MARGIN
+    )
+    count = 0
+    for version in versions:
+        timestamp = version.get("timestamp")
+        if not isinstance(timestamp, _datetime.datetime):
+            continue
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.astimezone(_datetime.timezone.utc)
+        else:
+            timestamp = timestamp.astimezone(_datetime.timezone.utc)
+        if timestamp <= cutoff:
+            count += 1
+    return count
 
 
 class _RowHandler(coco.TargetHandler[_RowValue, _RowFingerprint]):
@@ -355,27 +399,29 @@ class _RowHandler(coco.TargetHandler[_RowValue, _RowFingerprint]):
     _conn: LanceAsyncConnection
     _table_name: str
     _table_schema: TableSchema
-    _num_transactions_before_optimize: int
-    _num_applied_mutations: int
-    _optimize_lock: asyncio.Lock
-    _optimize_task: asyncio.Task[None] | None
+    _mutated_rows_since_check: int
+    _mutated_rows_since_optimize_attempt: int
+    _stats_checked_once: bool
     _sink: coco.TargetActionSink[_RowAction]
+    _null_backfilled_columns: frozenset[str]
 
     def __init__(
         self,
         conn: LanceAsyncConnection,
         table_name: str,
         table_schema: TableSchema,
-        num_transactions_before_optimize: int,
+        null_backfilled_columns: Collection[str] = (),
     ) -> None:
         self._conn = conn
         self._table_name = table_name
         self._table_schema = table_schema
-        self._num_transactions_before_optimize = num_transactions_before_optimize
-        self._num_applied_mutations = 0
-        self._optimize_lock = asyncio.Lock()
-        self._optimize_task = None
+        self._mutated_rows_since_check = 0
+        self._mutated_rows_since_optimize_attempt = (
+            _MIN_MUTATED_ROWS_BETWEEN_OPTIMIZE_ATTEMPTS
+        )
+        self._stats_checked_once = False
         self._sink = coco.TargetActionSink.from_async_fn(self._apply_actions)
+        self._null_backfilled_columns = frozenset(null_backfilled_columns)
 
     async def _apply_actions(
         self, context_provider: ContextProvider, actions: Sequence[_RowAction]
@@ -389,10 +435,15 @@ class _RowHandler(coco.TargetHandler[_RowValue, _RowFingerprint]):
         deletes: list[_RowAction] = []
 
         for action in actions:
+            if action.track_only:
+                continue
             if action.value is None:
                 deletes.append(action)
             else:
                 upserts.append(action)
+
+        if not upserts and not deletes:
+            return
 
         table = await self._conn.open_table(self._table_name)
 
@@ -404,53 +455,132 @@ class _RowHandler(coco.TargetHandler[_RowValue, _RowFingerprint]):
         if deletes:
             await self._execute_deletes(table, deletes)
 
-        await self._maybe_optimize(table)
+        await self._maybe_optimize(table, mutation_count=len(upserts) + len(deletes))
 
-    async def _maybe_optimize(self, table: lancedb.table.AsyncTable) -> None:
-        """Periodically optimize the table after successful mutation batches."""
-        async with self._optimize_lock:
-            self._num_applied_mutations += 1
-            if self._num_applied_mutations >= self._num_transactions_before_optimize:
-                self._schedule_optimize_locked(table)
+    def _legacy_fingerprint_for_null_backfill(
+        self, desired_state: _RowValue
+    ) -> _RowFingerprint | None:
+        """Return the pre-schema-evolution row fingerprint if this is DDL-only.
 
-    def _schedule_optimize_locked(self, table: lancedb.table.AsyncTable) -> None:
-        if self._optimize_task is not None and not self._optimize_task.done():
-            return
-        num_mutations_to_consume = self._num_applied_mutations
-        self._optimize_task = asyncio.create_task(
-            self._run_optimize(table, num_mutations_to_consume)
-        )
+        LanceDB backfills newly added columns with nulls during ``add_columns``.
+        If a row's only apparent change is one of those columns appearing as
+        ``None``, the physical row is already correct and only CocoIndex's
+        tracking record needs to move forward to the new full-row fingerprint.
+        """
+        if not self._null_backfilled_columns:
+            return None
 
-    async def _run_optimize(
-        self, table: lancedb.table.AsyncTable, num_mutations_to_consume: int
+        legacy_state = dict(desired_state)
+        removed_any = False
+        for col_name in self._null_backfilled_columns:
+            if col_name not in legacy_state:
+                continue
+            if legacy_state[col_name] is not None:
+                return None
+            del legacy_state[col_name]
+            removed_any = True
+
+        if not removed_any:
+            return None
+        return fingerprint_object(legacy_state)
+
+    async def _maybe_optimize(
+        self, table: lancedb.table.AsyncTable, *, mutation_count: int
     ) -> None:
-        succeeded = False
+        """Optimize the table when durable table stats cross maintenance thresholds."""
+        self._mutated_rows_since_check += mutation_count
+        self._mutated_rows_since_optimize_attempt += mutation_count
+
+        if (
+            self._stats_checked_once
+            and self._mutated_rows_since_check < _MUTATED_ROWS_BETWEEN_STATS_CHECKS
+        ):
+            return
+
+        if (
+            self._mutated_rows_since_optimize_attempt
+            < _MIN_MUTATED_ROWS_BETWEEN_OPTIMIZE_ATTEMPTS
+        ):
+            self._mutated_rows_since_check = 0
+            return
+
+        self._stats_checked_once = True
+        self._mutated_rows_since_check = 0
+
         try:
-            await table.optimize()
-            succeeded = True
+            decision = await self._evaluate_optimize(table)
+        except Exception:  # pylint: disable=broad-exception-caught
+            _logger.exception(
+                "Exception evaluating LanceDB optimize decision for table %s",
+                self._table_name,
+            )
+            return
+
+        if not decision.should:
+            return
+
+        self._mutated_rows_since_optimize_attempt = 0
+        try:
+            result = await table.optimize()
+            _logger.info(
+                "Optimized LanceDB table %s (%s): %s",
+                self._table_name,
+                ", ".join(decision.reasons),
+                result,
+            )
         except Exception:  # pylint: disable=broad-exception-caught
             _logger.exception(
                 "Exception in optimizing LanceDB table %s", self._table_name
             )
-        finally:
-            async with self._optimize_lock:
-                if asyncio.current_task() is self._optimize_task:
-                    self._optimize_task = None
-                    if succeeded:
-                        self._num_applied_mutations = max(
-                            0,
-                            self._num_applied_mutations - num_mutations_to_consume,
-                        )
-                        if (
-                            self._num_applied_mutations
-                            >= self._num_transactions_before_optimize
-                        ):
-                            self._schedule_optimize_locked(table)
-                    else:
-                        self._num_applied_mutations = max(
-                            self._num_applied_mutations,
-                            self._num_transactions_before_optimize,
-                        )
+
+    async def _evaluate_optimize(
+        self, table: lancedb.table.AsyncTable
+    ) -> _OptimizeDecision:
+        reasons: list[str] = []
+        stats = await table.stats()
+        fragment_stats = stats["fragment_stats"]
+        num_small_fragments = fragment_stats["num_small_fragments"]
+
+        if num_small_fragments >= _MAX_SMALL_FRAGMENTS:
+            reasons.append(
+                f"small_fragments={num_small_fragments}>={_MAX_SMALL_FRAGMENTS}"
+            )
+
+        if stats["num_indices"]:
+            for idx in await table.list_indices():
+                index_stats = await table.index_stats(idx.name)
+                if index_stats is None:
+                    continue
+
+                unindexed = index_stats.num_unindexed_rows
+                indexed = index_stats.num_indexed_rows
+                relative_threshold_exceeded = (
+                    indexed > 0
+                    and unindexed >= _MIN_UNINDEXED_ROWS_FOR_FRACTION
+                    and unindexed >= _UNINDEXED_FRACTION * indexed
+                )
+                if unindexed >= _MAX_UNINDEXED_ROWS or relative_threshold_exceeded:
+                    reasons.append(
+                        f"unindexed[{idx.name}]={unindexed} (indexed={indexed})"
+                    )
+
+        versions = await table.list_versions()
+        if versions:
+            latest_metadata = versions[-1].get("metadata", {})
+            deletion_files = _metadata_int(latest_metadata, "total_deletion_files")
+            if deletion_files >= _MAX_DELETION_FILES:
+                reasons.append(
+                    f"deletion_files={deletion_files}>={_MAX_DELETION_FILES}"
+                )
+
+        prunable_versions = _count_prunable_old_versions(versions)
+        if prunable_versions >= _MAX_PRUNABLE_OLD_VERSIONS:
+            reasons.append(
+                f"prunable_old_versions={prunable_versions}>="
+                f"{_MAX_PRUNABLE_OLD_VERSIONS}"
+            )
+
+        return _OptimizeDecision(should=bool(reasons), reasons=tuple(reasons))
 
     async def _execute_upserts(
         self,
@@ -558,6 +688,17 @@ class _RowHandler(coco.TargetHandler[_RowValue, _RowFingerprint]):
         ):
             # No change needed
             return None
+
+        if not prev_may_be_missing and prev_possible_records:
+            legacy_fp = self._legacy_fingerprint_for_null_backfill(desired_state)
+            if legacy_fp is not None and all(
+                prev == legacy_fp for prev in prev_possible_records
+            ):
+                return coco.TargetReconcileOutput(
+                    action=_RowAction(key=key, value=None, track_only=True),
+                    sink=self._sink,
+                    tracking_record=target_fp,
+                )
 
         return coco.TargetReconcileOutput(
             action=_RowAction(key=key, value=desired_state),
@@ -776,7 +917,6 @@ class _TableSpec:
 
     table_schema: TableSchema[Any]
     managed_by: target.ManagedBy = target.ManagedBy.SYSTEM
-    num_transactions_before_optimize: int = 50
 
 
 class _ColumnState(msgspec.Struct, frozen=True, array_like=True):
@@ -872,11 +1012,20 @@ class _TableHandler(coco.TargetHandler[_TableSpec, _TableTrackingRecord, _RowHan
                     continue
 
                 spec = action.spec
+                null_backfilled_columns: frozenset[str] = frozenset()
+                if action.main_action is None and action.column_actions:
+                    null_backfilled_columns = await self._apply_column_actions(
+                        conn,
+                        key.table_name,
+                        spec.table_schema,
+                        action.column_actions,
+                    )
+
                 handler = _RowHandler(
                     conn=conn,
                     table_name=key.table_name,
                     table_schema=spec.table_schema,
-                    num_transactions_before_optimize=spec.num_transactions_before_optimize,
+                    null_backfilled_columns=null_backfilled_columns,
                 )
                 outputs[i] = coco.ChildTargetDef(handler=handler)
 
@@ -886,15 +1035,6 @@ class _TableHandler(coco.TargetHandler[_TableSpec, _TableTrackingRecord, _RowHan
                         key.table_name,
                         spec.table_schema,
                         if_not_exists=(action.main_action == "upsert"),
-                    )
-
-                # No main change: reconcile additive columns incrementally.
-                if action.column_actions:
-                    await self._apply_column_actions(
-                        conn,
-                        key.table_name,
-                        spec.table_schema,
-                        action.column_actions,
                     )
         return outputs
 
@@ -969,12 +1109,13 @@ class _TableHandler(coco.TargetHandler[_TableSpec, _TableTrackingRecord, _RowHan
         table_name: str,
         schema: TableSchema[Any],
         column_actions: dict[str, statediff.DiffAction],
-    ) -> None:
+    ) -> frozenset[str]:
         """Apply additive column schema changes in place."""
         table = await conn.open_table(table_name)
         existing_cols = set((await table.schema()).names)
         pk_cols = set(schema.primary_key)
         fields_to_add: list[pa.Field] = []
+        null_backfilled_columns: set[str] = set()
 
         for sub_key, action in column_actions.items():
             if not sub_key.startswith(_COL_SUBKEY_PREFIX):
@@ -998,6 +1139,8 @@ class _TableHandler(coco.TargetHandler[_TableSpec, _TableTrackingRecord, _RowHan
                     # evolution must materialize the new column as nullable.
                     pa.field(col_name, desired_col.type, nullable=True)
                 )
+                if desired_col.nullable:
+                    null_backfilled_columns.add(col_name)
                 continue
 
             raise ValueError(
@@ -1006,6 +1149,8 @@ class _TableHandler(coco.TargetHandler[_TableSpec, _TableTrackingRecord, _RowHan
 
         if fields_to_add:
             await table.add_columns(fields_to_add)
+            return frozenset(null_backfilled_columns)
+        return frozenset()
 
     def reconcile(
         self,
@@ -1230,7 +1375,6 @@ def table_target(
     table_schema: TableSchema[RowT],
     *,
     managed_by: target.ManagedBy = target.ManagedBy.SYSTEM,
-    num_transactions_before_optimize: int = 50,
 ) -> coco.TargetState[_RowHandler]:
     """
     Create a TargetState for a LanceDB table target.
@@ -1243,20 +1387,14 @@ def table_target(
         table_name: Name of the table.
         table_schema: Schema definition including columns and primary key.
         managed_by: Whether the table is managed by "system" or "user".
-        num_transactions_before_optimize: Number of successful row mutation batches
-            before scheduling a background ``table.optimize()``.
 
     Returns:
         A TargetState that can be passed to ``mount_target()``.
     """
-    if num_transactions_before_optimize <= 0:
-        raise ValueError("num_transactions_before_optimize must be positive")
-
     key = _TableKey(db_key=db.key, table_name=table_name)
     spec = _TableSpec(
         table_schema=table_schema,
         managed_by=managed_by,
-        num_transactions_before_optimize=num_transactions_before_optimize,
     )
     return _table_provider.target_state(key, spec)
 
@@ -1267,7 +1405,6 @@ def declare_table_target(
     table_schema: TableSchema[RowT],
     *,
     managed_by: target.ManagedBy = target.ManagedBy.SYSTEM,
-    num_transactions_before_optimize: int = 50,
 ) -> TableTarget[RowT, coco.PendingS]:
     """
     Create a TableTarget for writing rows to a LanceDB table.
@@ -1278,8 +1415,6 @@ def declare_table_target(
         table_schema: Schema definition including columns and primary key.
         managed_by: Whether the table is managed by "system" (CocoIndex creates/drops it)
                     or "user" (table must exist, CocoIndex only manages rows).
-        num_transactions_before_optimize: Number of successful row mutation batches
-            before scheduling a background ``table.optimize()``.
 
     Returns:
         A TableTarget that can be used to declare rows.
@@ -1290,7 +1425,6 @@ def declare_table_target(
             table_name,
             table_schema,
             managed_by=managed_by,
-            num_transactions_before_optimize=num_transactions_before_optimize,
         )
     )
     return TableTarget(provider, table_schema)
@@ -1302,7 +1436,6 @@ async def mount_table_target(
     table_schema: TableSchema[RowT],
     *,
     managed_by: target.ManagedBy = target.ManagedBy.SYSTEM,
-    num_transactions_before_optimize: int = 50,
 ) -> TableTarget[RowT]:
     """
     Mount a table target and return a ready-to-use TableTarget.
@@ -1314,8 +1447,6 @@ async def mount_table_target(
         table_name: Name of the table.
         table_schema: Schema definition including columns and primary key.
         managed_by: Whether the table is managed by "system" or "user".
-        num_transactions_before_optimize: Number of successful row mutation batches
-            before scheduling a background ``table.optimize()``.
 
     Returns:
         A TableTarget that can be used to declare rows.
@@ -1326,7 +1457,6 @@ async def mount_table_target(
             table_name,
             table_schema,
             managed_by=managed_by,
-            num_transactions_before_optimize=num_transactions_before_optimize,
         )
     )
     return TableTarget(provider, table_schema)

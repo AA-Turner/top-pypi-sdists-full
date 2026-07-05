@@ -143,9 +143,7 @@ class GemmSymmetricMixin(GemmActMixin):
                         )
                     self.epi_tile_load_s2r(params, epi_tensors, epi_read_state.index)
                     cute.arch.fence_view_async_shared()
-                    cute.arch.sync_warp()
-                    with cute.arch.elect_one():
-                        epi_pipeline.consumer_release(epi_read_state)
+                    epi_pipeline.consumer_release(epi_read_state)
                     epi_read_state.advance()
                 else:
                     c_buffer = epi_idx % self.epi_c_stage
@@ -218,7 +216,7 @@ class GemmSymmetricMixin(GemmActMixin):
                 cute.copy(
                     tiled_copy_aux_out_r2s,
                     # Need contiguous for Sm80 and Sm120 where acc layout is ((2, 2), MMA_M, MMA_N)
-                    copy_utils.contiguous(tiled_copy_aux_out_r2s.retile(tRS_rAuxOuts_out[i])),
+                    tiled_copy_aux_out_r2s.retile(tRS_rAuxOuts_out[i]).contiguous(),
                     tRS_sAuxOut[None, None, None, epi_buffer],
                 )
             if const_expr(use_tma_epi):
@@ -424,11 +422,6 @@ def gemm_symmetric(
         beta_mode,
         device_capacity,
     )
-
-    from quack.cache import is_compile_only
-
-    if is_compile_only():
-        return
 
     cluster_size = cluster_M * cluster_N
     max_active_clusters = (

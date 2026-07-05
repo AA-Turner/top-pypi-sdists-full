@@ -21,6 +21,7 @@ from .processor import XMLSignatureProcessor
 from .util import (
     SigningSettings,
     _remove_sig,
+    add_pem_header,
     bits_to_bytes_unit,
     ds_tag,
     dsig11_tag,
@@ -217,15 +218,7 @@ class XMLSigner(XMLSignatureProcessor):
         if id_attribute is not None:
             self.id_attributes = (id_attribute,)
 
-        cert_chain: Optional[List[Union[str, x509.Certificate]]]
-        if isinstance(cert, (str, bytes)):
-            cert_chain = list(iterate_pem(cert))
-            if len(cert_chain) == 0:
-                raise InvalidInput("No PEM-encoded certificates found in string cert input data")
-        elif cert is None:
-            cert_chain = None
-        else:
-            cert_chain = list(cert)
+        cert_chain = self._get_cert_chain(cert)
 
         input_references = self._preprocess_reference_uri(reference_uri)
 
@@ -311,6 +304,30 @@ class XMLSigner(XMLSignatureProcessor):
             sig_root.append(signature_properties_el)
 
         return doc_root if self.construction_method == SignatureConstructionMethod.enveloped else sig_root
+
+    def _get_cert_chain(self, cert):
+        if isinstance(cert, (str, bytes)):
+            cert_chain = list(iterate_pem(cert))
+            if len(cert_chain) == 0:
+                raise InvalidInput("No PEM-encoded certificates found in string cert input data")
+        elif cert is None:
+            return None
+        else:
+            cert_chain = list(cert)
+            if len(cert_chain) == 0:
+                raise InvalidInput("No certificates found in cert input data")
+
+        for certificate in cert_chain:
+            if isinstance(certificate, x509.Certificate):
+                continue
+            if not isinstance(certificate, (str, bytes)):
+                raise InvalidInput("Expected cert input data to be a X.509 certificate or PEM-encoded certificate")
+            try:
+                x509.load_pem_x509_certificate(add_pem_header(certificate))
+            except ValueError as exc:
+                raise InvalidInput("Invalid X.509 certificate supplied in cert input data") from exc
+
+        return cert_chain
 
     def _preprocess_reference_uri(self, reference_uris):
         if reference_uris is None:

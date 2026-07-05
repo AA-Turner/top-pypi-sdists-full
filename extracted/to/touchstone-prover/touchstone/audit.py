@@ -711,6 +711,10 @@ def stdlib_trapfree_audit():
         (textwrap.dedent, ("  a\n",)), (textwrap.fill, ("a b c", 2)), (textwrap.shorten, ("a b c", 5)),
         (functools.partial, (len, [1])), (functools.cmp_to_key, (lambda a, b: 0,)),
         (copy.copy, ([1, 2],)), (copy.deepcopy, ({"a": 1},)), (hashlib.md5, (b"x",)), (hashlib.sha256, (b"x",)),
+        (hashlib.sha3_256, (b"x",)), (hashlib.blake2b, (b"x",)), (hashlib.blake2s, (b"x",)),
+        (base64.urlsafe_b64encode, (b"x",)), (base64.b32encode, (b"x",)), (base64.b16encode, (b"x",)),
+        (base64.b85encode, (b"x",)),
+        (__import__("binascii").b2a_hex, (b"x",)), (__import__("binascii").b2a_base64, (b"x",)),
         (platform.system, ()), (platform.machine, ()), (platform.python_version, ()),
         (logging.getLogger, ("x",)), (re.escape, ("a.b*",)), (string.capwords, ("a b",)),
         (base64.b64encode, (b"x",)),
@@ -2823,6 +2827,80 @@ def run_self_tests(fast=False):
     assert prove("def f(a: list):\n    c = [1, 2, 3, 4]\n    a.clear()\n    return len(c)\n", "result == 4",
                  target="f").status == PROVED   # a fresh local cannot alias a parameter
     assert prove("def f(a: list):\n    a.append(9)\n    return 0\n", "result == 0", target="f").status == PROVED
+    # a function with no return (a global assignment, a bare return, falling off the end) always yields None,
+    # so `result is None` holds and must PROVE -- not REFUTE with an empty counterexample (GitHub issue #2):
+    # a None return violates the post only when the post FAILS at result = None. `result is not None` /
+    # `result > 0` do fail there and refute, naming the None return instead of an empty model.
+    assert prove("def f(proxies):\n    global g\n    g = proxies\n", "result is None", target="f").status == PROVED
+    assert prove("def f(x):\n    y = x\n", "result is None", target="f").status == PROVED
+    _nr = prove("def f(proxies):\n    global g\n    g = proxies\n", "result is not None", target="f")
+    assert _nr.status == REFUTED and _nr.counterexample == "the function returns None"
+    assert prove("def f(x):\n    return x * x + 1\n", "result > 0", target="f").status == PROVED   # non-None still proves
+    # an object attribute store is not a no-op: a later read of that field is no longer the stable pre-store value
+    # (o.x = 9 then o.x - old != 0), and since two object parameters may be the same object (f(o, o)), a store
+    # through one alters it on every alias -- so a spec that reads it after must not be a false PROVED. A stored
+    # field read on the SAME simple object is precise (rewritten to a local); an aliased read is fresh.
+    assert prove("def f(a):\n    old = a.x\n    a.x = 9\n    return a.x - old\n", "result == 0", target="f").status != PROVED
+    assert prove("def f(a, b):\n    old = b.x\n    a.x = 9\n    return b.x - old\n", "result == 0", target="f").status != PROVED
+    assert check("def f(a, b):\n    a.x = 0\n    return 10 // b.x\n", requires="b.x != 0", target="f").status != PROVED
+    assert prove("def f(a):\n    a.x = 5\n    return a.x\n", "result == 5", target="f").status == PROVED   # store-then-read
+    assert check("def f(a):\n    return a.x + 1\n", target="f").status == PROVED                          # field arithmetic
+    # a mixed int / None return (a conditional int return with a bare return, an explicit `return None`, or
+    # falling off the end) carries the None paths separately from the foldable int returns, and ev_bool
+    # short-circuits `result is None or ...` so the None-rejecting disjunct is never read at result = None.
+    # So the disjunctive post PROVES, `result > 0` REFUTES on the None path, and there is no false REFUTED.
+    _cond = "def f(x):\n    if x > 0:\n        return x\n    return None\n"
+    assert prove(_cond, "result is None or result > 0", target="f").status == PROVED
+    assert prove(_cond, "result > 0", target="f").status == REFUTED
+    assert prove("def f(x):\n    if x > 0:\n        return x\n", "result is None or result > 0", target="f").status == PROVED
+    assert prove("def f(x):\n    return x * x + 1\n", "result is None or result > 0", target="f").status == PROVED
+    # `x is x` is the same object, so it is True: `return a; result is a` (and an alias `b = a`) proves rather than
+    # spuriously refuting on a disconnected fresh identity boolean; the identity of two DISTINCT parameters (which
+    # may or may not alias) still refutes `a is b == False`. A del of an attribute, like a store, is no longer a
+    # no-op that leaves the field stable.
+    assert prove("def f(a):\n    return a\n", "result is a", target="f").status == PROVED
+    assert prove("def f(a):\n    return a\n", "result is not a", target="f").status == REFUTED
+    assert prove("def f(a):\n    b = a\n    return b\n", "result is a", target="f").status == PROVED
+    assert prove("def f(a, b):\n    return a is b\n", "result == False", target="f").status == REFUTED
+    assert prove("def f(a):\n    old = a.x\n    del a.x\n    return a.x - old\n", "result == 0", target="f").status != PROVED
+    # a subscript store a[k] = v mutates a container in place, and two container parameters may be the same object
+    # (f(d, d)), so a store through one changes it on every alias -- a later read must not be the stale pre-store
+    # value. Like a mutating method, the store forgets the root and every aliasable container parameter; a store to
+    # a known-length list literal, and trap freedom of a single container's store, stay precise.
+    assert prove("def f(a: dict, b: dict, k):\n    old = b[k]\n    a[k] = 9\n    return b[k] - old\n", "result == 0", requires="k in b", target="f").status != PROVED
+    assert prove("def f(a: list, b: list, i):\n    old = b[i]\n    a[i] = 9\n    return b[i] - old\n", "result == 0", requires="0 <= i < len(a) and 0 <= i < len(b)", target="f").status != PROVED
+    assert check("def f(a: list, i, v):\n    a[i] = v\n", requires="0 <= i < len(a)", target="f").status == PROVED
+    assert prove("def f():\n    a = [1, 2, 3]\n    a[0] = 9\n    return a[0]\n", "result == 9", target="f").status == PROVED
+    # a value spec reads an `assert cond` as a documented precondition: the failing path diverges (raises, returns
+    # no value), so it carries no postcondition obligation and the code after may assume cond -- `assert x > 0;
+    # return x` proves `result > 0`. A FALSE postcondition still does not prove, and `check` keeps the AssertionError
+    # trap (trap freedom, where the assert IS the bug).
+    assert prove("def f(x):\n    assert x > 0\n    return x\n", "result > 0", target="f").status == PROVED
+    assert prove("def f(x):\n    assert x >= 5\n    return x\n", "result >= 5", target="f").status == PROVED
+    assert prove("def f(x):\n    assert x > 0\n    return x\n", "result > 5", target="f").status != PROVED
+    assert check("def f(x):\n    assert x > 0\n    return x\n", target="f").status == REFUTED
+    # `a is b` has one truth value for given operands, memoized by operand identity, so an `is` in a PRECONDITION
+    # binds the body's `is` to the same boolean -- it is load-bearing: `requires a is b` proves `a is b == True` and
+    # refutes `a is b == False`. Without that precondition the identity of two distinct parameters is still an
+    # arbitrary boolean, so `a is b == True` and `== False` both refute (they may or may not alias).
+    assert prove("def f(a, b):\n    return a is b\n", "result == True", requires="a is b", target="f").status == PROVED
+    assert prove("def f(a, b, c):\n    return a is b is c\n", "result == True", requires="a is b and b is c", target="f").status == PROVED
+    assert prove("def f(a, b):\n    return a is b\n", "result == False", requires="a is b", target="f").status == REFUTED
+    assert prove("def f(a, b):\n    return a is b\n", "result == True", target="f").status == REFUTED
+    # a raise, like an assert failure, diverges: its path returns no value and so carries no postcondition
+    # obligation, and a guarded return proves. A violation on the NON-raising path is still not proved, and
+    # `check` keeps the raise as a reachable trap.
+    assert prove("def f(x):\n    if x <= 0:\n        raise ValueError\n    return x\n", "result > 0", target="f").status == PROVED
+    assert prove("def f(x):\n    if x < 0:\n        raise ValueError\n    return x - 5\n", "result >= 0", target="f").status != PROVED
+    assert check("def f(x):\n    if x <= 0:\n        raise ValueError\n    return x\n", target="f").status == REFUTED
+    # sum() over a range whose elements are provably non-negative (start >= 0 and step > 0) is non-negative; a
+    # range that may hold negative elements, and an opaque list, keep an arbitrary sum. A hashlib / base64 /
+    # binascii sibling of an already-trusted total transform is trap-free on bytes.
+    assert prove("def f(n):\n    return sum(range(n))\n", "result >= 0", requires="n >= 0", target="f").status == PROVED
+    assert prove("def f(n):\n    return sum(range(2, n))\n", "result >= 0", target="f").status == PROVED
+    assert prove("def f(n):\n    return sum(range(-5, n))\n", "result >= 0", target="f").status != PROVED
+    assert prove("def f(xs: list):\n    return sum(xs)\n", "result >= 0", target="f").status != PROVED
+    assert check("import hashlib\ndef f(x: bytes):\n    return hashlib.sha3_256(x)\n", target="f").status == PROVED
     # a str / bytes-typed parameter is outside the integer CHC model, so the no-raise engine abstains rather
     # than proving a FALSE trap freedom: int(s) / float(s) of a string may ValueError and str + int / str // int
     # is a TypeError -- none of which an integer relation, binding every parameter to an int, can see. check()

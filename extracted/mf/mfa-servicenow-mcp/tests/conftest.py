@@ -20,10 +20,14 @@ from servicenow_mcp.utils.config import AuthConfig, AuthType, BasicAuthConfig, S
 
 @pytest.fixture(autouse=True)
 def _reset_query_cache():
-    """Clear the sn_api query cache before and after every test."""
+    """Clear sn_api query cache + Batch API availability verdicts between tests."""
+    from servicenow_mcp.tools.sn_batch import reset_batch_support_cache
+
     invalidate_query_cache()
+    reset_batch_support_cache()
     yield
     invalidate_query_cache()
+    reset_batch_support_cache()
 
 
 @pytest.fixture(autouse=True)
@@ -38,6 +42,15 @@ def _isolate_workspace_roots(tmp_path, monkeypatch):
 
     state = tmp_path / "_workspace_roots_state" / "download_roots.json"
     monkeypatch.setattr(workspace_roots, "_state_file", lambda: state)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_write_journal(tmp_path, monkeypatch):
+    """Redirect the write journal to a per-test dir — confirmed-write tests
+    must never append to the REAL ~/.mfa_servicenow_mcp/write_journal/."""
+    from servicenow_mcp.utils import write_journal
+
+    monkeypatch.setattr(write_journal, "_journal_dir", lambda: tmp_path / "_write_journal")
 
 
 # ---------------------------------------------------------------------------

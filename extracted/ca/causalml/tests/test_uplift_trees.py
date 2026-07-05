@@ -293,3 +293,148 @@ def test_uplift_tree_visualization():
     # Plot uplift tree
     graph = uplift_tree_plot(uplift_model.fitted_uplift_tree, x_names)
     graph.create_png()
+
+
+def test_UpliftTreeClassifier_with_nan_values():
+    # Create synthetic uplift dataset
+    df, x_names = make_uplift_classification()
+
+    # Keep binary treatment for simplicity
+    df = df[df["treatment_group_key"].isin(["control", "treatment1"])]
+
+    # Introduce NaNs in first feature
+    df.loc[df.sample(frac=0.1, random_state=42).index, x_names[0]] = np.nan
+
+    df_train, df_test = train_test_split(df, test_size=0.2, random_state=42)
+
+    uplift_model = UpliftTreeClassifier(
+        control_name="control",
+        random_state=42,
+        max_depth=3,
+        min_samples_leaf=50,
+    )
+
+    # Should not raise any exception
+    uplift_model.fit(
+        df_train[x_names].values,
+        treatment=df_train["treatment_group_key"].values,
+        y=df_train["conversion"].values,
+    )
+
+    preds = uplift_model.predict(df_test[x_names].values)
+
+    # Ensure predictions are finite
+    assert not np.isnan(preds).any()
+
+    # Ensure tree has valid split structure
+    assert uplift_model.fitted_uplift_tree is not None
+
+
+def test_UpliftTreeClassifier_with_nan_in_categorical_features():
+    """NaNs in object-dtype columns should not raise TypeError."""
+    df, x_names = make_uplift_classification()
+    df = df[df["treatment_group_key"].isin(["control", "treatment1"])]
+
+    df_train, df_test = train_test_split(df, test_size=0.2, random_state=42)
+
+    # Use numeric data but as object dtype to simulate mixed-type arrays
+    X_train = df_train[x_names].values.astype(object)
+    X_test = df_test[x_names].values.astype(object)
+
+    # Inject None into first column (object dtype, numeric values + None)
+    n_train = X_train.shape[0]
+    n_test = X_test.shape[0]
+
+    X_train[np.arange(n_train) % 5 == 0, 0] = None
+    X_test[np.arange(n_test) % 5 == 0, 0] = None
+
+    uplift_model = UpliftTreeClassifier(
+        control_name="control",
+        random_state=42,
+        max_depth=3,
+        min_samples_leaf=50,
+    )
+
+    # Should not raise TypeError
+    uplift_model.fit(
+        X_train,
+        treatment=df_train["treatment_group_key"].values,
+        y=df_train["conversion"].values,
+    )
+
+    preds = uplift_model.predict(X_test)
+    assert preds is not None
+    assert uplift_model.fitted_uplift_tree is not None
+
+
+def test_uplift_tree_pvalue_no_nan_with_sparse_groups():
+    """Test that p-values don't become NaN when tree nodes have zero
+    treatment or control observations (issue #585)."""
+    np.random.seed(RANDOM_SEED)
+    n = 50
+    X = np.random.randn(n, 3)
+    # Heavily imbalanced: only 2 samples in treatment1
+    treatment = np.array([CONTROL_NAME] * 45 + ["treatment1"] * 2 + ["treatment2"] * 3)
+    y = np.random.randint(0, 2, n)
+
+    model = UpliftTreeClassifier(
+        control_name=CONTROL_NAME,
+        min_samples_leaf=1,
+        min_samples_treatment=0,
+        max_depth=5,
+    )
+    model.fit(X, treatment, y)
+    preds = model.predict(X)
+
+    assert not np.any(
+        np.isnan(preds)
+    ), "Predictions contain NaN (likely from NaN p-values)"
+
+
+def test_UpliftRandomForestClassifier_predict_shape_with_sparse_groups():
+    """Test that UpliftRandomForestClassifier.predict() returns correct shape
+    when bootstrap sampling causes some trees to miss treatment groups (#569)."""
+    np.random.seed(RANDOM_SEED)
+    n = 102
+    X = np.random.randn(n, 3)
+    # Only 1 sample per minority treatment group guarantees that bootstrap
+    # sampling (with replacement, n draws from n) will miss them in some trees.
+    # P(group included) = 1 - (1 - 1/n)^n ≈ 1 - 1/e ≈ 0.63 per tree,
+    # so with 10 trees the chance ALL include both groups is ~0.63^20 ≈ 0.01%.
+    treatment = np.array(
+        [CONTROL_NAME] * 100 + [TREATMENT_NAMES[1]] * 1 + [TREATMENT_NAMES[2]] * 1
+    )
+    y = np.random.randint(0, 2, n)
+
+    model = UpliftRandomForestClassifier(
+        control_name=CONTROL_NAME,
+        n_estimators=10,
+        n_jobs=2,
+        min_samples_leaf=1,
+        min_samples_treatment=0,
+        random_state=RANDOM_SEED,
+    )
+    model.fit(X, treatment=treatment, y=y)
+
+    # Verify that at least one tree was fit without some treatment groups
+    assert any(
+        len(tree.classes_) < len(model.classes_) for tree in model.uplift_forest
+    ), (
+        "Test setup failed to produce any trees missing treatment groups; "
+        "adjust seed or sampling parameters to exercise sparse-group behavior."
+    )
+
+    # Single-threaded
+    model.n_jobs = 1
+    preds = model.predict(X)
+    assert preds.shape == (
+        n,
+        len(model.classes_) - 1,
+    ), f"Expected shape ({n}, {len(model.classes_) - 1}), got {preds.shape}"
+    assert not np.any(np.isnan(preds)), "Predictions contain NaN"
+
+    # Parallel
+    model.n_jobs = 2
+    preds_par = model.predict(X)
+    assert preds_par.shape == preds.shape
+    assert np.allclose(preds, preds_par)

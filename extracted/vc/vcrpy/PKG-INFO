@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vcrpy
-Version: 8.2.1
+Version: 8.3.0
 Summary: Automatically mock your HTTP interactions to simplify and speed up testing
 Home-page: https://github.com/kevin1024/vcrpy
 Author: Kevin McCarthy
@@ -31,7 +31,7 @@ Provides-Extra: tests
 Requires-Dist: aiohttp; extra == "tests"
 Requires-Dist: boto3; extra == "tests"
 Requires-Dist: cryptography; extra == "tests"
-Requires-Dist: httpbin; extra == "tests"
+Requires-Dist: httpbin>=0.10.3; extra == "tests"
 Requires-Dist: httplib2; extra == "tests"
 Requires-Dist: httpx; extra == "tests"
 Requires-Dist: httpx-curl-cffi; extra == "tests"
@@ -46,7 +46,14 @@ Requires-Dist: pytest-httpbin; extra == "tests"
 Requires-Dist: requests>=2.22.0; extra == "tests"
 Requires-Dist: tornado; extra == "tests"
 Requires-Dist: urllib3; extra == "tests"
-Requires-Dist: werkzeug==2.0.3; extra == "tests"
+Provides-Extra: tests-niquests
+Requires-Dist: httpbin>=0.10.3; extra == "tests-niquests"
+Requires-Dist: pytest; extra == "tests-niquests"
+Requires-Dist: pytest-aiohttp; extra == "tests-niquests"
+Requires-Dist: pytest-asyncio; extra == "tests-niquests"
+Requires-Dist: pytest-cov; extra == "tests-niquests"
+Requires-Dist: pytest-httpbin; extra == "tests-niquests"
+Requires-Dist: niquests; extra == "tests-niquests"
 Dynamic: license-file
 
 

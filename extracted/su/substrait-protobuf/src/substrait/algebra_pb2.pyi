@@ -827,6 +827,77 @@ class JoinRel(google.protobuf.message.Message):
 Global___JoinRel: typing_extensions.TypeAlias = JoinRel
 
 @typing.final
+class LateralJoinRel(google.protobuf.message.Message):
+    """The binary lateral JOIN relational operator left-join-right. This is
+    semantically identical to JoinRel, except the right input is evaluated once
+    per row of the left input and may reference fields from the current left row
+    via OuterReference rel_reference.
+
+    LateralJoinRel must set RelCommon.rel_anchor so the right input can
+    reference fields of the current left row.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    COMMON_FIELD_NUMBER: builtins.int
+    LEFT_FIELD_NUMBER: builtins.int
+    RIGHT_FIELD_NUMBER: builtins.int
+    EXPRESSION_FIELD_NUMBER: builtins.int
+    POST_JOIN_FILTER_FIELD_NUMBER: builtins.int
+    TYPE_FIELD_NUMBER: builtins.int
+    ADVANCED_EXTENSION_FIELD_NUMBER: builtins.int
+    type: Global___JoinRel.JoinType.ValueType
+    """Only INNER and left-oriented join types are valid for lateral joins:
+    INNER, LEFT, LEFT_SEMI, LEFT_ANTI, LEFT_SINGLE, LEFT_MARK.
+    RIGHT-oriented join types and OUTER are not valid because the right input
+    is evaluated in the context of each left row and has no independent
+    existence.
+    """
+    @property
+    def common(self) -> Global___RelCommon: ...
+    @property
+    def left(self) -> Global___Rel:
+        """The independent input whose rows drive evaluation of the lateral join."""
+
+    @property
+    def right(self) -> Global___Rel:
+        """The dependent input evaluated once per left row. It may reference fields
+        from the current left row using OuterReference.rel_reference pointing to
+        this LateralJoinRel's RelCommon.rel_anchor.
+        """
+
+    @property
+    def expression(self) -> Global___Expression:
+        """A boolean condition evaluated over the left and right inputs that
+        determines whether a pair of records is a match.
+        """
+
+    @property
+    def post_join_filter(self) -> Global___Expression:
+        """An optional boolean filter applied to each output record after
+        join-type-specific output formation is complete.
+        Semantically equivalent to placing a FilterRel directly above this join.
+        """
+
+    @property
+    def advanced_extension(self) -> substrait.extensions.extensions_pb2.AdvancedExtension: ...
+    def __init__(
+        self,
+        *,
+        common: Global___RelCommon | None = ...,
+        left: Global___Rel | None = ...,
+        right: Global___Rel | None = ...,
+        expression: Global___Expression | None = ...,
+        post_join_filter: Global___Expression | None = ...,
+        type: Global___JoinRel.JoinType.ValueType = ...,
+        advanced_extension: substrait.extensions.extensions_pb2.AdvancedExtension | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "expression", b"expression", "left", b"left", "post_join_filter", b"post_join_filter", "right", b"right"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "expression", b"expression", "left", b"left", "post_join_filter", b"post_join_filter", "right", b"right", "type", b"type"]) -> None: ...
+
+Global___LateralJoinRel: typing_extensions.TypeAlias = LateralJoinRel
+
+@typing.final
 class CrossRel(google.protobuf.message.Message):
     """Cartesian product relational operator of two tables (left and right)"""
 
@@ -1666,6 +1737,7 @@ class Rel(google.protobuf.message.Message):
     AGGREGATE_FIELD_NUMBER: builtins.int
     SORT_FIELD_NUMBER: builtins.int
     JOIN_FIELD_NUMBER: builtins.int
+    LATERAL_JOIN_FIELD_NUMBER: builtins.int
     PROJECT_FIELD_NUMBER: builtins.int
     SET_FIELD_NUMBER: builtins.int
     EXTENSION_SINGLE_FIELD_NUMBER: builtins.int
@@ -1695,6 +1767,8 @@ class Rel(google.protobuf.message.Message):
     def sort(self) -> Global___SortRel: ...
     @property
     def join(self) -> Global___JoinRel: ...
+    @property
+    def lateral_join(self) -> Global___LateralJoinRel: ...
     @property
     def project(self) -> Global___ProjectRel: ...
     @property
@@ -1740,6 +1814,7 @@ class Rel(google.protobuf.message.Message):
         aggregate: Global___AggregateRel | None = ...,
         sort: Global___SortRel | None = ...,
         join: Global___JoinRel | None = ...,
+        lateral_join: Global___LateralJoinRel | None = ...,
         project: Global___ProjectRel | None = ...,
         set: Global___SetRel | None = ...,
         extension_single: Global___ExtensionSingleRel | None = ...,
@@ -1758,9 +1833,9 @@ class Rel(google.protobuf.message.Message):
         expand: Global___ExpandRel | None = ...,
         top_n: Global___TopNRel | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["aggregate", b"aggregate", "cross", b"cross", "ddl", b"ddl", "exchange", b"exchange", "expand", b"expand", "extension_leaf", b"extension_leaf", "extension_multi", b"extension_multi", "extension_single", b"extension_single", "fetch", b"fetch", "filter", b"filter", "hash_join", b"hash_join", "join", b"join", "merge_join", b"merge_join", "nested_loop_join", b"nested_loop_join", "project", b"project", "read", b"read", "reference", b"reference", "rel_type", b"rel_type", "set", b"set", "sort", b"sort", "top_n", b"top_n", "update", b"update", "window", b"window", "write", b"write"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["aggregate", b"aggregate", "cross", b"cross", "ddl", b"ddl", "exchange", b"exchange", "expand", b"expand", "extension_leaf", b"extension_leaf", "extension_multi", b"extension_multi", "extension_single", b"extension_single", "fetch", b"fetch", "filter", b"filter", "hash_join", b"hash_join", "join", b"join", "merge_join", b"merge_join", "nested_loop_join", b"nested_loop_join", "project", b"project", "read", b"read", "reference", b"reference", "rel_type", b"rel_type", "set", b"set", "sort", b"sort", "top_n", b"top_n", "update", b"update", "window", b"window", "write", b"write"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing.Literal["rel_type", b"rel_type"]) -> typing.Literal["read", "filter", "fetch", "aggregate", "sort", "join", "project", "set", "extension_single", "extension_multi", "extension_leaf", "cross", "reference", "write", "ddl", "update", "hash_join", "merge_join", "nested_loop_join", "window", "exchange", "expand", "top_n"] | None: ...
+    def HasField(self, field_name: typing.Literal["aggregate", b"aggregate", "cross", b"cross", "ddl", b"ddl", "exchange", b"exchange", "expand", b"expand", "extension_leaf", b"extension_leaf", "extension_multi", b"extension_multi", "extension_single", b"extension_single", "fetch", b"fetch", "filter", b"filter", "hash_join", b"hash_join", "join", b"join", "lateral_join", b"lateral_join", "merge_join", b"merge_join", "nested_loop_join", b"nested_loop_join", "project", b"project", "read", b"read", "reference", b"reference", "rel_type", b"rel_type", "set", b"set", "sort", b"sort", "top_n", b"top_n", "update", b"update", "window", b"window", "write", b"write"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["aggregate", b"aggregate", "cross", b"cross", "ddl", b"ddl", "exchange", b"exchange", "expand", b"expand", "extension_leaf", b"extension_leaf", "extension_multi", b"extension_multi", "extension_single", b"extension_single", "fetch", b"fetch", "filter", b"filter", "hash_join", b"hash_join", "join", b"join", "lateral_join", b"lateral_join", "merge_join", b"merge_join", "nested_loop_join", b"nested_loop_join", "project", b"project", "read", b"read", "reference", b"reference", "rel_type", b"rel_type", "set", b"set", "sort", b"sort", "top_n", b"top_n", "update", b"update", "window", b"window", "write", b"write"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["rel_type", b"rel_type"]) -> typing.Literal["read", "filter", "fetch", "aggregate", "sort", "join", "lateral_join", "project", "set", "extension_single", "extension_multi", "extension_leaf", "cross", "reference", "write", "ddl", "update", "hash_join", "merge_join", "nested_loop_join", "window", "exchange", "expand", "top_n"] | None: ...
 
 Global___Rel: typing_extensions.TypeAlias = Rel
 

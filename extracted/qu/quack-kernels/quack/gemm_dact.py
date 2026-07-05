@@ -55,8 +55,7 @@ class GemmDActMixin(GemmActMixin):
         assert tRS_rC is not None
         # We don't add C to the accumulator
         GemmDefaultEpiMixin.epi_visit_subtile(self, params, epi_loop_tensors, tRS_rD, tRS_rC=None)
-        tRS_rC_acc = cute.make_rmem_tensor_like(tRS_rC, self.acc_dtype)
-        tRS_rC_acc.store(tRS_rC.load().to(self.acc_dtype))
+        tRS_rC_acc = tRS_rC.to(self.acc_dtype)
         # If we don't have .shape here, the compiler generates local stores and loads
         if const_expr(params.act_fn is not None):
             tRS_rAuxOut = cute.make_rmem_tensor(tRS_rD.layout.shape, self.acc_dtype)
@@ -453,11 +452,6 @@ def gemm_dact(
         gemm_cls_name,
         use_tma_gather=use_tma_gather,
     )
-
-    from quack.cache import is_compile_only
-
-    if is_compile_only():
-        return
 
     max_active_clusters = get_max_active_clusters(cluster_M * cluster_N) if persistent else 0
     if is_dgated:

@@ -2565,6 +2565,20 @@ fn stagewise_progress_py<'py>(
     structured_whitening = true,
     row_loss_weights = None,
     progress_callback = None,
+    // #1939 — appended LAST so the signature stays strictly additive: existing
+    // positional/kwarg callers (which never pass this) are byte-for-byte unaffected.
+    cone_atom_recovery = false,
+    // #5/(B) — appended LAST (after cone_atom_recovery) so the signature stays
+    // strictly additive: existing positional/kwarg callers are byte-unaffected.
+    rank_charge_evidence = false,
+    // Rung 1 (B4) — the harvest-emitted output-Fisher factor stack `(n, p, r)` and
+    // its provenance tag. Appended LAST so the signature stays strictly additive.
+    // Presence installs the metric on the seed term (carried across every birth /
+    // backfit clone); `"behavioral_fisher"` makes it the GLS reconstruction
+    // likelihood weight (nats). Conflicts with `structured_whitening` (which refits
+    // its own Σ⁻¹ metric per birth) — supply one or the other, not both.
+    fisher_factors = None,
+    fisher_provenance = None,
 ))]
 fn sae_manifold_fit_stagewise<'py>(
     py: Python<'py>,
@@ -2595,6 +2609,10 @@ fn sae_manifold_fit_stagewise<'py>(
     structured_whitening: bool,
     row_loss_weights: Option<PyReadonlyArray1<'py, f64>>,
     progress_callback: Option<PyObject>,
+    cone_atom_recovery: bool,
+    rank_charge_evidence: bool,
+    fisher_factors: Option<PyReadonlyArray3<'py, f64>>,
+    fisher_provenance: Option<String>,
 ) -> PyResult<Py<PyDict>> {
     let assignment_kind = canonicalize_assignment_kind(&assignment_kind).map_err(py_value_error)?;
     let z_view = z.as_array();
@@ -2651,7 +2669,7 @@ fn sae_manifold_fit_stagewise<'py>(
             )));
         }
     };
-    let base_term = term_from_padded_blocks_with_mode(
+    let mut base_term = term_from_padded_blocks_with_mode(
         n_obs,
         p_out,
         &basis_kinds,
@@ -2667,6 +2685,73 @@ fn sae_manifold_fit_stagewise<'py>(
         &evaluators,
     )
     .map_err(py_value_error)?;
+    // #1939 — install the cone-atom RECOVERY opt-in before the fit consumes the
+    // term; it is carried across the stagewise clones (birth candidates / backfit)
+    // like the other per-fit config, so it reaches the K≥2 backfit where a born
+    // decoder can co-vanish. Default false ⇒ bit-for-bit historical path. Distinct
+    // from `quotient_scale` (which the stagewise entry never sets): this only arms
+    // the stable breach-gated boundary retraction, never the #2022 per-Newton fold.
+    base_term.set_cone_atom_recovery(cone_atom_recovery);
+    // #5/(B) — rank-charge evidence criterion (default false ⇒ bit-for-bit
+    // historical). Replaces the coord-block ½log|H_tt| with the realised-rank BIC.
+    base_term.set_rank_charge_evidence(rank_charge_evidence);
+    // Rung 1 (B4) — install the harvest-emitted output-Fisher `RowMetric` on the
+    // seed term BEFORE the fit consumes it. `fit_stagewise` carries the seed's
+    // metric into every birth-candidate / backfit clone (construction.rs clones
+    // `row_metric`), so a `"behavioral_fisher"` metric prices EVERY inner
+    // reconstruction in nats (GLS), not just the seed. The factor stack is
+    // `(n, p, r)` row-major, reshaped to the `(n, p*r)` layout the constructor
+    // expects (`u[n, i*r + k] = U[n, i, k]`) — the same repack the
+    // `sae_manifold_fit` path performs.
+    if let Some(u3ro) = fisher_factors.as_ref() {
+        let u3 = u3ro.as_array();
+        let u_shape = u3.shape();
+        if u_shape[0] != n_obs || u_shape[1] != p_out {
+            return Err(py_value_error(format!(
+                "sae_manifold_fit_stagewise: fisher_factors U must be (n, p, r)=({n_obs}, \
+                 {p_out}, r); got leading dims ({}, {})",
+                u_shape[0], u_shape[1]
+            )));
+        }
+        let rank = u_shape[2];
+        if rank == 0 {
+            return Err(py_value_error(
+                "sae_manifold_fit_stagewise: fisher_factors U rank (last axis) must be >= 1"
+                    .to_string(),
+            ));
+        }
+        if rank > p_out {
+            return Err(py_value_error(format!(
+                "sae_manifold_fit_stagewise: fisher_factors U rank {rank} exceeds output dim \
+                 p={p_out}"
+            )));
+        }
+        let mut u_flat = Array2::<f64>::zeros((n_obs, p_out * rank));
+        for row in 0..n_obs {
+            for i in 0..p_out {
+                for k in 0..rank {
+                    u_flat[[row, i * rank + k]] = u3[[row, i, k]];
+                }
+            }
+        }
+        let metric =
+            row_metric_from_fisher_provenance(u_flat, p_out, rank, fisher_provenance.as_deref())?;
+        // A supplied fixed metric and the structured-residual whitener are two
+        // rival sources for the SAME per-row inner product: `fit_stagewise`
+        // overwrites the term's metric with the refit Σ⁻¹ on each birth round when
+        // `structured_whitening` is on, silently clobbering the harvest metric.
+        // Refuse the ambiguous combination rather than let one win by accident.
+        if structured_whitening && metric.whitens_likelihood() {
+            return Err(py_value_error(
+                "sae_manifold_fit_stagewise: a likelihood-whitening fisher metric \
+                 (provenance 'behavioral_fisher') conflicts with structured_whitening=True \
+                 (which refits its own Σ⁻¹ metric per birth and would clobber it); pass \
+                 structured_whitening=False to fit under the fixed harvest metric"
+                    .to_string(),
+            ));
+        }
+        base_term.set_row_metric(metric).map_err(py_value_error)?;
+    }
     // `0.0` sparsity/smoothness is the canonical "term disabled" baseline; floor
     // to a tiny positive sentinel before the log so log-ρ stays finite (mirrors
     // sae_manifold_fit; #184 sparsity, #2090 smoothness).
@@ -2764,6 +2849,12 @@ fn sae_manifold_fit_stagewise<'py>(
 
     let out = PyDict::new(py);
     out.set_item("k_final", k_final)?;
+    // #1939 — echo the resolved cone-atom RECOVERY opt-in so a harness can VERIFY
+    // the kwarg engaged (no silent no-op): the value the fit actually ran with.
+    out.set_item("cone_atom_recovery_used", cone_atom_recovery)?;
+    // #5/(B) — echo the resolved rank-charge opt-in so red-tree's A/B harness can
+    // VERIFY the kwarg engaged (no silent no-op).
+    out.set_item("rank_charge_evidence_used", rank_charge_evidence)?;
     out.set_item("births_accepted", report.births_accepted)?;
     out.set_item("births_rejected", report.births_rejected)?;
     out.set_item("stopped_reason", stopped_reason)?;
@@ -3304,6 +3395,15 @@ fn sae_manifold_fit_inner<'py>(
             gam::terms::analytic_penalties::AnalyticPenaltyKind::Isometry(_)
         )
     });
+    // #2098 (SPEC-8) — the engine self-protects against the heterogeneous-
+    // `d_atom` + row-block-penalty incompatibility up front, so it surfaces as a
+    // direct `ValueError` here (covering BOTH `sae_manifold_fit` and
+    // `sae_manifold_fit_minimal`, which share this inner) rather than as a deep
+    // `RemlConvergenceError` mid-REML. Native ARD rides `native_ard_enabled` (not
+    // a registry descriptor), so both penalty sources are threaded through.
+    base_term
+        .validate_heterogeneous_atom_compatibility(Some(&registry), native_ard_enabled)
+        .map_err(py_value_error)?;
     // Route every problem size through the full-batch objective on the owned
     // `target`: the inner Arrow-Schur fit materializes the `(N × M_total)`
     // basis, `(N × M_total × d)` jacobian, and `(N × K)` logit buffers in full,
@@ -5344,6 +5444,114 @@ fn layer_transport_ladder(
     }
     out.set_item("adjacent", adjacent)?;
     out.set_item("two_hop", two_hop)?;
+    Ok(out.unbind())
+}
+
+/// Pulled-back chart-to-chart transfer operators `A_kj` for a frozen model
+/// component (the D2 "equation of motion" for a fitted atom across layers).
+///
+/// The torch lane owns the ambient component JVP `J_F(x)·v`; this entry point
+/// owns the chart-frame algebra and density aggregation
+/// `A_kj(x) = (J_kᵀ J_k)⁻¹ J_kᵀ J_F(x) J_j(x)`, per token, then the
+/// density-weighted mean/variance across tokens.
+///
+/// `output_chart_jets` is `[n_tokens, ambient, d_out]` — the output atom's
+/// decoder frame `J_k(x)` (for a fitted circle, the 2-D plane frame) at each
+/// token. `ambient_jvps` is `[n_tokens, ambient, d_in]` — the model Jacobian
+/// already applied to the input atom's decoder frame, `J_F(x)·J_j(x)`. Optional
+/// non-negative `weights` `[n_tokens]` supply the empirical token density.
+///
+/// Returns `{"mean": [d_out, d_in], "variance": [d_out, d_in], "effective_n":
+/// f, "token_operators": [n_tokens, d_out, d_in]}`. `mean` is the transfer
+/// operator; `variance` is the density-weighted token spread (the band);
+/// `effective_n` is Kish's effective sample size under the weights.
+#[pyfunction(signature = (output_chart_jets, ambient_jvps, weights = None))]
+fn chart_transfer_operator<'py>(
+    py: Python<'py>,
+    output_chart_jets: PyReadonlyArray3<'py, f64>,
+    ambient_jvps: PyReadonlyArray3<'py, f64>,
+    weights: Option<PyReadonlyArray1<'py, f64>>,
+) -> PyResult<Py<PyDict>> {
+    let jets = output_chart_jets.as_array();
+    let jvps = ambient_jvps.as_array();
+    let weights_arr = weights.as_ref().map(|w| w.as_array());
+    let report = gam::terms::sae::chart_transfer::aggregate_pulled_back_operators(
+        jets,
+        jvps,
+        weights_arr.as_ref().map(|w| w.view()),
+    )
+    .map_err(PyValueError::new_err)?;
+    let out = PyDict::new(py);
+    // For square 2x2 operators, the circle-atom readout: the density-weighted
+    // circular mean of the per-token SO(2) polar angles with its SE (the
+    // rotation band), plus the mean operator's own polar angle. `None` when the
+    // operators are not 2x2 or any token reflects/collapses the chart — the
+    // caller must then report the orientation flip rather than an angle.
+    if report.token_operators.dim().1 == 2 && report.token_operators.dim().2 == 2 {
+        match gam::terms::sae::chart_transfer::rotation_angle_band(
+            report.token_operators.view(),
+            weights_arr.as_ref().map(|w| w.view()),
+        ) {
+            Ok((mean_angle, se)) => {
+                out.set_item("rotation_angle_mean", mean_angle)?;
+                out.set_item("rotation_angle_se", se)?;
+            }
+            Err(_) => {
+                out.set_item("rotation_angle_mean", py.None())?;
+                out.set_item("rotation_angle_se", py.None())?;
+            }
+        }
+        match gam::terms::sae::chart_transfer::so2_polar_angle(report.mean.view()) {
+            Ok(angle) => out.set_item("rotation_angle_of_mean", angle)?,
+            Err(_) => out.set_item("rotation_angle_of_mean", py.None())?,
+        }
+    } else {
+        out.set_item("rotation_angle_mean", py.None())?;
+        out.set_item("rotation_angle_se", py.None())?;
+        out.set_item("rotation_angle_of_mean", py.None())?;
+    }
+    out.set_item("mean", report.mean.into_pyarray(py))?;
+    out.set_item("variance", report.variance.into_pyarray(py))?;
+    out.set_item("effective_n", report.effective_n)?;
+    out.set_item("token_operators", report.token_operators.into_pyarray(py))?;
+    Ok(out.unbind())
+}
+
+/// Transport / Lie-equivariance certificate for one square transfer operator
+/// `A` (the D2 classifier: near-isometry ⇒ the layer *carries* the atom;
+/// rotation/rescale ⇒ the layer *computes* on it).
+///
+/// `transport_defect = ‖AᵀA − I‖_F` (zero ⇒ isometric transport). The circle's
+/// infinitesimal-rotation generator `G = [[0,−1],[1,0]]` supplies the
+/// equivariance test: `equivariance_defect = ‖A·G_in − G_out·A‖_F` (zero ⇒ `A`
+/// commutes with the rotation action, so the cyclic structure is preserved).
+/// `input_generator` / `output_generator` are the `[d, d]` generators of the
+/// input and output charts. Returns `{"transport_defect": f,
+/// "equivariance_defect": f, "rotation_angle": f | None}` (the SO(2)
+/// polar-factor angle of `A`; `None` unless `A` is 2x2 with det > 0).
+#[pyfunction(signature = (operator, input_generator, output_generator))]
+fn certify_chart_transfer(
+    py: Python<'_>,
+    operator: PyReadonlyArray2<'_, f64>,
+    input_generator: PyReadonlyArray2<'_, f64>,
+    output_generator: PyReadonlyArray2<'_, f64>,
+) -> PyResult<Py<PyDict>> {
+    let cert = gam::terms::sae::chart_transfer::certify_square_transfer(
+        operator.as_array(),
+        input_generator.as_array(),
+        output_generator.as_array(),
+    )
+    .map_err(PyValueError::new_err)?;
+    let out = PyDict::new(py);
+    out.set_item("transport_defect", cert.transport_defect)?;
+    out.set_item("equivariance_defect", cert.equivariance_defect)?;
+    // The certified operator's SO(2) polar angle (2x2, det > 0 only): the
+    // "rotates by Z radians" readout next to the defects. `None` for other
+    // dimensions or an orientation-flipping operator.
+    match gam::terms::sae::chart_transfer::so2_polar_angle(operator.as_array()) {
+        Ok(angle) => out.set_item("rotation_angle", angle)?,
+        Err(_) => out.set_item("rotation_angle", py.None())?,
+    }
     Ok(out.unbind())
 }
 

@@ -6,10 +6,6 @@ as command groups, with each group named after the kebab-case form of its
 variable name.
 """
 
-# Bind the make module's Typer app to `mk` so the CLI discovery registers it
-# as the `mk` command group; importing the module also registers the group's
-# sub-commands. Import the module (not the app instance) so only `mk` is a
-# Typer in this namespace and the discovery registers exactly one group.
 from pyrig.rig.cli import make
 
 mk = make.app
@@ -64,8 +60,8 @@ def scratch() -> None:
     The script runs in an isolated namespace and does not affect the calling
     environment.
 
-    Raises:
-        FileNotFoundError: If `.scratch.py` does not exist at the project root.
+    It runs it as `__main__`.
+
     """
     from pyrig.rig.cli.commands.scratch import run_scratch_file  # noqa: PLC0415
 

@@ -1,5 +1,59 @@
+//! Progress UI for concurrent hook execution.
+//!
+//! This module renders one root progress line, optional project header lines,
+//! hook progress rows, short live output previews, and collapsed summaries for
+//! completed hooks that no longer fit in the terminal.
+//!
+//! # Row model
+//!
+//! A hook run is represented by a `HookBar`. Its main progress row is always
+//! present while the hook is active or waiting for its final result. If the hook
+//! streams output for long enough, up to `HOOK_OUTPUT_PREVIEW_LINES` preview
+//! rows are inserted directly below the main row.
+//!
+//! `HookRunReporter::running` owns active `HookBar`s. `HookGroup` owns the
+//! per-project rows that can outlive an active hook: the optional project
+//! header, the collapsed hidden-summary row, and completed hook rows. A
+//! completed hook moves from `running` into its project's `CompletedBars` before
+//! the running lock is released, so other layout operations never observe the
+//! hook as missing from both states.
+//!
+//! # Visual order and anchors
+//!
+//! Each hook main row receives a monotonic `line_order` when it starts. Hooks
+//! may complete in a different order, so completed rows are stored by
+//! `line_order`, not by completion time or hook index.
+//!
+//! A newly started hook is inserted after the visually latest row in its
+//! project. The candidates are the collapsed summary row, the latest running
+//! hook's visual tail, and the latest visible completed hook row. If the project
+//! has none of those rows, the project header is used; otherwise the hook is
+//! inserted before the root progress line. Preview rows do not receive their own
+//! `line_order`; they are addressed through the owning hook's `visual_tail`.
+//!
+//! # Collapse invariants
+//!
+//! Terminal-height pressure is handled by collapsing old completed hook rows
+//! into one summary line. Only completed rows with a known pass/fail result can
+//! be collapsed, because the summary has to preserve the result counts. The
+//! first collapse hides two completed rows to make room for the new summary; a
+//! later collapse hides one more row and reuses the existing summary.
+//!
+//! The summary row's visual order is fixed at the first hidden completed row.
+//! It intentionally does not advance as later completed rows are hidden:
+//! running rows can still be visually interleaved with completed rows from the
+//! same project, and moving the summary order forward would make future hooks
+//! insert above those still-running rows.
+//!
+//! # Synchronization
+//!
+//! `running` is the single source of truth for active hook rows and their
+//! preview tails. `HookGroup` does not cache running row positions. Code paths
+//! that need both maps lock `running` before `groups`, matching the state
+//! transition from running to completed and avoiding stale insertion anchors.
+
 use std::borrow::Cow;
-use std::collections::VecDeque;
+use std::collections::BTreeMap;
 use std::collections::hash_map::Entry;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -27,6 +81,8 @@ use crate::workspace;
 struct HookBar {
     /// Stable identity used to match a completed bar with the later hook result.
     hook_key: HookKey,
+    /// Monotonic visual insertion order of the main hook progress line.
+    line_order: usize,
     /// Main hook progress line.
     progress: ProgressBar,
     /// Live output preview lines below `progress`.
@@ -41,9 +97,10 @@ struct HookBar {
 }
 
 impl HookBar {
-    fn new(hook: &Hook, progress: ProgressBar) -> Self {
+    fn new(hook: &Hook, line_order: usize, progress: ProgressBar) -> Self {
         Self {
             hook_key: HookKey::from_hook(hook),
+            line_order,
             progress,
             output_bars: Vec::new(),
             output_preview: OutputPreview::default(),
@@ -58,22 +115,15 @@ impl HookBar {
 
     /// Streams one output chunk into the preview rows.
     ///
-    /// Returns the new visual tail when this chunk caused new preview rows to
-    /// be inserted. The owning `HookGroup` uses that tail as the insertion
-    /// anchor for subsequent hooks in the same project.
-    fn push_output(
-        &mut self,
-        reporter: &ProgressReporter,
-        width: usize,
-        chunk: &[u8],
-    ) -> Option<ProgressBar> {
+    /// Returns whether this chunk inserted any new preview rows.
+    fn push_output(&mut self, reporter: &ProgressReporter, width: usize, chunk: &[u8]) -> bool {
         self.output_preview.push_chunk(chunk);
         if self.output_bars.is_empty() && self.started_at.elapsed() < HOOK_OUTPUT_PREVIEW_DELAY {
-            return None;
+            return false;
         }
 
         let lines = self.output_preview.visible_lines();
-        let mut inserted_tail = None;
+        let mut inserted = false;
 
         for (idx, line) in lines.iter().enumerate() {
             if idx == self.output_bars.len() {
@@ -87,7 +137,7 @@ impl HookBar {
                 );
                 output.set_prefix(HOOK_OUTPUT_PREVIEW_PREFIX);
                 self.output_bars.push(output);
-                inserted_tail = self.output_bars.last().cloned();
+                inserted = true;
             }
 
             let line = line.trim_end();
@@ -99,7 +149,11 @@ impl HookBar {
             self.output_bars[idx].set_message(message);
         }
 
-        inserted_tail
+        inserted
+    }
+
+    fn visual_tail(&self) -> &ProgressBar {
+        self.output_bars.last().unwrap_or(&self.progress)
     }
 }
 
@@ -120,36 +174,57 @@ impl HookKey {
 
 #[derive(Debug, Default)]
 struct CompletedBars {
-    visible: VecDeque<HookBar>,
+    visible: BTreeMap<usize, HookBar>,
+    /// Visual order of the collapsed summary line, fixed at the first hidden row.
+    hidden_summary_order: Option<usize>,
     hidden_passed: usize,
     hidden_failed: usize,
 }
 
+#[derive(Debug)]
+struct CollapsedCompletedBars {
+    removed: Vec<HookBar>,
+}
+
+impl CollapsedCompletedBars {
+    fn anchor(&self) -> &ProgressBar {
+        &self.removed[0].progress
+    }
+}
+
 impl CompletedBars {
     fn push(&mut self, completed: HookBar) {
-        self.visible.push_back(completed);
+        // Hooks can finish in a different order than their progress rows were inserted;
+        // collapse completed rows by their original visual order.
+        let replaced = self.visible.insert(completed.line_order, completed);
+        debug_assert!(replaced.is_none());
     }
 
-    fn hide_one_line(&mut self) -> VecDeque<HookBar> {
-        let count = self.hide_count();
-        debug_assert!(self.can_hide_one_line());
+    fn collapse_one_line(&mut self) -> Option<CollapsedCompletedBars> {
+        if !self.can_collapse_one_line() {
+            return None;
+        }
 
-        let removed: VecDeque<_> = self.visible.drain(..count).collect();
-        for completed in &removed {
+        let count = self.collapse_count();
+        let mut removed = Vec::with_capacity(count);
+        for _ in 0..count {
+            let (line_order, completed) = self.visible.pop_first()?;
+            self.hidden_summary_order.get_or_insert(line_order);
             match completed.passed {
                 Some(true) => self.hidden_passed += 1,
                 Some(false) => self.hidden_failed += 1,
                 None => {}
             }
+            removed.push(completed);
         }
 
-        removed
+        Some(CollapsedCompletedBars { removed })
     }
 
     fn record_result(&mut self, hook_key: HookKey, passed: bool) -> Option<ProgressBar> {
         if let Some(completed) = self
             .visible
-            .iter_mut()
+            .values_mut()
             .find(|completed| completed.hook_key == hook_key)
         {
             completed.passed = Some(passed);
@@ -163,12 +238,12 @@ impl CompletedBars {
         self.visible.len() + usize::from(self.hidden_count() > 0)
     }
 
-    fn can_hide_one_line(&self) -> bool {
-        let count = self.hide_count();
+    fn can_collapse_one_line(&self) -> bool {
+        let count = self.collapse_count();
         self.visible.len() >= count
             && self
                 .visible
-                .iter()
+                .values()
                 .take(count)
                 .all(|completed| completed.passed.is_some())
     }
@@ -177,7 +252,7 @@ impl CompletedBars {
         self.hidden_passed + self.hidden_failed
     }
 
-    fn hide_count(&self) -> usize {
+    fn collapse_count(&self) -> usize {
         // The first collapse must free one row for the summary line. Once the
         // summary exists, hiding one more completed hook frees one visible row.
         if self.hidden_count() > 0 { 1 } else { 2 }
@@ -197,10 +272,17 @@ impl CompletedBars {
         Some(format!("⋮ {hidden} hooks hidden: {status}"))
     }
 
-    fn clear(&mut self) -> VecDeque<HookBar> {
+    fn last_visible(&self) -> Option<(usize, &ProgressBar)> {
+        self.visible
+            .last_key_value()
+            .map(|(line_order, completed)| (*line_order, &completed.progress))
+    }
+
+    fn drain_visible(&mut self) -> impl Iterator<Item = HookBar> {
+        self.hidden_summary_order = None;
         self.hidden_passed = 0;
         self.hidden_failed = 0;
-        std::mem::take(&mut self.visible)
+        std::mem::take(&mut self.visible).into_values()
     }
 }
 
@@ -215,10 +297,6 @@ struct HookGroup {
     order: usize,
     /// Optional project header line shown above hooks when project headers are enabled.
     header: Option<ProgressBar>,
-    /// Current insertion anchor for the next line in this project.
-    last_line: Option<ProgressBar>,
-    /// Running hook whose preview rows currently extend `last_line`.
-    active_tail: Option<usize>,
     /// Summary line for completed hooks hidden to fit the terminal height.
     hidden_summary: Option<ProgressBar>,
     /// Completed hook rows owned by this project.
@@ -227,12 +305,9 @@ struct HookGroup {
 
 impl HookGroup {
     fn new(order: usize, header: Option<ProgressBar>) -> Self {
-        let last_line = header.clone();
         Self {
             order,
             header,
-            last_line,
-            active_tail: None,
             hidden_summary: None,
             completed: CompletedBars::default(),
         }
@@ -240,6 +315,31 @@ impl HookGroup {
 
     fn line_count(&self) -> usize {
         usize::from(self.header.is_some()) + self.completed.line_count()
+    }
+
+    fn insertion_anchor<'a>(
+        &'a self,
+        project_idx: usize,
+        running: &'a FxHashMap<usize, HookBar>,
+    ) -> Option<&'a ProgressBar> {
+        let hidden_summary = self
+            .completed
+            .hidden_summary_order
+            .zip(self.hidden_summary.as_ref());
+        let latest_running = running
+            .values()
+            .filter(|bar| bar.hook_key.project_idx == project_idx)
+            .max_by_key(|bar| bar.line_order)
+            .map(|bar| (bar.line_order, bar.visual_tail()));
+        let latest_completed = self.completed.last_visible();
+
+        hidden_summary
+            .into_iter()
+            .chain(latest_running)
+            .chain(latest_completed)
+            .max_by_key(|(line_order, _)| *line_order)
+            .map(|(_, progress)| progress)
+            .or(self.header.as_ref())
     }
 }
 
@@ -358,9 +458,9 @@ fn truncate_to_width(input: &str, width: usize) -> Cow<'_, str> {
 /// Coordinates the hook-run progress UI.
 ///
 /// `running` owns active hook bars by progress id. `groups` owns per-project
-/// layout state and completed hook rows. Keeping those maps separate lets output
-/// updates touch one running hook first and update the project insertion anchor
-/// only when the hook grows new preview rows.
+/// layout state and completed hook rows. The insertion anchor for a new hook is
+/// derived from both maps while `running` is locked, so there is no separate
+/// per-project cache of running row positions to keep in sync.
 pub(crate) struct HookRunReporter {
     reporter: Arc<ProgressReporter>,
     dots: usize,
@@ -368,6 +468,10 @@ pub(crate) struct HookRunReporter {
     /// Active hooks keyed by the id returned from `on_run_start`.
     running: Mutex<FxHashMap<usize, HookBar>>,
     /// Per-project layout and completed-hook state.
+    ///
+    /// Code paths that move rows between running and completed state lock
+    /// `running` before `groups`, so `on_run_start` cannot observe a hook as
+    /// neither running nor completed.
     groups: Mutex<HookGroups>,
 }
 
@@ -404,11 +508,13 @@ impl HookRunReporter {
             self.remove_hook_bar(completed);
         }
         let group = groups.get_mut(&project_idx).unwrap();
-        let progress = self.hook_progress_bar(group.last_line.as_ref(), hook, progress_len);
-        group.last_line = Some(progress.clone());
-        group.active_tail = Some(id);
+        let progress = self.hook_progress_bar(
+            group.insertion_anchor(project_idx, &running),
+            hook,
+            progress_len,
+        );
 
-        running.insert(id, HookBar::new(hook, progress));
+        running.insert(id, HookBar::new(hook, id, progress));
         id
     }
 
@@ -478,57 +584,61 @@ impl HookRunReporter {
 
     fn on_run_output(&self, id: usize, chunk: &[u8]) {
         let width = self.dots.saturating_sub(HOOK_OUTPUT_PREVIEW_PREFIX.width());
-        let update = {
+        let removed = {
             let mut running = self.running.lock().unwrap();
-            let update = {
-                let Some(run_bar) = running.get_mut(&id) else {
-                    return;
-                };
-
-                run_bar
-                    .push_output(&self.reporter, width, chunk)
-                    .map(|tail| (run_bar.hook_key.project_idx, tail))
+            let Some(run_bar) = running.get_mut(&id) else {
+                return;
             };
+            if !run_bar.push_output(&self.reporter, width, chunk) {
+                return;
+            }
 
-            update.map(|(project_idx, tail)| (project_idx, tail, Self::running_lines(&running)))
+            let running_lines = Self::running_lines(&running);
+            let mut groups = self.groups.lock().unwrap();
+            // Growing preview rows may exceed the terminal height; hide old completed rows.
+            self.collapse_to_fit_new_progress(&mut groups, running_lines, 0)
         };
-        let Some((project_idx, tail, running_lines)) = update else {
-            return;
-        };
-
-        let mut groups = self.groups.lock().unwrap();
-        if let Some(group) = groups.get_mut(&project_idx)
-            && group.active_tail == Some(id)
-        {
-            // New hooks in this project should be inserted after the active hook's preview.
-            group.last_line = Some(tail);
-        }
-
-        // Growing preview rows may exceed the terminal height; hide old completed rows.
-        let removed = self.collapse_to_fit_new_progress(&mut groups, running_lines, 0);
-        drop(groups);
         for completed in removed {
             self.remove_hook_bar(completed);
         }
     }
 
     pub fn on_run_complete(&self, id: usize) {
-        let mut completed = {
-            let mut running = self.running.lock().unwrap();
-            running.remove(&id).unwrap()
-        };
-        self.reporter.root.inc(1);
-
-        for output_bar in &completed.output_bars {
-            self.reporter.children.remove(output_bar);
+        enum CompletedPlacement {
+            Stored(Vec<ProgressBar>),
+            Orphan(HookBar),
         }
-        completed.output_bars.clear();
 
-        // Keep the completed line visible until the group result is rendered.
-        let progress = &completed.progress;
-        progress.set_position(progress.length().unwrap_or(1));
-        progress.finish();
-        self.remember_completed(id, completed);
+        let placement = {
+            let mut running = self.running.lock().unwrap();
+            let mut completed = running.remove(&id).unwrap();
+            self.reporter.root.inc(1);
+
+            // Keep the completed line visible until the group result is rendered.
+            let progress = &completed.progress;
+            progress.set_position(progress.length().unwrap_or(1));
+            progress.finish();
+
+            // Move the hook into its group before releasing `running`, so layout
+            // accounting never observes the main row as neither running nor completed.
+            let mut groups = self.groups.lock().unwrap();
+            if let Some(group) = groups.get_mut(&completed.hook_key.project_idx) {
+                let output_bars = std::mem::take(&mut completed.output_bars);
+                group.completed.push(completed);
+                CompletedPlacement::Stored(output_bars)
+            } else {
+                CompletedPlacement::Orphan(completed)
+            }
+        };
+
+        match placement {
+            CompletedPlacement::Stored(output_bars) => {
+                for output_bar in output_bars {
+                    self.reporter.children.remove(&output_bar);
+                }
+            }
+            CompletedPlacement::Orphan(completed) => self.remove_hook_bar(completed),
+        }
     }
 
     pub fn on_run_result(&self, hook: &Hook, passed: bool) {
@@ -602,20 +712,6 @@ impl HookRunReporter {
         self.reporter.on_complete();
     }
 
-    fn remember_completed(&self, id: usize, completed: HookBar) {
-        let mut groups = self.groups.lock().unwrap();
-        let Some(group) = groups.get_mut(&completed.hook_key.project_idx) else {
-            drop(groups);
-            self.remove_hook_bar(completed);
-            return;
-        };
-        if group.active_tail == Some(id) {
-            group.last_line = Some(completed.progress.clone());
-            group.active_tail = None;
-        }
-        group.completed.push(completed);
-    }
-
     fn clear_group(&self, mut group: HookGroup) {
         if let Some(header) = group.header {
             self.reporter.children.remove(&header);
@@ -623,7 +719,7 @@ impl HookRunReporter {
         if let Some(summary) = group.hidden_summary {
             self.reporter.children.remove(&summary);
         }
-        for completed in group.completed.clear() {
+        for completed in group.completed.drain_visible() {
             self.remove_hook_bar(completed);
         }
     }
@@ -647,24 +743,14 @@ impl HookRunReporter {
         let summary = if let Some(summary) = &group.hidden_summary {
             summary.clone()
         } else {
-            let summary = if let Some(header) = &group.header {
-                self.reporter.children.insert_after(
-                    header,
-                    ProgressBar::with_draw_target(None, self.reporter.printer.target()),
-                )
-            } else {
-                self.reporter.children.insert_before(
-                    anchor,
-                    ProgressBar::with_draw_target(None, self.reporter.printer.target()),
-                )
-            };
+            let summary = self.reporter.children.insert_before(
+                anchor,
+                ProgressBar::with_draw_target(None, self.reporter.printer.target()),
+            );
             summary.set_style(ProgressStyle::with_template("{wide_msg}").unwrap());
             group.hidden_summary = Some(summary.clone());
             summary
         };
-        if group.completed.visible.is_empty() {
-            group.last_line = Some(summary.clone());
-        }
         if group.header.is_some() {
             summary.set_message(format!("  {}", message.dimmed()));
         } else {
@@ -691,7 +777,7 @@ impl HookRunReporter {
     fn collapse_candidate(groups: &HookGroups) -> Option<usize> {
         groups
             .iter()
-            .filter(|(_, group)| group.completed.can_hide_one_line())
+            .filter(|(_, group)| group.completed.can_collapse_one_line())
             .min_by_key(|(_, group)| group.order)
             .map(|(project_idx, _)| *project_idx)
     }
@@ -713,10 +799,11 @@ impl HookRunReporter {
             };
             let group = groups.get_mut(&project_idx).unwrap();
 
-            let hidden = group.completed.hide_one_line();
-            let anchor = hidden.front().unwrap().progress.clone();
-            self.update_group_summary(group, &anchor);
-            removed.extend(hidden);
+            let Some(collapsed) = group.completed.collapse_one_line() else {
+                break;
+            };
+            self.update_group_summary(group, collapsed.anchor());
+            removed.extend(collapsed.removed);
         }
 
         removed
@@ -748,6 +835,7 @@ mod tests {
                 project_idx,
                 hook_idx,
             },
+            line_order: hook_idx,
             progress: ProgressBar::hidden(),
             output_bars: Vec::new(),
             output_preview: OutputPreview::default(),
@@ -762,6 +850,7 @@ mod tests {
                 project_idx: 0,
                 hook_idx: 0,
             },
+            line_order: 0,
             progress: progress_bar(reporter),
             output_bars: Vec::new(),
             output_preview: OutputPreview::default(),
@@ -790,6 +879,26 @@ mod tests {
             &reporter.reporter.root,
             ProgressBar::with_draw_target(None, reporter.reporter.printer.target()),
         )
+    }
+
+    fn hidden_bar(message: &'static str) -> ProgressBar {
+        let progress = ProgressBar::hidden();
+        progress.set_message(message);
+        progress
+    }
+
+    fn project_running_bar(project_idx: usize, hook_idx: usize, message: &'static str) -> HookBar {
+        let mut bar = project_completed_bar(project_idx, hook_idx, None);
+        bar.progress = hidden_bar(message);
+        bar
+    }
+
+    fn visible_hook_indices(completed: &CompletedBars) -> Vec<usize> {
+        completed
+            .visible
+            .values()
+            .map(|bar| bar.hook_key.hook_idx)
+            .collect()
     }
 
     #[test]
@@ -874,9 +983,9 @@ mod tests {
         let reporter = HookRunReporter::new(Printer::Silent, 80, false);
         let mut hook_bar = running_hook_bar(&reporter, Instant::now());
 
-        let tail = hook_bar.push_output(&reporter.reporter, 80, b"first\n");
+        let inserted = hook_bar.push_output(&reporter.reporter, 80, b"first\n");
 
-        assert!(tail.is_none());
+        assert!(!inserted);
         assert!(hook_bar.output_bars.is_empty());
         assert_eq!(hook_bar.output_preview.visible_lines(), ["first"]);
     }
@@ -888,9 +997,9 @@ mod tests {
 
         hook_bar.push_output(&reporter.reporter, 80, b"first\n");
         hook_bar.started_at = elapsed_start();
-        let tail = hook_bar.push_output(&reporter.reporter, 80, b"second\n");
+        let inserted = hook_bar.push_output(&reporter.reporter, 80, b"second\n");
 
-        assert!(tail.is_some());
+        assert!(inserted);
         let messages = hook_bar
             .output_bars
             .iter()
@@ -900,25 +1009,25 @@ mod tests {
     }
 
     #[test]
-    fn hiding_completed_bars_frees_one_line() {
+    fn collapsing_completed_bars_frees_one_line() {
         let mut completed = CompletedBars::default();
 
         completed.push(completed_bar(0, Some(true)));
-        assert!(!completed.can_hide_one_line());
+        assert!(!completed.can_collapse_one_line());
 
         completed.push(completed_bar(1, Some(false)));
         completed.push(completed_bar(2, Some(true)));
-        let removed = completed.hide_one_line();
-        assert_eq!(removed.len(), 2);
-        assert_eq!(completed.visible.len(), 1);
+        let collapsed = completed.collapse_one_line().unwrap();
+        assert_eq!(collapsed.removed.len(), 2);
+        assert_eq!(visible_hook_indices(&completed).len(), 1);
         assert_eq!(
             completed.hidden_summary().as_deref(),
             Some("⋮ 2 hooks hidden: 1 passed, 1 failed")
         );
 
-        let removed = completed.hide_one_line();
-        assert_eq!(removed.len(), 1);
-        assert_eq!(completed.visible.len(), 0);
+        let collapsed = completed.collapse_one_line().unwrap();
+        assert_eq!(collapsed.removed.len(), 1);
+        assert!(visible_hook_indices(&completed).is_empty());
         assert_eq!(
             completed.hidden_summary().as_deref(),
             Some("⋮ 3 hooks hidden: 2 passed, 1 failed")
@@ -926,14 +1035,62 @@ mod tests {
     }
 
     #[test]
-    fn hiding_requires_a_known_result_prefix() {
+    fn collapsing_completed_bars_uses_visual_order_after_out_of_order_completion() {
+        let mut completed = CompletedBars::default();
+
+        completed.push(project_completed_bar(0, 4, Some(true)));
+        completed.push(project_completed_bar(0, 0, Some(true)));
+        completed.push(project_completed_bar(0, 1, Some(true)));
+        completed.push(project_completed_bar(0, 2, Some(true)));
+        completed.push(project_completed_bar(0, 3, Some(true)));
+
+        let collapsed = completed.collapse_one_line().unwrap();
+        let removed_hooks = collapsed
+            .removed
+            .iter()
+            .map(|bar| bar.hook_key.hook_idx)
+            .collect::<Vec<_>>();
+        assert_eq!(removed_hooks, [0, 1]);
+        assert_eq!(visible_hook_indices(&completed), [2, 3, 4]);
+    }
+
+    #[test]
+    fn collapsing_completed_bars_keeps_summary_at_first_hidden_row() {
+        let mut group = hook_group(0, false);
+
+        group
+            .completed
+            .push(project_completed_bar(0, 0, Some(true)));
+        group
+            .completed
+            .push(project_completed_bar(0, 2, Some(true)));
+        let collapsed = group.completed.collapse_one_line().unwrap();
+        let removed_hooks = collapsed
+            .removed
+            .iter()
+            .map(|bar| bar.hook_key.hook_idx)
+            .collect::<Vec<_>>();
+        group.hidden_summary = Some(hidden_bar("summary"));
+        let mut running = FxHashMap::default();
+        running.insert(1, project_running_bar(0, 1, "running-1"));
+
+        assert_eq!(removed_hooks, [0, 2]);
+        assert_eq!(group.completed.hidden_summary_order, Some(0));
+        assert_eq!(
+            group.insertion_anchor(0, &running).unwrap().message(),
+            "running-1"
+        );
+    }
+
+    #[test]
+    fn collapsing_requires_a_known_result_prefix() {
         let mut completed = CompletedBars::default();
 
         completed.push(completed_bar(0, None));
         completed.push(completed_bar(1, Some(true)));
         completed.push(completed_bar(2, Some(true)));
 
-        assert!(!completed.can_hide_one_line());
+        assert!(!completed.can_collapse_one_line());
     }
 
     #[test]
@@ -1007,15 +1164,19 @@ mod tests {
         let mut group = HookGroup::new(0, Some(progress_bar(&reporter)));
         group.completed.hidden_passed = 2;
         group.completed.hidden_failed = 1;
+        let anchor = progress_bar(&reporter);
 
-        reporter.update_group_summary(&mut group, &ProgressBar::hidden());
+        group.completed.hidden_summary_order = Some(2);
+
+        reporter.update_group_summary(&mut group, &anchor);
 
         let summary = group.hidden_summary.as_ref().unwrap();
         let message = summary.message().clone();
         assert!(message.starts_with("  "));
         assert!(message.contains("⋮ 3 hooks hidden: 2 passed, 1 failed"));
+        let running = FxHashMap::default();
         assert_eq!(
-            group.last_line.as_ref().unwrap().message(),
+            group.insertion_anchor(0, &running).unwrap().message(),
             summary.message()
         );
     }
@@ -1027,15 +1188,82 @@ mod tests {
         let mut group = hook_group(0, false);
         group.completed.hidden_failed = 1;
 
+        group.completed.hidden_summary_order = Some(0);
+
         reporter.update_group_summary(&mut group, &anchor);
 
         let summary = group.hidden_summary.as_ref().unwrap();
         let message = summary.message().clone();
         assert!(!message.starts_with("  "));
         assert!(message.contains("⋮ 1 hooks hidden: 1 failed"));
+        let running = FxHashMap::default();
         assert_eq!(
-            group.last_line.as_ref().unwrap().message(),
+            group.insertion_anchor(0, &running).unwrap().message(),
             summary.message()
+        );
+    }
+
+    #[test]
+    fn insertion_anchor_prefers_running_tail_over_hidden_summary() {
+        let mut group = hook_group(0, false);
+        group.completed.hidden_summary_order = Some(0);
+        group.hidden_summary = Some(hidden_bar("summary"));
+        let mut running = FxHashMap::default();
+        running.insert(1, project_running_bar(0, 1, "running"));
+
+        assert_eq!(
+            group.insertion_anchor(0, &running).unwrap().message(),
+            "running"
+        );
+    }
+
+    #[test]
+    fn insertion_anchor_uses_hidden_summary_when_it_is_visual_tail() {
+        let mut group = hook_group(0, false);
+        group.completed.hidden_summary_order = Some(2);
+        group.hidden_summary = Some(hidden_bar("summary"));
+        let mut running = FxHashMap::default();
+        running.insert(0, project_running_bar(0, 0, "running-0"));
+
+        assert_eq!(
+            group.insertion_anchor(0, &running).unwrap().message(),
+            "summary"
+        );
+    }
+
+    #[test]
+    fn insertion_anchor_uses_latest_visible_line_order() {
+        let mut group = hook_group(0, false);
+        let mut running = FxHashMap::default();
+        running.insert(1, project_running_bar(0, 1, "running-1"));
+        let completed = project_completed_bar(0, 2, Some(true));
+        completed.progress.set_message("completed-2");
+        group.completed.push(completed);
+
+        assert_eq!(
+            group.insertion_anchor(0, &running).unwrap().message(),
+            "completed-2"
+        );
+
+        running.insert(3, project_running_bar(0, 3, "running-3"));
+
+        assert_eq!(
+            group.insertion_anchor(0, &running).unwrap().message(),
+            "running-3"
+        );
+    }
+
+    #[test]
+    fn insertion_anchor_uses_running_output_tail() {
+        let group = hook_group(0, false);
+        let mut running_bar = project_running_bar(0, 1, "running-main");
+        running_bar.output_bars.push(hidden_bar("running-tail"));
+        let mut running = FxHashMap::default();
+        running.insert(1, running_bar);
+
+        assert_eq!(
+            group.insertion_anchor(0, &running).unwrap().message(),
+            "running-tail"
         );
     }
 
@@ -1048,6 +1276,7 @@ mod tests {
         reporter.update_group_summary(&mut group, &anchor);
 
         assert!(group.hidden_summary.is_none());
-        assert!(group.last_line.is_none());
+        let running = FxHashMap::default();
+        assert!(group.insertion_anchor(0, &running).is_none());
     }
 }

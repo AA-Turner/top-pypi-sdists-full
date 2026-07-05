@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import List, Set
-from polylith_cli.polylith import bricks, deps, info, interface
+from polylith_cli.polylith import deps, info, interface
+from polylith_cli.polylith.dirs import get_bases_data, get_components_data
 
 def get_imports(root: Path, ns: str, bricks: dict) -> dict:
     bases = bricks['bases']
@@ -14,12 +15,12 @@ def pick_name(data: List[dict]) -> Set[str]:
 def get_bases(root: Path, ns: str, project_data: dict) -> Set[str]:
     if project_data:
         return set(project_data.get('bases', []))
-    return pick_name(bricks.get_bases_data(root, ns))
+    return pick_name(get_bases_data(root, ns))
 
 def get_components(root: Path, ns: str, project_data: dict) -> Set[str]:
     if project_data:
         return set(project_data.get('components', []))
-    return pick_name(bricks.get_components_data(root, ns))
+    return pick_name(get_components_data(root, ns))
 
 def used_by_as_bricks(bricks: dict, brick_deps: dict) -> dict:
     bases = bricks['bases']

@@ -1,5 +1,6 @@
 from base64 import b64decode
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from typing import Any, Callable, FrozenSet, List, Optional, Tuple, Union, cast
 from warnings import warn
 
@@ -85,6 +86,12 @@ class SignatureConfiguration:
     KeyValue or make sure it matches what's in the certificate. When set to ``False``, SignXML compares KeyValue
     (and DEREncodedKeyValue) against the X.509 certificate and raises InvalidInput on mismatch. Set this to
     ``True`` to bypass the check and validate the signature using X509Data only.
+    """
+
+    verification_time: Optional[datetime] = None
+    """
+    The time to use when validating X.509 certificate validity periods. If unset, the current time is used.
+    Use this to verify signatures with certificates that are expired or not yet valid at the current time.
     """
 
     default_reference_c14n_method: CanonicalizationMethod = CanonicalizationMethod.CANONICAL_XML_1_1
@@ -261,7 +268,49 @@ class XMLVerifier(XMLSignatureProcessor):
         return payload
 
     def get_cert_chain_verifier(self, ca_pem_file, ee_policy, ca_policy):
-        return X509CertChainVerifier(ca_pem_file=ca_pem_file, ee_policy=ee_policy, ca_policy=ca_policy)
+        return X509CertChainVerifier(
+            ca_pem_file=ca_pem_file,
+            verification_time=self._get_cert_verification_time(),
+            ee_policy=ee_policy,
+            ca_policy=ca_policy,
+        )
+
+    def _get_cert_verification_time(self):
+        verification_time = self.config.verification_time or datetime.now(tz=timezone.utc)
+        if verification_time.tzinfo is None:
+            return verification_time.replace(tzinfo=timezone.utc)
+        return verification_time.astimezone(timezone.utc)
+
+    def _get_cert_description(self, cert, cert_source):
+        try:
+            subject = cert.subject.rfc4514_string()
+        except ValueError:
+            subject = "<invalid subject>"
+        return f"{cert_source} (subject={subject}, serial={cert.serial_number})"
+
+    def _get_cert_validity_error(self, cert, cert_source):
+        cert_description = self._get_cert_description(cert, cert_source)
+        verification_time = self._get_cert_verification_time()
+        if verification_time < cert.not_valid_before_utc:
+            return (
+                f"{cert_description}: certificate is not yet valid at validation time "
+                f"{verification_time.isoformat()}; certificate is not valid before "
+                f"{cert.not_valid_before_utc.isoformat()}. Use SignatureConfiguration(verification_time=...) "
+                "to verify at a different point in time."
+            )
+        if verification_time > cert.not_valid_after_utc:
+            return (
+                f"{cert_description}: certificate has expired at validation time "
+                f"{verification_time.isoformat()}; certificate is not valid after "
+                f"{cert.not_valid_after_utc.isoformat()}. Use SignatureConfiguration(verification_time=...) "
+                "if you must verify with an expired cert."
+            )
+        return None
+
+    def _check_cert_validity(self, cert, cert_source):
+        msg = self._get_cert_validity_error(cert, cert_source)
+        if msg is not None:
+            raise InvalidCertificate(msg)
 
     def _match_key_values(self, key_value, der_encoded_key_value, signing_cert, signature_alg):
         if self.config.ignore_ambiguous_key_info is True:
@@ -339,6 +388,17 @@ class XMLVerifier(XMLSignatureProcessor):
              config = SignatureConfiguration(location="./")
              XMLVerifier(...).verify(..., expect_config=config)
 
+         The ``location`` value describes the expected parent path for the ``ds:Signature`` element. SignXML
+         appends ``ds:Signature`` to this path internally. For example, if a SAML ``Response`` root contains a
+         signed ``Assertion`` child, configure verification like this:
+
+         .. code-block:: python
+
+             config = SignatureConfiguration(
+                 location="./{urn:oasis:names:tc:SAML:2.0:assertion}Assertion/"
+             )
+             XMLVerifier().verify(response_xml, x509_cert=cert, expect_config=config)
+
          Depending on the canonicalization method used by the signature, comments in the XML data may not be subject to
          signing, so may need to be untrusted. If so, they are excised from the return value of ``verify()``.
 
@@ -352,7 +412,8 @@ class XMLVerifier(XMLSignatureProcessor):
          ``x509_cert`` argument to specify a certificate that was pre-shared out-of-band (e.g. via SAML metadata, as
          shown in :ref:`Verifying SAML assertions <verifying-saml-assertions>`), or ``cert_subject_name`` to specify a
          subject name that must be in the signing X.509 certificate given by the signature (verified as if it were a
-         domain name), or ``ca_pem_file`` to give a custom CA.
+         domain name), or ``ca_pem_file`` to give a custom CA. If you need to verify a signature at the time it was
+         created rather than the current time, pass ``expect_config=SignatureConfiguration(verification_time=...)``.
 
         :param data: Signature data to verify
         :type data: String, file-like object, or XML ElementTree Element API compatible object
@@ -458,6 +519,7 @@ class XMLVerifier(XMLSignatureProcessor):
                 if x509_data is None:
                     raise InvalidInput("Expected a X.509 certificate based signature")
                 certs = [cert.text for cert in self._findall(x509_data, "X509Certificate")]
+                cert_chain_source = "X509Data/X509Certificate"
                 if len(certs) == 0:
                     x509_iss = x509_data.find("ds:X509IssuerSerial/ds:X509IssuerName", namespaces=namespaces)
                     x509_sn = x509_data.find("ds:X509IssuerSerial/ds:X509SerialNumber", namespaces=namespaces)
@@ -470,6 +532,7 @@ class XMLVerifier(XMLSignatureProcessor):
                         )
                         if len(cert_chain) == 0:
                             raise InvalidCertificate("No certificate found for given X509 data")
+                        cert_chain_source = "cert_resolver result"
                         if not all(isinstance(c, x509.Certificate) for c in cert_chain):
                             cert_chain = [x509.load_pem_x509_certificate(add_pem_header(cert)) for cert in cert_chain]
                     else:
@@ -483,11 +546,22 @@ class XMLVerifier(XMLSignatureProcessor):
                     ca_pem_file=ca_pem_file, ee_policy=ee_policy, ca_policy=ca_policy
                 )
 
-                signing_cert = cert_verifier.verify(cert_chain)
+                try:
+                    signing_cert = cert_verifier.verify(cert_chain)
+                except InvalidCertificate as exc:
+                    if "valid at validation time" in str(exc):
+                        for index, cert in enumerate(cert_chain):
+                            self._check_cert_validity(cert, f"{cert_chain_source} certificate at index {index}")
+                    raise
+                signing_cert_source = f"verified {cert_chain_source} signing certificate"
             elif isinstance(self.x509_cert, x509.Certificate):
                 signing_cert = self.x509_cert
+                signing_cert_source = "provided x509_cert"
             else:
                 signing_cert = x509.load_pem_x509_certificate(add_pem_header(self.x509_cert))
+                signing_cert_source = "provided x509_cert"
+
+            self._check_cert_validity(signing_cert, signing_cert_source)
 
             if cert_subject_name is not None:
                 cn_oid = x509.oid.NameOID.COMMON_NAME

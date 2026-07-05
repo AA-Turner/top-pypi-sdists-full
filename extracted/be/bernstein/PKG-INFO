@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bernstein
-Version: 2.14.0
+Version: 2.14.1
 Summary: Audit-grade multi-agent orchestration for CLI coding agents (Claude Code, Codex, Gemini CLI, and 40 more): HMAC-chained audit log, signed agent cards, per-artefact lineage, air-gap deploy. The orchestrator your compliance team will sign off on.
 Project-URL: Homepage, https://bernstein.run
 Project-URL: Documentation, https://bernstein.readthedocs.io

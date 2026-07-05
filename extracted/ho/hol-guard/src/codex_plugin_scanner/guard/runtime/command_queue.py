@@ -14,6 +14,7 @@ from urllib.parse import urlparse, urlunparse
 from ...version import __version__
 from ..adapters.base import HarnessContext
 from ..store import GuardStore
+from .auto_update import maybe_auto_update
 from .command_executors import (
     COMMAND_OPERATION_SCHEMA_VERSIONS,
     SUPPORTED_COMMAND_OPERATIONS,
@@ -29,6 +30,7 @@ from .runner import (
     _sync_http_error_message,
     _sync_url_error_message,
     _urlopen_json_with_timeout_retry,
+    repair_guard_cloud_connect_storage,
 )
 
 COMMAND_QUEUE_STATE_KEY = "guard_command_queue_state"
@@ -44,6 +46,15 @@ _MIN_RETRY_WAIT_SECONDS = 0.1
 _REQUEST_TIMEOUT_SECONDS = 35
 _RETRY_TIMEOUT_SECONDS = 60
 _LOGGER = logging.getLogger(__name__)
+_LEASE_LOCAL_REQUEST_SNAPSHOT_KEYS = (
+    "requests",
+    "pendingComplete",
+    "resolvedComplete",
+    "pendingLimit",
+    "resolvedLimit",
+    "pendingCount",
+    "resolvedCount",
+)
 
 
 def _now() -> str:
@@ -246,10 +257,40 @@ def _lease_payload(store: GuardStore) -> dict[str, object]:
 
 def _local_requests_snapshot(store: GuardStore) -> dict[str, object]:
     try:
-        return _local_request_snapshot_payload(store)
+        payload = _local_request_snapshot_payload(store)
     except Exception as exc:
         _LOGGER.warning("Guard command local request snapshot failed: %s", _redacted_error(exc))
         return {"requests": []}
+    if not isinstance(payload, dict):
+        return {"requests": []}
+    return {key: payload[key] for key in _LEASE_LOCAL_REQUEST_SNAPSHOT_KEYS if key in payload}
+
+
+def _repair_guard_cloud_authorization(store: GuardStore) -> dict[str, bool]:
+    try:
+        result = repair_guard_cloud_connect_storage(store)
+    except Exception as exc:
+        _LOGGER.warning("Guard command authorization repair failed: %s", _redacted_error(exc))
+        return {
+            "cleared_stale_sign_in": False,
+            "existing_sign_in_valid": False,
+            "repaired_storage": False,
+        }
+    return {
+        "cleared_stale_sign_in": bool(result.get("cleared_stale_sign_in")),
+        "existing_sign_in_valid": bool(result.get("existing_sign_in_valid")),
+        "repaired_storage": bool(result.get("repaired_storage")),
+    }
+
+
+def _resolve_guard_sync_auth_context_with_repair(store: GuardStore) -> dict[str, object]:
+    try:
+        return _resolve_guard_sync_auth_context(store)
+    except (GuardSyncAuthorizationExpiredError, GuardSyncNotConfiguredError):
+        repair = _repair_guard_cloud_authorization(store)
+        if repair["existing_sign_in_valid"]:
+            return _resolve_guard_sync_auth_context(store)
+        raise
 
 
 def _job_id(job: dict[str, object]) -> str:
@@ -339,7 +380,14 @@ def _retry_pending_result(
         state["last_error"] = None
         _save_state(store, state)
         return False
-    _post_result(auth_context, job, payload)
+    try:
+        _post_result(auth_context, job, payload)
+    except urllib.error.HTTPError as error:
+        if error.code != 401:
+            raise
+        _LOGGER.warning("Pending Guard result 401, attempting OAuth refresh retry.")
+        refreshed_auth_context = _resolve_command_queue_auth_context(store, force_refresh=True)
+        _post_result(refreshed_auth_context, job, payload)
     state.pop("pending_result", None)
     state.pop("active_job", None)
     state.update(
@@ -354,8 +402,31 @@ def _retry_pending_result(
     return True
 
 
+def _maybe_auto_update(store: GuardStore, context: HarnessContext) -> None:
+    """Delegate to auto_update.maybe_auto_update."""
+    maybe_auto_update(store, context)
+
+
+def _resolve_command_queue_auth_context(
+    store: GuardStore,
+    *,
+    force_refresh: bool = False,
+) -> dict[str, object]:
+    try:
+        if force_refresh:
+            return _resolve_guard_sync_auth_context(store, force_refresh=True)
+        return _resolve_guard_sync_auth_context(store)
+    except (GuardSyncAuthorizationExpiredError, GuardSyncNotConfiguredError):
+        repair = _repair_guard_cloud_authorization(store)
+        if repair["existing_sign_in_valid"] or repair["repaired_storage"]:
+            if force_refresh:
+                return _resolve_guard_sync_auth_context(store, force_refresh=True)
+            return _resolve_guard_sync_auth_context(store)
+        raise
+
+
 def poll_command_queue_once(store: GuardStore, context: HarnessContext) -> dict[str, object]:
-    auth_context = _resolve_guard_sync_auth_context(store)
+    auth_context = _resolve_command_queue_auth_context(store)
     state = _load_state(store)
     state.update(
         {
@@ -368,7 +439,6 @@ def poll_command_queue_once(store: GuardStore, context: HarnessContext) -> dict[
     _save_state(store, state)
     if _retry_pending_result(store, auth_context, state):
         return command_queue_status(store)
-
     lease_response = _json_request(
         auth_context,
         method="POST",
@@ -387,8 +457,8 @@ def poll_command_queue_once(store: GuardStore, context: HarnessContext) -> dict[
             }
         )
         _save_state(store, state)
+        _maybe_auto_update(store, context)
         return command_queue_status(store)
-
     state.update(
         {
             "state": "leased",
@@ -400,6 +470,20 @@ def poll_command_queue_once(store: GuardStore, context: HarnessContext) -> dict[
     _save_state(store, state)
     try:
         _heartbeat(auth_context, item)
+    except urllib.error.HTTPError as error:
+        if error.code != 401:
+            raise
+        _LOGGER.warning("Guard heartbeat 401, attempting OAuth refresh retry.")
+        auth_context = _resolve_command_queue_auth_context(store, force_refresh=True)
+        state["state"] = "auth_expired"
+        _save_state(store, state)
+        try:
+            _heartbeat(auth_context, item)
+        except Exception:
+            state.pop("active_job", None)
+            state.update({"state": "error", "last_error": "Guard command heartbeat failed."})
+            _save_state(store, state)
+            raise
     except Exception:
         state.pop("active_job", None)
         state.update({"state": "error", "last_error": "Guard command heartbeat failed."})
@@ -418,6 +502,34 @@ def poll_command_queue_once(store: GuardStore, context: HarnessContext) -> dict[
     try:
         _heartbeat(auth_context, item)
         _post_result(auth_context, item, payload)
+    except urllib.error.HTTPError as error:
+        if error.code != 401:
+            _LOGGER.warning("Guard command result upload failed: job_id=%s", _job_id(item))
+            state.update(
+                {
+                    "state": "result_pending",
+                    "pending_result": {"job": item, "payload": payload, "recorded_at": _now()},
+                }
+            )
+            _save_state(store, state)
+            raise
+        _LOGGER.warning("Guard result 401, attempting OAuth refresh retry.")
+        auth_context = _resolve_command_queue_auth_context(store, force_refresh=True)
+        state["state"] = "auth_expired"
+        _save_state(store, state)
+        try:
+            _heartbeat(auth_context, item)
+            _post_result(auth_context, item, payload)
+        except Exception:
+            _LOGGER.warning("Guard command result upload failed: job_id=%s", _job_id(item))
+            state.update(
+                {
+                    "state": "result_pending",
+                    "pending_result": {"job": item, "payload": payload, "recorded_at": _now()},
+                }
+            )
+            _save_state(store, state)
+            raise
     except Exception:
         _LOGGER.warning("Guard command result upload failed: job_id=%s", _job_id(item))
         state.update(

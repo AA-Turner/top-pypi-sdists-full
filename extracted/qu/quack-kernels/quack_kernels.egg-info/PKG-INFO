@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: quack-kernels
-Version: 0.5.3
+Version: 0.6.0
 Requires-Python: >=3.10
 License-File: LICENSE
-Requires-Dist: nvidia-cutlass-dsl==4.6.0.dev0
+Requires-Dist: nvidia-cutlass-dsl==4.6.0
 Requires-Dist: torch
 Requires-Dist: apache-tvm-ffi<0.2,>=0.1.6
 Requires-Dist: torch-c-dlpack-ext
 Requires-Dist: einops
 Provides-Extra: cu13
-Requires-Dist: nvidia-cutlass-dsl[cu13]==4.6.0.dev0; extra == "cu13"
+Requires-Dist: nvidia-cutlass-dsl[cu13]==4.6.0; extra == "cu13"
 Provides-Extra: heuristics
 Requires-Dist: nvidia-matmul-heuristics; extra == "heuristics"
 Provides-Extra: jax

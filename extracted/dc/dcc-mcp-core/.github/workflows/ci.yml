@@ -23,6 +23,7 @@ on:
       - "rust-toolchain.toml"
       - ".github/workflows/ci.yml"
       - ".github/workflows/dcc-integration.yml"
+      - ".github/workflows/build-wheels.yml"
       - ".github/workflows/release.yml"
       - ".github/workflows/rust-matrix-full.yml"
       - ".github/actions/build-wheel/**"
@@ -44,6 +45,7 @@ on:
       - "rust-toolchain.toml"
       - ".github/workflows/ci.yml"
       - ".github/workflows/dcc-integration.yml"
+      - ".github/workflows/build-wheels.yml"
       - ".github/workflows/release.yml"
       - ".github/workflows/rust-matrix-full.yml"
       - ".github/actions/build-wheel/**"
@@ -462,6 +464,22 @@ jobs:
             "${{ steps.py314.outputs.python-path }}" scripts/vrs_replay.py \
               --base-url http://127.0.0.1:1 --dry-run --trace "$f"
           done
+
+  # ── Python 3.7 syntax gate ──────────────────────────────────────────────
+  # Maya 2022 / Blender 2.83 embed Python 3.7; pure-Python modules must
+  # remain syntax-compatible with 3.7 through 2026-12-31. This job runs
+  # check_py37_syntax.py with a 3.7 interpreter to catch PEP 604 unions,
+  # walrus operators, and other 3.8+ syntax.
+  py37-syntax-check:
+    name: py37 syntax check
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.7"
+      - name: Run py37 syntax check
+        run: python scripts/check_py37_syntax.py
 
   # -- Sentry E2E: real ingest through dcc-mcp-server init_sentry() --
   # Requires DCC_MCP_SENTRY_DSN GitHub Actions secret. Skips cleanly when

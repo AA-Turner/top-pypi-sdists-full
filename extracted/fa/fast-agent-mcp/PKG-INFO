@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: fast-agent-mcp
-Version: 0.8.3
-Summary: Define, Prompt and Test MCP enabled Agents and Workflows
+Version: 0.9.1
+Summary: Code, Build and Evaluate agents - excellent Model and Skills/MCP/ACP/A2A Support
 Author-email: Shaun Smith <fastagent@llmindset.co.uk>
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -229,7 +229,7 @@ Requires-Dist: email-validator==2.3.0
 Requires-Dist: fastapi==0.136.3
 Requires-Dist: fastmcp==3.4.2
 Requires-Dist: google-genai==2.10.0
-Requires-Dist: huggingface-hub==1.21.0
+Requires-Dist: huggingface-hub==1.22.0
 Requires-Dist: jsonschema==4.26.0
 Requires-Dist: keyring==25.7.0
 Requires-Dist: mcp==1.27.2
@@ -413,7 +413,7 @@ fast-agent quickstart workflow  # create "building effective agents" examples
 ```
 
 For packaged starter agents, use `fast-agent go --pack <name> --model <model>`.
-This installs the pack into the selected fast-agent environment if needed, then
+This installs the pack into the selected fast-agent home if needed, then
 starts `go` normally. `--model` is a fallback for cards without an explicit
 model setting; a model declared directly in an AgentCard still wins.
 
@@ -960,7 +960,7 @@ mcp:
 ### Secrets File
 
 > [!TIP]
-> Put `fast-agent.secrets.yaml` alongside `fast-agent.yaml` in your active fast-agent home. Select a different home with `--env` or `FAST_AGENT_HOME`.
+> Put `fast-agent.secrets.yaml` alongside `fast-agent.yaml` in your active fast-agent home. Select a different home with `--home` or `FAST_AGENT_HOME`; select a different workspace with `--workspace` and the home defaults to `<workspace>/.fast-agent`.
 
 ### Interactive Shell
 

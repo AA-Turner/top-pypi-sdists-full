@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: signxml
-Version: 5.0.1
+Version: 5.1.0
 Summary: Python XML Signature and XAdES library
 Project-URL: Homepage, https://github.com/XML-Security/signxml
 Project-URL: Documentation, https://xml-security.github.io/signxml/
@@ -145,6 +145,17 @@ Assuming ``metadata.xml`` contains SAML metadata for the assertion source:
     config = SignatureConfiguration(location="./")
     XMLVerifier(...).verify(..., expect_config=config)
 
+ The ``location`` value describes the expected parent path for the ``ds:Signature`` element. SignXML
+ appends ``ds:Signature`` to this path internally. For example, if a SAML ``Response`` root contains a
+ signed ``Assertion`` child, configure verification like this:
+
+ .. code-block:: python
+
+    config = SignatureConfiguration(
+        location="./{urn:oasis:names:tc:SAML:2.0:assertion}Assertion/"
+    )
+    XMLVerifier().verify(response_xml, x509_cert=cert, expect_config=config)
+
  **Recommended reading:** `W3C XML Signature Best Practices for Applications
  <http://www.w3.org/TR/xmldsig-bestpractices/#practices-applications>`_, `On Breaking SAML: Be Whoever You Want to Be
  <https://www.usenix.org/system/files/conference/usenixsecurity12/sec12-final91.pdf>`_, `Duo Finds SAML Vulnerabilities
@@ -161,6 +172,20 @@ Assuming ``metadata.xml`` contains SAML metadata for the assertion source:
  shown in *Verifying SAML assertions*), or ``cert_subject_name`` to specify a
  subject name that must be in the signing X.509 certificate given by the signature (verified as if it were a
  domain name), or ``ca_pem_file`` to give a custom CA.
+
+ To verify a signature at a specific point in time, such as an archived signature whose certificate has since
+ expired, configure ``verification_time``. The configured time is used for X.509 certificate validity checks,
+ including certificate chain validation and certificates supplied with ``x509_cert``:
+
+ .. code-block:: python
+
+    from datetime import datetime, timezone
+    from signxml import SignatureConfiguration, XMLVerifier
+
+    config = SignatureConfiguration(
+        verification_time=datetime(2018, 5, 28, 17, 0, tzinfo=timezone.utc)
+    )
+    verified_data = XMLVerifier().verify(data, expect_config=config).signed_xml
 
 Relaxing digital signature key usage extension validation for certificates
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

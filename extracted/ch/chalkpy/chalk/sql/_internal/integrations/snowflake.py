@@ -151,10 +151,18 @@ class ResultBatchResultHandle(ResultHandle):
             return self.result_batch.to_arrow()
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class UnloadedStorageFileResultHandle(ResultHandle):
     uri: str
     compressed_size: int
+
+    def __post_init__(self):
+        # Snowflake unload storage locations may point to gcs:// instead of gs://, since gcs:// is recognized
+        # by Snowflake (see https://docs.snowflake.com/en/user-guide/data-load-gcs-config).
+        # Support for gcs:// is not normalized across other GCS libraries, so we coerce to gs:// here.
+        if self.uri.startswith("gcs://"):
+            normalized_uri = "gs://" + self.uri[len("gcs://") :]
+            self.uri = normalized_uri
 
     @property
     def estimated_uncompressed_size(self) -> int | None:

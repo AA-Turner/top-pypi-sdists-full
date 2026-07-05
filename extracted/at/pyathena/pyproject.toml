@@ -5,7 +5,7 @@ authors = [
     {name = "laughingman7743", email = "laughingman7743@gmail.com"},
 ]
 dependencies = [
-    "boto3>=1.38.2",
+    "boto3>=1.41.2",
     "botocore>=1.41.2",
     "tenacity>=4.1.0",
     "fsspec",
@@ -223,12 +223,12 @@ TEST_TYPE =
 allowlist_externals =
     uv
     uvx
-    make
+    just
 commands =
     uv sync --group dev
-    pyathena: make test/pyathena
-    sqla: make test/sqla
-    sqla_async: make test/sqla-async
+    pyathena: just test pyathena
+    sqla: just test sqla
+    sqla_async: just test sqla-async
 passenv =
     TOXENV
     AWS_*

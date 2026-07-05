@@ -12,6 +12,32 @@ from ipyfilechooser import FileChooser
 from . import pc
 from .common import *
 
+# Debounce toolbar hover events to prevent the expand/collapse feedback loop
+# that makes the toolbar flicker in webview frontends such as VS Code (#1330).
+TOOLBAR_HOVER_DEBOUNCE_MS = 250
+TOOLBAR_HOVER_MODE = "debounce"
+
+
+def _toolbar_hover_event(source: widgets.Widget) -> "ipyevents.Event":
+    """Create a debounced ipyevents Event for a toolbar hover container.
+
+    Debouncing the ``mouseenter``/``mouseleave`` events avoids the rapid
+    expand/collapse feedback loop that makes the toolbar flicker in
+    webview-based frontends such as VS Code (see #1330).
+
+    Args:
+        source (widgets.Widget): The widget to watch for hover events.
+
+    Returns:
+        ipyevents.Event: The configured hover event.
+    """
+    return ipyevents.Event(
+        source=source,
+        watched_events=["mouseenter", "mouseleave"],
+        wait=TOOLBAR_HOVER_DEBOUNCE_MS,
+        throttle_or_debounce=TOOLBAR_HOVER_MODE,
+    )
+
 
 def tool_template(m, opened: Optional[bool] = True) -> Optional[widgets.Widget]:
     """Generates a tool GUI template using ipywidgets. Icons can be found at https://fontawesome.com/v4/icons
@@ -547,9 +573,7 @@ def main_toolbar(m) -> widgets.Widget:
     toolbar_footer = widgets.VBox()
     toolbar_footer.children = [toolbar_grid]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def handle_toolbar_event(event):
         if event["type"] == "mouseenter":
@@ -2076,9 +2100,7 @@ def census_widget(m) -> widgets.Widget:
         # output,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def handle_toolbar_event(event):
         if event["type"] == "mouseenter":
@@ -2260,9 +2282,7 @@ def search_basemaps(m):
         output,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def handle_toolbar_event(event):
         if event["type"] == "mouseenter":
@@ -2468,9 +2488,7 @@ def download_osm(m):
         output,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def handle_toolbar_event(event):
         if event["type"] == "mouseenter":
@@ -2668,9 +2686,7 @@ def inspector_gui(
         output,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def chk_change(change):
         if hasattr(m, "pixel_values"):
@@ -2805,7 +2821,7 @@ def inspector_gui(
 
                 layer_dict = m.cog_layer_dict[dropdown.value]
 
-            if layer_dict["type"] == "STAC":
+            if layer_dict.get("type") == "STAC":
                 if bands_chk.value:
                     assets = layer_dict["assets"]
                 else:
@@ -2846,7 +2862,7 @@ def inspector_gui(
                         output.append_stdout("No pixel value available")
                         bounds = m.cog_layer_dict[m.inspector_dropdown.value]["bounds"]
                         m.zoom_to_bounds(bounds)
-            elif layer_dict["type"] == "COG":
+            elif layer_dict.get("type") == "COG":
                 if m.inspector_bands_chk.value:
                     indexes = layer_dict["indexes"]
                 else:
@@ -2879,7 +2895,7 @@ def inspector_gui(
                         bounds = m.cog_layer_dict[m.inspector_dropdown.value]["bounds"]
                         m.zoom_to_bounds(bounds)
 
-            elif layer_dict["type"] == "LOCAL":
+            elif layer_dict.get("type") == "LOCAL":
                 try:
                     data = local_tile_pixel_value(
                         lon, lat, layer_dict["tile_client"], verbose=False
@@ -2924,6 +2940,11 @@ def inspector_gui(
                         output.append_stdout(e)
                         # bounds = m.cog_layer_dict[m.inspector_dropdown.value]["bounds"]
                         # m.zoom_to_bounds(bounds)
+            else:
+                with output:
+                    output.clear_output()
+                    output.outputs = ()
+                    output.append_stdout("Unsupported layer type")
 
             m.default_style = {"cursor": "crosshair"}
 
@@ -3086,9 +3107,7 @@ def plotly_toolbar(
     toolbar_footer = widgets.VBox(layout=widgets.Layout(overflow="hidden"))
     toolbar_footer.children = [toolbar_grid]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def handle_toolbar_event(event):
         if event["type"] == "mouseenter":
@@ -3265,9 +3284,7 @@ def plotly_tool_template(canvas):
         output,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def handle_toolbar_event(event):
         if event["type"] == "mouseenter":
@@ -3480,9 +3497,7 @@ def plotly_search_basemaps(canvas):
         output,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def handle_toolbar_event(event):
         if event["type"] == "mouseenter":
@@ -3594,9 +3609,7 @@ def plotly_whitebox_gui(canvas):
         output,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def handle_toolbar_event(event):
         if event["type"] == "mouseenter":
@@ -3720,9 +3733,7 @@ def search_geojson_gui(m):
         output,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def layer_change(change):
         if change["new"]:
@@ -3900,9 +3911,7 @@ def select_table_gui(m=None):
         output,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def handle_toolbar_event(event):
         if event["type"] == "mouseenter":
@@ -4176,9 +4185,7 @@ def show_table_gui(m, df):
         output,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def handle_toolbar_event(event):
         if event["type"] == "mouseenter":
@@ -4363,9 +4370,7 @@ def edit_draw_gui(m):
         buttons,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def handle_toolbar_event(event):
         if event["type"] == "mouseenter":
@@ -4907,9 +4912,7 @@ def stac_gui(
         output,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def update_bands():
         if len(stac_data) > 0:
@@ -5602,9 +5605,7 @@ def stac_custom_gui(
         output,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def update_bands():
         excluded = [
@@ -6143,9 +6144,7 @@ def oam_search_gui(
         output,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def handle_toolbar_event(event):
         if event["type"] == "mouseenter":
@@ -6590,9 +6589,7 @@ def nasa_data_gui(
         output,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def handle_toolbar_event(event):
         if event["type"] == "mouseenter":
@@ -7001,9 +6998,7 @@ def nasa_opera_gui(
         output,
     ]
 
-    toolbar_event = ipyevents.Event(
-        source=toolbar_widget, watched_events=["mouseenter", "mouseleave"]
-    )
+    toolbar_event = _toolbar_hover_event(toolbar_widget)
 
     def handle_toolbar_event(event):
         if event["type"] == "mouseenter":

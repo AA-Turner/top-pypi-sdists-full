@@ -2000,7 +2000,49 @@ class BingoTerminal:
         _target_changed = False
         if _urls:
             new_target = _urls[0].rstrip("/?,")
-            if self._agent_state.get("target") != new_target:
+            _existing_target = self._agent_state.get("target", "")
+
+            # ── v4.9.0: TARGET_LOCK (2차 방어선) ───────────────────────────
+            # 1차 방어: _detect_hallucination 패턴 7 — LLM 코드 내 타 도메인 URL 차단(근본 수정)
+            # 2차 방어: 여기서 텍스트에서 추출한 URL이 다른 도메인이면 차단
+            # 기록.md L1079: LLM이 hanurschool.nurihaus.com으로 무단 타겟 변경
+            if _existing_target and new_target != _existing_target:
+                # 동일 도메인 내 경로 변경은 허용 (프로토콜+도메인만 비교)
+                import urllib.parse as _up
+                _ex_parsed = _up.urlparse(_existing_target)
+                _new_parsed = _up.urlparse(new_target)
+                _ex_domain = f"{_ex_parsed.scheme}://{_ex_parsed.netloc}".lower()
+                _new_domain = f"{_new_parsed.scheme}://{_new_parsed.netloc}".lower()
+                if _ex_domain != _new_domain and _new_domain not in ("://", "//"):
+                    # 다른 도메인 → TARGET_LOCK 발동 → 사용자에게 확인 요청
+                    _lang = getattr(self.config, "lang", "en")
+                    _lock_warn = {
+                        "ko": (
+                            f"⛔ [TARGET_LOCK v4.8.0] 타겟 무단 변경 차단!\n"
+                            f"  현재 타겟: {_existing_target}\n"
+                            f"  변경 시도: {new_target}\n"
+                            f"  새 타겟으로 변경하려면 명시적으로 '/target {new_target}' 입력."
+                        ),
+                        "zh": (
+                            f"⛔ [TARGET_LOCK v4.8.0] 阻止未授权目标变更!\n"
+                            f"  当前目标: {_existing_target}\n"
+                            f"  尝试变更为: {new_target}\n"
+                            f"  如需切换目标，请明确输入 '/target {new_target}'."
+                        ),
+                        "en": (
+                            f"⛔ [TARGET_LOCK v4.8.0] Unauthorized target change blocked!\n"
+                            f"  Current target: {_existing_target}\n"
+                            f"  Attempted change: {new_target}\n"
+                            f"  To switch target, explicitly type '/target {new_target}'."
+                        ),
+                    }.get(_lang, f"⛔ [TARGET_LOCK] Blocked target change from {_existing_target} to {new_target}")
+                    self.console.print(f"[bold red]{_lock_warn}[/bold red]")
+                    # 타겟 변경 차단 — _urls를 비워서 이후 처리 스킵
+                    _urls = []
+                    new_target = _existing_target
+            # ──────────────────────────────────────────────────────────────
+
+            if _urls and self._agent_state.get("target") != new_target:
                 _target_changed = True
                 self._reset_agent_state()
                 self._agent_state["target"] = new_target
@@ -2851,10 +2893,13 @@ class BingoTerminal:
             "- Write Python code using a DIFFERENT technique from what you just used\n"
             "- Do NOT repeat the same payload — use a different attack vector\n"
             "- Include print() statements showing actual server response\n"
-            "- After verification code runs: tag finding as [CONFIRMED ✅] or [FALSE POSITIVE ❌]\n"
-            "- If [CONFIRMED]: THEN proceed with full exploitation\n"
-            "- If [FALSE POSITIVE]: note why and move to next vector\n\n"
-            "Write verification code NOW:"
+            "- CRITICAL: DO NOT tag [CONFIRMED ✅] or [FALSE POSITIVE ❌] in THIS response\n"
+            "- CRITICAL: Write the verification code ONLY — do NOT pre-judge the result\n"
+            "- After the code RUNS and you SEE the actual output: THEN tag in your NEXT message\n"
+            "- [CONFIRMED ✅] = only after you see actual proof in execution output\n"
+            "- [FALSE POSITIVE ❌] = only after you see the code ran and no evidence found\n"
+            "- Predicting [FALSE POSITIVE] before code runs = HALLUCINATION — FORBIDDEN\n\n"
+            "Write verification code NOW (tagging comes AFTER execution):"
         )
         self.history.append(Message(role="user", content=mvvs_prompt))
 
@@ -2863,26 +2908,40 @@ class BingoTerminal:
         verify_response = self._stream_response(model.chat_stream(self._build_messages("")))
         if verify_response:
             self.history.append(Message(role="assistant", content=verify_response))
-            # [CONFIRMED] 태그 감지 → 콘솔 강조 표시
-            import re as _re
-            if _re.search(r'\[CONFIRMED\s*✅?\]', verify_response):
-                _conf_msg = self.s.get("mvvs_confirmed", {
-                    "ko": "✅ [CONFIRMED] — 2차 검증 통과, 취약점 확인됨",
-                    "zh": "✅ [CONFIRMED] — 二次验证通过，漏洞确认",
-                    "en": "✅ [CONFIRMED] — Secondary verification passed",
-                })
-                if isinstance(_conf_msg, dict):
-                    _conf_msg = _conf_msg.get(_lang, "✅ Confirmed.")
-                self.console.print(f"\n[bold green]{_conf_msg}[/bold green]")
-            elif _re.search(r'\[FALSE\s*POSITIVE\s*❌?\]', verify_response):
-                _fp_msg = self.s.get("mvvs_false_positive", {
-                    "ko": "❌ [FALSE POSITIVE] — 2차 검증 실패, 오탐 처리",
-                    "zh": "❌ [FALSE POSITIVE] — 二次验证失败，误报处理",
-                    "en": "❌ [FALSE POSITIVE] — Secondary verification failed",
-                })
-                if isinstance(_fp_msg, dict):
-                    _fp_msg = _fp_msg.get(_lang, "❌ False positive.")
-                self.console.print(f"\n[bold red]{_fp_msg}[/bold red]")
+
+            # ── v4.5.0: MVVS CONFIRMED/FALSE POSITIVE 판단 규칙 ─────────────────
+            # 핵심 원칙: 실제 실행결과(코드 출력)에 근거한 판단만 허용
+            # LLM이 코드 실행 전 텍스트에 [FALSE POSITIVE]를 예측으로 적어두는 경우 → 오탐!
+            # 코드 블록이 있는 응답 = 아직 실행 안 됨 → CONFIRMED/FALSE POSITIVE 판정 금지
+            # 코드 블록이 없는 응답 = 이미 실행된 결과를 분석한 것 → 판정 허용
+            import re as _re_mvvs
+            _mvvs_has_code = bool(
+                _re_mvvs.search(r"```(?:python|py|bash|sh)\n", verify_response, _re_mvvs.DOTALL)
+            )
+
+            if not _mvvs_has_code:
+                # 코드 없음 = LLM이 기존 결과를 분석해서 최종 판단 → 태그 신뢰
+                if _re_mvvs.search(r'\[CONFIRMED\s*✅?\]', verify_response):
+                    _conf_msg = self.s.get("mvvs_confirmed", {
+                        "ko": "✅ [CONFIRMED] — 실행결과 기반 취약점 확인됨",
+                        "zh": "✅ [CONFIRMED] — 基于执行结果，漏洞确认",
+                        "en": "✅ [CONFIRMED] — Confirmed from actual execution output",
+                    })
+                    if isinstance(_conf_msg, dict):
+                        _conf_msg = _conf_msg.get(_lang, "✅ Confirmed.")
+                    self.console.print(f"\n[bold green]{_conf_msg}[/bold green]")
+                elif _re_mvvs.search(r'\[FALSE\s*POSITIVE\s*❌?\]', verify_response):
+                    _fp_msg = self.s.get("mvvs_false_positive", {
+                        "ko": "❌ [FALSE POSITIVE] — 실행결과 기반 오탐 확인됨",
+                        "zh": "❌ [FALSE POSITIVE] — 基于执行结果，误报确认",
+                        "en": "❌ [FALSE POSITIVE] — Confirmed false positive from execution",
+                    })
+                    if isinstance(_fp_msg, dict):
+                        _fp_msg = _fp_msg.get(_lang, "❌ False positive.")
+                    self.console.print(f"\n[bold red]{_fp_msg}[/bold red]")
+            # 코드 블록 있음 = 실행 전 LLM 예측 → CONFIRMED/FALSE POSITIVE 표시 억제
+            # (실행 후 다음 LLM 분석 turn에서 실제 결과로 판단)
+
             return verify_response
         else:
             self.history.pop()
@@ -5023,6 +5082,82 @@ class BingoTerminal:
                         "Use the ACTUAL response: r = requests.get(url); print(r.text)"
                     )
 
+            # ── v4.9.0 패턴 6: 텍스트 서술에서 미실행 결과 위조 감지 (확장) ──────
+            # 기록.md L1192: "EXTRACTVALUE 返回了 ~z~5.4~z~" 식의 환각
+            # v4.9.0: Gap 4 수정 — 표현 변형 추가로 탐지 커버리지 향상
+            _CLAIMED_RESULT_RE = _hall_re.compile(
+                r"(?:"
+                # ── 중국어 결과 서술 패턴 ──────────────────────────────────────
+                r"(?:返回了|返回结果|返回的结果|查询结果为|执行结果)\s*[：:]\s*.{3,80}"
+                r"|(?:结果[是为]|得到的结果|获取到了|我们得到了|拿到了)\s*.{3,80}"
+                r"|(?:数据库名?|表名|用户名|版本号?)[：:\s为是显=].{2,60}"
+                r"|(?:显示(?:为|了|出)|表明|说明|发现)\s*.{3,60}(?:数据库|版本|用户|表名|DB)"
+                r"|(?:DB|数据库|版本)\s*(?:为|是|=|:)\s*['\"]?.{2,60}"
+                # ── 영어 결과 서술 패턴 ──────────────────────────────────────
+                r"|(?:returned?|got back|response was|result[:\s]+)['\"]?.{3,80}"
+                r"|(?:confirmed|verified|extracted)\s+(?:that\s+)?(?:the\s+)?(?:db|database|table|user)[:\s].{3,60}"
+                r"|(?:the\s+)?(?:db|database|version|username|table)\s+(?:is|was|=)\s*['\"]?.{2,60}"
+                r"|(?:shows?|reveals?|indicates?)\s+(?:that\s+)?(?:the\s+)?(?:db|version|user|table).{3,60}"
+                r"|(?:we\s+(?:found|got|confirmed|extracted|have))\s+(?:the\s+)?(?:db|version|user|table).{3,60}"
+                # ── 한국어 결과 서술 패턴 ──────────────────────────────────────
+                r"|(?:반환됨|결과는|추출됨|확인됨|가져옴|발견됨)[：:\s].{2,60}"
+                r"|(?:DB명?|버전|사용자명?|테이블명?)\s*(?:은|는|이|가|=|:)\s*.{2,50}(?:임|였|이다|입니다|으로\s*확인)"
+                r"|(?:나왔|검출됨|추출\s*성공|확인\s*완료)[：:\s].{2,60}"
+                r")",
+                _hall_re.IGNORECASE,
+            )
+            # 위 패턴이 주석(#)이나 print()가 아닌 코드 영역에서 문자열 리터럴로 등장하면 환각
+            for _m in _CLAIMED_RESULT_RE.finditer(s):
+                _start = _m.start()
+                # 해당 위치가 주석 행인지 확인
+                _line_start = s.rfind('\n', 0, _start) + 1
+                _line_text = s[_line_start:_start].lstrip()
+                # 주석이 아니고, print()도 아니고, 실제 네트워크 호출이 없으면 → 환각
+                if (not _line_text.startswith('#')
+                        and 'print(' not in s[max(0,_start-40):_start]
+                        and not _has_network):
+                    return (
+                        "CLAIMED_RESULT_WITHOUT_EXEC: Code describes result "
+                        f"({_m.group(0)[:80]!r}) as text/comment without running real HTTP "
+                        "request. ALL results MUST come from actual print() output of "
+                        "requests.get/post execution. Remove the fabricated result."
+                    )
+
+            # ── v4.9.0 패턴 7: 타겟 외 도메인 URL 실행 원천 차단 ─────────────
+            # 기록.md L1079: LLM이 hanurschool.nurihaus.com 코드를 생성해 실행 → 무단 타겟 변경
+            # 근본 원인: LLM 코드 내에 현재 타겟과 다른 도메인 URL이 포함되어 실제 실행됨
+            # 근본 해결: 실행 전 코드 내 URL 도메인을 현재 타겟 도메인과 비교 → 불일치 시 실행 자체를 차단
+            import urllib.parse as _up
+            _active_target = (
+                getattr(self, "_agent_state", {}).get("target")
+                or getattr(self, "_current_target", None)
+            )
+            if _active_target and _has_network:
+                # 타겟 도메인 정규화 (프로토콜 없으면 https:// 보완)
+                _t_str = _active_target if "://" in _active_target else f"https://{_active_target}"
+                _t_parsed = _up.urlparse(_t_str)
+                # www. 제거 후 소문자로 비교
+                _t_domain = _t_parsed.netloc.lower().removeprefix("www.")
+
+                # 코드 내 모든 http(s):// URL 추출
+                _urls_in_code = _hall_re.findall(r'https?://[^\s\'"<>,;)\\]+', s)
+                for _cu in _urls_in_code:
+                    _cu_parsed = _up.urlparse(_cu)
+                    _cu_domain = _cu_parsed.netloc.lower().removeprefix("www.")
+                    if not _cu_domain:
+                        continue
+                    # 도메인 불일치 → 실행 차단
+                    if _cu_domain != _t_domain:
+                        return (
+                            f"TARGET_DOMAIN_MISMATCH: Code contains URL '{_cu}' "
+                            f"targeting domain '{_cu_domain}', but the ACTIVE TARGET is "
+                            f"'{_active_target}' (domain: '{_t_domain}'). "
+                            f"You MUST only test the current target domain. "
+                            f"Replace '{_cu_domain}' with '{_t_domain}' in your code. "
+                            f"If you need to switch targets, the user must explicitly "
+                            f"provide the new target — you cannot change it autonomously."
+                        )
+
             return None
 
         # ── 코드 사전 검증 헬퍼 (SyntaxError / NameError 예방) ──────────
@@ -5035,6 +5170,19 @@ class BingoTerminal:
             fixed = code
             # fix 추적 리스트를 함수 최상단에서 초기화 (0-A 블록에서 먼저 사용되므로)
             _applied_fix_names: list[str] = []
+
+            # ── v4.7.0 AST 정적 분석 — 무한루프 선제 차단 (최우선, Regex보다 정확) ────
+            # code_guard.check() → None(안전) | "INFINITE_LOOP_RISK: ..." (위험)
+            # Regex 0-A/0-B 보다 앞서 실행: false positive/negative 최소화.
+            try:
+                from ..core.code_guard import check as _cg_check
+                _cg_reason = _cg_check(code)
+                if _cg_reason:
+                    return (f"__BLOCKED__:{_cg_reason}", [])
+            except ImportError:
+                pass  # code_guard 로드 실패 시 기존 Regex 방식으로 폴백
+            except Exception:
+                pass  # AST 분석 오류 → 안전하게 통과 (실행 차단 안 함)
 
             # ── 0-Y. urllib.parse 미import 자동 주입 ──────────────────────────
             # AI가 urllib3만 import하고 urllib.parse.quote/urlencode/urlparse 등 사용 → NameError
@@ -5600,14 +5748,22 @@ class BingoTerminal:
             )
             if fixed != _before_0d:
                 _applied_fix_names.append("fix_time_sleep_uniform")
-            # random.uniform을 썼지만 import random 누락된 경우 자동 주입
-            if "random.uniform" in fixed and not _pre_re.search(r'\bimport\s+random\b', fixed):
+            # v4.8.0: random 모듈 사용 함수 전체 커버 — import random 자동 주입
+            # 이전: random.uniform만 검사 → random.choice/randint 등 누락 → NameError 발생
+            _RANDOM_USAGE_RE = _pre_re.compile(
+                r'\brandom\.(?:uniform|choice|choices|randint|random|shuffle|sample'
+                r'|seed|gauss|triangular|betavariate|expovariate|gammavariate'
+                r'|lognormvariate|normalvariate|vonmisesvariate|paretovariate'
+                r'|weibullvariate|getrandbits|randbytes)\s*\('
+            )
+            if _RANDOM_USAGE_RE.search(fixed) and not _pre_re.search(r'\bimport\s+random\b', fixed):
                 _first_import_m = _pre_re.search(r'^(?:import |from )', fixed, _pre_re.MULTILINE)
                 if _first_import_m:
                     _fip2 = _first_import_m.start()
                     fixed = fixed[:_fip2] + "import random\n" + fixed[_fip2:]
                 else:
                     fixed = "import random\n" + fixed
+                _applied_fix_names.append("inject_import_random")
 
             # ── 5. SyntaxError 체크 + 자동 수정 시도 ────────────────────────
             try:
@@ -6475,72 +6631,144 @@ class BingoTerminal:
 
             _no_code_retry = 0  # 코드 있으면 카운터 리셋
 
-            # ── v3.5.2: Phantom Guard — 코드 실행 전 팬텀 모드 / 구캐시 / 자기수정루프 탐지 ──
-            if self._phantom_guard is not None:
+            # ── v4.4.0: PhantomGuard 재설계 — 코드 블록 있으면 실행 우선, PHANTOM 사전 차단 금지 ──
+            # 핵심 원칙: LLM이 Python/Bash 코드 블록을 생성했다 = 실제 실행 의도
+            # 코드가 있는데 실행 전 PHANTOM으로 차단 → 코드 영원히 실행 불가 → 무한 루프
+            # 해결책: 코드 블록 존재 시 PHANTOM 사전 차단 완전 우회, 코드 실행 후 사후 검사
+            import re as _pgre_pre
+            _has_executable_code = bool(
+                _pgre_pre.search(r"```(?:python|py|bash|sh)\n", current_response, _pgre_pre.DOTALL)
+            )
+
+            if self._phantom_guard is not None and not _has_executable_code:
+                # 코드 블록 없을 때만 PHANTOM 사전 차단 (텍스트만 있는 응답)
                 try:
                     _pg_target = self._agent_state.get("target", "") or getattr(self.config, "target", "")
                     if _pg_target and _pg_target != self._phantom_guard.session_target:
                         self._phantom_guard.update_target(_pg_target)
                     _pg_lang = getattr(self.config, "lang", "ko")
                     self._phantom_guard.lang = _pg_lang
-                    # 코드 블록 추출 (정규식)
-                    import re as _pgre
-                    _pg_codes = "\n".join(_pgre.findall(r"```(?:python|bash|sh)?\n(.*?)```", current_response, _pgre.DOTALL))
                     _pg_result = self._phantom_guard.check_response(
                         response_text=current_response,
-                        code_text=_pg_codes,
+                        code_text="",
                         exec_output="",
                     )
-                    if _pg_result.inject_message:
+                    if _pg_result.inject_message and _pg_result.blocked:
                         _pg_reason = _pg_result.block_reason
-                        _pg_label_map = {
-                            "PHANTOM": self.s.get("phantom_mode_blocked", "⛔ 팬텀 모드 차단"),
-                            "SELF_LOOP": self.s.get("phantom_self_loop_blocked", "⛔ 자기수정 루프 차단"),
-                            "STALE_CACHE": self.s.get("phantom_stale_cache_blocked", "⛔ 구캐시 차단"),
-                            "TARGET_MISMATCH": self.s.get("phantom_target_mismatch", "⚠️ 타겟 오인 경고"),
-                            "ZERO_HTTP_CLAIM": self.s.get("phantom_zero_http_blocked", "⛔ HTTP 0건 주장 차단"),
-                            "SPA_DETECTED": self.s.get("phantom_spa_detected", "⚠️ SPA 오탐 차단"),
-                        }
-                        _pg_label = _pg_label_map.get(_pg_reason, "⚠️ PhantomGuard")
-                        self.console.print(f"\n[bold red]{_pg_label}[/bold red]")
+                        # PHANTOM이면 조용히 재요청 (메시지 출력 없음)
                         self.history.append(
                             Message(role="user", content=_pg_result.inject_message)
                         )
-                        if _pg_result.blocked:
-                            # ── v3.5.3: Hard Session Restart 확인 ──────────────
-                            if self._phantom_guard.hard_restarter.should_hard_restart:
-                                _hr_msg = self._phantom_guard.hard_restarter.hard_restart_msg(
-                                    self._phantom_guard.session_target, _pg_lang
-                                )
-                                _hr_label = self.s.get("phantom_hard_restart", "🔄 하드 세션 재시작")
-                                self.console.print(f"\n[bold red]{_hr_label}[/bold red]\n{_hr_msg}")
-                                # 히스토리 초기화 (시스템 메시지만 보존)
-                                self.history = [m for m in self.history if m.role == "system"]
+                        if self._phantom_guard.hard_restarter.should_hard_restart:
+                            self.history = [m for m in self.history if m.role == "system"]
+                            self.history.append(
+                                Message(role="user", content=_pg_result.inject_message)
+                            )
+                            self._phantom_guard.hard_restarter.do_restart()
+                            self._phantom_guard.reset_counters()
+                        from ..models.registry import ModelRegistry as _MR_pg
+                        _mc_pg = self.config.get_active_model_config()
+                        if _mc_pg:
+                            _m_pg = _MR_pg.build(_mc_pg)
+                            current_response = self._stream_response(
+                                _m_pg.chat_stream(self._build_messages(""))
+                            )
+                            if current_response:
                                 self.history.append(
-                                    Message(role="user", content=_hr_msg)
+                                    Message(role="assistant", content=current_response)
                                 )
-                                self._phantom_guard.hard_restarter.do_restart()
-                                self._phantom_guard.reset_counters()
-                            # ── 재시도 ─────────────────────────────────────────
-                            from ..models.registry import ModelRegistry as _MR_pg
-                            _mc_pg = self.config.get_active_model_config()
-                            if _mc_pg:
-                                _m_pg = _MR_pg.build(_mc_pg)
-                                _pg_retry_label = self.s.get("phantom_retrying", "⛔ 팬텀 모드 → 실제 HTTP 코드 재요청 중...")
-                                self.console.print(f"\n[bold red]{_pg_retry_label}[/bold red]")
-                                current_response = self._stream_response(
-                                    _m_pg.chat_stream(self._build_messages(""))
-                                )
-                                if current_response:
-                                    self.history.append(
-                                        Message(role="assistant", content=current_response)
-                                    )
-                            continue
+                        continue
                 except Exception:
-                    pass  # PhantomGuard 오류는 실행 차단하지 않음
+                    pass
 
-            # 코드 실행
+            # 코드 실행 (코드 블록이 있으면 반드시 실행)
             results_text = self._run_code_blocks(current_response, _loaded_skills)
+
+            # ── v4.9.0: 텍스트 레벨 환각 스캐너 ────────────────────────────────
+            # Gap 1 수정: 코드 블록 밖 텍스트에서 미실행 결과 서술 탐지
+            # 상황: LLM이 ```python 코드 없이 텍스트로 "DB명이 X로 확인됨" 같은 환각을 서술
+            # 탐지: 코드 블록 제거 → 순수 텍스트에서 결과 주장 패턴 검사
+            # 조건: 실행 결과가 없고(results_text 비어 있음) + 텍스트에 결과 서술 존재 → 주입
+            try:
+                import re as _thal_re
+                # 코드 블록 제거해 순수 텍스트만 추출
+                _text_only = _thal_re.sub(r'```[\s\S]*?```', '', current_response).strip()
+                if _text_only and not results_text:
+                    _TEXT_HAL_RE = _thal_re.compile(
+                        r"(?:"
+                        # 중국어
+                        r"(?:返回了|返回结果|查询结果为|执行结果|我们得到了)[：:\s].{3,60}"
+                        r"|(?:结果[是为]|得到了|获取到了|发现了)\s*.{3,60}"
+                        r"|(?:数据库名?|表名|用户名|版本号?)\s*(?:为|是|=|:)\s*.{2,40}"
+                        r"|(?:DB|数据库|版本)\s*[=:是为]\s*['\"]?.{2,40}"
+                        # 영어
+                        r"|(?:the\s+)?(?:db|database|version|username|table)\s+(?:is|was|=)\s*['\"]?.{2,40}"
+                        r"|(?:shows?|reveals?|indicates?|confirmed|extracted)\s+(?:the\s+)?(?:db|version|user|table).{3,50}"
+                        r"|(?:we\s+(?:found|got|confirmed|extracted))\s+(?:the\s+)?(?:db|version|user).{3,50}"
+                        # 한국어
+                        r"|(?:반환됨|추출됨|확인됨|발견됨|검출됨)\s*[：:\s].{2,50}"
+                        r"|(?:DB|버전|사용자|테이블)\s*(?:은|는|이|가)?\s*.{2,40}(?:임|였|이다|입니다|으로\s*확인)"
+                        r"|✅\s*\[?(?:VERIFIED|확인)\]?\s*.{2,60}"
+                        r")",
+                        _thal_re.IGNORECASE,
+                    )
+                    _th_m = _TEXT_HAL_RE.search(_text_only)
+                    if _th_m:
+                        _lang_th = getattr(self.config, "lang", "en")
+                        _th_snippet = _th_m.group(0)[:80].strip()
+                        _th_feedback = {
+                            "ko": (
+                                f"[TEXT_HALLUCINATION_DETECTED v4.9.0]\n"
+                                f"코드 실행 없이 텍스트로 결과를 서술했습니다: '{_th_snippet}'\n"
+                                f"이것은 실제 실행 결과가 아닙니다. 반드시 ```python 블록으로 "
+                                f"코드를 작성하고 실제 requests.get/post 실행 후 print() 출력만 보고하세요."
+                            ),
+                            "zh": (
+                                f"[TEXT_HALLUCINATION_DETECTED v4.9.0]\n"
+                                f"在未执行代码的情况下，通过文字描述了结果: '{_th_snippet}'\n"
+                                f"这不是真实的执行结果。必须用 ```python 代码块实际运行 "
+                                f"requests.get/post，只报告 print() 的实际输出。"
+                            ),
+                            "en": (
+                                f"[TEXT_HALLUCINATION_DETECTED v4.9.0]\n"
+                                f"You described results in text without executing code: '{_th_snippet}'\n"
+                                f"This is not real execution output. You MUST write a ```python code block, "
+                                f"run actual requests.get/post, and only report real print() output."
+                            ),
+                        }.get(_lang_th, (
+                            f"[TEXT_HALLUCINATION_DETECTED v4.9.0] "
+                            f"Claimed result without code: '{_th_snippet}' — "
+                            f"Write a ```python code block with real HTTP calls."
+                        ))
+                        self.console.print(f"[bold red]⛔ {_th_feedback}[/bold red]")
+                        self.history.append(Message(role="user", content=_th_feedback))
+            except Exception:
+                pass  # 스캐너 오류는 무시 — 실행 차단하지 않음
+
+            # ── v4.4.0: 코드 실행 후 PhantomGuard 사후 검사 (실행결과 기반) ──
+            if self._phantom_guard is not None and _has_executable_code and results_text:
+                try:
+                    _pg_target_post = self._agent_state.get("target", "") or getattr(self.config, "target", "")
+                    if _pg_target_post and _pg_target_post != self._phantom_guard.session_target:
+                        self._phantom_guard.update_target(_pg_target_post)
+                    _pg_lang_post = getattr(self.config, "lang", "ko")
+                    self._phantom_guard.lang = _pg_lang_post
+                    _pg_exec_out = "\n".join(results_text)
+                    _pg_codes_post = "\n".join(_pgre_pre.findall(
+                        r"```(?:python|bash|sh)?\n(.*?)```", current_response, _pgre_pre.DOTALL
+                    ))
+                    _pg_post = self._phantom_guard.check_response(
+                        response_text=current_response,
+                        code_text=_pg_codes_post,
+                        exec_output=_pg_exec_out,
+                    )
+                    # 사후 검사: ZERO_HTTP_CLAIM만 경고 (차단 없음, 실행은 이미 완료)
+                    if _pg_post.inject_message and _pg_post.block_reason == "ZERO_HTTP_CLAIM":
+                        self.history.append(
+                            Message(role="user", content=_pg_post.inject_message)
+                        )
+                except Exception:
+                    pass
 
             # ── v3.2.71-A: 응답 크기 변화 감지 → SQLi 우선 강제 ─────────────────
             # 증상: AI가 응답 크기 차이(정상 vs 주입)를 관찰하고도 SQLi 대신 브루트포스 등 다른
@@ -7378,6 +7606,9 @@ class BingoTerminal:
             # /retry 를 위해 마지막 실행 결과 보존
             self._last_exec_result = raw_results
 
+            # ── v4.8.0: 실행 결과 후처리 — 빈값 [VERIFIED] + SLEEP 판정 오류 감지 ──
+            raw_results = self._postcheck_exec_output(raw_results)
+
             # ── v3.2.96: 실시간 발견 자동 저장 + XSS Playwright 자동 검증 ──
             self._auto_analyze_findings(raw_results, current_response)
             if len(raw_results) > 3000:
@@ -7456,23 +7687,48 @@ class BingoTerminal:
             _raw_lower = raw_results.lower()
             import re as _bre
 
-            # 정확한 HTTP 429 패턴 — "status: 429", "http/1 429", "[429]", "= 429 " 등
+            # ── v4.6.0: 오탐 제로 IP 차단 감지 ────────────────────────────────
+            # 핵심 원칙: 실제 HTTP 차단 응답에서만 발동. 응답 본문 텍스트 오탐 금지.
+            #
+            # [오탐 사례]
+            #   - 사이트 HTML에 "rate limit policy", "API rate limit" 등 단어 포함
+            #     → _has_ratelimit 발동 → 실제 차단 없는데 15초 대기
+            #   - "response...429" 에서 response와 429 사이에 긴 HTML 본문이 끼어 매칭
+            #   - "error 429" 가 스크립트 내부 주석이나 변수명에서 매칭
+            #
+            # [v4.6.0 수정]
+            #   1. _has_429: response.*429 → response[^\n]{0,80}429 (같은 줄 80자 이내)
+            #   2. _has_ratelimit: "rate limit" 단독 제거 → 에러 컨텍스트 필수
+            #      (exceeded/reached/hit/error/throttle/block 등이 함께 있어야 발동)
+            #   3. _detected_blocks 단일 신호 Rate limit hit → IPBlockDetector 교차검증
+            #      실제로 사이트 접근 가능하면 오탐으로 판단, 차단 무효화
+
+            # 정확한 HTTP 429 패턴 — 같은 줄 80자 이내 컨텍스트 필수
             _has_429 = bool(_bre.search(
                 r'(?:'
-                r'status[:\s]+429'          # "status: 429", "状态: 429"
-                r'|http/\d[.\d]*\s+429'     # "HTTP/1.1 429"
-                r'|\[\s*429\s*\]'           # "[429]"
-                r'|response.*429'           # "response code: 429"
-                r'|error.*429'              # "error 429"
-                r'|code[=:\s]+429'          # "code=429", "code: 429"
-                r'|429.*too.many'           # "429 Too Many"
-                r'|too.many.requests'       # "Too Many Requests" (HTTP 헤더/본문)
+                r'status[:\s]+429'               # "status: 429"
+                r'|http/\d[.\d]*\s+429'          # "HTTP/1.1 429"
+                r'|\[\s*429\s*\]'                # "[429]"
+                r'|response[^\n]{0,80}429'       # "response code: 429" (같은 줄 80자 이내)
+                r'|error[:\s]+429'               # "error: 429" (콜론/공백 필수)
+                r'|code[=:\s]+429'               # "code=429"
+                r'|429.*too.many'                # "429 Too Many"
+                r'|too\.many\.requests'          # "Too Many Requests" (정확한 HTTP 구문)
                 r')',
                 _raw_lower,
             ))
 
-            # "rate limit" — 단독으로도 충분히 명확
-            _has_ratelimit = bool(_bre.search(r'rate[\s_-]?limit', _raw_lower))
+            # "rate limit" — 에러 컨텍스트 필수 (단독 단어는 오탐)
+            # 오탐 제거: 사이트 본문에 "rate limit policy", "rate limit docs" 포함해도 발동 안 함
+            # 발동 조건: "rate limit exceeded", "rate limit error", "rate limit hit", 등
+            _has_ratelimit = bool(_bre.search(
+                r'rate[\s_-]?limit\s*(?:exceeded|reached|hit|error|blocked|throttl|denied|violat)'
+                r'|rate[\s_-]?limit.*(?:429|too[\s_]many|forbidden|block)'
+                r'|(?:429|too[\s_]many|throttl).*rate[\s_-]?limit'
+                r'|x-rate-limit-remaining[:\s]+0'       # HTTP 헤더: Remaining=0
+                r'|retry-after[:\s]+\d',                # HTTP 헤더: Retry-After
+                _raw_lower,
+            ))
 
             # 403 — "403 forbidden" 패턴 (단순 "403" 숫자는 제외)
             _has_403 = bool(_bre.search(
@@ -7515,7 +7771,31 @@ class BingoTerminal:
             if _has_429:
                 _detected_blocks.append("Rate limit (429) detected")
             if _has_ratelimit and not _has_429:
-                _detected_blocks.append("Rate limit hit")
+                # v4.6.0: Rate limit 단독 신호 → IPBlockDetector 교차검증
+                # 사이트가 실제로 접근 가능하면 오탐 → 차단 무효화
+                _rl_target = self._agent_state.get("target", "") or getattr(self.config, "target", "")
+                _rl_confirmed = True  # 기본 발동 (교차검증 실패 시 폴백)
+                if _rl_target:
+                    try:
+                        from ..core.ip_block_detector import IPBlockDetector as _IPBD
+                        _rl_detector = _IPBD(_rl_target)
+                        _rl_result = _rl_detector.check()
+                        if not _rl_result.blocked:
+                            # 사이트 실제 접근 가능 → 텍스트 패턴 오탐
+                            _lang_rl = getattr(self.config, "lang", "en")
+                            _rl_fp_msg = self.s.get("rate_limit_fp_suppressed", {
+                                "ko": "⚡ 'rate limit' 텍스트 감지됐지만 실제 차단 없음 (오탐 억제)",
+                                "zh": "⚡ 检测到'rate limit'文本但实际无封锁（误报已抑制）",
+                                "en": "⚡ 'rate limit' text detected but site accessible — false positive suppressed",
+                            })
+                            if isinstance(_rl_fp_msg, dict):
+                                _rl_fp_msg = _rl_fp_msg.get(_lang_rl, "⚡ Rate limit text FP suppressed")
+                            self.console.print(f"[dim]{_rl_fp_msg}[/]")
+                            _rl_confirmed = False
+                    except Exception:
+                        pass  # 교차검증 실패 → 안전하게 발동 유지
+                if _rl_confirmed:
+                    _detected_blocks.append("Rate limit hit")
             if _has_403:
                 _detected_blocks.append("403 Forbidden — possible IP block")
             if _has_503:
@@ -8104,6 +8384,29 @@ class BingoTerminal:
             self._append_to_session_log("assistant", followup_response)
             self._notify_hashes_found(followup_response)
 
+            # ── v4.5.0: 실행 후 LLM 분석에서 CONFIRMED/FALSE POSITIVE 감지 ────────
+            # 여기서 나타나는 태그는 실제 코드 실행 결과를 보고 LLM이 판단한 것 → 신뢰
+            import re as _re_fp_post
+            _followup_lang = getattr(self.config, "lang", "en")
+            if _re_fp_post.search(r'\[CONFIRMED\s*✅?\]', followup_response):
+                _conf_post = self.s.get("mvvs_confirmed_exec", {
+                    "ko": "✅ [CONFIRMED] — 실행결과 기반 취약점 확인됨",
+                    "zh": "✅ [CONFIRMED] — 基于执行结果，漏洞确认",
+                    "en": "✅ [CONFIRMED] — Confirmed from actual execution output",
+                })
+                if isinstance(_conf_post, dict):
+                    _conf_post = _conf_post.get(_followup_lang, "✅ Confirmed.")
+                self.console.print(f"\n[bold green]{_conf_post}[/bold green]")
+            elif _re_fp_post.search(r'\[FALSE\s*POSITIVE\s*❌?\]', followup_response):
+                _fp_post = self.s.get("mvvs_false_positive_exec", {
+                    "ko": "❌ [FALSE POSITIVE] — 실행결과 기반 오탐 확인됨",
+                    "zh": "❌ [FALSE POSITIVE] — 基于执行结果，误报确认",
+                    "en": "❌ [FALSE POSITIVE] — Confirmed false positive from execution",
+                })
+                if isinstance(_fp_post, dict):
+                    _fp_post = _fp_post.get(_followup_lang, "❌ False positive.")
+                self.console.print(f"\n[bold red]{_fp_post}[/bold red]")
+
             # 작업 완료
             if "TASK_COMPLETE" in followup_response or "MISSION_COMPLETE" in followup_response:
                 self.console.print(f"\n[{THEME['success']}]✅ {_s.get('agent_done', 'Agent task complete')}[/]\n")
@@ -8245,6 +8548,76 @@ class BingoTerminal:
                     self.history.append(Message(role="assistant", content=followup_response))
 
             current_response = followup_response
+
+    # ── v4.8.0: 실행 결과 후처리 — 빈값 VERIFIED + SLEEP 판정 오류 교정 ─────────
+    def _postcheck_exec_output(self, output: str) -> str:
+        """코드 실행 결과(print 출력)에서 두 가지 오탐을 감지하고 경고 주입.
+
+        f3: [VERIFIED] 빈값 — ✅ [VERIFIED] DB名: <빈문자열> 형태 감지 → 경고로 교체
+        f5: SLEEP 판정 반전 — elapsed < threshold인데 ✅로 표시된 경우 → ❌로 교정
+        """
+        import re as _pc_re
+        lines = output.splitlines()
+        corrected = []
+        _warned = False
+
+        for line in lines:
+            # ── f3: [VERIFIED] 빈값 오탐 감지 ────────────────────────────────
+            # 패턴: ✅ [VERIFIED] 어떤라벨: (빈값 또는 공백만)
+            _verified_empty = _pc_re.match(
+                r'^.*?\[VERIFIED\]\s*[^\s:：]+\s*[：:]\s*$',
+                line.rstrip()
+            )
+            if _verified_empty:
+                corrected.append(
+                    line + "  ← ⚠️ [BINGO v4.8.0] VERIFIED_EMPTY_BLOCKED: "
+                    "추출값이 비어 있음 — [VERIFIED] 태그 무효. 실제 값이 있을 때만 사용."
+                )
+                _warned = True
+                continue
+
+            # ── f5: SLEEP 판정 반전 버그 감지 ────────────────────────────────
+            # 패턴: [SLEEP(N)] 耗时: X.XXs | 阈值: Y.Ys | ✅ 확인...
+            # elapsed < threshold 인데 ✅로 표시된 경우 → ❌로 교정
+            _sleep_match = _pc_re.search(
+                r'\[?SLEEP\s*\((\d+)\)\]?\s*.*?(?:耗时|elapsed|지연)[：:\s]*(\d+\.?\d*)\s*s'
+                r'.*?(?:阈值|threshold|임계값)[：:\s]*(\d+\.?\d*)\s*s',
+                line, _pc_re.IGNORECASE
+            )
+            if _sleep_match:
+                try:
+                    _n = int(_sleep_match.group(1))
+                    _elapsed = float(_sleep_match.group(2))
+                    _reported_thresh = float(_sleep_match.group(3))
+                    _correct_thresh = _n * 0.8   # 단일 기준: 80%
+                    _should_pass = _elapsed >= _correct_thresh
+                    _reported_pass = '✅' in line
+
+                    if _reported_pass and not _should_pass:
+                        # 판정 반전 버그: ✅인데 실제로는 실패
+                        corrected.append(
+                            line.replace('✅', '❌')
+                            + f"  ← ⚠️ [BINGO v4.8.0] SLEEP_JUDGMENT_CORRECTED: "
+                            f"elapsed({_elapsed}s) < threshold({_correct_thresh}s=SLEEP({_n})×0.8) "
+                            f"→ ❌ NOT VALID (was incorrectly ✅)"
+                        )
+                        _warned = True
+                        continue
+                except (ValueError, IndexError):
+                    pass
+
+            corrected.append(line)
+
+        result = '\n'.join(corrected)
+        if _warned and hasattr(self, 'console'):
+            _lang = getattr(self.config, "lang", "en")
+            _warn_msg = {
+                "ko": "⚠️ [v4.8.0] 실행 결과 오탐 감지 — 위 경고 메시지 확인",
+                "zh": "⚠️ [v4.8.0] 检测到执行结果误报 — 请查看上方警告",
+                "en": "⚠️ [v4.8.0] Exec output anomaly detected — see warnings above",
+            }.get(_lang, "⚠️ [v4.8.0] Exec output anomaly detected — see warnings above")
+            self.console.print(f"[bold yellow]{_warn_msg}[/bold yellow]")
+        return result
 
     # ── v3.2.96: 실시간 발견 감지 + XSS Playwright 자동 검증 ──────────────────
     def _auto_analyze_findings(self, exec_output: str, code_snippet: str = "") -> None:

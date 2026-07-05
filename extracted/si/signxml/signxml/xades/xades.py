@@ -30,7 +30,7 @@ from functools import wraps
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
 from cryptography import x509
-from cryptography.hazmat.primitives.serialization import Encoding
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from lxml.etree import SubElement, _Element
 
 from .. import SignatureConfiguration, VerifyResult, XMLSignatureProcessor, XMLSigner, XMLVerifier
@@ -324,32 +324,73 @@ class XAdESVerifier(XAdESProcessor, XMLVerifier):
     def _verify_signing_time(self, verify_result: VerifyResult):
         pass
 
-    def _verify_cert_digest(self, signing_cert_node, expect_cert):
-        for cert in self._findall(signing_cert_node, "xades:Cert"):
+    def _get_cert_public_key(self, cert: x509.Certificate) -> bytes:
+        return cert.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+
+    def _add_cert_if_missing(self, certs: List[x509.Certificate], cert: x509.Certificate) -> None:
+        cert_der = cert.public_bytes(Encoding.DER)
+        if not any(candidate.public_bytes(Encoding.DER) == cert_der for candidate in certs):
+            certs.append(cert)
+
+    def _find_signing_cert(
+        self, verify_result: VerifyResult, certs: List[x509.Certificate]
+    ) -> Optional[x509.Certificate]:
+        if self.x509_cert is not None:
+            if isinstance(self.x509_cert, x509.Certificate):
+                return self.x509_cert
+            return x509.load_pem_x509_certificate(add_pem_header(self.x509_cert))
+
+        for cert in certs:
+            if self._get_cert_public_key(cert) == verify_result.signature_key:
+                return cert
+        return None
+
+    def _verify_cert_digest(
+        self,
+        signing_cert_node,
+        certs: List[x509.Certificate],
+        signing_cert: Optional[x509.Certificate],
+    ):
+        if len(certs) == 0:
+            raise InvalidInput("Expected to find an X509Certificate element in the signature")
+
+        for cert_idx, cert in enumerate(self._findall(signing_cert_node, "xades:Cert")):
             cert_digest = self._find(cert, "xades:CertDigest")
             digest_alg = DigestAlgorithm(self._find(cert_digest, "DigestMethod").get("Algorithm"))
             digest_value = self._find(cert_digest, "DigestValue")
             # check spec for specific method of retrieving cert
             digest_alg_impl = digest_algorithm_implementations[digest_alg]()
-            if b64decode(digest_value.text) != expect_cert.fingerprint(digest_alg_impl):
+            digest_value_bytes = b64decode(digest_value.text)
+            if not any(digest_value_bytes == candidate.fingerprint(digest_alg_impl) for candidate in certs):
                 raise InvalidDigest("Digest mismatch for certificate digest")
 
+            if (
+                cert_idx == 0
+                and signing_cert is not None
+                and digest_value_bytes != signing_cert.fingerprint(digest_alg_impl)
+            ):
+                raise InvalidDigest("Digest mismatch for signing certificate digest")
+
     def _verify_cert_digests(self, verify_result: VerifyResult):
-        x509_data = verify_result.signature_xml.find("ds:KeyInfo/ds:X509Data", namespaces=namespaces)
-        cert_from_key_info = x509.load_pem_x509_certificate(
-            add_pem_header(self._find(x509_data, "X509Certificate").text)
-        )
-        signed_signature_props = self._find(verify_result.signed_xml, "xades:SignedSignatureProperties")
-        signing_cert = self._find(signed_signature_props, "xades:SigningCertificate", require=False)
-        signing_cert_v2 = self._find(signed_signature_props, "xades:SigningCertificateV2", require=False)
-        if signing_cert is None and signing_cert_v2 is None:
-            raise InvalidInput("Expected to find XML element xades:SigningCertificate or xades:SigningCertificateV2")
-        if signing_cert is not None and signing_cert_v2 is not None:
-            raise InvalidInput("Expected to find exactly one of xades:SigningCertificate or xades:SigningCertificateV2")
+        certs = []
+        for x509_data in self._findall(verify_result.signature_xml, "ds:KeyInfo/ds:X509Data"):
+            for cert in self._findall(x509_data, "X509Certificate"):
+                certs.append(x509.load_pem_x509_certificate(add_pem_header(cert.text)))
+        signing_cert = self._find_signing_cert(verify_result, certs)
         if signing_cert is not None:
-            self._verify_cert_digest(signing_cert, expect_cert=cert_from_key_info)
-        elif signing_cert_v2 is not None:
-            self._verify_cert_digest(signing_cert_v2, expect_cert=cert_from_key_info)
+            self._add_cert_if_missing(certs, signing_cert)
+
+        signed_signature_props = self._find(verify_result.signed_xml, "xades:SignedSignatureProperties")
+        signing_cert_node = self._find(signed_signature_props, "xades:SigningCertificate", require=False)
+        signing_cert_v2_node = self._find(signed_signature_props, "xades:SigningCertificateV2", require=False)
+        if signing_cert_node is None and signing_cert_v2_node is None:
+            raise InvalidInput("Expected to find XML element xades:SigningCertificate or xades:SigningCertificateV2")
+        if signing_cert_node is not None and signing_cert_v2_node is not None:
+            raise InvalidInput("Expected to find exactly one of xades:SigningCertificate or xades:SigningCertificateV2")
+        if signing_cert_node is not None:
+            self._verify_cert_digest(signing_cert_node, certs=certs, signing_cert=signing_cert)
+        elif signing_cert_v2_node is not None:
+            self._verify_cert_digest(signing_cert_v2_node, certs=certs, signing_cert=signing_cert)
 
     def _verify_signature_policy(self, verify_result: VerifyResult, expect_signature_policy: XAdESSignaturePolicy):
         signed_signature_props = self._find(verify_result.signed_xml, "xades:SignedSignatureProperties")

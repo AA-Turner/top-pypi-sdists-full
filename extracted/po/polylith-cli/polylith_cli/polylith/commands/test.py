@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import List, Set, Tuple, Union
-from polylith_cli.polylith import bricks, configuration, diff, info, test
+from polylith_cli.polylith import configuration, diff, dirs, info, test
 
 def get_imported_bricks_in_tests(root: Path, ns: str, tag_name: Union[str, None], theme: str) -> Set[str]:
     files = test.get_changed_files(root, tag_name)
@@ -12,8 +12,8 @@ def extract_brick_names(bricks_data: List[dict], imported_bricks: Set[str]) -> S
 
 def get_affected_bricks(root: Path, ns: str, tag_name: Union[str, None], theme: str) -> Tuple[Set[str], Set[str]]:
     found = get_imported_bricks_in_tests(root, ns, tag_name, theme)
-    bases = extract_brick_names(bricks.get_bases_data(root, ns), found)
-    components = extract_brick_names(bricks.get_components_data(root, ns), found)
+    bases = extract_brick_names(dirs.get_bases_data(root, ns), found)
+    components = extract_brick_names(dirs.get_components_data(root, ns), found)
     return (bases, components)
 
 def get_affected_projects(root: Path, ns: str, bases: Set[str], components: Set[str]) -> List[dict]:

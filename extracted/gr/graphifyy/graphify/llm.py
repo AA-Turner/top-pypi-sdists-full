@@ -449,6 +449,17 @@ def _file_to_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
+def _resolve_under_root(path: Path, root: Path) -> Path | None:
+    """Return the resolved path only when it stays inside ``root``."""
+    try:
+        resolved_root = root.resolve()
+        resolved_path = path.resolve()
+        resolved_path.relative_to(resolved_root)
+    except (OSError, RuntimeError, ValueError):
+        return None
+    return resolved_path
+
+
 # Known prompt-injection / chat-template sentinels that a hostile source file
 # might embed to try to break out of the untrusted_source block or impersonate a
 # system/role turn. Neutralised (not deleted — we keep byte offsets stable enough
@@ -505,6 +516,10 @@ def _read_files(units: "list[Path | FileSlice]", root: Path) -> str:
     parts: list[str] = []
     for u in units:
         p = unit_path(u)
+        safe_path = _resolve_under_root(p, root)
+        if safe_path is None:
+            print(f"[graphify] skipping {p}: symlink target outside corpus root", file=sys.stderr)
+            continue
         try:
             rel = str(p.relative_to(root))
         except ValueError:
@@ -513,7 +528,7 @@ def _read_files(units: "list[Path | FileSlice]", root: Path) -> str:
             if isinstance(u, FileSlice):
                 content = read_slice_text(u)
             else:
-                content = _file_to_text(p)
+                content = _file_to_text(safe_path)
         except OSError:
             continue
         # Whole files are still capped (covers non-splittable large files like
@@ -611,6 +626,10 @@ def _build_image_refs(image_files: list[Path], root: Path, *, read_bytes: bool =
     """
     refs: list[_ImageRef] = []
     for p in image_files:
+        abs_path = _resolve_under_root(p, root)
+        if abs_path is None:
+            print(f"[graphify] skipping image {p}: symlink target outside corpus root", file=sys.stderr)
+            continue
         try:
             rel = str(p.relative_to(root))
         except ValueError:
@@ -619,7 +638,7 @@ def _build_image_refs(image_files: list[Path], root: Path, *, read_bytes: bool =
         raw: bytes | None = None
         if read_bytes:
             try:
-                raw = p.read_bytes()
+                raw = abs_path.read_bytes()
             except OSError as exc:
                 print(f"[graphify] could not read image {rel}: {exc}", file=sys.stderr)
                 raw = None
@@ -631,10 +650,6 @@ def _build_image_refs(image_files: list[Path], root: Path, *, read_bytes: bool =
                     file=sys.stderr,
                 )
                 raw = None
-        try:
-            abs_path = p.resolve()
-        except OSError:
-            abs_path = p
         refs.append(_ImageRef(abs_path, rel, media, raw))
     return refs
 
@@ -744,6 +759,30 @@ def _bedrock_content(user_message: str, refs: list[_ImageRef]) -> list[dict]:
 _LLM_JSON_MAX_BYTES = 10 * 1024 * 1024  # 10 MB hard cap before json.loads (F-016)
 
 
+def _sanitize_fragment(parsed: dict) -> dict:
+    """Force ``nodes``/``edges``/``hyperedges`` to lists of dicts, in place.
+
+    A model can return a well-formed top-level object whose ``edges`` (or
+    ``nodes``/``hyperedges``) array contains a stray non-dict entry — most often
+    a nested list where an edge object belongs, or the whole value being a bare
+    array/scalar instead of a list. Those entries slip past JSON parsing but
+    blow up every downstream consumer that calls ``.get()`` per entry
+    (semantic-cache write and the AST+semantic merge both did — #1631, crashing
+    with ``'list' object has no attribute 'get'`` and discarding all successful
+    chunks). Sanitizing here, at the single parse chokepoint, protects the cache
+    writer, the adaptive-retry merge, and the CLI merge in one place.
+    """
+    for key in ("nodes", "edges", "hyperedges"):
+        value = parsed.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, list):
+            parsed[key] = []
+            continue
+        parsed[key] = [entry for entry in value if isinstance(entry, dict)]
+    return parsed
+
+
 def _parse_llm_json(raw: str) -> dict:
     """Strip optional markdown fences and parse JSON. Returns empty fragment on failure.
 
@@ -777,7 +816,7 @@ def _parse_llm_json(raw: str) -> dict:
     try:
         parsed = json.loads(stripped)
         if isinstance(parsed, dict):
-            return parsed
+            return _sanitize_fragment(parsed)
         # Top-level array/scalar (common LLM output) is not a usable graph
         # fragment; fall through to the next strategy rather than returning a
         # non-dict that callers will try to subscript (e.g. result["input_tokens"]).
@@ -812,7 +851,7 @@ def _parse_llm_json(raw: str) -> dict:
                     try:
                         parsed = json.loads(stripped[start : i + 1])
                         if isinstance(parsed, dict):
-                            return parsed
+                            return _sanitize_fragment(parsed)
                         break
                     except json.JSONDecodeError:
                         break
@@ -1140,14 +1179,23 @@ def _call_claude_cli(user_message: str, max_tokens: int = 8192, *, deep_mode: bo
             "https://claude.ai/code and run `claude` once to authenticate."
         )
 
-    # Use --system-prompt (replaces) instead of --append-system-prompt (adds
-    # to Claude Code's default coding-agent prompt). The default prompt
-    # pushes the model towards markdown + prose explanations, which conflict
-    # with the "raw JSON only" extraction instruction and cause ~30-50% of
-    # responses to come back wrapped in ```json fences or prefixed with a
-    # preamble — both of which fail the strict json.loads in _parse_llm_json.
-    # Replacing the default prompt eliminates the conflict at the source.
-    # Side benefit: cache-creation tokens per call drop ~19% in practice.
+    # Deliver the extraction instructions in the USER turn rather than via
+    # --system-prompt. Newer Claude Code CLIs (>= ~2.1) do not treat a
+    # --system-prompt as the sole authority: they still layer in the local
+    # coding-agent context (CLAUDE.md/AGENTS.md in cwd, skills, MCP) and, when
+    # the user turn is only a raw file dump with no request, reply
+    # conversationally ("I see the file, but there's no actual request
+    # attached — what would you like me to do with it?"). That prose parses to
+    # zero nodes/edges, so _response_is_hollow flags it as truncation and the
+    # adaptive-retry path bisects the chunk indefinitely, never converging and
+    # never writing graph.json (verified against Claude Code 2.1.197).
+    #
+    # Putting the full extraction schema plus an explicit imperative in the
+    # user turn — and dropping --system-prompt — makes the CLI emit the JSON
+    # object directly. The <untrusted_source> guardrails in _extraction_system
+    # still apply because the schema text is carried verbatim; only its
+    # delivery channel changes.
+    #
     # When images are present, append the Read-the-paths instruction and
     # allowlist each containing directory so the CLI's Read tool can open them.
     add_dir_args: list[str] = []
@@ -1160,12 +1208,19 @@ def _call_claude_cli(user_message: str, max_tokens: int = 8192, *, deep_mode: bo
                 seen_dirs.add(d)
                 add_dir_args.extend(["--add-dir", d])
 
+    combined_message = (
+        _extraction_system(deep=deep_mode)
+        + "\n\n---\n"
+        + "Now extract the knowledge graph from the following source file(s) "
+        + "and output ONLY the JSON object described above. No prose, no "
+        + "preamble, no markdown fences.\n\n"
+        + user_message
+    )
     cli_args = [
         claude_cmd, "-p",
         "--output-format", "json",
         "--no-session-persistence",
         *add_dir_args,
-        "--system-prompt", _extraction_system(deep=deep_mode),
     ]
     # claude-cli defaults to Opus, which is overkill for the structured-JSON
     # extraction graphify performs. GRAPHIFY_CLAUDE_CLI_MODEL=haiku (or
@@ -1177,7 +1232,7 @@ def _call_claude_cli(user_message: str, max_tokens: int = 8192, *, deep_mode: bo
         cli_args.extend(["--model", cli_model])
     proc = subprocess.run(
         cli_args,
-        input=user_message,
+        input=combined_message,
         capture_output=True,
         text=True,
         encoding="utf-8",  # Force UTF-8 — prevents UnicodeEncodeError on Windows cp1252
@@ -1831,6 +1886,14 @@ def extract_corpus_parallel(
             if callable(on_chunk_done):
                 on_chunk_done(idx, total, result)
     else:
+        # Merge in deterministic submission order, NOT completion order. Merging
+        # as chunks finish makes the node/edge ordering in the returned corpus
+        # (and therefore graph.json) depend on which network call happened to
+        # return first — so identical input churned run-to-run (#1632). Collect
+        # results keyed by chunk index and merge in sorted order after the pool
+        # drains; this matches the serial path's order. The progress callback
+        # still fires in completion order so long local runs aren't silent.
+        results_by_idx: dict[int, dict] = {}
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = [pool.submit(_run_one, idx, chunk) for idx, chunk in enumerate(chunks)]
             for future in as_completed(futures):
@@ -1843,9 +1906,11 @@ def extract_corpus_parallel(
                     merged["failed_chunks"] += 1
                     continue
                 assert result is not None
-                _merge_into(merged, result)
+                results_by_idx[idx] = result
                 if callable(on_chunk_done):
                     on_chunk_done(idx, total, result)
+        for idx in sorted(results_by_idx):
+            _merge_into(merged, results_by_idx[idx])
 
     # Loud failure summary — surface chunk failures at end so they're never
     # buried mid-log. Exit 0 preserved for caller compatibility; the

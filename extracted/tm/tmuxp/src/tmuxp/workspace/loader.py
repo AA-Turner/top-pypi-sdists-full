@@ -72,8 +72,9 @@ def expand(
 ) -> dict[str, t.Any]:
     """Resolve workspace variables and expand shorthand style / inline properties.
 
-    This is necessary to keep the code in the :class:`WorkspaceBuilder` clean
-    and also allow for neat, short-hand "sugarified" syntax.
+    This is necessary to keep the code in
+    :class:`~tmuxp.workspace.builder.classic.ClassicWorkspaceBuilder` clean and
+    also allow for neat, short-hand "sugarified" syntax.
 
     As a simple example, internally, tmuxp expects that workspace options
     like ``shell_command`` are a list (array)::
@@ -197,7 +198,7 @@ def trickle(workspace_dict: dict[str, t.Any]) -> dict[str, t.Any]:
     """Return a dict with "trickled down" / inherited workspace values.
 
     This will only work if workspace has been expanded to full form with
-    :meth:`loader.expand`.
+    :func:`~tmuxp.workspace.loader.expand`.
 
     tmuxp allows certain commands to be default at the session, window
     level. shell_command_before trickles down and prepends the

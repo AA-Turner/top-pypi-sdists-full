@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cocoindex
-Version: 1.0.14
+Version: 1.0.15
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -28,11 +28,12 @@ Requires-Dist: msgspec>=0.19.0
 Requires-Dist: litellm>=1.81.0 ; extra == 'all'
 Requires-Dist: sentence-transformers>=3.3.1 ; extra == 'all'
 Requires-Dist: colpali-engine ; extra == 'all'
-Requires-Dist: lancedb>=0.33.0 ; extra == 'all'
+Requires-Dist: lancedb>=0.34.0 ; extra == 'all'
 Requires-Dist: pyarrow>=23.0.0 ; extra == 'all'
 Requires-Dist: asyncpg>=0.31.0 ; extra == 'all'
 Requires-Dist: pgvector>=0.4.2 ; extra == 'all'
 Requires-Dist: qdrant-client>=1.6.0 ; extra == 'all'
+Requires-Dist: snowflake-connector-python>=3.0.0 ; extra == 'all'
 Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'all'
 Requires-Dist: surrealdb>=1.0.0 ; extra == 'all'
 Requires-Dist: turbopuffer>=0.5.0 ; extra == 'all'
@@ -69,7 +70,7 @@ Requires-Dist: google-auth-httplib2>=0.2.0 ; extra == 'google-drive'
 Requires-Dist: httplib2>=0.22.0 ; extra == 'google-drive'
 Requires-Dist: apache-iggy>=0.8.0 ; extra == 'iggy'
 Requires-Dist: confluent-kafka>=2.6 ; extra == 'kafka'
-Requires-Dist: lancedb>=0.33.0 ; extra == 'lancedb'
+Requires-Dist: lancedb>=0.34.0 ; extra == 'lancedb'
 Requires-Dist: pyarrow>=23.0.0 ; extra == 'lancedb'
 Requires-Dist: litellm>=1.81.0 ; extra == 'litellm'
 Requires-Dist: neo4j>=5.18.0 ; extra == 'neo4j'
@@ -77,6 +78,7 @@ Requires-Dist: oci>=2.0 ; extra == 'oci'
 Requires-Dist: asyncpg>=0.31.0 ; extra == 'postgres'
 Requires-Dist: qdrant-client>=1.6.0 ; extra == 'qdrant'
 Requires-Dist: sentence-transformers>=3.3.1 ; extra == 'sentence-transformers'
+Requires-Dist: snowflake-connector-python>=3.0.0 ; extra == 'snowflake'
 Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'sqlite'
 Requires-Dist: surrealdb>=1.0.0 ; extra == 'surrealdb'
 Requires-Dist: turbopuffer>=0.5.0 ; extra == 'turbopuffer'
@@ -99,6 +101,7 @@ Provides-Extra: oci
 Provides-Extra: postgres
 Provides-Extra: qdrant
 Provides-Extra: sentence_transformers
+Provides-Extra: snowflake
 Provides-Extra: sqlite
 Provides-Extra: surrealdb
 Provides-Extra: turbopuffer

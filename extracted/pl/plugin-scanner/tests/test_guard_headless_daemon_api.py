@@ -496,7 +496,7 @@ def test_supply_chain_package_firewall_connect_repairs_local_auth_and_unlocks_pa
         dpop_public_jwk_thumbprint="thumbprint-old",
         grant_id="grant-old",
         machine_id="machine-old",
-        supply_chain_entitlement_expires_at="2026-07-05T01:39:51+00:00",
+        supply_chain_entitlement_expires_at="2027-07-05T01:39:51+00:00",
         supply_chain_firewall=True,
         supply_chain_plan_id="team",
         workspace_id="workspace-1",
@@ -541,7 +541,7 @@ def test_supply_chain_package_firewall_connect_repairs_local_auth_and_unlocks_pa
             grant_id="grant-new",
             machine_id="machine-new",
             supply_chain_entitlement={
-                "supply_chain_entitlement_expires_at": "2026-07-05T01:39:51+00:00",
+                "supply_chain_entitlement_expires_at": "2027-07-05T01:39:51+00:00",
                 "supply_chain_firewall": True,
                 "supply_chain_plan_id": "team",
             },
@@ -738,7 +738,7 @@ def test_package_firewall_connect_accepts_hosted_dashboard_origin(
                 grant_id="grant-new",
                 machine_id="machine-new",
                 supply_chain_entitlement={
-                    "supply_chain_entitlement_expires_at": "2026-07-05T01:39:51+00:00",
+                    "supply_chain_entitlement_expires_at": "2027-07-05T01:39:51+00:00",
                     "supply_chain_firewall": True,
                     "supply_chain_plan_id": "team",
                 },
@@ -1374,7 +1374,7 @@ def test_supply_chain_package_firewall_status_accepts_paid_oauth_entitlement(tmp
         dpop_public_jwk_thumbprint="thumbprint-1",
         grant_id="grant-1",
         machine_id="machine-1",
-        supply_chain_entitlement_expires_at="2026-07-05T01:39:51+00:00",
+        supply_chain_entitlement_expires_at="2027-07-05T01:39:51+00:00",
         supply_chain_firewall=True,
         supply_chain_plan_id="pro",
         workspace_id="workspace-1",
@@ -2177,8 +2177,15 @@ def test_headless_app_scan_syncs_receipt_to_cloud_when_connected(
         return summary
 
     monkeypatch.setattr(daemon_server, "sync_local_guard_cloud_proof", fake_sync_local_guard_cloud_proof, raising=False)
+    monkeypatch.setattr(
+        daemon_server,
+        "sync_supply_chain_cloud_state",
+        lambda current_store, **kwargs: {"synced_at": "2026-05-23T17:18:40.061Z", "workspace_audits": {}},
+        raising=False,
+    )
 
     daemon = GuardDaemonServer(store, host="127.0.0.1", port=0)
+    daemon._headless_cloud_sync_interval_seconds = 0
     daemon.start()
     try:
         token = _dashboard_token_for(store)
@@ -2237,8 +2244,15 @@ def test_headless_app_scan_does_not_spawn_unbounded_cloud_sync_threads(
         blocking_sync_local_guard_cloud_proof,
         raising=False,
     )
+    monkeypatch.setattr(
+        daemon_server,
+        "sync_supply_chain_cloud_state",
+        lambda current_store, **kwargs: {"synced_at": "2026-05-23T17:18:40.061Z", "workspace_audits": {}},
+        raising=False,
+    )
 
     daemon = GuardDaemonServer(store, host="127.0.0.1", port=0)
+    daemon._headless_cloud_sync_interval_seconds = 0
     daemon.start()
     try:
         token = _dashboard_token_for(store)
@@ -2674,9 +2688,7 @@ def test_headless_remote_once_rejects_stale_requests_and_replays(tmp_path: Path)
             receipt_id="cloud-receipt-stale",
         )
         stale_remote_approval["actionEnvelopeHash"] = "f" * 64
-        stale_remote_approval["payloadHash"] = payload_hash_for_remote_approval_envelope(
-            stale_remote_approval
-        )
+        stale_remote_approval["payloadHash"] = payload_hash_for_remote_approval_envelope(stale_remote_approval)
         stale_remote_approval["signature"] = sign_review_payload(stale_remote_approval)
         stale_status, stale_payload = _read_json_response(
             _request(

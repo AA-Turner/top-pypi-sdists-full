@@ -16,7 +16,7 @@ def flatten_bricks(projects_data: List[dict], brick_type: str) -> Set[str]:
     return set(flattened)
 
 def flatten_dependent_bricks(changed_bricks: Set[str], bases: Set[str], components: Set[str], import_data: dict) -> Set[str]:
-    matrix = [deps.core.sorted_used_by(brick, bases, components, import_data) for brick in changed_bricks]
+    matrix = [deps.sorted_used_by(brick, bases, components, import_data) for brick in changed_bricks]
     flattened: List[str] = sum(matrix, [])
     filtered = set(flattened).difference(changed_bricks)
     return filtered

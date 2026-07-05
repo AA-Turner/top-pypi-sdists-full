@@ -21,6 +21,26 @@ pub enum DbError {
         "query() only accepts read-only statements; SQLite classified this statement as a write"
     )]
     WriteForbidden,
+
+    #[error("{0}")]
+    Unauthorized(String),
+}
+
+/// The reserved namespace for dirsql's internal bookkeeping tables. Every
+/// engine table (`_dirsql_internal_rows`, `_dirsql_files`, `_dirsql_meta`, and
+/// any future sibling) lives here; [`Db::query`] treats the whole namespace as
+/// unreachable, so the internal schema is a genuine private surface.
+const INTERNAL_TABLE_PREFIX: &str = "_dirsql_";
+
+/// The message carried by [`DbError::Unauthorized`] when `query()` rejects a
+/// read of an internal table.
+const INTERNAL_TABLE_DENIED_MSG: &str = "not authorized: dirsql's internal bookkeeping tables (the `_dirsql_*` namespace) \
+     are not readable through query()";
+
+/// Whether `name` refers to a dirsql-internal bookkeeping table — anything in
+/// the reserved [`INTERNAL_TABLE_PREFIX`] namespace.
+fn is_internal_table(name: &str) -> bool {
+    name.starts_with(INTERNAL_TABLE_PREFIX)
 }
 
 /// Validate that `s` is a safe unquoted SQL identifier: starts with an
@@ -53,12 +73,10 @@ pub type Result<T> = std::result::Result<T, DbError>;
 
 /// Name of the internal row-bookkeeping table (issue #359, epic #358).
 ///
-/// Maps every inserted user row back to the file that produced it —
-/// `(table_name, file_path, row_index, rowid_ref)` — mirroring the injected
-/// `_dirsql_file_path` / `_dirsql_row_index` tracking columns. Stage 1 keeps
-/// the injected columns authoritative and *dual-writes* this table in the same
-/// SQLite transaction as each row write, so a later release can drop the
-/// columns and read ownership from here instead.
+/// The sole record of row ownership: it maps every inserted user row back to
+/// the file that produced it — `(table_name, file_path, row_index, rowid_ref)`
+/// — keyed on the row's rowid. Written in the same SQLite transaction as each
+/// row insert/delete, so it can never diverge from the rows it describes.
 pub const INTERNAL_ROWS_TABLE: &str = "_dirsql_internal_rows";
 
 /// Create the internal `_dirsql_internal_rows` bookkeeping table and its
@@ -87,14 +105,25 @@ pub struct Db {
 }
 
 impl Db {
+    /// Open the default, ephemeral `Db`: an **anonymous disk-backed temp
+    /// database** (`Connection::open("")`, issue #402), not `:memory:`.
+    ///
+    /// SQLite creates a private temp file and deletes it immediately after
+    /// opening, so the OS reclaims it even on a crash or SIGKILL, and there
+    /// is never a name to collide on. Pages spill to disk as the index
+    /// grows — only the page cache stays resident — so memory no longer
+    /// scales with the indexed corpus. The file lands in the directory
+    /// SQLite's VFS picks (`SQLITE_TMPDIR` → `TMPDIR` → `/var/tmp` →
+    /// `/usr/tmp` → `/tmp`); export `SQLITE_TMPDIR` to steer it off a
+    /// tmpfs mount.
     pub fn new() -> Result<Self> {
-        let conn = Connection::open_in_memory()?;
+        let conn = Connection::open("")?;
         ensure_internal_rows_table(&conn)?;
         Ok(Self { conn })
     }
 
-    /// Open a `Db` backed by an on-disk SQLite file. Used by the persistent
-    /// cache path; in-memory mode is the default.
+    /// Open a `Db` backed by a named on-disk SQLite file. Used by the
+    /// persistent cache path; the anonymous temp database is the default.
     pub fn open(path: &Path) -> Result<Self> {
         let conn = Connection::open(path)?;
         ensure_internal_rows_table(&conn)?;
@@ -129,20 +158,19 @@ impl Db {
         Ok(())
     }
 
-    /// Create a table from a user-provided DDL statement.
-    /// Automatically injects internal tracking columns (_dirsql_file_path, _dirsql_row_index).
+    /// Create a table from a user-provided DDL statement, executed **verbatim**
+    /// (epic #358): dirsql no longer injects tracking columns — row ownership
+    /// lives entirely in `_dirsql_internal_rows`, so a table's schema is exactly
+    /// the DDL the user wrote.
     ///
     /// Validates that the parsed table name is a safe unquoted SQL identifier
     /// before handing the DDL to SQLite — closes the gap where a DDL like
     /// `CREATE TABLE foo;DROP_TABLE_bar--(id TEXT)` would parse to a poisoned
     /// internal table name and break downstream `format!()`-built SQL.
     pub fn create_table(&self, ddl: &str) -> Result<()> {
-        // A dirsql table is a per-file row table: create_table injects
-        // `_dirsql_` tracking columns and the engine inserts one row per file.
-        // That is structurally incompatible with an extension-backed virtual
-        // table, so reject `CREATE VIRTUAL TABLE` with a clear message instead
-        // of mangling the DDL via column injection. Load the extension and use
-        // its functions in queries instead.
+        // A dirsql table is a per-file row table; an extension-backed virtual
+        // table is not one, so reject `CREATE VIRTUAL TABLE` with a clear
+        // message. Load the extension and use its functions in queries instead.
         if is_virtual_table_ddl(ddl) {
             return Err(DbError::DdlParse(
                 "CREATE VIRTUAL TABLE is not supported as a dirsql table \
@@ -155,9 +183,8 @@ impl Db {
         validate_identifier(&table)?;
         // A `WITHOUT ROWID` table has no rowid, so `last_insert_rowid()` cannot
         // identify the inserted row and the `_dirsql_internal_rows.rowid_ref`
-        // mapping (epic #358) would be meaningless. Stage 1 only warns; the hard
-        // rejection lands in stage 3. The injected columns stay authoritative
-        // here, so the table still works today.
+        // mapping (epic #358) would be meaningless. Warn; the table is still
+        // created.
         if is_without_rowid_ddl(ddl) {
             eprintln!(
                 "dirsql: table `{table}` is declared WITHOUT ROWID; internal row \
@@ -165,12 +192,11 @@ impl Db {
                  rejected in a future release"
             );
         }
-        let augmented = inject_tracking_columns(ddl)?;
-        self.conn.execute(&augmented, [])?;
+        self.conn.execute(ddl, [])?;
         Ok(())
     }
 
-    /// Return the user-defined column names for `table` (excludes `_dirsql_*` tracking columns).
+    /// Return the column names declared in `table`'s DDL.
     pub fn get_table_columns(&self, table: &str) -> Result<Vec<String>> {
         validate_identifier(table)?;
         let mut stmt = self
@@ -179,7 +205,6 @@ impl Db {
         let columns: Vec<String> = stmt
             .query_map([], |row| row.get::<_, String>(1))?
             .filter_map(|r| r.ok())
-            .filter(|name| !name.starts_with("_dirsql_"))
             .collect();
         Ok(columns)
     }
@@ -255,35 +280,37 @@ impl Db {
             validate_identifier(key)?;
         }
 
-        let mut columns: Vec<String> = row.keys().cloned().collect();
-        columns.push("_dirsql_file_path".to_string());
-        columns.push("_dirsql_row_index".to_string());
+        // The user row carries ONLY user columns — no injected tracking columns
+        // (epic #358). Ownership is recorded in `_dirsql_internal_rows`, keyed on
+        // the row's rowid. A column-less row (SQLite requires ≥1 declared column,
+        // so this is only reachable defensively) uses `DEFAULT VALUES`.
+        let columns: Vec<String> = row.keys().cloned().collect();
+        let sql = if columns.is_empty() {
+            format!("INSERT INTO {} DEFAULT VALUES", table)
+        } else {
+            let placeholders: Vec<String> =
+                (1..=columns.len()).map(|i| format!("?{}", i)).collect();
+            format!(
+                "INSERT INTO {} ({}) VALUES ({})",
+                table,
+                columns.join(", "),
+                placeholders.join(", "),
+            )
+        };
 
-        let placeholders: Vec<String> = (1..=columns.len()).map(|i| format!("?{}", i)).collect();
-
-        let sql = format!(
-            "INSERT INTO {} ({}) VALUES ({})",
-            table,
-            columns.join(", "),
-            placeholders.join(", "),
-        );
-
-        let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = row
+        let params: Vec<Box<dyn rusqlite::types::ToSql>> = row
             .values()
             .map(|v| Box::new(v.clone()) as Box<dyn rusqlite::types::ToSql>)
             .collect();
-        params.push(Box::new(file_path.to_string()));
-        params.push(Box::new(row_index as i64));
-
         let param_refs: Vec<&dyn rusqlite::types::ToSql> =
             params.iter().map(|p| p.as_ref()).collect();
 
-        // Dual-write (epic #358): the user-row insert and its
-        // `_dirsql_internal_rows` mapping row commit in ONE transaction, so a
-        // crash between them can never leave a row without its mapping (or vice
-        // versa). `last_insert_rowid()` is read *after* the user insert and
-        // *before* the mapping insert, so it captures the user row's rowid
-        // (including a user-declared `INTEGER PRIMARY KEY` rowid alias).
+        // The user-row insert and its `_dirsql_internal_rows` mapping row commit
+        // in ONE transaction, so a crash between them can never leave a row
+        // without its mapping (or vice versa). `last_insert_rowid()` is read
+        // *after* the user insert and *before* the mapping insert, so it
+        // captures the user row's rowid (including a user-declared `INTEGER
+        // PRIMARY KEY` rowid alias).
         let tx = self.conn.unchecked_transaction()?;
         tx.execute(&sql, param_refs.as_slice())?;
         let rowid = tx.last_insert_rowid();
@@ -294,6 +321,56 @@ impl Db {
         )?;
         tx.commit()?;
         Ok(())
+    }
+
+    /// Read back the rows a given file produced for `table`, ordered by row
+    /// index. Ownership and ordering come from the `_dirsql_internal_rows`
+    /// mapping (joined on `rowid`); user columns are qualified with the table
+    /// alias so a user column named like a mapping column stays unambiguous.
+    ///
+    /// This is the watcher's diffing source (#401): `handle_upsert` /
+    /// `handle_delete` snapshot a file's previous rows here instead of holding
+    /// a corpus-wide in-memory copy. A row read back compares equal to the
+    /// normalized row that was inserted as long as the extract's value types
+    /// match the declared column affinities (SQLite coerces on insert
+    /// otherwise, e.g. `Integer(5)` into a TEXT column comes back
+    /// `Text("5")`).
+    pub fn get_rows_by_file(
+        &self,
+        table: &str,
+        file_path: &str,
+    ) -> Result<Vec<HashMap<String, Value>>> {
+        let user_columns = self.get_table_columns(table)?;
+        let mut col_list = user_columns
+            .iter()
+            .map(|c| format!("t.\"{c}\""))
+            .collect::<Vec<_>>()
+            .join(", ");
+        if col_list.is_empty() {
+            // No columns can only happen for a nonexistent table (SQLite
+            // requires ≥1 declared column); keep the SELECT list valid and
+            // let SQLite report "no such table".
+            col_list = "1".to_string();
+        }
+        let sql = format!(
+            "SELECT {col_list} FROM \"{table}\" AS t \
+             JOIN _dirsql_internal_rows AS m ON m.rowid_ref = t.rowid \
+             WHERE m.table_name = ?1 AND m.file_path = ?2 ORDER BY m.row_index"
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = stmt.query_map(rusqlite::params![table, file_path], |row| {
+            let mut map = HashMap::new();
+            for (i, name) in user_columns.iter().enumerate() {
+                let v: rusqlite::types::Value = row.get(i)?;
+                map.insert(name.clone(), Value::from(v));
+            }
+            Ok(map)
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
     }
 
     /// Delete all rows that were produced by a given file path.
@@ -324,75 +401,6 @@ impl Db {
         Ok(count)
     }
 
-    /// Debug/test equivalence guard for the dual-write mirror (epic #358).
-    ///
-    /// Asserts that the `_dirsql_internal_rows` mapping for `table` exactly
-    /// matches the column-derived tracking state of the live user rows: every
-    /// user row's `(rowid, _dirsql_file_path, _dirsql_row_index)` triple must
-    /// have one corresponding mapping row `(rowid_ref, file_path, row_index)`,
-    /// and vice versa. Returns [`DbError::SchemaMismatch`] describing the drift
-    /// otherwise. While the injected columns remain authoritative (stages 1–2),
-    /// this is the guard that the new bookkeeping never diverges.
-    ///
-    /// Not valid for `WITHOUT ROWID` tables (they have no `rowid` column).
-    pub fn check_row_mapping_equivalence(&self, table: &str) -> Result<()> {
-        validate_identifier(table)?;
-        let mut column_state = self.column_tracking_triples(table)?;
-        let mut mapping_state = self.mapping_triples(table)?;
-        column_state.sort();
-        mapping_state.sort();
-        if column_state != mapping_state {
-            return Err(DbError::SchemaMismatch(format!(
-                "row mapping drift for table {table}: \
-                 column-derived {column_state:?} != mapping-derived {mapping_state:?}"
-            )));
-        }
-        Ok(())
-    }
-
-    /// Column-derived tracking triples for `table`: `(rowid,
-    /// _dirsql_file_path, _dirsql_row_index)` for every live user row.
-    fn column_tracking_triples(&self, table: &str) -> Result<Vec<(i64, String, i64)>> {
-        let sql = format!(
-            "SELECT rowid, _dirsql_file_path, _dirsql_row_index FROM {}",
-            table
-        );
-        let mut stmt = self.conn.prepare(&sql)?;
-        let rows = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, i64>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, i64>(2)?,
-            ))
-        })?;
-        let mut out = Vec::new();
-        for row in rows {
-            out.push(row?);
-        }
-        Ok(out)
-    }
-
-    /// Mapping-derived tracking triples for `table`: `(rowid_ref, file_path,
-    /// row_index)` from `_dirsql_internal_rows`.
-    fn mapping_triples(&self, table: &str) -> Result<Vec<(i64, String, i64)>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT rowid_ref, file_path, row_index FROM _dirsql_internal_rows \
-             WHERE table_name = ?1",
-        )?;
-        let rows = stmt.query_map([table], |row| {
-            Ok((
-                row.get::<_, i64>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, i64>(2)?,
-            ))
-        })?;
-        let mut out = Vec::new();
-        for row in rows {
-            out.push(row?);
-        }
-        Ok(out)
-    }
-
     /// Query the database, returning rows as a list of column-name -> value maps.
     ///
     /// Rejects any statement that SQLite itself classifies as a write
@@ -400,41 +408,56 @@ impl Db {
     /// ANALYZE / …) via `sqlite3_stmt_readonly`, surfaced here as
     /// [`DbError::WriteForbidden`].
     ///
-    /// Internal tracking columns (`_dirsql_*`) are excluded from `SELECT *`
-    /// results so they don't leak. But if the user names one explicitly in the
-    /// projection (e.g. `SELECT _dirsql_file_path FROM t`), it's returned —
-    /// users opt into the tracking surface by typing the column name.
+    /// Results are vanilla SQLite: dirsql injects no tracking columns (epic
+    /// #358), so a table's columns are exactly the user's DDL and `SELECT *`
+    /// returns exactly those columns — no filtering.
     ///
-    /// The "names one explicitly" check is **comment- and string-literal-
-    /// aware**: a comment that happens to mention `_dirsql_file_path`, or
-    /// the same name appearing only inside a string literal, does NOT count
-    /// as an opt-in. The check inspects the SQL with those regions stripped
-    /// (see [`strip_sql_noise`]) so the projection filter is a real
-    /// boundary rather than a substring match.
+    /// A SQLite authorizer (issue #378) makes dirsql's internal bookkeeping
+    /// tables unreachable through this surface: any read (or schema `PRAGMA`)
+    /// targeting the reserved `_dirsql_*` namespace is denied at prepare time,
+    /// surfaced as [`DbError::Unauthorized`]. The authorizer is installed only
+    /// around this `prepare` and cleared immediately after, so the engine's own
+    /// internal writes (`insert_row`, delete-by-file, persist), which never go
+    /// through `query()`, are unaffected and stay transactional with the user
+    /// rows they describe.
     pub fn query(&self, sql: &str) -> Result<Vec<HashMap<String, Value>>> {
-        let mut stmt = self.conn.prepare(sql)?;
+        use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
+
+        self.conn
+            .authorizer(Some(|ctx: AuthContext<'_>| match ctx.action {
+                AuthAction::Read { table_name, .. } if is_internal_table(table_name) => {
+                    Authorization::Deny
+                }
+                AuthAction::Pragma {
+                    pragma_value: Some(value),
+                    ..
+                } if is_internal_table(value) => Authorization::Deny,
+                _ => Authorization::Allow,
+            }));
+        let prepared = self.conn.prepare(sql);
+        // Clear the authorizer so it only ever gates this one user query; the
+        // shared connection's internal write paths must not see it.
+        self.conn
+            .authorizer(None::<fn(AuthContext<'_>) -> Authorization>);
+
+        let mut stmt = match prepared {
+            Ok(stmt) => stmt,
+            Err(e)
+                if e.sqlite_error_code()
+                    == Some(rusqlite::ErrorCode::AuthorizationForStatementDenied) =>
+            {
+                return Err(DbError::Unauthorized(INTERNAL_TABLE_DENIED_MSG.to_string()));
+            }
+            Err(e) => return Err(DbError::Sqlite(e)),
+        };
         if !stmt.readonly() {
             return Err(DbError::WriteForbidden);
         }
         let column_names: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
 
-        // Strip comments and string literals once, up front. The result is
-        // the projection-relevant SQL that we scan for explicit `_dirsql_*`
-        // references; doing it once also collapses the per-row, per-column
-        // `sql.contains(name)` from O(rows × cols × |sql|) into O(|sql|).
-        let projection_sql = strip_sql_noise(sql);
-        let explicit_dirsql: std::collections::HashSet<&str> = column_names
-            .iter()
-            .filter(|n| n.starts_with("_dirsql_") && projection_sql.contains(n.as_str()))
-            .map(String::as_str)
-            .collect();
-
         let rows = stmt.query_map([], |row| {
             let mut map = HashMap::new();
             for (i, name) in column_names.iter().enumerate() {
-                if name.starts_with("_dirsql_") && !explicit_dirsql.contains(name.as_str()) {
-                    continue;
-                }
                 let val: rusqlite::types::Value = row.get(i)?;
                 map.insert(name.clone(), Value::from(val));
             }
@@ -447,76 +470,6 @@ impl Db {
         }
         Ok(results)
     }
-}
-
-/// Strip SQL comments and string literals from `sql`, returning a copy whose
-/// remaining text is the projection-relevant part: identifiers, keywords,
-/// punctuation. Used by [`Db::query`] to decide whether the user explicitly
-/// named a `_dirsql_*` column without being fooled by the name appearing
-/// inside `-- ...`, `/* ... */`, or `'...'`.
-///
-/// This is intentionally not a full SQL parser. It recognises:
-/// - `-- ...` to end of line / end of input.
-/// - `/* ... */` block comments (non-nesting, per SQL standard).
-/// - `'...'` string literals, with the `''` escape for embedded quotes.
-///
-/// Identifier-quoting forms (`"..."`, `` `...` ``, `[...]`) are passed
-/// through verbatim, so an explicit `SELECT "_dirsql_file_path" FROM t`
-/// still counts as a mention.
-fn strip_sql_noise(sql: &str) -> String {
-    let mut out = String::with_capacity(sql.len());
-    let mut chars = sql.chars().peekable();
-    while let Some(c) = chars.next() {
-        match c {
-            '-' if chars.peek() == Some(&'-') => {
-                chars.next();
-                for ch in chars.by_ref() {
-                    if ch == '\n' {
-                        out.push('\n');
-                        break;
-                    }
-                }
-            }
-            '/' if chars.peek() == Some(&'*') => {
-                chars.next();
-                while let Some(ch) = chars.next() {
-                    if ch == '*' && chars.peek() == Some(&'/') {
-                        chars.next();
-                        break;
-                    }
-                }
-            }
-            '\'' => {
-                while let Some(ch) = chars.next() {
-                    if ch == '\'' {
-                        if chars.peek() == Some(&'\'') {
-                            chars.next();
-                        } else {
-                            break;
-                        }
-                    }
-                }
-            }
-            _ => out.push(c),
-        }
-    }
-    out
-}
-
-/// Inject _dirsql_file_path and _dirsql_row_index columns into a CREATE TABLE DDL statement.
-fn inject_tracking_columns(ddl: &str) -> Result<String> {
-    // Find the last closing paren in the DDL and insert our columns before it
-    let close_paren = ddl
-        .rfind(')')
-        .ok_or_else(|| DbError::DdlParse("DDL must contain a closing parenthesis".to_string()))?;
-
-    let before = &ddl[..close_paren];
-    let after = &ddl[close_paren..];
-
-    Ok(format!(
-        "{}, _dirsql_file_path TEXT NOT NULL, _dirsql_row_index INTEGER NOT NULL{}",
-        before, after
-    ))
 }
 
 /// A value that can be stored in SQLite.
@@ -671,7 +624,6 @@ impl From<rusqlite::types::Value> for Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rusqlite::types::ToSql;
 
     #[test]
     fn create_table_from_ddl() {
@@ -692,11 +644,11 @@ mod tests {
     }
 
     #[test]
-    fn create_table_injects_tracking_columns() {
+    fn create_table_runs_ddl_verbatim_no_injected_columns() {
+        // Epic #358: no tracking columns are injected — a table's schema is
+        // exactly the user's DDL, and `SELECT *` returns only the user's columns.
         let db = Db::new().unwrap();
         db.create_table("CREATE TABLE t (id TEXT)").unwrap();
-
-        // The tracking columns should exist even though the user didn't declare them
         db.insert_row(
             "t",
             &HashMap::from([("id".into(), Value::Text("1".into()))]),
@@ -705,12 +657,24 @@ mod tests {
         )
         .unwrap();
 
-        // SELECT * should NOT return tracking columns
+        assert_eq!(db.get_table_columns("t").unwrap(), vec!["id".to_string()]);
         let rows = db.query("SELECT * FROM t").unwrap();
         assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].len(), 1);
         assert!(rows[0].contains_key("id"));
         assert!(!rows[0].contains_key("_dirsql_file_path"));
         assert!(!rows[0].contains_key("_dirsql_row_index"));
+    }
+
+    #[test]
+    fn pragma_table_info_matches_user_ddl_exactly() {
+        let db = Db::new().unwrap();
+        db.create_table("CREATE TABLE posts (title TEXT, draft INTEGER)")
+            .unwrap();
+        assert_eq!(
+            db.get_table_columns("posts").unwrap(),
+            vec!["title".to_string(), "draft".to_string()]
+        );
     }
 
     #[test]
@@ -802,19 +766,6 @@ mod tests {
         assert_eq!(results.len(), 2);
         assert_eq!(results[0]["name"], Value::Text("apple".into()));
         assert_eq!(results[1]["name"], Value::Text("cherry".into()));
-    }
-
-    #[test]
-    fn inject_tracking_columns_modifies_ddl() {
-        let result = inject_tracking_columns("CREATE TABLE t (id TEXT)").unwrap();
-        assert!(result.contains("_dirsql_file_path TEXT NOT NULL"));
-        assert!(result.contains("_dirsql_row_index INTEGER NOT NULL"));
-    }
-
-    #[test]
-    fn inject_tracking_columns_rejects_missing_paren() {
-        let result = inject_tracking_columns("NOT A CREATE TABLE");
-        assert!(result.is_err());
     }
 
     #[test]
@@ -1014,95 +965,12 @@ mod tests {
         assert_eq!(normalized.len(), 2);
     }
 
-    // --- Value::to_sql coverage for all variants ---
-
-    #[test]
-    fn value_to_sql_null() {
-        let v = Value::Null;
-        let result = v.to_sql().unwrap();
-        // Branch-free: compare against the expected value (`ToSqlOutput: PartialEq`)
-        // rather than `matches!`, whose `_ => false` arm is a dead region here.
-        assert_eq!(
-            result,
-            rusqlite::types::ToSqlOutput::Owned(rusqlite::types::Value::Null)
-        );
-    }
-
-    #[test]
-    fn value_to_sql_integer() {
-        let v = Value::Integer(42);
-        let result = v.to_sql().unwrap();
-        // Branch-free: see `value_to_sql_null` -- compare values directly.
-        assert_eq!(
-            result,
-            rusqlite::types::ToSqlOutput::Owned(rusqlite::types::Value::Integer(42))
-        );
-    }
-
-    #[test]
-    fn value_to_sql_real() {
-        let v = Value::Real(1.5);
-        let result = v.to_sql().unwrap();
-        // Branch-free: `ToSqlOutput` derives `PartialEq`, so compare against
-        // the exact expected value instead of a `match` with a dead `_` arm.
-        // 1.5 is exactly representable in f64, so equality is precise here.
-        assert_eq!(
-            result,
-            rusqlite::types::ToSqlOutput::Owned(rusqlite::types::Value::Real(1.5))
-        );
-    }
-
-    #[test]
-    fn value_to_sql_text() {
-        let v = Value::Text("hello".into());
-        let result = v.to_sql().unwrap();
-        assert!(matches!(
-            result,
-            rusqlite::types::ToSqlOutput::Owned(rusqlite::types::Value::Text(ref s)) if s == "hello"
-        ));
-    }
-
-    #[test]
-    fn value_to_sql_blob() {
-        let v = Value::Blob(vec![1, 2, 3]);
-        let result = v.to_sql().unwrap();
-        assert!(matches!(
-            result,
-            rusqlite::types::ToSqlOutput::Owned(rusqlite::types::Value::Blob(ref b)) if b == &[1, 2, 3]
-        ));
-    }
-
-    // --- Value::from coverage for all variants ---
-
-    #[test]
-    fn value_from_sqlite_null() {
-        let v = Value::from(rusqlite::types::Value::Null);
-        assert_eq!(v, Value::Null);
-    }
-
-    #[test]
-    fn value_from_sqlite_integer() {
-        let v = Value::from(rusqlite::types::Value::Integer(99));
-        assert_eq!(v, Value::Integer(99));
-    }
-
-    #[test]
-    fn value_from_sqlite_real() {
-        let v = Value::from(rusqlite::types::Value::Real(1.25));
-        assert_eq!(v, Value::Real(1.25));
-    }
-
-    #[test]
-    fn value_from_sqlite_text() {
-        let v = Value::from(rusqlite::types::Value::Text("world".into()));
-        assert_eq!(v, Value::Text("world".into()));
-    }
-
-    #[test]
-    fn value_from_sqlite_blob() {
-        let v = Value::from(rusqlite::types::Value::Blob(vec![10, 20]));
-        assert_eq!(v, Value::Blob(vec![10, 20]));
-    }
+    // `Value::to_sql` (our type -> SQLite param) and `From<rusqlite::types::Value>`
+    // (SQLite value -> our type) are the marshaling boundary. Every variant's
+    // arm is exercised end-to-end by the insert/query round-trip tests below
+    // (Real, Null, Blob each have a dedicated one; Text + Integer via
+    // `insert_and_query_rows`), so the arms stay covered without a unit test
+    // naming `rusqlite::types::*` directly (the `unit lint` isolation rule).
 
     // --- Insert and query with real/blob values ---
 
@@ -1139,81 +1007,120 @@ mod tests {
         assert_eq!(results[0]["data"], Value::Blob(vec![0xFF, 0x00]));
     }
 
-    // --- Query that returns _dirsql_ columns via explicit SELECT ---
+    // --- Vanilla SELECT *: no injected columns (epic #358) ---
 
     #[test]
-    fn query_filters_dirsql_columns_from_star() {
+    fn select_star_returns_only_user_columns() {
         let db = Db::new().unwrap();
         db.create_table("CREATE TABLE t (id TEXT)").unwrap();
         let row = HashMap::from([("id".into(), Value::Text("1".into()))]);
         db.insert_row("t", &row, "file.json", 0).unwrap();
-        // SELECT * should not include _dirsql_ columns
         let results = db.query("SELECT * FROM t").unwrap();
         assert_eq!(results[0].len(), 1);
         assert!(results[0].contains_key("id"));
     }
 
     #[test]
-    fn query_honors_explicit_dirsql_file_path() {
+    fn dirsql_columns_no_longer_exist_on_user_tables() {
+        // The tracking columns are gone: selecting one is a plain "no such
+        // column" error.
         let db = Db::new().unwrap();
         db.create_table("CREATE TABLE t (id TEXT)").unwrap();
         let row = HashMap::from([("id".into(), Value::Text("1".into()))]);
         db.insert_row("t", &row, "file.json", 0).unwrap();
 
-        let results = db.query("SELECT _dirsql_file_path FROM t").unwrap();
-        assert_eq!(results.len(), 1);
-        assert_eq!(
-            results[0].get("_dirsql_file_path"),
-            Some(&Value::Text("file.json".into())),
-        );
+        let err = db.query("SELECT _dirsql_file_path FROM t").unwrap_err();
+        assert!(matches!(err, DbError::Sqlite(_)), "got: {err}");
+        assert!(err.to_string().contains("no such column"), "got: {err}");
+    }
+
+    // --- Internal-table authorizer (issue #378) ---
+
+    #[test]
+    fn is_internal_table_recognizes_the_reserved_namespace() {
+        assert!(is_internal_table("_dirsql_internal_rows"));
+        assert!(is_internal_table("_dirsql_files"));
+        assert!(is_internal_table("_dirsql_meta"));
+        assert!(is_internal_table("_dirsql_anything_future"));
     }
 
     #[test]
-    fn query_honors_explicit_dirsql_alongside_user_columns() {
+    fn is_internal_table_allows_user_tables_and_fs_columns() {
+        // User tables and the documented `_`-prefixed filesystem columns are
+        // NOT in the reserved `_dirsql_` namespace.
+        assert!(!is_internal_table("items"));
+        assert!(!is_internal_table("posts"));
+        assert!(!is_internal_table("_path"));
+        assert!(!is_internal_table("_dirsq"));
+        assert!(!is_internal_table("dirsql_internal_rows"));
+    }
+
+    #[test]
+    fn query_denies_reading_internal_rows_table() {
+        // `_dirsql_internal_rows` exists on every `Db`; reading it through
+        // query() is rejected at prepare time as Unauthorized.
         let db = Db::new().unwrap();
-        db.create_table("CREATE TABLE posts (title TEXT)").unwrap();
-        let row = HashMap::from([("title".into(), Value::Text("Hello".into()))]);
-        db.insert_row("posts", &row, "posts/hello.json", 0).unwrap();
-
-        let results = db
-            .query("SELECT title, _dirsql_file_path FROM posts")
-            .unwrap();
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0]["title"], Value::Text("Hello".into()));
-        assert_eq!(
-            results[0]["_dirsql_file_path"],
-            Value::Text("posts/hello.json".into()),
+        let err = db.query("SELECT * FROM _dirsql_internal_rows").unwrap_err();
+        assert!(matches!(err, DbError::Unauthorized(_)), "got: {err}");
+        assert!(
+            err.to_string().contains("not authorized"),
+            "message should say not authorized, got: {err}"
         );
     }
 
     #[test]
-    fn query_honors_explicit_dirsql_row_index() {
+    fn query_denies_pragma_targeting_internal_table() {
+        // A schema PRAGMA naming an internal table is denied too — the internal
+        // schema is unreachable, not just its rows.
+        let db = Db::new().unwrap();
+        let err = db
+            .query("PRAGMA table_info(_dirsql_internal_rows)")
+            .unwrap_err();
+        assert!(matches!(err, DbError::Unauthorized(_)), "got: {err}");
+    }
+
+    #[test]
+    fn query_allows_pragma_on_a_user_table() {
+        // The Pragma authorizer only denies the internal namespace; a PRAGMA on
+        // a user table is served.
         let db = Db::new().unwrap();
         db.create_table("CREATE TABLE t (id TEXT)").unwrap();
-        let row = HashMap::from([("id".into(), Value::Text("a".into()))]);
-        db.insert_row("t", &row, "f.jsonl", 7).unwrap();
-
-        let results = db.query("SELECT _dirsql_row_index FROM t").unwrap();
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0]["_dirsql_row_index"], Value::Integer(7));
+        let rows = db.query("PRAGMA table_info(t)").unwrap();
+        assert_eq!(rows.len(), 1, "expected one column row, got {rows:?}");
+        assert_eq!(rows[0]["name"], Value::Text("id".into()));
     }
 
     #[test]
-    fn query_keeps_dirsql_when_filter_references_it_with_star_projection() {
-        // Naming `_dirsql_file_path` anywhere in the SQL is treated as
-        // "the user is aware of this tracking column", so `SELECT *` with
-        // a `_dirsql_*` reference in WHERE returns it.
+    fn query_authorizer_is_cleared_after_each_query() {
+        // The authorizer must not leak onto the shared connection. The strong
+        // proof: `delete_rows_by_file` itself READS `_dirsql_internal_rows` (it
+        // resolves ownership through the mapping) without routing through
+        // query(), so if a prior query() left the authorizer installed, that
+        // internal read would be denied and the delete would fail.
         let db = Db::new().unwrap();
         db.create_table("CREATE TABLE t (id TEXT)").unwrap();
         let row = HashMap::from([("id".into(), Value::Text("1".into()))]);
         db.insert_row("t", &row, "file.json", 0).unwrap();
 
-        let results = db
-            .query("SELECT * FROM t WHERE _dirsql_file_path = 'file.json'")
-            .unwrap();
-        assert_eq!(results.len(), 1);
-        assert!(results[0].contains_key("id"));
-        assert!(results[0].contains_key("_dirsql_file_path"));
+        // A denied read and a normal read each install the authorizer for their
+        // own prepare; both must clear it afterward.
+        let _ = db.query("SELECT * FROM _dirsql_internal_rows").unwrap_err();
+        let rows = db.query("SELECT id FROM t").unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], Value::Text("1".into()));
+
+        let deleted = db.delete_rows_by_file("t", "file.json").unwrap();
+        assert_eq!(
+            deleted, 1,
+            "delete-by-file reads _dirsql_internal_rows internally; a leaked \
+             authorizer would have denied that read"
+        );
+    }
+
+    #[test]
+    fn internal_table_denied_message_mentions_the_namespace() {
+        assert!(INTERNAL_TABLE_DENIED_MSG.contains("not authorized"));
+        assert!(INTERNAL_TABLE_DENIED_MSG.contains("_dirsql_"));
     }
 
     // --- Error path: query with invalid SQL ---
@@ -1274,6 +1181,95 @@ mod tests {
         db.insert_row("t", &row, "a.json", 0).unwrap();
         let deleted = db.delete_rows_by_file("t", "nonexistent.json").unwrap();
         assert_eq!(deleted, 0);
+    }
+
+    // --- Db::new backing store (#402) ---
+
+    #[test]
+    fn new_is_disk_backed_not_memory() {
+        // An in-memory SQLite database is pinned to journal_mode=memory; a
+        // file-backed one — including the anonymous temp database `Db::new`
+        // opens — defaults to journal_mode=delete. This pins #402: the
+        // default Db must never be `:memory:`, so index pages spill to disk
+        // instead of scaling resident memory with the corpus.
+        let db = Db::new().unwrap();
+        let mode: String = db
+            .conn()
+            .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(mode, "delete");
+    }
+
+    // --- get_rows_by_file: the watcher's diffing source (#401) ---
+
+    #[test]
+    fn get_rows_by_file_returns_rows_in_row_index_order() {
+        let db = Db::new().unwrap();
+        db.create_table("CREATE TABLE t (id TEXT)").unwrap();
+        // Insert with row indices out of insertion order; the read must
+        // follow row_index, not rowid / insertion order.
+        let second = HashMap::from([("id".into(), Value::Text("second".into()))]);
+        let first = HashMap::from([("id".into(), Value::Text("first".into()))]);
+        db.insert_row("t", &second, "a.json", 1).unwrap();
+        db.insert_row("t", &first, "a.json", 0).unwrap();
+
+        let rows = db.get_rows_by_file("t", "a.json").unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["id"], Value::Text("first".into()));
+        assert_eq!(rows[1]["id"], Value::Text("second".into()));
+    }
+
+    #[test]
+    fn get_rows_by_file_scopes_by_file_and_table() {
+        let db = Db::new().unwrap();
+        db.create_table("CREATE TABLE t (id TEXT)").unwrap();
+        db.create_table("CREATE TABLE u (id TEXT)").unwrap();
+        let t_row = HashMap::from([("id".into(), Value::Text("t-row".into()))]);
+        let u_row = HashMap::from([("id".into(), Value::Text("u-row".into()))]);
+        let other = HashMap::from([("id".into(), Value::Text("other-file".into()))]);
+        db.insert_row("t", &t_row, "a.json", 0).unwrap();
+        db.insert_row("u", &u_row, "a.json", 0).unwrap();
+        db.insert_row("t", &other, "b.json", 0).unwrap();
+
+        let rows = db.get_rows_by_file("t", "a.json").unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], Value::Text("t-row".into()));
+
+        // A file with no rows in this table reads back empty.
+        let none = db.get_rows_by_file("u", "b.json").unwrap();
+        assert!(none.is_empty());
+    }
+
+    #[test]
+    fn get_rows_by_file_round_trips_all_value_variants() {
+        // The watcher's positional diff compares a read-back row against a
+        // freshly normalized one, so every Value variant must survive
+        // insert -> select unchanged when the declared column affinity
+        // matches the value type.
+        let db = Db::new().unwrap();
+        db.create_table("CREATE TABLE t (i INTEGER, r REAL, s TEXT, b BLOB, n TEXT)")
+            .unwrap();
+        let row = HashMap::from([
+            ("i".to_string(), Value::Integer(42)),
+            ("r".to_string(), Value::Real(1.5)),
+            ("s".to_string(), Value::Text("hello".into())),
+            ("b".to_string(), Value::Blob(vec![0, 1, 2])),
+            ("n".to_string(), Value::Null),
+        ]);
+        db.insert_row("t", &row, "a.json", 0).unwrap();
+
+        let rows = db.get_rows_by_file("t", "a.json").unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0], row);
+    }
+
+    #[test]
+    fn get_rows_by_file_missing_table_returns_error() {
+        // A nonexistent table has no columns, so the SELECT list falls back
+        // to `1` and SQLite reports the missing table.
+        let db = Db::new().unwrap();
+        let err = db.get_rows_by_file("ghost", "a.json").unwrap_err();
+        assert!(err.to_string().contains("no such table"), "got: {err}");
     }
 
     // --- Error path: Db::open on an unopenable path ---
@@ -1370,66 +1366,6 @@ mod tests {
         let row = HashMap::from([("id); DROP TABLE t; --".into(), Value::Text("x".into()))]);
         let err = db.insert_row("t", &row, "f.json", 0).unwrap_err();
         assert!(matches!(err, DbError::InvalidIdentifier(_)), "got: {err:?}");
-    }
-
-    // --- strip_sql_noise: comment / literal aware ---
-
-    #[test]
-    fn strip_sql_noise_removes_line_comments() {
-        let s = strip_sql_noise("SELECT * FROM t -- _dirsql_file_path leak\nWHERE 1=1");
-        assert!(!s.contains("_dirsql_file_path"), "got: {s}");
-        assert!(s.contains("SELECT * FROM t"));
-        assert!(s.contains("WHERE 1=1"));
-    }
-
-    #[test]
-    fn strip_sql_noise_removes_block_comments() {
-        let s = strip_sql_noise("SELECT /* _dirsql_file_path */ x FROM t");
-        assert!(!s.contains("_dirsql_file_path"), "got: {s}");
-    }
-
-    #[test]
-    fn strip_sql_noise_removes_string_literals() {
-        let s = strip_sql_noise("SELECT * FROM t WHERE id != '_dirsql_file_path'");
-        assert!(!s.contains("_dirsql_file_path"), "got: {s}");
-    }
-
-    #[test]
-    fn strip_sql_noise_handles_escaped_quote() {
-        // `''` inside a string is an escaped quote; the literal continues.
-        let s = strip_sql_noise("SELECT 'it''s _dirsql_file_path' FROM t");
-        assert!(!s.contains("_dirsql_file_path"), "got: {s}");
-    }
-
-    #[test]
-    fn strip_sql_noise_preserves_quoted_identifiers() {
-        // Double-quoted identifiers must survive — they ARE the column name.
-        let s = strip_sql_noise(r#"SELECT "_dirsql_file_path" FROM t"#);
-        assert!(s.contains("_dirsql_file_path"), "got: {s}");
-    }
-
-    #[test]
-    fn query_does_not_leak_dirsql_for_comment_mention() {
-        let db = Db::new().unwrap();
-        db.create_table("CREATE TABLE t (id TEXT)").unwrap();
-        let row = HashMap::from([("id".into(), Value::Text("1".into()))]);
-        db.insert_row("t", &row, "file.json", 0).unwrap();
-        let rows = db.query("SELECT * FROM t /* _dirsql_file_path */").unwrap();
-        assert_eq!(rows.len(), 1);
-        assert!(!rows[0].contains_key("_dirsql_file_path"));
-    }
-
-    #[test]
-    fn query_does_not_leak_dirsql_for_string_literal_mention() {
-        let db = Db::new().unwrap();
-        db.create_table("CREATE TABLE t (id TEXT)").unwrap();
-        let row = HashMap::from([("id".into(), Value::Text("x".into()))]);
-        db.insert_row("t", &row, "file.json", 0).unwrap();
-        let rows = db
-            .query("SELECT * FROM t WHERE id != '_dirsql_file_path'")
-            .unwrap();
-        assert_eq!(rows.len(), 1);
-        assert!(!rows[0].contains_key("_dirsql_file_path"));
     }
 
     // --- load_extension: error path (missing shared library) ---
@@ -1578,7 +1514,6 @@ mod tests {
         let rows = mapping_rows(&db, "t");
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].2, 42, "rowid_ref must be the user-declared rowid");
-        db.check_row_mapping_equivalence("t").unwrap();
     }
 
     #[test]
@@ -1600,15 +1535,12 @@ mod tests {
         let rows = mapping_rows(&db, "t");
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].0, "b.jsonl");
-        db.check_row_mapping_equivalence("t").unwrap();
     }
 
     #[test]
-    fn delete_rows_by_file_reads_mapping_not_columns() {
-        // Stage 2 (epic #358): delete-by-file resolves ownership through the
-        // mapping, not the now-write-only `_dirsql_file_path` column. Corrupt
-        // the column so it disagrees with the mapping and confirm the delete
-        // still follows the mapping.
+    fn delete_rows_by_file_resolves_ownership_through_mapping() {
+        // Delete-by-file resolves ownership entirely through the mapping. A file
+        // with no mapping rows deletes nothing; the owning file deletes its row.
         let db = Db::new().unwrap();
         db.create_table("CREATE TABLE t (id TEXT)").unwrap();
         db.insert_row(
@@ -1618,21 +1550,14 @@ mod tests {
             0,
         )
         .unwrap();
-        // Desync the write-only column from the mapping.
-        db.conn
-            .execute("UPDATE t SET _dirsql_file_path = 'wrong.json'", [])
-            .unwrap();
 
-        // Deleting by the mapping's file removes the row; deleting by the
-        // stale column value is a no-op.
-        assert_eq!(db.delete_rows_by_file("t", "wrong.json").unwrap(), 0);
+        assert_eq!(db.delete_rows_by_file("t", "absent.json").unwrap(), 0);
         assert_eq!(db.delete_rows_by_file("t", "real.json").unwrap(), 1);
         let remaining: i64 = db
             .conn
             .query_row("SELECT COUNT(*) FROM t", [], |r| r.get(0))
             .unwrap();
         assert_eq!(remaining, 0);
-        db.check_row_mapping_equivalence("t").unwrap();
     }
 
     #[test]
@@ -1664,8 +1589,6 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM t2", [], |r| r.get(0))
             .unwrap();
         assert_eq!(t2_rows, 1, "t2's row for the same path must be untouched");
-        db.check_row_mapping_equivalence("t1").unwrap();
-        db.check_row_mapping_equivalence("t2").unwrap();
     }
 
     #[test]
@@ -1699,7 +1622,6 @@ mod tests {
             "the failed insert must not add a mapping row"
         );
         assert_eq!(rows[0].0, "a.json");
-        db.check_row_mapping_equivalence("t").unwrap();
     }
 
     #[test]
@@ -1728,35 +1650,6 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM t", [], |r| r.get(0))
             .unwrap();
         assert_eq!(count, 0, "the user row must have rolled back");
-    }
-
-    #[test]
-    fn check_row_mapping_equivalence_detects_drift() {
-        let db = Db::new().unwrap();
-        db.create_table("CREATE TABLE t (id TEXT)").unwrap();
-        db.insert_row(
-            "t",
-            &HashMap::from([("id".into(), Value::Text("a".into()))]),
-            "f.json",
-            0,
-        )
-        .unwrap();
-        db.check_row_mapping_equivalence("t").unwrap();
-
-        // Corrupt the mapping directly, bypassing the dual-write path.
-        db.conn
-            .execute("DELETE FROM _dirsql_internal_rows", [])
-            .unwrap();
-        let err = db.check_row_mapping_equivalence("t").unwrap_err();
-        assert!(matches!(err, DbError::SchemaMismatch(_)), "got: {err}");
-        assert!(err.to_string().contains("row mapping drift"));
-    }
-
-    #[test]
-    fn check_row_mapping_equivalence_rejects_bad_table_name() {
-        let db = Db::new().unwrap();
-        let err = db.check_row_mapping_equivalence("bad name").unwrap_err();
-        assert!(matches!(err, DbError::InvalidIdentifier(_)), "got: {err}");
     }
 
     #[test]

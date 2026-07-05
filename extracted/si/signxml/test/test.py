@@ -10,7 +10,7 @@ import unittest
 from base64 import b64decode, b64encode
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timezone
 from glob import glob
 from xml.etree import ElementTree as stdlibElementTree
 
@@ -63,6 +63,18 @@ hmac_only = SignatureConfiguration(
 xades_sha1_ok = XAdESSignatureConfiguration(
     signature_methods=list(SignatureMethod), digest_algorithms=list(DigestAlgorithm)
 )
+example_cert_verification_time = datetime(2015, 1, 1, tzinfo=timezone.utc)
+example_cert_config = SignatureConfiguration(verification_time=example_cert_verification_time)
+sha1_ok_example_cert = replace(sha1_ok, verification_time=example_cert_verification_time)
+xades_sha1_ok_example_cert = replace(xades_sha1_ok, verification_time=example_cert_verification_time)
+
+
+def get_cert_midpoint_verification_time(cert_text):
+    try:
+        cert = x509.load_der_x509_certificate(b64decode("".join(cert_text.split())))
+    except ValueError:
+        return None
+    return cert.not_valid_before_utc + (cert.not_valid_after_utc - cert.not_valid_before_utc) / 2
 
 
 def reset_tree(t, method):
@@ -73,23 +85,33 @@ def reset_tree(t, method):
             s.getparent().remove(s)
 
 
-def get_no_dsig_key_usage_ee_policy_verifier_for_year(year: int):
+def get_no_dsig_key_usage_ee_policy_verifier_at_time(verification_time):
     class _Verifier(XMLVerifier):
+        def verify(self, data, **kwargs):
+            expect_config = kwargs.pop("expect_config", SignatureConfiguration())
+            expect_config = replace(expect_config, verification_time=verification_time)
+            return super().verify(data, expect_config=expect_config, **kwargs)
+
         def get_cert_chain_verifier(self, ca_pem_file, ee_policy, ca_policy):
             ee_policy = x509.verification.ExtensionPolicy.webpki_defaults_ee()
-            verifier = super().get_cert_chain_verifier(ca_pem_file, ee_policy, ca_policy)
-            verifier.verification_time = datetime(year, 1, 1)
-            return verifier
+            return super().get_cert_chain_verifier(ca_pem_file, ee_policy, ca_policy)
 
     return _Verifier()
 
 
+def get_no_dsig_key_usage_ee_policy_verifier_for_year(year: int):
+    verification_time = datetime(year, 1, 1, tzinfo=timezone.utc)
+    return get_no_dsig_key_usage_ee_policy_verifier_at_time(verification_time)
+
+
 def get_verifier_for_year(year: int):
+    verification_time = datetime(year, 1, 1, tzinfo=timezone.utc)
+
     class _Verifier(XMLVerifier):
-        def get_cert_chain_verifier(self, ca_pem_file, ee_policy, ca_policy):
-            verifier = super().get_cert_chain_verifier(ca_pem_file, ee_policy, ca_policy)
-            verifier.verification_time = datetime(year, 1, 1)
-            return verifier
+        def verify(self, data, **kwargs):
+            expect_config = kwargs.pop("expect_config", SignatureConfiguration())
+            expect_config = replace(expect_config, verification_time=verification_time)
+            return super().verify(data, expect_config=expect_config, **kwargs)
 
     return _Verifier()
 
@@ -132,6 +154,7 @@ class TestVerifyXML(unittest.TestCase, LoadExampleKeys):
             data=etree.parse(example_file),
             x509_cert=cert,
             expect_references=2,
+            expect_config=example_cert_config,
         )
 
     def test_example_multi_unspecified_reference_count(self):
@@ -143,6 +166,7 @@ class TestVerifyXML(unittest.TestCase, LoadExampleKeys):
             data=etree.parse(example_file),
             x509_cert=cert,
             expect_references=True,
+            expect_config=example_cert_config,
         )
 
         self.assertIsInstance(res, list)
@@ -325,7 +349,7 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
             signer = XMLSigner(method=method, signature_algorithm=SignatureMethod.RSA_SHA256)
             signed = signer.sign(data, key=key, cert=crt)
             signed_data = etree.tostring(signed)
-            verifier.verify(signed_data, x509_cert=crt)
+            verifier.verify(signed_data, x509_cert=crt, expect_config=example_cert_config)
             verifier.verify(signed_data, x509_cert=x509.load_pem_x509_certificate(crt))
             verifier.verify(signed_data, x509_cert=crt, cert_subject_name="*.example.com")
 
@@ -343,6 +367,145 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
                 verifier.verify(signed_data)
 
             # TODO: negative: verify with wrong cert, wrong CA
+
+    def test_x509_cert_chain_verification_time(self):
+        def make_key_usage(digital_signature=False, key_cert_sign=False, crl_sign=False):
+            return x509.KeyUsage(
+                digital_signature=digital_signature,
+                content_commitment=False,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=key_cert_sign,
+                crl_sign=crl_sign,
+                encipher_only=False,
+                decipher_only=False,
+            )
+
+        tree = etree.parse(self.example_xml_files[0])
+        ca_key = ec.generate_private_key(ec.SECP384R1())
+        ca_name = x509.Name([x509.NameAttribute(x509.oid.NameOID.COMMON_NAME, "SignXML Test CA")])
+        ca_cert = (
+            x509.CertificateBuilder()
+            .subject_name(ca_name)
+            .issuer_name(ca_name)
+            .public_key(ca_key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(datetime(2020, 1, 1, tzinfo=timezone.utc))
+            .not_valid_after(datetime(2030, 1, 1, tzinfo=timezone.utc))
+            .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+            .add_extension(make_key_usage(key_cert_sign=True, crl_sign=True), critical=True)
+            .add_extension(x509.SubjectKeyIdentifier.from_public_key(ca_key.public_key()), critical=False)
+            .sign(ca_key, hashes.SHA384())
+        )
+
+        leaf_key = ec.generate_private_key(ec.SECP384R1())
+        leaf_cert = (
+            x509.CertificateBuilder()
+            .subject_name(x509.Name([x509.NameAttribute(x509.oid.NameOID.COMMON_NAME, "XML Signature Test")]))
+            .issuer_name(ca_cert.subject)
+            .public_key(leaf_key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(datetime(2020, 1, 1, tzinfo=timezone.utc))
+            .not_valid_after(datetime(2021, 1, 1, tzinfo=timezone.utc))
+            .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+            .add_extension(make_key_usage(digital_signature=True), critical=True)
+            .add_extension(x509.SubjectKeyIdentifier.from_public_key(leaf_key.public_key()), critical=False)
+            .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), critical=False)
+            .sign(ca_key, hashes.SHA384())
+        )
+
+        signer = XMLSigner(method=methods.enveloped, signature_algorithm=SignatureMethod.ECDSA_SHA384)
+        signed = signer.sign(tree.getroot(), key=leaf_key, cert=[leaf_cert])
+        signed_data = etree.tostring(signed)
+
+        XMLVerifier().verify(
+            signed_data,
+            x509_cert=leaf_cert,
+            expect_config=SignatureConfiguration(verification_time=datetime(2020, 6, 1, tzinfo=timezone.utc)),
+        )
+        with self.assertRaisesRegex(
+            InvalidCertificate, "provided x509_cert.*certificate is not yet valid.*SignatureConfiguration"
+        ):
+            XMLVerifier().verify(
+                signed_data,
+                x509_cert=leaf_cert,
+                expect_config=SignatureConfiguration(verification_time=datetime(2019, 1, 1, tzinfo=timezone.utc)),
+            )
+        with self.assertRaisesRegex(
+            InvalidCertificate, "provided x509_cert.*certificate has expired.*SignatureConfiguration"
+        ):
+            XMLVerifier().verify(
+                signed_data,
+                x509_cert=leaf_cert,
+                expect_config=SignatureConfiguration(verification_time=datetime(2025, 1, 1, tzinfo=timezone.utc)),
+            )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            ca_pem_file = os.path.join(temp_dir, "ca.pem")
+            with open(ca_pem_file, "wb") as fh:
+                fh.write(ca_cert.public_bytes(serialization.Encoding.PEM))
+
+            XMLVerifier().verify(
+                signed_data,
+                ca_pem_file=ca_pem_file,
+                expect_config=SignatureConfiguration(verification_time=datetime(2020, 6, 1, tzinfo=timezone.utc)),
+            )
+            with self.assertRaisesRegex(
+                InvalidCertificate,
+                "X509Data/X509Certificate certificate at index 0.*certificate has expired.*SignatureConfiguration",
+            ):
+                XMLVerifier().verify(
+                    signed_data,
+                    ca_pem_file=ca_pem_file,
+                    expect_config=SignatureConfiguration(verification_time=datetime(2025, 1, 1, tzinfo=timezone.utc)),
+                )
+
+    def test_issue_284_expired_certificate_can_verify_at_signing_time(self):
+        issue_file = os.path.join(os.path.dirname(__file__), "issues", "issue_284_expired_cert.xml")
+        with open(issue_file, "rb") as fh:
+            signed_xml = fh.read()
+        doc = etree.fromstring(signed_xml)
+        cert_text = doc.find(".//ds:X509Certificate", namespaces=namespaces).text
+        signing_cert = x509.load_der_x509_certificate(b64decode(cert_text))
+        config = SignatureConfiguration(
+            signature_methods=frozenset({SignatureMethod.RSA_SHA1}),
+            digest_algorithms=frozenset({DigestAlgorithm.SHA1}),
+            default_reference_c14n_method=CanonicalizationMethod.CANONICAL_XML_1_0,
+        )
+
+        verifier = XMLVerifier()
+        verifier.excise_empty_xmlns_declarations = True
+        with self.assertRaisesRegex(
+            InvalidCertificate, "provided x509_cert.*certificate has expired.*SignatureConfiguration"
+        ):
+            verifier.verify(signed_xml, x509_cert=signing_cert, expect_config=config)
+
+        verifier = XMLVerifier()
+        verifier.excise_empty_xmlns_declarations = True
+        result = verifier.verify(
+            signed_xml,
+            x509_cert=signing_cert,
+            expect_config=replace(config, verification_time=datetime(2018, 5, 28, 17, 0, tzinfo=timezone.utc)),
+        )
+        self.assertIsInstance(result, VerifyResult)
+
+    def test_sign_rejects_invalid_x509_cert_input(self):
+        _, key = self.load_example_keys()
+        data = etree.parse(self.example_xml_files[0]).getroot()
+        invalid_pem = "-----BEGIN CERTIFICATE-----\nnot a certificate\n-----END CERTIFICATE-----"
+
+        invalid_cert_inputs = [
+            ("", "No PEM-encoded certificates found"),
+            ([], "No certificates found"),
+            ([""], "Invalid X.509 certificate"),
+            (invalid_pem, "Invalid X.509 certificate"),
+            ([invalid_pem], "Invalid X.509 certificate"),
+        ]
+        for cert, message in invalid_cert_inputs:
+            with self.subTest(cert=repr(cert)):
+                with self.assertRaisesRegex(InvalidInput, message):
+                    XMLSigner().sign(data, key=key, cert=cert)
 
     def test_x509_cert_chain_requires_digital_signature_key_usage(self):
         def make_key_usage(digital_signature=False, key_cert_sign=False, crl_sign=False):
@@ -505,9 +668,10 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
             with open(signature_file, "rb") as fh:
                 try:
                     sig = fh.read()
-                    verifier = get_no_dsig_key_usage_ee_policy_verifier_for_year(
-                        2010 if "phaos" in signature_file else 2014
-                    )
+                    verification_time = datetime(2010 if "phaos" in signature_file else 2014, 1, 1, tzinfo=timezone.utc)
+                    if "pyXMLSecurity" in signature_file:
+                        verification_time = datetime(2009, 10, 15, tzinfo=timezone.utc)
+                    verifier = get_no_dsig_key_usage_ee_policy_verifier_at_time(verification_time)
                     verifier.excise_empty_xmlns_declarations = True
                     verifier.verify(
                         sig,
@@ -548,7 +712,10 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
                     if signature_file.endswith("expired-cert.xml") or signature_file.endswith(
                         "wsfederation_metadata.xml"
                     ):  # noqa
-                        with self.assertRaisesRegex(InvalidCertificate, "cert is not valid at validation time"):
+                        with self.assertRaisesRegex(
+                            InvalidCertificate,
+                            "certificate (has expired|is not yet valid).*SignatureConfiguration",
+                        ):
                             raise
                     elif signature_file.endswith("invalid_enveloped_transform.xml"):
                         self.assertIsInstance(e, InvalidSignature)
@@ -633,7 +800,7 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
         signed_data = etree.tostring(signed)
         verifier = XMLVerifier()
         verifier.excise_empty_xmlns_declarations = True
-        verifier.verify(signed_data, x509_cert=crt)
+        verifier.verify(signed_data, x509_cert=crt, expect_config=example_cert_config)
 
     def test_elementtree_compat(self):
         data = stdlibElementTree.parse(self.example_xml_files[0]).getroot()
@@ -665,7 +832,9 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
         data = etree.fromstring(self.saml_test_vectors[0])
         reference_uri = "assertionId"
         signed_root = XMLSigner().sign(data, reference_uri=reference_uri, key=key, cert=crt)
-        res = XMLVerifier().verify(etree.tostring(signed_root), x509_cert=crt, expect_references=True)
+        res = XMLVerifier().verify(
+            etree.tostring(signed_root), x509_cert=crt, expect_references=True, expect_config=example_cert_config
+        )
 
         self.assertIsInstance(res, list)
         self.assertEqual(1, len(res))
@@ -678,7 +847,9 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
             data = etree.fromstring(d)
             reference_uri = ["assertionId", "assertion2"] if "assertion2" in d else "assertionId"
             signed_root = XMLSigner().sign(data, reference_uri=reference_uri, key=key, cert=crt)
-            res = XMLVerifier().verify(etree.tostring(signed_root), x509_cert=crt, expect_references=True)
+            res = XMLVerifier().verify(
+                etree.tostring(signed_root), x509_cert=crt, expect_references=True, expect_config=example_cert_config
+            )
             signed_data_root = res[0].signed_xml
             ref = signed_root.xpath(
                 "/samlp:Response/saml:Assertion/ds:Signature/ds:SignedInfo/ds:Reference",
@@ -720,11 +891,17 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
             # Test setting both X509Data and KeyInfo
             s4 = XMLSigner().sign(data, reference_uri=reference_uri, key=key, cert=crt, always_add_key_value=True)
             try:
-                XMLVerifier().verify(s4, x509_cert=crt)
+                XMLVerifier().verify(s4, x509_cert=crt, expect_config=example_cert_config)
             except InvalidSignature as e:
                 self.assertIn("Expected to find 1 references, but found 2", str(e))
             expect_refs = etree.tostring(s4).decode().count("<ds:Reference")
-            XMLVerifier().verify(s4, x509_cert=crt, ignore_ambiguous_key_info=True, expect_references=expect_refs)
+            XMLVerifier().verify(
+                s4,
+                x509_cert=crt,
+                ignore_ambiguous_key_info=True,
+                expect_references=expect_refs,
+                expect_config=example_cert_config,
+            )
 
     def test_inclusive_namespaces_signing(self):
         # Test exclusive canonicalization with InclusiveNamespace PrefixList
@@ -822,9 +999,11 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
             InvalidInput,
             "Both X509Data and KeyValue found and they represent different public keys",
         ):
-            XMLVerifier().verify(signed_xml, x509_cert=crt)
+            XMLVerifier().verify(signed_xml, x509_cert=crt, expect_config=example_cert_config)
 
-        XMLVerifier().verify(signed_xml, x509_cert=crt, ignore_ambiguous_key_info=True)
+        XMLVerifier().verify(
+            signed_xml, x509_cert=crt, ignore_ambiguous_key_info=True, expect_config=example_cert_config
+        )
 
     def test_mismatched_ecdsa_key_value_with_x509_data(self):
         crt, key = self.load_example_ecdsa_keys()
@@ -899,7 +1078,9 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
             doc, cert=cert, key=key, reference_uri="#mytest", signature_properties=sigprop
         )
         fulldoc = b"<root>" + etree.tostring(signature) + etree.tostring(doc) + b"</root>"
-        XMLVerifier().verify(etree.fromstring(fulldoc), x509_cert=cert, expect_references=2)
+        XMLVerifier().verify(
+            etree.fromstring(fulldoc), x509_cert=cert, expect_references=2, expect_config=example_cert_config
+        )
 
     def test_signature_properties_with_detached_method_re_enveloping(self):
         doc = etree.Element("{http://somenamespace}Test", attrib={"Id": "mytest"})
@@ -915,7 +1096,9 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
             + etree.tostring(doc)
             + b"</ns0:root>"
         )
-        XMLVerifier().verify(etree.fromstring(fulldoc), x509_cert=cert, expect_references=2)
+        XMLVerifier().verify(
+            etree.fromstring(fulldoc), x509_cert=cert, expect_references=2, expect_config=example_cert_config
+        )
 
     def test_payload_c14n(self):
         doc = etree.fromstring('<abc xmlns="http://example.com"><foo xmlns="">bar</foo></abc>')
@@ -932,7 +1115,7 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
             "</rDE>"
         )
         root = XMLSigner().sign(doc, cert=cert, key=key, reference_uri="#target")
-        XMLVerifier().verify(root, x509_cert=cert)
+        XMLVerifier().verify(root, x509_cert=cert, expect_config=example_cert_config)
 
     def test_include_c14n_transform_element_by_default(self):
         cert, key = self.load_example_keys()
@@ -942,7 +1125,7 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
             "</rDE>"
         )
         root = XMLSigner().sign(doc, cert=cert, key=key, reference_uri="#target")
-        XMLVerifier().verify(root, x509_cert=cert)
+        XMLVerifier().verify(root, x509_cert=cert, expect_config=example_cert_config)
         transform_elements = root.findall(
             "ds:Signature/ds:SignedInfo/ds:Reference/ds:Transforms/ds:Transform", namespaces=namespaces
         )
@@ -969,11 +1152,13 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
             XMLVerifier().verify,
             root,
             x509_cert=cert,
+            expect_config=example_cert_config,
         )
 
         # However, if we use the right configuration, it should verify correctly
         config = SignatureConfiguration(
-            default_reference_c14n_method=CanonicalizationMethod.CANONICAL_XML_1_0_WITH_COMMENTS
+            default_reference_c14n_method=CanonicalizationMethod.CANONICAL_XML_1_0_WITH_COMMENTS,
+            verification_time=example_cert_verification_time,
         )
         XMLVerifier().verify(root, x509_cert=cert, expect_config=config)
         transform_elements = root.findall(
@@ -990,17 +1175,21 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
         signer = XMLSigner()
         signed = signer.sign(data, cert=cert, key=key)
         verifier = XMLVerifier()
-        verifier.verify(signed, x509_cert=cert)
+        verifier.verify(signed, x509_cert=cert, expect_config=example_cert_config)
         config = SignatureConfiguration(location="./foo/bar/")
-        with self.assertRaisesRegex(InvalidInput, "Expected to find XML element Signature in data"):
+        with self.assertRaisesRegex(
+            InvalidInput, "Expected to find XML element Signature in data using XPath ./foo/bar/ds:Signature"
+        ):
             verifier.verify(signed, x509_cert=cert, expect_config=config)
         config = SignatureConfiguration(signature_methods=[])
         with self.assertRaisesRegex(InvalidInput, "Signature method RSA_SHA256 forbidden by configuration"):
             verifier.verify(signed, x509_cert=cert, expect_config=config)
-        config = SignatureConfiguration(digest_algorithms=[DigestAlgorithm.SHA3_512])
+        config = SignatureConfiguration(
+            digest_algorithms=[DigestAlgorithm.SHA3_512], verification_time=example_cert_verification_time
+        )
         with self.assertRaisesRegex(InvalidInput, "Digest algorithm SHA256 forbidden by configuration"):
             verifier.verify(signed, x509_cert=cert, expect_config=config)
-        config = SignatureConfiguration(digest_algorithms=[])
+        config = SignatureConfiguration(digest_algorithms=[], verification_time=example_cert_verification_time)
         with self.assertRaisesRegex(InvalidInput, "Digest algorithm SHA256 forbidden by configuration"):
             verifier.verify(signed, x509_cert=cert, expect_config=config)
 
@@ -1014,7 +1203,7 @@ class TestSignXML(unittest.TestCase, LoadExampleKeys):
         verifier = XMLVerifier()
         with self.assertRaisesRegex(InvalidInput, "Signature method RSA_SHA1 forbidden by configuration"):
             verifier.verify(signed, x509_cert=cert)
-        verifier.verify(signed, x509_cert=cert, expect_config=sha1_ok)
+        verifier.verify(signed, x509_cert=cert, expect_config=sha1_ok_example_cert)
 
 
 class TestXAdES(unittest.TestCase, LoadExampleKeys):
@@ -1061,7 +1250,41 @@ class TestXAdES(unittest.TestCase, LoadExampleKeys):
 
         verifier = XAdESVerifier()
         verify_results = verifier.verify(
-            signed_doc, x509_cert=cert, expect_references=3, expect_signature_policy=self.signature_policy
+            signed_doc,
+            x509_cert=cert,
+            expect_references=3,
+            expect_signature_policy=self.signature_policy,
+            expect_config=xades_sha1_ok_example_cert,
+        )
+        self.assertIsInstance(verify_results[1], XAdESVerifyResult)
+        self.assertTrue(hasattr(verify_results[1], "signed_properties"))
+
+    def test_xades_roundtrip_with_cert_chain(self):
+        cert, key = self.load_example_keys()
+        with open(os.path.join(os.path.dirname(__file__), "example-ca.pem"), "rb") as fh:
+            ca_cert = fh.read()
+        with open(os.path.join(os.path.dirname(__file__), "example.xml"), "rb") as fh:
+            doc = etree.parse(fh)
+        signer = XAdESSigner(
+            signature_policy=self.signature_policy,
+            claimed_roles=self.claimed_roles,
+            data_object_format=self.data_object_format,
+        )
+        signed_doc = signer.sign(doc, key=key, cert=[cert, ca_cert])
+
+        self.assertEqual(2, len(signed_doc.findall(".//ds:X509Certificate", namespaces=namespaces)))
+        self.assertEqual(
+            2,
+            len(signed_doc.findall(".//xades:SigningCertificateV2/xades:Cert", namespaces=namespaces)),
+        )
+
+        verifier = XAdESVerifier()
+        verify_results = verifier.verify(
+            signed_doc,
+            x509_cert=cert,
+            expect_references=3,
+            expect_signature_policy=self.signature_policy,
+            expect_config=xades_sha1_ok_example_cert,
         )
         self.assertIsInstance(verify_results[1], XAdESVerifyResult)
         self.assertTrue(hasattr(verify_results[1], "signed_properties"))
@@ -1074,7 +1297,6 @@ class TestXAdES(unittest.TestCase, LoadExampleKeys):
             "corrupted-cert": etree.DocumentInvalid,  # FIXME - flaky validation
             "cert-v2-wrong-digest": InvalidDigest,
             "wrong-sign-cert-digest": InvalidDigest,
-            "nonconformant-X_BE_CONN_10": InvalidDigest,
             "sigPolStore-noDigest": InvalidInput,
         }
         for sig_file in glob(os.path.join(os.path.dirname(__file__), "xades", "*.xml")):
@@ -1082,10 +1304,14 @@ class TestXAdES(unittest.TestCase, LoadExampleKeys):
             with open(sig_file, "rb") as fh:
                 doc = etree.parse(fh)
             cert = doc.find(".//{http://www.w3.org/2000/09/xmldsig#}X509Certificate").text
+            expect_config = xades_sha1_ok
+            verification_time = get_cert_midpoint_verification_time(cert)
+            if verification_time is not None:
+                expect_config = replace(expect_config, verification_time=verification_time)
             kwargs = dict(
                 x509_cert=cert,
                 expect_references=self.expect_references.get(os.path.basename(sig_file), 2),
-                expect_config=xades_sha1_ok,
+                expect_config=expect_config,
             )
             if "nonconformant" in sig_file:
                 kwargs.update(validate_schema=False)

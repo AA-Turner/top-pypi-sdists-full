@@ -52,7 +52,9 @@
 //! * [`term`] — the `SaeManifoldTerm` aggregate, its shared numeric constants,
 //!   and the mutable-state snapshot the inner line search restores.
 //! * [`construction`] — term construction, accessors, frame/border bookkeeping,
-//!   loss/penalty/criterion evaluation, and the arrow-Schur assembly.
+//!   and loss/penalty/criterion evaluation.
+//! * [`construction_arrow_schur_assembly`] — the Gauss-Newton bordered-Hessian
+//!   arrow-Schur assembly and its factored β-penalty curvature helpers.
 //! * [`penalties`] — the live analytic-penalty curvature contributions.
 //! * [`fit_drivers`] — gauge canonicalization, the Newton step, and the joint /
 //!   fixed-decoder / streaming fit drivers.
@@ -79,7 +81,8 @@ pub(crate) use gam_terms::analytic_penalties::{
     PenaltyTier, PsiSlice, WeightField, resolve_learnable_weight,
 };
 
-pub(crate) use gam_terms::latent::{LatentCoordValues, LatentIdMode, LatentManifold};
+pub(crate) use gam_terms::latent::{LatentCoordValues, LatentIdMode};
+pub use gam_terms::latent::LatentManifold;
 
 pub(crate) use crate::criterion_atoms::SaeCriterion;
 
@@ -131,9 +134,11 @@ mod amortized_routing;
 mod arrow_solver;
 mod atom;
 mod behavior;
+mod behavior_fit;
 mod certificate;
 mod construction;
 mod construction_ard;
+mod construction_arrow_schur_assembly;
 mod construction_aux_types;
 mod construction_cache_refresh;
 mod construction_padded_blocks;
@@ -141,6 +146,7 @@ mod construction_reconstruction;
 mod coordinate_fidelity;
 mod fit_drivers;
 mod gauge;
+mod isa_seed;
 mod kronecker;
 mod loss;
 mod outer_objective;
@@ -185,10 +191,25 @@ mod tests_unit_speed_inloop_2022;
 mod tests_structured_residual_2021;
 
 #[cfg(test)]
+mod tests_encode_whitened_gls_2021;
+
+#[cfg(test)]
+mod tests_coatom_sigma_coherence_2021;
+
+#[cfg(test)]
+mod tests_2101_birth_locus_probe;
+
+#[cfg(test)]
+mod tests_rank_charge_2101;
+
+#[cfg(test)]
 mod tests_behavioral_fisher_rung1;
 
 #[cfg(test)]
 mod tests_two_tier_2023;
+
+#[cfg(test)]
+mod tests_tier0_shared_mean_2023;
 
 #[cfg(test)]
 mod tests_streaming_efs_cache_1026;
@@ -241,12 +262,39 @@ mod tests_behavior_twoblock_rung2;
 pub use arrow_solver::*;
 pub use atom::*;
 pub use behavior::*;
+pub use behavior_fit::*;
 pub use certificate::*;
 pub use construction_aux_types::*;
 pub use construction_cache_refresh::*;
 pub use construction_padded_blocks::*;
+// #16/#2023 — the shared rank-charge DOF core, exposed so the hybrid-split DEMOTE
+// gate prices linear/curved candidates in the SAME currency as the joint REML fit.
+pub(crate) use construction::realised_rank_charge_dof;
+
+/// Public single-currency surface for the realised rank-charge DOF: the SAME
+/// `realised_rank_charge_dof` the joint REML PROMOTE gate, the hybrid-split
+/// DEMOTE gate, and the streaming block ledger all charge, exposed so external
+/// drivers (the Mode-A per-block chart pass, the compose/certify report) price
+/// candidates with the EXACT criterion instead of re-deriving the formula —
+/// re-derivations drift (a ½-factor mismatch was caught in the first
+/// re-implementation attempt, which is precisely why this wrapper exists).
+/// `gram` is the candidate's weighted design Gram over its `M` basis columns,
+/// `decoder` its `M×p` decoder block, `n_eff` the effective sample mass,
+/// `p_out` the output dimension, `dispersion` the reconstruction φ̂ feeding the
+/// MP floor. No smoothing-penalty term (matches both gate call sites).
+pub fn rank_charge_dof(
+    gram: &ndarray::Array2<f64>,
+    decoder: &ndarray::Array2<f64>,
+    n_eff: f64,
+    p_out: f64,
+    dispersion: f64,
+) -> Result<f64, String> {
+    construction::realised_rank_charge_dof(gram, decoder, n_eff, p_out, dispersion, 0.0, None)
+}
+
 pub use coordinate_fidelity::*;
 pub use gauge::*;
+pub use isa_seed::*;
 pub(crate) use kronecker::*;
 pub use loss::*;
 pub use outer_objective::*;

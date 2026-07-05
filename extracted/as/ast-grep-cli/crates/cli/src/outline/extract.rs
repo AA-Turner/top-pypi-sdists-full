@@ -24,6 +24,8 @@ use crate::utils::{EmptyFile, InputArgs, read_file};
 use super::OutlineArg;
 use super::options::{extractor_options_from_arg, show_empty_files};
 
+const OUTLINE_QUEUE_BOUND: usize = 256;
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OutlineFile<'a> {
@@ -97,7 +99,8 @@ impl OutlineExtractors {
 
 pub fn load_outline_rules(
   include_default: bool,
-  paths: &[PathBuf],
+  config_paths: &[PathBuf],
+  cli_paths: &[PathBuf],
 ) -> Result<Vec<SerializableOutlineRule<SgLang>>> {
   let mut rules = vec![];
   if include_default {
@@ -105,7 +108,7 @@ pub fn load_outline_rules(
       parse_outline_rules(DEFAULT_OUTLINE_RULES).context("Cannot parse builtin outline rules")?,
     );
   }
-  for path in paths {
+  for path in config_paths.iter().chain(cli_paths) {
     let source = std::fs::read_to_string(path)
       .with_context(|| format!("Cannot read outline rules {}", path.display()))?;
     rules.extend(
@@ -140,7 +143,7 @@ pub fn stream_paths(
     return Ok(());
   }
   let walker = outline_walk(&arg.input, arg.lang, &extractors)?;
-  let (tx, rx) = mpsc::channel();
+  let (tx, rx) = outline_channel();
   let lang = arg.lang;
   let producer = thread::spawn(move || {
     walker.run(|| {
@@ -173,6 +176,13 @@ pub fn stream_paths(
     .join()
     .map_err(|_| anyhow::anyhow!("outline walker thread panicked"))?;
   result
+}
+
+fn outline_channel() -> (
+  mpsc::SyncSender<OutlineFile<'static>>,
+  mpsc::Receiver<OutlineFile<'static>>,
+) {
+  mpsc::sync_channel(OUTLINE_QUEUE_BOUND)
 }
 
 fn outline_walk(
@@ -269,6 +279,7 @@ fn own_entry(entry: OutlineEntry<'_>) -> OutlineEntry<'static> {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use std::fs;
   use tempfile::TempDir;
 
   #[test]
@@ -285,5 +296,70 @@ mod tests {
       extract_path(&path, None, &extractors).expect("empty file should not be an extraction error");
 
     assert!(file.is_none());
+  }
+
+  #[test]
+  fn load_outline_rules_reads_config_and_cli_paths() {
+    let dir = TempDir::new().expect("temp dir should be created");
+    let config_path = dir.path().join("config-outline.yml");
+    let cli_path = dir.path().join("cli-outline.yml");
+    fs::write(
+      &config_path,
+      r#"
+id: config-rust-function
+language: Rust
+role: item
+symbolType: function
+rule:
+  kind: function_item
+name: fn
+"#,
+    )
+    .expect("config outline file should be written");
+    fs::write(
+      &cli_path,
+      r#"
+id: cli-rust-struct
+language: Rust
+role: item
+symbolType: struct
+rule:
+  kind: struct_item
+name: struct
+"#,
+    )
+    .expect("cli outline file should be written");
+
+    let rules =
+      load_outline_rules(false, &[config_path], &[cli_path]).expect("outline rules should load");
+    let ids = rules
+      .iter()
+      .map(|rule| rule.common().id.as_str())
+      .collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["config-rust-function", "cli-rust-struct"]);
+  }
+
+  #[test]
+  fn outline_channel_applies_backpressure_at_bound() {
+    let (tx, _rx) = outline_channel();
+    for i in 0..OUTLINE_QUEUE_BOUND {
+      tx.try_send(OutlineFile {
+        path: format!("file-{i}.rs"),
+        language: "Rust".to_string(),
+        items: vec![],
+      })
+      .expect("queue should accept files below the bound");
+    }
+
+    let err = tx
+      .try_send(OutlineFile {
+        path: "overflow.rs".to_string(),
+        language: "Rust".to_string(),
+        items: vec![],
+      })
+      .expect_err("queue should apply backpressure at the bound");
+
+    assert!(matches!(err, mpsc::TrySendError::Full(_)));
   }
 }

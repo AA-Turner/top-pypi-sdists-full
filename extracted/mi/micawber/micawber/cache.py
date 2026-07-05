@@ -1,5 +1,3 @@
-from __future__ import with_statement
-import os
 import pickle
 try:
     from redis import Redis
@@ -24,10 +22,14 @@ class PickleCache(Cache):
         self._cache = self.load()
 
     def load(self):
-        if os.path.exists(self.filename):
+        try:
             with open(self.filename, 'rb') as fh:
-                return pickle.load(fh)
-        return {}
+                data = pickle.load(fh)
+        except Exception:
+            # A cache that cannot be read (missing file, truncated write,
+            # corrupt or incompatible pickle) is treated as empty.
+            return {}
+        return data if isinstance(data, dict) else {}
 
     def save(self):
         with open(self.filename, 'wb') as fh:
@@ -54,8 +56,4 @@ if Redis:
                 return pickle.loads(cached)
 
         def set(self, k, v):
-            ck, cv = self.key_fn(k), pickle.dumps(v)
-            if self.timeout is not None:
-                self.conn.setex(ck, cv, self.timeout)
-            else:
-                self.conn.set(ck, cv)
+            self.conn.set(self.key_fn(k), pickle.dumps(v), ex=self.timeout)

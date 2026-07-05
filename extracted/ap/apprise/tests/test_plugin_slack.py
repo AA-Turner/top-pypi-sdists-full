@@ -37,8 +37,8 @@ from helpers import AppriseURLTester
 import pytest
 import requests
 
-from apprise import Apprise, AppriseAttachment, NotifyType
-from apprise.plugins.slack import NotifySlack
+from apprise import Apprise, AppriseAttachment, NotifyFormat, NotifyType
+from apprise.plugins.slack import NotifySlack, SlackMode
 
 logging.disable(logging.CRITICAL)
 
@@ -803,8 +803,6 @@ def test_plugin_slack_webhook_mode(mock_request):
     token_a = "A" * 9
     token_b = "B" * 9
     token_c = "c" * 24
-
-    # Support strings
     channels = "chan1,#chan2,+BAK4K23G5,@user,,,"
 
     obj = NotifySlack(
@@ -838,6 +836,78 @@ def test_plugin_slack_webhook_mode(mock_request):
         obj.notify(body="body", title="title", notify_type=NotifyType.INFO)
         is True
     )
+
+
+@mock.patch("requests.request")
+def test_plugin_slack_username_payload_by_mode(mock_request):
+    """NotifySlack() Username payload behavior by mode."""
+
+    # Prepare Mock
+    response = mock.Mock()
+    response.status_code = requests.codes.ok
+    response.content = b"ok"
+    response.text = "ok"
+    mock_request.return_value = response
+
+    token_a = "A" * 9
+    token_b = "B" * 9
+    token_c = "c" * 24
+
+    # Webhook mode without botname should not force username,
+    # allowing Slack's configured webhook identity to be used.
+    obj = NotifySlack(token_a=token_a, token_b=token_b, token_c=token_c)
+    assert obj.notify(body="body", title="title") is True
+    payload = loads(mock_request.call_args.kwargs["data"])
+    assert "username" not in payload
+
+    # Explicit botname in webhook mode should be honored.
+    mock_request.reset_mock()
+    obj = NotifySlack(
+        token_a=token_a,
+        token_b=token_b,
+        token_c=token_c,
+        user="CustomWebhookName",
+    )
+    assert obj.notify(body="body", title="title") is True
+    payload = loads(mock_request.call_args.kwargs["data"])
+    assert payload.get("username") == "CustomWebhookName"
+
+    # Bot mode without botname should also omit username, allowing Slack
+    # to use the app's configured display name.
+    mock_request.reset_mock()
+    response.content = dumps({"ok": True, "channel": "C123456"})
+    obj = NotifySlack(access_token="xoxb-1234-1234-abc124", targets="#test")
+    assert obj.notify(body="body", title="title") is True
+    payload = loads(mock_request.call_args.kwargs["data"])
+    assert "username" not in payload
+
+    # WEBHOOK_GOV mode without botname should also omit username,
+    # deferring to the government webhook's configured identity.
+    mock_request.reset_mock()
+    response.content = b"ok"
+    obj = NotifySlack(
+        token_a=token_a,
+        token_b=token_b,
+        token_c=token_c,
+        mode=SlackMode.WEBHOOK_GOV,
+    )
+    assert obj.notify(body="body", title="title") is True
+    payload = loads(mock_request.call_args.kwargs["data"])
+    assert "username" not in payload
+
+    # Webhook mode with blocks enabled and no botname should also omit
+    # username, so Slack's webhook identity is used.
+    mock_request.reset_mock()
+    response.content = b"ok"
+    obj = NotifySlack(
+        token_a=token_a,
+        token_b=token_b,
+        token_c=token_c,
+        use_blocks=True,
+    )
+    assert obj.notify(body="body", title="title") is True
+    payload = loads(mock_request.call_args.kwargs["data"])
+    assert "username" not in payload
 
 
 @mock.patch("requests.request")
@@ -1533,6 +1603,97 @@ def test_plugin_slack_template_blocks_implied(mock_request, tmpdir):
 
 
 @mock.patch("requests.request")
+def test_plugin_slack_blocks_payload_uses_username(mock_request):
+    """NotifySlack() - blocks payload includes explicit username."""
+    mock_request.return_value = mock.Mock(
+        **{"content": b"ok", "status_code": requests.codes.ok}
+    )
+
+    obj = NotifySlack(
+        token_a="T1JJ3T3L2",
+        token_b="A1BRTD4JD",
+        token_c="TIiajkdnlazkcOXrIdevi7FQ",
+        use_blocks=True,
+        user="BlockBot",
+    )
+
+    assert obj.notify(body="hello", title="world", notify_type=NotifyType.INFO)
+    payload = loads(mock_request.call_args.kwargs["data"])
+    assert payload["username"] == "BlockBot"
+
+
+@mock.patch("requests.request")
+def test_plugin_slack_template_blocks_payload_uses_username(
+    mock_request, tmpdir
+):
+    """NotifySlack() - template blocks payload includes explicit username."""
+    mock_request.return_value = mock.Mock(
+        **{"content": b"ok", "status_code": requests.codes.ok}
+    )
+
+    template = tmpdir.join("username_blocks.json")
+    template.write(
+        cleandoc("""
+        {
+          "blocks": [
+            {
+              "type": "section",
+              "text": {"type": "mrkdwn", "text": "{{app_body}}"}
+            }
+          ]
+        }
+        """)
+    )
+
+    obj = NotifySlack(
+        token_a="T1JJ3T3L2",
+        token_b="A1BRTD4JD",
+        token_c="TIiajkdnlazkcOXrIdevi7FQ",
+        template=str(template),
+        user="TemplateBot",
+    )
+
+    assert obj.notify(body="hello", title="world", notify_type=NotifyType.INFO)
+    payload = loads(mock_request.call_args.kwargs["data"])
+    assert payload["username"] == "TemplateBot"
+
+
+@mock.patch("requests.request")
+def test_plugin_slack_template_blocks_no_username(mock_request, tmpdir):
+    """NotifySlack() - template blocks omit username when no botname set."""
+    mock_request.return_value = mock.Mock(
+        **{"content": b"ok", "status_code": requests.codes.ok}
+    )
+
+    template = tmpdir.join("no_username_blocks.json")
+    template.write(
+        cleandoc("""
+        {
+          "blocks": [
+            {
+              "type": "section",
+              "text": {"type": "mrkdwn", "text": "{{app_body}}"}
+            }
+          ]
+        }
+        """)
+    )
+
+    # Webhook mode with template and no botname should not force username,
+    # allowing Slack's configured webhook identity to be used.
+    obj = NotifySlack(
+        token_a="T1JJ3T3L2",
+        token_b="A1BRTD4JD",
+        token_c="TIiajkdnlazkcOXrIdevi7FQ",
+        template=str(template),
+    )
+
+    assert obj.notify(body="hello", title="world", notify_type=NotifyType.INFO)
+    payload = loads(mock_request.call_args.kwargs["data"])
+    assert "username" not in payload
+
+
+@mock.patch("requests.request")
 def test_plugin_slack_template_invalid_json(mock_request, tmpdir):
     """NotifySlack() - blocks template with invalid JSON fails gracefully."""
     mock_request.return_value = mock.Mock(
@@ -1928,6 +2089,16 @@ def test_plugin_slack_workflow_native_url(mock_request):
     assert "hooks.slack.com/triggers/T1JJ3T3L2" in call_url2
 
 
+def test_plugin_slack_parse_native_url_invalid():
+    """NotifySlack() - parse_native_url() returns None for non-Slack URLs."""
+    assert (
+        NotifySlack.parse_native_url(
+            "https://hooks.slack.com/not-a-supported-path/T1JJ3T3L2"
+        )
+        is None
+    )
+
+
 @mock.patch("requests.request")
 def test_plugin_slack_workflow_url_roundtrip(mock_request):
     """NotifySlack() - workflow url()/parse_url() round-trip."""
@@ -2042,3 +2213,195 @@ def test_plugin_slack_workflow_template(mock_request, tmpdir):
         obj2.notify(body="x", title="", notify_type=NotifyType.INFO) is False
     )
     assert mock_request.call_count == 1  # no new request made
+
+
+@mock.patch("requests.request")
+def test_plugin_slack_html_to_markdown_format(mock_request):
+    """NotifySlack(): HTML body is converted to Markdown."""
+
+    # Use the classic incoming webhook token format
+    slack_token = "T1JJ3T3L2/A1BRTD4JD/TIiajkdnlazkcOXrIdevi7FQ"
+
+    # Slack's _send() uses requests.request(), not requests.post();
+    # webhook mode confirms success via content == b"ok"
+    mock_request.return_value = requests.Request()
+    mock_request.return_value.status_code = requests.codes.ok
+    mock_request.return_value.content = b"ok"
+    mock_request.return_value.text = "ok"
+
+    # Instantiate a Slack plugin (notify_format is MARKDOWN by default)
+    aobj = Apprise()
+    assert aobj.add("slack://{}/#general".format(slack_token))
+
+    # Notify with an HTML body; the framework should convert it
+    # to Markdown before dispatching to Slack
+    assert (
+        aobj.notify(
+            body="<b>hello</b> <i>world</i>",
+            body_format=NotifyFormat.HTML,
+        )
+        is True
+    )
+    assert mock_request.call_count == 1
+
+    # The body must arrive as Markdown in the legacy attachment text, not as
+    # stripped plain text.
+    payload = loads(mock_request.call_args_list[0][1]["data"])
+    assert payload["attachments"][0]["text"] == "*hello* _world_"
+
+    mock_request.reset_mock()
+
+    # Convert CommonMark links to Slack's ``<url|text>`` syntax.
+    assert (
+        aobj.notify(
+            body='<a href="https://example.com/x">click here</a>',
+            body_format=NotifyFormat.HTML,
+        )
+        is True
+    )
+    payload = loads(mock_request.call_args_list[0][1]["data"])
+    assert (
+        payload["attachments"][0]["text"]
+        == "<https://example.com/x|click here>"
+    )
+
+    mock_request.reset_mock()
+
+    # '&'/'<'/'>' need Slack's HTML-entity escaping, not CommonMark's backslash
+    # escaping (which Slack doesn't support for these and would otherwise.
+    assert (
+        aobj.notify(
+            body="<p>2 &lt; 3 &amp; 4</p>",
+            body_format=NotifyFormat.HTML,
+        )
+        is True
+    )
+    payload = loads(mock_request.call_args_list[0][1]["data"])
+    assert payload["attachments"][0]["text"] == "2 &lt; 3 &amp; 4"
+
+    mock_request.reset_mock()
+
+    # Direct Slack mrkdwn input remains unchanged.
+    assert aobj.notify(body="**already** slack-bound markdown #tag") is True
+    payload = loads(mock_request.call_args_list[0][1]["data"])
+    assert (
+        payload["attachments"][0]["text"]
+        == "**already** slack-bound markdown #tag"
+    )
+
+
+@mock.patch("requests.request")
+def test_plugin_slack_html_to_markdown_hardening(mock_request):
+    """Test edge cases in the CommonMark-to-Slack dialect adaptation."""
+
+    slack_token = "T1JJ3T3L2/A1BRTD4JD/TIiajkdnlazkcOXrIdevi7FQ"
+
+    mock_request.return_value = requests.Request()
+    mock_request.return_value.status_code = requests.codes.ok
+    mock_request.return_value.content = b"ok"
+    mock_request.return_value.text = "ok"
+
+    def notify(body):
+        aobj = Apprise()
+        assert aobj.add("slack://{}/#general".format(slack_token))
+        assert aobj.notify(body=body, body_format=NotifyFormat.HTML) is True
+        payload = loads(mock_request.call_args_list[-1][1]["data"])
+        mock_request.reset_mock()
+        return payload["attachments"][0]["text"]
+
+    # <code>/<pre> content is buffered raw by html_to_markdown.
+    assert notify("<code>a &lt; b &amp; c</code>") == "`a &lt; b &amp; c`"
+
+    # Immediately-adjacent nested emphasis (no text between the outer and inner
+    # tag's open) must stay correctly nested ("*_x_*"), not cross ("*_x*_").
+    assert notify("<b><i>x</i></b>") == "*_x_*"
+
+    # Bold/italic text nested inside a link is preserved in Slack's own
+    # "<url|text>" form.
+    assert (
+        notify('<a href="https://example.com/x"><b>click</b></a>')
+        == "<https://example.com/x|*click*>"
+    )
+
+    # Sibling (non-nested) bold spans stay separate, not merged.
+    assert notify("<b>A</b><b>B</b>") == "*A**B*"
+
+    # Entity-escape Slack control characters in link destinations.
+    assert (
+        notify('<a href="https://e/x>TAIL">click</a>')
+        == "<https://e/x&gt;TAIL|click>"
+    )
+    assert (
+        notify('<a href="https://e/x?a=1&b=2">click</a>')
+        == "<https://e/x?a=1&amp;b=2|click>"
+    )
+
+    # '|' has no entity form and is what separates the URL from its label in
+    # Slack's own syntax.
+    assert (
+        notify('<a href="https://e/x|evil">click</a>')
+        == "<https://e/x%7Cevil|click>"
+    )
+
+    # A literal "\x02<digits>\x02"-shaped sequence in ordinary text must pass
+    # through completely unaltered.
+    assert notify("literal \x020\x02 text, no code or links at all") == (
+        "literal \x020\x02 text, no code or links at all"
+    )
+
+    # An unmatched (unbalanced) bare backtick run.
+    assert NotifySlack._commonmark_to_slack("text ``unterminated") == (
+        "text ``unterminated"
+    )
+
+    # An empty entity collapse mid-string (not just a final one at the end of
+    # the scan).
+    assert NotifySlack._commonmark_to_slack("****x") == "x"
+
+    # overflow=split can hand this method just one chunk of a longer body, with
+    # a span that doesn't open or close until a different chunk entirely.
+    aobj = Apprise()
+    assert aobj.add("slack://{}/#general?overflow=split".format(slack_token))
+    assert (
+        aobj.notify(
+            body="<b>" + ("x" * 39990) + "</b>",
+            body_format=NotifyFormat.HTML,
+        )
+        is True
+    )
+    assert mock_request.call_count == 2
+    texts = [
+        loads(c[1]["data"])["attachments"][0]["text"]
+        for c in mock_request.call_args_list
+    ]
+    for text in texts:
+        assert text.count("*") % 2 == 0
+        assert text.count("_") % 2 == 0
+
+    # Every backslash-escape branch of the main scan: '>' becomes an HTML
+    # entity, '(', ')', '[', ']', '!', '#' have their backslash dropped (none
+    assert (
+        NotifySlack._commonmark_to_slack(
+            "a\\>b\\(c\\)d\\[e\\]f\\!g\\#h\\*i\\_j\\~k\\\\l"
+        )
+        == "a&gt;b(c)d[e]f!g#h\\*i\\_j\\~k\\\\l"
+    )
+
+    # A '[' with no matching "](<url>)" close at all by the time the scan ends
+    # (e.g.
+    assert (
+        NotifySlack._commonmark_to_slack("[text](<https://incomplete")
+        == "[text](<https://incomplete"
+    )
+
+
+def test_plugin_slack_parse_native_url_fallthrough():
+    """parse_native_url() returns None for unrecognized URLs."""
+
+    # A URL that doesn't match any known Slack pattern should yield None.
+    assert (
+        NotifySlack.parse_native_url(
+            "https://not-slack.com/services/ABC/DEF/GHI"
+        )
+        is None
+    )

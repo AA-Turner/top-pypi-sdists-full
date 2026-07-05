@@ -42,6 +42,9 @@ max-line-length = 88
 exclude = [".git", "__pycache__", "build", "dist", "venv", ".tox"]
 application-import-names = ["scramp"]
 
+[tool.ruff.lint]
+extend-select = ["E501"]
+
 [tool.tox]
 requires = ["tox>=4.19"]
 envlist = ["py"]

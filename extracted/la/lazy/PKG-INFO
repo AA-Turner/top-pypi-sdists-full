@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: lazy
-Version: 1.6
+Version: 2.0
 Summary: Lazy attributes for Python objects
 Home-page: https://github.com/stefanholek/lazy
 Author: Stefan H. Holek
@@ -10,16 +10,19 @@ Project-URL: Documentation, https://lazy.readthedocs.io/en/stable/
 Keywords: decorator,lazy,lazy attribute,descriptor,property
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 3
-Requires-Python: !=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,>=2.7
+Classifier: Typing :: Typed
+Requires-Python: >=3.5
 Description-Content-Type: text/x-rst
-Provides-Extra: mypy
-Provides-Extra: docs
 License-File: LICENSE
+Provides-Extra: mypy
+Requires-Dist: mypy; extra == "mypy"
+Provides-Extra: docs
+Requires-Dist: sphinx==9.1.0; extra == "docs"
+Requires-Dist: sphinx-rtd-theme==3.1.0; extra == "docs"
+Dynamic: license-file
 
 ====
 lazy
@@ -104,6 +107,24 @@ For further details please refer to the `API Documentation`_.
 
 Changelog
 =========
+
+2.0 - 2026-07-04
+----------------
+
+- Remove deprecated license classifier.
+  [stefan]
+
+- Upgrade GitHub workflow.
+  [stefan]
+
+- Upgrade .readthedocs.yaml.
+  [stefan]
+
+- Upgrade sphinx and sphinx-rtd-theme in docs extra.
+  [stefan]
+
+- Require Python >= 3.5.
+  [stefan]
 
 1.6 - 2023-09-14
 ----------------

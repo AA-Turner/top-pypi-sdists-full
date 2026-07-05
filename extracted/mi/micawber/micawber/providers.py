@@ -1,18 +1,15 @@
 import hashlib
 import json
 import logging
-import pickle
 import re
 import socket
 import ssl
 
-from .compat import get_charset
-from .compat import HTTPError
-from .compat import OrderedDict
-from .compat import Request
-from .compat import urlencode
-from .compat import URLError
-from .compat import urlopen
+from urllib.error import HTTPError
+from urllib.error import URLError
+from urllib.parse import urlencode
+from urllib.request import Request
+from urllib.request import urlopen
 
 from micawber.exceptions import InvalidResponseException
 from micawber.exceptions import ProviderException
@@ -38,16 +35,9 @@ class Provider(object):
     def fetch(self, url):
         req = Request(url, headers={'User-Agent': self.user_agent})
         try:
-            resp = fetch(req, self.socket_timeout)
-        except URLError:
-            return False
-        except HTTPError:
-            return False
-        except socket.timeout:
-            return False
-        except ssl.SSLError:
-            return False
-        return resp
+            return fetch(req, self.socket_timeout)
+        except (HTTPError, URLError, socket.timeout, ssl.SSLError) as exc:
+            raise ProviderException('Error fetching "%s"' % url) from exc
 
     def encode_params(self, url, **extra_params):
         params = dict(self.base_params)
@@ -89,7 +79,13 @@ class Provider(object):
 
 
 def make_key(*args, **kwargs):
-    return hashlib.md5(pickle.dumps((args, kwargs))).hexdigest()
+    # Serialized with json rather than pickle so that keys are stable across
+    # python versions and parameter ordering. Values json cannot represent
+    # fall back to their string form -- the same form urlencode gives them in
+    # the actual request.
+    data = json.dumps((args, kwargs), sort_keys=True, separators=(',', ':'),
+                      default=str)
+    return hashlib.md5(data.encode('utf-8')).hexdigest()
 
 
 def url_cache(fn):
@@ -97,7 +93,7 @@ def url_cache(fn):
         if self.cache is not None:
             key = make_key(url, params)
             data = self.cache.get(key)
-            if not data:
+            if data is None:
                 data = fn(self, url, **params)
                 self.cache.set(key, data)
             return data
@@ -113,8 +109,9 @@ def fetch(request, timeout=None):
     if resp.code < 200 or resp.code >= 300:
         return False
 
-    # by RFC, default HTTP charset is ISO-8859-1
-    charset = get_charset(resp) or 'iso-8859-1'
+    # oEmbed responses are JSON, for which the default charset is UTF-8
+    # (RFC 8259) -- many providers omit the charset parameter entirely.
+    charset = resp.headers.get_param('charset') or 'utf-8'
 
     content = resp.read().decode(charset)
     resp.close()
@@ -134,7 +131,7 @@ def fetch_cache(cache, url, refresh=False, timeout=None):
 
 class ProviderRegistry(object):
     def __init__(self, cache=None):
-        self._registry = OrderedDict()
+        self._registry = {}
         self.cache = cache
 
     def register(self, regex, provider):
@@ -174,66 +171,49 @@ class ProviderRegistry(object):
         return extract_html(html, self, **kwargs)
 
 
+youtube_re = r'https?://(?:\S*\.)?youtu(?:\.be/|be\.com/(?:watch|shorts/))\S+'
+
 def bootstrap_basic(cache=None, registry=None):
     # complements of oembed.com#section7
     pr = registry or ProviderRegistry(cache)
 
+    # a
+    pr.register(r'https://podcasts\.apple\.com/\S+', Provider('https://podcasts.apple.com/api/oembed'))
+
     # c
-    pr.register(r'http://chirb\.it/\S+', Provider('http://chirb.it/oembed.json'))
-    pr.register(r'https?://www\.circuitlab\.com/circuit/\S+', Provider('https://www.circuitlab.com/circuit/oembed'))
+    pr.register(r'https?://www\.circuitlab\.com/circuit/\S+', Provider('https://www.circuitlab.com/circuit/oembed/'))
 
     # d
-    pr.register(r'https?://(?:www\.)?dailymotion\.com/\S+', Provider('http://www.dailymotion.com/services/oembed'))
+    pr.register(r'https?://(?:www\.)?dailymotion\.com/\S+', Provider('https://www.dailymotion.com/services/oembed'))
 
     # f
     pr.register(r'https?://\S*?flickr\.com/\S+', Provider('https://www.flickr.com/services/oembed/'))
     pr.register(r'https?://flic\.kr/\S*', Provider('https://www.flickr.com/services/oembed/'))
-    pr.register(r'https?://(?:www\.)?funnyordie\.com/videos/\S+', Provider('http://www.funnyordie.com/oembed'))
-
-    # g
-    # 2020-11-04: removed GitHub gist, as it seems to be unsupported now.
-    #pr.register(r'https?://gist\.github\.com/\S*', Provider('https://github.com/api/oembed'))
-
-    # h
-    pr.register(r'http://(?:www\.)hulu\.com/watch/\S+', Provider('http://www.hulu.com/api/oembed.json'))
-
-    # i
-    pr.register(r'https?://\S*imgur\.com/\S+', Provider('https://api.imgur.com/oembed')),
-    pr.register(r'https?://(www\.)?instagr(\.am|am\.com)/p/\S+', Provider('http://api.instagram.com/oembed'))
-
-    # m
-    pr.register(r'http://www\.mobypicture\.com/user/\S*?/view/\S*', Provider('http://api.mobypicture.com/oEmbed'))
-    pr.register(r'http://moby\.to/\S*', Provider('http://api.mobypicture.com/oEmbed'))
 
     # p
-    pr.register(r'http://i\S*\.photobucket\.com/albums/\S+', Provider('http://photobucket.com/oembed'))
-    pr.register(r'http://gi\S*\.photobucket\.com/groups/\S+', Provider('http://photobucket.com/oembed'))
-    pr.register(r'http://www\.polleverywhere\.com/(polls|multiple_choice_polls|free_text_polls)/\S+', Provider('http://www.polleverywhere.com/services/oembed/'))
-    pr.register(r'https?://(.+\.)?polldaddy\.com/\S*', Provider('http://polldaddy.com/oembed/'))
+    pr.register(r'https?://(?:www\.)?polleverywhere\.com/(polls|multiple_choice_polls|free_text_polls)/\S+', Provider('https://www.polleverywhere.com/services/oembed/'))
 
     # s
-    pr.register(r'https?://(?:www\.)?slideshare\.net/[^\/]+/\S+', Provider('http://www.slideshare.net/api/oembed/2'))
-    pr.register(r'https?://slidesha\.re/\S*', Provider('http://www.slideshare.net/api/oembed/2'))
-    pr.register(r'http://\S*\.smugmug\.com/\S*', Provider('http://api.smugmug.com/services/oembed/'))
-    pr.register(r'https://\S*?soundcloud\.com/\S+', Provider('http://soundcloud.com/oembed'))
-    pr.register(r'https?://speakerdeck\.com/\S*', Provider('https://speakerdeck.com/oembed.json')),
-    pr.register(r'https?://(?:www\.)?scribd\.com/\S*', Provider('http://www.scribd.com/services/oembed'))
+    pr.register(r'https?://(?:www\.)?slideshare\.net/[^\/]+/\S+', Provider('https://www.slideshare.net/api/oembed/2'))
+    pr.register(r'https?://slidesha\.re/\S*', Provider('https://www.slideshare.net/api/oembed/2'))
+    pr.register(r'https?://\S*?soundcloud\.com/\S+', Provider('https://soundcloud.com/oembed'))
+    pr.register(r'https?://speakerdeck\.com/\S*', Provider('https://speakerdeck.com/oembed.json'))
+    pr.register(r'https?://(?:www\.)?scribd\.com/\S*', Provider('https://www.scribd.com/services/oembed'))
 
     # t
-    pr.register(r'https?://(www\.)tiktok\.com/\S+', Provider('https://www.tiktok.com/oembed'))
-    pr.register(r'https?://(www\.)?twitter\.com/\S+/status(es)?/\S+', Provider('https://publish.twitter.com/oembed'))
+    pr.register(r'https?://(?:www\.)?tiktok\.com/\S+', Provider('https://www.tiktok.com/oembed'))
+    pr.register(r'https?://(?:www\.)?(?:twitter|x)\.com/\S+/status(?:es)?/\S+', Provider('https://publish.x.com/oembed'))
 
     # v
-    pr.register(r'http://(?:player\.)?vimeo\.com/\S+', Provider('http://vimeo.com/api/oembed.json'))
-    pr.register(r'https://(?:player\.)?vimeo\.com/\S+', Provider('https://vimeo.com/api/oembed.json'))
+    pr.register(r'https?://(?:player\.)?vimeo\.com/\S+', Provider('https://vimeo.com/api/oembed.json'))
 
     # w
-    pr.register(r'http://\S+\.wordpress\.com/\S+', Provider('http://public-api.wordpress.com/oembed/'))
-    pr.register(r'https?://wordpress\.tv/\S+', Provider('http://wordpress.tv/oembed/'))
+    # wordpress.com requires identifying yourself via the "for" parameter.
+    pr.register(r'https?://\S+\.wordpress\.com/\S+', Provider('https://public-api.wordpress.com/oembed/', **{'for': 'micawber'}))
+    pr.register(r'https?://wordpress\.tv/\S+', Provider('https://wordpress.tv/oembed/'))
 
     # y
-    pr.register(r'http://(\S*\.)?youtu(\.be/|be\.com/watch)\S+', Provider('https://www.youtube.com/oembed'))
-    pr.register(r'https://(\S*\.)?youtu(\.be/|be\.com/watch)\S+', Provider('https://www.youtube.com/oembed?scheme=https&'))
+    pr.register(youtube_re, Provider('https://www.youtube.com/oembed'))
 
     return pr
 
@@ -312,9 +292,6 @@ def bootstrap_oembed(cache=None, registry=None, refresh=False, **params):
 
     # Currently oembed.com does not provide patterns for YouTube, so we'll add
     # these ourselves.
-    pr.register(r'http://(\S*\.)?youtu(\.be/|be\.com/watch)\S+',
-                Provider('https://www.youtube.com/oembed'))
-    pr.register(r'https://(\S*\.)?youtu(\.be/|be\.com/watch)\S+',
-                Provider('https://www.youtube.com/oembed?scheme=https&'))
+    pr.register(youtube_re, Provider('https://www.youtube.com/oembed'))
 
     return pr

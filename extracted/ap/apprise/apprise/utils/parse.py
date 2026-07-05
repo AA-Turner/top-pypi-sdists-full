@@ -97,7 +97,7 @@ IS_PHONE_NO = re.compile(r"^\+?(?P<phone>[0-9\s)(+-]+)\s*$")
 
 # Regular expression used to destinguish between multiple phone numbers
 PHONE_NO_DETECTION_RE = re.compile(
-    r"\s*([+(\s]*[0-9][0-9()\s-]+[0-9])(?=$|[\s,+(]+[0-9])", re.I
+    r"((?:[+(][+(\s]*)?[0-9][0-9()\s-]+[0-9])(?=$|[\s,+(]+[0-9])", re.I
 )
 
 IS_DOMAIN_SERVICE_TARGET = re.compile(
@@ -109,13 +109,13 @@ IS_DOMAIN_SERVICE_TARGET = re.compile(
 DOMAIN_SERVICE_TARGET_DETECTION_RE = re.compile(
     r"\s*((?:[a-z0-9_-]+\.)?[a-z0-9_-]+"
     r"(?::(?:[a-z0-9_-]+(?:,+[a-z0-9_-]+)+?))?)"
-    r"(?=$|(?:\s|,+\s|\s,+)+(?:[a-z0-9_-]+\.)?[a-z0-9_-]+)",
+    r"(?=$|[\s,]+(?:[a-z0-9_-]+\.)?[a-z0-9_-]+)",
     re.I,
 )
 
 # Support for prefix: (string followed by colon) infront of phone no
 PHONE_NO_WPREFIX_DETECTION_RE = re.compile(
-    r"\s*((?:[a-z]+:)?[+(\s]*[0-9][0-9()\s-]+[0-9])"
+    r"((?:[a-z]+:)?(?:[+(][+(\s]*)?[0-9][0-9()\s-]+[0-9])"
     r"(?=$|(?:[a-z]+:)?[\s,+(]+[0-9])",
     re.I,
 )
@@ -140,10 +140,20 @@ URL_DETECTION_RE = re.compile(
     r"([a-z0-9]+?:\/\/.*?)(?=$|[\s,]+[a-z0-9]{1,32}?:\/\/)", re.I
 )
 
+# No leading separator; first-char anchors make separator positions O(1)-fail
+# so findall skips them without any backtracking blowup.
 EMAIL_DETECTION_RE = re.compile(
-    r"[\s,]*([^@]+@.*?)(?=$|[\s,]+"
-    r"(?:[^:<]+?[:<\s]+?)?"
-    r"[^@\s,]+@[^\s,]+)",
+    r"("
+    # Angle-bracketed: bounded display name then <local@domain>
+    r"(?=[^\s,;])"
+    r'(?:"(?:[^"\\]|\\.){0,256}"|[^<>"@,;\r\n]){0,256}?'
+    r"<[^@>\r\n]{1,64}@"
+    r"(?:[a-z0-9][a-z0-9_-]{0,62}\.){1,10}[a-z]{2,63}>"
+    r"|"
+    # Bare email: non-space/non-separator first char, then local@domain
+    r"[^\s@,;\r\n][^@,;\r\n]{0,255}"
+    r"@(?:[a-z0-9][a-z0-9_-]{0,62}\.){1,10}[a-z]{2,63}"
+    r")",
     re.IGNORECASE,
 )
 
@@ -155,6 +165,14 @@ UUID4_RE = re.compile(
 
 # Validate if we're a loadable Python file or not
 VALID_PYTHON_FILE_RE = re.compile(r".+\.py(o|c)?$", re.IGNORECASE)
+
+# Keys created exclusively by full-mode (simple=False) parse_qsd() calls.
+# Simple-mode calls produce only 'qsd'; full-mode adds all three of these.
+# Used both internally by parse_qsd() and externally to detect whether a
+# result dict came from a full-mode parse without re-enumerating the names.
+# Stored as a tuple (not frozenset) so that dict construction order is
+# deterministic across Python runs regardless of PYTHONHASHSEED.
+QSD_FULL_MODE_KEYS = ("qsd+", "qsd-", "qsd:")
 
 # validate_regex() utilizes this mapping to track and re-use pre-complied
 # regular expressions
@@ -517,19 +535,10 @@ def parse_qsd(qs, simple=False, plus_to_space=False, sanitize=True):
 
     # Our return result set:
     result = (
-        {
-            # The arguments passed in (the parsed query). This is in a
-            # dictionary of {'key': 'val', etc }.  Keys are all made lowercase
-            # before storing to simplify access to them.
-            "qsd": {},
-            # Detected Entries that start with + or - are additionally stored
-            # in these values (un-touched).  The :,+,- however are stripped
-            # from their name before they are stored here.
-            "qsd+": {},
-            "qsd-": {},
-            "qsd:": {},
-        }
+        # Full mode: create the base qsd dict plus all extended qsd dicts.
+        {"qsd": {}, **{k: {} for k in QSD_FULL_MODE_KEYS}}
         if not simple
+        # Simple mode: only the base qsd dict.
         else {"qsd": {}}
     )
 
@@ -1013,7 +1022,7 @@ def parse_emails(*args, store_unparseable=True, **kwargs):
     result = []
     for arg in args:
         if isinstance(arg, str) and arg:
-            result_ = EMAIL_DETECTION_RE.findall(arg)
+            result_ = EMAIL_DETECTION_RE.findall(arg) if "@" in arg else []
             if result_:
                 result += result_
 
@@ -1129,7 +1138,9 @@ def parse_urls(*args, store_unparseable=True, **kwargs):
     result = []
     for arg in args:
         if isinstance(arg, str) and arg:
-            result_ = URL_DETECTION_RE.findall(arg)
+            result_ = (
+                URL_DETECTION_RE.findall(arg.rstrip()) if "://" in arg else []
+            )
             if result_:
                 result += result_
 

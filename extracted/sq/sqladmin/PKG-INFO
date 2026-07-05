@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqladmin
-Version: 0.27.2
+Version: 0.28.0
 Summary: SQLAlchemy admin for FastAPI and Starlette
 Keywords: sqlalchemy,fastapi,starlette,admin
 Author: Amin Alaee

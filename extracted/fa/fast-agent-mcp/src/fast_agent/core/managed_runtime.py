@@ -9,10 +9,9 @@ from typing import TYPE_CHECKING, Any, cast
 
 from fast_agent import config
 from fast_agent.core.agent_app import AgentApp, AgentCardLoadResult, AgentRefreshResult
-from fast_agent.core.agent_tools import add_tools_for_agents
+from fast_agent.core.card_tool_attachment import load_and_attach_card_tool_agents
 from fast_agent.core.default_agent import agent_is_default, resolve_default_agent_name
 from fast_agent.core.direct_factory import (
-    AgentToolAttachable,
     active_agents_in_dependency_group,
     create_agents_in_dependency_order,
 )
@@ -30,7 +29,7 @@ from fast_agent.core.runtime_finalization import (
 )
 from fast_agent.core.validation import get_agent_dependencies, get_dependencies_groups
 from fast_agent.mcp.prompts.prompt_load import load_prompt
-from fast_agent.tools.local_shell_executor import LocalShellExecutor
+from fast_agent.tools.local_shell_executor import LocalEnvironment
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Sequence
@@ -88,7 +87,7 @@ class ManagedRuntimeMixin:
         self,
         *,
         apply_global_prompt_context: bool,
-        noenv_mode: bool,
+        no_home_mode: bool,
     ) -> dict[str, str] | None:
         raise NotImplementedError
 
@@ -148,16 +147,16 @@ class ManagedRuntimeMixin:
             model_factory_func=self._build_model_factory_func(settings.cli_model_override),
             global_prompt_context=self._build_global_prompt_context(
                 apply_global_prompt_context=not settings.is_acp_server_mode,
-                noenv_mode=settings.noenv_mode,
+                no_home_mode=settings.no_home_mode,
             ),
             resume_requested=settings.resume_requested,
             resume_session_id=settings.resume_session_id,
             target_agent_name=settings.target_agent_name,
             is_acp_server_mode=settings.is_acp_server_mode,
-            noenv_mode=settings.noenv_mode,
+            no_home_mode=settings.no_home_mode,
             managed_instances=[],
             instance_lock=asyncio.Lock(),
-            shell_executor=LocalShellExecutor(
+            shell_environment=LocalEnvironment(
                 logger=logger,
                 timeout_seconds=shell_settings.timeout_seconds,
                 warning_interval_seconds=shell_settings.warning_interval_seconds,
@@ -178,6 +177,7 @@ class ManagedRuntimeMixin:
                 self.agents,
                 runtime.model_factory_func,
                 global_function_tools=self._registered_tools,
+                shell_environment=runtime.shell_environment,
             )
 
             tool_only_agents = {
@@ -192,7 +192,7 @@ class ManagedRuntimeMixin:
                     agents_map,
                     tool_only_agents=tool_only_agents,
                     card_collision_warnings=self._card_collision_warnings,
-                    noenv_mode=runtime.noenv_mode,
+                    no_home_mode=runtime.no_home_mode,
                     plugin_commands=settings.commands,
                     plugin_command_base_path=plugin_command_base_path,
                 )
@@ -206,7 +206,7 @@ class ManagedRuntimeMixin:
                     settings.commands,
                     base_path=plugin_command_base_path,
                 )
-                app_override.noenv_mode = runtime.noenv_mode
+                app_override.no_home_mode = runtime.no_home_mode
                 app = app_override
 
             instance = AgentInstance(
@@ -762,33 +762,17 @@ class ManagedRuntimeMixin:
         if not card_tools:
             return
 
-        card_tool_agent_names: list[str] = []
         try:
-            for card_source in card_tools:
-                names = self.load_agents(card_source)
-                card_tool_agent_names.extend(names)
+            load_and_attach_card_tool_agents(
+                self,
+                card_tools,
+                preferred_agent_names=[getattr(self.args, "agent", None)],
+            )
         except AgentConfigError as exc:
             self._handle_error(exc)
             raise SystemExit(1) from exc
 
         await refresh_callback()
-
-        default_agent_name = getattr(self.args, "agent", None)
-        if default_agent_name and default_agent_name not in state.active_agents:
-            default_agent_name = None
-        default_agent = state.wrapper._agent(default_agent_name)
-        if default_agent is None:
-            return
-
-        if not isinstance(default_agent, AgentToolAttachable):
-            raise AgentConfigError(
-                f"Agent '{default_agent_name or 'default'}' does not support agents-as-tools"
-            )
-
-        tool_agents = [
-            state.active_agents.get(tool_agent_name) for tool_agent_name in card_tool_agent_names
-        ]
-        add_tools_for_agents(default_agent.add_agent_tool, tool_agents)
 
 
 __all__ = ["ManagedRuntimeMixin"]

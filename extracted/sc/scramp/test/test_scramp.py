@@ -9,7 +9,15 @@ from scramp import (
     core,
     make_channel_binding,
 )
-from scramp.core import _parse_message, _validate_channel_binding
+from scramp.core import (
+    SERVER_ERROR_INVALID_PROOF,
+    _check_client_key,
+    _parse_message,
+    _set_client_final,
+    _set_client_first,
+    _set_server_first,
+    _validate_channel_binding,
+)
 from scramp.utils import b64dec
 
 
@@ -26,7 +34,7 @@ from scramp.utils import b64dec
             "c=jk,d=kln",
             [{"a", "b", "c"}],
             "Malformed trial message. Expected the attribute set to be one of "
-            "[{a, b, c}] but found {c, d}: other-error",
+            "[{a, b, c}] but found {c, d}: extensions-not-supported",
         ],
         [
             "c=jk,c=kln",
@@ -38,7 +46,7 @@ from scramp.utils import b64dec
             "e=error",
             [{"c"}],
             "Malformed trial message. Expected the attribute set to be one of [{c}] "
-            "but found {e}: other-error",
+            "but found {e}: extensions-not-supported",
         ],
     ],
 )
@@ -82,7 +90,12 @@ def test_validate_channel_binding_fail(cb, msg):
 @pytest.mark.parametrize(
     "password,iteration_count,salt,msg",
     [
-        ["pencil", 1, b"", "The iteration count must be at least 10000"],
+        [
+            "pencil",
+            1,
+            b"",
+            "The iteration count is not valid: The value must not be < 10000",
+        ],
     ],
 )
 def test_make_auth_info_fail(password, iteration_count, salt, msg):
@@ -91,6 +104,31 @@ def test_make_auth_info_fail(password, iteration_count, salt, msg):
         m.make_auth_info(password, iteration_count, salt)
 
     assert str(exc_info.value) == msg
+
+
+@pytest.mark.parametrize(
+    "hf,stored_key, auth_msg, proof, msg",
+    [
+        # Client signature and proof of different lengths, so xor() should fail
+        [
+            hashlib.sha256,
+            b64dec(
+                "7tmSwbz0qdlCWaMqA8gm8gNQ3VHbW1zEKpX+ST1QX5RzBefTHhYe3"
+                "EtogaGggZioWX1pp471+gbmGOn31w5iTg=="
+            ),
+            b"n=user,r=fyko+d2lbbFgONRv9qkxdawL,",
+            "KOkd92LduC09A+RDxbTvgxH9Nn6efom/uAy6U5/fqpwLH1J+wQnZcKx5W1zd"
+            "YMPU8PrusBUK5RgRk4yHx+3Mg==",
+            "Can't create client key.: invalid-proof",
+        ],
+    ],
+)
+def test_check_client_key_fail(hf, stored_key, auth_msg, proof, msg):
+    with pytest.raises(ScramException) as exc_info:
+        _check_client_key(hf, stored_key, auth_msg, proof)
+
+    assert str(exc_info.value) == msg
+    assert str(exc_info.value.server_error) == SERVER_ERROR_INVALID_PROOF
 
 
 EXCHANGE_SCRAM_SHA_256 = {
@@ -433,7 +471,7 @@ def test_set_client_final(x):
     server_signature = core._set_client_final(
         x["hf"],
         x["cfinal"],
-        x["s_nonce"],
+        x["nonce"],
         b64dec(x["stored_key"]),
         b64dec(x["server_key"]),
         x["cfirst_bare"],
@@ -506,77 +544,178 @@ def test_check_stage():
         )
 
 
-def test_set_client_first_error():
-    x = EXCHANGE_SCRAM_SHA_256
-    m = ScramMechanism(mechanism="SCRAM-SHA-256")
+@pytest.mark.parametrize(
+    "client_first,s_nonce,channel_binding,use_binding,error_msg,server_error",
+    [
+        # Client requires channel binding but the server doesn't
+        [
+            "p=tls-unique,,n=user,r=rOprNGfwEbeRWgbNEkqO",
+            "%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0",
+            None,
+            False,
+            "Received GS2 flag 'p' which indicates that the client "
+            "requires channel binding, but the server does not: "
+            "channel-binding-not-supported",
+            "channel-binding-not-supported",
+        ],
+        # Client first is invalid
+        [
+            "junk",
+            "%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0",
+            None,
+            False,
+            "The client sent a malformed first message: other-error",
+            "other-error",
+        ],
+        # Client first bare message malformed
+        [
+            "n,,junk",
+            "%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0",
+            None,
+            False,
+            "Malformed client first bare message. Attributes must be separated by a "
+            "',' and each attribute must start with a letter followed by a '=': "
+            "other-error",
+            "other-error",
+        ],
+        # authzid must be empty
+        [
+            "n,anid,n=user,r=rOprNGfwEbeRWgbNEkqO",
+            "%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0",
+            None,
+            False,
+            "The GS2 authzid anid must be empty: other-error",
+            "other-error",
+        ],
+    ],
+)
+def test_set_client_first_error(
+    client_first, s_nonce, channel_binding, use_binding, error_msg, server_error
+):
+    with pytest.raises(ScramException) as exc_info:
+        _set_client_first(client_first, s_nonce, channel_binding, use_binding)
 
-    def auth_fn(username):
-        lookup = {
-            x["username"]: m.make_auth_info(
-                x["password"], salt=b64dec(x["salt"]), iteration_count=x["iterations"]
-            )
-        }
-        return lookup[username]
-
-    s = m.make_server(
-        auth_fn, channel_binding=x["s_channel_binding"], s_nonce=x["s_nonce"]
-    )
-
-    with pytest.raises(
-        ScramException,
-        match="Received GS2 flag 'p' which indicates that the client "
-        "requires channel binding, but the server does not.",
-    ):
-        s.set_client_first("p=tls-unique,,n=user,r=rOprNGfwEbeRWgbNEkqO")
-    assert s.get_server_final() == "e=channel-binding-not-supported"
+    assert str(exc_info.value) == error_msg
+    assert str(exc_info.value.server_error) == server_error
 
 
-def test_set_client_final_error():
-    x = EXCHANGE_SCRAM_SHA_256
-    m = ScramMechanism(mechanism="SCRAM-SHA-256")
-
-    def auth_fn(username):
-        lookup = {
-            x["username"]: m.make_auth_info(
-                x["password"], salt=b64dec(x["salt"]), iteration_count=x["iterations"]
-            )
-        }
-        return lookup[username]
-
-    s = m.make_server(
-        auth_fn, channel_binding=x["s_channel_binding"], s_nonce=x["s_nonce"]
-    )
-
-    s.set_client_first(x["cfirst"])
-    s.get_server_first()
-    with pytest.raises(ScramException, match="other-error"):
-        s.set_client_final(
-            "c=biws,r=rOprNGfwEbeRWgbNEkqO_invalid,"
-            "p=dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ="
+@pytest.mark.parametrize(
+    "hf,client_final,s_nonce,stored_key,server_key,client_first_bare,server_first,"
+    "channel_binding,use_binding,error_msg,server_error",
+    # Malformed client final message
+    [
+        [
+            hashlib.sha256,
+            "junk",
+            "%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0",
+            b64dec("WG5d8oPm3OtcPnkdi4Uo7BkeZkBFzpcXkuLmtbsT4qY="),
+            b64dec("wfPLwcE6nTWhTAmQ7tl2KeoiWGPlZqQxSrmfPwDl2dU="),
+            "n=user,r=rOprNGfwEbeRWgbNEkqO",
+            "r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,"
+            "s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096",
+            None,
+            True,
+            "Malformed client final message. Attributes must be separated by a ',' "
+            "and each attribute must start with a letter followed by a '=': "
+            "other-error",
+            "other-error",
+        ],
+        # Invalid client final
+        [
+            hashlib.sha256,
+            "c=biws,r=invalid,p=dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=",
+            "%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0",
+            b64dec("WG5d8oPm3OtcPnkdi4Uo7BkeZkBFzpcXkuLmtbsT4qY="),
+            b64dec("wfPLwcE6nTWhTAmQ7tl2KeoiWGPlZqQxSrmfPwDl2dU="),
+            "n=user,r=rOprNGfwEbeRWgbNEkqO",
+            "r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,"
+            "s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096",
+            None,
+            False,
+            "Server nonce doesn't match.: other-error",
+            "other-error",
+        ],
+        # Channel has invalid base 64 encoding, so b64dec() should fail
+        [
+            hashlib.sha256,
+            "c=!!!,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,"
+            "p=dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=",
+            "%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0",
+            b64dec("WG5d8oPm3OtcPnkdi4Uo7BkeZkBFzpcXkuLmtbsT4qY="),
+            b64dec("wfPLwcE6nTWhTAmQ7tl2KeoiWGPlZqQxSrmfPwDl2dU="),
+            "n=user,r=rOprNGfwEbeRWgbNEkqO",
+            "r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,"
+            "s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096",
+            None,
+            True,
+            "The channel binding isn't correctly b64 encoded: invalid-encoding",
+            "invalid-encoding",
+        ],
+    ],
+)
+def test_set_client_final_error(
+    hf,
+    client_final,
+    s_nonce,
+    stored_key,
+    server_key,
+    client_first_bare,
+    server_first,
+    channel_binding,
+    use_binding,
+    error_msg,
+    server_error,
+):
+    with pytest.raises(ScramException) as exc_info:
+        _set_client_final(
+            hf,
+            client_final,
+            s_nonce,
+            stored_key,
+            server_key,
+            client_first_bare,
+            server_first,
+            channel_binding,
+            use_binding,
         )
 
-    assert s.get_server_final() == "e=other-error"
+    assert str(exc_info.value) == error_msg
+    assert str(exc_info.value.server_error) == server_error
 
 
-def test_set_server_first_error():
-    c = ScramClient(["SCRAM-SHA-256"], "user", "pencil")
-    c.get_client_first()
-
+@pytest.mark.parametrize(
+    "server_first,c_nonce,min_iteration_count,error_msg",
+    [
+        # Error from server
+        [
+            "e=other-error",
+            "fyko+d2lbbFgONRv9qkxdawL",
+            1000,
+            "The server returned the error: other-error",
+        ],
+        # Malformed server first
+        [
+            "junk",
+            "fyko+d2lbbFgONRv9qkxdawL",
+            1000,
+            "Malformed server first message. Attributes must be separated by a ',' "
+            "and each attribute must start with a letter followed by a '=': "
+            "other-error",
+        ],
+        # Malformed iteration count in server first
+        [
+            "r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,"
+            "s=W22ZaJ0SNY7soEsUEjb6gQ==,i=not_an_integer",
+            "fyko+d2lbbFgONRv9qkxdawL",
+            1000,
+            "Server iteration count not_an_integer is not valid",
+        ],
+    ],
+)
+def test_set_server_first_error(server_first, c_nonce, min_iteration_count, error_msg):
     with pytest.raises(ScramException) as exc_info:
-        c.set_server_first("e=other-error")
-
-    assert str(exc_info.value) == "The server returned the error: other-error"
-
-
-def test_set_server_first_missing_param():
-    c = ScramClient(["SCRAM-SHA-256"], "user", "pencil")
-    c.get_client_first()
-    with pytest.raises(
-        ScramException,
-        match="Malformed server first message. Attributes must be separated by a ',' "
-        "and each attribute must start with a letter followed by a '=': other-error",
-    ):
-        c.set_server_first("junk")
+        _set_server_first(server_first, c_nonce, min_iteration_count)
+    assert str(exc_info.value) == error_msg
 
 
 def test_set_server_final_missing_param():
@@ -596,53 +735,6 @@ def test_set_server_final_missing_param():
         "and each attribute must start with a letter followed by a '=': other-error",
     ):
         c.set_server_final("junk")
-
-
-def test_set_client_first_nonsense():
-    m = ScramMechanism(mechanism="SCRAM-SHA-256")
-    s = m.make_server(lambda x: None)
-    with pytest.raises(
-        ScramException, match="The client sent a malformed first message."
-    ):
-        s.set_client_first("junk")
-
-
-def test_set_client_first_missing_param():
-    m = ScramMechanism(mechanism="SCRAM-SHA-256")
-    s = m.make_server(lambda x: None)
-    with pytest.raises(
-        ScramException,
-        match="Malformed client first bare message. Attributes must be separated by a "
-        "',' and each attribute must start with a letter followed by a '=': "
-        "other-error",
-    ):
-        s.set_client_first("n,morejunk,bonusjunk")
-
-
-def test_set_client_final_missing_param():
-    x = EXCHANGE_SCRAM_SHA_256
-    m = ScramMechanism(mechanism="SCRAM-SHA-256")
-
-    def auth_fn(username):
-        lookup = {
-            x["username"]: m.make_auth_info(
-                x["password"], salt=b64dec(x["salt"]), iteration_count=x["iterations"]
-            )
-        }
-        return lookup[username]
-
-    s = m.make_server(
-        auth_fn, channel_binding=x["s_channel_binding"], s_nonce=x["s_nonce"]
-    )
-
-    s.set_client_first(x["cfirst"])
-    s.get_server_first()
-    with pytest.raises(
-        ScramException,
-        match="Malformed client final message. Attributes must be separated by a ',' "
-        "and each attribute must start with a letter followed by a '=': other-error",
-    ):
-        s.set_client_final("junk")
 
 
 def test_make_channel_binding_tls_server_end_point(mocker):

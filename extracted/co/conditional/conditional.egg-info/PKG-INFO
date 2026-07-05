@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: conditional
-Version: 2.0
+Version: 2.2
 Summary: Conditionally enter a context manager
 Home-page: https://github.com/stefanholek/conditional
 Author: Stefan H. Holek
@@ -10,10 +10,10 @@ Project-URL: Documentation, https://conditional.readthedocs.io/en/stable/
 Keywords: conditional,context manager,contextmanager,with,async,async with,enter,exit
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Typing :: Typed
 Requires-Python: >=3.5
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -22,8 +22,9 @@ Requires-Dist: flexmock; extra == "testing"
 Provides-Extra: mypy
 Requires-Dist: mypy; extra == "mypy"
 Provides-Extra: docs
-Requires-Dist: sphinx==5.3.0; extra == "docs"
-Requires-Dist: sphinx-rtd-theme==1.0.0; extra == "docs"
+Requires-Dist: sphinx==9.1.0; extra == "docs"
+Requires-Dist: sphinx-rtd-theme==3.1.0; extra == "docs"
+Dynamic: license-file
 
 ===========
 conditional
@@ -101,6 +102,27 @@ For further details please refer to the `API Documentation`_.
 
 Changelog
 =========
+
+2.2 - 2026-07-04
+----------------
+
+- Fix the release date.
+  [stefan]
+
+2.1 - 2026-07-04
+----------------
+
+- Remove deprecated license classifier.
+  [stefan]
+
+- Upgrade GitHub workflow.
+  [stefan]
+
+- Upgrade .readthedocs.yaml.
+  [stefan]
+
+- Upgrade sphinx and sphinx-rtd-theme in docs extra.
+  [stefan]
 
 2.0 - 2024-05-14
 ----------------

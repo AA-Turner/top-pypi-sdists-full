@@ -47,7 +47,7 @@ def print_unused_bricks(bricks: Set[str], project_name: str) -> None:
     console.print(f':mag_right: {verb} [comp]{unused}[/] needed in [proj]{project_name}[/]?')
 
 def extract_collected_imports(ns: str, imports_in_bases: dict, imports_in_components: dict) -> dict:
-    brick_imports = {'bases': imports.grouping.extract_brick_imports(imports_in_bases, ns), 'components': imports.grouping.extract_brick_imports(imports_in_components, ns)}
+    brick_imports = {'bases': imports.extract_brick_imports(imports_in_bases, ns), 'components': imports.extract_brick_imports(imports_in_components, ns)}
     third_party_imports = {'bases': libs.extract_third_party_imports(imports_in_bases, ns), 'components': libs.extract_third_party_imports(imports_in_components, ns)}
     return {'brick_imports': brick_imports, 'third_party_imports': third_party_imports}
 

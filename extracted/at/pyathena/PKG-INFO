@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyAthena
-Version: 3.32.0
+Version: 3.33.0
 Summary: Python DB API 2.0 (PEP 249) client for Amazon Athena
 Project-URL: homepage, https://github.com/pyathena-dev/PyAthena/
 Project-URL: repository, https://github.com/pyathena-dev/PyAthena/
@@ -38,7 +38,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database :: Front-Ends
 Requires-Python: >=3.10
-Requires-Dist: boto3>=1.38.2
+Requires-Dist: boto3>=1.41.2
 Requires-Dist: botocore>=1.41.2
 Requires-Dist: fsspec
 Requires-Dist: python-dateutil

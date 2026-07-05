@@ -6,7 +6,6 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.safestring import mark_safe
 
-from micawber.compat import string_types
 from micawber.parsers import full_handler, inline_handler, parse_text, \
     parse_html, extract, extract_html
 
@@ -56,7 +55,7 @@ def extension(filter_name, providers=providers, urlize_all=True, html=False, han
     else:
         fn = text_fn
     def _extension(s, width_height=None):
-        params = getattr(settings, 'MICAWBER_DEFAULT_SETTINGS', {})
+        params = dict(getattr(settings, 'MICAWBER_DEFAULT_SETTINGS', None) or {})
         params.update(kwargs)
         params = fix_width_height(width_height, params)
         return mark_safe(fn(s, providers, urlize_all, handler, block_handler, **params))
@@ -71,7 +70,7 @@ def _extract_oembed(text, width_height=None, html=False):
         fn = extract_html
     else:
         fn = extract
-    params = getattr(settings, 'MICAWBER_DEFAULT_SETTINGS', {})
+    params = dict(getattr(settings, 'MICAWBER_DEFAULT_SETTINGS', None) or {})
     params = fix_width_height(width_height, params)
     url_list, url_data = fn(text, providers, **params)
     return [(u, url_data[u]) for u in url_list if u in url_data]
@@ -85,7 +84,7 @@ def extract_oembed_html(text, width_height=None):
     return _extract_oembed(text, width_height, True)
 
 user_extensions = getattr(settings, 'MICAWBER_TEMPLATE_EXTENSIONS', [])
-if isinstance(user_extensions, string_types):
+if isinstance(user_extensions, str):
     user_extensions = _load_from_module(user_extensions)
 
 for filter_name, filter_params in user_extensions:

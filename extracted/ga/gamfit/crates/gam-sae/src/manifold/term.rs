@@ -628,6 +628,28 @@ pub struct SaeManifoldTerm {
     /// via the typed `quotient_scale` kwarg — no env lever. Carried across clones
     /// like the other per-fit config.
     pub(crate) quotient_scale: bool,
+    /// #1939 — persisted per-fit opt-in for the cone-atom RECOVERY retraction
+    /// (default false ⇒ bit-for-bit historical path). When true, at each accepted
+    /// OUTER-iterate boundary any atom whose decoder has COLLAPSED relative to its
+    /// dictionary peers (`‖B_k‖ < ratio·median`) is retracted onto the unit sphere
+    /// and its amplitude re-solved, re-homing a co-vanished born decoder without
+    /// touching healthy atoms. Distinct from `quotient_scale`: this does ONLY the
+    /// stable breach-gated boundary retraction and NEVER the #2022 per-Newton fold
+    /// (fit_drivers.rs:3227), so it cannot detonate a healthy fit. Carried across
+    /// clones like the other per-fit config.
+    pub(crate) cone_atom_recovery: bool,
+    /// #5/(B) — persisted per-fit opt-in (default false ⇒ bit-for-bit historical
+    /// path) for the RANK-CHARGE evidence criterion. When true, the Laplace
+    /// complexity's per-atom COORDINATE-block term ½log|H_tt| — which mis-prices
+    /// with the `log(a²‖B‖²)` scale (over-charging real atoms, rewarding
+    /// a²‖B‖²→0) — is replaced by the honest BIC ½·d_eff·log n on the atom's
+    /// realised decoder RANK: d_eff_k = rank_eff_k · basis_edf_k, rank_eff_k =
+    /// Σ_i s_i²/(s_i²+R) over the decoder singular values with a FIXED dictionary-
+    /// relative floor R (so a vanishing atom → rank→0 → charge 0 → neutral, the
+    /// co-collapse fix). Rotation-invariant; it does NOT distinguish a clean
+    /// circle from a blend (both rank-2) — that is the producer's job. Carried
+    /// across clones like the other per-fit config.
+    pub(crate) rank_charge_evidence: bool,
     /// #2023 — persisted per-fit opt-in for the dead-atom DATA-ROW reseed
     /// (default false). Set from the FFI via the typed `data_row_reseed` kwarg —
     /// no env lever. Carried across clones.
@@ -654,6 +676,21 @@ pub struct SaeManifoldTerm {
     /// because the augmented output shares `t` and `a` by construction. Carried
     /// across clones so a cloned candidate keeps its behavioral identity.
     pub(crate) behavior: Option<crate::manifold::BehaviorBlock>,
+    /// #2023 C4 — the manifold-tier analogue of [`crate::tiered::Tier0Mean`]: the
+    /// single shared mean μ (length `p`) that carries the global DC for THIS term.
+    /// `None` (the default) ⇒ the historical, bit-for-bit path (no Tier-0; every
+    /// atom is free to smear a piece of the mean through its constant basis column).
+    /// `Some(μ)` ⇒ the atoms are fit against the de-meaned target `Z − μ` and the
+    /// reconstruction adds μ back ([`SaeManifoldTerm::try_fitted_with_rho`]).
+    ///
+    /// Moving the global DC out of the K per-atom intercepts into ONE Tier-0 mean
+    /// structurally kills the co-collapse-to-mean zombie class (#10 / #1893): on
+    /// de-meaned data the "every atom decodes the mean" state reconstructs zero, so
+    /// it earns zero explained variance and is pruned by the rank charge (its
+    /// realised rank → 0), instead of being rewarded and PC-reseeded. A pure
+    /// DC-constant decoder is then EV-invisible BY CONSTRUCTION — the mean it would
+    /// chase is already gone. Carried across clones like the other persisted config.
+    pub(crate) tier0_mean: Option<Array1<f64>>,
 }
 
 /// #1777 — PER-FIT configuration overrides the FFI sets on a term to isolate a
@@ -718,12 +755,17 @@ impl Clone for SaeManifoldTerm {
             // assignment mode so a cloned term keeps the same barrier override.
             separation_barrier_strength_override: self.separation_barrier_strength_override,
             quotient_scale: self.quotient_scale,
+            cone_atom_recovery: self.cone_atom_recovery,
+            rank_charge_evidence: self.rank_charge_evidence,
             data_row_reseed: self.data_row_reseed,
             guards_enabled: self.guards_enabled,
             // Rung-2 behavioral identity is persisted configuration (like the
             // assignment mode / barrier override), carried across clones so a
             // cloned candidate fits the same augmented two-block problem.
             behavior: self.behavior.clone(),
+            // #2023 C4 — persisted Tier-0 shared mean, carried across clones like
+            // the assignment mode so a cloned candidate de-means identically.
+            tier0_mean: self.tier0_mean.clone(),
         }
     }
 }

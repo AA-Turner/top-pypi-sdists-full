@@ -29,12 +29,12 @@ import logging
 
 from ClusterShell.Defaults import DEFAULTS
 from ClusterShell.NodeSet import NodeSet
-from ClusterShell.Communication import Channel
-from ClusterShell.Communication import ControlMessage, StdOutMessage
-from ClusterShell.Communication import StdErrMessage, RetcodeMessage
-from ClusterShell.Communication import StartMessage, EndMessage
-from ClusterShell.Communication import RoutedMessageBase, ErrorMessage
-from ClusterShell.Communication import ConfigurationMessage, TimeoutMessage
+from ClusterShell.Communication import (Channel, ControlMessage, StdOutMessage,
+                                        StdErrMessage, RetcodeMessage,
+                                        StartMessage, EndMessage,
+                                        RoutedMessageBase, ErrorMessage,
+                                        ConfigurationMessage, TimeoutMessage,
+                                        RoutingMessage)
 from ClusterShell.Topology import TopologyError
 
 
@@ -222,21 +222,34 @@ class PropagationChannel(Channel):
         self._rc = None
         self.logger = logging.getLogger(__name__)
 
-    def send_queued(self, ctl):
+    def _send_ctl(self, ctl, pickup_worker=None, pickup_nodes=None):
+        """Actually push a CTL message on the wire.
+
+        If pickup_worker is set, fires _emit_pickup() on the meta
+        worker for every target node, AFTER the send -- so ev_pickup
+        only fires when the command really left the local process
+        (#594). write()/set_write_eof() don't carry pickup args.
+        """
+        self.send(ctl)
+        if pickup_worker is not None and pickup_nodes is not None:
+            for node in pickup_nodes:
+                pickup_worker._emit_pickup(node)
+
+    def send_queued(self, ctl, pickup_worker=None, pickup_nodes=None):
         """helper used to send a message, using msg queue if needed"""
         if self.setup and not self._sendq:
             # send now if channel is setup and sendq empty
-            self.send(ctl)
+            self._send_ctl(ctl, pickup_worker, pickup_nodes)
         else:
             self.logger.debug("send_queued: %d", len(self._sendq))
-            self._sendq.appendleft(ctl)
+            self._sendq.appendleft((ctl, pickup_worker, pickup_nodes))
 
     def send_dequeue(self):
         """helper used to send one queued message (if any)"""
         if self._sendq:
-            ctl = self._sendq.pop()
+            ctl, pickup_worker, pickup_nodes = self._sendq.pop()
             self.logger.debug("dequeuing sendq: %s", ctl)
-            self.send(ctl)
+            self._send_ctl(ctl, pickup_worker, pickup_nodes)
 
     def start(self):
         """start propagation channel"""
@@ -251,10 +264,8 @@ class PropagationChannel(Channel):
         """process incoming messages"""
         self.logger.debug("recv: %s", msg)
         if msg.type == EndMessage.ident:
-            #??#self.ptree.notify_close()
             self.logger.debug("got EndMessage; closing")
-            # abort worker (now working)
-            self.worker.abort()
+            self._close()
         elif msg.type == StdErrMessage.ident and msg.srcid == 0:
             # Handle error messages when channel is not established yet
             # or if messages are non-routed (eg. gateway-related)
@@ -302,7 +313,9 @@ class PropagationChannel(Channel):
             'remote': remote,
         }
         ctl.data_encode(ctl_data)
-        self.send_queued(ctl)
+        # Pass worker + nodes so _emit_pickup fires only when the CTL
+        # actually leaves the local process (#594).
+        self.send_queued(ctl, pickup_worker=worker, pickup_nodes=nodes)
 
     def write(self, nodes, buf, worker):
         """write buffer through channel to nodes on standard input"""
@@ -378,22 +391,21 @@ class PropagationChannel(Channel):
                 self.logger.debug("TimeoutMessage for %s", msg.nodes)
                 for node in NodeSet(msg.nodes):
                     metaworker._on_remote_node_timeout(node, self.gateway)
+            elif msg.type == RoutingMessage.ident:
+                self.logger.debug("RoutingMessage for %s (gw %s)", msg.targets,
+                                  msg.gateway)
+                metaworker._on_routing_event({ "event": msg.event,
+                                               "gateway": msg.gateway,
+                                               "targets": msg.targets })
         elif msg.type == ErrorMessage.ident:
             # tree runtime error, could generate a new event later
             raise TopologyError("%s: %s" % (self.gateway, msg.reason))
         else:
             self.logger.debug("recv_ctl: unhandled msg %s", msg)
-        """
-        return
-        if self.ptree.upchannel is not None:
-            self.logger.debug("_state_gather ->upchan %s" % msg)
-            self.ptree.upchannel.send(msg) # send to according event handler passed by shell()
-        else:
-            assert False
-        """
 
     def ev_hup(self, worker, node, rc):
         """Channel command is closing"""
+        self.logger.debug("ev_hup gateway=%s %s", str(worker.nodes), self)
         self._rc = rc
 
     def ev_close(self, worker, timedout):
@@ -401,17 +413,27 @@ class PropagationChannel(Channel):
         # do not use worker buffer or rc accessors here as we doesn't use
         # common stream names
         gateway = str(worker.nodes)
-        self.logger.debug("ev_close gateway=%s %s", gateway, self)
-        self.logger.debug("ev_close rc=%s", self._rc) # may be None
+        self.logger.debug("ev_close gateway=%s rc=%s %s", gateway, self._rc,
+                          self)
 
-        # NOTE: self._rc may be None if the communication channel has aborted
-        if self._rc != 0:
-            self.logger.debug("error on gateway %s (setup=%s)", gateway,
-                              self.setup)
+        # NOTE: self._rc is set None when _we_ close the channel (abort)
+        if self._rc is None and not self.setup:
+            # aborting before the channel is setup is worth a warning
+            self.logger.warning("ev_close: rc=%s with channel not setup",
+                                self._rc)
+
+        if self._rc is not None and self._rc != 0:
+            # handle gateway channel error
+            self.logger.debug("error on gateway %s (rc=%s, setup=%s)", gateway,
+                              self._rc, self.setup)
             self.task.router.mark_unreachable(gateway)
             self.logger.debug("gateway %s now set as unreachable", gateway)
 
             if not self.setup:
-                # channel was not set up: we can safely repropagate commands
+                # channel was not set up: we can safely redistribute commands
+                self.logger.debug("channel was not set up: redistributing...")
                 for mw in set(self.task.gateways[gateway][1]):
                     mw._relaunch(gateway)
+
+        # update Task that we are closing
+        worker.task._pchannel_close(gateway, worker)

@@ -1,7 +1,23 @@
+import os
+import shutil
 import sys
+import tempfile
 import unittest
 
 from micawber import *
+try:
+    from micawber.cache import RedisCache
+except ImportError:
+    RedisCache = None
+try:
+    from micawber.contrib import mcflask
+except ImportError:
+    mcflask = None
+try:
+    import flask
+except ImportError:
+    flask = None
+from micawber.parsers import full_handler
 from micawber.test_utils import test_pr, test_cache, test_pr_cache, TestProvider, BaseTestCase
 
 
@@ -100,6 +116,69 @@ class ProviderTestCase(BaseTestCase):
 
         self.assertFalse(resp == resp_p)
 
+    def test_make_key_stable(self):
+        from micawber.providers import make_key
+        k1 = make_key('http://foo', {'maxwidth': 600, 'maxheight': 400})
+        k2 = make_key('http://foo', {'maxheight': 400, 'maxwidth': 600})
+        self.assertEqual(k1, k2)
+        self.assertEqual(make_key('http://foo', a=1, b=2),
+                         make_key('http://foo', b=2, a=1))
+        self.assertNotEqual(k1, make_key('http://foo', {'maxwidth': 600}))
+
+    def test_make_key_non_json_params(self):
+        import datetime
+        from decimal import Decimal
+        from micawber.providers import make_key
+        k1 = make_key('http://foo', {'maxwidth': Decimal('600'),
+                                     'since': datetime.date(2026, 7, 5)})
+        k2 = make_key('http://foo', {'since': datetime.date(2026, 7, 5),
+                                     'maxwidth': Decimal('600')})
+        self.assertEqual(k1, k2)
+
+    def test_cache_falsy_value(self):
+        from micawber.providers import make_key
+        # A cached falsy value is a hit, not a miss -- link-test3 is unknown
+        # to the provider, so an attempt to re-fetch would raise instead.
+        test_cache.set(make_key('http://link-test3', {}), {})
+        self.assertEqual(test_pr_cache.request('http://link-test3'), {})
+
+    def test_fetch_error_chained(self):
+        pr = ProviderRegistry()
+        pr.register(r'http://refused\S*',
+                    Provider('http://127.0.0.1:1/oembed', timeout=1.0))
+        with self.assertRaises(ProviderException) as ctx:
+            pr.request('http://refused-test')
+        self.assertTrue(ctx.exception.__cause__ is not None)
+
+    def test_bootstrap_basic_matching(self):
+        pr = bootstrap_basic()
+        urls = [
+            'https://podcasts.apple.com/us/podcast/the-daily/id1200361736',
+            'https://www.circuitlab.com/circuit/62vf6a/555-timer/',
+            'https://www.dailymotion.com/video/x8kjx7v',
+            'https://www.flickr.com/photos/bees/2341623661/',
+            'https://flic.kr/p/4yVr32',
+            'https://www.polleverywhere.com/polls/LTIwNzM4NTt8MQ',
+            'https://www.slideshare.net/haraldf/business-quotes-for-2011',
+            'https://soundcloud.com/forss/flickermood',
+            'https://speakerdeck.com/rocio/or-mad-men',
+            'https://www.scribd.com/document/110799637/Synthesis',
+            'https://www.tiktok.com/@scout2015/video/6718335390845095173',
+            'https://tiktok.com/@scout2015/video/6718335390845095173',
+            'https://twitter.com/jack/status/20',
+            'https://x.com/jack/status/20',
+            'https://vimeo.com/76979871',
+            'http://player.vimeo.com/76979871',
+            'https://someblog.wordpress.com/2011/10/28/1000-posts/',
+            'https://wordpress.tv/2026/06/06/fireside-chat/',
+            'http://www.youtube.com/watch?v=54XHDUOHuzU',
+            'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            'https://youtu.be/dQw4w9WgXcQ',
+            'https://www.youtube.com/shorts/aqz-KE-bpKQ',
+        ]
+        for url in urls:
+            self.assertTrue(pr.provider_for_url(url) is not None, url)
+
     def test_invalid_json(self):
         pr = ProviderRegistry()
         class BadProvider(Provider):
@@ -107,6 +186,177 @@ class ProviderTestCase(BaseTestCase):
                 return 'bad'
         pr.register('http://bad', BadProvider('link'))
         self.assertRaises(InvalidResponseException, pr.request, 'http://bad')
+
+
+class EscapingTestCase(BaseTestCase):
+    # html-escaped form of the title in the "link-unsafe" test fixture.
+    escaped_title = '&quot;&gt;&lt;script&gt;alert(0)&lt;/script&gt;'
+
+    def test_unsafe_title_escaped(self):
+        expected = '<a href="http://link-unsafe" title="%s">%s</a>' % (
+            self.escaped_title, self.escaped_title)
+
+        # Standalone link, rendered by the full handler.
+        self.assertEqual(test_pr.parse_text('http://link-unsafe'), expected)
+        self.assertEqual(test_pr.parse_text_full('http://link-unsafe'),
+                         expected)
+
+        # Inline link, rendered by the block handler.
+        self.assertEqual(test_pr.parse_text('see: http://link-unsafe'),
+                         'see: %s' % expected)
+
+        # BeautifulSoup re-serializes the replacement html (e.g. quoting the
+        # title attribute differently), so compare parse trees and verify no
+        # script tag survives.
+        parsed = test_pr.parse_html('<p>http://link-unsafe</p>')
+        self.assertHTMLEqual(parsed, '<p>%s</p>' % expected)
+        self.assertTrue('<script>' not in parsed)
+
+    def test_unsafe_url_escaped(self):
+        url = 'test.jpg&quot; onload=&quot;alert(0)'
+        expected = ('<a href="%(url)s" title="pic">'
+                    '<img alt="pic" src="%(url)s" /></a>' % {'url': url})
+        self.assertEqual(test_pr.parse_text('http://photo-unsafe'), expected)
+
+    def test_response_html_not_escaped(self):
+        # The html of a video/rich response is provider-supplied embed markup
+        # and is rendered as-is.
+        resp = test_pr.request('http://video-test1')
+        self.assertEqual(full_handler('http://video-test1', resp),
+                         '<test1>video</test1>')
+
+
+class PickleCacheTestCase(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmpdir)
+        self.filename = os.path.join(self.tmpdir, 'cache.db')
+
+    def test_load_missing_file(self):
+        cache = PickleCache(self.filename)
+        self.assertEqual(cache._cache, {})
+        self.assertTrue(cache.get('key') is None)
+
+    def test_load_bad_file(self):
+        import pickle
+        for content in (b'', b'not a pickle', pickle.dumps([1, 2, 3])):
+            with open(self.filename, 'wb') as fh:
+                fh.write(content)
+            cache = PickleCache(self.filename)
+            self.assertEqual(cache._cache, {})
+
+        # The cache remains usable after recovering from a bad file.
+        cache.set('key', 'value')
+        cache.save()
+        self.assertEqual(PickleCache(self.filename).get('key'), 'value')
+
+    def test_save_load_roundtrip(self):
+        cache = PickleCache(self.filename)
+        cache.set('key', {'title': 'test', 'type': 'link'})
+        cache.set('key2', [1, 2, 3])
+        cache.save()
+
+        cache2 = PickleCache(self.filename)
+        self.assertEqual(cache2.get('key'), {'title': 'test', 'type': 'link'})
+        self.assertEqual(cache2.get('key2'), [1, 2, 3])
+        self.assertTrue(cache2.get('missing') is None)
+
+
+@unittest.skipIf(mcflask is None, 'markupsafe/flask is not installed')
+class McFlaskTestCase(BaseTestCase):
+    class FakeApp(object):
+        def __init__(self):
+            self.jinja_env = type('JinjaEnv', (), {'filters': {}})()
+
+    def test_oembed(self):
+        result = mcflask.oembed('http://link-test1', test_pr)
+        self.assertTrue(isinstance(result, mcflask.Markup))
+        self.assertEqual(result, self.full_pairs['http://link-test1'])
+
+        result = mcflask.oembed('<p>http://link-test1</p>', test_pr,
+                                html=True)
+        self.assertTrue(isinstance(result, mcflask.Markup))
+        self.assertHTMLEqual(result,
+                             '<p>%s</p>' % self.full_pairs['http://link-test1'])
+
+    def test_extract_oembed(self):
+        urls, data = mcflask.extract_oembed(
+            'http://link-test1 http://fapp.io/foo/', test_pr)
+        self.assertEqual(urls, ['http://link-test1', 'http://fapp.io/foo/'])
+        self.assertEqual(list(data), ['http://link-test1'])
+
+        urls, data = mcflask.extract_oembed(
+            '<p>http://link-test1</p>', test_pr, html=True)
+        self.assertEqual(urls, ['http://link-test1'])
+        self.assertEqual(list(data), ['http://link-test1'])
+
+    def test_add_oembed_filters(self):
+        app = self.FakeApp()
+        mcflask.add_oembed_filters(app, test_pr)
+        filters = app.jinja_env.filters
+        self.assertEqual(sorted(filters), ['extract_oembed', 'oembed'])
+
+        result = filters['oembed']('http://link-test1')
+        self.assertTrue(isinstance(result, mcflask.Markup))
+        self.assertEqual(result, self.full_pairs['http://link-test1'])
+
+        urls, data = filters['extract_oembed']('http://link-test1')
+        self.assertEqual(urls, ['http://link-test1'])
+
+    @unittest.skipIf(flask is None, 'flask is not installed')
+    def test_flask_render(self):
+        app = flask.Flask(__name__)
+        mcflask.add_oembed_filters(app, test_pr)
+        with app.app_context():
+            # The oembed markup must survive jinja autoescaping...
+            rendered = flask.render_template_string(
+                '<div>{{ s|oembed }}</div>', s='http://link-test1')
+            self.assertEqual(rendered, '<div>%s</div>'
+                             % self.full_pairs['http://link-test1'])
+
+            # ...while everything else is escaped as usual.
+            rendered = flask.render_template_string(
+                '{{ s|oembed }}', s='http://link-unsafe')
+            self.assertTrue('<script>' not in rendered)
+
+
+class FakeRedisConn(object):
+    # Implements the redis-py >= 3.0 API for the commands RedisCache uses.
+    def __init__(self):
+        self.data = {}
+        self.expiry = {}
+
+    def get(self, name):
+        return self.data.get(name)
+
+    def set(self, name, value, ex=None):
+        if ex is not None and not isinstance(ex, int):
+            raise ValueError('ex must be an integer number of seconds')
+        self.data[name] = value
+        if ex is not None:
+            self.expiry[name] = ex
+
+
+@unittest.skipIf(RedisCache is None, 'redis-py is not installed')
+class RedisCacheTestCase(unittest.TestCase):
+    def get_cache(self, **kwargs):
+        cache = RedisCache(**kwargs)
+        cache.conn = FakeRedisConn()
+        return cache
+
+    def test_get_set(self):
+        cache = self.get_cache()
+        self.assertTrue(cache.get('key') is None)
+        cache.set('key', {'title': 'test'})
+        self.assertEqual(cache.get('key'), {'title': 'test'})
+        self.assertTrue('micawber.key' in cache.conn.data)
+        self.assertEqual(cache.conn.expiry, {})
+
+    def test_timeout(self):
+        cache = self.get_cache(timeout=60)
+        cache.set('key', {'title': 'test'})
+        self.assertEqual(cache.get('key'), {'title': 'test'})
+        self.assertEqual(cache.conn.expiry['micawber.key'], 60)
 
 
 class ParserTestCase(BaseTestCase):
@@ -254,6 +504,55 @@ class ParserTestCase(BaseTestCase):
 
             parsed = test_pr.parse_html(test_str, urlize_all=False)
             self.assertHTMLEqual(parsed, frame % (expected_inline, blank, url, blank))
+
+    def test_request_deduplication(self):
+        class CountingProvider(TestProvider):
+            fetch_count = 0
+            def fetch(self, url):
+                CountingProvider.fetch_count += 1
+                return super(CountingProvider, self).fetch(url)
+
+        pr = ProviderRegistry()
+        pr.register(r'http://link\S*', CountingProvider('link'))
+
+        def assertFetches(n, fn, *args):
+            CountingProvider.fetch_count = 0
+            fn(*args)
+            self.assertEqual(CountingProvider.fetch_count, n)
+
+        text = 'http://link-test1\nsee http://link-test1\nhttp://link-test1'
+        assertFetches(1, pr.parse_text, text)
+        assertFetches(1, pr.parse_text_full, text)
+
+        html = '<p>http://link-test1</p><p>x http://link-test1</p>'
+        assertFetches(1, pr.parse_html, html)
+        assertFetches(1, pr.extract_html, html)
+
+        # Failed lookups are not retried within a single parse either --
+        # link-test3 is unknown to the provider.
+        assertFetches(1, pr.parse_text,
+                      'http://link-test3\nhttp://link-test3')
+
+        # Distinct urls are of course fetched individually.
+        assertFetches(2, pr.parse_text,
+                      'http://link-test1\nhttp://link-test2')
+
+    def test_replacement_backslash(self):
+        # Replacements must be inserted literally, without backslash-escape
+        # processing.
+        expected = '<x>\\1 \\g<0> C:\\path</x>'
+        self.assertEqual(test_pr.parse_text('http://rich-backslash'), expected)
+        self.assertEqual(
+            test_pr.parse_text_full('inline http://rich-backslash'),
+            'inline %s' % expected)
+
+    def test_skip_script_and_style(self):
+        for frame in ('<script>var u = "%s";</script>',
+                      '<style>body { background: url(%s) }</style>',
+                      '<svg><text>%s</text></svg>',
+                      '<title>%s</title>'):
+            html = frame % 'http://link-test1'
+            self.assertEqual(test_pr.parse_html(html), html)
 
     def test_urlize_params(self):
         text = 'test http://foo.com/'

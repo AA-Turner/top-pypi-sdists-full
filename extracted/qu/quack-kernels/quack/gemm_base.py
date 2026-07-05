@@ -15,7 +15,7 @@ from cutlass.utils import LayoutEnum
 import quack.copy_utils as copy_utils
 from quack.cute_dsl_utils import ParamsBase
 from quack.epi_ops import EpiSmemBytes
-from quack.pipeline import PipelineTmaCpAsync
+from quack.pipeline import PipelineTmaAsync, PipelineTmaCpAsync
 from quack.rounding import RoundingMode, epilogue_sr_seed
 from quack.tile_scheduler import (
     PersistenceMode,
@@ -158,9 +158,7 @@ class GemmBase:
                         )
                     self.epi_tile_load_s2r(params, epi_tensors, epi_read_state.index)
                     cute.arch.fence_view_async_shared()
-                    cute.arch.sync_warp()
-                    with cute.arch.elect_one():
-                        epi_pipeline.consumer_release(epi_read_state)
+                    epi_pipeline.consumer_release(epi_read_state)
                     epi_read_state.advance()
                 else:
                     c_buffer = epi_idx % self.epi_c_stage
@@ -237,7 +235,7 @@ class GemmBase:
                 cute.copy(
                     tiled_copy_aux_out_r2s,
                     # Need contiguous for Sm80 and Sm120 where acc layout is ((2, 2), MMA_M, MMA_N)
-                    copy_utils.contiguous(tiled_copy_aux_out_r2s.retile(tRS_rAuxOuts_out[i])),
+                    tiled_copy_aux_out_r2s.retile(tRS_rAuxOuts_out[i]).contiguous(),
                     tRS_sAuxOut[None, None, None, epi_buffer],
                 )
             if const_expr(use_tma_epi):
@@ -646,7 +644,6 @@ class GemmTmaBase(GemmBase):
         self,
         tiled_mma: cute.TiledMma,
         cluster_layout_vmnk: cute.Layout,
-        ab_pipeline_mbar_ptr: cute.Pointer,
     ):
         # Threads/warps participating in this pipeline
         producer_cnt = 1 if const_expr(not self.gather_A) else 1 + self.num_ab_load_warps * 32
@@ -659,7 +656,6 @@ class GemmTmaBase(GemmBase):
         )
         pipeline_cls = pipeline.PipelineTmaAsync if not self.gather_A else PipelineTmaCpAsync
         return pipeline_cls.create(
-            barrier_storage=ab_pipeline_mbar_ptr,
             num_stages=self.ab_stage,
             producer_group=ab_pipeline_producer_group,
             consumer_group=ab_pipeline_consumer_group,
@@ -670,7 +666,6 @@ class GemmTmaBase(GemmBase):
 
     def make_epi_pipeline(
         self,
-        epi_pipeline_mbar_ptr: cute.Pointer,
         tx_count: int,
     ):
         epi_pipeline_producer_group = pipeline.CooperativeGroup(pipeline.Agent.Thread)
@@ -679,13 +674,14 @@ class GemmTmaBase(GemmBase):
         epi_pipeline_consumer_group = pipeline.CooperativeGroup(
             pipeline.Agent.Thread, consumer_arrive_cnt
         )
-        return pipeline.PipelineTmaAsync.create(
-            barrier_storage=epi_pipeline_mbar_ptr,
+        return PipelineTmaAsync.create(
             num_stages=self.epi_c_stage,
             producer_group=epi_pipeline_producer_group,
             consumer_group=epi_pipeline_consumer_group,
             tx_count=tx_count,
             defer_sync=True,
+            elect_one_release=True,
+            syncwarp_before_release=True,
         )
 
     def make_epi_store_pipeline(self):
@@ -724,16 +720,8 @@ class GemmTmaBase(GemmBase):
         mcast_dim: int,
     ) -> Tuple[cute.CopyAtom, cute.Tensor]:
         """Create TMA atoms and tensors for input tensors."""
-        op = (
-            cpasync.CopyBulkTensorTileG2SOp()
-            if mcast_dim == 1
-            else cpasync.CopyBulkTensorTileG2SMulticastOp()
-        )
-        tma_atom, tma_tensor = cpasync.make_tiled_tma_atom(
-            op,
-            tensor,
-            smem_layout,
-            smem_tile,
-            num_multicast=mcast_dim,
-        )
+        # block_copy takes compiler-driven multicast metadata at the copy site,
+        # so the TMA atom itself must stay the non-multicast variant here.
+        op = cpasync.CopyBulkTensorTileG2SOp()
+        tma_atom, tma_tensor = cpasync.make_tiled_tma_atom(op, tensor, smem_layout, smem_tile)
         return tma_atom, tma_tensor

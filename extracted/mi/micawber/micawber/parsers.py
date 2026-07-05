@@ -1,18 +1,13 @@
 import json
 import re
-from .compat import text_type
+from html import escape
 
-bs_kwargs = {}
 try:
     from bs4 import BeautifulSoup
     bs_kwargs = replace_kwargs = {'features': 'html.parser'}
 except ImportError:
-    try:
-        from BeautifulSoup import BeautifulSoup
-        bs_kwargs = {'convertEntities': BeautifulSoup.HTML_ENTITIES}
-        replace_kwargs = {}
-    except ImportError:
-        BeautifulSoup = None
+    BeautifulSoup = None
+    bs_kwargs = replace_kwargs = {}
 
 from micawber.exceptions import ProviderException
 
@@ -29,28 +24,59 @@ block_elements = set([
     'pre', 'section', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr',
     'ul',
     # Additional elements.
-    'button', 'del', 'iframe', 'ins', 'map', 'object', 'script', '[document]',
+    'button', 'del', 'iframe', 'ins', 'map', 'object', '[document]',
 ])
 
-skip_elements = set(['a', 'pre', 'code', 'input', 'textarea', 'select'])
+skip_elements = set([
+    'a', 'pre', 'code', 'input', 'textarea', 'select',
+    'head', 'script', 'style', 'svg', 'title',
+])
 
+
+def _escape_data(response_data):
+    # The url and title in a provider response frequently contain end-user
+    # content (e.g. video titles) and cannot be trusted in html.
+    return {
+        'url': escape(str(response_data['url'])),
+        'title': escape(str(response_data['title']))}
 
 def full_handler(url, response_data, **params):
     if response_data['type'] == 'link':
-        return '<a href="%(url)s" title="%(title)s">%(title)s</a>' % response_data
+        return '<a href="%(url)s" title="%(title)s">%(title)s</a>' % _escape_data(response_data)
     elif response_data['type'] == 'photo':
-        return '<a href="%(url)s" title="%(title)s"><img alt="%(title)s" src="%(url)s" /></a>' % response_data
+        return '<a href="%(url)s" title="%(title)s"><img alt="%(title)s" src="%(url)s" /></a>' % _escape_data(response_data)
     else:
         return response_data['html']
 
 def inline_handler(url, response_data, **params):
-    return '<a href="%(url)s" title="%(title)s">%(title)s</a>' % response_data
+    return '<a href="%(url)s" title="%(title)s">%(title)s</a>' % _escape_data(response_data)
 
 def urlize(url, **params):
     params.setdefault('href', url)
     param_html = ' '.join('%s="%s"' % (key, value)
                           for key, value in sorted(params.items()))
     return '<a %s>%s</a>' % (param_html, url)
+
+class _RequestMemo(object):
+    # Collapse repeated requests (or failures) for the same url within a
+    # single parse call, e.g. one url appearing in several paragraphs.
+    def __init__(self, providers):
+        self.providers = providers
+        self.responses = {}
+
+    def request(self, url, **params):
+        if url in self.responses:
+            response, exc = self.responses[url]
+        else:
+            response = exc = None
+            try:
+                response = self.providers.request(url, **params)
+            except ProviderException as e:
+                exc = e
+            self.responses[url] = (response, exc)
+        if exc is not None:
+            raise exc
+        return response
 
 def extract(text, providers, **params):
     all_urls = set()
@@ -82,36 +108,14 @@ def parse_text_full(text, providers, urlize_all=True, handler=full_handler,
         elif urlize_all:
             replacements[url] = urlize(url, **urlize_params)
 
-    # go through the text recording URLs that can be replaced
-    # taking note of their start & end indexes
-    urls = re.finditer(url_re, text)
-    matches = []
-    for match in urls:
-        if match.group() in replacements:
-            matches.append([match.start(), match.end(), match.group()])
-
-    # replace the URLs in order, offsetting the indices each go
-    for indx, (start, end, url) in enumerate(matches):
-        replacement = replacements[url]
-        difference = len(replacement) - len(url)
-
-        # insert the replacement between two slices of text surrounding the
-        # original url
-        text = text[:start] + replacement + text[end:]
-
-        # iterate through the rest of the matches offsetting their indices
-        # based on the difference between replacement/original
-        for j in range(indx + 1, len(matches)):
-            matches[j][0] += difference
-            matches[j][1] += difference
-
-    return text
+    return url_re.sub(lambda m: replacements.get(m.group(), m.group()), text)
 
 def parse_text(text, providers, urlize_all=True, handler=full_handler,
                block_handler=inline_handler, urlize_params=None, **params):
     lines = text.splitlines()
     parsed = []
     urlize_params = urlize_params or {}
+    providers = _RequestMemo(providers)
 
     for line in lines:
         if standalone_url_re.match(line):
@@ -140,8 +144,9 @@ def parse_html(html, providers, urlize_all=True, handler=full_handler,
                         'or beautifulsoup4, or use the text parser')
 
     soup = soup_class(html, **bs_kwargs)
+    providers = _RequestMemo(providers)
 
-    for url in soup.findAll(text=url_re):
+    for url in soup.find_all(string=url_re):
         if not _inside_skip(url):
             if _is_standalone(url):
                 url_handler = handler
@@ -159,9 +164,9 @@ def parse_html(html, providers, urlize_all=True, handler=full_handler,
                 url_handler,
                 urlize_params=urlize_params,
                 **params)
-            url.replaceWith(BeautifulSoup(replacement, **replace_kwargs))
+            url.replace_with(BeautifulSoup(replacement, **replace_kwargs))
 
-    return text_type(soup)
+    return str(soup)
 
 def extract_html(html, providers, **params):
     if not BeautifulSoup:
@@ -172,12 +177,13 @@ def extract_html(html, providers, **params):
     all_urls = set()
     urls = []
     extracted_urls = {}
+    providers = _RequestMemo(providers)
 
-    for url in soup.findAll(text=url_re):
+    for url in soup.find_all(string=url_re):
         if _inside_skip(url):
             continue
 
-        block_all, block_ext = extract(text_type(url), providers, **params)
+        block_all, block_ext = extract(str(url), providers, **params)
         for extracted_url in block_all:
             if extracted_url in all_urls:
                 continue

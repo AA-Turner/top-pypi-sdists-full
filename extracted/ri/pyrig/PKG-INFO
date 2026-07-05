@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: pyrig
-Version: 17.0.2
-Summary: Pyrig is a toolkit that standardizes and automates Python project setup, configuration, development, and maintenance.
+Version: 17.1.9
+Summary: A tool that standardizes and automates Python project setup, configuration, development, and maintenance.
 Keywords: pyrig,project-setup,scaffolding,boilerplate,project-template,automation,configuration,developer-tools,code-quality,ci-cd,devops
 Author: Winipedia
 License-Expression: MIT
@@ -71,7 +71,7 @@ Description-Content-Type: text/markdown
 <!-- rumdl-disable MD013 -->
 ---
 
-> Pyrig is a toolkit that standardizes and automates Python project setup, configuration, development, and maintenance.
+> A tool that standardizes and automates Python project setup, configuration, development, and maintenance.
 
 ---
 

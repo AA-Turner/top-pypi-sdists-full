@@ -2429,46 +2429,13 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
         raise ValueError(
             f"d_atom must be >= 1 for every atom; got {dims}"
         )
-    # Eager heterogeneous-d_atom validation (issue #2088). The SAE row-block
-    # analytic penalties (isometry, native ARD, SCAD/MCP coord sparsity,
-    # block-orthogonality) target the UNIFIED "t" latent block, whose width is a
-    # single `d_max` shared by every atom. With heterogeneous per-atom coord
-    # dims the arrow-Schur assembler cannot dispatch a shared-width row-block
-    # penalty per atom without silently truncating or padding axes, so
-    # `SaeManifoldTerm::validate_analytic_penalty_registry` refuses — but only
-    # deep inside the REML cascade, surfacing as a confusing
-    # `RemlConvergenceError` "before solver start". Because `isometry_weight`
-    # and `ard_per_atom` default ON, EVERY heterogeneous `d_atom` call hit that
-    # refusal, making the documented heterogeneous path unusable. Detect the
-    # incompatibility up front and raise a direct, actionable error naming the
-    # conflicting knobs. With all row-block penalties disabled the heterogeneous
-    # path runs normally (the per-atom decoder / nuclear-norm / incoherence
-    # penalties already dispatch per atom and are unaffected).
-    if len(set(dims)) > 1:
-        row_block_conflicts = []
-        if float(isometry_weight) > 0.0:
-            row_block_conflicts.append("isometry_weight>0")
-        if bool(ard_per_atom):
-            row_block_conflicts.append("ard_per_atom=True")
-        if gate_sparsity_kind in {"scad", "mcp"} and sparsity > 0.0:
-            row_block_conflicts.append(
-                f"coord_sparsity={gate_sparsity_kind!r} with sparsity_weight>0"
-            )
-        if float(block_orthogonality_weight) > 0.0:
-            row_block_conflicts.append("block_orthogonality_weight>0")
-        if row_block_conflicts:
-            raise ValueError(
-                f"sae_manifold_fit: heterogeneous d_atom ({dims}) is "
-                "incompatible with the SAE row-block analytic penalties "
-                + ", ".join(row_block_conflicts)
-                + ". These penalties target the shared 't' latent block, whose "
-                "width must match every atom, so mixed per-atom coordinate dims "
-                "cannot be dispatched (they would silently truncate or pad "
-                "axes). Either use a uniform d_atom for all atoms, or disable "
-                "the conflicting penalties (isometry_weight=0.0, "
-                "ard_per_atom=False, coord_sparsity='l1', "
-                "block_orthogonality_weight=0.0)."
-            )
+    # #2098 (SPEC-8) — the heterogeneous-`d_atom` + row-block-penalty
+    # incompatibility (isometry / native ARD / SCAD-MCP coord sparsity /
+    # block-orthogonality on a mixed per-atom "t" block) is now validated inside
+    # the Rust engine (`SaeManifoldTerm::validate_heterogeneous_atom_compatibility`,
+    # called in `sae_manifold_fit_inner`), which self-protects and raises a direct
+    # `ValueError` up front. The facade stays thin and simply surfaces that engine
+    # error rather than duplicating the check here.
     # Eager sparsity_weight validation (issue #184). The signature
     # advertises `sparsity_weight: float = 1.0`; `0.0` is the canonical
     # "no sparsity" baseline and must be accepted. Reject only negative,
@@ -2827,6 +2794,13 @@ class StagewiseSAE:
     assignment: str
     seed: ManifoldSAE
     training_data: np.ndarray
+    #: #1939 — the resolved cone-atom RECOVERY opt-in the fit actually ran with
+    #: (echoed from the FFI). Lets a harness verify the kwarg engaged rather than
+    #: assuming; default false keeps older constructors valid.
+    cone_atom_recovery_used: bool = False
+    #: #5/(B) — echoed rank-charge opt-in (the value the fit ran with), so red-tree's
+    #: A/B harness can verify the flag engaged; default false keeps older payloads valid.
+    rank_charge_evidence_used: bool = False
 
     @property
     def k(self) -> int:
@@ -2850,22 +2824,181 @@ class StagewiseSAE:
             recons.append(atom.assignments[:, None] * curve)
         return recons
 
-    def reconstruct(self, X: Any = None) -> np.ndarray:
+    def _in_sample_reconstruction(self) -> np.ndarray:
         """Composed reconstruction ``Σ_k a_k · (Φ_k B_k)`` of the training target.
 
-        ``X`` is accepted for API symmetry with :meth:`ManifoldSAE.reconstruct`
-        but ignored: the composed dictionary reconstructs the target it was fit
-        on (the atoms carry their converged coordinates/gates). Returns ``(N, p)``.
+        The atoms carry their converged coordinates/gates, so this is the exact
+        in-sample reconstruction the SAC fit produced. Returns ``(N, p)``.
         """
-        del X
         if not self.atoms:
             return np.zeros_like(self.training_data, dtype=np.float64)
         return np.sum(self._atom_reconstructions(), axis=0)
 
+    @property
+    def fitted(self) -> np.ndarray:
+        """In-sample composed reconstruction ``(N, p)`` (mirrors
+        :attr:`ManifoldSAE.fitted`)."""
+        return self._in_sample_reconstruction()
+
+    def to_manifold_sae(self) -> "ManifoldSAE":
+        """Lift the SAC-composed frozen dictionary into a :class:`ManifoldSAE`.
+
+        The composed atoms (frozen decoders + their circle/sphere analytic bases)
+        are packed into the SAME per-atom layout
+        :meth:`ManifoldSAE._oos_payload` / the Rust ``sae_manifold_predict_oos``
+        FFI already consume, so the returned object exposes the existing
+        out-of-sample surface — ``reconstruct(X_new)`` / ``encode`` /
+        ``project`` — with NO new numerical path: the frozen-decoder OOS chart
+        routing/encode lives in Rust and is reused verbatim, this is pure array
+        marshalling (SPEC thin-wrapper rule).
+
+        Scalar fit controls (``alpha`` / ``tau`` / ``assignment`` / learning
+        rate / ...) are inherited from the K=1 :attr:`seed`, so the held-out
+        solve runs under the same gate family the dictionary was grown with. The
+        lifted object's ``training_data``/``fitted`` are the SAC target and its
+        composed in-sample reconstruction, so scoring the exact training matrix
+        returns the SAC reconstruction bit-for-bit while any fresh ``X`` takes the
+        Rust OOS solve.
+        """
+        seed = self.seed
+        if not self.atoms:
+            # Empty dictionary: nothing composed to route out of sample; the K=1
+            # seed IS the model (it already exposes the OOS surface).
+            return seed
+        training = np.ascontiguousarray(np.asarray(self.training_data, dtype=np.float64))
+        fitted = np.ascontiguousarray(self._in_sample_reconstruction())
+        basis_kinds = [
+            _TOPOLOGY_TO_BASIS.get(_canon_name(a.topology), _canon_name(a.topology))
+            for a in self.atoms
+        ]
+        decoder_blocks = [
+            np.ascontiguousarray(np.asarray(a.decoder, dtype=np.float64)) for a in self.atoms
+        ]
+        atom_dims = [int(a.latent_dim) for a in self.atoms]
+        basis_sizes = [int(b.shape[0]) for b in decoder_blocks]
+        # Periodic harmonics recovered DIRECTLY from the decoder width (M = 2H + 1):
+        # ``(M - 1) // 2`` with no floor, so a DC-only born atom (M = 1 → H = 0)
+        # keeps its constant basis instead of being inflated to a 3-column periodic
+        # design the frozen decoder no longer matches. Sphere / non-periodic pass
+        # through as 0 (their basis size is fixed, not harmonic-derived).
+        n_harmonics = [
+            ((size - 1) // 2 if kind in ("periodic", "periodic_spline") else 0)
+            for kind, size in zip(basis_kinds, basis_sizes)
+        ]
+        centers: list[np.ndarray | None] = [None] * len(self.atoms)
+        coords = [np.ascontiguousarray(np.asarray(a.coords, dtype=np.float64)) for a in self.atoms]
+        assignments = np.ascontiguousarray(
+            np.column_stack(
+                [np.asarray(a.assignments, dtype=np.float64).reshape(-1) for a in self.atoms]
+            )
+        )
+        assignment = _canonical_assignment(self.assignment, "assignment")
+        fit_atoms = [
+            SaeManifoldAtomFit(
+                basis=basis_kinds[k],
+                decoder_coefficients=decoder_blocks[k],
+                assignments=np.ascontiguousarray(assignments[:, k].copy()),
+                coords=coords[k],
+                evidence=None,
+                active_dim=int(atom_dims[k]),
+            )
+            for k in range(len(self.atoms))
+        ]
+        k_atoms = len(self.atoms)
+        low = SaeManifoldFitResult(
+            fit_atoms,
+            k_atoms,
+            {k_atoms: float("nan")},
+            {"winner": f"K={k_atoms}"},
+            fitted,
+            assignments,
+            [c.copy() for c in coords],
+            float("nan"),
+        )
+        return ManifoldSAE(
+            atoms=fit_atoms,
+            atom_topology=_topology_for_bases(basis_kinds),
+            atom_topologies=_topologies_for_bases(basis_kinds),
+            assignment=assignment,
+            assignment_label=str(self.assignment),
+            primitive_names=["sae_manifold_fit_stagewise"],
+            fitted=fitted,
+            assignments=assignments,
+            coords=[c.copy() for c in coords],
+            decoder_blocks=decoder_blocks,
+            basis_specs=list(basis_kinds),
+            penalized_loss_score=None,
+            reconstruction_r2=self.reconstruction_ev(),
+            training_mean=training.mean(axis=0),
+            training_data=training,
+            low_level=low,
+            low_level_logits=np.ascontiguousarray(np.asarray(self.logits, dtype=np.float64)),
+            diagnostics={},
+            _basis_kinds=list(basis_kinds),
+            _atom_dims=atom_dims,
+            _basis_sizes=basis_sizes,
+            _n_harmonics=list(n_harmonics),
+            _duchon_centers=centers,
+            _oos_projection_top1=False,
+            alpha=float(seed.alpha),
+            learnable_alpha=bool(seed.learnable_alpha),
+            tau=float(seed.tau),
+            sparsity_strength=float(seed.sparsity_strength),
+            smoothness=float(seed.smoothness),
+            learning_rate=float(seed.learning_rate),
+            max_iter=int(seed.max_iter),
+            random_state=int(seed.random_state),
+            top_k=None,
+            jumprelu_threshold=float(seed.jumprelu_threshold),
+        )
+
+    def reconstruct(
+        self, X: Any = None, *, t_init: Any = None, a_init: Any = None
+    ) -> np.ndarray:
+        """Reconstruct ``X`` through the composed dictionary, ``(N, p)``.
+
+        ``X=None`` (or the exact training target) returns the in-sample composed
+        reconstruction ``Σ_k a_k · (Φ_k B_k)``. Any OTHER ``X`` is scored
+        OUT OF SAMPLE: the frozen decoders route each held-out row through the
+        existing Rust fixed-decoder OOS solve (via :meth:`to_manifold_sae`), so
+        passing fresh rows no longer silently returns the training reconstruction.
+        ``t_init`` / ``a_init`` warm-start the OOS refinement (#357).
+        """
+        if X is None:
+            return self._in_sample_reconstruction()
+        return self.to_manifold_sae().reconstruct(X, t_init=t_init, a_init=a_init)
+
+    def transform(
+        self, X: Any, *, t_init: Any = None, a_init: Any = None
+    ) -> np.ndarray:
+        """Out-of-sample composed reconstruction of ``X`` (honors ``X``).
+
+        Thin alias for :meth:`reconstruct` that always routes through the Rust
+        OOS path, giving the composed dictionary the held-out ``transform``
+        surface the joint :class:`ManifoldSAE` already exposes.
+        """
+        return self.to_manifold_sae().reconstruct(X, t_init=t_init, a_init=a_init)
+
+    def predict(self, X: Any) -> np.ndarray:
+        """Alias for :meth:`transform` (out-of-sample reconstruction of ``X``)."""
+        return self.to_manifold_sae().reconstruct(X)
+
+    def encode(
+        self, X: Any, **kwargs: Any
+    ) -> "np.ndarray | tuple[np.ndarray, dict[str, Any]]":
+        """Out-of-sample per-token assignments ``a*`` ``(N, K)`` for ``X``.
+
+        Delegates to :meth:`ManifoldSAE.encode` on the lifted dictionary, so the
+        frozen-decoder encode runs through the same Rust OOS solve the joint model
+        uses. Keyword arguments (``t_init`` / ``a_init`` / ``encoder`` /
+        ``return_stats``) are forwarded unchanged.
+        """
+        return self.to_manifold_sae().encode(X, **kwargs)
+
     def reconstruction_ev(self) -> float:
-        """Centered explained variance of :meth:`reconstruct` against the target."""
+        """Centered explained variance of the in-sample reconstruction."""
         x = np.asarray(self.training_data, dtype=np.float64)
-        recon = self.reconstruct()
+        recon = self._in_sample_reconstruction()
         rss = float(np.sum((x - recon) ** 2))
         tss = float(np.sum((x - x.mean(axis=0, keepdims=True)) ** 2))
         return 1.0 - rss / tss if tss > 0.0 else 0.0
@@ -2896,12 +3029,23 @@ def _basis_with_jet_for_atom(
         raise ValueError(f"stagewise atom coords must be 2D (N, d); got shape {t.shape}")
     if canon == "circle":
         # A periodic atom's basis width is M = 2H + 1; recover H from the trained
-        # decoder width (mirrors ``_canonical_n_harmonics``) so the rebuilt Φ has
-        # exactly the atom's columns even for a born/degenerate-width atom.
-        n_harmonics = max(1, (int(basis_size) - 1) // 2)
-        phi, jet, penalty = rust_module().basis_with_jet(
-            "periodic", t[:, :1], {"n_harmonics": int(n_harmonics)}
-        )
+        # decoder width so the rebuilt Φ has exactly the atom's columns. A born
+        # atom can degenerate to the DC-only width M = 1 (H = 0) — the SAC driver
+        # emits these — so H is ``(M - 1) // 2`` with NO ``max(1, …)`` floor: a
+        # spurious floor would rebuild a 3-column Φ against a 1-row decoder and the
+        # ``Φ @ B`` reconstruct would raise a shape mismatch. For H = 0 the basis is
+        # just the constant column, evaluated here directly (the Rust harmonic
+        # evaluator agrees: ``PeriodicHarmonicEvaluator::new(1)`` → Φ ≡ 1).
+        n_harmonics = (int(basis_size) - 1) // 2
+        if n_harmonics <= 0:
+            n_rows = int(t.shape[0])
+            phi = np.ones((n_rows, 1), dtype=np.float64)
+            jet = np.zeros((n_rows, 1, 1), dtype=np.float64)
+            penalty = np.zeros((1, 1), dtype=np.float64)
+        else:
+            phi, jet, penalty = rust_module().basis_with_jet(
+                "periodic", t[:, :1], {"n_harmonics": int(n_harmonics)}
+            )
     elif canon == "sphere":
         phi, jet, penalty = rust_module().basis_with_jet("sphere", t[:, : max(1, latent_dim)], {})
     else:
@@ -2923,7 +3067,10 @@ def sae_manifold_fit_stagewise(
     d_atom: int = 1,
     atom_topology: str = "circle",
     assignment: str = "ibp_map",
-    structured_whitening: bool = True,
+    structured_whitening: bool | None = None,
+    fisher_factors: Any = None,
+    cone_atom_recovery: bool = False,
+    rank_charge_evidence: bool = False,
     min_effect_ev: float = 0.0,
     max_births: int = 24,
     max_backfit_sweeps: int = 4,
@@ -2967,7 +3114,20 @@ def sae_manifold_fit_stagewise(
     structured_whitening
         Install the Σ-whitened per-row metric on each birth so the K=1 candidate
         fits run under the structured residual covariance from atom one (Σ is
-        refit per birth internally). ``True`` by default.
+        refit per birth internally). ``None`` (default) resolves to ``True`` for
+        the ordinary path, but to ``False`` when ``fisher_factors`` carry a
+        likelihood-whitening ``"behavioral_fisher"`` provenance — that fixed
+        harvest metric and the per-birth Σ-refit are rival sources for the same
+        per-row inner product, so the GLS lane fits under the fixed metric alone.
+        Pass an explicit ``True``/``False`` to override the resolution.
+    fisher_factors
+        Optional harvest-emitted output-Fisher factor stack (a ``HarvestShard`` /
+        ``load_harvest_shard`` dict / raw ``(n, p, r)`` array), installed on the
+        seed term and carried across every birth / backfit clone. With
+        ``provenance="behavioral_fisher"`` this is the **Rung 1** metric: the
+        reconstruction residual is priced as ``½ eᵀ G_n e`` (nats, generalized
+        least squares) at every stage of the composition, not just the seed.
+        ``None`` (default) is the isotropic ``½‖e‖²`` path, bit-for-bit today's.
     min_effect_ev
         Explicit MINIMUM-EFFECT (salience) floor a birth's ΔEV must clear ON TOP
         of the evidence gate. ``0.0`` (default) recovers evidence-only, null-
@@ -3048,6 +3208,35 @@ def sae_manifold_fit_stagewise(
         if not np.all(np.isfinite(weights_arr)) or np.any(weights_arr <= 0.0):
             raise ValueError("sample_weights must be finite and strictly positive")
 
+    # ── Rung 1 (B4): normalize the optional harvest Fisher shard once. It rides
+    # into BOTH the K=1 seed fit and the stagewise FFI so the SAME GLS metric
+    # prices the seed and every born atom. ``_normalize_fisher_factors`` accepts a
+    # HarvestShard / dict / raw (n, p, r) and returns (U, mass_residual, provenance).
+    fisher_shard = _normalize_fisher_factors(fisher_factors, n_obs, p_out)
+    if fisher_shard is None:
+        fisher_u = None
+        fisher_prov = None
+        fisher_whitens = False
+    else:
+        fisher_u = np.ascontiguousarray(np.asarray(fisher_shard[0], dtype=np.float64))
+        fisher_prov = str(fisher_shard[2])
+        # Only ``behavioral_fisher`` whitens the likelihood; the gauge-only
+        # output-Fisher provenances do not (they would merely gauge the seed and
+        # be clobbered by the per-birth Σ-refit, so they are not a GLS lane here).
+        fisher_whitens = fisher_prov == "behavioral_fisher"
+    # Resolve the structured-whitening default against the shard: a fixed
+    # likelihood-whitening metric and the per-birth Σ-refit are mutually exclusive.
+    if structured_whitening is None:
+        structured_whitening_eff = not fisher_whitens
+    else:
+        structured_whitening_eff = bool(structured_whitening)
+    if structured_whitening_eff and fisher_whitens:
+        raise ValueError(
+            "sae_manifold_fit_stagewise: a likelihood-whitening 'behavioral_fisher' "
+            "fisher metric conflicts with structured_whitening=True (the per-birth Σ-refit "
+            "would clobber it); pass structured_whitening=False for the GLS lane"
+        )
+
     # ── Seed: the proven Rust K=1 fit (Rust-seeded coords/decoder, no Python
     # reimplementation of the topology-specific seeding). ─────────────────────
     seed_fit = sae_manifold_fit(
@@ -3064,6 +3253,7 @@ def sae_manifold_fit_stagewise(
         alpha=(_ALPHA_UNSET if alpha is None else alpha),
         tau=tau,
         weights=weights_arr,
+        fisher_factors=(None if fisher_shard is None else fisher_factors),
         _run_structure_search=False,
         _run_outer_rho_search=False,
     )
@@ -3137,9 +3327,17 @@ def sae_manifold_fit_stagewise(
         max_backfit_sweeps=int(max_backfit_sweeps),
         min_effect_ev=float(min_effect_ev),
         max_factor_rank=int(max_factor_rank),
-        structured_whitening=bool(structured_whitening),
+        structured_whitening=bool(structured_whitening_eff),
+        cone_atom_recovery=bool(cone_atom_recovery),
+        rank_charge_evidence=bool(rank_charge_evidence),
         row_loss_weights=weights_arr,
         progress_callback=progress_callback,
+        fisher_factors=(
+            None
+            if fisher_shard is None
+            else np.ascontiguousarray(fisher_u.reshape(n_obs, p_out, -1))
+        ),
+        fisher_provenance=(None if fisher_shard is None else fisher_prov),
     )
     return _stagewise_from_payload(dict(payload), x, seed_fit)
 
@@ -3220,6 +3418,11 @@ def _stagewise_from_payload(
         assignment=str(seed_fit.assignment),
         seed=seed_fit,
         training_data=np.asarray(x, dtype=np.float64),
+        # #1939 — surface the FFI's cone_atom_recovery echo on the result object so a
+        # harness can verify the flag engaged; older payloads without the key default
+        # to False.
+        cone_atom_recovery_used=bool(payload.get("cone_atom_recovery_used", False)),
+        rank_charge_evidence_used=bool(payload.get("rank_charge_evidence_used", False)),
     )
 
 
@@ -3452,10 +3655,15 @@ def _normalize_fisher_factors(
     else:
         u_src = fisher_factors
         mr_src = None
-    if provenance not in ("output_fisher", "output_fisher_downstream"):
+    if provenance not in (
+        "output_fisher",
+        "output_fisher_downstream",
+        "behavioral_fisher",
+    ):
         raise ValueError(
-            "fisher_factors provenance must be 'output_fisher' or "
-            f"'output_fisher_downstream'; got {provenance!r}"
+            "fisher_factors provenance must be 'output_fisher', "
+            "'output_fisher_downstream', or 'behavioral_fisher'; "
+            f"got {provenance!r}"
         )
     u = np.asarray(u_src, dtype=np.float64)
     if u.ndim != 3:

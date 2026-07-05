@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: causalml
-Version: 0.16.0
+Version: 0.17.0
 Summary: Python Package for Uplift Modeling and Causal Inference with Machine Learning Algorithms
 Author: Huigang Chen, Totte Harinen, Jeong-Yoon Lee, Jing Pan, Mike Yung, Zhenyu Zhao
 Maintainer: Jeong-Yoon Lee
@@ -29,14 +29,22 @@ Requires-Dist: lightgbm
 Requires-Dist: packaging
 Requires-Dist: graphviz
 Requires-Dist: black>=26.1.0
+Provides-Extra: polars
+Requires-Dist: polars>=1.0.0; extra == "polars"
 Provides-Extra: test
 Requires-Dist: pytest>=4.6; extra == "test"
 Requires-Dist: pytest-cov>=4.0; extra == "test"
+Requires-Dist: causalml[polars]; extra == "test"
 Provides-Extra: tf
 Requires-Dist: tensorflow>=2.4.0; extra == "tf"
 Provides-Extra: torch
 Requires-Dist: torch; extra == "torch"
 Requires-Dist: pyro-ppl; extra == "torch"
+Provides-Extra: jax
+Requires-Dist: jax>=0.4.1; extra == "jax"
+Requires-Dist: flax>=0.11.0; extra == "jax"
+Requires-Dist: optax>=0.1.4; extra == "jax"
+Requires-Dist: orbax-checkpoint>=0.10.0; extra == "jax"
 Dynamic: license-file
 
 <div align="center">

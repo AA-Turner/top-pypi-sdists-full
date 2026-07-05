@@ -85,13 +85,26 @@ def aggregate_yield_across_ps(yield_values, area_values, prod_values):
     prod_values = prod_values.replace([0, np.inf, -np.inf], np.nan)
     total_area = area_values.sum(skipna=True)
     total_prod = prod_values.sum(skipna=True)
-    if total_area and total_area > 0 and total_prod and total_prod > 0:
-        agg_yield = total_prod / total_area
-    elif total_area and total_area > 0 and yield_values.notna().any():
+    # Prefer the stored yield column (per-source curated value) over
+    # production/area. Reason: for merged HS+SPE files (e.g. togo), a
+    # single row may have area from HS and production from SPE — two
+    # different sources with different geographic scopes / methodologies.
+    # Recomputing yield = prod/area across such rows produces spurious
+    # values (togo Centrale 2006: 1.53 t/ha per HS but 2.69 t/ha via
+    # prod/area from mixed sources). The stored yield column, when
+    # present, was curated per-source per the file's merge strategy
+    # (see "SPE_data_curation" report) and is the reliable value.
+    if total_area and total_area > 0 and yield_values.notna().any():
         agg_yield = (
             (yield_values.fillna(0) * area_values.fillna(0)).sum()
             / total_area
         )
+    elif total_area and total_area > 0 and total_prod and total_prod > 0:
+        # Fall-through: yield column genuinely missing. Standard case
+        # for un-filled SPE rows where the curator hadn't derived yield
+        # from prod/area yet (see PDF Section 5.2: 43 fills of this type
+        # in the togo SPE source).
+        agg_yield = total_prod / total_area
     else:
         agg_yield = yield_values.mean(skipna=True)
     return agg_yield, total_area, total_prod

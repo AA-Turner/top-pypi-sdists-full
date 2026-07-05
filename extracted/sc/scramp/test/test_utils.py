@@ -1,6 +1,7 @@
+import binascii
+
 import pytest
 
-from scramp.exceptions import ScramException
 from scramp.utils import b64dec, xor
 
 
@@ -11,7 +12,7 @@ from scramp.utils import b64dec, xor
     ],
 )
 def test_b64dec_fails(string):
-    with pytest.raises(ScramException):
+    with pytest.raises(binascii.Error):
         b64dec(string)
 
 

@@ -19,9 +19,9 @@ from ClusterShell.Topology import TopologyGraph
 from ClusterShell.Worker.Tree import TreeWorker
 from ClusterShell.Worker.Worker import StreamWorker
 
-from TLib import HOSTNAME
+from .TLib import HOSTNAME
 
-# live logging with nosetests --nologcapture
+# enable live DEBUG logging when running the tests
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -256,13 +256,23 @@ class TreeGatewayTest(TreeGatewayBaseTest):
     def test_err_unknown_msg(self):
         """test gateway unknown message"""
         self._check_channel_err('<message msgid="24" type="ABC"></message>',
-                                'Unknown message type',
+                                'Unknown message type ABC',
                                 openchan=False)
 
     def test_channel_err_unknown_msg(self):
         """test gateway channel unknown message"""
         self._check_channel_err('<message msgid="24" type="ABC"></message>',
-                                'Unknown message type')
+                                'Unknown message type ABC')
+
+    def test_channel_err_no_type_msg(self):
+        """test gateway channel message with no type"""
+        self._check_channel_err('<message msgid="24"></message>',
+                                'Unknown message with no type')
+
+    def test_channel_err_empty_type_msg(self):
+        """test gateway channel message with empty type"""
+        self._check_channel_err('<message msgid="24" type=""></message>',
+                                'Unknown message with no type')
 
     def test_err_xml_malformed(self):
         """test gateway malformed xml message"""

@@ -17,7 +17,7 @@ from cutlass.pipeline import pipeline_init_arrive, pipeline_init_wait
 from cutlass.cute.nvgpu import cpasync, warp, warpgroup
 import cutlass.utils.hopper_helpers as sm90_utils
 from cutlass import Int32, Float32, Float16, Boolean, const_expr
-from cutlass.utils import LayoutEnum
+from cutlass.utils import LayoutEnum, SmemPartition
 
 
 from quack import layout_utils
@@ -464,10 +464,6 @@ class GemmSm90(GemmTmaBase):
 
         @cute.struct
         class SharedStorage:
-            ab_pipeline_array_ptr: cute.struct.MemRange[cutlass.Int64, self.ab_stage * 2]
-            epi_pipeline_array_ptr: cute.struct.MemRange[cutlass.Int64, self.epi_c_stage * 2]
-            sched_pipeline_array_ptr: cute.struct.MemRange[cutlass.Int64, self.sched_stage * 2]
-            sched_data: cute.struct.MemRange[Int32, self.sched_stage * 4]
             sD: cute.struct.Align[
                 cute.struct.MemRange[
                     self.d_dtype if self.d_dtype is not None else Int32, epi_smem_size
@@ -598,23 +594,23 @@ class GemmSm90(GemmTmaBase):
         ab_pipeline = self.make_ab_pipeline(
             tiled_mma=tiled_mma,
             cluster_layout_vmnk=cute.make_layout((1, *cluster_layout_mnk.shape)),
-            ab_pipeline_mbar_ptr=storage.ab_pipeline_array_ptr.data_ptr(),
         )
         epi_pipeline = None
         if const_expr(has_epi_load):
-            epi_pipeline = self.make_epi_pipeline(
-                epi_pipeline_mbar_ptr=storage.epi_pipeline_array_ptr.data_ptr(),
-                tx_count=self.epi_load_bytes_per_stage,
-            )
+            epi_pipeline = self.make_epi_pipeline(tx_count=self.epi_load_bytes_per_stage)
         sched_pipeline = None
         sched_data = None
         if const_expr(self.is_persistent):
-            sched_pipeline = self.make_sched_pipeline(
-                cluster_layout_mnk,
-                sched_pipeline_mbar_ptr=storage.sched_pipeline_array_ptr.data_ptr(),
-                varlen_k=varlen_k,
+            sched_pipeline = self.make_sched_pipeline(cluster_layout_mnk, varlen_k=varlen_k)
+            # Keep scheduler scratch out of SharedStorage. A small buffer before
+            # the 1024-byte aligned epilogue tensors can add a 1 KiB pad; CLC
+            # responses also use i128 copies, so this stays 16-byte aligned.
+            sched_data = smem.allocate_tensor(
+                Int32,
+                cute.make_layout((4, self.sched_stage)),
+                byte_alignment=16,
+                partition=SmemPartition.RESERVED,
             )
-            sched_data = storage.sched_data.get_tensor((4, self.sched_stage))
 
         # Cluster arrive after barrier init
         pipeline_init_arrive(cluster_shape_mn=self.cluster_shape_mnk[:-1], is_relaxed=True)
@@ -657,17 +653,18 @@ class GemmSm90(GemmTmaBase):
                 # PDL: wait for prior kernel before any TMA loads (matches cutlass C++ sm90 mainloop producer)
                 if const_expr(self.use_pdl):
                     cute.arch.griddepcontrol_wait()
-                # Get mcast mask
-                cta_rank_in_cluster = cute.arch.make_warp_uniform(cute.arch.block_idx_in_cluster())
-                block_in_cluster_coord_mnk = cluster_layout_mnk.get_flat_coord(cta_rank_in_cluster)
-                a_mcast_mask = cute.make_layout_image_mask(
-                    cluster_layout_mnk, block_in_cluster_coord_mnk, mode=1
-                )
-                b_mcast_mask = cute.make_layout_image_mask(
-                    cluster_layout_mnk, block_in_cluster_coord_mnk, mode=0
-                )
-                a_mcast_mask = a_mcast_mask if self.is_a_mcast else 0
-                b_mcast_mask = b_mcast_mask if self.is_b_mcast else 0
+                # block_copy's lowering wants the coordinate held fixed by the
+                # multicast mask: A is same-M across N peers, while B is
+                # same-N across M peers. Degenerate cluster dimensions are
+                # left for the compiler lowering to simplify.
+                a_tma_multicast = {
+                    "cluster_shape": self.cluster_shape_mnk[:2],
+                    "multicast_dim": "M",
+                }
+                b_tma_multicast = {
+                    "cluster_shape": self.cluster_shape_mnk[:2],
+                    "multicast_dim": "N",
+                }
 
                 # Persistent tile scheduling loop
                 is_scheduler_warp = self.num_ab_load_warps == 1 or warp_idx == self.ab_load_warp_id
@@ -693,15 +690,11 @@ class GemmSm90(GemmTmaBase):
                             (tile_coord_mnkl[0], None),
                         )
                         #  TMA load A partition_S/D
-                        copy_A, _, _ = copy_utils.tma_get_copy_fn(
+                        copy_A = copy_utils.tma_get_block_copy_fn(
                             tma_atom_a,
-                            cta_coord=block_in_cluster_coord_mnk[1],
-                            cta_layout=cute.make_layout(
-                                cute.slice_(cluster_layout_mnk, (0, None, 0)).shape
-                            ),
                             src_tensor=gA_mk,
                             dst_tensor=sA,
-                            mcast_mask=a_mcast_mask,
+                            tma_multicast=a_tma_multicast,
                         )
                     else:
                         copy_A, prefetch_A = self._make_gather_A_copy(
@@ -714,15 +707,11 @@ class GemmSm90(GemmTmaBase):
                         (tile_coord_mnkl[1], None),
                     )
                     # TMA load B partition_S/D
-                    copy_B, _, _ = copy_utils.tma_get_copy_fn(
+                    copy_B = copy_utils.tma_get_block_copy_fn(
                         tma_atom_b,
-                        cta_coord=block_in_cluster_coord_mnk[0],
-                        cta_layout=cute.make_layout(
-                            cute.slice_(cluster_layout_mnk, (None, 0, 0)).shape
-                        ),
                         src_tensor=gB_nk,
                         dst_tensor=sB,
-                        mcast_mask=b_mcast_mask,
+                        tma_multicast=b_tma_multicast,
                     )
                     len_k = varlen_manager.len_k(batch_idx)
                     k_tile_cnt = cute.ceil_div(len_k, self.cta_tile_shape_mnk[2])
@@ -1209,9 +1198,7 @@ class GemmSm90(GemmTmaBase):
             number_of_threads=2 * self.num_threads_per_warp_group,
         )
 
-    def make_sched_pipeline(
-        self, cluster_layout_mnk: cute.Layout, sched_pipeline_mbar_ptr: cute.Pointer, varlen_k: bool
-    ):
+    def make_sched_pipeline(self, cluster_layout_mnk: cute.Layout, varlen_k: bool):
         sched_pipeline_producer_group = pipeline.CooperativeGroup(pipeline.Agent.Thread)
         cluster_size = cute.size(cluster_layout_mnk)
         # Each warp will contribute 1 to the arrive count
@@ -1225,7 +1212,6 @@ class GemmSm90(GemmTmaBase):
             pipeline.Agent.Thread, consumer_arrive_cnt
         )
         return pipeline.PipelineAsync.create(
-            barrier_storage=sched_pipeline_mbar_ptr,
             num_stages=self.sched_stage,
             producer_group=sched_pipeline_producer_group,
             consumer_group=sched_pipeline_consumer_group,

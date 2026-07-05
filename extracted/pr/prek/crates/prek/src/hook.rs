@@ -97,6 +97,14 @@ impl HookSpec {
         {
             self.options.stages = Some(config.default_stages.unwrap_or(Stages::ALL));
         }
+
+        if let Some(default_env) = &config.default_env {
+            let mut env = default_env.clone();
+            if let Some(hook_env) = self.options.env.take() {
+                env.extend(hook_env);
+            }
+            self.options.env = Some(env);
+        }
     }
 }
 
@@ -872,7 +880,7 @@ mod tests {
         let temp = tempfile::tempdir()?;
         let config_path = temp.path().join(PRE_COMMIT_CONFIG_YAML);
 
-        // Ensure `combine()` can supply defaults for stages and language_version.
+        // Ensure project defaults are applied to hooks.
         fs_err::write(
             &config_path,
             indoc::indoc! {r"
@@ -880,6 +888,10 @@ mod tests {
                 default_language_version:
                   python: python3.12
                 default_stages: [manual]
+                default_env:
+                  BASE: default
+                  DEFAULT_ONLY: 1
+                  OVERRIDE: default
             "},
         )?;
 
@@ -944,7 +956,7 @@ mod tests {
                 relative_path: "",
                 idx: 0,
                 config: Config {
-                    auto_update: None,
+                    update: None,
                     repos: [],
                     default_install_hook_types: None,
                     default_language_version: Some(
@@ -954,6 +966,13 @@ mod tests {
                     ),
                     default_stages: Some(
                         Stages(manual),
+                    ),
+                    default_env: Some(
+                        {
+                            "BASE": "default",
+                            "OVERRIDE": "default",
+                            "DEFAULT_ONLY": "1",
+                        },
                     ),
                     files: None,
                     exclude: None,
@@ -995,6 +1014,7 @@ mod tests {
             ],
             env: {
                 "BASE": "1",
+                "DEFAULT_ONLY": "1",
                 "OVERRIDE": "2",
             },
             always_run: true,

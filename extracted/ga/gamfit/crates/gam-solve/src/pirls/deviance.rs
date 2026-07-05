@@ -709,6 +709,191 @@ pub(crate) fn tweedie_saddlepoint_loglik(yi: f64, mui: f64, w: f64, p: f64, phi:
     }
 }
 
+/// Dominant-series-index above which the exact compound-Poisson–gamma series is
+/// abandoned for the saddlepoint approximation. The number of series terms
+/// carrying non-negligible mass grows like `√(index)`, while the saddlepoint's
+/// relative error decays like `O(1/index)` (it is the many-jumps CLT limit of the
+/// same density), so beyond this many jumps the series is expensive *and* the
+/// saddlepoint is already exact to far below the resolution of a variance-power
+/// profile. At an index of `10⁴` the series sums `~√(74·index) ≈ 860` terms and
+/// the saddlepoint density is accurate to `~10⁻⁴` — the two agree, so the switch
+/// is seamless. Gating on the *index* (which accounts for the observation `y`,
+/// not just the mean-driven rate λ) also bounds the work for a large-`y`/small-`μ`
+/// outlier whose dominant term sits far above λ.
+const TWEEDIE_SERIES_MAX_INDEX: f64 = 1.0e4;
+
+/// Analytic estimate of the index `k` of the dominant term in the
+/// compound-Poisson–gamma series at one observation — the maximizer of the log
+/// summand `g(k)`, obtained by solving `g'(k)=0` with the leading `ψ(x)≈ln x`
+/// approximation. Reduces to the Poisson rate `λ` when `y=μ` and grows with `y`.
+/// Used both to start the series climb near the peak (so the climb is short at
+/// any magnitude) and to decide the saddlepoint fallback.
+#[inline]
+fn tweedie_series_peak_index(yi: f64, mui: f64, phi_i: f64, p: f64) -> f64 {
+    let two_minus_p = 2.0 - p;
+    let p_minus_one = p - 1.0;
+    let lambda = mui.powf(two_minus_p) / (phi_i * two_minus_p);
+    if yi <= 0.0 {
+        return lambda;
+    }
+    let alpha = two_minus_p / p_minus_one;
+    let gamma_scale = phi_i * p_minus_one * mui.powf(p_minus_one);
+    // k* ≈ exp{ [ln λ + α·ln(y/γ) − α·ln α] / (1+α) }.
+    let ln_k = (lambda.ln() + alpha * (yi / gamma_scale).ln() - alpha * alpha.ln()) / (1.0 + alpha);
+    ln_k.exp().max(1.0)
+}
+
+/// Exact Tweedie (compound Poisson–gamma, `1 < p < 2`) log-density at one
+/// observation, evaluated by the Jørgensen / Dunn–Smyth infinite-series
+/// representation of the exponential-dispersion normalizer.
+///
+/// Unlike [`tweedie_saddlepoint_loglik`] — which is asymptotically exact only in
+/// the many-jumps (large-λ) limit and biases the maximum-likelihood variance
+/// power **low** at small/moderate λ (#2105) — this is the exact normalized
+/// density. It is what a profile likelihood of `p` must optimize (mgcv's
+/// `ldTweedie` uses the same series for exactly this reason); the saddlepoint's
+/// missing `O(1/λ)` normalizer correction, integrated across the sample, is what
+/// dragged `p̂` down (e.g. `p̂ ≈ 1.33` on `p = 1.5` data) and thereby inflated the
+/// reported Pearson dispersion `φ̂ = Σw(y−μ)²/μ^p / Σw` by `~13%`.
+///
+/// Density (prior weight `w` scales the dispersion, `φᵢ = φ/w`):
+/// ```text
+/// f(0)   = exp(−λ),                               λ = μ^{2−p} / (φᵢ (2−p))
+/// f(y>0) = Σ_{k≥1} Pois(k; λ) · Gamma(y; kα, γ),  α = (2−p)/(p−1),
+///                                                 γ = φᵢ (p−1) μ^{p−1}.
+/// ```
+/// The infinite sum is evaluated by log-sum-exp around its dominant term. The
+/// summand is log-concave in `k`, so a climb from `k ≈ λ` finds the global max
+/// and the tails are accumulated outward until they fall `LOG_SUM_CUTOFF` below
+/// the peak.
+#[inline]
+pub(crate) fn tweedie_series_loglik(yi: f64, mui: f64, w: f64, p: f64, phi: f64) -> f64 {
+    if w <= 0.0 {
+        // Zero prior weight excludes the observation (matches the saddlepoint).
+        return 0.0;
+    }
+    let phi_i = phi / w;
+    let two_minus_p = 2.0 - p;
+    let p_minus_one = p - 1.0;
+    // λ = μ^{2−p} / (φᵢ (2−p)) — the compound-Poisson jump rate.
+    let lambda = mui.powf(two_minus_p) / (phi_i * two_minus_p);
+    if yi <= 0.0 {
+        // Exact point mass at zero: P(Y = 0) = exp(−λ).
+        return -lambda;
+    }
+    let alpha = two_minus_p / p_minus_one; // gamma shape per jump
+    let gamma_scale = phi_i * p_minus_one * mui.powf(p_minus_one);
+    let ln_lambda = lambda.ln();
+    let ln_y = yi.ln();
+    let ln_gamma_scale = gamma_scale.ln();
+    let y_over_scale = yi / gamma_scale;
+    // log of the k-th mixture term: Poisson(k; λ) pmf + Gamma(y; kα, γ) pdf.
+    let log_term = |k: f64| -> f64 {
+        -lambda + k * ln_lambda - ln_gamma(k + 1.0)
+            + (k * alpha - 1.0) * ln_y
+            - y_over_scale
+            - k * alpha * ln_gamma_scale
+            - ln_gamma(k * alpha)
+    };
+    // Climb to the dominant term. Start at the analytic peak-index estimate
+    // (which reduces to λ when y ≈ μ and tracks large y), so the climb only
+    // refines by a few steps at any magnitude; the log-concave summand is
+    // unimodal so the climb reaches the global maximum.
+    let mut k_peak = tweedie_series_peak_index(yi, mui, phi_i, p).round().max(1.0);
+    let mut f_peak = log_term(k_peak);
+    loop {
+        let f_up = log_term(k_peak + 1.0);
+        if f_up > f_peak {
+            k_peak += 1.0;
+            f_peak = f_up;
+        } else {
+            break;
+        }
+    }
+    while k_peak > 1.0 {
+        let f_down = log_term(k_peak - 1.0);
+        if f_down > f_peak {
+            k_peak -= 1.0;
+            f_peak = f_down;
+        } else {
+            break;
+        }
+    }
+    // Accumulate exp(term − peak) outward until the tails are negligible.
+    // e^{−LOG_SUM_CUTOFF} ≈ 6·10⁻¹⁷ is below f64 round-off relative to the peak.
+    const LOG_SUM_CUTOFF: f64 = 37.4;
+    let mut acc = 1.0_f64; // the peak term itself (exp(0))
+    let mut k = k_peak + 1.0;
+    loop {
+        let d = log_term(k) - f_peak;
+        if d < -LOG_SUM_CUTOFF {
+            break;
+        }
+        acc += d.exp();
+        k += 1.0;
+    }
+    let mut k = k_peak - 1.0;
+    while k >= 1.0 {
+        let d = log_term(k) - f_peak;
+        if d < -LOG_SUM_CUTOFF {
+            break;
+        }
+        acc += d.exp();
+        k -= 1.0;
+    }
+    f_peak + acc.ln()
+}
+
+/// Exact Tweedie log-density with an automatic saddlepoint fallback in the
+/// large-λ regime (see [`TWEEDIE_SERIES_MAX_LAMBDA`]). Prefer this over
+/// [`tweedie_saddlepoint_loglik`] wherever the *accuracy* of the density in `p`
+/// matters — above all the variance-power profile — and over
+/// [`tweedie_series_loglik`] when the sample can contain arbitrarily large means
+/// (the fallback bounds the per-observation term count).
+#[inline]
+pub(crate) fn tweedie_exact_loglik(yi: f64, mui: f64, w: f64, p: f64, phi: f64) -> f64 {
+    if w <= 0.0 {
+        return 0.0;
+    }
+    let phi_i = phi / w;
+    let peak_index = tweedie_series_peak_index(yi, mui, phi_i, p);
+    // Non-finite dominant index (degenerate μ / φ) or the many-jumps CLT regime:
+    // defer to the saddlepoint, which is well-defined and, at a large index,
+    // exact. The index (not just λ) accounts for a large-y outlier.
+    if !peak_index.is_finite() || peak_index > TWEEDIE_SERIES_MAX_INDEX {
+        return tweedie_saddlepoint_loglik(yi, mui, w, p, phi);
+    }
+    tweedie_series_loglik(yi, mui, w, p, phi)
+}
+
+/// Total exact Tweedie log-likelihood over all observations — the sum of
+/// [`tweedie_exact_loglik`]. This is the objective a maximum-likelihood profile
+/// of the variance power `p` optimizes (#2105 / #2026); it uses the exact EDM
+/// normalizer rather than the [`pointwise_loglikelihood`] saddlepoint so the
+/// recovered `p̂` (and hence the reported dispersion `φ̂` and every SE / interval
+/// scaled by `√φ̂`) is unbiased. Returns `NaN` if the power is out of range, `φ`
+/// is not strictly positive/finite, or a response violates the Tweedie support.
+pub fn tweedie_exact_loglik_total(
+    y: ArrayView1<f64>,
+    mu: &Array1<f64>,
+    priorweights: ArrayView1<f64>,
+    p: f64,
+    phi: f64,
+) -> f64 {
+    const MU_FLOOR: f64 = 1e-10;
+    if !is_valid_tweedie_power(p) || !(phi.is_finite() && phi > 0.0) {
+        return f64::NAN;
+    }
+    if validate_tweedie_responses(&y, &priorweights).is_err() {
+        return f64::NAN;
+    }
+    use rayon::iter::{IntoParallelIterator, ParallelIterator};
+    (0..y.len())
+        .into_par_iter()
+        .map(|i| tweedie_exact_loglik(y[i], mu[i].max(MU_FLOOR), priorweights[i], p, phi))
+        .sum()
+}
+
 /// Total fully-normalized log-likelihood — the sum of [`pointwise_loglikelihood`]
 /// over all observations. This is the absolute `log_likelihood` reported to the
 /// user (and the basis of the conditional AIC), distinct from the REML

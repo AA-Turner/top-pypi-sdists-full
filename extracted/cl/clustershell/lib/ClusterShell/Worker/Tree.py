@@ -41,6 +41,11 @@ from ClusterShell.Worker.Exec import ExecWorker
 from ClusterShell.Propagation import PropagationTreeRouter
 
 
+# PEP 706: 'fully_trusted' preserves legacy extractall() (trusted gateway)
+_TAR_EXTRACT_KWARGS = {'filter': 'fully_trusted'} \
+    if hasattr(tarfile, 'data_filter') else {}
+
+
 class MetaWorkerEventHandler(EventHandler):
     """Handle events for the meta worker TreeWorker"""
 
@@ -54,6 +59,13 @@ class MetaWorkerEventHandler(EventHandler):
         """
         self.logger.debug("MetaWorkerEventHandler: ev_start")
         self.metaworker._start_count += 1
+
+    def ev_pickup(self, worker, node):
+        """
+        Called for each node a child worker has just picked up.
+        Propagate the event to the meta worker.
+        """
+        self.metaworker._emit_pickup(node)
 
     def ev_read(self, worker, node, sname, msg):
         """
@@ -163,14 +175,18 @@ class TreeWorker(DistantWorker):
         self._target_count = 0
         self._has_timeout = False
         self._started = False
+        self._initialized = False
+        self._aborted = False
+        # buffered pickup events queued during _launch() (before ev_start)
+        self._pending_pickups = []
 
         if self.command is None and self.source is None:
             raise ValueError("missing command or source parameter in "
                              "TreeWorker constructor")
 
-        # rcopy is enforcing separated stderr to handle tar error messages
-        # because stdout is used for data transfer
-        if self.source and self.reverse:
+        # copy/rcopy: keep internal tar/scp errors on a separate stderr stream
+        # instead of merging them into stdout (which also carries rcopy data)
+        if self.source:
             self.stderr = True
 
         # build gateway invocation command
@@ -365,6 +381,7 @@ class TreeWorker(DistantWorker):
         self.logger.debug('_copy_remote: tar cmd: %s', cmd)
 
         pchan = self.task._pchannel(gateway, self)
+        # ev_pickup is fired by PropagationChannel._send_ctl after the send
         pchan.shell(nodes=targets, command=cmd, worker=self, timeout=timeout,
                     stderr=self.stderr, gw_invoke_cmd=self.invoke_gateway,
                     remote=self.remote)
@@ -381,6 +398,7 @@ class TreeWorker(DistantWorker):
         self.gwtargets.setdefault(str(gateway), set()).update(targets)
 
         pchan = self.task._pchannel(gateway, self)
+        # ev_pickup is fired by PropagationChannel._send_ctl after the send
         pchan.shell(nodes=targets, command=cmd, worker=self, timeout=timeout,
                     stderr=self.stderr, gw_invoke_cmd=self.invoke_gateway,
                     remote=self.remote)
@@ -394,13 +412,15 @@ class TreeWorker(DistantWorker):
         the relaunch is going to be performed using gateways (that's a feature).
         """
         targets = NodeSet.fromlist(self.gwtargets[previous_gateway])
-        self.logger.debug("_relaunch on targets %s from previous_gateway %s",
+        self.logger.debug("_relaunch on targets %s from previous gateway %s",
                           targets, previous_gateway)
-
         self.gwtargets[previous_gateway].difference_update(targets)
-
         self._check_fini(previous_gateway)
         self._target_count -= len(targets)
+        if self.eh is not None:
+            self.eh._ev_routing(self, { "event": "reroute",
+                                        "gateway": previous_gateway,
+                                        "targets": targets })
         self._launch(targets)
 
     def _engine_clients(self):
@@ -429,16 +449,21 @@ class TreeWorker(DistantWorker):
 
     def _on_remote_node_close(self, node, rc, gateway):
         """remote node closing with return code"""
+        self.logger.debug("_on_remote_node_close %s %s via gw %s rc=%s", node,
+                          self._close_count, gateway, rc)
+
+        # this must be done first to avoid recursion via event handlers
+        self.gwtargets[str(gateway)].remove(node)
+
         DistantWorker._on_node_close(self, node, rc)
-        self.logger.debug("_on_remote_node_close %s %s via gw %s", node,
-                          self._close_count, gateway)
 
         # finalize rcopy: extract tar data
         if self.source and self.reverse:
-            for bnode, buf in self._rcopy_bufs.items():
-                tarfileobj = self._rcopy_tars[bnode]
+            if node in self._rcopy_bufs:
+                buf = self._rcopy_bufs[node]
+                tarfileobj = self._rcopy_tars[node]
                 if len(buf) > 0:
-                    self.logger.debug("flushing node %s buf %d bytes", bnode,
+                    self.logger.debug("flushing node %s buf %d bytes", node,
                                       len(buf))
                     tarfileobj.write(buf)
                 tarfileobj.flush()
@@ -446,17 +471,17 @@ class TreeWorker(DistantWorker):
                 tmptar = tarfile.open(fileobj=tarfileobj)
                 try:
                     self.logger.debug("%s extracting %d members in dest %s",
-                                      bnode, len(tmptar.getmembers()),
-                                      self.dest)
-                    tmptar.extractall(path=self.dest)
+                                      node, len(tmptar.getmembers()), self.dest)
+                    tmptar.extractall(path=self.dest, **_TAR_EXTRACT_KWARGS)
                 except IOError as ex:
-                    self._on_remote_node_msgline(bnode, ex, 'stderr', gateway)
+                    self._on_remote_node_msgline(node, ex, 'stderr', gateway)
                 finally:
                     tmptar.close()
-            self._rcopy_bufs = {}
-            self._rcopy_tars = {}
+                del self._rcopy_bufs[node]
+                del self._rcopy_tars[node]
+            else:
+                self.logger.debug("no rcopy buffer received from %s", node)
 
-        self.gwtargets[str(gateway)].remove(node)
         self._close_count += 1
         self._check_fini(gateway)
 
@@ -481,16 +506,49 @@ class TreeWorker(DistantWorker):
         self._close_count += 1
         self._has_timeout = True
 
+    def _on_routing_event(self, arg):
+        self.logger.debug("_on_routing_event %s", arg)
+        self.eh._ev_routing(self, arg)
+
+    def _emit_pickup(self, node):
+        """Fire ev_pickup for a node, or queue it until ev_start fires.
+
+        Direct child workers route pickups through MetaWorkerEventHandler.
+        Gateway-routed targets route pickups through PropagationChannel
+        ._send_ctl, after the CTL is actually written on the wire.
+        Skipped when the worker has been aborted.
+
+        The 1:1 invariant between ev_pickup and ev_hup per node is held
+        structurally by the callers: Worker._on_start fires ev_pickup
+        at most once per child node-key (direct path); _send_ctl runs
+        at most once per actual channel.send (gateway path), and reroute
+        only happens when the previous CTL was never sent -- so a
+        rerouted target has not yet been emitted. See
+        test_tree_run_gw2f1_reroute and
+        test_tree_run_gw2f1_no_double_pickup_under_reroute.
+        """
+        if self.eh is None or self._aborted:
+            return
+        if self._initialized:
+            _eh_sigspec_invoke_compat(self.eh.ev_pickup, 2, self, node)
+        else:
+            # ev_start has not fired yet; defer to preserve ordering
+            self._pending_pickups.append(node)
+
     def _check_ini(self):
         self.logger.debug("TreeWorker: _check_ini (%d, %d)", self._start_count,
                           self._child_count)
-        if self.eh and self._start_count >= self._child_count:
+        if (self.eh is not None and not self._initialized
+                and self._start_count >= self._child_count):
             # this part is called once
+            self._initialized = True
             self.eh.ev_start(self)
-            # Blindly generate pickup events: this could maybe be improved, for
-            # example, generated only when commands are sent to the gateways
-            # or for direct targets, using MetaWorkerEventHandler.
-            for node in self.nodes:
+            # Flush pickup events buffered during _launch(). If ev_start
+            # aborted the worker, no pickups are emitted (#594).
+            pending, self._pending_pickups = self._pending_pickups, []
+            for node in pending:
+                if self._aborted:
+                    break
                 _eh_sigspec_invoke_compat(self.eh.ev_pickup, 2, self, node)
 
     def _check_fini(self, gateway=None):
@@ -562,10 +620,28 @@ class TreeWorker(DistantWorker):
 
         self._set_write_eof_remote()
 
+    def _gateway_abort(self, gateway):
+        """Abort on gateway failure"""
+        if gateway not in self.gwtargets:
+            self.logger.warning("TreeWorker._gateway_abort %s not found",
+                                gateway)
+            return
+        targets = self.gwtargets[gateway]
+        self.logger.debug("TreeWorker._gateway_abort %s found: targets=%s",
+                          gateway, targets)
+        for target in NodeSet.fromlist(targets): # targets is a mutable list
+            self._on_remote_node_close(target, os.EX_PROTOCOL, gateway)
+
     def abort(self):
         """Abort processing any action by this worker."""
-        # Not yet supported by TreeWorker
-        raise NotImplementedError("see github issue #229")
+        self.logger.debug("abort %s" % self)
+        # Stop pending and future pickup events (#594)
+        self._aborted = True
+        self._pending_pickups = []
+        for worker in self.workers:
+            worker.abort()
+        for gateway in self.gwtargets.copy():
+            self._gateway_abort(gateway)
 
 
 # TreeWorker's former name (deprecated as of 1.8)

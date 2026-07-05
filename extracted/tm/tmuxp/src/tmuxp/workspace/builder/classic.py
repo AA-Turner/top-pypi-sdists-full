@@ -1,4 +1,4 @@
-"""Create a tmux workspace from a workspace :py:obj:`dict`."""
+"""Create a tmux workspace from a workspace :class:`dict`."""
 
 from __future__ import annotations
 
@@ -108,7 +108,7 @@ def get_default_rows() -> int:
 
 
 class ClassicWorkspaceBuilder:
-    """Load workspace from workspace :py:obj:`dict` object.
+    """Load workspace from workspace :class:`dict` object.
 
     Build tmux workspace from a configuration. Creates and names windows, sets options,
     splits windows into panes.
@@ -288,15 +288,15 @@ class ClassicWorkspaceBuilder:
                pathlib.Path('path/to/config.yaml')
            )
 
-    2. :meth:`config.expand` session_config inline shorthand::
+    2. :func:`tmuxp.workspace.loader.expand` session_config inline shorthand::
 
-           from tmuxp import config
-           session_config = config.expand(session_config)
+           from tmuxp.workspace import loader
+           session_config = loader.expand(session_config)
 
-    3. :meth:`config.trickle` passes down default values from session
+    3. :func:`tmuxp.workspace.loader.trickle` passes down default values from session
        -> window -> pane if applicable::
 
-           session_config = config.trickle(session_config)
+           session_config = loader.trickle(session_config)
 
     4. (You are here) We will create a :class:`libtmux.Session` (a real
        ``tmux(1)`` session) and iterate through the list of windows, and
@@ -336,7 +336,7 @@ class ClassicWorkspaceBuilder:
         Parameters
         ----------
         session_config : dict
-            session config, includes a :py:obj:`list` of ``windows``.
+            session config, includes a :class:`list` of ``windows``.
 
         plugins : list
             plugins to be used for this session
@@ -430,7 +430,7 @@ class ClassicWorkspaceBuilder:
 
         Optionally accepts ``session`` to build with only session object.
 
-        Without ``session``, it will use :class:`libmtux.Server` at ``self.server``
+        Without ``session``, it will use :class:`libtmux.Server` at ``self.server``
         passed in on initialization to create a new Session object.
 
         Parameters

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-eveonline-sde
-Version: 0.0.1b10
+Version: 0.0.1b11
 Summary: Eve Online SDE Export in Django Model form
 Project-URL: Changelog, https://github.com/Solar-Helix-Independent-Transport/django-eveonline-sde/blob/master/CHANGELOG.md
 Project-URL: Issue / Bug Reports, https://github.com/Solar-Helix-Independent-Transport/django-eveonline-sde/issues
@@ -736,6 +736,9 @@ See `eve_sde/sde_types.txt` for an idea of the top level fields that are availab
   - Activities
     - Products
     - Materials
+- Archetypes
+- Freelance Job Schemas
+  - Parameters
 
 ## Setup
 

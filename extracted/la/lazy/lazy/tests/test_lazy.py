@@ -29,7 +29,7 @@ class LazyTests(TestCase):
         # Lazy attributes should be evaluated when accessed.
         called = []
 
-        class Foo(object):
+        class Foo():
             @lazy
             def foo(self):
                 called.append('foo')
@@ -43,7 +43,7 @@ class LazyTests(TestCase):
         # Lazy attributes should be evaluated only once.
         called = []
 
-        class Foo(object):
+        class Foo():
             @lazy
             def foo(self):
                 called.append('foo')
@@ -60,7 +60,7 @@ class LazyTests(TestCase):
         # lazy attributes.
         called = []
 
-        class Foo(object):
+        class Foo():
             @lazy
             def __foo(self):
                 called.append('foo')
@@ -78,7 +78,7 @@ class LazyTests(TestCase):
         # It should be possible to create reserved lazy attributes.
         called = []
 
-        class Foo(object):
+        class Foo():
             @lazy
             def __foo__(self):
                 called.append('foo')
@@ -95,7 +95,7 @@ class LazyTests(TestCase):
         # the object __dict__, shadowing the descriptor.
         called = []
 
-        class Foo(object):
+        class Foo():
             @lazy
             def foo(self):
                 called.append('foo')
@@ -125,7 +125,7 @@ class LazyTests(TestCase):
         # used on a read-only object (an object with __slots__).
         called = []
 
-        class Foo(object):
+        class Foo():
             __slots__ = ()
             @lazy
             def foo(self):
@@ -145,7 +145,7 @@ class LazyTests(TestCase):
     def test_introspection(self):
         # The lazy decorator should support basic introspection.
 
-        class Foo(object):
+        class Foo():
             def foo(self):
                 """foo func doc"""
             @lazy
@@ -163,7 +163,7 @@ class LazyTests(TestCase):
     def test_types(self):
         # A lazy attribute should be of type lazy.
 
-        class Foo(object):
+        class Foo():
             @lazy
             def foo(self):
                 return 1
@@ -181,7 +181,7 @@ class LazyTests(TestCase):
     def test_super(self):
         # A lazy attribute should work when invoked via super.
 
-        class Foo(object):
+        class Foo():
             @lazy
             def foo(self):
                 return 'foo'
@@ -200,15 +200,14 @@ class LazyTests(TestCase):
         self.assertEqual(b.foo, 'foox')
         self.assertEqual(b.foo, 'foox')
 
-        if sys.version_info >= (3,):
-            b = Baz()
-            self.assertEqual(b.foo, 'fooxx')
-            self.assertEqual(b.foo, 'fooxx')
+        b = Baz()
+        self.assertEqual(b.foo, 'fooxx')
+        self.assertEqual(b.foo, 'fooxx')
 
     def test_super_binding(self):
         # It should be impossible to change the cache once set.
 
-        class Foo(object):
+        class Foo():
             @lazy
             def foo(self):
                 return 'foo'
@@ -237,7 +236,7 @@ class LazyTests(TestCase):
         # called on.
         called = []
 
-        class Foo(object):
+        class Foo():
             @lazy
             def foo(self):
                 called.append('foo')
@@ -259,7 +258,7 @@ class LazyTests(TestCase):
         # they are called on.
         called = []
 
-        class Foo(object):
+        class Foo():
             @lazy
             def foo(self):
                 called.append('foo')
@@ -280,7 +279,7 @@ class LazyTests(TestCase):
         self.assertEqual(len(called), 2)
         self.assertTrue('foo' in b.__dict__)
 
-        if sys.version_info >= (3,):
+        if sys.version_info >= (3, 6):
             self.assertTrue('_Foo__bar' in b.__dict__)
         else:
             self.assertTrue('_Bar__bar' in b.__dict__) # !
@@ -294,7 +293,7 @@ class LazyTests(TestCase):
                 return func(*args, **kwargs)
             return wrapper
 
-        class Foo(object):
+        class Foo():
             @lazy
             def foo(self):
                 return 'foo'
@@ -330,7 +329,7 @@ class LazyTests(TestCase):
                 return func(*args, **kwargs)
             return wrapper
 
-        class Foo(object):
+        class Foo():
             @lazy
             def foo(self):
                 return 'foo'
@@ -373,7 +372,7 @@ class LazyTests(TestCase):
                 return func(*args, **kwargs)
             return wrapper
 
-        class Foo(object):
+        class Foo():
             @lazy
             @other
             def foo(self):
@@ -396,7 +395,7 @@ class LazyTests(TestCase):
                 return func(*args, **kwargs)
             return wrapper
 
-        class Foo(object):
+        class Foo():
             @other
             @lazy
             def foo(self):
@@ -414,7 +413,7 @@ class LazyTests(TestCase):
         # In Python >= 3.6 __set_name__ is called on lazy attributes.
         called = []
 
-        class Foo(object):
+        class Foo():
             def _foo(self):
                 called.append('foo')
                 return 1
@@ -440,7 +439,7 @@ class InvalidateTests(TestCase):
         # It should be possible to invalidate a lazy attribute.
         called = []
 
-        class Foo(object):
+        class Foo():
             @lazy
             def foo(self):
                 called.append('foo')
@@ -460,7 +459,7 @@ class InvalidateTests(TestCase):
         # twice without causing harm.
         called = []
 
-        class Foo(object):
+        class Foo():
             @lazy
             def foo(self):
                 called.append('foo')
@@ -481,7 +480,7 @@ class InvalidateTests(TestCase):
         # cache without causing harm.
         called = []
 
-        class Foo(object):
+        class Foo():
             @lazy
             def foo(self):
                 called.append('foo')
@@ -495,7 +494,7 @@ class InvalidateTests(TestCase):
         # It should be possible to invalidate a private lazy attribute.
         called = []
 
-        class Foo(object):
+        class Foo():
             @lazy
             def __foo(self):
                 called.append('foo')
@@ -517,7 +516,7 @@ class InvalidateTests(TestCase):
         # by its mangled name.
         called = []
 
-        class Foo(object):
+        class Foo():
             @lazy
             def __foo(self):
                 called.append('foo')
@@ -538,7 +537,7 @@ class InvalidateTests(TestCase):
         # It should be possible to invalidate a reserved lazy attribute.
         called = []
 
-        class Foo(object):
+        class Foo():
             @lazy
             def __foo__(self):
                 called.append('foo')
@@ -558,7 +557,7 @@ class InvalidateTests(TestCase):
         # raise an AttributeError.
         called = []
 
-        class Foo(object):
+        class Foo():
             def foo(self):
                 called.append('foo')
                 return 1
@@ -573,7 +572,7 @@ class InvalidateTests(TestCase):
         # raise an AttributeError.
         called = []
 
-        class Foo(object):
+        class Foo():
             def __foo(self):
                 called.append('foo')
                 return 1
@@ -588,7 +587,7 @@ class InvalidateTests(TestCase):
         # raise an AttributeError.
         called = []
 
-        class Foo(object):
+        class Foo():
             @lazy
             def foo(self):
                 called.append('foo')
@@ -604,7 +603,7 @@ class InvalidateTests(TestCase):
         # raise an AttributeError.
         called = []
 
-        class Foo(object):
+        class Foo():
             __slots__ = ()
             @lazy
             def foo(self):
@@ -621,7 +620,7 @@ class InvalidateTests(TestCase):
         # attribute.
         called = []
 
-        class Foo(object):
+        class Foo():
             @lazy
             def foo(self):
                 called.append('foo')
@@ -653,7 +652,7 @@ class InvalidateSubclassTests(TestCase):
         # It should be possible to invalidate a cached attribute.
         called = []
 
-        class Bar(object):
+        class Bar():
             @cached
             def bar(self):
                 called.append('bar')
@@ -673,7 +672,7 @@ class InvalidateSubclassTests(TestCase):
         # twice without causing harm.
         called = []
 
-        class Bar(object):
+        class Bar():
             @cached
             def bar(self):
                 called.append('bar')
@@ -694,7 +693,7 @@ class InvalidateSubclassTests(TestCase):
         # cache without causing harm.
         called = []
 
-        class Bar(object):
+        class Bar():
             @cached
             def bar(self):
                 called.append('bar')
@@ -708,7 +707,7 @@ class InvalidateSubclassTests(TestCase):
         # It should be possible to invalidate a private cached attribute.
         called = []
 
-        class Bar(object):
+        class Bar():
             @cached
             def __bar(self):
                 called.append('bar')
@@ -730,7 +729,7 @@ class InvalidateSubclassTests(TestCase):
         # by its mangled name.
         called = []
 
-        class Bar(object):
+        class Bar():
             @cached
             def __bar(self):
                 called.append('bar')
@@ -751,7 +750,7 @@ class InvalidateSubclassTests(TestCase):
         # It should be possible to invalidate a reserved cached attribute.
         called = []
 
-        class Bar(object):
+        class Bar():
             @cached
             def __bar__(self):
                 called.append('bar')
@@ -771,7 +770,7 @@ class InvalidateSubclassTests(TestCase):
         # raise an AttributeError.
         called = []
 
-        class Bar(object):
+        class Bar():
             def bar(self):
                 called.append('bar')
                 return 1
@@ -786,7 +785,7 @@ class InvalidateSubclassTests(TestCase):
         # raise an AttributeError.
         called = []
 
-        class Bar(object):
+        class Bar():
             def __bar(self):
                 called.append('bar')
                 return 1
@@ -801,7 +800,7 @@ class InvalidateSubclassTests(TestCase):
         # raise an AttributeError.
         called = []
 
-        class Bar(object):
+        class Bar():
             @cached
             def bar(self):
                 called.append('bar')
@@ -817,7 +816,7 @@ class InvalidateSubclassTests(TestCase):
         # raise an AttributeError.
         called = []
 
-        class Bar(object):
+        class Bar():
             __slots__ = ()
             @cached
             def bar(self):
@@ -833,7 +832,7 @@ class InvalidateSubclassTests(TestCase):
         # cached.invalidate CANNOT invalidate a superclass (lazy) attribute.
         called = []
 
-        class Bar(object):
+        class Bar():
             @lazy
             def bar(self):
                 called.append('bar')
@@ -848,7 +847,7 @@ class InvalidateSubclassTests(TestCase):
         # Whereas lazy.invalidate CAN invalidate a subclass (cached) attribute.
         called = []
 
-        class Bar(object):
+        class Bar():
             @cached
             def bar(self):
                 called.append('bar')

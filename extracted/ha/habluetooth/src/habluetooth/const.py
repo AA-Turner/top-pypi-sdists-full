@@ -47,6 +47,20 @@ CONNECTABLE_FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS: Final = 195
 # device that genuinely moved into weak-only coverage hand off.
 DURABLY_GONE_STALE_FACTOR: Final = 2.5
 
+# How many stale windows must elapse before the roaming rule (a
+# comparable-or-stronger challenger of a weak owner) may take a stale
+# device. Scanners duty-cycle their scan windows, so "the owner missed
+# an advertisement" is a per-scanner reception lottery, not evidence
+# the device moved; on a stationary network the first missed interval
+# routinely parks ownership on a weak scanner that the strong owner
+# then reclaims on the RSSI path, churning ownership with no data
+# benefit. Requiring one and a half stale windows means the owner must
+# effectively miss two reception opportunities before a roam, while a
+# genuinely departed device still roams well before the durably-gone
+# backstop (must stay below DURABLY_GONE_STALE_FACTOR or the roaming
+# rule can never fire).
+STALE_ROAM_FACTOR: Final = 1.5
+
 # An owner whose last advertisement was at least this strong is treated as
 # close/stationary: a brief reception gap is almost certainly RF/scan-response
 # jitter rather than the device leaving, so a merely-comparable challenger
@@ -128,6 +142,30 @@ DEFAULT_ACTIVE_SCAN_DURATION: Final = 10.0
 # 10s gives every device on the bus a chance to advertise during the
 # window without holding the caller too long.
 DEFAULT_ON_DEMAND_SWEEP_DURATION: Final = 10.0
+
+# How long a rescue-scan episode waits for its triggered active window
+# before re-triggering (issue #591). A stale handoff for a device that
+# needs active scans is deferred until the owner (and the challenger)
+# have had an active window; if none materialized within this long
+# (scanner busy, dispatch lost, window declined), the next arbitration
+# restarts the episode and re-triggers, so retries are spaced by this
+# interval. Long enough for a slow window dispatch to land, short
+# enough that the durably-gone backstop is not the only recovery.
+RESCUE_SCAN_RETRY_SECONDS: Final = 30.0
+
+# How long a rescue active window must have been running before a
+# capture from the scanning side is trusted as an active capture.
+# Once the radio has been actively scanning this long, an incoming
+# advertisement cannot be a delayed passive capture that is still
+# missing its scan response, so the deferred handoff can proceed
+# without waiting for the full window to close. Every accept time
+# (including "already ACTIVE and scanning" coverage) sits this far
+# after coverage was confirmed, which doubles as a grace window: the
+# owner always gets one chance to re-hear the device and invalidate
+# the episode before any handoff, so a single missed advertising
+# interval can never flap ownership. Derived from
+# AUTO_WINDOW_MIN_DURATION so it can never exceed a window's length.
+RESCUE_SCAN_ACCEPT_SECONDS: Final = AUTO_WINDOW_MIN_DURATION
 
 
 FAILED_ADAPTER_MAC = "00:00:00:00:00:00"

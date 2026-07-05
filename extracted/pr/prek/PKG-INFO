@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: prek
-Version: 0.4.6
-Classifier: Development Status :: 4 - Beta
+Version: 0.4.8
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
@@ -84,7 +84,7 @@ On Linux and macOS:
 <!-- --8<-- [start: linux-standalone-install] -->
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.4.6/prek-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.4.8/prek-installer.sh | sh
 ```
 
 <!-- --8<-- [end: linux-standalone-install] -->
@@ -94,7 +94,7 @@ On Windows:
 <!-- --8<-- [start: windows-standalone-install] -->
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.4.6/prek-installer.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.4.8/prek-installer.ps1 | iex"
 ```
 
 <!-- --8<-- [end: windows-standalone-install] -->
@@ -395,9 +395,9 @@ prek self update
 ### prek includes security-focused safeguards
 
 - For supported managed toolchain downloads, `prek` verifies the downloaded archive or installer checksum before extracting or installing it, helping ensure the integrity of downloaded toolchains.
-- [`prek auto-update`](https://prek.j178.dev/reference/cli/#prek-auto-update) supports `--cooldown-days`, so you can keep newly published releases on hold for a cooling-off period before adopting them.
-- [`prek auto-update`](https://prek.j178.dev/reference/cli/#prek-auto-update) validates pinned SHA revisions against the fetched upstream refs, including impostor-commit detection, and keeps `# frozen:` comments in sync with the configured commit.
-- [`prek auto-update --check`](https://prek.j178.dev/reference/cli/#prek-auto-update--check) is useful in CI when you want updates or frozen-reference mismatches to fail the job without rewriting the config.
+- [`prek update`](https://prek.j178.dev/reference/cli/#prek-update) supports `--cooldown-days`, so you can keep newly published releases on hold for a cooling-off period before adopting them.
+- [`prek update`](https://prek.j178.dev/reference/cli/#prek-update) validates pinned SHA revisions against the fetched upstream refs, including impostor-commit detection, and keeps `# frozen:` comments in sync with the configured commit.
+- [`prek update --check`](https://prek.j178.dev/reference/cli/#prek-update--check) is useful in CI when you want updates or frozen-reference mismatches to fail the job without rewriting the config.
 
 For more detailed improvements prek offers, take a look at [Difference from pre-commit](https://prek.j178.dev/diff/).
 
@@ -424,7 +424,6 @@ GitHub stars are current as of April 15, 2026.
 - [Future-House/paper-qa](https://github.com/Future-House/paper-qa/pull/1098) <sub>8,377 stars</sub>
 - [getsentry/sentry](https://github.com/getsentry/sentry/pull/110808) <sub>43,639 stars</sub>
 - [godotengine/godot](https://github.com/godotengine/godot/pull/119150) <sub>110,312 stars</sub>
-- [Goldziher/kreuzberg](https://github.com/Goldziher/kreuzberg/pull/142) <sub>7,550 stars</sub>
 - [home-assistant/core](https://github.com/home-assistant/core/pull/160427) <sub>86,029 stars</sub>
 - [jcrist/msgspec](https://github.com/jcrist/msgspec/pull/918) <sub>3,692 stars</sub>
 - [jlowin/fastmcp](https://github.com/jlowin/fastmcp/pull/2309) <sub>24,539 stars</sub>

@@ -16,7 +16,7 @@ def unified_usages(usages: dict) -> Set[str]:
     return {extract_endpoint(f) for f in filtered}
 
 def to_imported_api(brick_imports: Set[str]) -> Set[str]:
-    return {imports.usages.extract_api_part(b) for b in brick_imports}
+    return {imports.extract_api_part(b) for b in brick_imports}
 
 def equals_or_starts_with(brick_import: str, brick: str, ns: str) -> bool:
     brick_ns = f'{ns}.{brick}'
