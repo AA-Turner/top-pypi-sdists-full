@@ -1,22 +1,24 @@
 from django import forms
 from django.conf import settings
 from django.contrib.auth.forms import UserChangeForm as BaseUserChangeForm
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import User as BaseUser
 from django.core import signing
 from django.core.exceptions import ValidationError
 from django.forms import ModelForm
 from django.utils.translation import gettext_lazy as _
 from django_registration.backends.activation import REGISTRATION_SALT
-from django_registration.backends.activation.forms import ActivationForm as BaseActivationForm
+from django_registration.backends.activation.forms import (
+    ActivationForm as BaseActivationForm,
+)
 
-from allianceauth.authentication.models import User
+from allianceauth.groupmanagement.models import Group
 
 
 class RegistrationForm(forms.Form):
     email = forms.EmailField(label=_('Email'), max_length=254, required=True)
 
     class _meta:
-        model = User
+        model = BaseUser # Django-Registration wont look through our proxy allianceauth.authentication.models.User model
 
 
 class RegistrationActivationForm(BaseActivationForm):

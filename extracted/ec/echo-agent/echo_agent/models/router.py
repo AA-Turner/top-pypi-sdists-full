@@ -86,17 +86,6 @@ class ProviderHealth:
             return True
         return False
 
-    @property
-    def score(self) -> float:
-        scores = {
-            HealthStatus.HEALTHY: 1.0,
-            HealthStatus.DEGRADED: 0.5,
-            HealthStatus.HALF_OPEN: 0.25,
-            HealthStatus.COOLDOWN: 0.0,
-            HealthStatus.DISABLED: -1.0,
-        }
-        return scores.get(self.status, 0.0)
-
 
 class ModelRouter:
     """Routes requests to the best model based on task type, cost, and availability."""
@@ -240,10 +229,9 @@ class ModelRouter:
 
     @staticmethod
     def _supports_embed(provider: LLMProvider) -> bool:
-        return (
-            hasattr(provider, "embed")
-            and type(provider).embed is not LLMProvider.embed
-        )
+        # supports_embed() sees through rate-limit / credential-pool wrappers,
+        # whose classes always override embed to proxy the inner provider.
+        return provider.supports_embed()
 
     def mark_failure(self, provider_name: str, error: str = "") -> None:
         health = self._health.get(provider_name)
@@ -377,11 +365,6 @@ class ModelRouter:
                 "cooldown_until": h.cooldown_until.isoformat() if h.cooldown_until else None,
             }
         return data
-
-    def _save_health(self) -> None:
-        if not self._health_file:
-            return
-        self._write_health(self._health_snapshot())
 
     def _write_health(self, data: dict[str, Any]) -> None:
         with self._health_save_lock:

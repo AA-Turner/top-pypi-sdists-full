@@ -3,7 +3,6 @@ import logging
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.models import Group
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.db.models import Count
 from django.http import Http404
@@ -13,7 +12,7 @@ from django.utils.translation import gettext_lazy as _
 from allianceauth.notifications import notify
 
 from .managers import GroupManager
-from .models import GroupRequest, RequestLog
+from .models import Group, GroupRequest, RequestLog
 
 logger = logging.getLogger(__name__)
 

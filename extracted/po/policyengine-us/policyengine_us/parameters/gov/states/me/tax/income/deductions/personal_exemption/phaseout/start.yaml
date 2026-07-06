@@ -31,11 +31,12 @@ SINGLE:
     2024-01-01: 323_900
     2025-01-01: 333_450
     2026-01-01: 341_000
-  uprating:
-    parameter: gov.irs.uprating
-    rounding:
-      type: downwards
-      interval: 50
+  metadata:
+    uprating:
+      parameter: gov.irs.uprating
+      rounding:
+        type: downwards
+        interval: 50
 SEPARATE:
   values:
     2021-01-01: 167_700
@@ -44,11 +45,12 @@ SEPARATE:
     2024-01-01: 194_325
     2025-01-01: 200_050
     2026-01-01: 204_575
-  uprating:
-    parameter: gov.irs.uprating
-    rounding:
-      type: downwards
-      interval: 25
+  metadata:
+    uprating:
+      parameter: gov.irs.uprating
+      rounding:
+        type: downwards
+        interval: 25
 HEAD_OF_HOUSEHOLD:
   values:
     2021-01-01: 307_450
@@ -57,11 +59,12 @@ HEAD_OF_HOUSEHOLD:
     2024-01-01: 356_300
     2025-01-01: 366_750
     2026-01-01: 375_050
-  uprating:
-    parameter: gov.irs.uprating
-    rounding:
-      type: downwards
-      interval: 50
+  metadata:
+    uprating:
+      parameter: gov.irs.uprating
+      rounding:
+        type: downwards
+        interval: 50
 JOINT:
   values:
     2021-01-01: 335_400
@@ -70,11 +73,12 @@ JOINT:
     2024-01-01: 388_650
     2025-01-01: 400_100
     2026-01-01: 409_150
-  uprating:
-    parameter: gov.irs.uprating
-    rounding:
-      type: downwards
-      interval: 50
+  metadata:
+    uprating:
+      parameter: gov.irs.uprating
+      rounding:
+        type: downwards
+        interval: 50
 SURVIVING_SPOUSE:
   values:
     2021-01-01: 335_400
@@ -83,8 +87,9 @@ SURVIVING_SPOUSE:
     2024-01-01: 388_650
     2025-01-01: 400_100
     2026-01-01: 409_150
-  uprating:
-    parameter: gov.irs.uprating
-    rounding:
-      type: downwards
-      interval: 50
+  metadata:
+    uprating:
+      parameter: gov.irs.uprating
+      rounding:
+        type: downwards
+        interval: 50

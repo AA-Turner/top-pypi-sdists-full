@@ -1,9 +1,10 @@
 import logging
 
 from django.contrib.auth.decorators import login_required, permission_required
-from django.contrib.auth.models import Permission
 from django.db.models import Count
 from django.shortcuts import Http404, render
+
+from allianceauth.authentication.models import Permission
 
 logger = logging.getLogger(__name__)
 

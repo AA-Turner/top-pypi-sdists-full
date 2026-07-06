@@ -18,10 +18,13 @@ from codex_plugin_scanner.guard.daemon.command_queue_worker import (
     start_command_queue_worker,
 )
 from codex_plugin_scanner.guard.review_contracts import (
+    GuardReviewContractError,
     build_local_review_request_claim,
     guard_review_oauth_metadata,
     payload_hash_for_decision_memory_bundle,
     payload_hash_for_remote_approval_envelope,
+    validate_remote_approval_request_binding,
+    validated_remote_approval_envelope,
 )
 from codex_plugin_scanner.guard.runtime import command_executors, command_queue
 from codex_plugin_scanner.guard.runtime import runner as guard_runner_module
@@ -153,6 +156,7 @@ def _signed_remote_approval(
     *,
     decision: str = "allow_once",
     receipt_id: str = "cloud-receipt-1",
+    scope: str | None = None,
 ) -> dict[str, object]:
     oauth = guard_review_oauth_metadata(store)
     claim = build_local_review_request_claim(
@@ -185,7 +189,7 @@ def _signed_remote_approval(
         "reviewerUserId": "user-1",
         "riskCategory": claim["riskCategory"],
         "runtimeGrantId": claim["runtimeGrantId"],
-        "scope": "artifact",
+        "scope": scope if scope is not None else str(request_row.get("recommended_scope") or "artifact"),
         "sourceClaimHash": claim["claimHash"],
         "stepUpChallengeId": None,
         "workspaceId": claim["workspaceId"],
@@ -372,6 +376,37 @@ def test_local_request_snapshot_payload_includes_complete_pending_backlog(tmp_pa
         "req-pending-124",
         "req-resolved-2",
     }
+
+
+def test_local_request_snapshot_payload_includes_resolution_memory_fields(tmp_path: Path) -> None:
+    class ResolvedDecisionStore(FakeStore):
+        def list_approval_requests(
+            self,
+            status: str | None = "pending",
+            harness: str | None = None,
+            limit: int | None = 50,
+            cursor: str | None = None,
+        ) -> list[dict[str, object]]:
+            del harness, cursor
+            if status != "resolved":
+                return []
+            rows = [
+                {
+                    **_approval_request_row("req-resolved-memory"),
+                    "resolution_action": "allow",
+                    "resolution_scope": "project",
+                    "resolved_at": "2026-07-02T12:00:00+00:00",
+                    "status": "resolved",
+                },
+            ]
+            return rows if limit is None else rows[:limit]
+
+    payload = command_executors._local_request_snapshot_payload(ResolvedDecisionStore(tmp_path / "guard-home"))
+
+    [request] = payload["requests"]
+    assert request["localRequestId"] == "req-resolved-memory"
+    assert request["requestPayload"]["resolution_action"] == "allow"
+    assert request["requestPayload"]["resolution_scope"] == "project"
 
 
 def test_local_request_snapshot_payload_marks_pending_incomplete_when_truncated(
@@ -2433,20 +2468,20 @@ def test_executor_rejects_loose_policy_memory_payload(tmp_path: Path) -> None:
     assert "missing" in result["failureCode"]
 
 
-def test_executor_rejects_remote_approval_for_unsupported_scope(tmp_path: Path) -> None:
-    class UnsupportedScopeStore(FakeStore):
+def test_executor_rejects_remote_approval_for_removed_one_time_scope(tmp_path: Path) -> None:
+    class RemovedScopeStore(FakeStore):
         def __init__(self, guard_home: Path) -> None:
             super().__init__(guard_home)
             self.claimed_receipts: list[str] = []
             self.resolved: list[dict[str, object]] = []
             self.request_row = _approval_request_row(
-                "request-broad-scope",
+                "request-removed-scope",
                 policy_action="require-reapproval",
-                recommended_scope="workspace",
+                recommended_scope="one-time",
             )
 
         def get_approval_request(self, request_id: str) -> dict[str, object] | None:
-            return self.request_row if request_id == "request-broad-scope" else None
+            return self.request_row if request_id == "request-removed-scope" else None
 
         def claim_remote_once_receipt(
             self,
@@ -2479,14 +2514,14 @@ def test_executor_rejects_remote_approval_for_unsupported_scope(tmp_path: Path) 
             )
             return {"resolved": True, "resolved_request": {"request_id": request_id}}
 
-    store = UnsupportedScopeStore(tmp_path / "guard-home")
+    store = RemovedScopeStore(tmp_path / "guard-home")
     remote_approval = _signed_remote_approval(store, store.request_row)
 
     result = command_executors.execute_guard_command_job(
         {
             "operation": "guard.approval.resolve",
             "payload": {
-                "localRequestId": "request-broad-scope",
+                "localRequestId": "request-removed-scope",
                 "action": "allow_once",
                 "remoteApproval": remote_approval,
             },
@@ -2495,28 +2530,27 @@ def test_executor_rejects_remote_approval_for_unsupported_scope(tmp_path: Path) 
         store=store,  # type: ignore[arg-type]
         now=lambda: "2026-06-13T00:00:00+00:00",
     )
-
-    assert result["failureCode"] == "remote_approval_not_permitted"
+    assert result["failureCode"] == "invalid_remote_approval_scope"
     assert store.claimed_receipts == []
     assert store.resolved == []
 
 
-def test_executor_resolves_one_time_scope_with_allow(tmp_path: Path) -> None:
-    """Prove `recommended_scope='one-time'` flows into `resolution_scope` on allow."""
+def test_executor_resolves_block_policy_action_with_workspace_allow(tmp_path: Path) -> None:
+    """Prove policy_action='block' can be remotely allowed with the requested scope."""
 
-    class OneTimeAllowStore(FakeStore):
+    class WorkspaceAllowStore(FakeStore):
         def __init__(self, guard_home: Path) -> None:
             super().__init__(guard_home)
             self.request_row = _approval_request_row(
-                "request-ot-allow",
-                policy_action="require-reapproval",
-                recommended_scope="one-time",
+                "request-workspace-allow",
+                policy_action="block",
+                recommended_scope="workspace",
             )
             self.resolved: list[dict[str, object]] = []
             self.claimed_receipts: list[dict[str, str]] = []
 
         def get_approval_request(self, request_id: str) -> dict[str, object] | None:
-            return self.request_row if request_id == "request-ot-allow" else None
+            return self.request_row if request_id == "request-workspace-allow" else None
 
         def claim_remote_once_receipt(
             self,
@@ -2546,14 +2580,14 @@ def test_executor_resolves_one_time_scope_with_allow(tmp_path: Path) -> None:
             )
             return {"resolved": True, "resolved_request": {"request_id": request_id}}
 
-    store = OneTimeAllowStore(tmp_path / "guard-home")
+    store = WorkspaceAllowStore(tmp_path / "guard-home")
     remote_approval = _signed_remote_approval(store, store.request_row)
     result = command_executors.execute_guard_command_job(
         {
             "operation": "guard.approval.resolve",
             "payload": {
                 "action": "allow_once",
-                "localRequestId": "request-ot-allow",
+                "localRequestId": "request-workspace-allow",
                 "remoteApproval": remote_approval,
             },
         },
@@ -2566,30 +2600,30 @@ def test_executor_resolves_one_time_scope_with_allow(tmp_path: Path) -> None:
     assert result["data"]["status"] == "completed"
     assert store.resolved == [
         {
-            "request_id": "request-ot-allow",
+            "request_id": "request-workspace-allow",
             "resolution_action": "allow",
-            "resolution_scope": "one-time",
+            "resolution_scope": "workspace",
         }
     ]
     assert len(store.claimed_receipts) == 1
 
 
-def test_executor_resolves_one_time_scope_with_block(tmp_path: Path) -> None:
-    """Prove `recommended_scope='one-time'` flows into `resolution_scope` on block."""
+def test_executor_resolves_harness_scope_with_block(tmp_path: Path) -> None:
+    """Prove `recommended_scope='harness'` flows into `resolution_scope` on block."""
 
-    class OneTimeBlockStore(FakeStore):
+    class HarnessBlockStore(FakeStore):
         def __init__(self, guard_home: Path) -> None:
             super().__init__(guard_home)
             self.request_row = _approval_request_row(
-                "request-ot-block",
+                "request-harness-block",
                 policy_action="require-reapproval",
-                recommended_scope="one-time",
+                recommended_scope="harness",
             )
             self.resolved: list[dict[str, object]] = []
             self.claimed_receipts: list[dict[str, str]] = []
 
         def get_approval_request(self, request_id: str) -> dict[str, object] | None:
-            return self.request_row if request_id == "request-ot-block" else None
+            return self.request_row if request_id == "request-harness-block" else None
 
         def claim_remote_once_receipt(
             self,
@@ -2619,14 +2653,14 @@ def test_executor_resolves_one_time_scope_with_block(tmp_path: Path) -> None:
             )
             return {"resolved": True, "resolved_request": {"request_id": request_id}}
 
-    store = OneTimeBlockStore(tmp_path / "guard-home")
+    store = HarnessBlockStore(tmp_path / "guard-home")
     remote_approval = _signed_remote_approval(store, store.request_row, decision="block")
     result = command_executors.execute_guard_command_job(
         {
             "operation": "guard.approval.resolve",
             "payload": {
                 "action": "allow_once",
-                "localRequestId": "request-ot-block",
+                "localRequestId": "request-harness-block",
                 "remoteApproval": remote_approval,
             },
         },
@@ -2639,9 +2673,147 @@ def test_executor_resolves_one_time_scope_with_block(tmp_path: Path) -> None:
     assert result["data"]["status"] == "completed"
     assert store.resolved == [
         {
-            "request_id": "request-ot-block",
+            "request_id": "request-harness-block",
             "resolution_action": "block",
-            "resolution_scope": "one-time",
+            "resolution_scope": "harness",
         }
     ]
     assert len(store.claimed_receipts) == 1
+
+def test_validated_remote_approval_envelope_accepts_workspace_scope(tmp_path: Path) -> None:
+    """The envelope validator must accept daemon decision scopes beyond artifact."""
+
+    class WorkspaceEnvelopeStore(FakeStore):
+        def __init__(self, guard_home: Path) -> None:
+            super().__init__(guard_home)
+            self.request_row = _approval_request_row(
+                "request-workspace-envelope",
+                policy_action="require-reapproval",
+                recommended_scope="workspace",
+            )
+
+        def get_approval_request(self, request_id: str) -> dict[str, object] | None:
+            return self.request_row if request_id == "request-workspace-envelope" else None
+
+    store = WorkspaceEnvelopeStore(tmp_path)
+    envelope = _signed_remote_approval(store, store.request_row)
+    assert envelope["scope"] == "workspace"
+
+    validated = validated_remote_approval_envelope(envelope, store=store)
+    assert validated["scope"] == "workspace"
+
+
+def test_validated_remote_approval_envelope_rejects_unsupported_scope(tmp_path: Path) -> None:
+    """The envelope validator must reject scopes outside daemon decision scopes."""
+
+    class UnsupportedEnvelopeStore(FakeStore):
+        def __init__(self, guard_home: Path) -> None:
+            super().__init__(guard_home)
+            self.request_row = _approval_request_row(
+                "request-bad-envelope",
+                policy_action="require-reapproval",
+                recommended_scope="one-time",
+            )
+
+        def get_approval_request(self, request_id: str) -> dict[str, object] | None:
+            return self.request_row if request_id == "request-bad-envelope" else None
+
+    store = UnsupportedEnvelopeStore(tmp_path)
+    envelope = _signed_remote_approval(store, store.request_row)
+    with pytest.raises(GuardReviewContractError, match="invalid_remote_approval_scope"):
+        validated_remote_approval_envelope(envelope, store=store)
+
+
+def test_binding_rejects_remote_approval_envelope_scope_mismatch(tmp_path: Path) -> None:
+    """A signed envelope whose scope differs from the request recommended_scope is rejected."""
+
+    class MismatchScopeStore(FakeStore):
+        def __init__(self, guard_home: Path) -> None:
+            super().__init__(guard_home)
+            self.request_row = _approval_request_row(
+                "request-scope-mismatch",
+                policy_action="require-reapproval",
+                recommended_scope="artifact",
+            )
+
+        def get_approval_request(self, request_id: str) -> dict[str, object] | None:
+            return self.request_row if request_id == "request-scope-mismatch" else None
+
+    store = MismatchScopeStore(tmp_path)
+    # Build a validly-signed envelope with scope='workspace' against an 'artifact' request.
+    envelope = _signed_remote_approval(store, store.request_row, scope="workspace")
+    oauth = guard_review_oauth_metadata(store)
+    with pytest.raises(GuardReviewContractError, match="remote_approval_scope_mismatch"):
+        validate_remote_approval_request_binding(
+            envelope=envelope,
+            request_row=store.request_row,
+            oauth=oauth,
+            store=store,
+        )
+
+
+def test_executor_rejects_remote_approval_envelope_scope_mismatch(tmp_path: Path) -> None:
+    """A workspace envelope cannot bind to an artifact request through the executor path."""
+
+    class MismatchScopeExecutorStore(FakeStore):
+        def __init__(self, guard_home: Path) -> None:
+            super().__init__(guard_home)
+            self.claimed_receipts: list[str] = []
+            self.resolved: list[dict[str, object]] = []
+            self.request_row = _approval_request_row(
+                "request-scope-mismatch-exec",
+                policy_action="require-reapproval",
+                recommended_scope="artifact",
+            )
+
+        def get_approval_request(self, request_id: str) -> dict[str, object] | None:
+            return self.request_row if request_id == "request-scope-mismatch-exec" else None
+
+        def claim_remote_once_receipt(
+            self,
+            receipt_id: str,
+            *,
+            request_id: str,
+            claimed_at: str,
+        ) -> bool:
+            del request_id, claimed_at
+            self.claimed_receipts.append(receipt_id)
+            return True
+
+        def resolve_request_with_signed_remote_result(
+            self,
+            request_id: str,
+            *,
+            resolution_action: str,
+            resolution_scope: str,
+            reason: str | None,
+            signed_remote_result: dict[str, object],
+        ) -> dict[str, object]:
+            del resolution_action, resolution_scope, reason, signed_remote_result
+            self.resolved.append({"request_id": request_id})
+            return {"resolved": True, "resolved_request": {"request_id": request_id}}
+
+    store = MismatchScopeExecutorStore(tmp_path / "guard-home")
+    # Envelope scope is 'workspace' but the request recommends 'artifact'.
+    remote_approval = _signed_remote_approval(
+        store,
+        store.request_row,
+        receipt_id="cloud-receipt-scope-mismatch",
+        scope="workspace",
+    )
+    result = command_executors.execute_guard_command_job(
+        {
+            "operation": "guard.approval.resolve",
+            "payload": {
+                "localRequestId": "request-scope-mismatch-exec",
+                "action": "allow_once",
+                "remoteApproval": remote_approval,
+            },
+        },
+        context=_context(tmp_path),
+        store=store,  # type: ignore[arg-type]
+        now=lambda: "2026-06-13T00:00:00+00:00",
+    )
+    assert result["failureCode"] == "remote_approval_scope_mismatch"
+    assert store.claimed_receipts == []
+    assert store.resolved == []

@@ -302,6 +302,11 @@ def _WidgetContextAwareThread__bootstrap(self):
     if not hasattr(self, "current_context"):
         # this happens when a thread was running before we patched
         return Thread__bootstrap(self)
+    if self.current_context and self.current_context.kernel is None:
+        # the context closed between thread creation and start (close() sets kernel to
+        # None): run without a kernel context instead of crashing before _started is
+        # set, which would hang the Thread.start() caller forever
+        self.current_context = None
     if self.current_context:
         # we need to call this manually, because set_context_for_thread
         # uses this, and the original _bootstrap calls it too late for us
@@ -367,6 +372,22 @@ def patch_ipyreact():
 
     # make this a no-op, we'll create the widget when needed
     ipyreact.importmap._update_import_map = lambda: None
+
+
+def patch_ipyvue_esm():
+    import ipyvue
+
+    if not hasattr(ipyvue, "define_module"):
+        # ipyvue without ES module support
+        return
+
+    import ipyvue.esm
+
+    from . import esm_vue
+
+    ipyvue.esm.define_module = esm_vue.define_module
+    ipyvue.esm.get_module_names = esm_vue.get_module_names
+    ipyvue.define_module = esm_vue.define_module
 
 
 @solara.util.once
@@ -465,6 +486,8 @@ def patch():
         pass
     else:
         patch_ipyreact()
+
+    patch_ipyvue_esm()
 
     if "MPLBACKEND" not in os.environ:
         if ipykernel_version_major < 6:

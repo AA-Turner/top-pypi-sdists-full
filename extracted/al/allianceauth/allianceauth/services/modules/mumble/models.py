@@ -5,11 +5,11 @@ from typing import ClassVar
 
 from passlib.hash import bcrypt_sha256
 
-from django.contrib.auth.models import User
 from django.db import models
 from django.db.models.fields import related
 from django.utils.translation import gettext_lazy as _
 
+from allianceauth.authentication.models import User
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.services.abstract import AbstractServiceModel
 from allianceauth.services.hooks import NameFormatter

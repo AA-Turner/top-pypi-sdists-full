@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-jsonpath
-Version: 2.1.0
+Version: 2.2.0
 Summary: JSONPath, JSON Pointer and JSON Patch for Python.
 Project-URL: Documentation, https://jg-rp.github.io/python-jsonpath/
 Project-URL: Issues, https://github.com/jg-rp/python-jsonpath/issues
@@ -191,6 +191,24 @@ with contextlib.suppress(JSONPatchError):
     patch.atomic(patch_operations, data)
 
 assert data == {"some": {"other": "thing"}}
+```
+
+`patch.patched(ops, data)` and `JSONPatch.patched(data)` apply patch operations to a deep copy of `data`.
+
+```python
+from jsonpath import patch
+
+patch_operations = [
+    {"op": "add", "path": "/some/foo", "value": {"foo": {}}},
+    {"op": "add", "path": "/some/foo", "value": {"bar": []}},
+    {"op": "copy", "from": "/some/other", "path": "/some/foo/else"},
+    {"op": "add", "path": "/some/foo/bar/-", "value": 1},
+]
+
+data = {"some": {"other": "thing"}}
+patched_data = patch.patched(patch_operations, data)
+
+assert data != patched_data
 ```
 
 ## License

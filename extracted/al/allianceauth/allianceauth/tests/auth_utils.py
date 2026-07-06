@@ -1,27 +1,24 @@
-from django.contrib.auth.models import Group, Permission, User
+from django.contrib.auth.models import Group as BaseGroup, User as BaseUser
 from django.db.models.signals import m2m_changed, post_save, pre_save
 from django.test import TestCase
 
 from esi.models import Token
 
-from allianceauth.authentication.models import State, UserProfile, get_guest_state
+from allianceauth.authentication.models import (
+    Permission, State, User, UserProfile, get_guest_state,
+)
 from allianceauth.authentication.signals import (
-    assign_state_on_active_change,
-    check_state_on_character_update,
-    reassess_on_profile_save,
-    state_member_alliances_changed,
-    state_member_characters_changed,
-    state_member_corporations_changed,
+    assign_state_on_active_change, check_state_on_character_update,
+    reassess_on_profile_save, state_member_alliances_changed,
+    state_member_characters_changed, state_member_corporations_changed,
     state_saved,
 )
 from allianceauth.eveonline.models import EveCharacter
+from allianceauth.groupmanagement.models import Group
 from allianceauth.services.signals import (
-    disable_services_on_inactive,
-    m2m_changed_group_permissions,
-    m2m_changed_state_permissions,
-    m2m_changed_user_groups,
-    m2m_changed_user_permissions,
-    process_main_character_change,
+    disable_services_on_inactive, m2m_changed_group_permissions,
+    m2m_changed_state_permissions, m2m_changed_user_groups,
+    m2m_changed_user_permissions, process_main_character_change,
     process_main_character_update,
 )
 
@@ -112,17 +109,17 @@ class AuthUtils:
 
     @classmethod
     def disconnect_signals(cls):
-        m2m_changed.disconnect(m2m_changed_user_groups, sender=User.groups.through)
-        m2m_changed.disconnect(m2m_changed_group_permissions, sender=Group.permissions.through)
-        m2m_changed.disconnect(m2m_changed_user_permissions, sender=User.user_permissions.through)
+        m2m_changed.disconnect(m2m_changed_user_groups, sender=BaseUser.groups.through)
+        m2m_changed.disconnect(m2m_changed_group_permissions, sender=BaseGroup.permissions.through)
+        m2m_changed.disconnect(m2m_changed_user_permissions, sender=BaseUser.user_permissions.through)
         m2m_changed.disconnect(m2m_changed_state_permissions, sender=State.permissions.through)
-        pre_save.disconnect(disable_services_on_inactive, sender=User)
+        pre_save.disconnect(disable_services_on_inactive, sender=BaseUser)
         m2m_changed.disconnect(state_member_corporations_changed, sender=State.member_corporations.through)
         m2m_changed.disconnect(state_member_characters_changed, sender=State.member_characters.through)
         m2m_changed.disconnect(state_member_alliances_changed, sender=State.member_alliances.through)
         post_save.disconnect(state_saved, sender=State)
         post_save.disconnect(reassess_on_profile_save, sender=UserProfile)
-        pre_save.disconnect(assign_state_on_active_change, sender=User)
+        pre_save.disconnect(assign_state_on_active_change, sender=BaseUser)
         pre_save.disconnect(process_main_character_change, sender=UserProfile)
         pre_save.disconnect(process_main_character_update, sender=EveCharacter)
         post_save.disconnect(
@@ -131,17 +128,17 @@ class AuthUtils:
 
     @classmethod
     def connect_signals(cls):
-        m2m_changed.connect(m2m_changed_user_groups, sender=User.groups.through)
-        m2m_changed.connect(m2m_changed_group_permissions, sender=Group.permissions.through)
-        m2m_changed.connect(m2m_changed_user_permissions, sender=User.user_permissions.through)
+        m2m_changed.connect(m2m_changed_user_groups, sender=BaseUser.groups.through)
+        m2m_changed.connect(m2m_changed_group_permissions, sender=BaseGroup.permissions.through)
+        m2m_changed.connect(m2m_changed_user_permissions, sender=BaseUser.user_permissions.through)
         m2m_changed.connect(m2m_changed_state_permissions, sender=State.permissions.through)
-        pre_save.connect(disable_services_on_inactive, sender=User)
+        pre_save.connect(disable_services_on_inactive, sender=BaseUser)
         m2m_changed.connect(state_member_corporations_changed, sender=State.member_corporations.through)
         m2m_changed.connect(state_member_characters_changed, sender=State.member_characters.through)
         m2m_changed.connect(state_member_alliances_changed, sender=State.member_alliances.through)
         post_save.connect(state_saved, sender=State)
         post_save.connect(reassess_on_profile_save, sender=UserProfile)
-        pre_save.connect(assign_state_on_active_change, sender=User)
+        pre_save.connect(assign_state_on_active_change, sender=BaseUser)
         pre_save.connect(process_main_character_change, sender=UserProfile)
         pre_save.connect(process_main_character_update, sender=EveCharacter)
         post_save.connect(check_state_on_character_update, sender=EveCharacter)

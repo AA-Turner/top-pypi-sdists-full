@@ -56,10 +56,20 @@ class WorkingMemory:
 
 
 class EpisodicManager:
-    """Manages conversation episodes with temporal indexing."""
+    """Manages conversation episodes with temporal indexing.
+
+    With attach_embedding(), episode summaries are embedded into the shared
+    vectors table under 'ep:<episode_id>' source_ids so search_episodes can
+    do semantic matching (falls back to LIKE when embedding is unavailable)."""
 
     def __init__(self, storage: StorageBackend):
         self._storage = storage
+        self._embed_fn = None
+        self._vector_index = None
+
+    def attach_embedding(self, embed_fn, vector_index) -> None:
+        self._embed_fn = embed_fn
+        self._vector_index = vector_index
 
     async def create_episode(
         self,
@@ -90,11 +100,93 @@ class EpisodicManager:
                 json.dumps(episode.entity_ids), episode.importance, episode.created_at,
             ),
         )
+        await self._embed_summary(episode.id, summary)
         logger.debug("Created episode {} for session {}", episode.id, session_key)
         return episode
 
+    async def _embed_summary(self, episode_id: str, summary: str) -> bool:
+        """Best-effort embed; failure degrades that episode to LIKE-only.
+        Returns True only when a new vector row was actually added."""
+        if not self._embed_fn or not self._vector_index or not summary:
+            return False
+        try:
+            embedding = await self._embed_fn(summary)
+            if not embedding:
+                return False
+            vec_id = await self._vector_index.add(f"ep:{episode_id}", embedding)
+            return bool(vec_id)
+        except Exception as e:
+            logger.debug("Episode embedding failed for {}: {}", episode_id, e)
+            return False
+
+    async def requeue_stale(self, stale_source_ids: set) -> int:
+        """Re-embed episodes whose vector came from a different model.
+        Embed the new vector FIRST; only delete the stale row once the new
+        one is stored. If the re-embed fails the old row stays put so the next
+        startup surfaces it in stale_source_ids again for another retry — a
+        failed re-embed must never leave the episode with zero vectors."""
+        if not self._embed_fn or not self._vector_index:
+            return 0
+        count = 0
+        for source_id in stale_source_ids:
+            if not source_id.startswith("ep:"):
+                continue
+            episode_id = source_id[3:]
+            rows = await self._storage.fetch_sql(
+                "SELECT summary FROM memory_episodes WHERE id = ?", (episode_id,),
+            )
+            if not rows:
+                continue
+            old = await self._storage.load_vector_by_source(source_id)
+            # Add the new vector first; keep the stale row until it succeeds so
+            # the episode always has at least one vector at any instant.
+            embedded = await self._embed_summary(episode_id, rows[0].get("summary", ""))
+            if not embedded:
+                continue  # keep stale row; will retry next startup
+            if old:
+                await self._storage.delete_vector(old["id"])
+            count += 1
+        if count:
+            logger.info("Re-embedded {} stale episode vectors", count)
+        return count
+
     async def search_episodes(
         self, query: str, session_key: str | None = None, limit: int = 5,
+    ) -> list[Episode]:
+        semantic = await self._semantic_search(query, session_key, limit)
+        if semantic:
+            return semantic
+        return await self._like_search(query, session_key, limit)
+
+    async def _semantic_search(
+        self, query: str, session_key: str | None, limit: int,
+    ) -> list[Episode]:
+        if not self._embed_fn or not self._vector_index:
+            return []
+        try:
+            embedding = await self._embed_fn(query)
+            if not embedding:
+                return []
+            hits = await self._vector_index.search(embedding, limit=limit * 4)
+        except Exception as e:
+            logger.debug("Episodic semantic search failed: {}", e)
+            return []
+        episode_ids = [sid[3:] for sid, _ in hits if sid.startswith("ep:")]
+        if not episode_ids:
+            return []
+        placeholders = ",".join("?" for _ in episode_ids)
+        rows = await self._storage.fetch_sql(
+            f"SELECT * FROM memory_episodes WHERE id IN ({placeholders})",
+            tuple(episode_ids),
+        )
+        by_id = {r["id"]: self._row_to_episode(r) for r in rows}
+        ordered = [by_id[eid] for eid in episode_ids if eid in by_id]
+        if session_key:
+            ordered = [ep for ep in ordered if ep.session_key == session_key]
+        return ordered[:limit]
+
+    async def _like_search(
+        self, query: str, session_key: str | None, limit: int,
     ) -> list[Episode]:
         if session_key:
             rows = await self._storage.fetch_sql(
@@ -167,14 +259,17 @@ class SemanticManager:
         """Promote extracted facts from an episode to semantic memory."""
         promoted: list[MemoryEntry] = []
         for fact in extracted_facts:
+            fact_type = MemoryType(fact.get("type", "environment"))
             entry = MemoryEntry(
-                type=MemoryType(fact.get("type", "environment")),
+                type=fact_type,
                 tier=MemoryTier.SEMANTIC,
                 key=fact.get("key", ""),
                 content=fact.get("content", ""),
                 tags=fact.get("tags", []),
                 importance=fact.get("importance", 0.5),
                 episode_id=episode.id,
+                source="consolidated",
+                source_session=episode.session_key if fact_type == MemoryType.USER else "",
             )
             try:
                 result = self._store.add(entry)
@@ -226,20 +321,6 @@ class ArchivalManager:
         if count:
             logger.info("Archived {} memories", count)
         return count
-
-    async def search_archival(self, query: str, limit: int = 5) -> list[MemoryEntry]:
-        rows = await self._storage.fetch_sql(
-            "SELECT data FROM memories "
-            "WHERE json_extract(data, '$.tier') = 'archival' AND data LIKE ? LIMIT ?",
-            (f"%{query}%", limit),
-        )
-        results = []
-        for row in rows:
-            data = row.get("data", "{}")
-            if isinstance(data, str):
-                data = json.loads(data)
-            results.append(MemoryEntry.from_dict(data))
-        return results
 
     async def delete_forgotten(self, entries: list[MemoryEntry]) -> int:
         count = 0

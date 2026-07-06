@@ -38,7 +38,7 @@ class DcCreatorMixin:
         element = self.clone.get_element("//dc:creator")
         if element is None:
             return None
-        return element.text  # type: ignore[no-any-return]
+        return element.text
 
     def set_creator(self, creator: str) -> None:
         """Set the name of the document creator.
@@ -51,8 +51,9 @@ class DcCreatorMixin:
         element = self.get_element("//dc:creator")
         if element is None:
             element = Element.from_tag("dc:creator")
-            if hasattr(self, "get_meta_body"):
-                self.get_meta_body().append(element)
+            method = getattr(self, "get_meta_body", None)
+            if callable(method):
+                method().append(element)
             else:
                 self.append(element)
         element.text = creator

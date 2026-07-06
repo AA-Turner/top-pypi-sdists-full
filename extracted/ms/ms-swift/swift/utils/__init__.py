@@ -6,9 +6,9 @@ from .import_utils import _LazyModule
 if TYPE_CHECKING:
     from .env import (get_dist_setting, get_hf_endpoint, get_node_setting, get_pai_tensorboard_dir,
                       is_deepspeed_enabled, is_dist, is_last_rank, is_local_master, is_master, is_mp, is_mp_ddp,
-                      is_pai_training_job, use_hf_hub)
+                      is_pai_training_job, select_device, use_hf_hub)
     from .hf_config import HfConfigFactory
-    from .hub_utils import download_ms_file, git_clone_github, patch_kernels, safe_snapshot_download
+    from .hub_utils import download_file, download_ms_file, git_clone_github, patch_kernels, safe_snapshot_download
     from .import_utils import (is_flash_attn_2_available, is_flash_attn_3_available, is_liger_available,
                                is_lmdeploy_available, is_megatron_available, is_swanlab_available, is_trl_available,
                                is_unsloth_available, is_vllm_ascend_available, is_vllm_available,
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
                               gc_collect, get_current_device, get_device, get_device_count,
                               get_generative_reranker_logits, get_last_valid_indices, get_max_reserved_memory,
                               get_physical_device_count, get_torch_device, init_process_group, ipc_collect,
-                              is_torch_rocm, safe_ddp_context, set_default_ddp_config, set_device, synchronize,
+                              is_torch_rocm, nanstd, safe_ddp_context, set_default_ddp_config, set_device, synchronize,
                               time_synchronize, to_device, to_float_dtype)
     from .transformers_utils import (activate_parameters, disable_deepspeed_zero3, find_all_linears, find_embedding,
                                      find_layers, find_norm, find_sub_module, freeze_parameters,
@@ -41,10 +41,11 @@ else:
         'env': [
             'get_dist_setting', 'get_hf_endpoint', 'get_node_setting', 'get_pai_tensorboard_dir',
             'is_deepspeed_enabled', 'is_dist', 'is_last_rank', 'is_local_master', 'is_master', 'is_mp', 'is_mp_ddp',
-            'is_pai_training_job', 'use_hf_hub'
+            'is_pai_training_job', 'select_device', 'use_hf_hub'
         ],
         'hf_config': ['HfConfigFactory'],
-        'hub_utils': ['download_ms_file', 'git_clone_github', 'patch_kernels', 'safe_snapshot_download'],
+        'hub_utils':
+        ['download_ms_file', 'git_clone_github', 'patch_kernels', 'safe_snapshot_download', 'download_file'],
         'import_utils': [
             'is_flash_attn_2_available', 'is_flash_attn_3_available', 'is_liger_available', 'is_lmdeploy_available',
             'is_megatron_available', 'is_swanlab_available', 'is_trl_available', 'is_unsloth_available',
@@ -61,7 +62,7 @@ else:
             'get_current_device', 'get_device', 'get_device_count', 'get_generative_reranker_logits',
             'get_last_valid_indices', 'get_max_reserved_memory', 'get_torch_device', 'init_process_group',
             'ipc_collect', 'safe_ddp_context', 'set_default_ddp_config', 'set_device', 'synchronize',
-            'time_synchronize', 'to_device', 'to_float_dtype', 'get_physical_device_count', 'is_torch_rocm'
+            'time_synchronize', 'to_device', 'to_float_dtype', 'nanstd', 'get_physical_device_count', 'is_torch_rocm'
         ],
         'transformers_utils': [
             'activate_parameters', 'disable_deepspeed_zero3', 'find_all_linears', 'find_embedding', 'find_layers',

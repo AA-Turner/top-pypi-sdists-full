@@ -15,6 +15,7 @@ using built-in safety properties:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -22,11 +23,11 @@ import tempfile
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from loguru import logger
 
-from echo_agent.memory.types import MemoryEntry, MemoryTier, MemoryType
+from echo_agent.memory.types import MemoryEntry, MemoryTier, MemoryType, source_priority
 from echo_agent.memory.text import cjk_tokens
 from echo_agent.memory.forgetting import ForgettingCurve
 
@@ -179,9 +180,23 @@ class MemoryStore:
         self._vector_index = None  # set externally via set_vector_index()
         self._retriever = None  # set externally via set_retriever()
         self._embed_fn = None  # async callable: str -> list[float]
-        self._pending_embeds: list[tuple[str, str]] = []  # (entry_id, text) pairs awaiting embedding
+        # (entry_id, text, old_vec_id, content_hash) tuples awaiting embedding
+        self._pending_embeds: list[tuple[str, str, str, str]] = []
+        # Serializes flush_pending_embeds: multiple triggers (startup backfill +
+        # post-reply, both via the background scheduler) can otherwise run
+        # concurrently, snapshot the same entry_id, and each add() a vector for
+        # it — producing a duplicate vector + an orphan. The lock makes flush
+        # single-flight; a second caller waits, then finds the queue drained.
+        self._flush_lock = asyncio.Lock()
         self._contradiction_scan_on_store = contradiction_scan_on_store
         self._contradiction_detector = None  # set externally or lazily created
+        # Unresolved-contradiction tracking for core-snapshot admission.
+        # Source of truth is the SQL memory_contradictions table; this is an
+        # in-memory mirror so the synchronous snapshot path needs zero DB calls.
+        import threading
+        self._unresolved_lock = threading.Lock()
+        self._unresolved_pairs: dict[str, tuple[str, str]] = {}  # contradiction_id -> (a, b)
+        self._unresolved_refs: dict[str, int] = {}  # memory_id -> refcount
 
     def has_pending_embeds(self) -> bool:
         """Check if there are pending embeddings to flush."""
@@ -196,33 +211,130 @@ class MemoryStore:
     def set_retriever(self, retriever):
         self._retriever = retriever
 
-    def _queue_embed(self, entry: MemoryEntry) -> None:
-        if self._embed_fn and self._vector_index:
-            text = f"{entry.key} {entry.content}" if entry.key else entry.content
-            self._pending_embeds.append((entry.id, text))
+    @staticmethod
+    def _content_hash(text: str) -> str:
+        return hashlib.blake2b(text.encode("utf-8"), digest_size=8).hexdigest()
+
+    def _queue_embed(self, entry: MemoryEntry, old_vec_id: str = "") -> None:
+        if not (self._embed_fn and self._vector_index):
+            return
+        # Circuit open (provider embedding down): stop enqueueing so the pending
+        # queue can't grow without bound while every flush spins O(N) over it.
+        # The backend is re-decided on restart, not hot-swapped, so there is no
+        # in-process recovery to wait for — dropping is the right call.
+        if getattr(self._embed_fn, "tripped", False):
+            return
+        text = f"{entry.key} {entry.content}" if entry.key else entry.content
+        self._pending_embeds.append(
+            (entry.id, text, old_vec_id, self._content_hash(text))
+        )
 
     async def flush_pending_embeds(self) -> int:
-        """Generate embeddings for queued entries and add to vector index. Returns count."""
+        """Generate embeddings for queued entries and add to vector index. Returns count.
+
+        Only entries that are successfully embedded (or whose source entry has
+        since vanished) are removed from the queue; entries that fail to embed
+        are left pending so they are retried — either by the DURABLE scheduler
+        tier or simply on the next post-reply flush. This is why the queue is
+        not cleared up front: a whole-batch failure (e.g. the embedding backend
+        is down) must not silently drop the work."""
         if not self._pending_embeds or not self._embed_fn or not self._vector_index:
             return 0
+        async with self._flush_lock:
+            return await self._flush_pending_embeds_locked()
+
+    async def _flush_pending_embeds_locked(self) -> int:
+        # Re-check under the lock: a prior flush may have drained the queue while
+        # we waited, and _embed_fn/_vector_index may have been torn down.
+        if not self._pending_embeds or not self._embed_fn or not self._vector_index:
+            return 0
+        # Circuit open: every embed would return [] and process nothing, so a
+        # flush is pure O(N) waste. Skip until a restart re-decides the backend.
+        if getattr(self._embed_fn, "tripped", False):
+            return 0
         batch = list(self._pending_embeds)
-        self._pending_embeds.clear()
         count = 0
+        processed: set[tuple[str, str]] = set()
         assigned: dict[MemoryType, dict[str, str]] = {}
-        for entry_id, text in batch:
+        replaced_old: list[str] = []
+        for entry_id, text, old_vec_id, content_hash in batch:
             entry = self._entries.get(entry_id)
             if entry is None:
+                # Source entry was deleted/forgotten while queued — nothing to
+                # embed, so drop this exact item rather than retrying forever.
+                processed.add((entry_id, content_hash))
                 continue
             try:
                 embedding = await self._embed_fn(text)
                 if embedding:
+                    # The await above yields; update()/merge may have rewritten
+                    # this entry and re-queued a fresh item (and _reload_type
+                    # swaps the object), so re-fetch and compare hashes. Only
+                    # commit the vector if the entry's CURRENT content still
+                    # matches what we embedded.
+                    entry = self._entries.get(entry_id)
+                    if entry is None:
+                        processed.add((entry_id, content_hash))
+                        continue
+                    current = f"{entry.key} {entry.content}" if entry.key else entry.content
+                    if self._content_hash(current) != content_hash:
+                        # Stale: the entry was rewritten (and re-queued) while we
+                        # embedded the old text. Don't attach this old vector to
+                        # the new content, and don't remove old_vec_id (no new
+                        # vector was committed). Mark THIS (old-hash) item handled
+                        # so it drops — the freshly-queued item carries a
+                        # different (id, new_hash) and survives for the next flush.
+                        processed.add((entry_id, content_hash))
+                        continue
                     vec_id = await self._vector_index.add(entry_id, embedding)
                     if vec_id:
+                        # add() also yields: update()/merge may have rewritten
+                        # (and _reload_type swapped) this entry DURING the add.
+                        # Re-verify before committing — otherwise we'd attach
+                        # this old-content vector to the now-new entry and leak
+                        # the just-added vec_id (the re-queued item's old_vec_id
+                        # was captured before this flush, so replaced_old never
+                        # reclaims it).
+                        entry = self._entries.get(entry_id)
+                        current = (
+                            f"{entry.key} {entry.content}"
+                            if entry is not None and entry.key
+                            else (entry.content if entry is not None else None)
+                        )
+                        if entry is None or self._content_hash(current) != content_hash:
+                            # Stale: the vector we just added is an orphan. Remove
+                            # it and drop THIS (old-hash) item; the freshly-queued
+                            # item carries the new hash and survives for retry.
+                            try:
+                                await self._vector_index.remove(vec_id)
+                            except Exception as e:
+                                logger.warning(
+                                    "Failed to remove orphan vector {}: {}", vec_id, e
+                                )
+                            processed.add((entry_id, content_hash))
+                            continue
                         entry.embedding_id = vec_id
                         assigned.setdefault(entry.type, {})[entry_id] = vec_id
+                        processed.add((entry_id, content_hash))
                         count += 1
+                        if old_vec_id and old_vec_id != vec_id:
+                            replaced_old.append(old_vec_id)
             except Exception as e:
                 logger.debug("Embedding generation failed for {}: {}", entry_id, e)
+        # Drop only exactly-handled items (matched by id AND content hash);
+        # failures and concurrently-enqueued items (different hash) stay for retry.
+        if processed:
+            self._pending_embeds = [
+                item for item in self._pending_embeds
+                if (item[0], item[3]) not in processed
+            ]
+        # New vector landed — drop the superseded old row so the index and the
+        # vectors table don't accumulate orphans on every content update.
+        for old_id in replaced_old:
+            try:
+                await self._vector_index.remove(old_id)
+            except Exception as e:
+                logger.warning("Failed to remove replaced vector {}: {}", old_id, e)
         # Persist embedding_id assignments — without this, vector cleanup on
         # delete/forget has nothing to key on and the index grows forever.
         for mem_type, ids in assigned.items():
@@ -243,6 +355,73 @@ class MemoryStore:
         if count:
             logger.info("Generated {} embeddings", count)
         return count
+
+    def queue_missing_embeds(self, stale_source_ids: "Iterable[str]" = ()) -> int:
+        """Queue entries that lack a vector (embedding_id empty), whose stored
+        vector came from a different embedding model (stale), or whose
+        embedding_id dangles — no such row in the loaded index, e.g. the
+        vectors DB was deleted while the authoritative JSON files survived.
+        Called once at startup after the vector index is initialized. Returns
+        queued count."""
+        if not self._embed_fn or not self._vector_index:
+            return 0
+        stale = set(stale_source_ids)
+        loaded = getattr(self._vector_index, "loaded_vec_ids", None)
+        queued_ids = {item[0] for item in self._pending_embeds}
+        count = 0
+        for entry in self._entries.values():
+            if entry.is_superseded or entry.id in queued_ids:
+                continue
+            dangling = loaded is not None and entry.embedding_id not in loaded
+            if not entry.embedding_id or entry.id in stale or dangling:
+                self._queue_embed(entry, old_vec_id=entry.embedding_id)
+                count += 1
+        if count:
+            logger.info("Queued {} entries for embedding backfill", count)
+        return count
+
+    async def scan_orphan_vectors(self) -> int:
+        """Delete vectors-table rows not referenced by any entry's embedding_id.
+        Safety net for rows left behind by pre-fix updates/evictions; runs at
+        startup BEFORE the index loads so orphans never enter the matrix.
+        Memory owns the vectors table (knowledge uses its own sidecar store)."""
+        if not self._storage:
+            return 0
+        valid = {e.embedding_id for e in self._entries.values() if e.embedding_id}
+        episode_ids: set[str] = set()
+        episodes_ok = True
+        try:
+            rows_ep = await self._storage.fetch_sql("SELECT id FROM memory_episodes", ())
+            episode_ids = {r["id"] for r in rows_ep}
+        except Exception as e:
+            episodes_ok = False
+            logger.warning(
+                "Orphan scan: episodes table unavailable, skipping ep: vectors "
+                "to avoid deleting live episode vectors: {}", e,
+            )
+        try:
+            rows = await self._storage.load_vectors_all()
+        except Exception as e:
+            logger.warning("Orphan vector scan failed to load vectors: {}", e)
+            return 0
+        removed = 0
+        for row in rows:
+            source_id = row.get("source_id", "") or ""
+            if source_id.startswith("ep:"):
+                # Only prune ep: vectors when the episodes table is readable;
+                # a transient DB error must not wipe every episode vector.
+                if not episodes_ok or source_id[3:] in episode_ids:
+                    continue  # live (or conservatively kept) episode vector
+            elif row["id"] in valid:
+                continue
+            try:
+                await self._storage.delete_vector(row["id"])
+                removed += 1
+            except Exception as e:
+                logger.debug("Failed to delete orphan vector {}: {}", row["id"], e)
+        if removed:
+            logger.info("Removed {} orphan vector rows", removed)
+        return removed
 
     @property
     def forgetting_curve(self) -> ForgettingCurve:
@@ -309,6 +488,10 @@ class MemoryStore:
         if session_key:
             entries = [entry for entry in entries if self._visible_in_session(entry, session_key)]
         return entries
+
+    def is_visible_in_session(self, entry: MemoryEntry, session_key: str) -> bool:
+        """Public wrapper so the retriever can apply the store's visibility policy."""
+        return self._visible_in_session(entry, session_key)
 
     def _visible_in_session(self, entry: MemoryEntry, session_key: str | None = None) -> bool:
         if not session_key:
@@ -389,9 +572,9 @@ class MemoryStore:
         for entry in self._load_type_from_disk(mem_type):
             prev = previous.get(entry.id)
             # Carry over unsaved spaced-repetition reinforcement (touch()
-            # marks entries dirty but searches don't save) — otherwise every
-            # reload before a save discards access_count/last_accessed, the
-            # inputs to the decay half-life.
+            # marks entries dirty but reinforcement doesn't save) — otherwise
+            # every reload before a save discards access_count/last_accessed,
+            # the inputs to the decay half-life.
             if prev is not None and prev.id in self._dirty_ids and prev.access_count > entry.access_count:
                 entry.access_count = prev.access_count
                 entry.last_accessed = prev.last_accessed or entry.last_accessed
@@ -483,15 +666,87 @@ class MemoryStore:
             evicted = self._entries.pop(typed[0].id, None)
             if evicted:
                 self._unindex_entry(evicted)
+                # 与 delete() 路径对齐:清理向量索引与 SQLite 镜像,
+                # 否则容量淘汰会在 FAISS 留下孤儿向量、在镜像表留下死行。
+                self._cleanup_deleted(evicted)
 
     def _merge_locked(self, existing_id: str, new_entry: MemoryEntry) -> MemoryEntry:
         existing = self._entries[existing_id]
-        existing.content = self._validate_content(new_entry.content)
+        # Provenance guard: a lower-provenance write must not silently
+        # overwrite higher-provenance content (e.g. model inference vs. what
+        # the user explicitly stated). Keep the content, merge the metadata,
+        # and leave a suspected_conflict marker for the resolution flow.
+        if source_priority(new_entry.source) < source_priority(existing.source):
+            merged_tags = _normalize_tags(
+                [*existing.tags, *new_entry.tags, self.SUSPECTED_CONFLICT_TAG]
+            )
+            existing.tags = merged_tags
+            existing.importance = max(existing.importance, new_entry.importance)
+            self._dirty_ids.add(existing_id)
+            logger.info(
+                "Provenance guard: kept '{}' content from {} over incoming {}",
+                existing.key, existing.source, new_entry.source,
+            )
+            self._spawn_blocked_contradiction(existing, new_entry)
+            return existing
+        new_content = self._validate_content(new_entry.content)
+        content_changed = new_content != existing.content
+        existing.content = new_content
         existing.tags = _normalize_tags([*existing.tags, *new_entry.tags])
         existing.importance = max(existing.importance, new_entry.importance)
+        existing.source = new_entry.source
         existing.updated_at = datetime.now().isoformat()
         self._dirty_ids.add(existing_id)
+        # Content changed → the stored vector no longer matches. Re-queue an
+        # embed keyed on the old vector so flush replaces it (same contract as
+        # update()); otherwise the merge path silently leaves the index
+        # pointing at the pre-merge text.
+        if content_changed:
+            self._queue_embed(existing, old_vec_id=existing.embedding_id)
         return existing
+
+    def _spawn_blocked_contradiction(self, existing: MemoryEntry, blocked: MemoryEntry) -> None:
+        """Record the guard-blocked content as a Contradiction row so the
+        resolution flow can see it (placeholder memory_id_b = blocked:<source>).
+        Async fire-and-forget, mirroring _cleanup_deleted's spawn pattern."""
+        if not self._storage:
+            return
+        from echo_agent.memory.types import Contradiction
+        c = Contradiction(
+            memory_id_a=existing.id,
+            memory_id_b=f"blocked:{blocked.source}",
+            description=(
+                f"Provenance guard blocked lower-priority write on key "
+                f"'{existing.key}': {blocked.content}"
+            ),
+        )
+
+        async def _record() -> None:
+            try:
+                await self._storage.execute_sql(
+                    "INSERT OR REPLACE INTO memory_contradictions"
+                    "(id, memory_id_a, memory_id_b, description, resolution, resolved_at, created_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (c.id, c.memory_id_a, c.memory_id_b, c.description,
+                     None, None, c.created_at),
+                )
+            except Exception as e:
+                logger.warning("Failed to record blocked contradiction: {}", e)
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop is not None:
+            task = asyncio.ensure_future(_record())
+            self._pending_storage_tasks.add(task)
+            task.add_done_callback(self._pending_storage_tasks.discard)
+        else:
+            new_loop = asyncio.new_event_loop()
+            try:
+                new_loop.run_until_complete(_record())
+            finally:
+                new_loop.close()
 
     # ── CRUD ─────────────────────────────────────────────────────────────────
 
@@ -546,6 +801,31 @@ class MemoryStore:
 
     SUSPECTED_CONFLICT_TAG = "suspected_conflict"
 
+    # Core-snapshot admission thresholds (no config; conservative defaults).
+    _SNAPSHOT_MIN_EFFECTIVE_IMPORTANCE = 0.15  # below this (after decay) -> not frozen
+    _SNAPSHOT_MIN_IMPORTANCE_UNVISITED = 0.4   # access_count==0 USER facts need this raw importance
+
+    def _admit_to_snapshot(self, entry: MemoryEntry) -> bool:
+        """Gate for the frozen core snapshot. Hard gate (all types): exclude
+        superseded entries (already-adjudicated losers) and entries in an open
+        contradiction (not-yet-adjudicated pairs). Soft gate (USER only):
+        exclude low-confidence facts. Any error -> admit (degrade safe)."""
+        try:
+            if entry.is_superseded:
+                return False
+            if self.is_unresolved(entry.id):
+                return False
+            if entry.type == MemoryType.USER:
+                if self._forgetting.effective_importance(entry) < self._SNAPSHOT_MIN_EFFECTIVE_IMPORTANCE:
+                    return False
+                if entry.access_count == 0 and entry.importance < self._SNAPSHOT_MIN_IMPORTANCE_UNVISITED:
+                    return False
+            return True
+        except Exception as e:
+            logger.debug("Snapshot admission check failed for {}, admitting: {}", entry.id, e)
+            return True
+
+
     def _run_contradiction_scan(self, entry: MemoryEntry) -> None:
         """Observe-only contradiction scan on store (heuristic + temporal).
 
@@ -579,6 +859,7 @@ class MemoryStore:
         entry_id: str,
         content: str | None = None,
         tags: list[str] | None = None,
+        source: str | None = None,
     ) -> MemoryEntry | None:
         entry = self._entries.get(entry_id)
         if not entry:
@@ -597,11 +878,13 @@ class MemoryStore:
                 entry.content = normalized_content
             if normalized_tags is not None:
                 entry.tags = normalized_tags
+            if source is not None:
+                entry.source = source
             entry.updated_at = datetime.now().isoformat()
             self._dirty_ids.add(entry_id)
             self._save_type(entry.type)
             if normalized_content is not None:
-                self._queue_embed(entry)
+                self._queue_embed(entry, old_vec_id=entry.embedding_id)
             return entry
 
     def delete(self, entry_id: str) -> bool:
@@ -673,6 +956,42 @@ class MemoryStore:
             self._save_type(entry.type)
             return True
 
+    def mark_contradiction_unresolved(
+        self, contradiction_id: str, memory_id_a: str, memory_id_b: str
+    ) -> None:
+        """Record that a memory pair has an open (unresolved) contradiction so the
+        core snapshot can exclude both ends. Idempotent per contradiction_id."""
+        with self._unresolved_lock:
+            if contradiction_id in self._unresolved_pairs:
+                return
+            self._unresolved_pairs[contradiction_id] = (memory_id_a, memory_id_b)
+            for mid in (memory_id_a, memory_id_b):
+                self._unresolved_refs[mid] = self._unresolved_refs.get(mid, 0) + 1
+
+    def clear_contradiction(self, contradiction_id: str) -> None:
+        """Drop tracking for a resolved/removed contradiction. No-op if unknown."""
+        with self._unresolved_lock:
+            pair = self._unresolved_pairs.pop(contradiction_id, None)
+            if pair is None:
+                return
+            for mid in pair:
+                remaining = self._unresolved_refs.get(mid, 0) - 1
+                if remaining > 0:
+                    self._unresolved_refs[mid] = remaining
+                else:
+                    self._unresolved_refs.pop(mid, None)
+
+    def is_unresolved(self, memory_id: str) -> bool:
+        """True if memory_id is involved in any open contradiction."""
+        with self._unresolved_lock:
+            return self._unresolved_refs.get(memory_id, 0) > 0
+
+    def reset_unresolved(self) -> None:
+        """Clear all tracking (used before a startup rebuild)."""
+        with self._unresolved_lock:
+            self._unresolved_pairs.clear()
+            self._unresolved_refs.clear()
+
     def mark_superseded(self, entry_id: str, superseded_by: str) -> bool:
         """Persist a supersession marker to the authoritative JSON store, so
         retrieval's ``is_superseded`` filter actually takes effect."""
@@ -732,8 +1051,6 @@ class MemoryStore:
                 or any(pattern.search(tag) for tag in entry.tags)
             )
             if matched:
-                entry.touch()
-                self._dirty_ids.add(entry.id)
                 results.append(entry)
         results.sort(key=lambda entry: self._forgetting.effective_importance(entry), reverse=True)
         return results[:limit]
@@ -769,12 +1086,25 @@ class MemoryStore:
             coverage = word_hits / len(words)
             eff_imp = self._forgetting.effective_importance(entry)
             score = coverage * 0.7 + eff_imp * 0.3
-            entry.touch()
-            self._dirty_ids.add(entry.id)
             scored.append((entry, score))
 
         scored.sort(key=lambda item: item[1], reverse=True)
         return scored[:limit]
+
+    def reinforce(self, ids: "Iterable[str]") -> int:
+        """Spaced-repetition reinforcement for memories that were actually
+        USED (injected into context / returned by the memory tool) — search
+        hits alone no longer count. Marks dirty; persisted on the next save.
+        Returns the number of entries reinforced."""
+        count = 0
+        for entry_id in ids:
+            entry = self._entries.get(entry_id)
+            if entry is None:
+                continue
+            entry.touch()
+            self._dirty_ids.add(entry_id)
+            count += 1
+        return count
 
     def find_by_key(
         self,
@@ -789,15 +1119,6 @@ class MemoryStore:
             if entry.key == normalized_key:
                 return entry
         return None
-
-    def find_by_content(
-        self,
-        substring: str,
-        mem_type: MemoryType | None = None,
-        session_key: str | None = None,
-    ) -> MemoryEntry | None:
-        matches = self.find_by_content_matches(substring, mem_type=mem_type, limit=1, session_key=session_key)
-        return matches[0] if matches else None
 
     def find_by_content_matches(
         self,
@@ -826,12 +1147,16 @@ class MemoryStore:
         max_chars: int | None = None,
         session_key: str | None = None,
         overflow_notice: str | None = None,
+        admit: "Callable[[MemoryEntry], bool] | None" = None,
+        collect_ids: list[str] | None = None,
     ) -> str:
         all_entries = sorted(
             self.list_all(mem_type, session_key=session_key),
             key=lambda entry: self._forgetting.effective_importance(entry),
             reverse=True,
         )
+        if admit is not None:
+            all_entries = [e for e in all_entries if admit(e)]
         entries = all_entries[:max_entries]
         if not entries:
             return ""
@@ -848,9 +1173,13 @@ class MemoryStore:
                     truncated = line[: max_chars - 3].rstrip()
                     if truncated:
                         lines.append(truncated + "...")
+                        if collect_ids is not None:
+                            collect_ids.append(entry.id)
                 dropped += len(entries) - len(lines)
                 break
             lines.append(line)
+            if collect_ids is not None:
+                collect_ids.append(entry.id)
             used += delta
         # Overflow is a curation signal, not silent loss. Tell the model that
         # more durable facts exist than fit the budget so it can consolidate
@@ -859,9 +1188,13 @@ class MemoryStore:
             lines.append(overflow_notice.format(dropped=dropped))
         return "\n".join(lines)
 
-    def get_snapshot(self, session_key: str | None = None) -> str:
-        """构建有界记忆快照，用于注入系统提示。包含长期记忆、用户记忆和环境记忆三部分。"""
+    def get_snapshot_with_ids(
+        self, session_key: str | None = None
+    ) -> tuple[str, frozenset[str]]:
+        """Build the bounded memory snapshot for system-prompt injection, plus the
+        set of entry ids that entered it (used to de-dup dynamic recall)."""
         parts: list[str] = []
+        collected: list[str] = []
         long_term = self.read_long_term()
         if long_term:
             parts.append(f"## Long-term Memory\n\n{long_term}")
@@ -875,6 +1208,8 @@ class MemoryStore:
                 "- _(+{dropped} more durable facts about the user not shown — "
                 "consider consolidating with the memory tool)_"
             ),
+            admit=self._admit_to_snapshot,
+            collect_ids=collected,
         )
         if user_ctx:
             parts.append(f"## What I Know About You\n\n{user_ctx}")
@@ -884,11 +1219,33 @@ class MemoryStore:
             max_entries=30,
             max_chars=self._env_snapshot_char_limit,
             session_key=session_key,
+            admit=self._admit_to_snapshot,
+            collect_ids=collected,
         )
         if env_ctx:
             parts.append(f"## Environment Memory\n\n{env_ctx}")
 
-        return "\n\n".join(parts)
+        # Reflection deferred conflicts: one-line nudge (reuses the snapshot
+        # channel; no new interruption mechanism).
+        try:
+            pending = sum(
+                1 for e in self._entries.values()
+                if "needs_user_confirmation" in e.tags and not e.is_superseded
+            )
+            if pending:
+                parts.append(
+                    f"_(There are {pending} memory conflict(s) that need your "
+                    "confirmation — use the memory tool's list_contradictions "
+                    "to review when convenient.)_"
+                )
+        except Exception:
+            pass
+
+        return "\n\n".join(parts), frozenset(collected)
+
+    def get_snapshot(self, session_key: str | None = None) -> str:
+        """Text-only snapshot (back-compat wrapper over get_snapshot_with_ids)."""
+        return self.get_snapshot_with_ids(session_key=session_key)[0]
 
     # ── Long-term memory file (MEMORY.md) ────────────────────────────────────
 
@@ -925,11 +1282,3 @@ class MemoryStore:
                 logger.warning("History rotation failed: {}", e)
             with open(self._history_file, "a", encoding="utf-8") as handle:
                 handle.write(entry.rstrip() + "\n\n")
-
-    def search_history(self, query: str, limit: int = 20) -> list[str]:
-        if not self._history_file.exists():
-            return []
-        content = self._history_file.read_text(encoding="utf-8")
-        entries = content.split("\n\n")
-        pattern = re.compile(re.escape(query), re.IGNORECASE)
-        return [entry.strip() for entry in entries if entry.strip() and pattern.search(entry)][:limit]

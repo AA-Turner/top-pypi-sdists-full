@@ -25,6 +25,12 @@ from fastmcp.utilities.logging import get_logger
 
 logger = get_logger(__name__)
 
+#: Default timeout, in seconds, for the OIDC discovery request made during
+#: provider construction. Bounds how long startup can block on a slow or
+#: unreachable issuer metadata endpoint. Pass ``timeout_seconds=None`` to fall
+#: back to the HTTP client's own default timeout instead.
+DEFAULT_OIDC_DISCOVERY_TIMEOUT_SECONDS = 10
+
 
 class OIDCConfiguration(BaseModel):
     """OIDC Configuration.
@@ -206,7 +212,7 @@ class OIDCProxy(OAuthProxy):
         client_id: str,
         client_secret: str | None = None,
         audience: str | None = None,
-        timeout_seconds: int | None = None,
+        timeout_seconds: int | None = DEFAULT_OIDC_DISCOVERY_TIMEOUT_SECONDS,
         # Token verifier
         token_verifier: TokenVerifier | None = None,
         algorithm: str | None = None,
@@ -251,7 +257,10 @@ class OIDCProxy(OAuthProxy):
                 clients or when using alternative credentials. When omitted,
                 jwt_signing_key must be provided.
             audience: Audience for upstream server
-            timeout_seconds: HTTP request timeout in seconds
+            timeout_seconds: Timeout, in seconds, for the OIDC discovery request
+                made during construction. Defaults to 10 seconds so a slow or
+                unreachable issuer cannot block server startup indefinitely. Pass
+                None to fall back to the HTTP client's own default timeout.
             token_verifier: Optional custom token verifier (e.g., IntrospectionTokenVerifier for opaque tokens).
                 If not provided, a JWTVerifier will be created using the OIDC configuration.
                 Cannot be used with algorithm or required_scopes parameters (configure these on your verifier instead).
@@ -268,7 +277,8 @@ class OIDCProxy(OAuthProxy):
             redirect_path: Redirect path configured in upstream OAuth app (defaults to "/auth/callback")
             allowed_client_redirect_uris: List of allowed redirect URI patterns for MCP clients.
                 Patterns support wildcards (e.g., "http://localhost:*", "https://*.example.com/*").
-                If None (default), all redirect URIs are allowed (for DCR compatibility).
+                If None (default), DCR clients use registered redirect URIs, with loopback
+                ports allowed to vary for MCP compatibility. Unsafe browser schemes are rejected.
                 If empty list, no redirect URIs are allowed.
                 These are for MCP clients performing loopback redirects, NOT for the upstream OAuth app.
             client_storage: Storage backend for OAuth state (client registrations, encrypted tokens).

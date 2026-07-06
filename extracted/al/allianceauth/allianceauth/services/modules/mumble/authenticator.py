@@ -146,6 +146,10 @@ def main(server_id: int = 1) -> None:
         _communicator = None
         request_context: dict[str, str] = {}
 
+        def __init__(self) -> None:
+            # Map virtual server id -> {"server_proxy": ServerPrx, "cb_prx": ServerCallbackPrx, "cb_identity": Ice.Identity}
+            self.server_callbacks: dict[int, dict] = {}
+
         def set_communicator(self, communicator) -> None:
             self._communicator = communicator
 
@@ -162,10 +166,12 @@ def main(server_id: int = 1) -> None:
             if communicator is None:
                 logger.error("Ice communicator is not initialized")
                 return 1
+
             try:
                 communicator.waitForShutdown()
             except Exception as e:
                 logger.error(f"Error during communicator shutdown wait: {e}")
+
                 return 1
             finally:
                 if hasattr(self, 'watchdog') and self.watchdog:
@@ -226,36 +232,115 @@ def main(server_id: int = 1) -> None:
             """
             Attaches all callbacks for meta and authenticators
             """
-
-            # Ice.ConnectionRefusedException
-            # logger.debug('Attaching callbacks')
             try:
                 logger.info("Attaching Murmur Meta Callback")
+
                 self.meta.addCallback(self.metacb)
 
                 virtual_servers = self.meta.getBootedServers()
                 config_servers = server_config_obj.virtual_servers_list()
 
-                logger.info(f"Found Virtual Servers:{[server.id() for server in virtual_servers]}, Connecting To:{config_servers}")
+                logger.info(f"Found Virtual Servers: {[server.id() for server in virtual_servers]}, Connecting To: {config_servers}")
 
                 for server in self.meta.getBootedServers():
+                    server_id = server.id()
+
                     if self.request_context:
                         server = server.ice_context(self.request_context)
 
-                    if server.id() in server_config_obj.virtual_servers_list():
-
+                    if server_id in server_config_obj.virtual_servers_list():
                         server.setAuthenticator(self.auth)
-                        logger.info("Attached Authenticator for virtual server: %d", server.id())
 
-                        servercbprx = self.adapter.addWithUUID(serverCallback(self, server))
-                        self.servercb = Murmur.ServerCallbackPrx.uncheckedCast(servercbprx)
-                        self.servercb.server = server
-                        server.addCallback(self.servercb)
-                        logger.info("Attached Login Info Callback for virtual server: %d", server.id())
+                        # Avoid attaching duplicate callbacks for the same virtual server.
+                        # Track callbacks by server id and compare identities to detect
+                        # server restarts (which will have different proxy identities).
+                        existing = getattr(self, "server_callbacks", {}).get(server_id)
+
+                        try:
+                            current_identity = server.ice_getIdentity()
+                        except Exception:
+                            current_identity = None
+
+                        reuse = False
+                        if existing:
+                            stored_server = existing.get("server_proxy")
+
+                            try:
+                                stored_identity = stored_server.ice_getIdentity()
+                            except Exception:
+                                stored_identity = None
+
+                            # If identities match, the server proxy is the same and we can skip reattaching.
+                            if stored_identity and current_identity and stored_identity == current_identity:
+                                logger.debug(
+                                    "Authenticator callback already attached for virtual server: %d",
+                                    server_id
+                                )
+
+                                reuse = True
+                            else:
+                                logger.debug(
+                                    "Mumble server was probably restarted, trying to remove old Authenticator callback if it exists"
+                                )
+
+                                # Server was likely restarted or proxy changed. Try to remove old callback
+                                # from adapter and clean up our tracking so we can attach a fresh one.
+                                try:
+                                    old_identity = existing.get("cb_identity")
+
+                                    if old_identity is not None:
+                                        try:
+                                            self.adapter.remove(old_identity)
+                                        except Exception as e:
+                                            logger.debug(
+                                                "Failed to remove old Authenticator callback for %d: %s",
+                                                server_id,
+                                                e
+                                            )
+                                except Exception:
+                                    pass
+
+                                try:
+                                    del self.server_callbacks[server_id]
+                                except Exception:
+                                    pass
+
+                        if not reuse:
+                            servercbprx = self.adapter.addWithUUID(serverCallback(self, server))
+                            servercb = Murmur.ServerCallbackPrx.uncheckedCast(servercbprx)
+                            servercb.server = server
+
+                            server.addCallback(servercb)
+
+                            logger.info(
+                                "Attached Authenticator callback for virtual server: %d",
+                                server_id
+                            )
+
+                            # Store the callback proxy and the (adapter) identity if available so
+                            # we can detect duplicates and remove stale callbacks later.
+                            try:
+                                cb_identity = servercb.ice_getIdentity()
+                            except Exception:
+                                cb_identity = None
+
+                            self.server_callbacks[server_id] = {
+                                "server_proxy": server,
+                                "cb_prx": servercb,
+                                "cb_identity": cb_identity,
+                            }
+
+                        logger.info(
+                            "Attached Login Info callback for virtual server: %d",
+                            server_id
+                        )
 
                         if server_config_obj.idler_handler:
                             idler_handler(server, server_config_obj)
-                            logger.info("Attached Idler Handler for virtual server: %d", server.id())
+                            logger.info(
+                                "Attached Idler Handler for virtual server: %d",
+                                server_id
+                            )
 
             except (Murmur.InvalidSecretException, Ice.UnknownUserException, Ice.ConnectionRefusedException) as e:
                 logger.exception(e)
@@ -512,7 +597,7 @@ def main(server_id: int = 1) -> None:
 
                 if allianceauth_check_hash(pw, auth_user.pwhash, auth_user.hashfn):
                     logger.info(f'User authenticated: {auth_user.display_name} {auth_user.pk + server_config_obj.offset}')
-                    logger.debug(f"Group memberships: {auth_user.groups}")
+                    logger.info(f"Group memberships: {auth_user.groups}")
 
                     auth_user.certhash = certhash
                     auth_user.save(update_fields=["certhash"])
@@ -529,7 +614,7 @@ def main(server_id: int = 1) -> None:
 
                     if allianceauth_check_hash(pw, temp_user.pwhash, temp_user.hashfn):
                         logger.info(f'TEMP User authenticated: {temp_user.display_name} {temp_user.pk + server_config_obj.offset}')
-                        logger.debug(f"TEMP Group memberships: {temp_user.groups}")
+                        logger.info(f"TEMP Group memberships: {temp_user.groups}")
                         temp_user.certhash = certhash
                         temp_user.save(update_fields=["certhash"])
 

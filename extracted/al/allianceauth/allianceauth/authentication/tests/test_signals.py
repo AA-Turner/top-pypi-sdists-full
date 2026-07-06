@@ -1,12 +1,11 @@
 from unittest.mock import patch
 
-from django.contrib.auth.models import User
 from django.test import TestCase
 
 from esi.models import Token
 
 from allianceauth.authentication.models import (
-    CharacterOwnership, OwnershipRecord, State, UserProfile,
+    CharacterOwnership, OwnershipRecord, State, User, UserProfile,
 )
 from allianceauth.authentication.signals import (
     state_member_alliances_changed, state_member_characters_changed,

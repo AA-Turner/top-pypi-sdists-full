@@ -6,7 +6,7 @@ members = ["crates/dcc-mcp-naming", "crates/dcc-mcp-models", "crates/dcc-mcp-act
 resolver = "2"
 
 [workspace.package]
-version = "0.19.7" # x-release-please-version
+version = "0.19.12" # x-release-please-version
 edition = "2024"
 rust-version = "1.95"
 authors = ["Hal Long <hal.long@outlook.com>"]
@@ -132,6 +132,7 @@ readme = "README.md"
 [lib]
 name = "_core"
 crate-type = ["cdylib", "rlib"]
+required-features = ["python-bindings"]
 
 [dependencies]
 # Internal crates
@@ -213,6 +214,12 @@ job-persist-sqlite = ["dcc-mcp-http/job-persist-sqlite"]
 # `dcc-mcp-gateway/admin`. Off by default — when disabled, zero admin
 # UI code or front-end assets are compiled into the wheel.
 admin = ["dcc-mcp-gateway/admin"]
+
+# py37-lite: pure-Python wheel profile for Maya 2022 / Python 3.7.
+# Intentionally empty: ``build-py37`` only packages ``python/`` sources and
+# must not compile Rust (see ``scripts/build_py37_pure_wheel.py``).
+# See also `build-py37` in justfile and the py37-lite CI workflows.
+py37-lite = []
 abi3-py38 = ["pyo3/abi3-py38"]
 # Python 3.7 wheel: non-abi3 build, no abi3-py38 feature
 ext-module = ["pyo3/extension-module"]

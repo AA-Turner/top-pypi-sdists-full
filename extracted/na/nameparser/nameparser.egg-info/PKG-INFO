@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nameparser
-Version: 1.2.1
+Version: 1.3.0
 Summary: A simple Python module for parsing human names into their individual components.
 Author-email: Derek Gulbranson <derek73@gmail.com>
 License: LGPL
@@ -29,7 +29,7 @@ Dynamic: license-file
 Name Parser
 ===========
 
-|Build Status| |PyPI| |PyPI version| |Documentation|
+|Build Status| |PyPI| |PyPI version| |Documentation| |License| |Downloads| |Codecov|
 
 A simple Python (3.10+) module for parsing human names into their
 individual components. 
@@ -40,8 +40,12 @@ individual components.
 * hn.last
 * hn.suffix
 * hn.nickname
+* hn.maiden
 * hn.surnames *(middle + last)*
+* hn.given_names *(first + middle)*
 * hn.initials *(first initial of each name part)*
+* hn.last_base *(last, minus any prefixes)*
+* hn.last_prefixes *(leading last-name particles, e.g. "van der")*
 
 Supported Name Structures
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -93,17 +97,18 @@ Quick Start Example
     >>> name = HumanName("Dr. Juan Q. Xavier de la Vega III (Doc Vega)")
     >>> name 
     <HumanName : [
-    	title: 'Dr.' 
-    	first: 'Juan' 
-    	middle: 'Q. Xavier' 
-    	last: 'de la Vega' 
-    	suffix: 'III'
-    	nickname: 'Doc Vega'
+        title: 'Dr.'
+        first: 'Juan'
+        middle: 'Q. Xavier'
+        last: 'de la Vega'
+        suffix: 'III'
+        nickname: 'Doc Vega'
+        maiden: ''
     ]>
     >>> name.last
     'de la Vega'
     >>> name.as_dict()
-    {'last': 'de la Vega', 'suffix': 'III', 'title': 'Dr.', 'middle': 'Q. Xavier', 'nickname': 'Doc Vega', 'first': 'Juan'}
+    {'title': 'Dr.', 'first': 'Juan', 'middle': 'Q. Xavier', 'last': 'de la Vega', 'suffix': 'III', 'nickname': 'Doc Vega', 'maiden': ''}
     >>> str(name)
     'Dr. Juan Q. Xavier de la Vega III (Doc Vega)'
     >>> name.string_format = "{first} {last}"
@@ -122,12 +127,13 @@ and "post-nominal" would probably be better names.)
     >>> name = HumanName("1 & 2, 3 4 5, Mr.")
     >>> name 
     <HumanName : [
-    	title: '' 
-    	first: '3' 
-    	middle: '4 5' 
-    	last: '1 & 2' 
-    	suffix: 'Mr.'
-    	nickname: ''
+        title: ''
+        first: '3'
+        middle: '4 5'
+        last: '1 & 2'
+        suffix: 'Mr.'
+        nickname: ''
+        maiden: ''
     ]>
 
 Customization
@@ -172,3 +178,9 @@ https://github.com/derek73/python-nameparser
    :target: http://nameparser.readthedocs.io/en/latest/?badge=latest
 .. |PyPI version| image:: https://img.shields.io/pypi/pyversions/nameparser.svg
    :target: https://pypi.org/project/nameparser/
+.. |License| image:: https://img.shields.io/pypi/l/nameparser.svg
+   :target: https://pypi.org/project/nameparser/
+.. |Downloads| image:: https://static.pepy.tech/badge/nameparser
+   :target: https://pepy.tech/project/nameparser
+.. |Codecov| image:: https://codecov.io/gh/derek73/python-nameparser/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/derek73/python-nameparser

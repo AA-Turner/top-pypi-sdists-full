@@ -17,7 +17,7 @@ import subprocess
 import unittest
 import yaml
 from libs.graphiant_config import GraphiantConfig
-from libs.exceptions import GraphiantPlaybookError
+from libs.exceptions import ConfigurationError, GraphiantPlaybookError
 from libs.logger import setup_logger
 
 LOG = setup_logger()
@@ -78,6 +78,70 @@ def graphiant_config_from_read_config(**kwargs):
         access_token=access_token,
         **kwargs,
     )
+
+
+_vault_secrets_cache = {}
+
+
+def load_vault_secrets_from_example(config_path):
+    """
+    Copy vault_secrets.yml.example to vault_secrets.yml, encrypt with ansible-vault,
+    and return decrypted contents (same pattern as collection playbooks with include_vars).
+
+    Uses ANSIBLE_VAULT_PASSPHRASE or 'test-vault-pass' when unset. Results are cached
+    per config directory for the process lifetime.
+    """
+    config_path = os.path.abspath(config_path)
+    if config_path in _vault_secrets_cache:
+        return _vault_secrets_cache[config_path]
+
+    if not os.environ.get("ANSIBLE_VAULT_PASSPHRASE"):
+        os.environ["ANSIBLE_VAULT_PASSPHRASE"] = "test-vault-pass"
+
+    vault_secrets_path = os.path.join(config_path, "vault_secrets.yml")
+    example_path = os.path.join(config_path, "vault_secrets.yml.example")
+    if not os.path.isfile(example_path):
+        raise FileNotFoundError(f"Vault example not found: {example_path}")
+    shutil.copy(example_path, vault_secrets_path)
+    vault_pass_file = os.path.join(config_path, "vault-password-file.sh")
+    if not os.path.isfile(vault_pass_file):
+        raise FileNotFoundError(f"Vault password script not found: {vault_pass_file}")
+    env = os.environ.copy()
+    env["ANSIBLE_VAULT_PASSWORD_FILE"] = os.path.abspath(vault_pass_file)
+    enc = subprocess.run(
+        ["ansible-vault", "encrypt", vault_secrets_path],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=config_path,
+        check=False,
+    )
+    if enc.returncode != 0:
+        err = (enc.stderr and enc.stderr.strip()) or "unknown"
+        raise RuntimeError(f"ansible-vault encrypt failed: {err}")
+
+    view = subprocess.run(
+        ["ansible-vault", "view", vault_secrets_path],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=config_path,
+        check=False,
+    )
+    if view.returncode != 0:
+        err = (view.stderr and view.stderr.strip()) or "unknown"
+        raise RuntimeError(f"ansible-vault view failed: {err}")
+    data = yaml.safe_load(view.stdout) or {}
+    if not isinstance(data, dict):
+        data = {}
+    _vault_secrets_cache[config_path] = data
+    return data
+
+
+def vault_dict_from_example(config_path, key):
+    """Return a dict section from load_vault_secrets_from_example (empty dict if missing)."""
+    value = load_vault_secrets_from_example(config_path).get(key) or {}
+    return value if isinstance(value, dict) else {}
 
 
 class TestGraphiantPlaybooks(unittest.TestCase):
@@ -195,7 +259,9 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         if result['failed']:
             details = result.get('details', {})
             prefix_sets = details.get('prefix_sets', {})
-            assert prefix_sets.get('failed_objects'), "When failed is True, details.prefix_sets.failed_objects must be non-empty"
+            assert prefix_sets.get('failed_objects'), (
+                "When failed is True, details.prefix_sets.failed_objects must be non-empty"
+            )
 
     def test_configure_global_config_bgp_filters(self):
         """
@@ -223,7 +289,9 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         if result['failed']:
             details = result.get('details', {})
             bgp_filters = details.get('bgp_filters', {})
-            assert bgp_filters.get('failed_objects'), "When failed is True, details.bgp_filters.failed_objects must be non-empty"
+            assert bgp_filters.get('failed_objects'), (
+                "When failed is True, details.bgp_filters.failed_objects must be non-empty"
+            )
         assert result['failed'] is False, f"Deconfigure Global BGP filters failed: {result}"
 
     def test_configure_global_config_graphiant_filters(self):
@@ -285,7 +353,9 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         if result['failed']:
             details = result.get('details', {})
             snmp_services = details.get('snmps', {})
-            assert snmp_services.get('failed_objects'), "When failed is True, details.snmp_services.failed_objects must be non-empty"
+            assert snmp_services.get('failed_objects'), (
+                "When failed is True, details.snmp_services.failed_objects must be non-empty"
+            )
         assert result['failed'] is False, f"Deconfigure Global SNMP services failed: {result}"
 
     def test_failure_deconfigure_snmp_service(self):
@@ -301,7 +371,9 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         if result['failed']:
             details = result.get('details', {})
             snmp_services = details.get('snmps', {})
-            assert snmp_services.get('failed_objects'), "When failed is True, details.snmp_services.failed_objects must be non-empty"
+            assert snmp_services.get('failed_objects'), (
+                "When failed is True, details.snmp_services.failed_objects must be non-empty"
+            )
 
     def test_configure_syslog_service(self):
         """
@@ -329,7 +401,9 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         if result['failed']:
             details = result.get('details', {})
             syslog_services = details.get('syslog_services', {})
-            assert syslog_services.get('failed_objects'), "When failed is True, details.syslog_services.failed_objects must be non-empty"
+            assert syslog_services.get('failed_objects'), (
+                "When failed is True, details.syslog_services.failed_objects must be non-empty"
+            )
         assert result['failed'] is False, f"Deconfigure Global syslog services failed: {result}"
 
     def test_configure_ipfix_service(self):
@@ -358,7 +432,9 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         if result['failed']:
             details = result.get('details', {})
             ipfix_services = details.get('ipfix_services', {})
-            assert ipfix_services.get('failed_objects'), "When failed is True, details.ipfix_services.failed_objects must be non-empty"
+            assert ipfix_services.get('failed_objects'), (
+                "When failed is True, details.ipfix_services.failed_objects must be non-empty"
+            )
         assert result['failed'] is False, f"Deconfigure Global IPFIX services failed: {result}"
 
     def test_configure_vpn_profiles(self):
@@ -387,7 +463,9 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         if result['failed']:
             details = result.get('details', {})
             vpn_profiles = details.get('vpn_profiles', {})
-            assert vpn_profiles.get('failed_objects'), "When failed is True, details.vpn_profiles.failed_objects must be non-empty"
+            assert vpn_profiles.get('failed_objects'), (
+                "When failed is True, details.vpn_profiles.failed_objects must be non-empty"
+            )
         assert result['failed'] is False, f"Deconfigure Global VPN profiles failed: {result}"
 
     def test_failure_deconfigure_vpn_profiles(self):
@@ -403,7 +481,9 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         if result['failed']:
             details = result.get('details', {})
             vpn_profiles = details.get('vpn_profiles', {})
-            assert vpn_profiles.get('failed_objects'), "When failed is True, details.vpn_profiles.failed_objects must be non-empty"
+            assert vpn_profiles.get('failed_objects'), (
+                "When failed is True, details.vpn_profiles.failed_objects must be non-empty"
+            )
 
     def test_configure_global_lan_segments(self):
         """
@@ -431,7 +511,9 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         if result['failed']:
             details = result.get('details', {})
             lan = details.get('lan_segments', {})
-            assert lan.get('failed_objects'), "When failed is True, details.lan_segments.failed_objects must be non-empty"
+            assert lan.get('failed_objects'), (
+                "When failed is True, details.lan_segments.failed_objects must be non-empty"
+            )
         assert result['failed'] is False, f"Deconfigure Global LAN segments failed: {result}"
 
     def test_get_lan_segments(self):
@@ -455,7 +537,9 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         if result['failed']:
             details = result.get('details', {})
             lan_segments = details.get('lan_segments', {})
-            assert lan_segments.get('failed_objects'), "When failed is True, details.lan_segments.failed_objects must be non-empty"
+            assert lan_segments.get('failed_objects'), (
+                "When failed is True, details.lan_segments.failed_objects must be non-empty"
+            )
 
     def test_configure_global_site_lists(self):
         """
@@ -482,7 +566,9 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         if result['failed']:
             details = result.get('details', {})
             site_lists = details.get('site_lists', {})
-            assert site_lists.get('failed_objects'), "When failed is True, details.site_lists.failed_objects must be non-empty"
+            assert site_lists.get('failed_objects'), (
+                "When failed is True, details.site_lists.failed_objects must be non-empty"
+            )
         assert result['failed'] is False, f"Deconfigure Global Site Lists failed: {result}"
 
     def test_get_global_site_lists(self):
@@ -918,47 +1004,13 @@ class TestGraphiantPlaybooks(unittest.TestCase):
     def test_create_site_to_site_vpn(self):
         """
         Create Site-to-Site VPN. Copies vault_secrets.yml.example to vault_secrets.yml,
-        encrypts with vault-password-file.sh (uses ANSIBLE_VAULT_PASSPHRASE or 'test-vault-pass' if unset), then creates VPN.
+        encrypts with vault-password-file.sh (uses ANSIBLE_VAULT_PASSPHRASE or 'test-vault-pass'
+        if unset), then creates VPN.
         """
         graphiant_config = graphiant_config_from_read_config()
         config_path = graphiant_config.config_utils.config_path
-
-        # Copy example to vault_secrets.yml and encrypt (use ANSIBLE_VAULT_PASSPHRASE or default for tests)
-        if not os.environ.get("ANSIBLE_VAULT_PASSPHRASE"):
-            os.environ["ANSIBLE_VAULT_PASSPHRASE"] = "test-vault-pass"
-        vault_secrets_path = os.path.join(config_path, "vault_secrets.yml")
-        example_path = os.path.join(config_path, "vault_secrets.yml.example")
-        if not os.path.isfile(example_path):
-            raise FileNotFoundError(f"Vault example not found: {example_path}")
-        shutil.copy(example_path, vault_secrets_path)
-        vault_pass_file = os.path.join(config_path, "vault-password-file.sh")
-        if not os.path.isfile(vault_pass_file):
-            raise FileNotFoundError(f"Vault password script not found: {vault_pass_file}")
-        env = os.environ.copy()
-        env["ANSIBLE_VAULT_PASSWORD_FILE"] = os.path.abspath(vault_pass_file)
-        enc = subprocess.run(
-            ["ansible-vault", "encrypt", vault_secrets_path],
-            capture_output=True, text=True, env=env, cwd=config_path, check=False,
-        )
-        if enc.returncode != 0:
-            err = (enc.stderr and enc.stderr.strip()) or "unknown"
-            raise RuntimeError(f"ansible-vault encrypt failed: {err}")
-
-        # Decrypt to get vault dicts
-        view = subprocess.run(
-            ["ansible-vault", "view", vault_secrets_path],
-            capture_output=True, text=True, env=env, cwd=config_path, check=False,
-        )
-        if view.returncode != 0:
-            err = (view.stderr and view.stderr.strip()) or "unknown"
-            raise RuntimeError(f"ansible-vault view failed: {err}")
-        data = yaml.safe_load(view.stdout) or {}
-        vault_keys = data.get("vault_site_to_site_vpn_keys") or {}
-        vault_md5 = data.get("vault_bgp_md5_passwords") or {}
-        if not isinstance(vault_keys, dict):
-            vault_keys = {}
-        if not isinstance(vault_md5, dict):
-            vault_md5 = {}
+        vault_keys = vault_dict_from_example(config_path, "vault_site_to_site_vpn_keys")
+        vault_md5 = vault_dict_from_example(config_path, "vault_bgp_md5_passwords")
 
         result = graphiant_config.site_to_site_vpn.create_site_to_site_vpn(
             "sample_site_to_site_vpn.yaml",
@@ -1068,6 +1120,63 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         LOG.info("Deconfigure device-level NTP result (idempotency check): %s", result2)
         assert result2['changed'] is False, "Deconfigure device-level NTP idempotency failed"
 
+    def test_configure_device_traffic_policy(self):
+        """
+        Configure device-level traffic policy rulesets (edge.trafficPolicy.trafficRulesets).
+
+        Second run should be idempotent (changed=False) if desired state already matches.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.traffic_policy.configure("sample_device_traffic_policies.yaml")
+        LOG.info("Configure device-level traffic policy result: %s", result)
+        result2 = graphiant_config.traffic_policy.configure("sample_device_traffic_policies.yaml")
+        LOG.info("Configure device-level traffic policy result (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Configure device-level traffic policy idempotency failed"
+
+    def test_deconfigure_device_traffic_policy(self):
+        """
+        Deconfigure (delete) device-level traffic policy rulesets listed in the YAML file.
+
+        Second run should be idempotent (changed=False) when rulesets are already absent.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.traffic_policy.deconfigure("sample_device_traffic_policies.yaml")
+        LOG.info("Deconfigure device-level traffic policy result: %s", result)
+        result2 = graphiant_config.traffic_policy.deconfigure("sample_device_traffic_policies.yaml")
+        LOG.info("Deconfigure device-level traffic policy result (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Deconfigure device-level traffic policy idempotency failed"
+
+    def test_attach_traffic_policy_lan_segments(self):
+        """
+        Attach traffic ruleset reference on LAN segments (edge.segments.*.trafficRuleset).
+
+        Uses ``sample_device_traffic_policies.yaml``. Second run is idempotent when
+        the portal already shows the same ruleset name on the segment.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.traffic_policy.attach_to_lan_segments("sample_device_traffic_policies.yaml")
+        LOG.info("Attach traffic policy to LAN segments result: %s", result)
+        result2 = graphiant_config.traffic_policy.attach_to_lan_segments("sample_device_traffic_policies.yaml")
+        LOG.info("Attach traffic policy to LAN segments (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Attach LAN segment traffic policy idempotency failed"
+
+    def test_detach_traffic_policy_lan_segments(self):
+        """
+        Clear traffic ruleset reference on LAN segments listed in the YAML file.
+
+        Second run should be idempotent (changed=False) when references are already cleared.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.traffic_policy.detach_from_lan_segments("sample_device_traffic_policies.yaml")
+        LOG.info("Detach traffic policy from LAN segments result: %s", result)
+        result2 = graphiant_config.traffic_policy.detach_from_lan_segments("sample_device_traffic_policies.yaml")
+        LOG.info("Detach traffic policy from LAN segments (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Detach LAN segment traffic policy idempotency failed"
+
     def test_configure_device_system(self):
         """
         Configure device system settings (edge/core name, regionName, site) from YAML.
@@ -1092,14 +1201,536 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         LOG.info("Configure device system settings (idempotency check): %s", result2)
         assert result2.get("changed") is False, "Configure device system idempotency failed"
 
+    def test_configure_backbone(self):
+        """
+        Configure full backbone (Core) settings for multiple devices.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.backbone.configure("sample_backbone_config.yaml")
+        LOG.info("Configure backbone result: %s", result)
+        result = graphiant_config.backbone.configure("sample_backbone_config.yaml")
+        LOG.info("Configure backbone result (rerun check): %s", result)
+
+    def test_deconfigure_backbone(self):
+        """
+        Orchestrated full deconfigure of backbone (Core) settings.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.backbone.deconfigure("sample_backbone_config.yaml")
+        LOG.info("Full deconfigure backbone result: %s", result)
+        result = graphiant_config.backbone.deconfigure("sample_backbone_config.yaml")
+        LOG.info("Full deconfigure backbone result (idempotency check): %s", result)
+        assert result['changed'] is False, "Full deconfigure backbone idempotency failed"
+
+    def test_configure_backbone_core_to_core_interfaces(self):
+        """
+        Configure backbone core-to-core interfaces.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.backbone.configure_core_to_core_interfaces("sample_backbone_config.yaml")
+        LOG.info("Configure core-to-core interfaces result: %s", result)
+        result = graphiant_config.backbone.configure_core_to_core_interfaces("sample_backbone_config.yaml")
+        LOG.info("Configure core-to-core interfaces result (rerun check): %s", result)
+
+    def test_deconfigure_backbone_core_to_core_interfaces(self):
+        """
+        Deconfigure backbone core-to-core interfaces.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.backbone.deconfigure_core_to_core_interfaces("sample_backbone_config.yaml")
+        LOG.info("Deconfigure core-to-core interfaces result: %s", result)
+        result = graphiant_config.backbone.deconfigure_core_to_core_interfaces("sample_backbone_config.yaml")
+        LOG.info("Deconfigure core-to-core interfaces result (idempotency check): %s", result)
+        assert result['changed'] is False, "Deconfigure core-to-core interfaces idempotency failed"
+
+    def test_configure_backbone_wan_circuits(self):
+        """
+        Configure backbone WAN ISP circuit interfaces.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.backbone.configure_wan_circuits("sample_backbone_config.yaml")
+        LOG.info("Configure backbone WAN circuits result: %s", result)
+        result = graphiant_config.backbone.configure_wan_circuits("sample_backbone_config.yaml")
+        LOG.info("Configure backbone WAN circuits result (rerun check): %s", result)
+
+    def test_configure_backbone_core_to_core_tunnels(self):
+        """
+        Configure backbone core-to-core tunnel interfaces.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.backbone.configure_core_to_core_tunnel_interfaces("sample_backbone_config.yaml")
+        LOG.info("Configure core-to-core tunnels result: %s", result)
+        result = graphiant_config.backbone.configure_core_to_core_tunnel_interfaces("sample_backbone_config.yaml")
+        LOG.info("Configure core-to-core tunnels result (rerun check): %s", result)
+
+    def test_deconfigure_backbone_core_to_core_tunnels(self):
+        """
+        Deconfigure backbone core-to-core tunnel interfaces.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.backbone.deconfigure_core_to_core_tunnel_interfaces("sample_backbone_config.yaml")
+        LOG.info("Deconfigure core-to-core tunnels result: %s", result)
+        result = graphiant_config.backbone.deconfigure_core_to_core_tunnel_interfaces("sample_backbone_config.yaml")
+        LOG.info("Deconfigure core-to-core tunnels result (idempotency check): %s", result)
+        assert result['changed'] is False, "Deconfigure core-to-core tunnels idempotency failed"
+
+    def test_deconfigure_backbone_wan_circuits(self):
+        """
+        Deconfigure backbone WAN ISP circuit interfaces.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.backbone.deconfigure_wan_circuits("sample_backbone_config.yaml")
+        LOG.info("Deconfigure backbone WAN circuits result: %s", result)
+        result = graphiant_config.backbone.deconfigure_wan_circuits("sample_backbone_config.yaml")
+        LOG.info("Deconfigure backbone WAN circuits result (idempotency check): %s", result)
+        assert result['changed'] is False, "Deconfigure backbone WAN circuits idempotency failed"
+
+    def test_configure_backbone_direct_peer_interfaces(self):
+        """
+        Configure backbone direct-peer interfaces.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.backbone.configure_direct_peer_interfaces("sample_backbone_direct_peer_config.yaml")
+        LOG.info("Configure direct-peer interfaces result: %s", result)
+        result = graphiant_config.backbone.configure_direct_peer_interfaces("sample_backbone_direct_peer_config.yaml")
+        LOG.info("Configure direct-peer interfaces result (rerun check): %s", result)
+
+    def test_deconfigure_backbone_direct_peer_interfaces(self):
+        """
+        Deconfigure backbone direct-peer interfaces.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.backbone.deconfigure_direct_peer_interfaces("sample_backbone_direct_peer_config.yaml")
+        LOG.info("Deconfigure direct-peer interfaces result: %s", result)
+        result = graphiant_config.backbone.deconfigure_direct_peer_interfaces("sample_backbone_direct_peer_config.yaml")
+        LOG.info("Deconfigure direct-peer interfaces result (idempotency check): %s", result)
+        assert result['changed'] is False, "Deconfigure direct-peer interfaces idempotency failed"
+
+    def test_configure_backbone_syslog_targets(self):
+        """
+        Configure backbone per-VRF syslog targets.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.backbone.configure_syslog_targets("sample_backbone_config.yaml")
+        LOG.info("Configure backbone syslog targets result: %s", result)
+        result = graphiant_config.backbone.configure_syslog_targets("sample_backbone_config.yaml")
+        LOG.info("Configure backbone syslog targets result (rerun check): %s", result)
+
+    def test_deconfigure_backbone_syslog_targets(self):
+        """
+        Deconfigure backbone per-VRF syslog targets.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.backbone.deconfigure_syslog_targets("sample_backbone_config.yaml")
+        LOG.info("Deconfigure backbone syslog targets result: %s", result)
+        result = graphiant_config.backbone.deconfigure_syslog_targets("sample_backbone_config.yaml")
+        LOG.info("Deconfigure backbone syslog targets result (idempotency check): %s", result)
+        assert result['changed'] is False, "Deconfigure backbone syslog targets idempotency failed"
+
+    @staticmethod
+    def _load_edge_services_from_yaml(graphiant_config, config_yaml_file):
+        """Return {device_name: config_dict} from edge_services YAML list (sample_edge_services.yaml)."""
+        cfg = graphiant_config.config_utils.render_config_file(config_yaml_file) or {}
+        raw = cfg.get("edge_services") or []
+        by_name = {}
+        for entry in raw:
+            if not isinstance(entry, dict):
+                continue
+            for device_name, device_cfg in entry.items():
+                by_name[device_name] = device_cfg if isinstance(device_cfg, dict) else {}
+        return by_name
+
+    @staticmethod
+    def _edge_services_deconfigure_module_params(device_name, cfg):
+        """
+        Build module_params to revert edge services (configure-only module; no deconfigure operation).
+
+        Reverts DNS to dynamic, listed LLDP interfaces to false, DHCP pools to absent, and each
+        dpiApplications map key from the device config to absent (application: null on PUT).
+        """
+        lldp_cfg = cfg.get("lldp") if isinstance(cfg.get("lldp"), dict) else {}
+        dhcp_cfg = cfg.get("dhcpSubnets") if isinstance(cfg.get("dhcpSubnets"), list) else []
+        dpi_cfg = cfg.get("dpiApplications") if isinstance(cfg.get("dpiApplications"), dict) else {}
+
+        dhcp_absent = []
+        for entry in dhcp_cfg:
+            if not isinstance(entry, dict):
+                continue
+            segment = entry.get("segment")
+            interface = entry.get("interface")
+            ip_prefix = entry.get("ipPrefix")
+            if not segment or not interface or not ip_prefix:
+                continue
+            dhcp_absent.append(
+                {
+                    "segment": segment,
+                    "interface": interface,
+                    "ipPrefix": ip_prefix,
+                    "state": "absent",
+                }
+            )
+
+        dpi_absent = {app_key: {"state": "absent"} for app_key in dpi_cfg if app_key}
+
+        params = {
+            "device": device_name,
+            "dns": {"mode": "DNSModeDynamic"},
+            "lldp": {if_name: False for if_name in lldp_cfg},
+            "dhcpSubnets": dhcp_absent,
+        }
+        if dpi_absent:
+            params["dpiApplications"] = dpi_absent
+        return params
+
+    def test_configure_edge_services(self):
+        """
+        Configure edge services using the YAML file as-is.
+        edge-3 localWebServerPasswordForce requires vault_devices_lws_password for that device.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        vault_lws = {"edge-3-sdktest": "ReplaceMe1"}
+        result = graphiant_config.edge_services.configure(
+            "sample_edge_services.yaml",
+            vault_devices_lws_password=vault_lws,
+        )
+        LOG.info("Configure edge services result: %s", result)
+        # edge-3 keeps localWebServerPasswordForce in YAML; clear it on repeat runs so LWS is
+        # not re-pushed (portal stores a hash, so force=true is never idempotent by itself).
+        result2 = graphiant_config.edge_services.configure(
+            "sample_edge_services.yaml",
+            module_params={
+                "device": "edge-3-sdktest",
+                "localWebServerPasswordForce": False,
+            },
+            vault_devices_lws_password=vault_lws,
+        )
+        LOG.info("Configure edge services result (idempotency check): %s", result2)
+        assert result2.get("changed") is False, "Configure edge services idempotency failed"
+
+    def test_configure_edge_services_lws_force_requires_password(self):
+        """localWebServerPasswordForce without password or vault entry must fail."""
+        graphiant_config = graphiant_config_from_read_config()
+        with self.assertRaises(ConfigurationError) as ctx:
+            graphiant_config.edge_services.configure("sample_edge_services.yaml")
+        self.assertIn("localWebServerPasswordForce is true", str(ctx.exception))
+        self.assertIn("edge-3-sdktest", str(ctx.exception))
+
+    def test_deconfigure_edge_services(self):
+        """
+        Revert edge services via module_params (module has no deconfigure operation):
+        dns.mode -> DNSModeDynamic, lldp -> false, dhcpSubnets -> state absent,
+        and each dpiApplications map key from YAML -> state absent.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        by_name = self._load_edge_services_from_yaml(graphiant_config, "sample_edge_services.yaml")
+        self.assertTrue(by_name, "sample_edge_services.yaml contains no edge_services entries")
+
+        last_result = None
+        for device_name, cfg in by_name.items():
+            module_params = self._edge_services_deconfigure_module_params(device_name, cfg)
+            result = graphiant_config.edge_services.configure(module_params=module_params)
+            LOG.info("Deconfigure edge services via module_params for %s: %s", device_name, result)
+            last_result = result
+
+        self.assertIsNotNone(last_result, "No edge services entries were processed")
+
+        # Idempotency: rerun the same module_params deconfigure intent for each device.
+        for device_name, cfg in by_name.items():
+            module_params = self._edge_services_deconfigure_module_params(device_name, cfg)
+            result2 = graphiant_config.edge_services.configure(module_params=module_params)
+            LOG.info(
+                "Deconfigure edge services via module_params (idempotency) for %s: %s",
+                device_name,
+                result2,
+            )
+            assert result2.get("changed") is False, (
+                f"Deconfigure edge services idempotency failed for {device_name}"
+            )
+
+    def test_configure_edge_services_lws_vault(self):
+        """
+        Configure edge-3 LWS password via vault_devices_lws_password (Ansible Vault pattern).
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        config_path = graphiant_config.config_utils.config_path
+        vault_lws = vault_dict_from_example(config_path, "vault_devices_lws_password")
+
+        result = graphiant_config.edge_services.configure(
+            "sample_edge_services.yaml",
+            vault_devices_lws_password=vault_lws,
+        )
+        LOG.info("Configure edge services LWS vault result: %s", result)
+        assert "edge-3-sdktest" in result.get("configured_devices", []), (
+            "Expected edge-3-sdktest LWS update from vault"
+        )
+        result2 = graphiant_config.edge_services.configure(
+            "sample_edge_services.yaml",
+            module_params={
+                "device": "edge-3-sdktest",
+                "localWebServerPasswordForce": False,
+            },
+            vault_devices_lws_password=vault_lws,
+        )
+        LOG.info("Configure edge services LWS vault result (idempotency): %s", result2)
+        assert result2.get("changed") is False, "Configure edge services LWS vault idempotency failed"
+
+    _MACSEC_CONFIG_FILE = "sample_macsec.yaml"
+
+    @staticmethod
+    def _macsec_vault_psk(graphiant_config):
+        """Load vault_devices_macsec_psk from encrypted vault_secrets.yml.example."""
+        return vault_dict_from_example(
+            graphiant_config.config_utils.config_path,
+            "vault_devices_macsec_psk",
+        )
+
+    @staticmethod
+    def _load_macsec_from_yaml(graphiant_config, config_yaml_file):
+        """Return {device_name: config_dict} from macsec YAML list."""
+        cfg = graphiant_config.config_utils.render_config_file(config_yaml_file) or {}
+        raw = cfg.get("macsec") or []
+        by_name = {}
+        for entry in raw:
+            if not isinstance(entry, dict):
+                continue
+            for device_name, device_cfg in entry.items():
+                by_name[device_name] = device_cfg if isinstance(device_cfg, dict) else {}
+        return by_name
+
+    def _macsec_context(self, graphiant_config):
+        """Resolve device and key interface names from sample_macsec.yaml."""
+        by_name = self._load_macsec_from_yaml(graphiant_config, self._MACSEC_CONFIG_FILE)
+        if not by_name:
+            raise KeyError(f"No macsec entries in {self._MACSEC_CONFIG_FILE}")
+        device = next(iter(by_name))
+        interfaces = by_name[device].get("interfaces") or {}
+        if not interfaces:
+            raise KeyError(f"No interfaces in macsec config for {device!r}")
+
+        interface_names = list(interfaces.keys())
+        primary_if = interface_names[0]
+        lag_interfaces = [name for name in interface_names if str(name).startswith("LAG")]
+
+        rotate_if = None
+        rotate_nick = None
+        for if_name, if_cfg in interfaces.items():
+            if not isinstance(if_cfg, dict):
+                continue
+            keys = [
+                psk
+                for psk in (if_cfg.get("presharedKeys") or [])
+                if isinstance(psk, dict) and str(psk.get("state") or "present").lower() != "absent"
+            ]
+            if len(keys) >= 2:
+                rotate_if = if_name
+                rotate_nick = keys[0].get("nickname")
+                break
+
+        return {
+            "device": device,
+            "device_cfg": by_name[device],
+            "interfaces": interfaces,
+            "primary_interface": primary_if,
+            "lag_interfaces": lag_interfaces,
+            "rotate_interface": rotate_if,
+            "rotate_psk_nickname": rotate_nick,
+        }
+
+    def test_configure_macsec(self):
+        """Configure MACsec from sample_macsec.yaml (PSK secrets from vault_devices_macsec_psk)."""
+        graphiant_config = graphiant_config_from_read_config()
+        vault_psk = self._macsec_vault_psk(graphiant_config)
+        result = graphiant_config.macsec.configure(
+            self._MACSEC_CONFIG_FILE,
+            vault_devices_macsec_psk=vault_psk,
+        )
+        LOG.info("Configure MACsec result: %s", result)
+        result = graphiant_config.macsec.configure(
+            self._MACSEC_CONFIG_FILE,
+            vault_devices_macsec_psk=vault_psk,
+        )
+        LOG.info("Configure MACsec result (idempotency check): %s", result)
+        assert result.get("changed") is False, "Configure MACsec idempotency failed"
+
+    def test_configure_macsec_yaml_module_params_override(self):
+        """Configure MACsec from YAML with a module_params override on one interface."""
+        graphiant_config = graphiant_config_from_read_config()
+        ctx = self._macsec_context(graphiant_config)
+        primary_if = ctx["primary_interface"]
+        priority = (ctx["interfaces"][primary_if].get("keyServerPriority") or 200) + 1
+        module_params = {
+            "device": ctx["device"],
+            "interfaces": {primary_if: {"keyServerPriority": priority}},
+        }
+        vault_psk = self._macsec_vault_psk(graphiant_config)
+        result = graphiant_config.macsec.configure(
+            self._MACSEC_CONFIG_FILE,
+            module_params=module_params,
+            vault_devices_macsec_psk=vault_psk,
+        )
+        LOG.info("Configure MACsec YAML + module_params override result: %s", result)
+        result = graphiant_config.macsec.configure(
+            self._MACSEC_CONFIG_FILE,
+            module_params=module_params,
+            vault_devices_macsec_psk=vault_psk,
+        )
+        LOG.info("Configure MACsec YAML + module_params override (idempotency check): %s", result)
+        assert result.get("changed") is False, "Configure MACsec YAML + module_params override idempotency failed"
+
+    def test_configure_macsec_module_params(self):
+        """Configure MACsec using module_params only (PSK secrets from vault_devices_macsec_psk)."""
+        graphiant_config = graphiant_config_from_read_config()
+        ctx = self._macsec_context(graphiant_config)
+        module_params = {
+            "device": ctx["device"],
+            "interfaces": ctx["device_cfg"].get("interfaces") or {},
+        }
+        vault_psk = self._macsec_vault_psk(graphiant_config)
+        result = graphiant_config.macsec.configure(
+            module_params=module_params,
+            vault_devices_macsec_psk=vault_psk,
+        )
+        LOG.info("Configure MACsec via module_params result: %s", result)
+        result = graphiant_config.macsec.configure(
+            module_params=module_params,
+            vault_devices_macsec_psk=vault_psk,
+        )
+        LOG.info("Configure MACsec via module_params (idempotency check): %s", result)
+        assert result.get("changed") is False, "Configure MACsec module_params idempotency failed"
+
+    def test_disable_macsec(self):
+        """Disable MACsec on the primary interface from sample_macsec.yaml."""
+        graphiant_config = graphiant_config_from_read_config()
+        ctx = self._macsec_context(graphiant_config)
+        module_params = {
+            "device": ctx["device"],
+            "interfaces": {ctx["primary_interface"]: {"enabled": False}},
+        }
+        result = graphiant_config.macsec.configure(module_params=module_params)
+        LOG.info("Disable MACsec result: %s", result)
+        result = graphiant_config.macsec.configure(module_params=module_params)
+        LOG.info("Disable MACsec result (idempotency check): %s", result)
+        assert result.get("changed") is False, "Disable MACsec idempotency failed"
+
+    def test_enable_macsec(self):
+        """Re-enable MACsec on the primary interface (run after test_disable_macsec)."""
+        graphiant_config = graphiant_config_from_read_config()
+        ctx = self._macsec_context(graphiant_config)
+        module_params = {
+            "device": ctx["device"],
+            "interfaces": {ctx["primary_interface"]: {"enabled": True}},
+        }
+        result = graphiant_config.macsec.configure(module_params=module_params)
+        LOG.info("Enable MACsec result: %s", result)
+        result = graphiant_config.macsec.configure(module_params=module_params)
+        LOG.info("Enable MACsec result (idempotency check): %s", result)
+        assert result.get("changed") is False, "Enable MACsec idempotency failed"
+
+    def test_rotate_macsec_keys(self):
+        """Remove one PSK on an interface with two keys (at least one key must remain)."""
+        graphiant_config = graphiant_config_from_read_config()
+        ctx = self._macsec_context(graphiant_config)
+        if not ctx["rotate_interface"] or not ctx["rotate_psk_nickname"]:
+            self.skipTest("No interface with 2+ presharedKeys in sample_macsec.yaml")
+        module_params = {
+            "device": ctx["device"],
+            "interfaces": {
+                ctx["rotate_interface"]: {
+                    "presharedKeys": [
+                        {"nickname": ctx["rotate_psk_nickname"], "state": "absent"},
+                    ],
+                },
+            },
+        }
+        result = graphiant_config.macsec.configure(module_params=module_params)
+        LOG.info("Rotate MACsec keys result: %s", result)
+        result = graphiant_config.macsec.configure(module_params=module_params)
+        LOG.info("Rotate MACsec keys result (idempotency check): %s", result)
+        assert result.get("changed") is False, "Rotate MACsec keys idempotency failed"
+
+    def test_configure_prefix_and_port_list(self):
+        """
+        Configure prefix and port list.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.prefix_port_list.create_prefix_port_lists("sample_prefix_and_port_list.yaml")
+        LOG.info("Configure prefix and port list result: %s", result)
+        result = graphiant_config.prefix_port_list.create_prefix_port_lists("sample_prefix_and_port_list.yaml")
+        LOG.info("Configure prefix and port list result (idempotency check): %s", result)
+
+    def test_deconfigure_prefix_and_port_list(self):
+        """
+        Deconfigure prefix and port list.
+
+        Second run should be idempotent (changed=False) when lists are already absent.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.prefix_port_list.delete_prefix_port_lists("sample_prefix_and_port_list.yaml")
+        LOG.info("Deconfigure prefix and port list result: %s", result)
+        result2 = graphiant_config.prefix_port_list.delete_prefix_port_lists("sample_prefix_and_port_list.yaml")
+        LOG.info("Deconfigure prefix and port list result (idempotency check): %s", result2)
+        assert result2["changed"] is False, "Deconfigure prefix and port list idempotency failed"
+
+    def test_configure_prefix_lists(self):
+        """
+        Configure prefix lists.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.prefix_port_list.create_prefix_lists("sample_prefix_and_port_list.yaml")
+        LOG.info("Configure prefix lists result: %s", result)
+        result = graphiant_config.prefix_port_list.create_prefix_lists("sample_prefix_and_port_list.yaml")
+        LOG.info("Configure prefix lists result (idempotency check): %s", result)
+
+    def test_deconfigure_prefix_lists(self):
+        """
+        Deconfigure prefix lists.
+
+        Second run should be idempotent (changed=False) when lists are already absent.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.prefix_port_list.delete_prefix_lists("sample_prefix_and_port_list.yaml")
+        LOG.info("Deconfigure prefix lists result: %s", result)
+        result2 = graphiant_config.prefix_port_list.delete_prefix_lists("sample_prefix_and_port_list.yaml")
+        LOG.info("Deconfigure prefix lists result (idempotency check): %s", result2)
+        assert result2["changed"] is False, "Deconfigure prefix lists idempotency failed"
+
+    def test_configure_port_lists(self):
+        """
+        Configure port lists.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.prefix_port_list.create_port_lists("sample_prefix_and_port_list.yaml")
+        LOG.info("Configure port lists result: %s", result)
+        result = graphiant_config.prefix_port_list.create_port_lists("sample_prefix_and_port_list.yaml")
+        LOG.info("Configure port lists result (idempotency check): %s", result)
+
+    def test_deconfigure_port_lists(self):
+        """
+        Deconfigure port lists.
+
+        Second run should be idempotent (changed=False) when lists are already absent.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.prefix_port_list.delete_port_lists("sample_prefix_and_port_list.yaml")
+        LOG.info("Deconfigure port lists result: %s", result)
+        result2 = graphiant_config.prefix_port_list.delete_port_lists("sample_prefix_and_port_list.yaml")
+        LOG.info("Deconfigure port lists result (idempotency check): %s", result2)
+        assert result2["changed"] is False, "Deconfigure port lists idempotency failed"
+
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
     # Authentication Tests
     suite.addTest(TestGraphiantPlaybooks('test_get_login_token'))
     suite.addTest(TestGraphiantPlaybooks('test_get_enterprise_id'))
+
     suite.addTest(TestGraphiantPlaybooks('test_auth_double_failure_access_token_then_password'))
     suite.addTest(TestGraphiantPlaybooks('test_auth_invalid_token_fallback_to_valid_password'))
+
+    # To deconfigure all interfaces
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_lag_interfaces'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_interfaces'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_global_lan_segments'))
 
     # Global Configuration Management (Prefix Lists and BGP / Graphiant Filters)
     suite.addTest(TestGraphiantPlaybooks('test_configure_global_config_prefix_lists'))
@@ -1169,6 +1800,9 @@ if __name__ == '__main__':
     # Device system settings (name, region, site) — configure only;
     suite.addTest(TestGraphiantPlaybooks('test_configure_device_system'))
 
+    # To deconfigure all interfaces
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_interfaces'))
+
     # Device Interface Configuration Management
     suite.addTest(TestGraphiantPlaybooks('test_configure_lan_interfaces'))
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_lan_interfaces'))
@@ -1193,6 +1827,38 @@ if __name__ == '__main__':
     suite.addTest(TestGraphiantPlaybooks('test_delete_lag_subinterfaces'))
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_lag_interfaces'))
 
+    # MACsec (graphiant_macsec) — after LAN/LAG interfaces; run in suite order
+    suite.addTest(TestGraphiantPlaybooks('test_configure_lan_interfaces'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_lag_interfaces'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_macsec'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_macsec_yaml_module_params_override'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_macsec_module_params'))
+    suite.addTest(TestGraphiantPlaybooks('test_disable_macsec'))
+    suite.addTest(TestGraphiantPlaybooks('test_enable_macsec'))
+    suite.addTest(TestGraphiantPlaybooks('test_rotate_macsec_keys'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_lag_interfaces'))
+
+    # Prefix and Port List Management Tests
+    # Configure and delete prefix lists
+    suite.addTest(TestGraphiantPlaybooks('test_configure_prefix_lists'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_prefix_lists'))
+    # Configure and delete port lists
+    suite.addTest(TestGraphiantPlaybooks('test_configure_port_lists'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_port_lists'))
+    # Configure and delete prefix and port lists
+    suite.addTest(TestGraphiantPlaybooks('test_configure_prefix_and_port_list'))
+
+    # Edge Services (graphiant_edge_services) — after LAN/WAN interfaces.
+    # Prereq: interface_management and prefix/port lists for DPI applications.
+    suite.addTest(TestGraphiantPlaybooks('test_configure_interfaces'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_edge_services_lws_force_requires_password'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_edge_services'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_edge_services_lws_vault'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_edge_services'))
+
+    # Deconfigure prefix and port list
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_prefix_and_port_list'))
+
     # Global Configuration Management and BGP Peering
     suite.addTest(TestGraphiantPlaybooks('test_configure_global_config_prefix_lists'))
     suite.addTest(TestGraphiantPlaybooks('test_configure_global_config_bgp_filters'))
@@ -1204,7 +1870,7 @@ if __name__ == '__main__':
 
     # Site-to-Site VPN Management
     suite.addTest(TestGraphiantPlaybooks('test_configure_vpn_profiles'))
-    suite.addTest(TestGraphiantPlaybooks('test_create_site_to_site_vpn'))  # Pre-req: Configure interfaces and circuits and VPN Profiles
+    suite.addTest(TestGraphiantPlaybooks('test_create_site_to_site_vpn'))  # Pre-req: interfaces, circuits, VPN profiles
     #    Failure is expected as VPN profiles are in use by Site-to-Site VPNs.
     suite.addTest(TestGraphiantPlaybooks('test_failure_deconfigure_vpn_profiles'))
     suite.addTest(TestGraphiantPlaybooks('test_delete_site_to_site_vpn'))
@@ -1224,8 +1890,9 @@ if __name__ == '__main__':
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_global_ntp'))
 
     # Data Exchange Tests
-    suite.addTest(TestGraphiantPlaybooks('test_configure_global_config_prefix_lists'))  # Pre-req: Configure prefix lists.
-    suite.addTest(TestGraphiantPlaybooks('test_configure_global_config_graphiant_filters'))  # Pre-req: Configure Graphiant filters.
+    suite.addTest(TestGraphiantPlaybooks('test_configure_global_config_prefix_lists'))  # Pre-req: prefix lists
+    # Pre-req: Graphiant filters
+    suite.addTest(TestGraphiantPlaybooks('test_configure_global_config_graphiant_filters'))
     suite.addTest(TestGraphiantPlaybooks('test_create_data_exchange_services'))
     suite.addTest(TestGraphiantPlaybooks('test_get_data_exchange_services_summary'))
     suite.addTest(TestGraphiantPlaybooks('test_create_data_exchange_customers'))
@@ -1244,7 +1911,7 @@ if __name__ == '__main__':
     suite.addTest(TestGraphiantPlaybooks('test_configure_interfaces'))
     suite.addTest(TestGraphiantPlaybooks('test_configure_vpn_profiles'))
     suite.addTest(TestGraphiantPlaybooks('test_create_site_to_site_vpn'))
-    suite.addTest(TestGraphiantPlaybooks('test_configure_static_routes'))  # Pre-req: Configure LAN segments, interfaces, circuits, and site-to-site VPNs.
+    suite.addTest(TestGraphiantPlaybooks('test_configure_static_routes'))  # Pre-req: LAN segments, interfaces, VPNs
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_static_routes'))
     suite.addTest(TestGraphiantPlaybooks('test_delete_site_to_site_vpn'))
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_vpn_profiles'))
@@ -1255,6 +1922,23 @@ if __name__ == '__main__':
     suite.addTest(TestGraphiantPlaybooks('test_configure_device_ntp'))
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_device_ntp'))
 
+    # Device-level traffic policy tests (attach/detach segments before ruleset deconfigure).
+    # Prereq: prefix/port lists and edge services (DPI applications).
+    suite.addTest(TestGraphiantPlaybooks('test_configure_global_lan_segments'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_interfaces'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_vpn_profiles'))
+    suite.addTest(TestGraphiantPlaybooks('test_create_site_to_site_vpn'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_prefix_and_port_list'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_edge_services'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_device_traffic_policy'))
+    suite.addTest(TestGraphiantPlaybooks('test_attach_traffic_policy_lan_segments'))
+    suite.addTest(TestGraphiantPlaybooks('test_detach_traffic_policy_lan_segments'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_device_traffic_policy'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_edge_services'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_prefix_and_port_list'))
+    suite.addTest(TestGraphiantPlaybooks('test_delete_site_to_site_vpn'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_vpn_profiles'))
+
     # To deconfigure all interfaces
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_interfaces'))
 
@@ -1262,4 +1946,18 @@ if __name__ == '__main__':
     suite.addTest(TestGraphiantPlaybooks('test_show_validated_payload_for_device_config'))
     suite.addTest(TestGraphiantPlaybooks('test_configure_device_config'))
 
-    runner = unittest.TextTestRunner(verbosity=2).run(suite)
+    # Backbone (Core) Configuration Management Tests
+    suite.addTest(TestGraphiantPlaybooks('test_configure_backbone'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_backbone'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_backbone_core_to_core_interfaces'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_backbone_core_to_core_interfaces'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_backbone_core_to_core_tunnels'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_backbone_core_to_core_tunnels'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_backbone_wan_circuits'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_backbone_wan_circuits'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_backbone_direct_peer_interfaces'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_backbone_direct_peer_interfaces'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_backbone_syslog_targets'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_backbone_syslog_targets'))
+
+    unittest.TextTestRunner(verbosity=2).run(suite)

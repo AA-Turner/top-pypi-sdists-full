@@ -8,6 +8,58 @@ from typing import assert_never
 
 _DIGITS_PREFIX_RE = re.compile(r"^(\d+)")
 
+# Pragmatic PEP 440 matcher, not the full grammar: esphome only ever
+# emits release / pre / post / dev / local forms. A regex keeps the
+# cold-import floor clean — ``packaging`` is too heavy to import here.
+_PEP440_RE = re.compile(
+    r"""
+    v?                                                       # optional leading v
+    (?:\d+!)?                                                 # epoch
+    \d+(?:\.\d+)*                                             # release segment
+    (?:[-_.]?(?:a|b|c|rc|alpha|beta|pre|preview)[-_.]?\d*)?   # pre-release
+    (?:(?:[-_.]?post[-_.]?\d*)|-\d+)?                         # post-release
+    (?:[-_.]?dev[-_.]?\d*)?                                   # dev-release
+    (?:\+[a-z0-9]+(?:[-_.][a-z0-9]+)*)?                       # local version
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def is_pep440_version(version: str) -> bool:
+    """Return whether *version* is a well-formed PEP 440 version string.
+
+    The single gate for every esphome version string crossing a trust
+    boundary (peer-link advert, provisioning target) so a malformed or
+    injected value never reaches storage or a ``pip install`` argument.
+    """
+    return _PEP440_RE.fullmatch(version) is not None
+
+
+def coerce_pep440_version(value: object, *, max_len: int) -> str:
+    """Coerce a peer-supplied *value* to a bounded PEP 440 version, or ``""``.
+
+    Non-str, longer than *max_len*, or non-PEP440 all collapse to ``""`` so a
+    malformed / oversized / injected wire value never reaches storage or a
+    ``pip install`` argument. The single coercion both version wire seams use.
+    """
+    if not isinstance(value, str) or len(value) > max_len or not is_pep440_version(value):
+        return ""
+    return value
+
+
+# A plain dotted-numeric release (no epoch / pre / post / dev / local segment).
+_RELEASE_RE = re.compile(r"\d+(?:\.\d+)*")
+
+
+def is_release_version(version: str) -> bool:
+    """Return whether *version* is a final release, not a pre / dev / local build.
+
+    Stricter than :func:`is_pep440_version`: only a plain release pins to a
+    reproducible ``pip install esphome==<version>``, so the provisioner
+    refuses anything else (a ``-dev`` build can't be pinned to an exact commit).
+    """
+    return _RELEASE_RE.fullmatch(version) is not None
+
 
 class VersionMatchPolicy(StrEnum):
     """How strictly the offloader filters peers by ESPHome version.

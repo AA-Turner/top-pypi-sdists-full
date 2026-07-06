@@ -43,11 +43,13 @@ dev = [
   "dill (>=0.2.5)",
   "sphinx (>=8)",
   "mypy (>=2.1)",
-  "ruff (>=0.15)"
+  "ruff (>=0.15)",
+  "pytest-timeout>=2.4.0",
+  "pytest-cov>=6",
 ]
 
 [tool.mypy]
-packages = ["nameparser"]
+packages = ["nameparser", "tests"]
 
 [[tool.mypy.overrides]]
 module = [
@@ -56,7 +58,8 @@ module = [
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "nameparser"]
+addopts = "--doctest-modules"
 python_classes = ["*Tests", "*TestCase"]
 # Fail if an xfail-marked test unexpectedly passes, so a fixed/regressed
 # expectation surfaces instead of silently turning into an xpass.
@@ -69,6 +72,4 @@ extend-select = [
 ]
 ignore = [
   "E74",     # ambiguous-{variable,class,function}-name (I have trouble believing that these are real rules)
-  "UP031",   # printf-string-formatting (the code already uses % formatting)
-  "UP032",   # f-string (the code already uses str.format)
 ]

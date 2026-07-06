@@ -1,7 +1,6 @@
 from django.contrib import admin
-from django.contrib.auth.models import Group
 
-from allianceauth.groupmanagement.models import ReservedGroupName
+from allianceauth.groupmanagement.models import Group, ReservedGroupName
 
 from ...admin import ServicesUserAdmin
 from .models import AuthTS, StateGroup, Teamspeak3User, TSgroup

@@ -2,9 +2,9 @@ import logging
 
 from celery import shared_task
 
-from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 
+from allianceauth.authentication.models import User
 from allianceauth.notifications import notify
 from allianceauth.services.hooks import NameFormatter
 from allianceauth.services.tasks import QueueOnce

@@ -12,19 +12,19 @@ prov-compare -- Compare two PROV-JSON, PROV-XML, or RDF (PROV-O) files for equiv
 @deffield    updated: 2025-06-07
 """
 
-from argparse import ArgumentParser, RawDescriptionHelpFormatter, FileType
+from __future__ import annotations
+
+import logging
 import os
 import sys
-import logging
 import traceback
-from typing import Optional
+from argparse import ArgumentParser, FileType, RawDescriptionHelpFormatter
 
 from prov.model import ProvDocument
 
-
 logger = logging.getLogger(__name__)
 
-__all__ = []  # type: ignore
+__all__: list[str] = []
 __version__ = 0.1
 __date__ = "2015-06-16"
 __updated__ = "2025-06-07"
@@ -39,13 +39,13 @@ class CLIError(Exception):
 
     def __init__(self, msg: str):
         super().__init__(type(self))
-        self.msg = "E: %s" % msg
+        self.msg = f"E: {msg}"
 
     def __str__(self) -> str:
         return self.msg
 
 
-def main(argv: Optional[list] = None) -> int:  # IGNORE:C0111
+def main(argv: list[str] | None = None) -> int:  # IGNORE:C0111
     """Command line options."""
 
     if argv is None:
@@ -54,15 +54,11 @@ def main(argv: Optional[list] = None) -> int:  # IGNORE:C0111
         sys.argv.extend(argv)
 
     program_name = os.path.basename(sys.argv[0])
-    program_version = "v%s" % __version__
+    program_version = f"v{__version__}"
     program_build_date = str(__updated__)
-    program_version_message = "%%(prog)s %s (%s)" % (
-        program_version,
-        program_build_date,
-    )
+    program_version_message = f"%(prog)s {program_version} ({program_build_date})"
     program_shortdesc = __doc__.split("\n")[1]
-    program_license = (
-        """%s
+    program_license = f"""{program_shortdesc}
 
   Copyright 2025 Trung Dong Huynh.
 
@@ -74,8 +70,6 @@ def main(argv: Optional[list] = None) -> int:  # IGNORE:C0111
 
 USAGE
 """
-        % program_shortdesc
-    )
 
     try:
         # Setup argument parser
@@ -141,10 +135,9 @@ if __name__ == "__main__":
 
         profile_filename = "prov_compare_profile.txt"
         cProfile.run("main()", profile_filename)
-        statsfile = open("profile_stats.txt", "wb")
-        p = pstats.Stats(profile_filename, stream=statsfile)
-        stats = p.strip_dirs().sort_stats("cumulative")
-        stats.print_stats()
-        statsfile.close()
+        with open("profile_stats.txt", "wb") as statsfile:
+            p = pstats.Stats(profile_filename, stream=statsfile)
+            stats = p.strip_dirs().sort_stats("cumulative")
+            stats.print_stats()
         sys.exit(0)
     sys.exit(main())

@@ -18,6 +18,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("fresh_caches")
+
 # Import will work once PropertyAccessor is implemented
 from dbt_osmosis.core.introspection import PropertyAccessor
 
@@ -47,16 +49,6 @@ class MockColumn:
         config_meta: dict[str, Any] | None = None,
         config_tags: list[str] | None = None,
     ) -> None:
-        """Initialize a mock column.
-
-        Args:
-            name: Column name
-            description: Optional column description
-            meta: Optional metadata dictionary
-            data_type: Optional data type
-            tags: Optional list of tags
-
-        """
         self.name = name
         self.description = description
         self.meta = meta or {}
@@ -79,19 +71,6 @@ class MockNode:
         patch_path: str | None = "models/my_model.yml",
         resource_type: str = "model",
     ) -> None:
-        """Initialize a mock node.
-
-        Args:
-            unique_id: Unique identifier for the node
-            description: Optional node description
-            meta: Optional metadata dictionary
-            tags: Optional list of tags
-            columns: Optional dictionary of columns
-            raw_code: Optional raw SQL code
-            patch_path: Optional YAML file path
-            resource_type: Optional resource type (model, source, seed, etc.)
-
-        """
         self.unique_id = unique_id
         self.description = description
         self.meta = meta or {}
@@ -234,12 +213,11 @@ class TestPropertyAccessor:
         result = accessor.get("description", sample_node_rendered, source="manifest")
         assert "comprehensive documentation" in result
 
-    @patch("dbt_osmosis.core.inheritance._get_node_yaml")
+    @patch("dbt_osmosis.core.node_yaml._get_node_yaml")
     def test_get_property_from_yaml(
         self,
         mock_get_yaml,
         sample_node_with_unrendered: MockNode,
-        sample_yaml_file: Path,
         mock_context: Mock,
     ) -> None:
         """Test getting a property from YAML (unrendered)."""
@@ -259,12 +237,11 @@ class TestPropertyAccessor:
         result = accessor.get("description", sample_node_with_unrendered, source="yaml")
         assert "{{ doc('my_doc_block') }}" in result
 
-    @patch("dbt_osmosis.core.inheritance._get_node_yaml")
+    @patch("dbt_osmosis.core.node_yaml._get_node_yaml")
     def test_prefer_unrendered_true(
         self,
         mock_get_yaml,
         sample_node_rendered: MockNode,
-        sample_yaml_file: Path,
         mock_context: Mock,
     ) -> None:
         """Test that source='auto' with unrendered jinja prefers YAML."""
@@ -281,7 +258,6 @@ class TestPropertyAccessor:
     def test_prefer_unrendered_false(
         self,
         sample_node_rendered: MockNode,
-        sample_yaml_file: Path,
         mock_context: Mock,
     ) -> None:
         """Test that source='manifest' always uses manifest."""
@@ -293,7 +269,6 @@ class TestPropertyAccessor:
     def test_get_column_property(
         self,
         sample_node_rendered: MockNode,
-        sample_yaml_file: Path,
         mock_context: Mock,
     ) -> None:
         """Test getting a column-level property."""
@@ -364,7 +339,7 @@ class TestPropertyAccessor:
 
         assert result == ["legacy", "shared", "config"]
 
-    @patch("dbt_osmosis.core.inheritance._get_node_yaml")
+    @patch("dbt_osmosis.core.node_yaml._get_node_yaml")
     def test_get_yaml_column_config_meta_and_tags_are_effective(
         self,
         mock_get_yaml,
@@ -428,7 +403,6 @@ class TestPropertyAccessor:
     def test_yaml_source_reads_version_level_column_properties(
         self,
         yaml_context,
-        fresh_caches,
     ) -> None:
         """YAML source should read selected versions[].columns and top-level fallbacks."""
         from dbt_osmosis.core.schema.reader import _read_yaml
@@ -469,7 +443,7 @@ class TestPropertyAccessor:
             "not_null",
         ]
 
-    @patch("dbt_osmosis.core.inheritance._get_node_yaml")
+    @patch("dbt_osmosis.core.node_yaml._get_node_yaml")
     def test_yaml_column_without_meta_or_tags_falls_back_to_manifest(
         self,
         mock_get_yaml,
@@ -513,7 +487,7 @@ class TestPropertyAccessor:
         result = accessor.get("data_type", node, column_name="id", source="manifest")
         assert result == "integer"
 
-    @patch("dbt_osmosis.core.inheritance._get_node_yaml")
+    @patch("dbt_osmosis.core.node_yaml._get_node_yaml")
     def test_missing_yaml_file(
         self,
         mock_get_yaml,
@@ -549,12 +523,11 @@ class TestPropertyAccessor:
         # Should fall back to manifest or return None
         assert result is None or result == "Ephemeral model"
 
-    @patch("dbt_osmosis.core.inheritance._get_node_yaml")
+    @patch("dbt_osmosis.core.node_yaml._get_node_yaml")
     def test_column_not_in_yaml(
         self,
         mock_get_yaml,
         sample_node_rendered: MockNode,
-        sample_yaml_file: Path,
         mock_context: Mock,
     ) -> None:
         """Test accessing a column that exists in manifest but not in YAML."""
@@ -580,12 +553,11 @@ class TestPropertyAccessor:
         # Should fall back to manifest if column not in YAML
         assert result is not None
 
-    @patch("dbt_osmosis.core.inheritance._get_node_yaml")
+    @patch("dbt_osmosis.core.node_yaml._get_node_yaml")
     def test_unrendered_jinja_preservation(
         self,
         mock_get_yaml,
         sample_node_with_unrendered: MockNode,
-        sample_yaml_file: Path,
         mock_context: Mock,
     ) -> None:
         """Test that unrendered jinja templates are preserved."""
@@ -655,13 +627,13 @@ class TestPropertyAccessorIntegration:
     """
 
     @pytest.mark.skip(reason="Demo project fixture not yet set up")
-    def test_access_with_demo_project(self, demo_project: Path) -> None:
+    def test_access_with_demo_project(self) -> None:
         """Test property accessor with the demo_duckdb project."""
 
     @pytest.mark.skip(reason="Demo project fixture not yet set up")
-    def test_source_definitions(self, demo_project: Path) -> None:
+    def test_source_definitions(self) -> None:
         """Test accessing properties from source definitions."""
 
     @pytest.mark.skip(reason="Demo project fixture not yet set up")
-    def test_seed_definitions(self, demo_project: Path) -> None:
+    def test_seed_definitions(self) -> None:
         """Test accessing properties from seed definitions."""

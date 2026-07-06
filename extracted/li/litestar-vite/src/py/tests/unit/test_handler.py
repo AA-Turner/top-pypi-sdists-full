@@ -84,6 +84,31 @@ def spa_config(temp_resource_dir: Path, monkeypatch: pytest.MonkeyPatch) -> Vite
     )
 
 
+def test_load_manifest_sync_reads_vite_default_manifest_path(tmp_path: Path) -> None:
+    """AppHandler should load Vite's default bundle_dir/.vite/manifest.json."""
+    from litestar_vite.config import PathConfig, RuntimeConfig
+
+    resource_dir = tmp_path / "resources"
+    resource_dir.mkdir()
+    (resource_dir / "index.html").write_text("<html></html>")
+
+    bundle_dir = tmp_path / "public"
+    manifest_path = bundle_dir / ".vite" / "manifest.json"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text('{"main.js":{"file":"assets/main.hash.js"}}')
+
+    config = ViteConfig(
+        mode="spa",
+        paths=PathConfig(root=tmp_path, resource_dir="resources", bundle_dir="public", static_dir="public"),
+        runtime=RuntimeConfig(dev_mode=False),
+    )
+    handler = AppHandler(config)
+
+    handler._load_manifest_sync()
+
+    assert handler._manifest == {"main.js": {"file": "assets/main.hash.js"}}
+
+
 @pytest.fixture
 def spa_config_dev(temp_resource_dir: Path) -> ViteConfig:
     """Create a ViteConfig for SPA mode in development.
@@ -843,6 +868,31 @@ def test_load_index_html_sync_missing_raises(tmp_path: Path) -> None:
 
     with pytest.raises(ImproperlyConfiguredException):
         handler._load_index_html_sync()
+
+
+def test_app_handler_loads_manifest_from_vite_dir(tmp_path: Path) -> None:
+    from litestar_vite.config import PathConfig, RuntimeConfig
+
+    resource_dir = tmp_path / "resources"
+    resource_dir.mkdir()
+    (resource_dir / "index.html").write_text(
+        "<html><body><script type='module' src='/src/main.ts'></script></body></html>"
+    )
+    bundle_dir = tmp_path / "public"
+    manifest_dir = bundle_dir / ".vite"
+    manifest_dir.mkdir(parents=True)
+    (manifest_dir / "manifest.json").write_text('{"src/main.ts":{"file":"assets/main.js"}}')
+
+    config = ViteConfig(
+        mode="spa",
+        paths=PathConfig(root=tmp_path, resource_dir="resources", bundle_dir="public", static_dir="public"),
+        runtime=RuntimeConfig(dev_mode=False),
+    )
+    handler = AppHandler(config)
+
+    handler.initialize_sync()
+
+    assert handler._manifest == {"src/main.ts": {"file": "assets/main.js"}}
 
 
 def test_transform_asset_urls_in_html_uses_manifest(spa_config: ViteConfig) -> None:

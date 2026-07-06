@@ -1,5 +1,4 @@
-from django.contrib.auth.models import Group
-
+from allianceauth.groupmanagement.models import Group
 from allianceauth.tests.auth_utils import AuthUtils
 
 DEFAULT_AUTH_GROUP = 'Member'

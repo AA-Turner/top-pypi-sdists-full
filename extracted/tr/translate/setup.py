@@ -38,7 +38,7 @@ def save_version():
     if content_file_new == content_file:
         return
     with open(version_path, 'w') as version_file_write:
-        version_file_write.write(content_file)
+        version_file_write.write(content_file_new)
 
 
 class VersionCommand(Command):
@@ -84,9 +84,8 @@ def run():
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python',
         'Topic :: Education',
     ],
@@ -102,6 +101,7 @@ def run():
     long_description=long_description,
     name='translate',
     packages=find_packages(exclude=['docs', 'tests', 'tests.*', 'requirements']),
+    python_requires='>=3.6',
     setup_requires=['pytest-runner'],
     tests_require=tests_requirements,
     url='https://github.com/terryyin/google-translate-python',

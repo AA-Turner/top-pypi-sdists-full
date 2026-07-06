@@ -186,7 +186,9 @@ class InertiaPlugin(InitPlugin):
         # objects are only fully resolved with runtime attributes
         # (has_sync_callable, signature_model, etc.) after route registration
         # completes.
-        app_config.on_startup.append(_wrap_app_handlers)  # pyright: ignore[reportUnknownMemberType]
+        app_config.on_startup.append(  # pyright: ignore[reportUnknownMemberType]
+            functools.partial(_wrap_app_handlers, component_opt_keys=self.config.component_opt_keys)
+        )
 
         return app_config
 
@@ -253,6 +255,7 @@ async def _resolve_inertia_response_data(data: "Any", request: "Request[Any, Any
             return data
 
     response: InertiaResponse[Any] = InertiaResponse(content=content)
+    response._defer_status_to_handler = True  # pyright: ignore[reportPrivateUsage]
     await response.resolve_async_props(request)
     return response
 
@@ -292,13 +295,21 @@ def _wrap_handler_fn(handler: "HTTPRouteHandler") -> None:
     handler.has_sync_callable = False
 
 
-def _wrap_app_handlers(app: "Litestar") -> None:
-    """Idempotently wrap every HTTP route handler on the live app.
+def _handler_supports_inertia(handler: "HTTPRouteHandler", *, component_opt_keys: "tuple[str, ...]") -> bool:
+    """Return whether a route handler declares an Inertia page target."""
+    opt: dict[str, Any] = handler.opt or {}
+    return any(bool(opt.get(key)) for key in component_opt_keys)
+
+
+def _wrap_app_handlers(app: "Litestar", *, component_opt_keys: "tuple[str, ...]" = ("component", "page")) -> None:
+    """Idempotently wrap Inertia-capable HTTP route handlers on the live app.
 
     Run after Litestar's full route registration so dynamically-attached
     handlers (controllers instantiated late, plugins, etc.) are also wrapped.
     """
     for route in app.routes:
         for handler in getattr(route, "route_handlers", ()):
-            if isinstance(handler, HTTPRouteHandler):
+            if isinstance(handler, HTTPRouteHandler) and _handler_supports_inertia(
+                handler, component_opt_keys=component_opt_keys
+            ):
                 _wrap_handler_fn(handler)

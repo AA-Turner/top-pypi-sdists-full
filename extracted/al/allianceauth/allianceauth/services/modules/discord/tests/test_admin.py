@@ -1,25 +1,18 @@
 from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
-from django.contrib.auth.models import User
 from django.test import RequestFactory
 from django.utils.timezone import now
 
-from allianceauth.authentication.models import CharacterOwnership
+from allianceauth.authentication.models import CharacterOwnership, User
 from allianceauth.eveonline.models import (
-    EveAllianceInfo,
-    EveCharacter,
-    EveCorporationInfo,
+    EveAllianceInfo, EveCharacter, EveCorporationInfo,
 )
 from allianceauth.utils.testing import NoSocketsTestCase
 
 from ....admin import (
-    MainAllianceFilter,
-    MainCorporationsFilter,
-    ServicesUserAdmin,
-    user_main_organization,
-    user_profile_pic,
-    user_username,
+    MainAllianceFilter, MainCorporationsFilter, ServicesUserAdmin,
+    user_main_organization, user_profile_pic, user_username,
 )
 from ..admin import DiscordUserAdmin
 from ..models import DiscordUser

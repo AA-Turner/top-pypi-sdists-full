@@ -7,14 +7,13 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.models import User
+from django.core import signing
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
-from django.core import signing
 from django_registration.backends.activation import REGISTRATION_SALT
 from django_registration.backends.activation.views import (
     ActivationView as BaseActivationView,
@@ -27,12 +26,13 @@ from esi.decorators import token_required
 from esi.models import Token
 
 from allianceauth import __esi_compatibility_date__, __version__
+from allianceauth.admin_status.templatetags.admin_status import _celery_stats
+from allianceauth.authentication.models import User
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.hooks import get_hooks
 
 from .constants import ESI_ERROR_MESSAGE_OVERRIDES
 from .core.celery_workers import active_tasks_count, queued_tasks_count
-from allianceauth.admin_status.templatetags.admin_status import _celery_stats
 from .forms import RegistrationActivationForm, RegistrationForm
 from .models import CharacterOwnership
 

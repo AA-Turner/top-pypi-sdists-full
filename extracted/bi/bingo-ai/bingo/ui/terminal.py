@@ -15,6 +15,7 @@ from rich.table import Table
 from rich.live import Live
 from rich.spinner import Spinner
 from rich.markdown import Markdown
+from rich.markup import escape as _markup_escape
 from rich.rule import Rule
 from rich.prompt import Prompt
 from prompt_toolkit import PromptSession
@@ -314,13 +315,15 @@ class BingoTerminal:
         try:
             from ..core.target_memory import load as _tm_load, save as _tm_save, \
                 record_sqli_point as _tm_sqli, record_users as _tm_users, \
-                record_endpoint as _tm_ep, build_context_injection as _tm_ctx
+                record_endpoint as _tm_ep, build_context_injection as _tm_ctx, \
+                purge_foreign_domains as _tm_purge
             self._tm_load = _tm_load
             self._tm_save = _tm_save
             self._tm_sqli = _tm_sqli
             self._tm_users = _tm_users
             self._tm_ep = _tm_ep
             self._tm_ctx = _tm_ctx
+            self._tm_purge = _tm_purge
             self._tm_available = True
         except Exception:
             self._tm_available = False
@@ -886,6 +889,9 @@ class BingoTerminal:
                     return hint.strip() if hint.strip() else None
                 except (EOFError, KeyboardInterrupt):
                     return None
+                except RuntimeError:
+                    # v5.1.2: asyncio.run() in running loop — fallback으로 진행
+                    pass
                 finally:
                     _sys.stdin = _orig_stdin
             except Exception:
@@ -905,6 +911,12 @@ class BingoTerminal:
                         pass
 
         # Fallback: /dev/tty 없거나 termios 없는 환경 (Windows native 등)
+        # v5.1.2: RuntimeError(asyncio.run in running loop) 방어 추가.
+        #   Python 3.12 + prompt_toolkit: bash 병렬 스레드 완료 직후 메인 스레드에서
+        #   asyncio 이벤트 루프가 여전히 "running" 상태로 감지되는 경우가 있음.
+        #   prompt_toolkit PromptSession.prompt()는 내부적으로 asyncio.run()을 호출하므로
+        #   이 상태에서 RuntimeError가 발생 → 기존에 EOFError/KeyboardInterrupt만 잡아
+        #   크래시됐던 버그를 input() fallback으로 완전 방어.
         try:
             hint = self._session.prompt(
                 HTML('<ansiyellow><b>💬 hint ❯</b></ansiyellow> '),
@@ -913,6 +925,17 @@ class BingoTerminal:
             return hint.strip() if hint.strip() else None
         except (EOFError, KeyboardInterrupt):
             return None
+        except RuntimeError:
+            # asyncio.run() cannot be called from a running event loop
+            # → input() 로 최종 fallback
+            try:
+                import sys as _sys2
+                _sys2.stdout.write("💬 hint ❯ ")
+                _sys2.stdout.flush()
+                _h = input()
+                return _h.strip() if _h.strip() else None
+            except (EOFError, KeyboardInterrupt, Exception):
+                return None
         finally:
             # ★ v3.3.3: 원래 SIGINT 핸들러 복원 + stop_flag 클리어
             _signal.signal(_signal.SIGINT, _orig_sigint)
@@ -2401,13 +2424,13 @@ class BingoTerminal:
                 "[BINGO RUNTIME INTERCEPTED HALLUCINATION]\n"
                 f"REASON: {_reason_str}\n\n"
                 "RULE: You CANNOT claim vulnerability found / attack success / DB access\n"
-                "      WITHOUT a Python code block that produced HTTP evidence.\n"
-                "MANDATORY: Write REAL Python requests.get/post code that PROVES the claim.\n"
+                "      WITHOUT a bash block with curl that produced HTTP evidence.\n"
+                "MANDATORY: Write REAL bash+curl code that PROVES the claim.\n"
                 "DO NOT return JSON plans. DO NOT invent credentials or results.\n"
                 "DO NOT say 'my environment is limited to text'.\n"
-                "EVERY conclusion MUST come from actual HTTP response output.\n\n"
+                "EVERY conclusion MUST come from actual curl HTTP response output.\n\n"
                 f"Original task: {original_text[:200]}\n\n"
-                "Now write Python code that actually executes and proves the finding:"
+                "Now write a bash block with curl that actually executes and proves the finding:"
             )
             self.history.append(Message(role="user", content=_force_msg))
             _retry = self._stream_response(
@@ -2641,33 +2664,62 @@ class BingoTerminal:
     # 고객 피드백: "bingo가 취약점을 한 번만 확인하고 끝냄, 幻觉率(환각률)이 높음"
     # 해결: 코드 실행 결과에서 취약점 신호 감지 → 자동으로 다른 기법으로 2차 검증 강제
 
+    # ── MVVS 신호 패턴 — FP-ZERO v1.1 (v5.0.5) ─────────────────────────────────
+    # 오발(False Positive) 선제 제거 원칙:
+    #   [1] 단독 키워드 금지 → 반드시 취약점 컨텍스트 조합 필요
+    #   [2] 정상 스크립트 출력("Command output:", "shell:") 충돌 패턴 제거
+    #   [3] 일반 HTML/텍스트에서 흔히 나오는 단어 단독 사용 금지 ("internal", "root:", "syntax error")
     _MVVS_SIGNALS: "dict[str, list[tuple[str, str]]]" = {
         # (regex_pattern, description)
         "sqli": [
-            (r"sql\s*(?:syntax|error|inject)|syntax error|ORA-\d{4,}|mysql_fetch|pg_query",    "SQL error message"),
+            # FIX[1] "syntax error" 단독 → Python/JS traceback 오발 방지.
+            #        반드시 SQL 컨텍스트 필요: "sql syntax error" 또는 DB 전용 에러코드.
+            (r"sql\s*(?:syntax|error|inject)|ORA-\d{4,}|mysql_fetch|pg_query",                  "SQL error message"),
             (r"80040e14|80040e07|80040e01|ODBC.*SQL|OLE DB.*SQL",                                 "OLEDB/ODBC SQL error"),
             (r"(?:WAITFOR|pg_sleep|SLEEP)\s*\([^)]+\).*?(?:\d{2,}\.?\d*\s*sec|took\s*\d+s)",    "Time-based SQLi delay"),
             (r"size.*?(\d{4,}).*?vs.*?(\d{4,})|length.*differ|response.*differ",                 "Response size difference"),
-            (r"1=1.{0,30}200|boolean.{0,30}differ|true.*false.*differ",                          "Boolean-based difference"),
+            # v5.0.4 fix: 1=1 패턴이 출력 텍스트 "boardNo_AND1=1: 200 458" 등에 오발 방지.
+            (r"1=1.*?(?:size|byte|len|length|differ|!=|<>).*?1=2|boolean.{0,30}differ|true.*false.*differ", "Boolean-based difference"),
         ],
         "xss": [
-            (r"<script[^>]*>\s*alert|onerror\s*=|onload\s*=|javascript\s*:",                     "XSS payload reflected"),
-            (r"xss.*(?:confirm|alert|prompt)\s*\(",                                               "XSS execution confirmed"),
-            (r"payload.*reflect|reflect.*payload",                                                "Reflected payload"),
+            (r"<script[^>]*>\s*alert",                                                            "XSS script-alert reflected"),
+            (r"onerror\s*=\s*(?:alert|eval|document|window|fetch|location)",                     "XSS event handler reflected"),
+            (r"onload\s*=\s*(?:alert|eval|document|window|fetch|location)",                      "XSS onload reflected"),
+            # v5.0.4 fix: javascript: 단독 오발 방지. 위험 함수(alert/eval/document)만 허용.
+            (r"javascript\s*:\s*(?:alert|eval|document\.|window\.|location\.href|fetch\s*\(|XMLHttp)", "XSS javascript: pseudo-protocol"),
+            # FIX[2] "xss.*confirm" → bingo 자체 로그 "✅ XSS confirmed" 등에서 오발.
+            #        실제 실행 증거: alert()/confirm()/prompt() 리터럴이 HTTP 응답에 반사된 경우만.
+            (r"<(?:script|img|svg|body)[^>]*>.*?(?:alert|confirm|prompt)\s*\(\s*['\"]?[^)]{0,40}['\"]?\s*\)", "XSS execution — reflected payload"),
+            # FIX[3] v5.1.1: 이전 패턴 r"(?:<script|onerror|...)\b.{0,200}(?:<script|..." 은
+            #        정상 HTML 페이지에 <script src="a.js"></script><script src="b.js"> 처럼
+            #        외부 스크립트 2개만 있어도 200자 내에서 매칭 → 오발.
+            # 수정: src= 없는 인라인 <script>에 이벤트 핸들러(onerror= 등)가 결합된 경우만 매칭.
+            #      또는 이벤트 핸들러 속성에 실행 함수(alert/eval/document. 등)가 있는 경우.
+            (r"<script\b(?![^>]*\bsrc\s*=)[^>]*>[^<\s].{0,100}(?:onerror|onload|onfocus|alert|eval)", "Reflected inline-script injection"),
+            (r"(?:onerror|onload|onfocus|onmouseover)\s*=\s*['\"]?\s*(?:alert|eval|document\.|window\.|fetch\s*\(|location\.)", "Reflected event-handler injection"),
         ],
         "idor": [
             (r"(?:user|member|account|customer)_?(?:id|no|seq)\s*[=:]\s*\d+.{0,100}(?:name|email|phone|address)", "IDOR — other user data"),
-            (r"(?:unauthorized|forbidden|403).{0,50}(?:bypass|200|success|ok\b)",                "Authorization bypass"),
+            # FIX[4] "403 ... 200" 패턴 → 같은 출력에 403(다른 요청) + 200(정상 요청)이 있으면 오발.
+            #        "bypass" 또는 "우회" 단어가 동시에 있을 때만 인정.
+            (r"(?:unauthorized|forbidden|403)\s.{0,80}(?:bypass|우회|bypassed|circumvent).{0,80}(?:200|success|ok\b)", "Authorization bypass confirmed"),
             (r"(?:admin|관리자|root).{0,40}(?:access|panel|dashboard).{0,40}(?:200|success|ok\b)", "Admin access"),
         ],
         "rce": [
-            (r"uid=\d+\(|root:|/etc/(?:passwd|shadow)|/bin/(?:sh|bash)",                         "RCE — system file output"),
-            (r"(?:cmd|command|shell).{0,30}(?:output|result|executed)",                           "Command execution output"),
+            # FIX[5] "root:" 단독 → DB 계정명("root:password"), 컨테이너 정보 등 오발.
+            #        /etc/passwd 형식(root:x:0:0)이거나 uid=\d+\( 형식일 때만 RCE 신호.
+            (r"uid=\d+\([^)]+\)|root:\w*:\d+:\d+|/etc/(?:passwd|shadow)",                       "RCE — system identity output"),
+            (r"/bin/(?:sh|bash)\s*[-#\$]|/bin/sh.*executed|shell.*\$\s*(?:id|whoami|uname)",     "RCE — shell prompt / output"),
+            # FIX[6] "command output" 단독 → 스크립트 자체 로그 오발 방지.
+            #        실제 OS 명령 실행 결과임을 나타내는 추가 증거(id/whoami/hostname 출력) 필요.
+            (r"(?:whoami|id\s*:?\s*root|hostname)\s*[=:]\s*\w+|os\.(?:popen|system)\s*\(\s*['\"]",  "RCE — command output with proof"),
             (r"Windows\s+NT.{0,20}(?:Microsoft|System32)|whoami.*?[a-zA-Z]+\\[a-zA-Z]+",         "RCE — Windows output"),
         ],
         "ssrf": [
             (r"169\.254\.169\.254|metadata\.google\.internal|100\.100\.100\.200",                "Cloud metadata access"),
-            (r"(?:internal|private|10\.|172\.1[6-9]\.|192\.168\.).{0,60}(?:200|open|connect)",   "Internal network access"),
+            # FIX[7] "internal" / "private" 단독 단어 → 일반 문장("internal server error") 오발.
+            #        사설 IP 범위(10./172.16-31./192.168.)가 직접 노출될 때만 SSRF 신호.
+            (r"(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2[0-9]|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}).{0,60}(?:200\b|open\b|connect)",  "SSRF — private IP accessed"),
         ],
         "path_traversal": [
             (r"root:x:0:0|daemon:x:|/etc/passwd.*root",                                          "Path traversal — /etc/passwd"),
@@ -2675,17 +2727,180 @@ class BingoTerminal:
         ],
     }
 
+    # ── BINGO_SIGNAL 구조화 신호 시스템 (v5.0.7) ──────────────────────────────
+    # 목적: LLM이 자유 형식 텍스트 대신 구조화된 JSON으로만 취약점을 보고하게 강제.
+    #        → 정규식 오발(false positive) 구조적 원천 차단.
+    #
+    # 형식: BINGO_SIGNAL:{"type":"sqli_boolean","evidence":{"size_true":15420,...}}
+    #
+    # MVVS 우선순위:
+    #   1순위 — BINGO_SIGNAL 구조화 신호 (증거 JSON 검증 후 판정)
+    #   2순위 — 정규식 MVVS_SIGNALS (보조 백업, 구조화 신호 없을 때만)
+    #
+    # 신호 타입 및 필수 증거 필드:
+    #   sqli_boolean : size_true(int), size_false(int) — diff >= 100B
+    #   sqli_error   : db_error(str) — ORA-/mysql_fetch 등 DB 에러 문자열
+    #   sqli_time    : delay_sec(float) — 실제 응답 지연 초(>=3)
+    #   xss          : payload(str), reflected(bool)
+    #   rce          : proof(str) — uid=0(root)/etc/passwd 레코드 중 하나
+    #   ssrf         : ip_accessed(str) — 사설 IP 또는 메타데이터 IP
+    #   idor         : other_user_id(int/str), data_returned(bool)
+    #   path_traversal: content(str) — root:x:0:0 등 실제 내용 포함
+
+    _BINGO_SIGNAL_PREFIX = "BINGO_SIGNAL:"
+
+    def _parse_bingo_signals(
+        self, output: str
+    ) -> "list[tuple[str, str, str]]":
+        """출력에서 BINGO_SIGNAL: 구조화 신호 파싱 및 증거 검증.
+
+        Returns: [(vuln_type, description, evidence_summary), ...]
+        실제 측정 증거가 있는 신호만 반환.
+        """
+        import json as _json
+        found: list[tuple[str, str, str]] = []
+        if not output:
+            return found
+        for line in output.splitlines():
+            line = line.strip()
+            if not line.startswith(self._BINGO_SIGNAL_PREFIX):
+                continue
+            try:
+                raw = line[len(self._BINGO_SIGNAL_PREFIX):]
+                data = _json.loads(raw)
+            except (_json.JSONDecodeError, ValueError):
+                continue  # JSON 파싱 실패 → 무시
+
+            stype = str(data.get("type", "")).lower()
+            evidence = data.get("evidence", {})
+            ok, desc, summary = self._validate_bingo_signal(stype, evidence)
+            if ok:
+                # vuln_type 정규화: sqli_boolean→sqli, path_traversal→path_traversal
+                _type_map = {
+                    "sqli_boolean": "sqli",
+                    "sqli_error": "sqli",
+                    "sqli_time": "sqli",
+                    "xss": "xss",
+                    "rce": "rce",
+                    "ssrf": "ssrf",
+                    "idor": "idor",
+                    "path_traversal": "path_traversal",
+                }
+                vuln_type = _type_map.get(stype, stype.split("_")[0])
+                found.append((vuln_type, desc, summary))
+        return found
+
+    def _validate_bingo_signal(
+        self, stype: str, evidence: dict
+    ) -> "tuple[bool, str, str]":
+        """BINGO_SIGNAL 증거 유효성 검증.
+
+        Returns: (valid, description, evidence_summary)
+        """
+        import re as _re
+
+        # ── SQLi Boolean ──────────────────────────────────────────────────────
+        if stype == "sqli_boolean":
+            st = int(evidence.get("size_true", 0))
+            sf = int(evidence.get("size_false", 0))
+            diff = abs(st - sf)
+            if diff < 100:
+                return False, "", f"diff={diff}B (<100B threshold)"
+            pct = diff / max(st, sf, 1) * 100
+            if pct < 10:
+                return False, "", f"diff={pct:.1f}% (<10% threshold)"
+            return True, "Boolean SQLi — size diff confirmed", f"true={st}B false={sf}B diff={diff}B ({pct:.0f}%)"
+
+        # ── SQLi Error ────────────────────────────────────────────────────────
+        elif stype == "sqli_error":
+            err = str(evidence.get("db_error", ""))
+            if not _re.search(r"ORA-\d{4,}|mysql_fetch|pg_query|80040e14|ODBC.*SQL|sql\s*(syntax|error)", err, _re.I):
+                return False, "", f"no DB error pattern in: {err[:60]}"
+            return True, "SQL error message confirmed", err[:80]
+
+        # ── SQLi Time-based ───────────────────────────────────────────────────
+        elif stype == "sqli_time":
+            delay = float(evidence.get("delay_sec", 0))
+            expected = float(evidence.get("expected_sec", 5))
+            if delay < max(expected * 0.8, 3.0):
+                return False, "", f"delay={delay}s < expected={expected}s"
+            return True, "Time-based SQLi — delay confirmed", f"delay={delay:.1f}s (expected={expected:.0f}s)"
+
+        # ── XSS ───────────────────────────────────────────────────────────────
+        elif stype == "xss":
+            payload = str(evidence.get("payload", ""))
+            reflected = bool(evidence.get("reflected", False))
+            if not payload or not reflected:
+                return False, "", f"payload={repr(payload[:40])} reflected={reflected}"
+            # 페이로드에 실제 스크립트 요소가 있어야 함
+            if not _re.search(r"<script|alert\s*\(|onerror\s*=|javascript:\s*(?:alert|eval|document)", payload, _re.I):
+                return False, "", f"payload has no executable element: {payload[:60]}"
+            return True, "XSS — payload reflected confirmed", f"payload={payload[:60]}"
+
+        # ── RCE ───────────────────────────────────────────────────────────────
+        elif stype == "rce":
+            proof = str(evidence.get("proof", ""))
+            if not _re.search(
+                r"uid=\d+\([^)]+\)|root:\w*:\d+:\d+|/etc/(?:passwd|shadow)|whoami\s*=\s*\w+",
+                proof, _re.I
+            ):
+                return False, "", f"no RCE proof pattern in: {proof[:80]}"
+            return True, "RCE — OS command execution confirmed", proof[:80]
+
+        # ── SSRF ──────────────────────────────────────────────────────────────
+        elif stype == "ssrf":
+            ip = str(evidence.get("ip_accessed", ""))
+            if not _re.match(
+                r"(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+                r"|172\.(?:1[6-9]|2[0-9]|3[01])\.\d{1,3}\.\d{1,3}"
+                r"|192\.168\.\d{1,3}\.\d{1,3}"
+                r"|169\.254\.169\.254"
+                r"|metadata\.google\.internal)",
+                ip
+            ):
+                return False, "", f"not a private/metadata IP: {ip}"
+            return True, "SSRF — private/metadata IP accessed", f"ip={ip}"
+
+        # ── IDOR ──────────────────────────────────────────────────────────────
+        elif stype == "idor":
+            other_id = evidence.get("other_user_id")
+            returned = bool(evidence.get("data_returned", False))
+            if other_id is None or not returned:
+                return False, "", f"other_id={other_id} data_returned={returned}"
+            return True, "IDOR — other user data confirmed", f"user_id={other_id}"
+
+        # ── Path Traversal ────────────────────────────────────────────────────
+        elif stype == "path_traversal":
+            content = str(evidence.get("content", ""))
+            if not _re.search(r"root:x:0:0|daemon:x:|/bin/(?:sh|bash)\s*$", content, _re.M):
+                return False, "", f"no traversal content proof: {content[:60]}"
+            return True, "Path traversal — /etc/passwd confirmed", content[:60]
+
+        # ── 알 수 없는 타입 ───────────────────────────────────────────────────
+        else:
+            return False, "", f"unknown signal type: {stype}"
+
     def _detect_vuln_signal(
         self, combined_output: str
     ) -> "list[tuple[str, str, str]]":
         """코드 실행 결과에서 취약점 신호 감지.
 
+        1순위: BINGO_SIGNAL 구조화 신호 (증거 JSON 검증)
+        2순위: 정규식 MVVS_SIGNALS (구조화 신호 없을 때만)
+
         Returns: [(vuln_type, pattern_description, matched_snippet), ...]
         """
         import re as _re
-        found: list[tuple[str, str, str]] = []
         if not combined_output:
-            return found
+            return []
+
+        # 1순위: 구조화 신호 — 증거가 명확하면 즉시 반환
+        structured = self._parse_bingo_signals(combined_output)
+        if structured:
+            return structured
+
+        # 2순위: 정규식 백업 — 구조화 신호가 없을 때만 사용
+        found: list[tuple[str, str, str]] = []
         for vuln_type, patterns in self._MVVS_SIGNALS.items():
             for regex, desc in patterns:
                 m = _re.search(regex, combined_output, _re.IGNORECASE | _re.DOTALL)
@@ -2890,16 +3105,16 @@ class BingoTerminal:
             f"CONFIDENCE STATUS: [SUSPECTED ⚠️] — needs 2nd vector confirmation\n\n"
             f"MANDATORY VERIFICATION STEPS:\n{verify_body}\n\n"
             "RULES:\n"
-            "- Write Python code using a DIFFERENT technique from what you just used\n"
+            "- Write a ```bash block using curl with a DIFFERENT technique from what you just used\n"
             "- Do NOT repeat the same payload — use a different attack vector\n"
-            "- Include print() statements showing actual server response\n"
+            "- Include curl output showing actual server response\n"
             "- CRITICAL: DO NOT tag [CONFIRMED ✅] or [FALSE POSITIVE ❌] in THIS response\n"
-            "- CRITICAL: Write the verification code ONLY — do NOT pre-judge the result\n"
-            "- After the code RUNS and you SEE the actual output: THEN tag in your NEXT message\n"
+            "- CRITICAL: Write the verification bash+curl block ONLY — do NOT pre-judge the result\n"
+            "- After the bash block RUNS and you SEE the actual output: THEN tag in your NEXT message\n"
             "- [CONFIRMED ✅] = only after you see actual proof in execution output\n"
             "- [FALSE POSITIVE ❌] = only after you see the code ran and no evidence found\n"
             "- Predicting [FALSE POSITIVE] before code runs = HALLUCINATION — FORBIDDEN\n\n"
-            "Write verification code NOW (tagging comes AFTER execution):"
+            "Write verification bash+curl block NOW (tagging comes AFTER execution):"
         )
         self.history.append(Message(role="user", content=mvvs_prompt))
 
@@ -2996,10 +3211,13 @@ class BingoTerminal:
 
             icon = "🐍" if lang == "python" else "⚡"
             _wait_label = _s.get("exec_waiting", "Waiting to execute")
+            # _markup_escape: 코드 내 [, ] 등 Rich 마크업 문자 이스케이프 → [/dim] 크래시 방지
+            _l0 = _markup_escape(lines[0][:70]) if lines else ""
+            _l1 = _markup_escape(lines[1][:70]) if len(lines) > 1 else ""
             return (
                 f"\n[dim]┌─ {icon} {lang.upper()} [{intent}] — {total}L[/dim]\n"
-                f"[dim]│  {lines[0][:70] if lines else ''}[/dim]\n"
-                f"[dim]│  {lines[1][:70] if len(lines) > 1 else ''}[/dim]\n"
+                f"[dim]│  {_l0}[/dim]\n"
+                f"[dim]│  {_l1}[/dim]\n"
                 f"[dim]└─ ... ({_wait_label})[/dim]\n"
             )
 
@@ -3047,7 +3265,14 @@ class BingoTerminal:
                     # 스트리밍 중: 코드 블록 접기 + 내부 키워드 제거
                     collapsed = self._collapse_code_blocks(visible)
                     collapsed = self._filter_agent_noise(collapsed)
-                    buf = Text.from_markup(collapsed) if "[dim]" in collapsed else Text(collapsed, style="white")
+                    # v5.1.9: [/dim] 태그 불일치로 MarkupError 크래시 방어
+                    if "[dim]" in collapsed:
+                        try:
+                            buf = Text.from_markup(collapsed)
+                        except Exception:
+                            buf = Text(collapsed, style="white")
+                    else:
+                        buf = Text(collapsed, style="white")
                     live.update(buf)
 
         # ★ Live 컨텍스트 종료 후 중단 메시지 출력 (Live가 화면을 지우기 전에 출력하면 사라짐)
@@ -4945,10 +5170,133 @@ class BingoTerminal:
     def _run_code_blocks(self, response: str, _loaded_skills: set) -> list[str]:
         """AI 응답에서 Python/Bash 블록 추출 후 병렬 실행.
         타임아웃 없음 — 성공할 때까지 실행. 모든 블록 동시 실행 후 결과 수집.
+
+        v5.2.0: TOOL_CALL 아키텍처 — bash 블록보다 우선 처리.
+        LLM이 TOOL_CALL:{"name":"...","args":{...}} 형식으로 호출하면
+        pentest_tools.py 의 Python 함수를 직접 실행 → 환각 완전 차단.
         """
         import re, subprocess, tempfile, os, threading
         from pathlib import Path
         from rich.markup import escape as _resc
+
+        # ══════════════════════════════════════════════════════════════════════
+        # v5.2.0 ── TOOL_CALL 파서 (bash 블록 처리 이전에 실행)
+        # 형식: TOOL_CALL:{"name":"sqli_timebased","args":{"url":"...","param":"id"}}
+        # ══════════════════════════════════════════════════════════════════════
+        # v5.2.3 fix: 중첩 {} 파싱 버그 수정 — 비탐욕 정규식 대신 괄호 카운터 사용
+        def _extract_tool_call_jsons(text: str) -> list[str]:
+            """TOOL_CALL: 뒤 JSON을 중괄호 깊이 카운팅으로 추출 (중첩 {} 지원)"""
+            found: list[str] = []
+            for _m in re.finditer(r'TOOL_CALL\s*:\s*', text):
+                pos = _m.end()
+                if pos >= len(text) or text[pos] != '{':
+                    continue
+                depth, j, in_str, esc = 0, pos, False, False
+                while j < len(text):
+                    c = text[j]
+                    if esc:
+                        esc = False
+                    elif c == '\\' and in_str:
+                        esc = True
+                    elif c == '"':
+                        in_str = not in_str
+                    elif not in_str:
+                        if c == '{':
+                            depth += 1
+                        elif c == '}':
+                            depth -= 1
+                            if depth == 0:
+                                found.append(text[pos: j + 1])
+                                break
+                    j += 1
+            return found
+
+        _tool_matches = _extract_tool_call_jsons(response)
+
+        if _tool_matches:
+            tool_results: list[str] = []
+            try:
+                from ..tools_ext.pentest_tools import execute_tool, TOOL_REGISTRY
+            except ImportError:
+                execute_tool = None
+                TOOL_REGISTRY = {}
+
+            for _raw_json in _tool_matches:
+                # JSON 파싱
+                try:
+                    _call = re.sub(r'\s+', ' ', _raw_json.strip())
+                    _parsed = __import__("json").loads(_call)
+                    _tool_name = str(_parsed.get("name", ""))
+                    _tool_args = _parsed.get("args", {})
+                    if not isinstance(_tool_args, dict):
+                        _tool_args = {}
+                except Exception as _je:
+                    tool_results.append(
+                        f"TOOL_RESULT:{{'name':'?','error':'JSON parse failed: {_je}','success':false}}"
+                    )
+                    # v5.2.3: debug 출력 (개발 모드)
+                    import os as _os
+                    if _os.environ.get("BINGO_DEBUG"):
+                        console.print(f"[dim red]  [TOOL_CALL DEBUG] raw={_raw_json!r}[/dim red]")
+                    self.console.print(
+                        f"[{THEME['error']}]⚠ TOOL_CALL JSON parse error: {_je}[/]"
+                    )
+                    continue
+
+                if execute_tool is None:
+                    tool_results.append(
+                        f"TOOL_RESULT:{{'name':'{_tool_name}','error':'pentest_tools not available','success':false}}"
+                    )
+                    continue
+
+                # 도구 실행
+                self.console.print(
+                    f"\n[{THEME['secondary']}]🔧 TOOL_CALL:[/] "
+                    f"[{THEME['primary']}]{_tool_name}[/] "
+                    f"[{THEME['dim']}]{str(_tool_args)[:120]}[/]"
+                )
+
+                _t0 = __import__("time").time()
+                _result = execute_tool(_tool_name, _tool_args)
+                _elapsed = round(__import__("time").time() - _t0, 2)
+
+                _out = _result.get("output", "")
+                _ok  = _result.get("success", False)
+                _ec  = _result.get("exit_code", -1)
+
+                # 화면에 결과 미리보기 출력
+                _preview = "\n".join(_out.splitlines()[:30])
+                _color = THEME["success"] if _ok else THEME["warn"]
+                self.console.print(
+                    f"[{_color}]{'✅' if _ok else '⚠'} TOOL_RESULT [{_tool_name}] "
+                    f"exit={_ec} elapsed={_elapsed}s[/]"
+                )
+                if _preview:
+                    from rich.markup import escape as _esc
+                    try:
+                        self.console.print(f"[{THEME['dim']}]{_esc(_preview[:1200])}[/]")
+                    except Exception:
+                        self.console.print(_preview[:1200])
+
+                # 결과를 LLM에게 돌려줄 텍스트로 포맷
+                _result_extra = {
+                    k: v for k, v in _result.items()
+                    if k not in ("output",) and not isinstance(v, (bytes,))
+                }
+                _result_str = (
+                    f"=== TOOL_RESULT: {_tool_name} ===\n"
+                    f"exit_code={_ec}  success={_ok}  elapsed={_elapsed}s\n"
+                    f"extra={__import__('json').dumps(_result_extra, ensure_ascii=False, default=str)[:500]}\n"
+                    f"--- output ---\n{_out}\n"
+                    f"=== END TOOL_RESULT ==="
+                )
+                tool_results.append(_result_str)
+
+            if tool_results:
+                return tool_results
+        # ══════════════════════════════════════════════════════════════════════
+        # TOOL_CALL 없음 → 기존 bash 블록 처리로 진행 (하위 호환)
+        # ══════════════════════════════════════════════════════════════════════
 
         if "```" not in response:
             return []
@@ -4972,11 +5320,97 @@ class BingoTerminal:
         tasks: list[dict] = []
 
         # ── 환각 감지 헬퍼 ──────────────────────────────────────────────
-        def _detect_hallucination(raw_code: str) -> str | None:
+        def _detect_hallucination(raw_code: str, _block_type: str = "python") -> str | None:
             """JSON-in-code-block 또는 실행 불가 가짜 코드 감지.
+            _block_type: "python" 또는 "bash"
             문제가 없으면 None, 있으면 경고 메시지 반환."""
             import re as _hall_re
             s = raw_code.strip()
+
+            # ── v4.9.5: bash 블록 전용 환각 감지 ─────────────────────────────
+            if _block_type == "bash":
+                # v5.1.3: B0/B0b/B2 오탐 방지 — 주석(#) 행을 제거한 사본으로 패턴 검사
+                # 이유: LLM이 설명 목적으로 "# python3 << 'PYEOF' 는 금지" 같은 주석을 남기면
+                #       실제 코드가 정상임에도 오탐 발생 → 주석 행은 환각 검사 대상 제외
+                _s_nc = '\n'.join(
+                    l for l in s.splitlines()
+                    if not l.strip().startswith('#')
+                )
+
+                # bash 패턴 B0: heredoc Python 감지 (가장 먼저 체크)
+                # "python3 << 'PYEOF'" 또는 "/usr/bin/python3 << 'EOF'" 등
+                # v5.1.3: _s_nc 사용 → 주석 행 "# python3 << 'EOF'" 오탐 제외
+                if _hall_re.search(r'python3?\s*<<\s*[\'"]?\w+[\'"]?', _s_nc):
+                    return (
+                        "BASH_HEREDOC_PYTHON: Python heredoc inside bash is FORBIDDEN. "
+                        "<<'PYEOF' / <<'EOF' wrapping 'import requests' is the same as a Python block. "
+                        "ONLY pipe is allowed: curl ... | /usr/bin/python3 -c \"import sys; ...\""
+                    )
+                # bash 패턴 B0b: bash 안에 import requests 있으면 무조건 차단
+                # v5.1.3: _s_nc 사용 → "# import requests 금지" 주석 오탐 제외
+                if "import requests" in _s_nc:
+                    return (
+                        "BASH_CONTAINS_REQUESTS: 'import requests' inside bash block is FORBIDDEN. "
+                        "Do NOT use Python requests library. Use: curl ... | /usr/bin/python3 -c \"import sys; ...\""
+                    )
+                # bash 패턴 B0c: subprocess+time 을 이용한 Python 타이밍 측정 차단 (v5.1.9)
+                # python3 -c "import subprocess, time" → HTTP 요청을 subprocess로 래핑하는 패턴
+                # 올바른 방법: START=$(date +%s); curl ...; END=$(date +%s)
+                _has_subprocess_time = (
+                    "import subprocess" in _s_nc and
+                    ("import time" in _s_nc or "time.time" in _s_nc or "time.sleep" in _s_nc) and
+                    "import sys" not in _s_nc  # sys 파이프 처리는 허용
+                )
+                if _has_subprocess_time:
+                    return (
+                        "BASH_SUBPROCESS_TIMING: python3 subprocess+time inside bash is FORBIDDEN. "
+                        "Use bash timing: START=$(date +%s); curl -sk -m 30 URL; END=$(date +%s); ELAPSED=$((END-START)). "
+                        "NEVER wrap curl in python3 subprocess for timing measurement."
+                    )
+                # bash 패턴 B1: 네트워크 명령 없는 bash 블록 차단
+                # v5.2.4: sqlmap, gobuster, nikto, hydra 등 pentest 도구도 네트워크 명령으로 인정
+                _NET_CMDS = [
+                    "curl ", "wget ", "nmap ", "ffuf ", "httpx ", "nuclei ",
+                    "sqlmap ", "gobuster ", "nikto ", "hydra ", "wfuzz ",
+                    "dirb ", "dirsearch ", "subfinder ", "amass ", "masscan ",
+                    "wafw00f ", "whatweb ", "wapiti ", "burpsuite ", "zaproxy ",
+                ]
+                _has_net_cmd = any(cmd in s for cmd in _NET_CMDS)
+                if not _has_net_cmd:
+                    # v5.1.1 FIX: 이전 curl로 저장한 /tmp/ 파일을 python3 -c 로 파싱 → 허용
+                    # v5.1.3 확장: /tmp/ 를 참조하는 모든 후처리 블록 허용
+                    _is_local_op = (
+                        "/tmp/" in s and
+                        "requests" not in s and
+                        "urllib" not in s and
+                        "httpx" not in s
+                    )
+                    if not _is_local_op:
+                        return (
+                            "BASH_NO_CURL: bash block has no network command (curl/wget/nmap/sqlmap/etc). "
+                            "You MUST use: curl -s -m 10 -k 'https://REAL_TARGET/path' | "
+                            "/usr/bin/python3 -c \"import sys; d=sys.stdin.buffer.read(); print(d[:1500])\""
+                        )
+                # bash 패턴 B2: placeholder URL
+                # v5.1.3: _s_nc 사용 → 주석 내 예시 URL 오탐 제외
+                #   TARGET_URL/YOUR_URL/PLACEHOLDER/TARGET_HOST → 주석 제외 후 검사
+                if _hall_re.search(r'(?:TARGET_URL|YOUR_URL|PLACEHOLDER|TARGET_HOST)', _s_nc, _hall_re.IGNORECASE):
+                    return (
+                        "BASH_PLACEHOLDER_URL: bash block contains placeholder URL. "
+                        "Replace with actual target URL."
+                    )
+                # example.com 은 주석/설명에 등장 가능 → curl/wget 실제 URL에 있을 때만 오탐
+                if _hall_re.search(
+                    r'(?:curl|wget)\s+[^\n]*\bexample\.com\b',
+                    _s_nc, _hall_re.IGNORECASE,
+                ):
+                    return (
+                        "BASH_PLACEHOLDER_URL: bash block uses 'example.com' as the actual target URL. "
+                        "Replace with the real target URL."
+                    )
+                return None  # bash 블록은 위 검사만 통과하면 OK
+
+            # ── Python 블록 환각 감지 (기존 로직 유지) ────────────────────────
 
             # 패턴 1: 순수 JSON dict (import/def/print/requests 없음)
             if s.startswith("{") and s.endswith("}"):
@@ -4986,7 +5420,7 @@ class BingoTerminal:
                     return (
                         "JSON_DICT_NOT_CODE: Your code block contains only a JSON "
                         "dictionary, not Python. JSON cannot make HTTP requests. "
-                        "Rewrite with: import requests; r=requests.get(url); print(r.status_code)"
+                        "Rewrite as bash: curl -s \"https://TARGET/\" | python3 -c \"import sys; print(sys.stdin.buffer.read()[:500])\""
                     )
 
             # 패턴 2: 3줄 미만 & 네트워크 호출 없음 & import 있음 → stub
@@ -4996,8 +5430,8 @@ class BingoTerminal:
                  "urlopen", "urlretrieve", "pymssql", "pyodbc"])
             if len(_lines) <= 3 and not _has_network and "import" in s:
                 return (
-                    "STUB_CODE_NO_HTTP: Code has imports but NO HTTP calls "
-                    "(requests.get/post). Add real HTTP requests."
+                    "STUB_CODE_NO_HTTP: Code has imports but NO HTTP calls. "
+                    "Use bash block: curl -s \"https://TARGET/\" | python3 -c \"...\""
                 )
 
             # 패턴 3: print("...") 만 있고 실제 네트워크/로직 없음
@@ -5006,7 +5440,7 @@ class BingoTerminal:
             if len(_non_print) == len(_all_imports) and len(_lines) > 0 and not _has_network:
                 return (
                     "PRINT_ONLY_CODE: Code only has print() statements and imports — "
-                    "no actual HTTP request or logic. Add requests.get(url) calls."
+                    "no actual HTTP request or logic. Use a bash block with curl commands."
                 )
 
             # 패턴 4: 도메인/URL 하드코딩 없이 variable placeholder만 있는 코드
@@ -5038,7 +5472,7 @@ class BingoTerminal:
                     "SIMULATED_VAR: Code assigns a simulated/mock/fake response variable "
                     "(simulated_response / 模拟结果 / 가상결과). "
                     "This means NO real HTTP request was made. "
-                    "DELETE the hardcoded data and use: r = requests.get(url); print(r.text[:500])"
+                    "DELETE the hardcoded data and use a bash block: curl -sk -m 30 \"URL\" | python3 -c 'import sys; print(sys.stdin.read()[:500])'"
                 )
 
             # 5-B: # 模拟 / # simulate 주석 직후 결과 dict 할당
@@ -5063,7 +5497,7 @@ class BingoTerminal:
             if _ASSUME_SERVER_RE.search(s) and not _has_network:
                 return (
                     "ASSUME_SERVER: Code says 'assume server returns ...' without making "
-                    "a real requests.get/post call. Replace assumption with actual HTTP request."
+                    "a real HTTP request. Replace assumption with actual curl command."
                 )
 
             # 5-D: 네트워크 호출은 있으나 결과를 바로 하드코딩으로 덮어쓰는 패턴
@@ -5077,9 +5511,9 @@ class BingoTerminal:
                 )
                 if _OVERRIDE_DICT.search(s):
                     return (
-                        "OVERRIDDEN_RESULT: Code calls requests.get/post but immediately "
+                        "OVERRIDDEN_RESULT: Code calls HTTP but immediately "
                         "overwrites result with a hardcoded dict/string. "
-                        "Use the ACTUAL response: r = requests.get(url); print(r.text)"
+                        "Use the ACTUAL response: curl -sk -m 30 \"URL\" | python3 -c 'import sys; print(sys.stdin.read())'"
                     )
 
             # ── v4.9.0 패턴 6: 텍스트 서술에서 미실행 결과 위조 감지 (확장) ──────
@@ -5119,43 +5553,117 @@ class BingoTerminal:
                     return (
                         "CLAIMED_RESULT_WITHOUT_EXEC: Code describes result "
                         f"({_m.group(0)[:80]!r}) as text/comment without running real HTTP "
-                        "request. ALL results MUST come from actual print() output of "
-                        "requests.get/post execution. Remove the fabricated result."
+                        "request. ALL results MUST come from actual curl execution output. "
+                        "Use: curl -sk -m 10 \"${TARGET}/path\" | python3 -c \"import sys; print(sys.stdin.read()[:500])\". "
+                        "Remove the fabricated result."
                     )
 
-            # ── v4.9.0 패턴 7: 타겟 외 도메인 URL 실행 원천 차단 ─────────────
-            # 기록.md L1079: LLM이 hanurschool.nurihaus.com 코드를 생성해 실행 → 무단 타겟 변경
-            # 근본 원인: LLM 코드 내에 현재 타겟과 다른 도메인 URL이 포함되어 실제 실행됨
-            # 근본 해결: 실행 전 코드 내 URL 도메인을 현재 타겟 도메인과 비교 → 불일치 시 실행 자체를 차단
+            # ── v4.9.3 패턴 7: AST 기반 타겟 URL 검사 (완전 재작성) ─────────────────
+            # 이전 방식(regex): 주석·헤더 딕셔너리 내 URL을 오탐 → User-Agent의
+            #   http://www.google.com/bot.html 를 실제 요청 타겟으로 잘못 판단
+            # 새 방식(AST): Python 코드 파서로 구문 트리를 직접 분석
+            #   - AST는 주석을 완전히 무시 (파서 단계에서 제거됨)
+            #   - 딕셔너리 값 vs 함수 호출 인수를 구조적으로 구분
+            #   - requests.get(URL), session.post(url=URL) 의 실제 인수만 추출
+            #   - headers={'User-Agent':'...'} 내 값은 절대 추출하지 않음
+            import ast as _p7ast
             import urllib.parse as _up
+
+            def _p7_ast_extract_request_urls(code_str: str) -> list:
+                """AST 구문 트리에서 실제 HTTP 요청 타겟 URL만 추출.
+                - 주석, 헤더 딕셔너리, 문자열 변수 내 URL 완전 제외
+                - 요청 메서드 첫 인수(위치) 또는 url= 키워드 인수만 수집
+                - url/target/base_url 변수 할당도 수집
+                """
+                _HTTP_METHODS = {
+                    'get', 'post', 'put', 'patch', 'delete',
+                    'head', 'options', 'request', 'urlopen',
+                }
+                _URL_VAR_NAMES = {
+                    'url', 'target', 'endpoint', 'base_url',
+                    'base', 'host', 'uri', 'target_url',
+                }
+                _found: list = []
+
+                # SyntaxError 발생 시(f-string 등 Python 버전 차이) 빈 리스트 반환
+                try:
+                    _tree = _p7ast.parse(code_str)
+                except SyntaxError:
+                    return _found
+
+                def _str_val(node) -> str | None:
+                    """AST 노드에서 문자열 상수 값 추출."""
+                    if isinstance(node, _p7ast.Constant) and isinstance(node.value, str):
+                        return node.value
+                    # f-string (JoinedStr): 첫 번째 Constant 조각에 도메인 포함
+                    if isinstance(node, _p7ast.JoinedStr) and node.values:
+                        _fst = node.values[0]
+                        if isinstance(_fst, _p7ast.Constant) and isinstance(_fst.value, str):
+                            return _fst.value
+                    return None
+
+                for _node in _p7ast.walk(_tree):
+                    # ── 함수/메서드 호출: requests.get(URL), session.post(url=URL) ──
+                    if isinstance(_node, _p7ast.Call):
+                        if isinstance(_node.func, _p7ast.Attribute):
+                            if _node.func.attr.lower() in _HTTP_METHODS:
+                                # 첫 번째 위치 인수
+                                if _node.args:
+                                    _v = _str_val(_node.args[0])
+                                    if _v and _v.startswith('http'):
+                                        _found.append(_v)
+                                # url= 키워드 인수
+                                for _kw in _node.keywords:
+                                    if _kw.arg == 'url':
+                                        _v = _str_val(_kw.value)
+                                        if _v and _v.startswith('http'):
+                                            _found.append(_v)
+                    # ── 변수 할당: url = "https://...", target = "https://..." ──
+                    elif isinstance(_node, _p7ast.Assign):
+                        for _tgt in _node.targets:
+                            if isinstance(_tgt, _p7ast.Name) and _tgt.id.lower() in _URL_VAR_NAMES:
+                                _v = _str_val(_node.value)
+                                if _v and _v.startswith('http'):
+                                    _found.append(_v)
+                    # ── 어노테이션 할당: url: str = "https://..." ──
+                    elif isinstance(_node, _p7ast.AnnAssign):
+                        if (isinstance(_node.target, _p7ast.Name)
+                                and _node.target.id.lower() in _URL_VAR_NAMES
+                                and _node.value is not None):
+                            _v = _str_val(_node.value)
+                            if _v and _v.startswith('http'):
+                                _found.append(_v)
+
+                return _found
+
             _active_target = (
                 getattr(self, "_agent_state", {}).get("target")
                 or getattr(self, "_current_target", None)
             )
             if _active_target and _has_network:
-                # 타겟 도메인 정규화 (프로토콜 없으면 https:// 보완)
                 _t_str = _active_target if "://" in _active_target else f"https://{_active_target}"
                 _t_parsed = _up.urlparse(_t_str)
-                # www. 제거 후 소문자로 비교
                 _t_domain = _t_parsed.netloc.lower().removeprefix("www.")
 
-                # 코드 내 모든 http(s):// URL 추출
-                _urls_in_code = _hall_re.findall(r'https?://[^\s\'"<>,;)\\]+', s)
-                for _cu in _urls_in_code:
-                    _cu_parsed = _up.urlparse(_cu)
+                # AST로 실제 요청 타겟 URL만 추출
+                _p7_urls = _p7_ast_extract_request_urls(s)
+
+                import re as _p7re
+                for _cu in _p7_urls:
+                    # f-string placeholder({...}) 제거 후 도메인 비교
+                    _cu_clean = _p7re.sub(r'\{[^}]+\}', '', _cu)
+                    _cu_parsed = _up.urlparse(_cu_clean)
                     _cu_domain = _cu_parsed.netloc.lower().removeprefix("www.")
                     if not _cu_domain:
                         continue
-                    # 도메인 불일치 → 실행 차단
                     if _cu_domain != _t_domain:
                         return (
-                            f"TARGET_DOMAIN_MISMATCH: Code contains URL '{_cu}' "
-                            f"targeting domain '{_cu_domain}', but the ACTIVE TARGET is "
+                            f"TARGET_DOMAIN_MISMATCH: Code sends HTTP request to '{_cu}' "
+                            f"(domain: '{_cu_domain}'), but the ACTIVE TARGET is "
                             f"'{_active_target}' (domain: '{_t_domain}'). "
                             f"You MUST only test the current target domain. "
                             f"Replace '{_cu_domain}' with '{_t_domain}' in your code. "
-                            f"If you need to switch targets, the user must explicitly "
-                            f"provide the new target — you cannot change it autonomously."
+                            f"To switch targets, the user must explicitly provide a new target."
                         )
 
             return None
@@ -5843,124 +6351,36 @@ class BingoTerminal:
                 # "__SYNTAX_ERR__" = 수정 불가 문법 오류 (None 과 다름: None = 정상)
                 return ("__WARN_SYNTAX__" if _is_py312_fstring else "__SYNTAX_ERR__"), _applied_fix_names
 
-        python_blocks = re.findall(r"```python\s*(.*?)```", response, re.DOTALL)
+        # ── v4.9.6: Python 블록 완전 폐기 — bash+curl 전용 ─────────────────────
+        # Python 블록은 실행하지 않고 즉시 bash 재작성 요청으로 전환
         _hallucination_msgs: list[str] = []
-        for i, block in enumerate(python_blocks):
-            code = block.strip()
-            if not code:
-                continue
-
-            # 환각 감지 — JSON 코드블록이면 건너뜀
-            _hall = _detect_hallucination(code)
-            if _hall:
-                self.console.print(
-                    f"[{THEME['error']}]⛔ [HALLUCINATION BLOCKED #{i+1}] {_hall[:120]}[/]"
-                )
-                _hallucination_msgs.append(_hall)
-                continue
-
-            # 구문 사전 검증 + 무한루프 패턴 차단
-            _checked, _applied_fix_names = _precheck_python_code(code)
-            # base64 자동 주입 감지 (v3.2.26, RULE 26-Y)
-            if isinstance(_checked, str) and _checked.startswith("__BASE64_INJECTED__\n"):
-                _checked = _checked[len("__BASE64_INJECTED__\n"):]
-                _b64_msg = t("base64_alias_forbidden", "🔧 [PRECHECK] import base64 injected (b64 alias / missing import detected)")
-                self.console.print(f"[{THEME['dim']}]{_b64_msg}[/]")
-            # urllib.parse 자동 주입 감지
-            if isinstance(_checked, str) and _checked.startswith("__URLLIB_INJECTED__\n"):
-                _checked = _checked[len("__URLLIB_INJECTED__\n"):]
-                _ul_msg = t("urllib_parse_injected", "🔧 [PRECHECK] import urllib.parse injected (was missing)")
-                self.console.print(f"[{THEME['dim']}]{_ul_msg}[/]")
-            # 인코딩 자동 주입 감지
-            if isinstance(_checked, str) and _checked.startswith("__ENCODE_INJECTED__\n"):
-                _checked = _checked[len("__ENCODE_INJECTED__\n"):]
-                _enc_msg = t("encoding_inject_notice", "🔤 [PRECHECK] r.text → smart_decode() injected (auto encoding detection)")
-                self.console.print(f"[{THEME['dim']}]{_enc_msg}[/]")
-            # v3.2.20: AI가 _smart_decode() 직접 호출했으나 def 없음 → def만 주입
-            if isinstance(_checked, str) and _checked.startswith("__SMART_DECODE_INJECTED__\n"):
-                _checked = _checked[len("__SMART_DECODE_INJECTED__\n"):]
-                _sd_msg = t("smart_decode_def_injected", "🔧 [PRECHECK] _smart_decode() 호출 감지 — def 자동 주입 (NameError 방지)")
-                self.console.print(f"[{THEME['dim']}]{_sd_msg}[/]")
-            if isinstance(_checked, str) and _checked.startswith("__BLOCKED__:"):
-                _block_reason = _checked[len("__BLOCKED__:"):]
-                _loop_label = t("loop_block_label", "🚫 [LOOP BLOCK #{n}] {reason}").replace("{n}", str(i + 1)).replace("{reason}", _block_reason[:120])
-                self.console.print(f"[bold red]{_loop_label}[/]")
-                # v3.2.94: ILR 전용 카운터 별도 집계 (LOOP_BLOCK 공유 카운터와 분리)
-                if "INFINITE_LOOP_RISK" in _block_reason:
-                    _hallucination_msgs.append(f"ILR_BLOCKED: {_block_reason}")
-                else:
-                    _hallucination_msgs.append(f"LOOP_BLOCKED: {_block_reason}")
-                continue  # 이 코드블록 실행 건너뜀
-            elif _checked == "__WARN_SYNTAX__":
-                # Python 3.12 호환 f-string (실행은 시도, 조용한 안내만)
-                _checked = None
-            elif _checked == "__SYNTAX_ERR__":
-                # 수정 불가 문법 오류 — 스크립트를 건너뛰고 AI에 에러 내용 통보
-                _sw_msg = t("syntax_precheck_warn", "⚠ [SYNTAX PRECHECK #{n}] SyntaxError detected — auto-fix failed. Check f-string backslash or dict subscript issues.").replace("{n}", str(i + 1))
-                self.console.print(f"[{THEME['warn']}]{_sw_msg}[/]")
-                # 스크립트 실행을 건너뛰고 AI가 즉시 수정하도록 피드백 주입
-                _se_feedback = (
-                    f"[SYNTAX_ERR SCRIPT #{i+1} SKIPPED]\n"
-                    f"Python syntax error detected in generated code — script was NOT executed.\n"
-                    f"Common causes: f-string with same-type quotes inside {{}} (Python <3.12), "
-                    f"backslash inside f-string expression, or unclosed brackets.\n"
-                    f"Fix: use temp variable to extract complex expressions out of f-strings, "
-                    f"e.g. _k='key'; f\"{{_k}}\" instead of f\"{{d['key']}}\".\n"
-                    f"Regenerate the code block with correct syntax."
-                )
-                _hallucination_msgs.append(_se_feedback)
-                continue  # 이 코드블록 실행 건너뜀
-            elif _checked is None:
-                pass  # 코드 정상, 변경 없음 — 경고 없음
-            elif _checked is not None and _checked != code:
-                # 타임아웃 주입 여부 확인
-                _timeout_injected = (
-                    "timeout=30" in _checked and "timeout=30" not in code
-                ) or (
-                    "login_timeout=10" in _checked and "login_timeout=10" not in code
-                )
-                # URL 연소 버그 수정 여부 확인
-                _url_fixed = (
-                    import_re := __import__("re"),
-                    bool(_url_fixed_re := _url_fixed_re if (_url_fixed_re := import_re.search(
-                        r'https?://', code
-                    )) else None) and
-                    code.count("https://") != _checked.count("https://")
-                )[-1]
-                # _applied_fix_names 에 수집된 수정 항목을 구체적으로 출력
-                if _applied_fix_names:
-                    _fix_detail = ", ".join(t(k, k) for k in _applied_fix_names)
-                    self.console.print(
-                        f"[{THEME['secondary']}]🔧 [AUTO-FIX] {_fix_detail}[/]"
-                    )
-                elif _timeout_injected:
-                    _to_msg = t("requests_timeout_injected",
-                                "⚠️  Auto-injected timeout=30 into requests calls (prevents server hang)")
-                    self.console.print(f"[{THEME['warn']}]{_to_msg}[/]")
-                elif _url_fixed:
-                    _uf_msg = t("url_concat_fixed",
-                                "🔧  URL concat bug auto-fixed: base_url + 'https://...' → using full URL only")
-                    self.console.print(f"[{THEME['warn']}]{_uf_msg}[/]")
-                code = _checked
-
-            tools_header = (
-                "import sys as _sys, os as _os, warnings as _warnings\n"
-                "_sys.path.insert(0, _os.path.expanduser('~/.bingo'))\n"
-                "# ── SSL/InsecureRequestWarning 전역 억제 ─────────────────────\n"
-                "_warnings.filterwarnings('ignore', message='Unverified HTTPS request')\n"
-                "_warnings.filterwarnings('ignore', category=DeprecationWarning)\n"
-                "try:\n"
-                "    import urllib3 as _urllib3\n"
-                "    _urllib3.disable_warnings(_urllib3.exceptions.InsecureRequestWarning)\n"
-                "except Exception:\n"
-                "    pass\n"
+        python_blocks = re.findall(r"```python\s*(.*?)```", response, re.DOTALL)
+        if python_blocks:
+            _py_count = len([b for b in python_blocks if b.strip()])
+            _py_block_msg = (
+                f"PYTHON_BLOCK_FORBIDDEN: Found {_py_count} Python block(s). "
+                "Python blocks are DISABLED in v4.9.6+. "
+                "You MUST rewrite ALL code as bash blocks using curl piped to python3 -c. "
+                "Example:\n"
+                "```bash\n"
+                "curl -s -m 15 -k \\\n"
+                "  -H 'User-Agent: Mozilla/5.0' \\\n"
+                "  'https://REAL_TARGET/path' \\\n"
+                "  | /usr/bin/python3 -c \"\n"
+                "import sys\n"
+                "d=sys.stdin.buffer.read()\n"
+                "t=d.decode('utf-8',errors='replace')\n"
+                "print(f'[STATUS] {len(d)}B'); print(t[:1500])\n"
+                "\"\n"
+                "```"
             )
-            if "agent_tools" not in code and "from agent_tools" not in code:
-                code = tools_header + code
-            script_path = tmp_dir / f"agent_script_{i}.py"
-            script_path.write_text(code, encoding="utf-8")
-            preview = " | ".join(l.strip() for l in code.splitlines()[:3] if l.strip())[:80]
-            tasks.append({"type": "python", "idx": i, "path": str(script_path), "preview": preview})
+            self.console.print(
+                f"[{THEME['error']}]⛔ [v4.9.6 PYTHON_BLOCK_FORBIDDEN] "
+                f"{_py_count} Python block(s) detected — NOT executed. "
+                f"Rewrite as bash+curl.[/]"
+            )
+            _hallucination_msgs.append(_py_block_msg)
+        # (v4.9.6: Python 블록 처리 로직 완전 제거 — bash+curl 전용)
 
         # 모든 블록이 환각으로 차단됐을 경우 → 강제 수정 메시지 반환
         if _hallucination_msgs and not tasks:
@@ -6068,49 +6488,158 @@ class BingoTerminal:
                     f"{_fb_now}"
                 )
             else:
+                # v4.9.5: bash/curl 방식으로 재작성 유도
                 _hall_feedback = (
                     "[⛔ ALL CODE BLOCKS REJECTED — HALLUCINATION DETECTED]\n"
                     + "\n".join(f"  Block #{j+1}: {m}" for j, m in enumerate(_hallucination_msgs))
-                    + "\n\nYou MUST rewrite ALL code blocks with REAL Python HTTP requests:\n"
-                    "  import requests\n"
-                    "  url = 'https://TARGET/endpoint'\n"
-                    "  r = requests.get(url, timeout=10, verify=False, "
-                    "headers={'User-Agent': 'Mozilla/5.0'})\n"
-                    "  print(f'[STATUS] {r.status_code}  {url}')\n"
-                    "  print(r.text[:500])\n"
-                    "NO JSON. NO dict literals. Write actual HTTP code NOW."
+                    + "\n\nYou MUST rewrite as a bash block with real curl:\n\n"
+                    "```bash\n"
+                    "curl -s -m 10 -k \\\n"
+                    "  -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)' \\\n"
+                    "  'https://TARGET/path' \\\n"
+                    "  | /usr/bin/python3 -c \"\n"
+                    "import sys\n"
+                    "d=sys.stdin.buffer.read()\n"
+                    "t=d.decode('utf-8',errors='replace')\n"
+                    "print(f'[STATUS] {len(d)}B')\n"
+                    "print(t[:1500])\n"
+                    "\"\n"
+                    "```\n"
+                    "NO Python blocks. NO JSON. Use bash+curl ONLY."
                 )
             return [_hall_feedback]
+
+        # ── v5.1.7: 스크립트 전처리 — curl 타임아웃 자동 주입 ─────────────────────────
+        def _sanitize_script(src: str) -> str:
+            """bash 스크립트 실행 BEFORE 전처리:
+            1. 모든 `curl` 에 -m 30 --connect-timeout 10 자동 주입 (이미 있으면 건드리지 않음)
+            2. `while true` 루프에 _BINGO_CNT 카운터 삽입 (무한 루프 방지)
+
+            목적: 스크립트 자체가 자기 제한 시간 내 종료 → watchdog은 진짜 마지막 방어선.
+            """
+            import re as _re
+
+            lines_out: list[str] = []
+            _in_while_true = False
+
+            for _ln in src.split("\n"):
+                _stripped = _ln.rstrip()
+
+                # ── (1) curl 타임아웃 주입 ──────────────────────────
+                # 주석 줄 / echo 줄은 건드리지 않음
+                _is_comment = _stripped.lstrip().startswith("#")
+                _is_echo    = bool(_re.match(r'^\s*echo\b', _stripped))
+                if not _is_comment and not _is_echo and _re.search(r'\bcurl\b', _stripped):
+                    # -m / --max-time 없는 경우만 주입
+                    if "-m " not in _stripped and "--max-time" not in _stripped:
+                        _stripped = _re.sub(
+                            r'\bcurl\b',
+                            "curl -m 30 --connect-timeout 10",
+                            _stripped,
+                            count=1,
+                        )
+
+                # ── (2) while true 루프에 카운터 삽입 ──────────────
+                # `while true; do` 또는 `while true` 단독 줄 감지
+                _wt_match = _re.match(
+                    r'^(\s*)while\s+true\s*(?:;\s*do|$)', _stripped
+                )
+                if _wt_match and not _is_comment:
+                    _indent = _wt_match.group(1)
+                    # 카운터 초기화 줄을 while 앞에 삽입
+                    lines_out.append(f"{_indent}_BINGO_CNT=0")
+                    # while 줄 자체 유지 (세미콜론 형식으로 통일)
+                    _stripped = _re.sub(
+                        r'\bwhile\s+true\s*(?:;\s*do)?',
+                        "while true; do",
+                        _stripped,
+                        count=1,
+                    )
+                    lines_out.append(_stripped)
+                    # do 다음 줄에 카운터 증가+브레이크 삽입
+                    _ci = _indent + "  "
+                    lines_out.append(
+                        f"{_ci}_BINGO_CNT=$((_BINGO_CNT+1)); "
+                        f"[ \"$_BINGO_CNT\" -gt 200 ] && "
+                        f"{{ echo '[BINGO] loop safety limit reached'; break; }}"
+                    )
+                    continue
+
+                lines_out.append(_stripped)
+
+            return "\n".join(lines_out)
 
         # v3.2.91/94: 정상 코드 실행 경로 → 연속 카운터 리셋
         self._loop_block_consecutive = 0
         self._ilr_consecutive = 0   # v3.2.94: ILR 카운터도 리셋
         self._ilr_override = False  # v3.2.94: override 잔류 플래그 클리어
 
+        # ── v4.9.5: bash 블록 → .sh 파일 저장 후 실행 (multi-line curl+python3 지원) ──
         bash_blocks = re.findall(r"```(?:bash|sh)\s*(.*?)```", response, re.DOTALL)
         _BASH_ALLOWED = {
+            # HTTP / 스캔
             "curl", "nmap", "nikto", "ffuf", "gobuster", "nuclei",
-            "httpx", "subfinder", "amass", "whatweb", "john", "hashcat",
+            "httpx", "subfinder", "amass", "whatweb",
+            # SQLi / 익스플로잇 [v5.1.8: sqlmap, ghauri 추가 — DB 덤프용]
+            "sqlmap", "ghauri",
+            # 브루트포스
+            "hydra", "medusa", "wfuzz", "wpscan",
+            # WAF 탐지
+            "wafw00f",
+            # 크랙
+            "john", "hashcat",
+            # Python (로컬 처리)
             "python3", "python",
         }
         history_text = " ".join(m.content for m in self.history if m.role == "user")
-        for block in bash_blocks:
-            import shlex
-            joined = block.strip().replace("\\\n", " ")
-            lines = [l.strip() for l in joined.splitlines()
-                     if l.strip() and not l.strip().startswith("#")]
-            if not lines:
+        import shlex as _shlex_bash
+        for _bash_i, block in enumerate(bash_blocks):
+            script = block.strip()
+            if not script:
                 continue
-            cmd_line = " ".join(lines)
+            # 첫 번째 실행 명령 추출 (파이프 앞 부분, 주석 제외)
+            first_real_lines = [
+                l.strip() for l in script.splitlines()
+                if l.strip() and not l.strip().startswith("#")
+            ]
+            if not first_real_lines:
+                continue
+            # 파이프 / && 앞 첫 명령어만 추출하여 allowlist 검사
+            _first_cmd_raw = first_real_lines[0].split("|")[0].split("&&")[0].strip()
+            _first_cmd_raw = _first_cmd_raw.replace("\\\n", " ").rstrip("\\").strip()
             try:
-                parts = shlex.split(cmd_line)
+                _first_parts = _shlex_bash.split(_first_cmd_raw)
             except Exception:
+                _first_parts = _first_cmd_raw.split()
+            if not _first_parts:
                 continue
-            if not parts or parts[0].split("/")[-1] not in _BASH_ALLOWED:
+            _bin_name = _first_parts[0].split("/")[-1]
+            if _bin_name not in _BASH_ALLOWED:
                 continue
-            if f"REAL EXECUTION: {cmd_line[:40]}" in history_text:
+            # 중복 실행 방지
+            _dedup_key = script[:60]
+            if f"REAL EXECUTION: {_dedup_key[:40]}" in history_text:
                 continue
-            tasks.append({"type": "bash", "cmd": cmd_line})
+            # ── bash 환각 감지 ──
+            _bash_hall = _detect_hallucination(script, _block_type="bash")
+            if _bash_hall:
+                self.console.print(
+                    f"[{THEME['error']}]⛔ [BASH HALLUCINATION #{_bash_i+1}] {_bash_hall[:120]}[/]"
+                )
+                _hallucination_msgs.append(_bash_hall)
+                continue
+            # ── v5.1.7: 스크립트 전처리 (curl 타임아웃 + while 카운터 자동 주입) ──
+            script = _sanitize_script(script)
+            # ── multi-line .sh 파일로 저장 ──
+            _sh_path = tmp_dir / f"agent_bash_{len(tasks)}.sh"
+            _sh_path.write_text(script, encoding="utf-8")
+            _sh_path.chmod(0o755)
+            tasks.append({
+                "type": "bash",
+                "path": str(_sh_path),
+                "cmd": first_real_lines[0][:80],   # 표시용 1줄 요약
+                "preview": script[:120],
+            })
 
         if not tasks:
             return []
@@ -6121,57 +6650,26 @@ class BingoTerminal:
 
         def _run_task(task: dict, slot: int) -> None:
             try:
+                # v4.9.6: Python 타입 제거 — bash+curl 전용. python 타입은 실행 불가.
                 if task["type"] == "python":
-                    with _lock:
-                        self.console.print(
-                            f"\n[{THEME['secondary']}]▶ {self.s.get('python_exec', 'Python execution')} "
-                            f"[#{task['idx']+1}]:[/] [{THEME['dim']}]{task['preview']}...[/]"
-                        )
-                    proc = subprocess.Popen(
-                        ["python3", task["path"]],
-                        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
-                        start_new_session=True,  # v3.2.99: WSL/VM Ctrl+C 격리
+                    results_text[slot] = (
+                        "=== PYTHON_BLOCK_FORBIDDEN (v4.9.6) ===\n"
+                        "Python blocks are disabled. This should not reach here.\n"
+                        "=== EXIT: 1 ==="
                     )
-                    stdout, stderr = proc.communicate()
-                    output = (stdout.decode("utf-8", "replace") + stderr.decode("utf-8", "replace"))
-                    # v3.2.22: Traceback 폭탄 → 1줄 에러로 압축 (표시용 + AI 컨텍스트용)
-                    output_filtered, _tb_orig, _tb_filt = _filter_traceback(output)
-                    if _tb_orig > 0:
-                        # Traceback 필터 작동 — 다국어 알림
-                        _tb_msg = t(
-                            "traceback_filtered",
-                            f"📦 [EXEC] Traceback {_tb_orig}줄 → {_tb_filt}줄로 압축 (에러만 표시)"
-                        ).format(n=_tb_orig, count=_tb_filt)
-                        with _lock:
-                            self.console.print(f"[{THEME['dim']}]{_tb_msg}[/]")
-                    if output_filtered.strip():
-                        preview_out = "\n".join(output_filtered.strip().splitlines()[:60])
-                        with _lock:
-                            try:
-                                self.console.print(f"[{THEME['dim']}]{_resc(preview_out)}[/]")
-                            except Exception:
-                                self.console.out(preview_out)
-                        results_text[slot] = (
-                            f"=== PYTHON EXECUTION (script_{task['idx']}) ===\n"
-                            f"{output_filtered.strip()}\n=== EXIT: {proc.returncode} ==="
-                        )
-                    else:
-                        results_text[slot] = (
-                            f"=== PYTHON EXECUTION (script_{task['idx']}) ===\n"
-                            f"(no output, exit={proc.returncode})"
-                        )
+                    return
 
-                else:  # bash
+                else:  # bash — v4.9.5~: .sh 파일로 실행 (multi-line curl+python3 지원)
                     with _lock:
                         self.console.print(
                             f"\n[{THEME['secondary']}]▶ {self.s['exec_running']}:[/] "
                             f"[{THEME['dim']}]{task['cmd'][:100]}[/]"
                         )
+                    _bash_cmd = ["bash", task["path"]] if task.get("path") else task["cmd"]
                     proc = subprocess.Popen(
-                        task["cmd"], shell=True,
+                        _bash_cmd,
                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                        start_new_session=True,  # v3.2.99: WSL/VM Ctrl+C 격리
+                        start_new_session=True,
                     )
                     stdout, stderr = proc.communicate()
                     output = (stdout.decode("utf-8", "replace") + stderr.decode("utf-8", "replace"))
@@ -6211,12 +6709,13 @@ class BingoTerminal:
                         env=env, bufsize=0,
                         start_new_session=True,  # v3.2.99: WSL/VM Ctrl+C 격리
                     )
-                else:
+                else:  # bash — v4.9.5: .sh 파일로 실행 (multi-line 유지)
+                    _bash_exec = ["bash", task["path"]] if task.get("path") else task["cmd"]
                     p = subprocess.Popen(
-                        task["cmd"], shell=True,
+                        _bash_exec,
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                         env=env, bufsize=0,
-                        start_new_session=True,  # v3.2.99: WSL/VM Ctrl+C 격리
+                        start_new_session=True,
                     )
                 with proc_list_lock:
                     proc_registry.append(p)
@@ -6233,7 +6732,7 @@ class BingoTerminal:
                 _last_stripped = None
                 _killed_reason: str | None = None
                 _start_ts = __import__("time").time()
-                _SCRIPT_TIMEOUT = 1800  # 스크립트당 최대 1800초 (30분) [v3.2.50: 종합 스크립트 지원]
+                _SCRIPT_TIMEOUT = 300   # 스크립트당 최대 300초 (5분) [v5.1.6: 1800s→300s 단축, 고아 curl 방지]
                 _MAX_CONSEC_DUP = 100   # 동일 줄 100회 연속 → 루프 감지 [v3.2.54: 오탐 방지 강화]
                 _MAX_CONSEC_SCAN = 500  # 스캔 결과 줄은 500회까지 허용 (XSS 반사 등)
                 # 합법적 반복이 발생하는 스캔 결과 prefix — 더 높은 임계값 적용
@@ -6263,13 +6762,27 @@ class BingoTerminal:
 
                 def _hard_watchdog(proc: subprocess.Popen, deadline: float,
                                    fired: threading.Event) -> None:
-                    """stdout 스트림에 관계없이 deadline 이후 프로세스를 강제 종료."""
+                    """stdout 스트림에 관계없이 deadline 이후 프로세스 그룹 전체를 강제 종료.
+                    v5.1.6: proc.kill() → os.killpg() — bash 자식 프로세스(curl 등) 고아 방지.
+                    proc.kill()은 bash만 종료하고 자식 curl 프로세스가 stdout 파이프를
+                    유지해 스레드가 종료되지 않는 버그 수정."""
                     remaining = deadline - __import__("time").time()
                     if remaining > 0:
                         fired.wait(timeout=remaining)
                     if not fired.is_set():
+                        import os as _wd_os
+                        import signal as _wd_sig
                         try:
-                            proc.kill()
+                            pgid = _wd_os.getpgid(proc.pid)
+                            _wd_os.killpg(pgid, _wd_sig.SIGKILL)
+                        except Exception:
+                            try:
+                                proc.kill()
+                            except Exception:
+                                pass
+                        # stdout 파이프 강제 닫기 — 자식 프로세스 잔존 시 readline 해제
+                        try:
+                            proc.stdout.close()
                         except Exception:
                             pass
 
@@ -6359,11 +6872,21 @@ class BingoTerminal:
                         except Exception:
                             self.console.out(line)
 
-                    # 전체 타임아웃 체크
+                    # 전체 타임아웃 체크 [v5.1.6: p.terminate()→os.killpg() — 자식 curl 포함 종료]
                     if __import__("time").time() - _start_ts > _SCRIPT_TIMEOUT:
                         _killed_reason = f"TIMEOUT_{_SCRIPT_TIMEOUT}s"
+                        import os as _tmo_os
+                        import signal as _tmo_sig
                         try:
-                            p.terminate()
+                            pgid = _tmo_os.getpgid(p.pid)
+                            _tmo_os.killpg(pgid, _tmo_sig.SIGKILL)
+                        except Exception:
+                            try:
+                                p.terminate()
+                            except Exception:
+                                pass
+                        try:
+                            p.stdout.close()
                         except Exception:
                             pass
                         break
@@ -6476,6 +6999,9 @@ class BingoTerminal:
         HEARTBEAT = 1   # 1초마다 stop_flag 체크 (heartbeat 출력은 30초마다)
         elapsed = 0
         _heartbeat_print_interval = 30  # 화면 출력은 30초에 한 번
+        # v5.1.6: wall-clock 안전 타임아웃 — 워치독이 bash만 kill하고 자식 curl이 살아남아
+        # 스레드가 종료되지 않는 경우에 대한 2차 방어선 (_SCRIPT_TIMEOUT + 60s)
+        _WALL_CLOCK_MAX = 360  # _SCRIPT_TIMEOUT(300) + 60s 버퍼
         while any(_th.is_alive() for _th in threads):
             for _th in threads:
                 _th.join(timeout=HEARTBEAT)
@@ -6528,6 +7054,38 @@ class BingoTerminal:
                 self.console.print(
                     f"[{THEME['dim']}]  ⏱ {elapsed}s {_s.get('exec_running', 'running')}...[/]"
                 )
+
+            # v5.1.6: wall-clock 최대 타임아웃 — 워치독 실패 시 2차 강제 종료
+            # bash kill 후 자식 curl 프로세스가 stdout을 유지해 스레드가 무한 대기하는 버그 방어
+            if elapsed >= _WALL_CLOCK_MAX:
+                import signal as _wc_sig
+                import os as _wc_os
+                self.console.print(
+                    f"[bold red]⚠ WALL-CLOCK TIMEOUT ({elapsed}s) — 프로세스 그룹 강제 종료[/]"
+                )
+                with proc_list_lock:
+                    for _wp in proc_registry:
+                        try:
+                            pgid = _wc_os.getpgid(_wp.pid)
+                            _wc_os.killpg(pgid, _wc_sig.SIGKILL)
+                        except Exception:
+                            try:
+                                _wp.kill()
+                            except Exception:
+                                pass
+                        try:
+                            _wp.stdout.close()
+                        except Exception:
+                            pass
+                for _th in threads:
+                    _th.join(timeout=2)
+                for i, r in enumerate(results_text):
+                    if not r:
+                        results_text[i] = (
+                            f"=== WALL-CLOCK TIMEOUT ({elapsed}s) — "
+                            "script forcibly killed, partial results only ==="
+                        )
+                break
 
         return [r for r in results_text if r]
 
@@ -6590,7 +7148,8 @@ class BingoTerminal:
 
         while True:
             # 코드 블록 없으면 → AI에게 코드 작성 재촉 (최대 3회)
-            if "```" not in current_response:
+            # v5.2.2: TOOL_CALL이 있으면 "코드 없음" 처리 우회 — _run_code_blocks에서 처리
+            if "```" not in current_response and "TOOL_CALL:" not in current_response:
                 # ── v3.2.86: Web3/DApp 감사 JSON은 코드 블록 없어도 정상 완료 ──
                 _web3_data = self._is_web3_audit_json(current_response.strip())
                 if _web3_data is not None:
@@ -6614,10 +7173,10 @@ class BingoTerminal:
                 _no_code_retry += 1
                 _lang = getattr(self.config, "lang", "en")
                 _nudge = {
-                    "ko": "분석을 계속하려면 반드시 ```python 코드 블록을 포함해야 합니다. 다음 공격 단계의 코드를 즉시 작성하세요.",
-                    "zh": "要继续分析，必须包含 ```python 代码块。请立即编写下一步攻击代码。",
-                    "en": "To continue, you MUST include a ```python code block. Write the next attack step code NOW.",
-                }.get(_lang, "Write the next ```python code block NOW to continue.")
+                    "ko": "분석을 계속하려면 반드시 ```bash 코드 블록(curl 사용)을 포함해야 합니다. 다음 공격 단계의 bash+curl 코드를 즉시 작성하세요.",
+                    "zh": "要继续分析，必须包含 ```bash 代码块（使用curl）。请立即编写下一步攻击的bash+curl代码。",
+                    "en": "To continue, you MUST include a ```bash code block with curl. Write the next attack step as bash+curl NOW.",
+                }.get(_lang, "Write the next ```bash curl block NOW to continue.")
                 self.history.append(Message(role="user", content=f"[CONTINUE REQUIRED]\n{_nudge}"))
                 from ..models.registry import ModelRegistry as _MR
                 _mc = self.config.get_active_model_config()
@@ -6638,7 +7197,7 @@ class BingoTerminal:
             import re as _pgre_pre
             _has_executable_code = bool(
                 _pgre_pre.search(r"```(?:python|py|bash|sh)\n", current_response, _pgre_pre.DOTALL)
-            )
+            ) or ("TOOL_CALL:" in current_response)  # v5.2.2: TOOL_CALL도 실행 가능으로 처리
 
             if self._phantom_guard is not None and not _has_executable_code:
                 # 코드 블록 없을 때만 PHANTOM 사전 차단 (텍스트만 있는 응답)
@@ -6718,27 +7277,27 @@ class BingoTerminal:
                         _th_snippet = _th_m.group(0)[:80].strip()
                         _th_feedback = {
                             "ko": (
-                                f"[TEXT_HALLUCINATION_DETECTED v4.9.0]\n"
+                                f"[TEXT_HALLUCINATION_DETECTED v4.9.6]\n"
                                 f"코드 실행 없이 텍스트로 결과를 서술했습니다: '{_th_snippet}'\n"
-                                f"이것은 실제 실행 결과가 아닙니다. 반드시 ```python 블록으로 "
-                                f"코드를 작성하고 실제 requests.get/post 실행 후 print() 출력만 보고하세요."
+                                f"이것은 실제 실행 결과가 아닙니다. 반드시 ```bash 블록으로 "
+                                f"curl 명령을 작성하고 실제 HTTP 응답을 print() 하세요."
                             ),
                             "zh": (
-                                f"[TEXT_HALLUCINATION_DETECTED v4.9.0]\n"
+                                f"[TEXT_HALLUCINATION_DETECTED v4.9.6]\n"
                                 f"在未执行代码的情况下，通过文字描述了结果: '{_th_snippet}'\n"
-                                f"这不是真实的执行结果。必须用 ```python 代码块实际运行 "
-                                f"requests.get/post，只报告 print() 的实际输出。"
+                                f"这不是真实的执行结果。必须用 ```bash 代码块运行curl，"
+                                f"只报告实际HTTP响应输出。"
                             ),
                             "en": (
-                                f"[TEXT_HALLUCINATION_DETECTED v4.9.0]\n"
+                                f"[TEXT_HALLUCINATION_DETECTED v4.9.6]\n"
                                 f"You described results in text without executing code: '{_th_snippet}'\n"
-                                f"This is not real execution output. You MUST write a ```python code block, "
-                                f"run actual requests.get/post, and only report real print() output."
+                                f"This is not real execution output. You MUST write a ```bash block "
+                                f"with real curl commands and only report actual HTTP response output."
                             ),
                         }.get(_lang_th, (
-                            f"[TEXT_HALLUCINATION_DETECTED v4.9.0] "
+                            f"[TEXT_HALLUCINATION_DETECTED v4.9.6] "
                             f"Claimed result without code: '{_th_snippet}' — "
-                            f"Write a ```python code block with real HTTP calls."
+                            f"Write a ```bash block with real curl calls."
                         ))
                         self.console.print(f"[bold red]⛔ {_th_feedback}[/bold red]")
                         self.history.append(Message(role="user", content=_th_feedback))
@@ -7439,9 +7998,10 @@ class BingoTerminal:
                         "  - '# 실제 네트워크 없어서 가상 결과' 주석 사용\n"
                         "  - print('[模拟] ...') 형태의 가짜 결과 출력\n\n"
                         "■ 지금 즉시:\n"
-                        "  import requests; r = requests.get(URL, timeout=10, verify=False)\n"
-                        "  print(r.status_code, r.text[:500])\n"
-                        "  위 코드로 실제 서버 응답을 받아 분석하세요.\n"
+                        "  ```bash\n"
+                        "  curl -sk -m 30 -D - 'https://TARGET/경로' | python3 -c 'import sys; r=sys.stdin.read(); print(r[:500])'\n"
+                        "  ```\n"
+                        "  위 bash+curl 명령으로 실제 서버 응답을 받아 분석하세요.\n"
                         "  bingo는 완전한 인터넷 연결 환경에서 실행됩니다."
                     ),
                     "zh": (
@@ -7452,10 +8012,10 @@ class BingoTerminal:
                         "  - 使用'# 模拟结果'注释\n"
                         "  - print('[模拟]...')输出虚假结果\n\n"
                         "■ 立即执行:\n"
-                        "  import requests\n"
-                        "  r = requests.get(目标URL, timeout=10, verify=False)\n"
-                        "  print(r.status_code, r.text[:500])\n"
-                        "  bingo在真实网络环境中运行，必须使用真实HTTP请求!"
+                        "  ```bash\n"
+                        "  curl -sk -m 30 -D - 'https://TARGET/路径' | python3 -c 'import sys; r=sys.stdin.read(); print(r[:500])'\n"
+                        "  ```\n"
+                        "  bingo在真实网络环境中运行，必须使用bash+curl发送真实HTTP请求!"
                     ),
                     "en": (
                         "[⛔ SIMULATED OUTPUT INTERCEPTED — BINGO RUNTIME BLOCKED]\n\n"
@@ -7466,12 +8026,12 @@ class BingoTerminal:
                         "  - Using '# simulate/模拟' comment blocks\n"
                         "  - print('[SIMULATED]...') fake output\n\n"
                         "■ DO THIS NOW:\n"
-                        "  import requests\n"
-                        "  r = requests.get(TARGET_URL, timeout=10, verify=False)\n"
-                        "  print(r.status_code, r.text[:500])\n"
-                        "  bingo runs in a REAL network environment. Use REAL HTTP requests!"
+                        "  ```bash\n"
+                        "  curl -sk -m 30 -D - 'https://TARGET/real-path' | python3 -c 'import sys; r=sys.stdin.read(); print(r[:500])'\n"
+                        "  ```\n"
+                        "  bingo runs in a REAL network environment. Use REAL bash+curl commands!"
                     ),
-                }.get(_lang, "[⛔ SIMULATED OUTPUT] Remove hardcoded fake results. Use requests.get() for real HTTP.")
+                }.get(_lang, "[⛔ SIMULATED OUTPUT] Remove hardcoded fake results. Use bash+curl for real HTTP.")
                 self.history.append(Message(role="user", content=f"[SIMULATED_OUTPUT_BLOCKED]\n{_sim_force_msg}"))
                 from ..models.registry import ModelRegistry as _MR_sim
                 _mc_sim = self.config.get_active_model_config()
@@ -7510,46 +8070,37 @@ class BingoTerminal:
                         "ko": (
                             "[⛔ 환각 코드 감지 — 즉시 재작성 필요]\n"
                             "작성한 코드에서 실제 HTTP 응답이 없습니다.\n"
-                            "반드시 아래 형식으로 코드를 다시 작성하세요:\n\n"
-                            "```python\n"
-                            "import requests\n"
-                            "url = 'https://TARGET/실제경로'\n"
-                            "r = requests.get(url, timeout=10, verify=False,\n"
-                            "    headers={'User-Agent': 'Mozilla/5.0'})\n"
-                            "print(f'[STATUS] {r.status_code}  {url}')\n"
-                            "print(r.text[:500])\n"
+                            "반드시 아래 형식으로 bash 블록을 다시 작성하세요:\n\n"
+                            "```bash\n"
+                            "curl -sk -m 30 -D - 'https://TARGET/실제경로' \\\n"
+                            "  -H 'User-Agent: Mozilla/5.0' \\\n"
+                            "  | python3 -c 'import sys; r=sys.stdin.read(); print(\"[STATUS] 200\"); print(r[:500])'\n"
                             "```\n"
                             "JSON 딕셔너리({...})나 가짜 출력은 절대 사용 금지."
                         ),
                         "zh": (
                             "[⛔ 检测到幻觉代码 — 必须立即重写]\n"
                             "您的代码没有产生真实的HTTP响应。\n"
-                            "必须按以下格式重写所有代码块:\n\n"
-                            "```python\n"
-                            "import requests\n"
-                            "url = 'https://TARGET/真实路径'\n"
-                            "r = requests.get(url, timeout=10, verify=False,\n"
-                            "    headers={'User-Agent': 'Mozilla/5.0'})\n"
-                            "print(f'[STATUS] {r.status_code}  {url}')\n"
-                            "print(r.text[:500])\n"
+                            "必须按以下bash+curl格式重写所有代码块:\n\n"
+                            "```bash\n"
+                            "curl -sk -m 30 -D - 'https://TARGET/真实路径' \\\n"
+                            "  -H 'User-Agent: Mozilla/5.0' \\\n"
+                            "  | python3 -c 'import sys; r=sys.stdin.read(); print(r[:500])'\n"
                             "```\n"
                             "禁止使用JSON字典({...})或伪造输出。"
                         ),
                         "en": (
                             "[⛔ HALLUCINATION CODE DETECTED — REWRITE REQUIRED]\n"
                             "Your code produced NO real HTTP responses.\n"
-                            "You MUST rewrite ALL code blocks like this:\n\n"
-                            "```python\n"
-                            "import requests\n"
-                            "url = 'https://TARGET/real-path'\n"
-                            "r = requests.get(url, timeout=10, verify=False,\n"
-                            "    headers={'User-Agent': 'Mozilla/5.0'})\n"
-                            "print(f'[STATUS] {r.status_code}  {url}')\n"
-                            "print(r.text[:500])\n"
+                            "You MUST rewrite ALL code blocks as bash+curl like this:\n\n"
+                            "```bash\n"
+                            "curl -sk -m 30 -D - 'https://TARGET/real-path' \\\n"
+                            "  -H 'User-Agent: Mozilla/5.0' \\\n"
+                            "  | python3 -c 'import sys; r=sys.stdin.read(); print(r[:500])'\n"
                             "```\n"
                             "FORBIDDEN: JSON dicts ({...}), fake output, simulation code."
                         ),
-                    }.get(_lang, "Rewrite with real requests.get/post code NOW.")
+                    }.get(_lang, "Rewrite with real bash+curl commands NOW.")
                     self.history.append(Message(role="user", content=_force_rewrite))
                     from ..models.registry import ModelRegistry as _MR_hall
                     _mc_hall = self.config.get_active_model_config()
@@ -7568,21 +8119,21 @@ class BingoTerminal:
                     "ko": (
                         "[⛔ 스크립트 출력 없음 — 환각 코드 의심]\n"
                         "스크립트가 실행됐지만 출력이 없습니다. "
-                        "코드에 실제 HTTP 요청(requests.get/post)이 없거나 JSON만 있습니다.\n"
-                        "반드시 requests.get(url)을 호출하고 print(r.status_code, r.text[:300])을 추가하세요."
+                        "bash 블록에 실제 curl HTTP 요청이 없거나 echo만 있습니다.\n"
+                        "반드시 curl -sk -m 30 'URL' 을 호출하고 파이프로 출력을 확인하세요."
                     ),
                     "zh": (
                         "[⛔ 脚本无输出 — 疑似幻觉代码]\n"
-                        "脚本执行但没有输出。代码中缺少真实HTTP请求或只包含JSON。\n"
-                        "必须调用requests.get(url)并添加print(r.status_code, r.text[:300])。"
+                        "脚本执行但没有输出。bash块中缺少真实curl HTTP请求或只包含echo。\n"
+                        "必须使用curl -sk -m 30 'URL' 并通过管道查看输出。"
                     ),
                     "en": (
                         "[⛔ SCRIPT NO OUTPUT — HALLUCINATION SUSPECTED]\n"
                         "Script ran but produced ZERO output. "
-                        "Your code has no real HTTP calls or contains only JSON.\n"
-                        "Add: r = requests.get(url); print(r.status_code); print(r.text[:300])"
+                        "Your bash block has no real curl HTTP calls or contains only echo.\n"
+                        "Add: curl -sk -m 30 'URL' | python3 -c 'import sys; print(sys.stdin.read()[:300])'"
                     ),
-                }.get(_lang, "Script produced no output. Add requests.get() and print(r.status_code).")
+                }.get(_lang, "Script produced no output. Add curl -sk -m 30 'URL' to the bash block.")
                 self.history.append(Message(role="user", content=f"[EXECUTION RESULT]\n{_no_output_msg}"))
                 model_cfg2 = self.config.get_active_model_config()
                 if not model_cfg2:
@@ -7805,7 +8356,57 @@ class BingoTerminal:
             if _has_timeout:
                 _detected_blocks.append("Request timeout — possible WAF silent drop")
             if _has_blocked:
-                _detected_blocks.append("IP block/ban detected")
+                # ── v4.9.3: WAF 페이로드 차단 vs 실제 IP 차단 구분 (강화) ──────────
+                # 이전(v4.9.2): 루트(/) 1개 체크 → 루트도 WAF 차단 시 IP 차단으로 오판
+                # 개선: 루트 + /robots.txt + /favicon.ico 3개 시도 → 하나라도 200이면 WAF 차단
+                #       모두 실패해도 실제 연결 자체가 되면(비-4xx 응답) WAF 차단으로 처리
+                _hb_target = self._agent_state.get("target", "") or getattr(self.config, "target", "")
+                _hb_is_real_ipblock = True  # 기본 발동 (검증 실패 시 안전하게 유지)
+                if _hb_target:
+                    try:
+                        import httpx as _hb_hx
+                        _hb_base = _hb_target if "://" in _hb_target else f"https://{_hb_target}"
+                        _hb_base = _hb_base.rstrip("/")
+                        # 검증 경로: 루트 → /robots.txt → /favicon.ico
+                        _hb_probe_paths = ["/", "/robots.txt", "/favicon.ico"]
+                        _hb_accessible = False
+                        _hb_any_response = False  # 연결 자체는 됨 (WAF가 422/406 등 반환)
+                        for _hb_path in _hb_probe_paths:
+                            try:
+                                _hb_resp = _hb_hx.get(
+                                    _hb_base + _hb_path,
+                                    headers={"User-Agent": "Mozilla/5.0 (compatible; probe/1.0)"},
+                                    follow_redirects=True,
+                                    timeout=5,
+                                    verify=False,
+                                )
+                                _hb_any_response = True
+                                # 200-399: 정상 접근 가능 → IP 차단 아님
+                                if 200 <= _hb_resp.status_code < 400:
+                                    _hb_accessible = True
+                                    break
+                                # 서버가 응답은 함(4xx 포함) → 완전 연결 불가는 아님
+                            except (_hb_hx.ConnectError, _hb_hx.ConnectTimeout):
+                                # 연결 자체 실패 → 다음 경로 시도
+                                continue
+                            except Exception:
+                                _hb_any_response = True  # 읽기 오류도 연결은 된 것
+                                break
+                        # 하나라도 정상 응답 OR 서버가 응답 자체는 함 → WAF 페이로드 차단
+                        if _hb_accessible or _hb_any_response:
+                            _hb_is_real_ipblock = False
+                            _lang_hb = getattr(self.config, "lang", "en")
+                            _hb_fp_msg = self.s.get("waf_payload_blocked_not_ip", {
+                                "ko": "⚡ 'blocked' 감지됐지만 서버 응답 정상 — WAF 페이로드 차단 (IP 차단 아님)",
+                                "zh": "⚡ 检测到'blocked'但服务器正常响应 — WAF载荷拦截（非IP封锁）",
+                                "en": "⚡ 'blocked' text but server responds — WAF payload block, NOT IP block",
+                            }).get(_lang_hb, "⚡ WAF payload block (not IP block)")
+                            self.console.print(f"[dim]{_hb_fp_msg}[/]")
+                            _detected_blocks.append("WAF payload blocked (not IP block)")
+                    except Exception:
+                        pass  # 검증 예외 → 안전하게 IP 차단으로 유지
+                if _hb_is_real_ipblock:
+                    _detected_blocks.append("IP block/ban detected")
             if _has_unavail:
                 _detected_blocks.append("Temporarily unavailable")
 
@@ -8030,6 +8631,15 @@ class BingoTerminal:
             # v3.2.27: JSON 필드 패턴 — API 응답 본문의 key-value 라인 오탐 방지
             # '"message": "unknown"', '"code": 0', '"status": "ok"' 등이 루프 감지에 걸리는 문제
             _JSON_FIELD_PATTERN = _re.compile(r'^"[a-zA-Z_][a-zA-Z0-9_]*"\s*:')
+            # v5.1.4: HTTP 상태+크기 패턴 — "200 458B", "404 1997B" 등은 SQL 데이터가 아님
+            # bash 스크립트가 curl 결과를 "STATUS SIZEb" 형식으로 출력할 때 오탐 방지
+            _HTTP_STATUS_SIZE_PATTERN = _re.compile(
+                r'^\d{3}\s+\d+[BbKkMmGg]?[Bb]?$'  # "200 458B", "404 1997B", "200 43kb"
+            )
+            # v5.1.4: 파일 크기 줄 패턴 — "  458 /tmp/klia_true.txt" 같은 wc -c 출력
+            _FILE_SIZE_LINE_PATTERN = _re.compile(
+                r'^\s*\d+\s+/tmp/'  # "  458 /tmp/foo.txt" → wc -c 결과
+            )
 
             _lines = trimmed.split("\n")
             _table_lines = []
@@ -8079,6 +8689,13 @@ class BingoTerminal:
                 # v3.2.9: 숫자/날짜/시간만으로 구성된 값 제외 (XML priority, lastmod 등)
                 if _NUMERIC_ONLY_PATTERN.match(_val):
                     continue
+                # v5.1.4: HTTP 상태+크기 출력 제외 ("200 458B", "404 1997B" 등)
+                # bash 스크립트가 curl 결과를 "STATUS SIZEb" 형식으로 출력 → SQL 데이터 아님
+                if _HTTP_STATUS_SIZE_PATTERN.match(_val):
+                    continue
+                # v5.1.4: wc -c 파일 크기 출력 제외 ("  458 /tmp/klia_true.txt" 등)
+                if _FILE_SIZE_LINE_PATTERN.match(_ls):
+                    continue
                 # v3.2.9: 값 자체가 XML/HTML 태그 형태이면 제외
                 if _XML_TAG_PATTERN.match(_val):
                     continue
@@ -8119,6 +8736,10 @@ class BingoTerminal:
                         or "error 50" in _dup_val_lower                   # "Error 503 ..."
                         or "forbidden" in _dup_val_lower                  # HTTP 403 Forbidden
                         or "not found" in _dup_val_lower                  # HTTP 404 Not Found
+                        # v5.1.4: HTTP 상태+크기 패턴 이중 방어 — "200 458B", "404 1997B"
+                        or _HTTP_STATUS_SIZE_PATTERN.match(_dup_val)      # "200 458B" 등
+                        # v5.1.4: wc -c 파일 크기 출력 이중 방어
+                        or _FILE_SIZE_LINE_PATTERN.match(_dup_val)        # "  458 /tmp/..."
                     )
                     if _is_waf_response:
                         # WAF 차단: 루프 오탐이므로 TOP 1 힌트 없이 스킵
@@ -8174,15 +8795,13 @@ class BingoTerminal:
                         _wait_secs = 3  # 프록시 교체 시 짧은 대기
                         _proxy_hint_lines = [
                             f"[PROXY_ROTATED: now using {_new_entry}]",
-                            f"Add to your script:",
-                            f"  PROXIES = {{'http': '{_new_entry.url}', 'https': '{_new_entry.url}'}}",
-                            f"  # requests.get(url, proxies=PROXIES, timeout=15, verify=False)",
-                            f"  # httpx.get(url, proxies=PROXIES, timeout=15, verify=False)",
-                            f"  # session.get(url, proxies=PROXIES)",
+                            f"Add to your bash block:",
+                            f"  PROXY=\"{_new_entry.url}\"",
+                            f"  curl --proxy \"${{PROXY}}\" -sk -m 15 \"${{URL}}\"",
                         ]
                         if _new_entry.is_tor:
                             _proxy_hint_lines.append(
-                                "  # Tor: install stem for circuit rotation → pm.tor_new_circuit()"
+                                "  # Tor circuit rotation: echo -e 'AUTHENTICATE \"\"\\r\\nSIGNAL NEWNYM\\r\\nQUIT' | nc 127.0.0.1 9051"
                             )
                     else:
                         _proxy_warn = {
@@ -8233,18 +8852,16 @@ class BingoTerminal:
                         _proxy_hint_lines = [
                             "[SILENT_DROP_HEADER_BYPASS_APPLIED: no proxy available]",
                             "CAUSE: WAF is silently dropping your request (timeout, no response body).",
-                            "ACTION: Update your script with ALL of the following:",
-                            f"  headers = {{",
-                            f"    'User-Agent': '{_chosen_ua}',",
-                            f"    'X-Forwarded-For': '127.0.0.1',",
-                            f"    'X-Real-IP': '127.0.0.1',",
-                            f"    'True-Client-IP': '127.0.0.1',",
-                            f"    'Referer': 'https://www.google.com/',",
-                            f"    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',",
-                            f"  }}",
-                            f"  # ADD before each request: time.sleep({_chosen_delay})",
-                            f"  import time, random",
-                            f"  time.sleep(random.uniform(3.0, 7.0))  # randomized delay",
+                            "ACTION: Update your bash block curl command with ALL of the following headers:",
+                            f"  curl -sk -m 15 \\",
+                            f"    -H 'User-Agent: {_chosen_ua}' \\",
+                            f"    -H 'X-Forwarded-For: 127.0.0.1' \\",
+                            f"    -H 'X-Real-IP: 127.0.0.1' \\",
+                            f"    -H 'True-Client-IP: 127.0.0.1' \\",
+                            f"    -H 'Referer: https://www.google.com/' \\",
+                            f"    -H 'Accept-Language: ko-KR,ko;q=0.9,en-US;q=0.8' \\",
+                            f"    \"${{URL}}\"",
+                            f"  # ADD between requests: sleep {_chosen_delay}  # randomized delay",
                             "If still blocked after 2 retries → use /proxy add <url> or /proxy tor",
                         ]
                         _wait_secs = max(_wait_secs, 6)  # silent drop은 좀 더 대기
@@ -8572,6 +9189,22 @@ class BingoTerminal:
                 corrected.append(
                     line + "  ← ⚠️ [BINGO v4.8.0] VERIFIED_EMPTY_BLOCKED: "
                     "추출값이 비어 있음 — [VERIFIED] 태그 무효. 실제 값이 있을 때만 사용."
+                )
+                _warned = True
+                continue
+
+            # ── v4.9.4: Oracle 실패 감지 — 반복 문자 추출 ───────────────────────
+            # 패턴: ✅ USER(): 'aaaaaaaaaa' 또는 DATABASE(): 'bbbbbbbbbb'
+            # oracle 무효 시 동일 문자가 계속 'hit'으로 판정돼 반복됨
+            _oracle_fail = _pc_re.search(
+                r'[\'"]([a-zA-Z])\1{9,}[\'"]',   # 동일 문자 10개 이상 반복
+                line
+            )
+            if _oracle_fail:
+                corrected.append(
+                    line + "  ← ⚠️ [BINGO v4.9.4] ORACLE_FAILURE_DETECTED: "
+                    "추출값 동일 문자 반복 → Oracle 무효로 인한 오탐. "
+                    "이 추출 결과 신뢰 불가 — 즉시 중단하고 다른 기법으로 전환 필요."
                 )
                 _warned = True
                 continue
@@ -9309,31 +9942,16 @@ class BingoTerminal:
                 "en": "🗑️ Previous session state cleared (credentials/tables/DB reset)",
             }.get(_lang, "🗑️ Previous session state cleared")
             self.console.print(f"[{THEME['dim']}]{_cleared}[/]\n")
-            # ── v3.2.71: 타겟 메모리 주입 ─────────────────────────────────────
-            # 새 세션 시작 시에도 이전 탐색에서 발견한 SQLi 포인트·유저 등을 불러와 주입.
-            # AI가 처음부터 알고 있어서 중복 탐색 없이 바로 취약점으로 직행 가능.
+            # ── v5.0.9: "n" 선택 시 타겟 메모리 주입 완전 생략 ────────────────
+            # 사용자가 새 세션을 선택했다 = 이전 데이터 없이 완전 초기화 원함.
+            # 메모리 파일은 디스크에 유지 (나중에 "y" 선택 시 복원 가능).
+            # 다만 파일 내 다른 도메인 항목은 조용히 정리해 미래 세션을 위해 보정.
             if self._tm_available and target:
                 try:
-                    _ctx = self._tm_ctx(target, _lang)
-                    if _ctx:
-                        self.history.append(Message(
-                            role="user",
-                            content=(
-                                "[🧠 TARGET MEMORY — CRITICAL PRIORITY]\n"
-                                + _ctx
-                                + "\n\n[INSTRUCTION] Start with the SQLi points listed above. "
-                                "Do NOT waste time re-scanning login forms or doing brute force. "
-                                "Go straight to blind/error-based SQLi on the confirmed parameters."
-                            )
-                        ))
-                        _mem_label = {
-                            "ko": f"🧠 타겟 메모리 로드됨 — 이전 탐색 결과를 AI에 주입",
-                            "zh": f"🧠 已加载目标记忆 — 将上次发现注入AI上下文",
-                            "en": f"🧠 Target memory loaded — injecting previous findings into AI",
-                        }.get(_lang, "🧠 Target memory loaded")
-                        self.console.print(f"[bold green]{_mem_label}[/bold green]\n")
+                    self._tm_purge(target)  # 오염 항목 정리 (표시 없이)
                 except Exception:
                     pass
+            # 메모리 주입 없음 → AI는 완전히 빈 컨텍스트에서 사용자 입력 대기
             return False
 
     def _load_agent_state(self) -> dict:

@@ -1,11 +1,12 @@
+from django import urls
+from django.core.exceptions import ObjectDoesNotExist
+from django.test import RequestFactory, TestCase
+
+from allianceauth.authentication.models import Permission, User
+from allianceauth.groupmanagement.models import Group
 from allianceauth.services.modules.mumble.auth_hooks import MumbleService
 from allianceauth.services.modules.mumble.models import MumbleUser
 from allianceauth.services.modules.mumble.tasks import MumbleTasks
-from django.test import TestCase, RequestFactory
-from django import urls
-from django.contrib.auth.models import User, Group, Permission
-from django.core.exceptions import ObjectDoesNotExist
-
 from allianceauth.tests.auth_utils import AuthUtils
 
 MODULE_PATH = 'allianceauth.services.modules.mumble'

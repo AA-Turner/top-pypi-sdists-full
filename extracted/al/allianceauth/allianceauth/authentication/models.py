@@ -1,16 +1,40 @@
 import logging
 from typing import ClassVar
 
-from django.contrib.auth.models import Permission, User
+from django.contrib.auth.models import (
+    Permission as BasePermission, User as BaseUser,
+)
 from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
 
-from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo
+from allianceauth.eveonline.models import (
+    EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo,
+)
 from allianceauth.notifications import notify
 
 from .managers import CharacterOwnershipManager, StateManager
 
 logger = logging.getLogger(__name__)
+
+
+class User(BaseUser):
+    """Proxy model of `django.contrib.auth.models.User` for typehinting and other purposes."""
+
+    profile: "UserProfile"  # Reverse side of OneToOne
+    character_ownerships: models.QuerySet["CharacterOwnership"]  # Reverse side of ForeignKey
+
+    class Meta:
+        proxy = True
+        verbose_name = BaseUser._meta.verbose_name
+        verbose_name_plural = BaseUser._meta.verbose_name_plural
+
+
+class Permission(BasePermission):
+    """Proxy model of `django.contrib.auth.models.Permission` for typehinting and other purposes."""
+    class Meta:
+        proxy = True
+        verbose_name = BasePermission._meta.verbose_name
+        verbose_name_plural = BasePermission._meta.verbose_name_plural
 
 
 class State(models.Model):
@@ -34,7 +58,8 @@ class State(models.Model):
     )
     public = models.BooleanField(default=False, help_text="Make this state available to any character.")
 
-    objects: ClassVar[StateManager] = StateManager()
+    objects: ClassVar[StateManager] = StateManager()  # pyright: ignore[reportIncompatibleVariableOverride]
+    userprofile_set: models.QuerySet["UserProfile"]
 
     class Meta:
         ordering = ["-priority"]
@@ -158,7 +183,7 @@ class CharacterOwnership(models.Model):
     owner_hash = models.CharField(max_length=28, unique=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="character_ownerships")
 
-    objects: ClassVar[CharacterOwnershipManager] = CharacterOwnershipManager()
+    objects: ClassVar[CharacterOwnershipManager] = CharacterOwnershipManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
     class Meta:
         default_permissions = ('change', 'delete')

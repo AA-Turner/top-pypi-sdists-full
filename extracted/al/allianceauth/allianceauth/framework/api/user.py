@@ -3,9 +3,7 @@ Alliance Auth User API
 """
 
 
-from django.contrib.auth.models import User
-
-from allianceauth.authentication.models import CharacterOwnership
+from allianceauth.authentication.models import CharacterOwnership, User
 from allianceauth.eveonline.models import EveCharacter
 
 

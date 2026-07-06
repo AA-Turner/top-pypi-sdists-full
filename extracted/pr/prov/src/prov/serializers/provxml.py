@@ -1,17 +1,18 @@
 from __future__ import annotations  # needed for | type annotations in Python < 3.10
+
 import datetime
-import logging
-from lxml import etree
 import io
-from typing import Any, Optional
+import logging
 import warnings
+from typing import Any
+
+from lxml import etree
 
 import prov
 import prov.identifier
+from prov.constants import *
 from prov.model import DEFAULT_NAMESPACES, sorted_attributes
-from prov.constants import *  # NOQA
 from prov.serializers import Serializer
-
 
 __author__ = "Lion Krischer"
 __email__ = "krischer@geophysik.uni-muenchen.de"
@@ -23,9 +24,9 @@ logger = logging.getLogger(__name__)
 FULL_NAMES_MAP = dict(PROV_N_MAP)
 FULL_NAMES_MAP.update(ADDITIONAL_N_MAP)
 # Inverse mapping.
-FULL_PROV_RECORD_IDS_MAP = dict(
-    (FULL_NAMES_MAP[rec_type_id], rec_type_id) for rec_type_id in FULL_NAMES_MAP
-)
+FULL_PROV_RECORD_IDS_MAP = {
+    FULL_NAMES_MAP[rec_type_id]: rec_type_id for rec_type_id in FULL_NAMES_MAP
+}
 
 XML_XSD_URI = "http://www.w3.org/2001/XMLSchema"
 
@@ -78,7 +79,7 @@ class ProvXMLSerializer(Serializer):
     def serialize_bundle(
         self,
         bundle: prov.model.ProvBundle,
-        element: Optional[etree._Element] = None,
+        element: etree._Element | None = None,
         force_types: bool = False,
     ) -> etree._Element:
         """
@@ -130,10 +131,7 @@ class ProvXMLSerializer(Serializer):
             rec_type = record.get_type()
             identifier = str(record._identifier) if record._identifier else None
 
-            if identifier:
-                attrs = {_ns_prov("id"): identifier}
-            else:
-                attrs = None
+            attrs = {_ns_prov("id"): identifier} if identifier else None
 
             # Derive the record label from its attributes which is sometimes
             # needed.
@@ -151,14 +149,13 @@ class ProvXMLSerializer(Serializer):
                         value.datatype is not None
                         and value.datatype != PROV_INTERNATIONALIZEDSTRING
                     ):
-                        subelem.attrib[_ns_xsi("type")] = "%s:%s" % (
-                            value.datatype.namespace.prefix,
-                            value.datatype.localpart,
+                        subelem.attrib[_ns_xsi("type")] = (
+                            f"{value.datatype.namespace.prefix}:{value.datatype.localpart}"
                         )
                     if value.langtag is not None:
                         subelem.attrib[_ns_xml("lang")] = value.langtag
                     v = value.value
-                elif isinstance(value, prov.model.QualifiedName):
+                elif isinstance(value, prov.identifier.QualifiedName):
                     if attr not in PROV_ATTRIBUTE_QNAMES:
                         subelem.attrib[_ns_xsi("type")] = "xsd:QName"
                     v = str(value)
@@ -276,20 +273,19 @@ class ProvXMLSerializer(Serializer):
                 )
             # Ignore the <prov:other> element storing non-PROV information.
             if qname.localname == "other":
-                # No explicit stacklevel to preserve historic warning behaviour;
-                # revisit in a follow-up.
-                warnings.warn(  # noqa: B028
+                warnings.warn(
                     "Document contains non-PROV information in "
                     "<prov:other>. It will be ignored in this package.",
                     UserWarning,
+                    stacklevel=2,
                 )
                 continue
 
             id_tag = _ns_prov("id")
-            rec_id = element.attrib[id_tag] if id_tag in element.attrib else None
+            rec_id = element.attrib.get(id_tag, None)
             # Try to make a qualified name out of it!
             prov_rec_id = (
-                xml_qname_to_QualifiedName(element, rec_id)  # type: ignore[arg-type]
+                xml_qname_to_QualifiedName(element, rec_id)
                 if rec_id is not None
                 else None
             )
@@ -324,8 +320,8 @@ class ProvXMLSerializer(Serializer):
 
     def _derive_record_label(
         self,
-        rec_type: prov.model.QualifiedName,
-        attributes: list[tuple[prov.model.QualifiedName, Any]],
+        rec_type: prov.identifier.QualifiedName,
+        attributes: list[tuple[prov.identifier.QualifiedName, Any]],
     ) -> str:
         """
         Helper function trying to derive the record label taking care of
@@ -351,19 +347,17 @@ class ProvXMLSerializer(Serializer):
 
 def _extract_attributes(
     element: etree._Element,
-) -> list[tuple[prov.model.QualifiedName, Any]]:
+) -> list[tuple[prov.identifier.QualifiedName, Any]]:
     """
     Extract the PROV attributes from an etree element.
 
     :param element: The lxml.etree.Element instance.
     """
-    attributes = []  # type: list[tuple[prov.model.QualifiedName, Any]]
+    attributes = []  # type: list[tuple[prov.identifier.QualifiedName, Any]]
     for subel in element:
         sqname = etree.QName(subel)
         qname_str = (
-            "%s:%s" % (subel.prefix, sqname.localname)
-            if subel.prefix
-            else sqname.localname
+            f"{subel.prefix}:{sqname.localname}" if subel.prefix else sqname.localname
         )
         _t = xml_qname_to_QualifiedName(subel, qname_str)
 
@@ -380,14 +374,12 @@ def _extract_attributes(
             elif key == _ns_xml("lang"):
                 _v = prov.model.Literal(subel.text, langtag=value_str)
             else:
-                # No explicit stacklevel to preserve historic warning behaviour;
-                # revisit in a follow-up.
-                warnings.warn(  # noqa: B028
-                    "The element '%s' contains an attribute %s='%s' "
+                warnings.warn(
+                    f"The element '{_t}' contains an attribute {key!s}='{value!s}' "
                     "which is not representable in the prov module's "
-                    "internal data model and will thus be ignored."
-                    % (_t, str(key), str(value)),
+                    "internal data model and will thus be ignored.",
                     UserWarning,
+                    stacklevel=2,
                 )
 
         if not subel.attrib:
@@ -400,7 +392,7 @@ def _extract_attributes(
 
 def xml_qname_to_QualifiedName(
     element: etree._Element, qname_str: str
-) -> prov.model.QualifiedName:
+) -> prov.identifier.QualifiedName:
     if ":" in qname_str:
         prefix, localpart = qname_str.split(":", 1)
         if prefix in element.nsmap:
@@ -410,29 +402,30 @@ def xml_qname_to_QualifiedName(
             elif ns_uri == PROV.uri:
                 ns = PROV
             else:
-                ns = Namespace(prefix, ns_uri)
+                ns = prov.identifier.Namespace(prefix, ns_uri)
             return ns[localpart]
     # case 1: no colon
     # case 2: unknown prefix
     if None in element.nsmap:
         ns_uri = element.nsmap[None]
-        if ns_uri == XML_XSD_URI:
+        if ns_uri == XML_XSD_URI:  # noqa: SIM108
             ns = XSD  # use the standard xsd namespace (i.e. with #)
         else:
             # Deliberately not mapping PROV.uri to the canonical PROV namespace
             # here (unlike the prefixed branch above): doing so would change the
             # serialized output for previously-accepted documents, breaking the
-            # 2.x output-compatibility promise.
-            ns = Namespace("", ns_uri)
+            # 2.x output-compatibility promise. Kept as an if/else (not a
+            # ternary) so this explanation stays attached to the branch it
+            # documents.
+            ns = prov.identifier.Namespace("", ns_uri)
         return ns[qname_str]
     # no default namespace
-    raise ProvXMLException(
-        'Could not create a valid QualifiedName for "%s"' % qname_str
-    )
+    raise ProvXMLException(f'Could not create a valid QualifiedName for "{qname_str}"')
 
 
 def _ns(ns: str, tag: str) -> str:
-    return "{%s}%s" % (ns, tag)
+    # Clark notation ("{uri}tag") as used by lxml/ElementTree
+    return f"{{{ns}}}{tag}"
 
 
 def _ns_prov(tag: str) -> str:

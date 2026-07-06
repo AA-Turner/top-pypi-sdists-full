@@ -477,12 +477,23 @@ def test_compare_instances_reports_changed_and_missing(monkeypatch: pytest.Monke
     assert result["changed"][0]["key"] == "x_app.A"
 
 
-def _build_browser_default_server(monkeypatch, tmp_path, *, entries=None, active="dev"):
+def _build_browser_default_server(
+    monkeypatch, tmp_path, *, entries=None, active="dev", keep_global_cred_env=False
+):
     """Multi-instance server on the global browser default.
 
     Default topology: dev/test bare (browser SSO) + prod with its own basic
     creds. Pass ``entries`` to vary the instance map — the ONE fixture for all
-    env-reference / broken-entry scenarios; don't re-inline this setup."""
+    env-reference / broken-entry scenarios; don't re-inline this setup.
+
+    Global credential env is CLEARED by default: profiles legitimately inherit
+    SERVICENOW_USERNAME/PASSWORD (v1.18.41), so ambient values — CI exports
+    test_user/test_password — would leak into every bare profile and make
+    these assertions environment-dependent. Inheritance tests opt in with
+    ``keep_global_cred_env=True`` and set the env themselves."""
+    if not keep_global_cred_env:
+        monkeypatch.delenv("SERVICENOW_USERNAME", raising=False)
+        monkeypatch.delenv("SERVICENOW_PASSWORD", raising=False)
     if entries is None:
         entries = {
             "dev": {"url": "https://dev.service-now.com", "allow_writes": True},
@@ -509,7 +520,10 @@ def _build_browser_default_server(monkeypatch, tmp_path, *, entries=None, active
     )
 
 
-def test_instance_with_creds_opts_out_of_browser_to_basic(monkeypatch, tmp_path):
+def test_instance_with_creds_stays_browser_creds_pick_who(monkeypatch, tmp_path):
+    # Per-profile creds select WHO (prefill + declared owner for G10), never
+    # the auth type: prod with bare username+password stays on the browser
+    # default — the old silent basic downgrade broke MFA/SSO instances.
     from servicenow_mcp.utils.config import AuthType
 
     server = _build_browser_default_server(monkeypatch, tmp_path)
@@ -517,12 +531,10 @@ def test_instance_with_creds_opts_out_of_browser_to_basic(monkeypatch, tmp_path)
     # Bare instances keep the global browser (headless) default.
     assert server.instance_contexts["dev"]["config"].auth.type == AuthType.BROWSER
     assert server.instance_contexts["test"]["config"].auth.type == AuthType.BROWSER
-    # prod brought its own username+password → basic (no browser), and those
-    # exact creds are used, not the global.
     prod_auth = server.instance_contexts["prod"]["config"].auth
-    assert prod_auth.type == AuthType.BASIC
-    assert prod_auth.basic.username == "svc_prod"
-    assert prod_auth.basic.password == "pw"
+    assert prod_auth.type == AuthType.BROWSER
+    assert prod_auth.browser.username == "svc_prod"
+    assert prod_auth.browser.password == "pw"
     # prod's own auth_manager targets prod with those creds.
     assert server.instance_contexts["prod"]["auth_manager"].instance_url == (
         "https://prod.service-now.com"
@@ -539,12 +551,32 @@ def test_list_instances_shows_auth_type_and_user_per_profile(monkeypatch, tmp_pa
     assert by_alias["dev"]["auth_type"] == "browser"
     assert by_alias["dev"]["user"] == "sso"
     assert by_alias["test"]["auth_type"] == "browser"
-    # prod: brought creds → basic, and its exact configured user is shown.
-    assert by_alias["prod"]["auth_type"] == "basic"
+    # prod: creds declare the profile owner; auth stays browser.
+    assert by_alias["prod"]["auth_type"] == "browser"
     assert by_alias["prod"]["user"] == "svc_prod"
     # write permission per profile still surfaced.
     assert by_alias["dev"]["allow_writes"] is True
     assert by_alias["prod"]["allow_writes"] is False
+
+
+def test_list_instances_shows_global_env_user_when_inherited(monkeypatch, tmp_path):
+    # With global creds in the env (the v1.18.41 inheritance), bare browser
+    # profiles carry that identity — and list_instances shows it instead of
+    # 'sso'. This is the exact shape CI runs under (test_user exported).
+    server = _build_browser_default_server(monkeypatch, tmp_path)
+    monkeypatch.setenv("SERVICENOW_USERNAME", "global_a")
+    monkeypatch.setenv("SERVICENOW_PASSWORD", "global_pw")
+    server_inherited = _build_browser_default_server(
+        monkeypatch, tmp_path, keep_global_cred_env=True
+    )
+
+    bare = {i["alias"]: i for i in server._list_instances_impl()["instances"]}
+    inherited = {i["alias"]: i for i in server_inherited._list_instances_impl()["instances"]}
+
+    assert bare["dev"]["user"] == "sso"
+    assert inherited["dev"]["user"] == "global_a"
+    # A profile with its own creds is unaffected by the globals.
+    assert inherited["prod"]["user"] == "svc_prod"
 
 
 def test_scaffold_page_treated_as_write_by_dispatch(monkeypatch, tmp_path):
@@ -577,7 +609,11 @@ def test_instance_entry_env_reference_resolved_for_credentials(monkeypatch, tmp_
     server = _build_browser_default_server(
         monkeypatch,
         tmp_path,
-        entries=_entries_with_prod({"username": "svc_prod", "password": "${TEST_SN_PROD_PW}"}),
+        # Explicit basic: the strict (required) credential path. Bare creds
+        # without auth_type stay browser, where creds are optional prefill.
+        entries=_entries_with_prod(
+            {"auth_type": "basic", "username": "svc_prod", "password": "${TEST_SN_PROD_PW}"}
+        ),
     )
 
     prod_auth = server.instance_contexts["prod"]["config"].auth
@@ -592,7 +628,9 @@ def test_broken_instance_entry_does_not_kill_startup(monkeypatch, tmp_path):
     server = _build_browser_default_server(
         monkeypatch,
         tmp_path,
-        entries=_entries_with_prod({"username": "svc_prod", "password": "${NOPE_UNSET_PW}"}),
+        entries=_entries_with_prod(
+            {"auth_type": "basic", "username": "svc_prod", "password": "${NOPE_UNSET_PW}"}
+        ),
     )
 
     # dev still fully usable.
@@ -616,7 +654,9 @@ def test_partial_env_reference_is_rejected_not_used_literally(monkeypatch, tmp_p
     server = _build_browser_default_server(
         monkeypatch,
         tmp_path,
-        entries=_entries_with_prod({"username": "svc_prod", "password": "${VAULT}_prod"}),
+        entries=_entries_with_prod(
+            {"auth_type": "basic", "username": "svc_prod", "password": "${VAULT}_prod"}
+        ),
     )
     prod = next(i for i in server._list_instances_impl()["instances"] if i["alias"] == "prod")
     assert prod["auth_status"] == "config_error"
@@ -679,4 +719,43 @@ def test_broken_active_instance_fails_closed(monkeypatch, tmp_path):
     seen = _register_recorder(server, "update_foo")
     with pytest.raises(ValueError, match="read-only"):
         asyncio.run(server._call_tool_impl("update_foo", {"confirm": "approve"}))
+    assert seen == {}
+
+
+def test_flow_publish_reachable_end_to_end_via_guards(monkeypatch, tmp_path):
+    # Pins issue #66: manage_flow_designer(action='publish') was UNREACHABLE —
+    # the tool-local confirm collided with the stripped server confirm field, so
+    # it looped on 'confirmation_required' forever. Now approval is deterministic:
+    # server confirm='approve' + G7 confirm_publish='approve' → the tool runs.
+    server = _build_multi_server(monkeypatch, tmp_path)
+    seen = _register_recorder(server, "manage_flow_designer")
+
+    # With BOTH approvals the publish call reaches the tool body.
+    asyncio.run(
+        server._call_tool_impl(
+            "manage_flow_designer",
+            {
+                "action": "publish",
+                "flow_id": "f1",
+                "confirm": "approve",
+                "confirm_publish": "approve",
+            },
+        )
+    )
+    assert seen.get("instance_url") == "https://dev.service-now.com"
+
+
+def test_flow_publish_blocked_without_confirm_publish(monkeypatch, tmp_path):
+    # G7 covers action='publish': confirm alone is not enough, the publish-class
+    # extra gate must fire so publish can't run on a bare confirm='approve'.
+    server = _build_multi_server(monkeypatch, tmp_path)
+    seen = _register_recorder(server, "manage_flow_designer")
+
+    with pytest.raises(ValueError, match="G7"):
+        asyncio.run(
+            server._call_tool_impl(
+                "manage_flow_designer",
+                {"action": "publish", "flow_id": "f1", "confirm": "approve"},
+            )
+        )
     assert seen == {}

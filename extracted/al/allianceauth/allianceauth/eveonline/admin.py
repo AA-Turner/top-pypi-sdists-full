@@ -1,12 +1,12 @@
 from django import forms
 from django.contrib import admin
-from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import QuerySet
 from django.http import HttpRequest
 
 from esi.exceptions import HTTPClientError, HTTPNotModified
 
+from allianceauth.authentication.models import User
 from allianceauth.eveonline.models import (
     EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo,
 )

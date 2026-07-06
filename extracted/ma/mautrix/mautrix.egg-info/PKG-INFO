@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mautrix
-Version: 0.21.0
+Version: 0.21.1
 Summary: A Python 3 asyncio Matrix framework.
 Home-page: https://github.com/mautrix/python
 Author: Tulir Asokan

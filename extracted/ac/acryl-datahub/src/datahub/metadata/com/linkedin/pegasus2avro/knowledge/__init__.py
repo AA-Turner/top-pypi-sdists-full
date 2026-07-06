@@ -14,6 +14,7 @@ from .....schema_classes import DocumentSourceClass
 from .....schema_classes import DocumentSourceTypeClass
 from .....schema_classes import DocumentStateClass
 from .....schema_classes import DocumentStatusClass
+from .....schema_classes import DocumentUsageStatisticsClass
 from .....schema_classes import ParentDocumentClass
 from .....schema_classes import RelatedAssetClass
 from .....schema_classes import RelatedDocumentClass
@@ -26,6 +27,7 @@ DocumentSource = DocumentSourceClass
 DocumentSourceType = DocumentSourceTypeClass
 DocumentState = DocumentStateClass
 DocumentStatus = DocumentStatusClass
+DocumentUsageStatistics = DocumentUsageStatisticsClass
 ParentDocument = ParentDocumentClass
 RelatedAsset = RelatedAssetClass
 RelatedDocument = RelatedDocumentClass

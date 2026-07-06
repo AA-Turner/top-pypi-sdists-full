@@ -321,6 +321,7 @@ def task_to_response(task: Task) -> TaskResponse:
         terminal_reason=task.terminal_reason,
         max_output_tokens=task.max_output_tokens,
         meta_messages=list(task.meta_messages),
+        max_turns=task.max_turns,
     )
 
 
@@ -761,10 +762,14 @@ def _do_reload_seed_config(workdir: Path, jsonl_path: Path, application: Any) ->
         write_config_snapshot,
     )
     from bernstein.core.runtime_state import hash_file, write_config_state
-    from bernstein.core.seed import SeedError, parse_seed
+    from bernstein.core.seed import SeedError, parse_seed, resolve_seed_path
     from bernstein.core.tenanting import TenantRegistry, ensure_tenant_layout, tenant_registry_from_seed
 
-    seed_path = workdir / "bernstein.yaml"
+    # resolve_seed_path() checks BERNSTEIN_SEED_PATH env first so this reload
+    # picks up the same seed file the bootstrap process actually parsed,
+    # instead of silently falling back to workdir/bernstein.yaml.
+    seed_path = resolve_seed_path(workdir)
+    logger.info("_do_reload_seed_config: resolved seed_path=%s (exists=%s)", seed_path, seed_path.exists())
     sdd_dir = jsonl_path.parent.parent
     previous_snapshot = read_config_snapshot(sdd_dir)
     current_snapshot = load_redacted_config(seed_path if seed_path.exists() else None)
@@ -1115,7 +1120,10 @@ def create_app(
     from bernstein.core.seed import CORSConfig
 
     cors_config = CORSConfig()  # default; overridden after seed_config loads
-    seed_path = workdir / "bernstein.yaml"
+    from bernstein.core.seed import resolve_seed_path
+
+    seed_path = resolve_seed_path(workdir)
+    logger.info("create_app: resolved seed_path=%s (exists=%s)", seed_path, seed_path.exists())
     if seed_path.exists():
         with contextlib.suppress(Exception):
             from bernstein.core.seed import parse_seed
@@ -1212,7 +1220,7 @@ def create_app(
     # is matched before /tasks/{task_id}.
     from bernstein.core.routes.acp import router as acp_router
     from bernstein.core.routes.agent_comparison import router as agent_comparison_router
-    from bernstein.core.routes.api_v1 import router as api_v1_router
+    from bernstein.core.routes.api_v1 import build_router as build_api_v1_router
     from bernstein.core.routes.approvals import router as approvals_router
     from bernstein.core.routes.audit_log import router as audit_log_router
     from bernstein.core.routes.batch_ops import router as batch_ops_router
@@ -1230,6 +1238,7 @@ def create_app(
     from bernstein.core.routes.hooks import router as hooks_router
     from bernstein.core.routes.identities import router as identities_router
     from bernstein.core.routes.mcp_bot_tools import router as mcp_bot_tools_router
+    from bernstein.core.routes.orchestrator_holds import router as orchestrator_holds_router
     from bernstein.core.routes.paginated_tasks import router as paginated_tasks_router
     from bernstein.core.routes.plans import router as plans_router
     from bernstein.core.routes.predictive import router as predictive_router
@@ -1301,7 +1310,14 @@ def create_app(
         well_known_router,
         mcp_bot_tools_router,
         session_peek_router,
+        orchestrator_holds_router,
     ]
+
+    # Fresh per-app router: including route groups mutates the target router,
+    # so reusing the module-level instance would grow it by a full copy of
+    # the v1 route set on every create_app call (unbounded route/memory
+    # growth in app-per-test suites, ending in RecursionError at startup).
+    api_v1_router = build_api_v1_router()
 
     for r in all_routers:
         application.include_router(r)

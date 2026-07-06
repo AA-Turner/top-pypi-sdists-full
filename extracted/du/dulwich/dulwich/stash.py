@@ -44,11 +44,12 @@ from .index import (
     symlink,
     update_working_tree,
     validate_path,
+    verify_leading_dirs,
 )
 from .object_store import iter_tree_contents
 from .objects import S_IFGITLINK, Blob, Commit, ObjectID, TreeEntry
 from .reflog import drop_reflog_entry, read_reflog
-from .refs import Ref
+from .refs import HEADREF, Ref
 
 if TYPE_CHECKING:
     from .config import Config
@@ -144,8 +145,6 @@ class Stash:
 
         # Get current HEAD to determine if we can apply cleanly
         try:
-            from dulwich.refs import HEADREF
-
             current_head = self._repo.refs[HEADREF]
         except KeyError:
             raise ValueError("Cannot pop stash: no HEAD")
@@ -219,6 +218,7 @@ class Stash:
                 repo_index[tree_entry.path] = index_entry_from_stat(st, tree_entry.sha)
 
         # Apply working tree changes from the stash
+        safe_prefix: list[bytes] = []
         tree_entry2: TreeEntry
         for tree_entry2 in iter_tree_contents(self._repo.object_store, stash_tree_id):
             assert (
@@ -228,6 +228,11 @@ class Stash:
             )
             if not validate_path(tree_entry2.path, validate_path_element):
                 raise InvalidPathError(tree_entry2.path)
+
+            # Refuse writes whose leading path goes through a symlink left
+            # in the worktree (e.g. ``link`` -> ``.git/hooks``); the cache
+            # keeps the total cost to one ``lstat`` per unique directory.
+            verify_leading_dirs(tree_entry2.path, safe_prefix, repo_path)
 
             full_path = _tree_to_fs_path(repo_path, tree_entry2.path)
 

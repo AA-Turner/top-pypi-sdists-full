@@ -4,13 +4,15 @@ from typing import Any
 from celery import chain, shared_task
 from requests.exceptions import HTTPError
 
-from django.contrib.auth.models import User
 from django.db.models.query import QuerySet
 
+from allianceauth.authentication.models import User
 from allianceauth.services.tasks import QueueOnce
 
 from . import __title__
-from .app_settings import DISCORD_SYNC_NAMES, DISCORD_TASKS_MAX_RETRIES, DISCORD_TASKS_RETRY_PAUSE
+from .app_settings import (
+    DISCORD_SYNC_NAMES, DISCORD_TASKS_MAX_RETRIES, DISCORD_TASKS_RETRY_PAUSE,
+)
 from .discord_client import DiscordApiBackoff
 from .models import DiscordUser
 from .utils import LoggerAddTag

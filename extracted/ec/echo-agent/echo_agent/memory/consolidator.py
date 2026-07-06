@@ -91,6 +91,8 @@ class MemoryConsolidator:
         self._contradiction_detector = None
         self._archival_manager = None
         self._embed_fn = None
+        self._auto_resolve_contradictions = False
+        self._reflection_engine = None
 
     def set_episodic_manager(self, mgr):
         self._episodic_manager = mgr
@@ -109,6 +111,12 @@ class MemoryConsolidator:
 
     def set_embed_fn(self, fn):
         self._embed_fn = fn
+
+    def set_auto_resolve_contradictions(self, enabled: bool):
+        self._auto_resolve_contradictions = enabled
+
+    def set_reflection(self, engine):
+        self._reflection_engine = engine
 
     async def consolidate_chunk(self, messages: list[dict[str, Any]]) -> bool:
         if not messages:
@@ -188,7 +196,7 @@ class MemoryConsolidator:
         4. Run forgetting/archival pass
         Returns stats dict.
         """
-        stats = {"episodes": 0, "promoted": 0, "contradictions": 0, "archived": 0, "forgotten": 0}
+        stats = {"episodes": 0, "promoted": 0, "contradictions": 0, "resolved": 0, "archived": 0, "forgotten": 0}
         promoted: list = []
 
         # Step 1: Create episode
@@ -225,10 +233,15 @@ class MemoryConsolidator:
                     except Exception as e:
                         logger.warning("Fact extraction failed: {}", e)
 
-        # Step 3: Run contradiction detection on newly promoted entries
+        # Step 3: Run contradiction detection on newly promoted entries.
+        # When auto-resolution is enabled, same-key conflicts are resolved by
+        # reusing the very Contradiction object just stored — no second detect,
+        # no second uuid, no second row. This prevents the "ghost" unresolved
+        # record that a separate re-detect pass would leave in get_unresolved.
         if self._contradiction_detector and promoted:
             try:
                 all_entries = list(self.store._entries.values())
+                entry_map = {e.id: e for e in all_entries}
                 for new_entry in promoted:
                     others = [e for e in all_entries if e.id != new_entry.id]
                     contradictions = await self._contradiction_detector.check(
@@ -237,6 +250,8 @@ class MemoryConsolidator:
                     for c in contradictions:
                         await self._contradiction_detector.store_contradiction(c)
                         stats["contradictions"] += 1
+                        if self._auto_resolve_contradictions and await self._auto_resolve_same_key(c, entry_map):
+                            stats["resolved"] += 1
             except Exception as e:
                 logger.warning("Contradiction detection failed: {}", e)
 
@@ -261,8 +276,69 @@ class MemoryConsolidator:
             except Exception as e:
                 logger.debug("Episode retention purge failed: {}", e)
 
+        # Step 6: Reflection — distill + active conflict resolution
+        if self._reflection_engine:
+            try:
+                reflection_stats = await self._reflection_engine.run()
+                stats.update(reflection_stats)
+            except Exception as e:
+                logger.warning("Reflection engine failed: {}", e)
+
         logger.info("Sleep consolidation complete: {}", stats)
         return stats
+
+    async def _auto_resolve_same_key(self, c, entry_map: dict) -> bool:
+        """Resolve a single already-stored contradiction iff it is a same-key
+        content conflict. Provenance priority adjudicates first; newest-wins
+        only breaks ties within the same priority. Legacy-source parties are
+        never auto-resolved.
+
+        Note that user_stated is not sticky: a same-key replace without an
+        explicit user statement downgrades the entry to model_inferred (the
+        deliberate conservative default), so adjudication here reads the
+        entry's *current* source, not its historical maximum.
+
+        Reuses the Contradiction ``c`` that Step 3 already detected and stored:
+        it is resolved in place (same row, same uuid), so get_unresolved never
+        retains a ghost copy.
+
+        Deliberately narrow: LLM/temporal/cross-key contradictions are left
+        unresolved for human review. Returns True when c was resolved.
+        """
+        if not self._contradiction_detector:
+            return False
+        a = entry_map.get(c.memory_id_a)
+        b = entry_map.get(c.memory_id_b)
+        if a is None or b is None:
+            return False
+        # Same full key + differing content is the only auto-resolvable case.
+        if not a.key or a.key != b.key:
+            return False
+        if a.content.strip() == b.content.strip():
+            return False
+        if a.is_superseded or b.is_superseded:
+            return False
+        from echo_agent.memory.types import source_priority
+        pa, pb = source_priority(a.source), source_priority(b.source)
+        if pa == 0 or pb == 0:
+            # legacy/unknown provenance: no basis for automatic adjudication —
+            # leave it for human/model review via resolve_contradiction.
+            return False
+        if pa != pb:
+            winner = a if pa > pb else b
+        else:
+            winner, _loser = self._newest_wins(a, b)
+        resolution = "a_wins" if winner.id == c.memory_id_a else "b_wins"
+        await self._contradiction_detector.resolve(
+            c.id, resolution, winner_id=winner.id
+        )
+        return True
+
+    @staticmethod
+    def _newest_wins(a, b):
+        def _ts(e):
+            return e.updated_at or e.created_at or ""
+        return (a, b) if _ts(a) >= _ts(b) else (b, a)
 
     def should_consolidate(self, session_message_count: int, last_consolidated: int) -> bool:
         unconsolidated = session_message_count - last_consolidated

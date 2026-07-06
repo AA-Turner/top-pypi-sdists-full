@@ -34,9 +34,8 @@ import path from "node:path"
 import colors from "picocolors"
 import type { ViteDevServer } from "vite"
 import { type BridgeTypesConfig, readBridgeConfig } from "./shared/bridge-schema.js"
-import { DEBOUNCE_MS } from "./shared/constants.js"
 import { normalizeHost, resolveHotFilePath, resolveLitestarPort } from "./shared/network.js"
-import { createLitestarTypeGenPlugin } from "./shared/typegen-plugin.js"
+import { createLitestarTypeGenPlugin, type RequiredTypeGenConfig, resolveTypesConfig } from "./shared/typegen-plugin.js"
 import { hmrServerConfig } from "./shared/vite-compat.js"
 
 /**
@@ -129,6 +128,13 @@ export interface SvelteKitTypesConfig {
   globalRoute?: boolean
 
   /**
+   * Fail Vite when type generation fails.
+   *
+   * Defaults to true during build and false during dev.
+   */
+  failOnError?: boolean
+
+  /**
    * Debounce time in milliseconds for type regeneration.
    *
    * @default 300
@@ -189,7 +195,7 @@ export interface LitestarSvelteKitConfig {
 interface ResolvedConfig {
   apiProxy: string
   apiPrefix: string
-  types: Required<SvelteKitTypesConfig> | false
+  types: RequiredTypeGenConfig | false
   verbose: boolean
   hotFile?: string
   proxyMode: "vite" | "direct" | "proxy" | null
@@ -252,81 +258,13 @@ function resolveConfig(config: LitestarSvelteKitConfig = {}): ResolvedConfig {
     litestarPort = resolvedLitestarPort
   }
 
-  let typesConfig: Required<SvelteKitTypesConfig> | false = false
-
-  const defaultTypesOutput = "src/lib/generated"
-  const buildTypeDefaults = (output: string) => ({
-    openapiPath: path.join(output, "openapi.json"),
-    routesPath: path.join(output, "routes.json"),
-    pagePropsPath: path.join(output, "inertia-pages.json"),
-    schemasTsPath: path.join(output, "schemas.ts"),
+  const typesConfig = resolveTypesConfig({
+    requested: config.types,
+    pythonConfig: pythonTypesConfig ?? undefined,
+    defaultOutput: "src/lib/generated",
+    mergePythonWhenTrue: true,
+    mergePythonForObject: true,
   })
-
-  // Priority: explicit Vite config > Python runtime config > disabled
-  if (config.types === true) {
-    // Explicit `types: true` in Vite config - use Python config if available, else defaults
-    const output = pythonTypesConfig?.output ?? defaultTypesOutput
-    const defaults = buildTypeDefaults(output)
-    typesConfig = {
-      enabled: true,
-      output,
-      openapiPath: pythonTypesConfig?.openapiPath ?? defaults.openapiPath,
-      routesPath: pythonTypesConfig?.routesPath ?? defaults.routesPath,
-      pagePropsPath: pythonTypesConfig?.pagePropsPath ?? defaults.pagePropsPath,
-      schemasTsPath: pythonTypesConfig?.schemasTsPath ?? defaults.schemasTsPath,
-      generateZod: pythonTypesConfig?.generateZod ?? false,
-      generateSdk: pythonTypesConfig?.generateSdk ?? true,
-      generateRoutes: pythonTypesConfig?.generateRoutes ?? true,
-      generatePageProps: pythonTypesConfig?.generatePageProps ?? true,
-      generateSchemas: pythonTypesConfig?.generateSchemas ?? true,
-      globalRoute: pythonTypesConfig?.globalRoute ?? false,
-      debounce: DEBOUNCE_MS,
-    }
-  } else if (typeof config.types === "object" && config.types !== null) {
-    // Explicit types object in Vite config - merge with Python config
-    const userProvidedOutput = Object.hasOwn(config.types, "output")
-    const output = config.types.output ?? pythonTypesConfig?.output ?? defaultTypesOutput
-    const defaults = buildTypeDefaults(output)
-    const openapiFallback = userProvidedOutput ? defaults.openapiPath : (pythonTypesConfig?.openapiPath ?? defaults.openapiPath)
-    const routesFallback = userProvidedOutput ? defaults.routesPath : (pythonTypesConfig?.routesPath ?? defaults.routesPath)
-    const pagePropsFallback = userProvidedOutput ? defaults.pagePropsPath : (pythonTypesConfig?.pagePropsPath ?? defaults.pagePropsPath)
-    const schemasFallback = userProvidedOutput ? defaults.schemasTsPath : (pythonTypesConfig?.schemasTsPath ?? defaults.schemasTsPath)
-
-    typesConfig = {
-      enabled: config.types.enabled ?? true,
-      output,
-      openapiPath: config.types.openapiPath ?? openapiFallback,
-      routesPath: config.types.routesPath ?? routesFallback,
-      pagePropsPath: config.types.pagePropsPath ?? pagePropsFallback,
-      schemasTsPath: config.types.schemasTsPath ?? schemasFallback,
-      generateZod: config.types.generateZod ?? pythonTypesConfig?.generateZod ?? false,
-      generateSdk: config.types.generateSdk ?? pythonTypesConfig?.generateSdk ?? true,
-      generateRoutes: config.types.generateRoutes ?? pythonTypesConfig?.generateRoutes ?? true,
-      generatePageProps: config.types.generatePageProps ?? pythonTypesConfig?.generatePageProps ?? true,
-      generateSchemas: config.types.generateSchemas ?? pythonTypesConfig?.generateSchemas ?? true,
-      globalRoute: config.types.globalRoute ?? pythonTypesConfig?.globalRoute ?? false,
-      debounce: config.types.debounce ?? DEBOUNCE_MS,
-    }
-  } else if (config.types !== false && pythonTypesConfig?.enabled) {
-    // No explicit Vite config but Python has types enabled - use Python config
-    const output = pythonTypesConfig.output ?? defaultTypesOutput
-    const defaults = buildTypeDefaults(output)
-    typesConfig = {
-      enabled: true,
-      output,
-      openapiPath: pythonTypesConfig.openapiPath ?? defaults.openapiPath,
-      routesPath: pythonTypesConfig.routesPath ?? defaults.routesPath,
-      pagePropsPath: pythonTypesConfig.pagePropsPath ?? defaults.pagePropsPath,
-      schemasTsPath: pythonTypesConfig.schemasTsPath ?? defaults.schemasTsPath,
-      generateZod: pythonTypesConfig.generateZod ?? false,
-      generateSdk: pythonTypesConfig.generateSdk ?? true,
-      generateRoutes: pythonTypesConfig.generateRoutes ?? true,
-      generatePageProps: pythonTypesConfig.generatePageProps ?? true,
-      generateSchemas: pythonTypesConfig.generateSchemas ?? true,
-      globalRoute: pythonTypesConfig.globalRoute ?? false,
-      debounce: DEBOUNCE_MS,
-    }
-  }
 
   return {
     apiProxy: config.apiProxy ?? "http://localhost:8000",

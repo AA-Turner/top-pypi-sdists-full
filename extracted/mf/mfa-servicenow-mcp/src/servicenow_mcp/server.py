@@ -36,6 +36,7 @@ from servicenow_mcp.utils.instances import (
     coerce_bool,
     has_env_reference,
     load_instance_config_env,
+    looks_like_unfilled_placeholder,
     resolve_auth_type,
     resolve_env_reference,
     safe_instance_url,
@@ -129,6 +130,22 @@ def _entry_cred(entry: Dict[str, Any], key: str, fallback: Any, *, required: boo
         return raw
     resolved = resolve_env_reference(raw)
     if resolved is not None and not has_env_reference(resolved):
+        # An un-substituted template placeholder (e.g. REPLACE_WITH_PROD_USERNAME)
+        # is never a real value: fail fast instead of logging in / creating a
+        # browser profile named after the placeholder (observed 2026-07-02).
+        if looks_like_unfilled_placeholder(resolved):
+            if not required:
+                logger.warning(
+                    "Instance config %s=%r is an un-substituted template placeholder; "
+                    "ignoring this optional field.",
+                    key,
+                    raw,
+                )
+                return None
+            raise ValueError(
+                f"Instance config {key}='{raw}' is an un-substituted template placeholder. "
+                "Replace it with the real value (or set the referenced environment variable)."
+            )
         return resolved
     if not required:
         logger.warning(
@@ -540,7 +557,6 @@ class ServiceNowMCP:
         else:
             self.config = config
 
-        self.auth_manager = AuthManager(self.config.auth, self.config.instance_url)
         self.mcp_server: Server = FastMCP("ServiceNow")  # Use low-level Server
         self.name = "ServiceNow"
         self.instance_entries = load_instance_config_env(os.getenv(INSTANCE_CONFIG_ENV))
@@ -548,6 +564,15 @@ class ServiceNowMCP:
             self.instance_entries,
             active_alias=os.getenv(ACTIVE_INSTANCE_ENV),
             legacy_instance_url=os.getenv("SERVICENOW_INSTANCE_URL"),
+        )
+        # Key the base (active-instance) auth manager by its profile alias so it
+        # shares ONE session file with that alias's instance-context manager and
+        # is isolated from other profiles — even when profiles share a host or
+        # account (issue #64). None for legacy single-instance (host-keyed).
+        self.auth_manager = AuthManager(
+            self.config.auth,
+            self.config.instance_url,
+            profile_label=self.active_instance_alias,
         )
         self.instance_contexts: Dict[str, Dict[str, Any]] = self._build_instance_contexts()
         self.active_instance_meta = self._active_instance_meta()
@@ -656,7 +681,9 @@ class ServiceNowMCP:
                     "alias": alias,
                     "definition": definition,
                     "config": config,
-                    "auth_manager": AuthManager(config.auth, config.instance_url),
+                    "auth_manager": AuthManager(
+                        config.auth, config.instance_url, profile_label=alias
+                    ),
                 }
             except Exception as exc:  # noqa: BLE001 — isolate per-entry failures
                 # Broad on purpose (one broken peer must never kill startup), but
@@ -673,19 +700,11 @@ class ServiceNowMCP:
     def _auth_for_instance_entry(self, entry: Dict[str, Any]) -> AuthConfig:
         """Return auth config for a named instance, falling back to active auth."""
         base = self.config.auth
-        # Browser (headless) stays the default when the entry says nothing; but an
-        # entry carrying its own username+password opts out of browser → basic.
+        # Browser stays the default when the entry says nothing. Per-profile
+        # username/password select WHO (prefill + declared owner for G10),
+        # never the auth type — only an explicit auth_type changes it.
         auth_type = resolve_auth_type(entry, base.type.value)
         parsed = AuthType(auth_type)
-        if (
-            not entry.get("auth_type")
-            and parsed == AuthType.BASIC
-            and str(base.type.value).lower() == "browser"
-        ):
-            logger.info(
-                "Instance auth: username+password present with no auth_type — using basic "
-                "(browser default overridden). Set auth_type='browser' to force browser login."
-            )
         if parsed == AuthType.BROWSER:
             base_browser = base.browser or BrowserAuthConfig()
             return AuthConfig(
@@ -693,8 +712,20 @@ class ServiceNowMCP:
                 browser=BrowserAuthConfig(
                     # required=False: browser creds/URLs are optional prefill —
                     # one stale ${ENV} must not disable a working SSO instance.
-                    username=_entry_cred(entry, "username", base_browser.username, required=False),
-                    password=_entry_cred(entry, "password", base_browser.password, required=False),
+                    # Inheritance: entry → active browser config → global env,
+                    # so a profile with nothing follows the global identity.
+                    username=_entry_cred(
+                        entry,
+                        "username",
+                        base_browser.username or os.getenv("SERVICENOW_USERNAME"),
+                        required=False,
+                    ),
+                    password=_entry_cred(
+                        entry,
+                        "password",
+                        base_browser.password or os.getenv("SERVICENOW_PASSWORD"),
+                        required=False,
+                    ),
                     login_url=_entry_cred(
                         entry, "login_url", base_browser.login_url, required=False
                     ),
@@ -711,10 +742,25 @@ class ServiceNowMCP:
             )
         if parsed == AuthType.BASIC:
             base_basic = base.basic
-            username = _entry_cred(entry, "username", base_basic.username if base_basic else None)
-            password = _entry_cred(entry, "password", base_basic.password if base_basic else None)
+            # Inheritance chain: entry → active config → global env. A profile
+            # that writes nothing follows the globals; only when NO level
+            # supplies credentials is basic auth truly unusable.
+            username = _entry_cred(
+                entry,
+                "username",
+                (base_basic.username if base_basic else None) or os.getenv("SERVICENOW_USERNAME"),
+            )
+            password = _entry_cred(
+                entry,
+                "password",
+                (base_basic.password if base_basic else None) or os.getenv("SERVICENOW_PASSWORD"),
+            )
             if not username or not password:
-                raise ValueError("Named basic-auth instance requires username and password")
+                raise ValueError(
+                    "Named basic-auth instance requires username and password "
+                    "(set them on the entry, the active config, or "
+                    "SERVICENOW_USERNAME/SERVICENOW_PASSWORD)"
+                )
             return AuthConfig(
                 type=parsed,
                 basic=BasicAuthConfig(username=str(username), password=str(password)),
@@ -1924,13 +1970,31 @@ class ServiceNowMCP:
         # appears ONLY when unfinished local work actually exists, and the
         # push/diff gates re-check the live remote at upload time anyway.
 
+        # Persona split (the tool's identity is a FAST LIVE ANALYZER first):
+        # local-first guidance is the privilege of packages that can EDIT
+        # sources (update_remote_from_local present — portal/platform
+        # developer). Analysis-only packages (standard, service_desk) keep the
+        # download tools available but get zero steering toward them: an
+        # incident-handling session must never be nudged into bulk downloads
+        # to answer a live question.
+        can_edit_sources = "update_remote_from_local" in self.enabled_tool_names
+        if "audit_local_sources" in self.enabled_tool_names and not can_edit_sources:
+            live_first = (
+                "Live-first: answer questions with live queries (sn_query, "
+                "sn_aggregate, sn_discover, targeted reads). Source downloads "
+                "(download_app_sources / download_portal_sources) are optional for "
+                "deep offline analysis — never a prerequisite for answering."
+            )
+            existing = getattr(self.mcp_server, "instructions", None) or ""
+            self.mcp_server.instructions = f"{existing}\n\n{live_first}" if existing else live_first
+
         # After a local download+audit, the relationship graphs live on disk.
         # Tell the LLM so it answers relationship questions by reading those
         # files instead of re-querying the instance with the live resolvers.
-        # Gated to packages that expose the audit tool. Non-prescriptive: live
-        # resolvers stay valid when no local dump exists (not everyone downloads
-        # first), this just makes the offline option discoverable.
-        if "audit_local_sources" in self.enabled_tool_names:
+        # Gated to source-EDITING packages (see persona split above); for
+        # analysis-only packages the same graphs still work when present, but
+        # we do not advertise them as a standing instruction.
+        if "audit_local_sources" in self.enabled_tool_names and can_edit_sources:
             offline_hint = (
                 "Local analysis reuse: once download_app_sources + audit_local_sources "
                 "have run, relationship data is on disk under the scope root — "

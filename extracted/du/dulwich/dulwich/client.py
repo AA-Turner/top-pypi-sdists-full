@@ -1260,6 +1260,8 @@ def _handle_upload_pack_tail(
                 pack_data(data)
             elif chan == SIDE_BAND_CHANNEL_PROGRESS:
                 _progress(data)
+            elif chan == SIDE_BAND_CHANNEL_FATAL:
+                raise GitProtocolError(data.decode("utf-8", "replace"))
             else:
                 raise AssertionError(f"Invalid sideband channel {chan}")
     else:
@@ -1891,6 +1893,8 @@ class GitClient:
                         pktline_parser.parse(data)
                 elif chan == SIDE_BAND_CHANNEL_PROGRESS:
                     _progress(data)
+                elif chan == SIDE_BAND_CHANNEL_FATAL:
+                    raise GitProtocolError(data.decode("utf-8", "replace"))
                 else:
                     raise AssertionError(f"Invalid sideband channel {chan}")
         else:
@@ -2655,6 +2659,13 @@ class TCPGitClient(TraditionalGitClient):
         """
         assert self._proxy_command is not None
         import shlex
+
+        # The host comes from the URL (e.g. a submodule's git:// URL) and is
+        # passed to the proxy command as an argument. Reject a host that looks
+        # like a command-line option so the proxy program can't be tricked into
+        # interpreting it as one, matching the SubprocessSSHVendor guard.
+        if self._host.startswith("-"):
+            raise StrangeHostname(hostname=self._host)
 
         argv = [*shlex.split(self._proxy_command), self._host, str(self._port)]
         p = subprocess.Popen(
@@ -3981,11 +3992,15 @@ class SSHGitClient(TraditionalGitClient):
             path = path.decode(self._remote_path_encoding)
         if path.startswith("/~"):
             path = path[1:]
+        import shlex
+
+        # The git command is run by the remote login shell, so the path has
+        # to be quoted to stop an embedded single quote from closing the
+        # quoting and having the remainder interpreted as shell.
         argv = (
             self._get_cmd_path(cmd)
-            + b" '"
-            + path.encode(self._remote_path_encoding)
-            + b"'"
+            + b" "
+            + shlex.quote(path).encode(self._remote_path_encoding)
         )
         kwargs = {}
         if self.password is not None:
@@ -4155,6 +4170,37 @@ class AuthCallbackPoolManager:
 
         # Max attempts reached
         return response
+
+
+# Default for http.postBuffer: request bodies up to this size are buffered and
+# sent with a Content-Length header; larger bodies are streamed with
+# Transfer-Encoding: chunked. Matches C git's GIT_HTTP_POST_BUFFER_DEFAULT.
+DEFAULT_POST_BUFFER_SIZE = 1024 * 1024
+
+
+def _buffer_or_stream(data: Iterator[bytes], limit: int) -> bytes | Iterator[bytes]:
+    """Buffer up to ``limit`` bytes from ``data``.
+
+    If the iterator is exhausted within the limit, the full body is returned as
+    a single ``bytes`` object so it can be sent with a Content-Length header.
+    Otherwise an iterator is returned that re-yields the buffered prefix
+    followed by the remaining chunks, for chunked streaming.
+    """
+    buffered: list[bytes] = []
+    size = 0
+    for chunk in data:
+        buffered.append(chunk)
+        size += len(chunk)
+        if size > limit:
+            break
+    else:
+        return b"".join(buffered)
+
+    def stream() -> Iterator[bytes]:
+        yield from buffered
+        yield from data
+
+    return stream()
 
 
 def default_urllib3_manager(
@@ -4651,8 +4697,29 @@ class AbstractHttpGitClient(GitClient):
         finally:
             resp.close()
 
+    def _post_buffer_size(self, url: str) -> int:
+        """Return the http.postBuffer size in bytes for the given URL.
+
+        Mirrors C git: request bodies up to this size are buffered and sent
+        with a Content-Length header, larger bodies are streamed chunked.
+        """
+        from .object_filters import _parse_size
+
+        config = getattr(self, "config", None)
+        if config is None:
+            return DEFAULT_POST_BUFFER_SIZE
+        size = DEFAULT_POST_BUFFER_SIZE
+        for section in _urlmatch_http_sections(config, url):
+            try:
+                value = config.get(section, b"postBuffer")
+            except KeyError:
+                continue
+            if value is not None:
+                size = _parse_size(value.decode("utf-8"))
+        return size
+
     def _smart_request(
-        self, service: str, url: str, data: bytes | Iterator[bytes]
+        self, service: str, url: str, data: bytes | Iterator[bytes] | None
     ) -> tuple["HTTPResponse", Callable[[int], bytes]]:
         """Send a 'smart' HTTP request.
 
@@ -4668,6 +4735,13 @@ class AbstractHttpGitClient(GitClient):
         }
         if self.protocol_version == 2:
             headers["Git-Protocol"] = "version=2"
+        if data is not None and not isinstance(data, bytes):
+            # Buffer the body up to http.postBuffer bytes. If it fits, send it
+            # with a Content-Length header (some servers, notably GitHub's
+            # git-receive-pack, reject chunked uploads on large repositories).
+            # Larger bodies fall back to chunked streaming so memory stays
+            # bounded. See https://github.com/jelmer/dulwich/issues/2248.
+            data = _buffer_or_stream(data, self._post_buffer_size(url))
         if isinstance(data, bytes):
             headers["Content-Length"] = str(len(data))
         resp, read = self._http_request(url, headers, data)
@@ -4758,21 +4832,33 @@ class AbstractHttpGitClient(GitClient):
         if self.dumb:
             raise NotImplementedError(self.fetch_pack)
 
+        header_handler = _v1ReceivePackHeader(
+            list(negotiated_capabilities),
+            old_refs_typed,
+            new_refs,
+            push_options=push_options,
+        )
+        header_pkts = [pkt_line(pkt) for pkt in header_handler]
+
+        # Enumerate the objects to send before the request body starts
+        # streaming. generate_pack_data runs MissingObjectFinder, which can
+        # take several seconds on large repositories. If it ran lazily inside
+        # the body generator (after the header pkt-lines were already on the
+        # wire) the request would stall mid-body, and some servers (notably
+        # GitHub's git-receive-pack) abort such a stalled upload with a timeout
+        # or "broken pipe". Running it here keeps the body streaming -- so
+        # memory stays bounded -- while ensuring the slow phase happens before
+        # any bytes are sent. See https://github.com/jelmer/dulwich/issues/586
+        # and https://github.com/jelmer/dulwich/issues/2248.
+        pack_data_count, pack_data = generate_pack_data(
+            header_handler.have,
+            header_handler.want,
+            ofs_delta=(CAPABILITY_OFS_DELTA in negotiated_capabilities),
+            progress=progress,
+        )
+
         def body_generator() -> Iterator[bytes]:
-            header_handler = _v1ReceivePackHeader(
-                list(negotiated_capabilities),
-                old_refs_typed,
-                new_refs,
-                push_options=push_options,
-            )
-            for pkt in header_handler:
-                yield pkt_line(pkt)
-            pack_data_count, pack_data = generate_pack_data(
-                header_handler.have,
-                header_handler.want,
-                ofs_delta=(CAPABILITY_OFS_DELTA in negotiated_capabilities),
-                progress=progress,
-            )
+            yield from header_pkts
             if self._should_send_pack(new_refs):
                 yield from PackChunkGenerator(
                     # TODO: Don't hardcode object format

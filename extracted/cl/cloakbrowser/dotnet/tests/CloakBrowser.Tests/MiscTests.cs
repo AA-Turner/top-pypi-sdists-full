@@ -24,6 +24,32 @@ public class GeoIpTests
     {
         Assert.True(GeoIp.CountryLocaleMap.ContainsKey("US"));
         Assert.True(GeoIp.CountryLocaleMap.ContainsKey("DE"));
+        // Extended-coverage entries (parity with Python/JS COUNTRY_LOCALE_MAP).
+        Assert.Equal("sl-SI", GeoIp.CountryLocaleMap["SI"]);
+        Assert.Equal("es-PE", GeoIp.CountryLocaleMap["PE"]);
+    }
+
+    [Fact]
+    public async Task MaybeResolveGeoIp_Disabled_ReturnsInputWithoutResolving()
+    {
+        var (tz, loc, ip) = await CloakLauncher.MaybeResolveGeoIpAsync(
+            geoip: false, proxy: "http://proxy:8080", timezone: null, locale: null);
+        Assert.Null(tz);
+        Assert.Null(loc);
+        Assert.Null(ip);
+    }
+
+    [Fact]
+    public async Task MaybeResolveGeoIp_NoProxy_BothExplicit_SkipsExitIpFetch()
+    {
+        // No proxy + explicit tz/locale → the WebRTC IP would just be the real
+        // connection IP the site already sees (a no-op), so no echo call is made
+        // and the exit IP is null. Hermetic: this path touches no network.
+        var (tz, loc, ip) = await CloakLauncher.MaybeResolveGeoIpAsync(
+            geoip: true, proxy: null, timezone: "Europe/Berlin", locale: "de-DE");
+        Assert.Equal("Europe/Berlin", tz);
+        Assert.Equal("de-DE", loc);
+        Assert.Null(ip);
     }
 }
 

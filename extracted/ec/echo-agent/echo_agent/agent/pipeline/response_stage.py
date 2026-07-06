@@ -61,7 +61,9 @@ class ResponseStage:
         spawn_fn: Callable[[Any], None],
         clear_memory_snapshot_fn: Callable[[str], Coroutine[Any, Any, None]],
         skill_store: Any = None,
+        skill_admission: Any = None,
         working_memories: Any = None,
+        prefetcher: Any = None,
     ):
         self._config = config
         self._sessions = sessions
@@ -72,7 +74,9 @@ class ResponseStage:
         self._spawn_fn = spawn_fn
         self._clear_memory_snapshot = clear_memory_snapshot_fn
         self._skill_store = skill_store
+        self._skill_admission = skill_admission
         self._working_memories = working_memories
+        self._prefetcher = prefetcher
 
     async def finalize(self, ctx: PipelineContext, result: InferenceResult) -> ProcessResult:
         """Post-process inference result, save session, schedule background tasks."""
@@ -94,30 +98,38 @@ class ResponseStage:
         # injection was always blank. Skip ephemeral eval/test traffic.
         self._update_working_memory(session.key, event, response_text)
 
-        # Flush pending memory embeddings
+        # Flush pending memory embeddings. DURABLE: a dropped flush silently
+        # loses embeddings, so pass a zero-arg factory (retry-capable) and tag
+        # the tier so it is queued — never dropped — under saturation.
         if self._memory.has_pending_embeds():
-            self._spawn_fn(self._memory.flush_pending_embeds())
+            from echo_agent.agent.background import Tier
+            self._spawn_fn(lambda: self._memory.flush_pending_embeds(), tier=Tier.DURABLE)
 
         # Eval/test traffic must never feed long-term memory or memory review —
         # otherwise synthetic benchmark noise accumulates in MEMORY.md.
         ephemeral = _is_ephemeral_session(session.key, event.channel)
 
-        # Schedule consolidation (safe — acquires its own lock)
+        # Schedule consolidation (safe — acquires its own lock). DURABLE: the
+        # consolidation commit must not be dropped under load.
         if not ephemeral and hasattr(self._consolidation, '_consolidator'):
+            from echo_agent.agent.background import Tier
             consolidator = self._consolidation._consolidator
             if consolidator.should_consolidate(session.message_count, session.last_consolidated):
                 await self._consolidation.schedule(
                     session.key,
                     self._spawn_fn,
                     on_complete=self._clear_memory_snapshot,
+                    tier=Tier.DURABLE,
                 )
 
         # Background skill/memory reviews.
         # Skill review still requires tool activity (it reviews tool usage patterns).
         # Memory review must run even for pure chat — personal facts are shared in
         # plain conversation without any tool calls, so it does NOT gate on tool count.
-        if result.should_review_skills and result.total_tool_calls > 0:
-            self._spawn_fn(self._background_skill_review(ctx.messages))
+        if result.should_review_skills and result.total_tool_calls > 0 and not ephemeral:
+            self._spawn_fn(self._background_skill_review(
+                ctx.messages, event.session_key, event.channel,
+            ))
         if result.should_review_memory and not ephemeral:
             self._spawn_fn(self._background_memory_review(ctx.messages, event.session_key))
 
@@ -125,6 +137,21 @@ class ResponseStage:
         outbound_sent = False
         if ctx.publish_response and ctx.stream_publisher:
             outbound_sent = await ctx.stream_publisher.finalize(response_text)
+
+        # Reply is now out the door. Prefetch the NEXT turn's retrieval using
+        # this turn's query and write it to the per-session cache, so a
+        # continuing same-topic conversation hits the cache on its next turn
+        # (zero inline retrieval latency). DISCARDABLE: a dropped prefetch is
+        # harmless — the next turn simply misses and falls back to inline
+        # retrieval — so a bare coroutine (no retry factory) is fine.
+        if self._prefetcher is not None and event.text:
+            from echo_agent.agent.background import Tier
+            self._spawn_fn(
+                self._prefetcher.prefetch(
+                    event.session_key, event.text, event.sender_id
+                ),
+                tier=Tier.DISCARDABLE,
+            )
 
         return ProcessResult(
             response_text=response_text or "",
@@ -161,7 +188,9 @@ class ResponseStage:
         except Exception as e:
             logger.debug("Working memory update failed: {}", e)
 
-    async def _background_skill_review(self, messages: list[dict[str, Any]]) -> None:
+    async def _background_skill_review(
+        self, messages: list[dict[str, Any]], session_key: str = "", channel: str = "",
+    ) -> None:
         try:
             from echo_agent.skills.reviewer import SkillReviewer
             if self._skill_store is None:
@@ -171,6 +200,9 @@ class ResponseStage:
                 provider=self._provider,
                 store=self._skill_store,
                 model=self._default_model,
+                admission=self._skill_admission,
+                session_key=session_key,
+                channel=channel,
             )
             actions = await reviewer.review(messages)
             if actions:

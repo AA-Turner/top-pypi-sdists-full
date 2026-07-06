@@ -1,7 +1,9 @@
 import logging
 from functools import partial
 
-from django.contrib.auth.models import Group, Permission, User
+from django.contrib.auth.models import (  # Signals must fire on Base Models, not proxies
+    Group, Permission, User,
+)
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models.signals import m2m_changed, pre_delete, pre_save

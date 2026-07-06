@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: fal
-Version: 1.78.0
+Version: 1.78.1
 Summary: fal is an easy-to-use Serverless Python Framework
 Author: Features & Labels <support@fal.ai>
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isolate[build]<0.27.0,>=0.26.9
-Requires-Dist: isolate-proto<1,>=0.33.0
+Requires-Dist: isolate-proto<1,>=0.34.0
 Requires-Dist: grpcio<2,>=1.64.0
 Requires-Dist: dill==0.3.7
 Requires-Dist: cloudpickle<3.2,>=3.0.0
@@ -21,6 +21,7 @@ Requires-Dist: certifi>=2024.2.2
 Requires-Dist: portalocker<3,>=2.7.0
 Requires-Dist: rich<15,>=13.3.2
 Requires-Dist: rich_argparse
+Requires-Dist: argcomplete<4,>=3.1.0
 Requires-Dist: packaging>=21.3
 Requires-Dist: pathspec<1,>=0.11.1
 Requires-Dist: pydantic!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*

@@ -27,6 +27,7 @@ from echo_agent.bus.events import ContentType, OutboundEvent
 from echo_agent.bus.queue import MessageBus
 from echo_agent.channels.base import BaseChannel, SendResult
 from echo_agent.config.schema import WeixinChannelConfig
+from echo_agent.media.silk import encode_to_silk
 from echo_agent.utils.text import split_message
 
 try:
@@ -47,6 +48,8 @@ _EP_SEND_MESSAGE = "ilink/bot/sendmessage"
 _EP_GET_UPLOAD_URL = "ilink/bot/getuploadurl"
 _EP_GET_BOT_QR = "ilink/bot/get_bot_qrcode"
 _EP_GET_QR_STATUS = "ilink/bot/get_qrcode_status"
+_EP_GET_CONFIG = "ilink/bot/getconfig"
+_EP_SEND_TYPING = "ilink/bot/sendtyping"
 
 _LONG_POLL_TIMEOUT_MS = 35_000
 _API_TIMEOUT_MS = 15_000
@@ -57,6 +60,22 @@ _SESSION_EXPIRED_ERRCODE = -14
 _DEDUP_TTL = 300
 _MAX_MESSAGE_LENGTH = 4000
 _LIVENESS_TIMEOUT = 30 * 60  # 30 分钟无消息视为静默失效
+
+# 输入状态下发（ilink/bot/sendtyping）
+_TYPING_START = 1               # status=1：显示“对方正在输入”
+_TYPING_STOP = 2               # status=2：取消输入状态
+_TYPING_REFRESH_INTERVAL = 3    # 秒，处理期间周期性补发以防输入状态过期
+                                # （微信输入气泡约 5 秒过期，取 3 秒留余量，
+                                # 避免慢网络下单次 sendtyping 延迟露出气泡空窗）
+# 孤儿保护兜底：正常停止由 ChannelManager 在最终回复落地时调 stop_typing 完成，
+# 心跳每个 beat 又会 send_typing 复活刷新循环；这个上限只在“stop_typing 因故
+# 永不触发”（如最终回复事件丢失）时兜底，避免“正在输入”无限期刷下去。设得
+# 远高于心跳 interval，循环到期后由 _on_typing_done 清槽、下个 beat 自动复活。
+_TYPING_MAX_DURATION = 600      # 秒
+_TYPING_TICKET_TTL = 500        # 秒，typing_ticket 缓存有效期。iLink 服务端实际
+                                # 寿命约 600 秒，过期后 sendtyping 会被静默拒绝
+                                # （连 status=2 停止也发不出去，导致气泡卡死），
+                                # 故取 500 秒在过期前主动经 getconfig 重拉。
 
 _ITEM_TEXT = 1
 _ITEM_IMAGE = 2
@@ -70,6 +89,7 @@ _MSG_STATE_FINISH = 2
 _MEDIA_IMAGE = 1
 _MEDIA_VIDEO = 2
 _MEDIA_FILE = 3
+_MEDIA_VOICE = 4
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -213,6 +233,53 @@ async def _send_message(
     )
 
 
+async def _get_config(
+    session: aiohttp.ClientSession,
+    *,
+    base_url: str,
+    token: str,
+    user_id: str,
+    context_token: str | None = None,
+) -> dict[str, Any]:
+    """Fetch bot runtime config, including the typing_ticket used by sendtyping.
+
+    iLink binds the typing_ticket to the peer conversation, so getconfig must
+    carry the peer's ``ilink_user_id`` (and the latest ``context_token`` when
+    known); an empty body yields a response without a usable ticket.
+    """
+    payload: dict[str, Any] = {"ilink_user_id": user_id}
+    if context_token:
+        payload["context_token"] = context_token
+    return await _api_post(
+        session,
+        base_url=base_url,
+        endpoint=_EP_GET_CONFIG,
+        payload=payload,
+        token=token,
+        timeout_ms=_API_TIMEOUT_MS,
+    )
+
+
+async def _send_typing(
+    session: aiohttp.ClientSession,
+    *,
+    base_url: str,
+    token: str,
+    to: str,
+    status: int,
+    typing_ticket: str,
+) -> dict[str, Any]:
+    """Send a typing indicator (status=1 start, status=2 cancel) to *to*."""
+    return await _api_post(
+        session,
+        base_url=base_url,
+        endpoint=_EP_SEND_TYPING,
+        payload={"ilink_user_id": to, "status": status, "typing_ticket": typing_ticket},
+        token=token,
+        timeout_ms=_API_TIMEOUT_MS,
+    )
+
+
 def _cdn_upload_url(cdn_base_url: str, upload_param: str, filekey: str) -> str:
     from urllib.parse import quote
 
@@ -339,7 +406,12 @@ class _ContextTokenStore:
             logger.warning("weixin: failed to persist context tokens: {}", exc)
 
 
-def _extract_text(item_list: list[dict[str, Any]]) -> str:
+def _extract_text(item_list: list[dict[str, Any]]) -> tuple[str, str | None, str | None]:
+    """提取消息正文，并把被引用消息拆出来单独返回。
+
+    返回 (text, reply_to_text, reply_to_sender)：
+    引用上下文不再拼进 text，而是交给 pipeline 统一注入，与其他通道行为一致。
+    """
     for item in item_list:
         if item.get("type") == _ITEM_TEXT:
             text = str((item.get("text_item") or {}).get("text") or "")
@@ -350,14 +422,13 @@ def _extract_text(item_list: list[dict[str, Any]]) -> str:
                 if ref_text_item:
                     inner = str((ref_text_item.get("text_item") or {}).get("text") or "")
                     title = ref.get("title") or ""
-                    parts = [p for p in [title, inner] if p]
-                    if parts:
-                        return f"[引用: {' | '.join(parts)}]\n{text}".strip()
-            return text
+                    if inner or title:
+                        return text, (inner or None), (title or None)
+            return text, None, None
     for item in item_list:
         if item.get("type") == _ITEM_VOICE:
-            return str((item.get("voice_item") or {}).get("text") or "")
-    return ""
+            return str((item.get("voice_item") or {}).get("text") or ""), None, None
+    return "", None, None
 
 
 def _guess_chat_type(message: dict[str, Any], account_id: str) -> tuple[str, str]:
@@ -413,6 +484,14 @@ class WeixinChannel(BaseChannel):
         self._poll_task: asyncio.Task | None = None
         # Strong refs for per-message tasks (see asyncio.create_task docs).
         self._msg_tasks: set[asyncio.Task] = set()
+        # Typing indicator state.
+        self._typing_enabled = config.typing_indicator
+        # Per-chat typing_ticket cache: chat_id -> (ticket, fetched_at_monotonic).
+        # iLink binds the ticket to the peer conversation, so a global single
+        # ticket would cross wires between concurrent chats.
+        self._typing_tickets: dict[str, tuple[str, float]] = {}
+        # One refreshing typing-loop task per chat being processed.
+        self._typing_tasks: dict[str, asyncio.Task] = {}
 
     def _spawn_msg_task(self, coro: Any) -> None:
         task = asyncio.create_task(coro)
@@ -451,6 +530,13 @@ class WeixinChannel(BaseChannel):
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             self._msg_tasks.clear()
+        # Cancel typing loops before sessions close so their status=2 send can run.
+        if self._typing_tasks:
+            typing_tasks = list(self._typing_tasks.values())
+            for task in typing_tasks:
+                task.cancel()
+            await asyncio.gather(*typing_tasks, return_exceptions=True)
+            self._typing_tasks.clear()
         if self._poll_session and not self._poll_session.closed:
             await self._poll_session.close()
         self._poll_session = None
@@ -486,8 +572,12 @@ class WeixinChannel(BaseChannel):
                     res = await self._send_text(chat_id, block.text)
                     if not res.success:
                         all_ok, last_error = False, res.error
+            elif block.type == ContentType.AUDIO and block.url:
+                res = await self.send_voice(chat_id, block.url)
+                if not res.success:
+                    all_ok, last_error = False, res.error
             elif block.url and block.type in (
-                ContentType.IMAGE, ContentType.FILE, ContentType.AUDIO, ContentType.VIDEO,
+                ContentType.IMAGE, ContentType.FILE, ContentType.VIDEO,
             ):
                 as_image = block.type == ContentType.IMAGE
                 res = await self.send_file(chat_id, block.url, as_image=as_image)
@@ -526,6 +616,106 @@ class WeixinChannel(BaseChannel):
     @staticmethod
     def _split_text(text: str) -> list[str]:
         return split_message(text, _MAX_MESSAGE_LENGTH)
+
+    # ── Typing indicator ───────────────────────────────────────────────────────
+
+    async def _ensure_typing_ticket(self, chat_id: str) -> str | None:
+        """Return a cached typing_ticket for *chat_id*, fetching via getconfig if needed."""
+        if not self._send_session or not self._token:
+            return None
+        now = time.monotonic()
+        cached = self._typing_tickets.get(chat_id)
+        if cached and now - cached[1] < _TYPING_TICKET_TTL:
+            return cached[0]
+        context_token = self._token_store.get(self._account_id, chat_id)
+        try:
+            resp = await _get_config(
+                self._send_session,
+                base_url=self._base_url,
+                token=self._token,
+                user_id=chat_id,
+                context_token=context_token,
+            )
+        except Exception as exc:
+            logger.debug("weixin: getconfig for typing_ticket failed: {}", exc)
+            return None
+        ticket = str(resp.get("typing_ticket") or (resp.get("config") or {}).get("typing_ticket") or "")
+        if not ticket:
+            logger.debug("weixin: getconfig returned no typing_ticket: {}", resp)
+            return None
+        self._typing_tickets[chat_id] = (ticket, now)
+        return ticket
+
+    async def _do_send_typing(self, chat_id: str, status: int) -> None:
+        ticket = await self._ensure_typing_ticket(chat_id)
+        if not ticket or not self._send_session:
+            return
+        try:
+            await _send_typing(
+                self._send_session,
+                base_url=self._base_url,
+                token=self._token,
+                to=chat_id,
+                status=status,
+                typing_ticket=ticket,
+            )
+        except Exception as exc:
+            logger.debug("weixin: sendtyping status={} to {} failed: {}", status, chat_id[:8] if chat_id else "?", exc)
+
+    async def _typing_loop(self, chat_id: str) -> None:
+        """Keep 'typing' shown for *chat_id* until cancelled or the max window elapses.
+
+        The indicator is re-sent periodically because the input state can expire
+        before a slow agent reply is ready; on exit (cancel or timeout) it sends
+        status=2 so the indicator never gets stuck when no reply is produced.
+        """
+        deadline = time.monotonic() + _TYPING_MAX_DURATION
+        try:
+            while time.monotonic() < deadline:
+                await self._do_send_typing(chat_id, _TYPING_START)
+                await asyncio.sleep(_TYPING_REFRESH_INTERVAL)
+        except asyncio.CancelledError:
+            pass
+        finally:
+            # Shield the stop send: this runs during cancellation, and a *second*
+            # cancel (e.g. stop_typing followed by channel stop()) would otherwise
+            # abort the await and leave "typing" stuck on the peer's screen.
+            await asyncio.shield(
+                asyncio.ensure_future(self._do_send_typing(chat_id, _TYPING_STOP))
+            )
+
+    async def send_typing(self, chat_id: str, metadata: dict[str, Any] | None = None) -> None:
+        """Start (or keep) the typing indicator for *chat_id*.
+
+        Implements the BaseChannel primitive driven by ChannelManager: it is
+        called on inbound and on every heartbeat beat. Idempotent per chat — a
+        beat arriving while a refresh loop is already running is a no-op, and a
+        beat after the loop self-terminated (orphan-cap) revives it.
+        """
+        if not self._typing_enabled or not chat_id:
+            return
+        existing = self._typing_tasks.get(chat_id)
+        if existing and not existing.done():
+            return  # already showing typing for this chat
+        task = asyncio.create_task(self._typing_loop(chat_id))
+        self._typing_tasks[chat_id] = task
+        task.add_done_callback(self._on_typing_done)
+
+    async def stop_typing(self, chat_id: str) -> None:
+        """Stop the typing indicator for *chat_id* (sends status=2 via the loop's finally)."""
+        if not self._typing_enabled or not chat_id:
+            return
+        task = self._typing_tasks.pop(chat_id, None)
+        if task and not task.done():
+            task.cancel()  # _typing_loop's finally sends status=2
+
+    def _on_typing_done(self, task: asyncio.Task) -> None:
+        for cid, t in list(self._typing_tasks.items()):
+            if t is task:
+                self._typing_tasks.pop(cid, None)
+                break
+        if not task.cancelled() and task.exception():
+            logger.debug("weixin typing task failed: {}", task.exception())
 
     # ── Send file / image ──────────────────────────────────────────────────────
 
@@ -590,7 +780,10 @@ class WeixinChannel(BaseChannel):
             return "", False
         return local, False
 
-    async def _send_file(self, chat_id: str, path: str, *, as_image: bool) -> SendResult:
+    async def _send_file(
+        self, chat_id: str, path: str, *,
+        as_image: bool = False, as_voice: bool = False, voice_ms: int = 0,
+    ) -> SendResult:
         """Encrypt, upload to the CDN, and deliver one media item via sendmessage."""
         assert self._send_session is not None and self._token is not None
         plaintext = Path(path).read_bytes()
@@ -598,7 +791,12 @@ class WeixinChannel(BaseChannel):
         rawfilemd5 = hashlib.md5(plaintext).hexdigest()  # noqa: S324 - protocol-mandated
         filekey = secrets.token_hex(16)
         aes_key = secrets.token_bytes(16)
-        media_type = _MEDIA_IMAGE if as_image else _MEDIA_FILE
+        if as_voice:
+            media_type = _MEDIA_VOICE
+        elif as_image:
+            media_type = _MEDIA_IMAGE
+        else:
+            media_type = _MEDIA_FILE
 
         upload_response = await _get_upload_url(
             self._send_session,
@@ -638,7 +836,18 @@ class WeixinChannel(BaseChannel):
             "aes_key": aes_key_for_api,
             "encrypt_type": 1,
         }
-        if as_image:
+        if as_voice:
+            item = {
+                "type": _ITEM_VOICE,
+                "voice_item": {
+                    "media": media,
+                    "encode_type": 6,
+                    "sample_rate": 24000,
+                    "bits_per_sample": 16,
+                    "playtime": voice_ms,
+                },
+            }
+        elif as_image:
             item = {"type": _ITEM_IMAGE, "image_item": {"media": media, "mid_size": len(ciphertext)}}
         else:
             item = {
@@ -669,6 +878,44 @@ class WeixinChannel(BaseChannel):
         if errcode and errcode != 0:
             return SendResult(success=False, error=f"sendmessage errcode={errcode}: {resp.get('errmsg', '')}")
         return SendResult(success=True, message_id=str(msg["client_id"]))
+
+    async def send_voice(
+        self, chat_id: str, audio_source: str, metadata: dict[str, Any] | None = None,
+    ) -> SendResult:
+        """Send a native Weixin voice bubble; fall back to file attachment on any failure."""
+        if not self._send_session or not self._token:
+            return SendResult(success=False, error="no session or no token")
+        path, cleanup = await self._materialize_source(audio_source)
+        if not path:
+            return SendResult(success=False, error=f"could not resolve audio source: {audio_source[:80]}")
+        silk_path: str | None = None
+        try:
+            silk_path, duration_ms = await encode_to_silk(path)
+            if duration_ms > 60_000:
+                logger.warning("weixin voice >60s ({}ms), sending as file attachment", duration_ms)
+                return await self._send_file(chat_id, path, as_image=False)
+            res = await self._send_file(chat_id, silk_path, as_voice=True, voice_ms=duration_ms)
+            if not res.success:
+                logger.warning("weixin native voice failed ({}), falling back to file", res.error)
+                return await self._send_file(chat_id, path, as_image=False)
+            return res
+        except Exception as exc:
+            logger.warning("weixin voice encode/send failed, falling back to file: {}", exc)
+            try:
+                return await self._send_file(chat_id, path, as_image=False)
+            except Exception as exc2:
+                return SendResult(success=False, error=str(exc2))
+        finally:
+            if silk_path and os.path.exists(silk_path):
+                try:
+                    os.unlink(silk_path)
+                except OSError:
+                    pass
+            if cleanup and path and os.path.exists(path):
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
 
     # ── Poll loop ────────────────────────────────────────────────────────────
 
@@ -766,7 +1013,7 @@ class WeixinChannel(BaseChannel):
             self._token_store.set(self._account_id, sender_id, context_token)
 
         item_list = message.get("item_list") or []
-        text = _extract_text(item_list)
+        text, reply_to_text, reply_to_sender = _extract_text(item_list)
 
         media: list[dict[str, str]] = []
         placeholders: list[str] = []
@@ -788,11 +1035,15 @@ class WeixinChannel(BaseChannel):
         if not text and not media:
             return
 
+        # Typing indicator is driven by ChannelManager (send_typing on inbound +
+        # every heartbeat beat, stop_typing on the final reply), not started here.
         await self._handle_message(
             sender_id=sender_id,
             chat_id=effective_chat_id,
             text=text,
             media=media if media else None,
+            reply_to_text=reply_to_text,
+            reply_to_sender=reply_to_sender,
             metadata={"message_id": message_id, "chat_type": chat_type},
         )
 

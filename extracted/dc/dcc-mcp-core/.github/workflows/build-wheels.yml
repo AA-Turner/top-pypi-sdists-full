@@ -107,6 +107,60 @@ jobs:
           tag_name: ${{ inputs.release-tag-name }}
           files: dist/*.whl
 
+  # ── py37-lite: pure-Python wheel (py3-none-any) for Python 3.7 ──
+  # Maya 2022 / Blender 2.83 embed Python 3.7 and cannot load cp38-abi3
+  # wheels. scripts/build_py37_pure_wheel.py assembles a py3-none-any wheel
+  # from python/dcc_mcp_core without maturin, Rust, or just (just>=1.0 is
+  # unavailable on Python 3.7 and previously blocked release PyPI publish).
+  py37-lite:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.checkout-ref || github.ref }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.7"
+      - name: Build py37-lite pure-Python wheel
+        run: |
+          python -m pip install --upgrade pip wheel
+          python scripts/build_py37_pure_wheel.py
+        shell: bash
+      - name: Verify wheel tag is py3-none-any
+        shell: bash
+        run: |
+          wheel=$(ls dist/*.whl | head -1)
+          echo "Built wheel: $wheel"
+          if [[ "$wheel" != *py3-none-any* ]]; then
+            echo "::error::Expected py3-none-any wheel tag, got: $wheel"
+            exit 1
+          fi
+          echo "OK: py3-none-any wheel tag confirmed"
+      - name: Verify _core extension is NOT present in the wheel
+        shell: bash
+        run: |
+          wheel=$(ls dist/*.whl | head -1)
+          # Match compiled extensions only; _core.pyi stub is expected in py37-lite wheels.
+          if unzip -l "$wheel" | grep -E '_core\.(so|pyd|dll|dylib)'; then
+            echo "::error::py37-lite wheel should not contain compiled _core extension"
+            exit 1
+          fi
+          echo "OK: no compiled _core extension in py37-lite wheel"
+      - name: Upload py37-lite wheel artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: wheels-py37-lite
+          path: dist/
+          retention-days: 30
+      - name: Upload wheel to GitHub Release
+        if: inputs.release-tag-name != ''
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ inputs.release-tag-name }}
+          files: dist/*.whl
+
   macos:
     runs-on: macos-latest
     permissions:

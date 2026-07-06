@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "dcc-mcp-core"
-version = "0.19.7" # x-release-please-version
+version = "0.19.12" # x-release-please-version
 description = "Foundational library for the DCC Model Context Protocol (MCP) ecosystem"
 authors = [
     {name = "Hal Long", email = "hal.long@outlook.com"}
@@ -32,13 +32,19 @@ classifiers = [
 ]
 
 dependencies = [
-    "dcc-mcp-server>=0.18.17,<1.0.0",
+    # dcc-mcp-server (Python 3.8+): provides the sidecar gateway daemon binary
+    # and the packaging toolchain for standalone DCC MCP server bundles.
+    # Maya 2022 / Blender 2.83 embed Python 3.7; the py37-lite wheel ships
+    # pure-Python code only and users install dcc-mcp-server separately when
+    # their platform provides a compatible binary wheel.
+    "dcc-mcp-server>=0.18.17,<1.0.0; python_version >= '3.8'",
 ]
 
 [project.optional-dependencies]
 test = [
     "pytest>=8.3.0",  # CVE-2025-71176: fix tmpdir handling vulnerability
     "pytest-cov>=4.0",
+    "pytest-xdist>=3.0",
     "rez",
     "zipp>=3.19.1",  # CVE-2024-5569: fix DoS vulnerability in zipfile path handling
     # Qt UI inspector live-Qt tests (issue #1332); skipped on Py<3.9 / when missing

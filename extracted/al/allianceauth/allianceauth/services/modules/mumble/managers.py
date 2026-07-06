@@ -1,13 +1,16 @@
+import logging
 import random
 import string
-from allianceauth.eveonline.models import EveCharacter
-from allianceauth.services.hooks import NameFormatter
+
 from passlib.hash import bcrypt_sha256
+
 from django.db import models
-from allianceauth.services.abstract import AbstractServiceModel
-import logging
-from django.contrib.auth.models import User
 from django.utils.translation import gettext_lazy as _
+
+from allianceauth.authentication.models import User
+from allianceauth.eveonline.models import EveCharacter
+from allianceauth.services.abstract import AbstractServiceModel
+from allianceauth.services.hooks import NameFormatter
 
 logger = logging.getLogger(__name__)
 

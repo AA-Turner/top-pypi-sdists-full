@@ -1,12 +1,13 @@
 import logging
 from typing import ClassVar
 
-from django.contrib.auth.models import Group, UserManager
+from django.contrib.auth.models import UserManager
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
 
 from allianceauth.authentication.models import State, User
 from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
+from allianceauth.groupmanagement.models import Group
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,6 @@ def get_users_for_state(state: State) -> UserManager[User]:
     return User.objects.select_related('profile')\
         .prefetch_related('profile__main_character')\
         .filter(profile__state_id=state.pk)
-
 
 class AutogroupsConfigManager(models.Manager):
     def update_groups_for_state(self, state: State) -> None:

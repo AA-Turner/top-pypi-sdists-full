@@ -1,26 +1,21 @@
 import urllib
 from unittest.mock import Mock, patch
 
-from django.contrib.auth.models import User
 from requests.exceptions import HTTPError
 
+from allianceauth.authentication.models import User
 from allianceauth.tests.auth_utils import AuthUtils
 from allianceauth.utils.testing import NoSocketsTestCase
 
-from ..app_settings import DISCORD_APP_ID, DISCORD_APP_SECRET, DISCORD_CALLBACK_URL
+from ..app_settings import (
+    DISCORD_APP_ID, DISCORD_APP_SECRET, DISCORD_CALLBACK_URL,
+)
 from ..discord_client import (
-    DISCORD_OAUTH_BASE_URL,
-    DISCORD_OAUTH_TOKEN_URL,
-    DiscordApiBackoff,
-    DiscordClient,
-    RolesSet,
+    DISCORD_OAUTH_BASE_URL, DISCORD_OAUTH_TOKEN_URL, DiscordApiBackoff,
+    DiscordClient, RolesSet,
 )
 from ..discord_client.tests.factories import (
-    TEST_GUILD_ID,
-    TEST_USER_ID,
-    TEST_USER_NAME,
-    create_role,
-    create_user,
+    TEST_GUILD_ID, TEST_USER_ID, TEST_USER_NAME, create_role, create_user,
 )
 from ..models import DiscordUser
 from ..utils import set_logger_to_file

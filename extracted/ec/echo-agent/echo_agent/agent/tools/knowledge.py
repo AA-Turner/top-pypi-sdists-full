@@ -33,7 +33,7 @@ class KnowledgeSearchTool(Tool):
         if not query:
             return ToolResult(success=False, error="query is required")
         user_id = ctx.user_id if ctx else ""
-        results = self._index.search(query, limit=limit, user_id=user_id)
+        results = await self._index.search_async(query, limit=limit, user_id=user_id)
         text = self._index.format_results(results)
         if not text:
             return ToolResult(output="No matching internal knowledge found.", metadata={"count": 0})
@@ -77,5 +77,5 @@ class KnowledgeIndexTool(Tool):
         if action == "status":
             return ToolResult(output=json.dumps(self._index.status(), ensure_ascii=False, indent=2))
         if action == "rebuild":
-            return ToolResult(output=json.dumps(self._index.rebuild(), ensure_ascii=False, indent=2))
+            return ToolResult(output=json.dumps(await self._index.rebuild_async(), ensure_ascii=False, indent=2))
         return ToolResult(success=False, error=f"Unsupported action: {action}")

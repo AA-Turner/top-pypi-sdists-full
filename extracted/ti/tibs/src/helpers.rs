@@ -145,32 +145,26 @@ pub(crate) fn rfind_bitvec_aligned(
 ) -> PyResult<Option<usize>> {
     debug_assert!(end >= start);
     debug_assert!(end <= haystack.len());
-    let lps = compute_lps(py, needle)?;
-    rfind_bitvec_with_lps_aligned(py, haystack, needle, &lps, start, end, alignment_mod8)
-}
-
-pub(crate) fn rfind_bitvec_with_lps_aligned(
-    py: Python<'_>,
-    haystack: &BS,
-    needle: &BS,
-    lps: &[usize],
-    start: usize,
-    end: usize,
-    alignment_mod8: Option<usize>,
-) -> PyResult<Option<usize>> {
-    debug_assert!(end >= start);
-    debug_assert!(end <= haystack.len());
     if let Some(found) = try_find_byte_search(haystack, needle, start, end, alignment_mod8, true) {
         return Ok(found);
     }
-    rfind_bitvec_impl_with_lps_aligned(py, haystack, needle, lps, start, end, alignment_mod8)
+    let reversed_needle: BV = needle.iter().by_vals().rev().collect();
+    let reversed_lps = compute_lps(py, reversed_needle.as_bitslice())?;
+    rfind_bitvec_with_reversed_lps_aligned(
+        py,
+        haystack,
+        reversed_needle.as_bitslice(),
+        &reversed_lps,
+        start,
+        end,
+        alignment_mod8,
+    )
 }
 
 pub(crate) fn collect_find_all_positions(
     py: Python<'_>,
     haystack: &BS,
     needle: &BS,
-    _haystack_len: usize,
     start: usize,
     end: usize,
     byte_aligned: bool,
@@ -380,22 +374,20 @@ fn try_find_byte_search(
     Some(found.map(|index| (start_byte + index) * 8))
 }
 
-fn rfind_bitvec_impl_with_lps_aligned(
+pub(crate) fn rfind_bitvec_with_reversed_lps_aligned(
     py: Python<'_>,
     haystack: &BS,
-    needle: &BS,
-    _lps: &[usize],
+    reversed_needle: &BS,
+    reversed_lps: &[usize],
     start: usize,
     end: usize,
     alignment_mod8: Option<usize>,
 ) -> PyResult<Option<usize>> {
-    if needle.is_empty() || needle.len() > end - start {
+    if reversed_needle.is_empty() || reversed_needle.len() > end - start {
         return Ok(None);
     }
 
-    let needle_len = needle.len();
-    let reversed_needle: BV = needle.iter().by_vals().rev().collect();
-    let reversed_lps = compute_lps(py, reversed_needle.as_bitslice())?;
+    let needle_len = reversed_needle.len();
     let search_len = end - start;
     let mut i = 0;
     let mut j = 0;
@@ -732,6 +724,19 @@ pub(crate) fn bv_from_bytes_slice(
     Ok(bs[offset..offset + length].to_bitvec())
 }
 
+pub(crate) fn bytes_like_to_vec(data: &Bound<'_, PyAny>) -> PyResult<Vec<u8>> {
+    if data.is_instance_of::<PyBytes>()
+        || data.is_instance_of::<PyByteArray>()
+        || data.is_instance_of::<PyMemoryView>()
+    {
+        data.extract::<Vec<u8>>()
+    } else {
+        Err(PyTypeError::new_err(
+            "Expected a bytes-like object: bytes, bytearray or memoryview.",
+        ))
+    }
+}
+
 #[inline]
 pub(crate) fn bv_from_u128(value: u128, length: usize, is_little_endian: bool) -> PyResult<BV> {
     if length == 0 || length > 128 {
@@ -754,7 +759,7 @@ pub(crate) fn bv_from_u128(value: u128, length: usize, is_little_endian: bool) -
             "Value {value} does not fit in {length} bits."
         )));
     }
-    let mut bv = BV::repeat(false, length as usize);
+    let mut bv = BV::repeat(false, length);
     if is_little_endian {
         bv.store_le(value);
     } else {
@@ -788,7 +793,7 @@ pub(crate) fn bv_from_i128(value: i128, length: usize, is_little_endian: bool) -
         )));
     }
     let repeat_bit = value < 0;
-    let mut bv = BV::repeat(repeat_bit, length as usize);
+    let mut bv = BV::repeat(repeat_bit, length);
     if is_little_endian {
         bv.store_le(value);
     } else {

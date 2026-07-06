@@ -161,13 +161,13 @@ class TestEngineResolution:
         with pytest.raises(ImportError, match="vectorbt-rust is not installed"):
             _engine.resolve_engine("rust", _engine.RustSupport(True))
 
-    def test_resolve_engine_unsupported_rust_reason(self, monkeypatch):
+    def test_resolve_engine_unsupported_rust(self, monkeypatch):
         monkeypatch.setattr(_engine, "is_rust_available", lambda: True)
 
         with pytest.raises(ValueError, match="requires float64"):
             _engine.resolve_engine("rust", _engine.RustSupport(False, "Rust engine requires float64 arrays."))
 
-    def test_ohlcv_stats_use_generic_dispatch_engine(self, monkeypatch):
+    def test_ohlcv_stats_use_dispatch_engine(self, monkeypatch):
         engines = []
         orig_bfill_1d = dispatch.bfill_1d
         orig_ffill_1d = dispatch.ffill_1d
@@ -204,14 +204,14 @@ class TestEngineResolution:
         assert stats["Last Volume"] == 200.0
         assert engines == ["rust", "rust", "rust", "rust"]
 
-    def test_callback_function_rejects_explicit_rust(self, monkeypatch):
+    def test_callback_rejects_explicit_rust(self, monkeypatch):
         monkeypatch.setattr(_engine, "is_rust_available", lambda: True)
 
         with pytest.raises(ValueError, match="callback-accepting"):
             dispatch.apply(np.ones((2, 2)), lambda col, a: a, engine="rust")
 
     @pytest.mark.skipif(not _engine.is_rust_available(), reason="vectorbt-rust is not installed or version-compatible")
-    def test_explicit_rust_accepts_safe_cast_arrays(self):
+    def test_rust_accepts_safe_cast_arrays(self):
         f32_arr = np.array([[1.0, np.nan], [3.0, 4.0]], dtype=np.float32)
 
         np.testing.assert_array_equal(
@@ -525,7 +525,7 @@ class TestGenericRustParity:
         assert drawdowns.dtype.itemsize == drawdown_dt.itemsize
         np.testing.assert_array_equal(drawdowns, expected_drawdowns)
 
-    def test_dispatch_std_ddof_larger_than_window_len(self):
+    def test_dispatch_std_ddof_over_window(self):
         a_1d = np.array([1.0, 2.0, 3.0], dtype=np.float64)
         a = np.column_stack((a_1d, a_1d + 1.0))
 
@@ -820,7 +820,7 @@ class TestReturnsRustParity:
         with pytest.raises(ValueError, match="same shape"):
             returns_dispatch.rolling_beta(returns, 3, None, benchmark[:, :1], engine="rust")
 
-    def test_dispatch_drawdown_edge_cases_match_numba(self):
+    def test_dispatch_drawdown_edges(self):
         returns = np.array([[np.inf, -np.inf], [0.1, -0.1]], dtype=np.float64)
 
         np.testing.assert_allclose(
@@ -848,14 +848,16 @@ class TestReturnsRustParity:
             returns_dispatch.calmar_ratio(empty_returns, 365.0, engine="rust")
         with pytest.raises(ValueError, match="zero-size array"):
             returns_nb.calmar_ratio_nb(empty_returns, 365.0)
-        with pytest.raises(ZeroDivisionError):
-            returns_dispatch.annualized_return(empty_returns, 365.0, engine="rust")
-        with pytest.raises(ZeroDivisionError):
-            returns_nb.annualized_return_nb(empty_returns, 365.0)
-        with pytest.raises(ZeroDivisionError):
-            returns_dispatch.cond_value_at_risk(empty_returns, engine="rust")
-        with pytest.raises(ZeroDivisionError):
-            returns_nb.cond_value_at_risk_nb(empty_returns)
+        np.testing.assert_array_equal(
+            returns_dispatch.annualized_return(empty_returns, 365.0, engine="rust"),
+            np.full(2, np.nan),
+        )
+        np.testing.assert_array_equal(returns_nb.annualized_return_nb(empty_returns, 365.0), np.full(2, np.nan))
+        np.testing.assert_array_equal(
+            returns_dispatch.cond_value_at_risk(empty_returns, engine="rust"),
+            np.full(2, np.nan),
+        )
+        np.testing.assert_array_equal(returns_nb.cond_value_at_risk_nb(empty_returns), np.full(2, np.nan))
 
     def test_accessor_methods_match_numba(self):
         price = pd.DataFrame(
@@ -1034,7 +1036,7 @@ class TestSignalsRustParity:
             np.testing.assert_array_equal(result_1d[0], expected_1d[0])
             np.testing.assert_array_equal(result_1d[1], expected_1d[1])
 
-    def test_dispatch_matches_numba_for_mask_layouts(self):
+    def test_dispatch_matches_mask_layouts(self):
         a_c = np.array(
             [
                 [True, False, False],
@@ -1147,22 +1149,14 @@ class TestSignalsRustParity:
         assert signal_dispatch.nth_index_1d(a_1d, 0, engine="rust") == signal_nb.nth_index_1d_nb(a_1d, 0)
         assert signal_dispatch.nth_index_1d(a_1d, -1, engine="rust") == signal_nb.nth_index_1d_nb(a_1d, -1)
         np.testing.assert_array_equal(signal_dispatch.nth_index(a, 1, engine="rust"), signal_nb.nth_index_nb(a, 1))
-        with pytest.raises(ZeroDivisionError):
-            signal_dispatch.norm_avg_index_1d(single_signal, engine="rust")
-        with pytest.raises(ZeroDivisionError):
-            signal_nb.norm_avg_index_1d_nb(single_signal)
-        with pytest.raises(ZeroDivisionError):
-            signal_dispatch.norm_avg_index(no_signal_cols, engine="rust")
-        with pytest.raises(ZeroDivisionError):
-            signal_nb.norm_avg_index_nb(no_signal_cols)
-        with pytest.raises(ZeroDivisionError):
-            signal_dispatch.norm_avg_index(empty_rows, engine="rust")
-        with pytest.raises(ZeroDivisionError):
-            signal_nb.norm_avg_index_nb(empty_rows)
-        with pytest.raises(ZeroDivisionError):
-            signal_dispatch.norm_avg_index(single_row, engine="rust")
-        with pytest.raises(ZeroDivisionError):
-            signal_nb.norm_avg_index_nb(single_row)
+        assert np.isnan(signal_dispatch.norm_avg_index_1d(single_signal, engine="rust"))
+        assert np.isnan(signal_nb.norm_avg_index_1d_nb(single_signal))
+        np.testing.assert_array_equal(signal_dispatch.norm_avg_index(no_signal_cols, engine="rust"), np.full(2, np.nan))
+        np.testing.assert_array_equal(signal_nb.norm_avg_index_nb(no_signal_cols), np.full(2, np.nan))
+        np.testing.assert_array_equal(signal_dispatch.norm_avg_index(empty_rows, engine="rust"), np.full(2, np.nan))
+        np.testing.assert_array_equal(signal_nb.norm_avg_index_nb(empty_rows), np.full(2, np.nan))
+        np.testing.assert_array_equal(signal_dispatch.norm_avg_index(single_row, engine="rust"), np.full(2, np.nan))
+        np.testing.assert_array_equal(signal_nb.norm_avg_index_nb(single_row), np.full(2, np.nan))
 
     def test_auto_falls_back_for_bad_array(self):
         a = np.array([[1, 0], [0, 1]], dtype=np.int64)
@@ -1801,11 +1795,50 @@ class TestRecordsRustParity:
             records_dispatch.top_n_mapped_mask(mapped_arr, cm, 2, engine="rust"),
             records_nb.mapped_to_mask_nb(mapped_arr, cm, records_nb.top_n_inout_map_nb, 2),
         )
+        np.testing.assert_array_equal(
+            records_dispatch.top_n_mapped_mask(mapped_arr, cm, 0, engine="rust"),
+            np.zeros(mapped_arr.shape, dtype=np.bool_),
+        )
+
+    def test_top_n_mapped_mask_nan(self):
+        mapped_arr = np.array([np.nan, np.nan, 12.0, 13.0, np.nan, 13.0, np.nan, np.nan, np.nan], dtype=np.float64)
+        col_arr = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2], dtype=np.int64)
+        cm = records_nb.col_map_nb(col_arr, 3)
+        np.testing.assert_array_equal(
+            records_dispatch.top_n_mapped_mask(mapped_arr, cm, 2, engine="rust"),
+            records_nb.mapped_to_mask_nb(mapped_arr, cm, records_nb.top_n_inout_map_nb, 2),
+        )
 
     def test_bottom_n_mapped_mask(self):
         mapped_arr = np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0], dtype=np.float64)
         col_arr = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2], dtype=np.int64)
         cm = records_nb.col_map_nb(col_arr, 3)
+        np.testing.assert_array_equal(
+            records_dispatch.bottom_n_mapped_mask(mapped_arr, cm, 2, engine="rust"),
+            records_nb.mapped_to_mask_nb(mapped_arr, cm, records_nb.bottom_n_inout_map_nb, 2),
+        )
+        np.testing.assert_array_equal(
+            records_dispatch.bottom_n_mapped_mask(mapped_arr, cm, 0, engine="rust"),
+            np.zeros(mapped_arr.shape, dtype=np.bool_),
+        )
+
+    def test_bottom_n_mapped_mask_nan(self):
+        mapped_arr = np.array([np.nan, np.nan, 12.0, 13.0, np.nan, 13.0, np.nan, np.nan, np.nan], dtype=np.float64)
+        col_arr = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2], dtype=np.int64)
+        cm = records_nb.col_map_nb(col_arr, 3)
+        np.testing.assert_array_equal(
+            records_dispatch.bottom_n_mapped_mask(mapped_arr, cm, 2, engine="rust"),
+            records_nb.mapped_to_mask_nb(mapped_arr, cm, records_nb.bottom_n_inout_map_nb, 2),
+        )
+
+    def test_top_bottom_mapped_mask_nan_over(self):
+        mapped_arr = np.array([np.nan, 1.0, np.nan, 2.0, np.nan, 3.0, np.nan, np.nan, 4.0], dtype=np.float64)
+        col_arr = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2], dtype=np.int64)
+        cm = records_nb.col_map_nb(col_arr, 3)
+        np.testing.assert_array_equal(
+            records_dispatch.top_n_mapped_mask(mapped_arr, cm, 2, engine="rust"),
+            records_nb.mapped_to_mask_nb(mapped_arr, cm, records_nb.top_n_inout_map_nb, 2),
+        )
         np.testing.assert_array_equal(
             records_dispatch.bottom_n_mapped_mask(mapped_arr, cm, 2, engine="rust"),
             records_nb.mapped_to_mask_nb(mapped_arr, cm, records_nb.bottom_n_inout_map_nb, 2),
@@ -2173,6 +2206,37 @@ class TestPortfolioRustParity:
         assert len(rust_logs) == len(numba_logs)
         for field in numba_logs.dtype.names:
             np.testing.assert_allclose(rust_logs[field], numba_logs[field], equal_nan=True, err_msg=field)
+
+    def test_orders_init_temp_records(self):
+        target_shape = (1, 1)
+        group_lens = np.array([1], dtype=np.int64)
+        init_cash = np.array([100.0], dtype=np.float64)
+        call_seq = np.zeros(target_shape, dtype=np.int64)
+        close = np.ones(target_shape, dtype=np.float64)
+
+        rust_orders, rust_logs = portfolio_dispatch.simulate_from_orders(
+            target_shape,
+            group_lens,
+            init_cash,
+            call_seq.copy(),
+            close=close,
+            max_orders=1,
+            max_logs=1,
+            init_temp_records=True,
+            engine="rust",
+        )
+        numba_orders, numba_logs = portfolio_nb.simulate_from_orders_nb(
+            target_shape,
+            group_lens,
+            init_cash,
+            call_seq.copy(),
+            close=close,
+            max_orders=1,
+            max_logs=1,
+            init_temp_records=True,
+        )
+        record_arrays_close(rust_orders, numba_orders)
+        assert len(rust_logs) == len(numba_logs)
 
     def test_orders_raise_reject_exception(self):
         with pytest.raises(RejectedOrderError, match="Final size is less than requested"):

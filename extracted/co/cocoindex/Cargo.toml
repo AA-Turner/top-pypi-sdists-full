@@ -1,9 +1,9 @@
 [workspace]
-members = ["rust/core", "rust/utils", "rust/py", "rust/py_utils", "rust/ops_text", "rust/code_match"]
+members = ["rust/core", "rust/utils", "rust/py", "rust/py_utils", "rust/code_ast", "rust/ops_text", "rust/code_match"]
 resolver = "3"
 
 [workspace.package]
-version = "1.0.15"
+version = "1.0.16"
 edition = "2024"
 rust-version = "1.89"
 license = "Apache-2.0"

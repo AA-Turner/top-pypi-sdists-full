@@ -8,6 +8,7 @@ __all__ = (
     "infer_port_from_argv",
     "is_litestar_route",
     "is_non_serving_assets_cli",
+    "is_non_serving_context",
     "is_proxy_debug",
     "log_fail",
     "log_info",
@@ -104,6 +105,11 @@ def _check_h2_available() -> bool:
     return _h2_available
 
 
+def check_h2_available() -> bool:
+    """Check whether optional HTTP/2 support is available."""
+    return _check_h2_available()
+
+
 def create_proxy_client(
     http2: bool = True,
     timeout: float = 30.0,
@@ -176,6 +182,15 @@ def is_non_serving_assets_cli() -> bool:
         " assets init",
     )
     return any(cmd in argv_str for cmd in non_serving_commands)
+
+
+def is_non_serving_context() -> bool:
+    """Return True for high-confidence non-HTTP-serving process contexts.
+
+    This is used only when ViteConfig.enabled is left in auto mode. Ambiguous
+    contexts should opt out explicitly with ``enabled=False`` or ``VITE_ENABLED=false``.
+    """
+    return is_non_serving_assets_cli()
 
 
 def log_success(message: str) -> None:
@@ -412,6 +427,7 @@ def write_runtime_config_file(
             "generatePageProps": types.generate_page_props,
             "generateSchemas": types.generate_schemas,
             "globalRoute": types.global_route,
+            "failOnError": types.fail_on_error,
         }
         if types
         else None,
@@ -484,7 +500,7 @@ def set_environment(config: "ViteConfig", asset_url_override: str | None = None)
     if config.is_dev_mode:
         os.environ.setdefault("VITE_DEV_MODE", str(config.is_dev_mode))
 
-    config_path = write_runtime_config_file(config, asset_url_override=asset_url_override)
+    config_path = write_runtime_config_file(config)
     os.environ["LITESTAR_VITE_CONFIG_PATH"] = config_path
 
 
@@ -532,6 +548,18 @@ def normalize_prefix(prefix: str) -> str:
 
 class _RoutePrefixesState(Protocol):
     litestar_vite_route_prefixes: tuple[str, ...]
+    litestar_vite_extra_route_prefixes: tuple[str, ...]
+
+
+def _normalize_route_prefix(prefix: str) -> str | None:
+    """Normalize route prefixes for SPA/proxy route exclusion."""
+    normalized = prefix.strip()
+    if not normalized:
+        return None
+    if not normalized.startswith("/"):
+        normalized = f"/{normalized}"
+    normalized = normalized.rstrip("/")
+    return normalized or None
 
 
 def _route_is_vite_spa(route: Any) -> bool:
@@ -560,8 +588,9 @@ def get_litestar_route_prefixes(app: "Litestar") -> tuple[str, ...]:
 
     Includes:
     - All registered Litestar route paths
-    - OpenAPI schema path (customizable via openapi_config.path)
-    - Common API prefixes as fallback (/api, /schema, /docs)
+    - OpenAPI schema/docs paths registered by Litestar
+    - Common API prefixes as fallback (/api, /schema)
+    - RuntimeConfig.extra_route_prefixes values attached by VitePlugin
 
     Args:
         app: The Litestar application instance.
@@ -592,8 +621,8 @@ def get_litestar_route_prefixes(app: "Litestar") -> tuple[str, ...]:
         # _vite_spa_handler marker AppHandler.create_route_handler sets on opt.
         if _route_is_vite_spa(route):
             continue
-        prefix = route.path.rstrip("/")
-        if prefix:
+        prefix = _normalize_route_prefix(route.path)
+        if prefix is not None:
             prefixes.append(prefix)
         elif route.path == "/":
             has_root_route = True
@@ -602,9 +631,16 @@ def get_litestar_route_prefixes(app: "Litestar") -> tuple[str, ...]:
     if openapi_config is not None:
         schema_path = openapi_config.path
         if schema_path:
-            prefixes.append(schema_path.rstrip("/"))
+            prefix = _normalize_route_prefix(schema_path)
+            if prefix is not None:
+                prefixes.append(prefix)
 
-    prefixes.extend(["/api", "/schema", "/docs"])
+    prefixes.extend(["/api", "/schema"])
+    prefixes.extend(
+        prefix
+        for raw_prefix in getattr(state, "litestar_vite_extra_route_prefixes", ())
+        if (prefix := _normalize_route_prefix(raw_prefix)) is not None
+    )
 
     unique_prefixes = sorted(set(prefixes), key=len, reverse=True)
     if has_root_route:

@@ -2670,3 +2670,34 @@ def _validate_analysis_response(
 # =============================================================================
 
 
+
+def aggregate_status(reports: list, attr: str) -> bool | None:
+    """Aggregates a boolean/None status flag across multiple reports.
+    
+    - If any report has False for this attribute, returns False.
+    - If any report has True and none have False, returns True.
+    - If all reports have None, or the list is empty, returns None.
+    """
+    if not reports:
+        return None
+    vals = [getattr(r, attr) for r in reports]
+    if False in vals:
+        return False
+    if True in vals:
+        return True
+    return None
+
+
+def strict_aggregate_status(reports: list, attr: str) -> bool | None:
+    """Aggregates a boolean/None status flag across multiple reports strictly.
+    
+    - If ANY report has False OR None for this attribute, returns False.
+    - If ALL reports have True, returns True.
+    - If the list is empty, returns None.
+    """
+    if not reports:
+        return None
+    vals = [getattr(r, attr) for r in reports]
+    if False in vals or None in vals:
+        return False
+    return True

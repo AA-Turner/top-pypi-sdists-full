@@ -1,11 +1,11 @@
-from django.contrib.auth.models import Group, User
 from django.test import TestCase
 
+from allianceauth.authentication.models import User
 from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
 from allianceauth.tests.auth_utils import AuthUtils
 
 from ..managers import GroupManager
-from ..models import GroupRequest
+from ..models import Group, GroupRequest
 
 
 class MockUserNotAuthenticated:

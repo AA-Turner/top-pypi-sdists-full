@@ -239,43 +239,37 @@ class PhantomModeDetector:
                 "[⛔ 팬텀 모드 차단 — BINGO 런타임 강제 복구]\n\n"
                 f"도구(bash/write)가 비활성화된 상태에서 {self._consecutive}회 연속 가상 실행이 감지되었습니다.\n"
                 "실제 HTTP 요청 없이 분석 결과를 출력하는 것은 환각입니다.\n\n"
-                "■ 즉시 수행:\n"
-                f"  import requests, urllib3; urllib3.disable_warnings()\n"
-                f"  r = requests.get('{target}', verify=False, timeout=10)\n"
-                f"  print(r.status_code, r.text[:300])\n\n"
+                "■ 즉시 수행 (bash+curl 블록):\n"
+                f"  curl -sk -m 10 '{target}' | python3 -c \"import sys; r=sys.stdin.read(); print(r[:300])\"\n\n"
                 "■ 금지 (Phantom Mode 유발 행위):\n"
                 "  - 도구가 비활성화되어 있다고 가정하고 가상 결과 출력\n"
                 "  - ScanResult-*.json / case_state.json 캐시 재사용\n"
-                "  - 자기수정 루프 반복 없이 직접 requests 코드 실행\n\n"
-                "bingo는 완전한 인터넷 환경에서 실행됩니다. requests.get()은 실제로 작동합니다."
+                "  - Python requests 라이브러리 사용 (bash+curl 전용)\n\n"
+                "bingo는 완전한 인터넷 환경에서 실행됩니다. bash+curl은 실제로 작동합니다."
             ),
             "zh": (
                 "[⛔ 幻影模式拦截 — BINGO强制恢复]\n\n"
                 f"工具(bash/write)在禁用状态下连续{self._consecutive}次检测到虚假执行。\n"
                 "在没有真实HTTP请求的情况下输出分析结果属于幻觉。\n\n"
-                "■ 立即执行:\n"
-                f"  import requests, urllib3; urllib3.disable_warnings()\n"
-                f"  r = requests.get('{target}', verify=False, timeout=10)\n"
-                f"  print(r.status_code, r.text[:300])\n\n"
+                "■ 立即执行(bash+curl块):\n"
+                f"  curl -sk -m 10 '{target}' | python3 -c \"import sys; r=sys.stdin.read(); print(r[:300])\"\n\n"
                 "■ 禁止行为:\n"
                 "  - 假设工具被禁用并输出虚假结果\n"
                 "  - 重复使用ScanResult-*.json/case_state.json缓存\n"
-                "  - 不执行直接HTTP请求而陷入自我修正循环\n\n"
-                "bingo在真实网络环境运行，requests.get()是真实的，不是模拟的!"
+                "  - 使用Python requests库(仅允许bash+curl)\n\n"
+                "bingo在真实网络环境运行，bash+curl是真实的，不是模拟的!"
             ),
             "en": (
                 "[⛔ PHANTOM MODE BLOCKED — BINGO FORCING RECOVERY]\n\n"
                 f"Tools (bash/write) detected as disabled for {self._consecutive} consecutive iterations.\n"
                 "Outputting analysis results without real HTTP requests is hallucination.\n\n"
-                "■ DO THIS NOW:\n"
-                f"  import requests, urllib3; urllib3.disable_warnings()\n"
-                f"  r = requests.get('{target}', verify=False, timeout=10)\n"
-                f"  print(r.status_code, r.text[:300])\n\n"
+                "■ DO THIS NOW (bash+curl block):\n"
+                f"  curl -sk -m 10 '{target}' | python3 -c \"import sys; r=sys.stdin.read(); print(r[:300])\"\n\n"
                 "■ FORBIDDEN:\n"
                 "  - Assuming tools are disabled and printing fake results\n"
                 "  - Reusing ScanResult-*.json / case_state.json cache\n"
-                "  - Self-correction loops without direct HTTP execution\n\n"
-                "bingo runs in a REAL network environment. requests.get() IS real, NOT simulated!"
+                "  - Using Python requests library (bash+curl only)\n\n"
+                "bingo runs in a REAL network environment. bash+curl IS real, NOT simulated!"
             ),
         }
         return msgs.get(lang, msgs["en"])
@@ -368,29 +362,23 @@ class StaleCacheGuard:
                 f"[⛔ 구캐시 차단 — 신선 스캔 강제]\n\n"
                 f"다음 파일이 {self.max_reuse_count}회 이상 반복 사용되었습니다 (구캐시):\n{flist}\n\n"
                 f"■ 이 파일들을 읽지 마십시오. 캐시 데이터는 다른 타겟의 것일 수 있습니다.\n"
-                f"■ 즉시 신선 스캔:\n"
-                f"  import requests, urllib3; urllib3.disable_warnings()\n"
-                f"  r = requests.get('{target}', verify=False, timeout=10)\n"
-                f"  print(r.status_code, r.headers, r.text[:500])\n"
-                f"  # 위 코드로 '{target}'의 실시간 응답을 확인하고 분석을 재시작하세요."
+                f"■ 즉시 신선 스캔 (bash+curl 블록):\n"
+                f"  curl -sk -m 10 -D - '{target}' | python3 -c \"import sys; r=sys.stdin.read(); print(r[:500])\"\n"
+                f"  # 위 명령으로 '{target}'의 실시간 응답을 확인하고 분석을 재시작하세요."
             ),
             "zh": (
                 f"[⛔ 缓存文件阻断 — 强制新鲜扫描]\n\n"
                 f"以下文件被重复使用超过{self.max_reuse_count}次(旧缓存):\n{flist}\n\n"
                 f"■ 禁止读取这些文件，缓存数据可能属于其他目标。\n"
-                f"■ 立即执行新鲜扫描:\n"
-                f"  import requests, urllib3; urllib3.disable_warnings()\n"
-                f"  r = requests.get('{target}', verify=False, timeout=10)\n"
-                f"  print(r.status_code, r.headers, r.text[:500])"
+                f"■ 立即执行新鲜扫描(bash+curl块):\n"
+                f"  curl -sk -m 10 -D - '{target}' | python3 -c \"import sys; r=sys.stdin.read(); print(r[:500])\""
             ),
             "en": (
                 f"[⛔ STALE CACHE BLOCKED — FORCING FRESH SCAN]\n\n"
                 f"The following files have been reused {self.max_reuse_count}+ times (stale cache):\n{flist}\n\n"
                 f"■ DO NOT read these files. Cache data may belong to a different target.\n"
-                f"■ Run a FRESH scan immediately:\n"
-                f"  import requests, urllib3; urllib3.disable_warnings()\n"
-                f"  r = requests.get('{target}', verify=False, timeout=10)\n"
-                f"  print(r.status_code, r.headers, r.text[:500])"
+                f"■ Run a FRESH scan immediately (bash+curl block):\n"
+                f"  curl -sk -m 10 -D - '{target}' | python3 -c \"import sys; r=sys.stdin.read(); print(r[:500])\""
             ),
         }
         return msgs.get(lang, msgs["en"])
@@ -536,21 +524,21 @@ class TargetMismatchGuard:
                 f"■ 현재 세션의 공인된 타겟: {target}\n"
                 f"■ 위 도메인은 현재 세션 스코프 외부입니다.\n"
                 f"■ 즉시 {target}에 대한 작업으로 복귀하세요.\n"
-                f"  requests.get('{target}', verify=False).status_code"
+                f"  curl -sk -o /dev/null -w '%{{http_code}}' 'https://{target}/'"
             ),
             "zh": (
                 f"[⚠️ 目标混淆警告]\n\n"
                 f"响应中检测到与会话目标({target})不同的域名:\n"
                 f"  混淆域名: {mlist}\n\n"
                 f"■ 当前会话授权目标: {target}\n"
-                f"■ 立即切换回: requests.get('{target}', verify=False).status_code"
+                f"■ 立即切换回: curl -sk -o /dev/null -w '%{{http_code}}' 'https://{target}/'"
             ),
             "en": (
                 f"[⚠️ TARGET MISMATCH — REFOCUS ON SESSION TARGET]\n\n"
                 f"Domains other than the session target ({target}) detected:\n"
                 f"  Unexpected: {mlist}\n\n"
                 f"■ Authorized target for this session: {target}\n"
-                f"■ Return immediately: requests.get('{target}', verify=False).status_code"
+                f"■ Return immediately: curl -sk -o /dev/null -w '%{{http_code}}' 'https://{target}/'"
             ),
         }
         return msgs.get(lang, msgs["en"])
@@ -616,35 +604,27 @@ class SelfCorrectionLoopBreaker:
                 f"[⛔ 자기수정 루프 차단 ({self._consecutive}회 연속)]\n\n"
                 f"타겟 오인 → 자기수정 루프가 {self._consecutive}회 연속 감지되었습니다.\n"
                 f"이 루프는 토큰을 낭비하며 실제 진행이 없습니다.\n\n"
-                f"■ 루프를 즉시 중단하고 다음을 실행하세요:\n"
-                f"  import requests, urllib3; urllib3.disable_warnings()\n"
-                f"  TARGET = '{target}'\n"
-                f"  r = requests.get(TARGET, verify=False, timeout=10)\n"
-                f"  print('STATUS:', r.status_code)\n"
-                f"  print('HEADERS:', dict(r.headers))\n"
-                f"  print('BODY:', r.text[:500])\n\n"
-                f"■ 자기수정, 사과, 재확인은 금지. 즉시 코드를 실행하세요."
+                f"■ 루프를 즉시 중단하고 bash+curl로 실행하세요:\n"
+                f"  curl -sk -m 10 -D - 'https://{target}/' | python3 -c "
+                f"\"import sys; r=sys.stdin.read(); print(r[:500])\"\n\n"
+                f"■ 자기수정, 사과, 재확인은 금지. 즉시 curl 명령을 실행하세요."
             ),
             "zh": (
                 f"[⛔ 自我修正循环阻断 (连续{self._consecutive}次)]\n\n"
                 f"检测到目标混淆→自我修正循环{self._consecutive}次。\n"
                 f"此循环浪费token且无实际进展。\n\n"
-                f"■ 立即中止循环，执行以下代码:\n"
-                f"  import requests, urllib3; urllib3.disable_warnings()\n"
-                f"  TARGET = '{target}'\n"
-                f"  r = requests.get(TARGET, verify=False, timeout=10)\n"
-                f"  print(r.status_code, r.text[:500])\n\n"
-                f"■ 禁止继续自我修正。立即执行HTTP请求!"
+                f"■ 立即中止循环，用bash+curl执行:\n"
+                f"  curl -sk -m 10 'https://{target}/' | python3 -c "
+                f"\"import sys; r=sys.stdin.read(); print(r[:500])\"\n\n"
+                f"■ 禁止继续自我修正。立即执行curl命令!"
             ),
             "en": (
                 f"[⛔ SELF-CORRECTION LOOP BROKEN ({self._consecutive} consecutive)]\n\n"
                 f"Target mismatch → self-correction loop detected {self._consecutive} times.\n"
                 f"This loop wastes tokens with zero real progress.\n\n"
-                f"■ BREAK THE LOOP NOW. Execute:\n"
-                f"  import requests, urllib3; urllib3.disable_warnings()\n"
-                f"  TARGET = '{target}'\n"
-                f"  r = requests.get(TARGET, verify=False, timeout=10)\n"
-                f"  print(r.status_code, r.text[:500])\n\n"
+                f"■ BREAK THE LOOP NOW. Execute with bash+curl:\n"
+                f"  curl -sk -m 10 -D - 'https://{target}/' | python3 -c "
+                f"\"import sys; r=sys.stdin.read(); print(r[:500])\"\n\n"
                 f"■ NO MORE self-correction. Execute the code immediately!"
             ),
         }
@@ -1172,11 +1152,8 @@ class ZeroHttpClaimGuard:
                 "취약점 발견/확인 주장이 감지되었습니다.\n\n"
                 "■ 이것은 환각(hallucination)입니다.\n"
                 "■ 모든 취약점 주장 전에 반드시 실제 HTTP 요청을 실행해야 합니다:\n\n"
-                f"  import requests, urllib3; urllib3.disable_warnings()\n"
-                f"  r = requests.get('{target}', verify=False, timeout=10)\n"
-                f"  print('STATUS:', r.status_code)\n"
-                f"  print('BODY:', r.text[:500])\n\n"
-                "■ 위 코드 실행 결과를 보고 취약점 여부를 판단하세요.\n"
+                f"  curl -sk -m 10 -D - 'https://{target}/' | python3 -c \"import sys; r=sys.stdin.read(); print(r[:500])\"\n\n"
+                "■ 위 curl 실행 결과를 보고 취약점 여부를 판단하세요.\n"
                 "■ 증거 없는 VERIFIED/CONFIRMED 클레임은 절대 금지입니다."
             ),
             "zh": (
@@ -1185,9 +1162,7 @@ class ZeroHttpClaimGuard:
                 "却检测到漏洞发现/确认声明。\n\n"
                 "■ 这是幻觉(hallucination)。\n"
                 "■ 所有漏洞声明前必须执行真实HTTP请求:\n\n"
-                f"  import requests, urllib3; urllib3.disable_warnings()\n"
-                f"  r = requests.get('{target}', verify=False, timeout=10)\n"
-                f"  print('STATUS:', r.status_code, r.text[:500])\n\n"
+                f"  curl -sk -m 10 'https://{target}/' | python3 -c \"import sys; r=sys.stdin.read(); print(r[:500])\"\n\n"
                 "■ 禁止无证据的VERIFIED/CONFIRMED声明。"
             ),
             "en": (
@@ -1196,10 +1171,7 @@ class ZeroHttpClaimGuard:
                 "real HTTP request evidence in execution output.\n\n"
                 "■ This is HALLUCINATION.\n"
                 "■ All vuln claims MUST be backed by real HTTP execution:\n\n"
-                f"  import requests, urllib3; urllib3.disable_warnings()\n"
-                f"  r = requests.get('{target}', verify=False, timeout=10)\n"
-                f"  print('STATUS:', r.status_code)\n"
-                f"  print('BODY:', r.text[:500])\n\n"
+                f"  curl -sk -m 10 -D - 'https://{target}/' | python3 -c \"import sys; r=sys.stdin.read(); print(r[:500])\"\n\n"
                 "■ VERIFIED/CONFIRMED claims WITHOUT evidence are FORBIDDEN."
             ),
         }
@@ -1253,34 +1225,24 @@ class HardSessionRestarter:
                 f"팬텀 모드 / 팬텀 가드 차단이 {n}회 연속 발생했습니다.\n"
                 "대화 히스토리를 초기화하고 새 세션으로 재시작합니다.\n\n"
                 f"■ 재시작 후 첫 번째 작업:\n"
-                f"  import requests, urllib3; urllib3.disable_warnings()\n"
-                f"  r = requests.get('{target}', verify=False, timeout=10)\n"
-                f"  print('STATUS:', r.status_code)\n"
-                f"  print('SERVER:', r.headers.get('Server','?'))\n"
-                f"  print('BODY:', r.text[:500])\n\n"
-                "■ 새 세션: 캐시 없음 / 이전 추정 없음 / 실시간 HTTP만 사용"
+                f"  curl -sk -m 10 -D - 'https://{target}/' | python3 -c \"import sys; r=sys.stdin.read(); print(r[:500])\"\n\n"
+                "■ 새 세션: 캐시 없음 / 이전 추정 없음 / 실시간 curl HTTP만 사용"
             ),
             "zh": (
                 f"[🔄 强制会话重启 — 幻影模式连续{n}次拦截]\n\n"
                 f"幻影防护连续拦截{n}次。\n"
                 "正在清空对话历史并以新会话重启。\n\n"
                 f"■ 重启后首个任务:\n"
-                f"  import requests, urllib3; urllib3.disable_warnings()\n"
-                f"  r = requests.get('{target}', verify=False, timeout=10)\n"
-                f"  print(r.status_code, r.text[:500])\n\n"
-                "■ 新会话: 无缓存/无先前假设/仅使用实时HTTP"
+                f"  curl -sk -m 10 'https://{target}/' | python3 -c \"import sys; r=sys.stdin.read(); print(r[:500])\"\n\n"
+                "■ 新会话: 无缓存/无先前假设/仅使用实时curl HTTP"
             ),
             "en": (
                 f"[🔄 HARD SESSION RESTART — Phantom Mode blocked {n}x consecutive]\n\n"
                 f"PhantomGuard blocked {n} consecutive responses.\n"
                 "Clearing conversation history and restarting session.\n\n"
                 f"■ First action after restart:\n"
-                f"  import requests, urllib3; urllib3.disable_warnings()\n"
-                f"  r = requests.get('{target}', verify=False, timeout=10)\n"
-                f"  print('STATUS:', r.status_code)\n"
-                f"  print('SERVER:', r.headers.get('Server','?'))\n"
-                f"  print('BODY:', r.text[:500])\n\n"
-                "■ New session: no cache / no prior assumptions / real-time HTTP only"
+                f"  curl -sk -m 10 -D - 'https://{target}/' | python3 -c \"import sys; r=sys.stdin.read(); print(r[:500])\"\n\n"
+                "■ New session: no cache / no prior assumptions / real-time curl HTTP only"
             ),
         }
         return msgs.get(lang, msgs["en"])

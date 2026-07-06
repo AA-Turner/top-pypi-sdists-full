@@ -208,6 +208,32 @@ class ViteDoctor:
 
         self._print_config_snapshot(show_bridge=show_config)
 
+        self._run_static_checks()
+        if runtime_checks:
+            self._check_vite_server_reachable()
+
+        self._print_report()
+
+        errors = [i for i in self.issues if i.severity == "error"]
+        warnings = [i for i in self.issues if i.severity != "error"]
+
+        if not self.issues:
+            console.print("\n[green]✓ No issues found. Configuration looks healthy.[/]")
+            return True
+
+        if not errors and warnings:
+            console.print(f"\n[green]✓ No errors found.[/] [yellow]{len(warnings)} warning(s) detected.[/]")
+
+        if fix:
+            fixed = self._apply_fixes(no_prompt)
+            if not fixed:
+                return False
+            return self.run(fix=False, no_prompt=no_prompt, show_config=show_config)
+
+        return not errors
+
+    def _run_static_checks(self) -> None:
+        """Run diagnostics that only inspect local configuration and files."""
         self._check_litestar_plugin_config()
         self._check_bridge_file()
         self._check_paths_exist()
@@ -231,31 +257,8 @@ class ViteDoctor:
         self._check_mode_inertia_conflicts()
         self._check_ssr_reachability()
         self._check_static_props_secrets()
-
+        self._check_typegen_package_dependencies()
         self._check_node_modules()
-        if runtime_checks:
-            self._check_hotfile_presence()
-            self._check_vite_server_reachable()
-
-        self._print_report()
-
-        errors = [i for i in self.issues if i.severity == "error"]
-        warnings = [i for i in self.issues if i.severity != "error"]
-
-        if not self.issues:
-            console.print("\n[green]✓ No issues found. Configuration looks healthy.[/]")
-            return True
-
-        if not errors and warnings:
-            console.print(f"\n[green]✓ No errors found.[/] [yellow]{len(warnings)} warning(s) detected.[/]")
-
-        if fix:
-            fixed = self._apply_fixes(no_prompt)
-            if not fixed:
-                return False
-            return self.run(fix=False, no_prompt=no_prompt, show_config=show_config)
-
-        return not errors
 
     def _locate_vite_config(self) -> None:
         """Find and parse the vite.config file."""
@@ -930,6 +933,27 @@ class ViteDoctor:
             )
         elif self.verbose:
             console.print("[dim]✓ node_modules directory exists[/]")
+
+    def _check_typegen_package_dependencies(self) -> None:
+        """Warn when optional JS typegen packages required by config are absent."""
+        types_config = self.config.types
+        if not isinstance(types_config, TypeGenConfig):
+            return
+        if not types_config.generate_sdk and not types_config.generate_zod:
+            return
+
+        root = self.config.root_dir or Path.cwd()
+        hey_api_package = root / "node_modules" / "@hey-api" / "openapi-ts" / "package.json"
+        if not hey_api_package.exists():
+            self.issues.append(
+                DoctorIssue(
+                    check="TypeGen Package Dependency",
+                    severity="warning",
+                    message="@hey-api/openapi-ts is not installed but TypeScript API generation is enabled.",
+                    fix_hint="Install frontend dependencies or add @hey-api/openapi-ts as a dev dependency.",
+                    auto_fixable=False,
+                )
+            )
 
     def _check_vite_server_reachable(self) -> None:
         """Check if Vite dev server is reachable (only in dev mode)."""

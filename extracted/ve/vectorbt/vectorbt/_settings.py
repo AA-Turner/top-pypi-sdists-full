@@ -419,6 +419,7 @@ settings = SettingsConfig(
             ffill_val_price=True,
             update_value=False,
             fill_pos_record=True,
+            init_temp_records=False,
             row_wise=False,
             flexible=False,
             use_numba=True,
@@ -689,7 +690,7 @@ Settings applied across `vectorbt.messaging`.
     
     Set `persistence` to string to use as `filename` in `telegram.ext.PicklePersistence`.
     For `defaults`, see `telegram.ext.Defaults`. Other settings will be distributed across 
-    `telegram.ext.Updater` and `telegram.ext.updater.Updater.start_polling`.
+    `telegram.ext.Updater` / `telegram.ext.ApplicationBuilder` and polling.
 
 * giphy:
     Settings applied to [GIPHY Translate Endpoint](https://developers.giphy.com/docs/api/endpoint#translate).

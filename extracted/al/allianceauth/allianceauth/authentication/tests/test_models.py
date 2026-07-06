@@ -1,12 +1,14 @@
 from unittest import mock
 
-from django.contrib.auth.models import User
 from django.test import TestCase
 
 from esi.errors import IncompleteResponseError
 from esi.models import Token
 
-from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo
+from allianceauth.authentication.models import User
+from allianceauth.eveonline.models import (
+    EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo,
+)
 from allianceauth.tests.auth_utils import AuthUtils
 
 from ..models import CharacterOwnership, State, get_guest_state

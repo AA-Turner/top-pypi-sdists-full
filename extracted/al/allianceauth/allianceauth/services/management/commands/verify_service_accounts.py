@@ -1,6 +1,6 @@
-from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
+from allianceauth.authentication.models import User
 from allianceauth.services.tasks import validate_services
 
 

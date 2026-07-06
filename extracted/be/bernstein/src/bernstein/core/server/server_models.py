@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
 from bernstein.core.communication.bulletin import MessageType  # noqa: TC001 - Pydantic needs at runtime
 from bernstein.core.tasks.task_store import ProgressEntry
@@ -153,6 +153,14 @@ class TaskCreate(BaseModel):
     terminal_reason: str | None = Field(default=None, max_length=_MAX_DESCRIPTION_LEN)
     max_output_tokens: int | None = None  # Per-task output-token cap (escalated on retry)
     meta_messages: list[str] | None = Field(default=None, max_length=_MAX_LIST_LEN)
+    # Explicit override for compute_max_turns()'s complexity-based auto-computation.
+    # When set, callers get exact control over how many turns a Claude agent spawn
+    # gets, bypassing scope/complexity math entirely (see claude_max_turns.py).
+    # Bounded because the value reaches the CLI --max-turns flag verbatim: 0 or a
+    # negative would break the spawn (ge=1 also gives a clean 422 instead of a
+    # confusing CLI-level failure downstream), and an unbounded value defeats
+    # turn budgeting.
+    max_turns: int | None = Field(default=None, ge=1, le=10_000)
 
     @field_validator("scope", "complexity", "task_type")
     @classmethod
@@ -252,6 +260,7 @@ class TaskResponse(BaseModel):
     terminal_reason: str | None = None
     max_output_tokens: int | None = None
     meta_messages: list[str] = Field(default_factory=list)
+    max_turns: int | None = None
 
 
 class WebhookTaskResponse(BaseModel):
@@ -261,9 +270,31 @@ class WebhookTaskResponse(BaseModel):
 
 
 class TaskCompleteRequest(BaseModel):
-    """Body for POST /tasks/{task_id}/complete."""
+    """Body for POST /tasks/{task_id}/complete.
 
-    result_summary: str
+    ``result_summary`` is the legacy free-form summary and stays accepted
+    unchanged. ``payload`` carries a structured terminal payload under the
+    worker completion contract (#2244) - either a completion or a typed
+    refusal - and is schema-validated at the API boundary; an invalid
+    payload is a typed ``contract_violation`` failure, never a silent
+    accept. When ``payload`` is provided, ``result_summary`` is ignored.
+    """
+
+    result_summary: str = ""
+    payload: dict[str, Any] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _require_summary_or_payload(cls, data: Any) -> Any:
+        """Reject bodies that carry neither field.
+
+        A body with an explicitly empty ``result_summary`` still validates -
+        the store maps that to the empty-summary auto-fail path - but a body
+        with neither key is a malformed request, not a worker outcome.
+        """
+        if isinstance(data, dict) and "result_summary" not in data and "payload" not in data:
+            raise ValueError("either result_summary or payload is required")
+        return data
 
 
 class TaskFailRequest(BaseModel):
@@ -565,6 +596,7 @@ class TaskCountsResponse(BaseModel):
     orphaned: int = 0
     abandoned: int = 0
     blocked_by_abandon: int = 0
+    refused: int = 0
     total: int = 0
 
 

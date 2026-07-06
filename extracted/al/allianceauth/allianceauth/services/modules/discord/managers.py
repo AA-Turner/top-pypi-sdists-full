@@ -4,29 +4,25 @@ from urllib.parse import urlencode
 from requests.exceptions import HTTPError
 from requests_oauthlib import OAuth2Session
 
-from django.contrib.auth.models import Group, User
+from django.contrib.auth.models import User as BaseUser
 from django.db import models
 from django.utils.timezone import now
 
+from allianceauth.authentication.models import User
+from allianceauth.groupmanagement.models import Group
+
 from . import __title__
 from .app_settings import (
-    DISCORD_APP_ID,
-    DISCORD_APP_SECRET,
-    DISCORD_CALLBACK_URL,
-    DISCORD_GUILD_ID,
+    DISCORD_APP_ID, DISCORD_APP_SECRET, DISCORD_CALLBACK_URL, DISCORD_GUILD_ID,
     DISCORD_SYNC_NAMES,
 )
 from .core import (
-    calculate_roles_for_user,
-    create_bot_client,
-    group_to_role as core_group_to_role,
-    server_name as core_server_name,
+    calculate_roles_for_user, create_bot_client,
+    group_to_role as core_group_to_role, server_name as core_server_name,
     user_formatted_nick,
 )
 from .discord_client import (
-    DISCORD_OAUTH_BASE_URL,
-    DISCORD_OAUTH_TOKEN_URL,
-    DiscordApiBackoff,
+    DISCORD_OAUTH_BASE_URL, DISCORD_OAUTH_TOKEN_URL, DiscordApiBackoff,
     DiscordClient,
 )
 from .utils import LoggerAddTag
@@ -136,7 +132,7 @@ class DiscordUserManager(models.Manager):
 
         only checks locally, does not hit the API
         """
-        if not isinstance(user, User):
+        if not isinstance(user, BaseUser):
             return False
         return self.filter(user=user).select_related('user').exists()
 

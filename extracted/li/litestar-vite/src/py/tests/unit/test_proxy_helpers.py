@@ -1,3 +1,4 @@
+import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,7 +14,7 @@ from litestar_vite.plugin import VitePlugin
 from litestar_vite.plugin._proxy import (
     SSRProxyMiddleware,
     ViteProxyMiddleware,
-    _extract_proxy_response,
+    _extract_proxy_response_headers,
     _proxy_stream_response,
     _stream_request_body,
     build_hmr_target_url,
@@ -125,7 +126,7 @@ async def test_proxy_stream_response_streams_chunks_and_closes() -> None:
 pytestmark = pytest.mark.anyio
 
 
-def test_extract_proxy_response_filters_headers() -> None:
+def test_extract_proxy_response_headers_filters_headers() -> None:
     response = httpx.Response(
         200,
         headers=[
@@ -136,13 +137,11 @@ def test_extract_proxy_response_filters_headers() -> None:
         ],
         content=b"ok",
     )
-    status, headers, body = _extract_proxy_response(response)
-    assert status == 200
+    headers = _extract_proxy_response_headers(response.headers)
     assert (b"content-type", b"text/plain") in headers
     assert all(key != b"connection" for key, _ in headers)
     assert headers.count((b"set-cookie", b"a=1")) == 1
     assert headers.count((b"set-cookie", b"b=2")) == 1
-    assert body == b"ok"
 
 
 def test_build_hmr_target_url_includes_query(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -202,7 +201,24 @@ def test_target_url_getter_caches(tmp_path: Path) -> None:
     getter = create_target_url_getter(None, hotfile, cached)
 
     assert getter() == "http://localhost:5173"
+    assert getter() == "http://localhost:5173"
+
     hotfile.write_text("http://changed:1234")
+    current_mtime = hotfile.stat().st_mtime_ns
+    os.utime(hotfile, ns=(current_mtime + 1_000_000, current_mtime + 1_000_000))
+
+    assert getter() == "http://changed:1234"
+
+
+def test_target_url_getter_recovers_after_initial_missing_hotfile(tmp_path: Path) -> None:
+    hotfile = tmp_path / "hot"
+    cached: list[str | None] = [None]
+    getter = create_target_url_getter(None, hotfile, cached)
+
+    assert getter() is None
+
+    hotfile.write_text("http://localhost:5173")
+
     assert getter() == "http://localhost:5173"
 
 

@@ -1,9 +1,9 @@
 import logging
 
-from django.contrib.auth.models import User
 from django.template.loader import render_to_string
 
 from allianceauth import hooks
+from allianceauth.authentication.models import User
 from allianceauth.services.hooks import ServicesHook
 
 from . import __title__, tasks

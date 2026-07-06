@@ -4,21 +4,68 @@
 from __future__ import annotations
 
 import os
-from types import SimpleNamespace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import ruamel.yaml
 
 import tests.conftest as test_conftest
 import tests.core.conftest as core_conftest
-
-from tests.conftest import _run_dbt_commands
 from tests.support import manifest_requires_refresh
-
 
 DEMO_PROJECT_DIR = Path("demo_duckdb")
 GENERIC_TESTS_REQUIRING_ARGUMENTS = {"accepted_values", "relationships"}
+
+
+def _iter_demo_schema_docs(yaml: ruamel.yaml.YAML):
+    for schema_path in DEMO_PROJECT_DIR.rglob("*.yml"):
+        if not schema_path.is_file() or "target" in schema_path.parts:
+            continue
+
+        raw_doc = yaml.load(schema_path.read_text())
+        if isinstance(raw_doc, dict):
+            yield schema_path, raw_doc
+
+
+def _iter_column_test_entries(column: dict):
+    yield from column.get("tests") or []
+    yield from column.get("data_tests") or []
+
+
+def _iter_legacy_argument_shape_offenders(schema_path: Path, raw_doc: dict):
+    for model in raw_doc.get("models", []):
+        if not isinstance(model, dict):
+            continue
+
+        model_name = model.get("name", "<unknown-model>")
+        for column in model.get("columns", []):
+            yield from _iter_column_legacy_argument_shape_offenders(
+                schema_path,
+                model_name,
+                column,
+            )
+
+
+def _iter_column_legacy_argument_shape_offenders(
+    schema_path: Path,
+    model_name: str,
+    column: object,
+):
+    if not isinstance(column, dict):
+        return
+
+    column_name = column.get("name", "<unknown-column>")
+    for test_entry in _iter_column_test_entries(column):
+        if not isinstance(test_entry, dict) or len(test_entry) != 1:
+            continue
+
+        test_name, config = next(iter(test_entry.items()))
+        if test_name not in GENERIC_TESTS_REQUIRING_ARGUMENTS:
+            continue
+
+        if not isinstance(config, dict) or "arguments" in config:
+            yield f"{schema_path}:{model_name}.{column_name}.{test_name}"
 
 
 def test_demo_generic_tests_keep_legacy_argument_shape_for_oldest_supported_dbt() -> None:
@@ -30,42 +77,11 @@ def test_demo_generic_tests_keep_legacy_argument_shape_for_oldest_supported_dbt(
     deprecation warning during parse.
     """
     yaml = ruamel.yaml.YAML(typ="safe")
-    offenders: list[str] = []
-
-    for schema_path in DEMO_PROJECT_DIR.rglob("*.yml"):
-        if not schema_path.is_file() or "target" in schema_path.parts:
-            continue
-
-        raw_doc = yaml.load(schema_path.read_text())
-        if not isinstance(raw_doc, dict):
-            continue
-
-        for model in raw_doc.get("models", []):
-            if not isinstance(model, dict):
-                continue
-
-            model_name = model.get("name", "<unknown-model>")
-            for column in model.get("columns", []):
-                if not isinstance(column, dict):
-                    continue
-
-                column_name = column.get("name", "<unknown-column>")
-                test_entries = [
-                    *(column.get("tests") or []),
-                    *(column.get("data_tests") or []),
-                ]
-                for test_entry in test_entries:
-                    if not isinstance(test_entry, dict) or len(test_entry) != 1:
-                        continue
-
-                    test_name, config = next(iter(test_entry.items()))
-                    if test_name not in GENERIC_TESTS_REQUIRING_ARGUMENTS:
-                        continue
-
-                    if not isinstance(config, dict) or "arguments" in config:
-                        offenders.append(
-                            f"{schema_path}:{model_name}.{column_name}.{test_name}",
-                        )
+    offenders = [
+        offender
+        for schema_path, raw_doc in _iter_demo_schema_docs(yaml)
+        for offender in _iter_legacy_argument_shape_offenders(schema_path, raw_doc)
+    ]
 
     assert not offenders, (
         "Demo schema generic tests must keep legacy top-level arguments while dbt-core 1.8 remains supported: "
@@ -88,7 +104,7 @@ def test_run_dbt_commands_fails_fast_on_first_error(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr("dbt.cli.main.dbtRunner", lambda: fake_runner)
 
     with pytest.raises(RuntimeError, match=r"dbt seed failed after .*seed exploded"):
-        _run_dbt_commands("demo_duckdb", "demo_duckdb")
+        test_conftest._run_dbt_commands("demo_duckdb", "demo_duckdb")
 
     assert fake_runner.calls == [
         [
@@ -162,16 +178,7 @@ def test_isolated_demo_manifest_parse_uses_temp_project_not_source_tree(
     source_dir = tmp_path / "demo_duckdb"
     source_dir.mkdir()
     (source_dir / "profiles.yml").write_text(
-        "\n".join([
-            "jaffle_shop:",
-            "  target: test",
-            "  outputs:",
-            "    test:",
-            "      type: duckdb",
-            '      path: "test.db"',
-            "      threads: 1",
-            "",
-        ]),
+        'jaffle_shop:\n  target: test\n  outputs:\n    test:\n      type: duckdb\n      path: "test.db"\n      threads: 1\n',
     )
     (source_dir / "dbt_project.yml").write_text("name: jaffle_shop\nprofile: jaffle_shop\n")
 

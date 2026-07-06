@@ -1,12 +1,13 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: corner
-Version: 2.2.3
+Version: 2.3.0
 Summary: Make some beautiful corner plots
 Project-URL: Homepage, https://corner.readthedocs.io
 Project-URL: Source, https://github.com/dfm/corner.py
 Project-URL: Bug Tracker, https://github.com/dfm/corner.py/issues
 Author-email: Dan Foreman-Mackey <foreman.mackey@gmail.com>
 License: BSD 2-Clause License
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
@@ -14,8 +15,10 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.9
 Requires-Dist: matplotlib>=2.1
 Provides-Extra: arviz
+Requires-Dist: arviz-base; extra == 'arviz'
 Requires-Dist: arviz>=0.9; extra == 'arviz'
 Provides-Extra: docs
+Requires-Dist: arviz-base; extra == 'docs'
 Requires-Dist: arviz>=0.9; extra == 'docs'
 Requires-Dist: ipython; extra == 'docs'
 Requires-Dist: myst-nb; extra == 'docs'
@@ -23,6 +26,7 @@ Requires-Dist: pandoc; extra == 'docs'
 Requires-Dist: sphinx-book-theme; extra == 'docs'
 Requires-Dist: sphinx>=1.7.5; extra == 'docs'
 Provides-Extra: test
+Requires-Dist: arviz-base; extra == 'test'
 Requires-Dist: arviz>=0.9; extra == 'test'
 Requires-Dist: pytest; extra == 'test'
 Requires-Dist: scipy; extra == 'test'

@@ -376,15 +376,19 @@ class TestTelemetryConfigInitShutdown:
         shutdown_telemetry()
 
     def test_init_raises_if_tracer_already_set(self):
-        """init() raises RuntimeError when global tracer dispatcher is already set.
+        """init() raises RuntimeError when global tracer dispatcher is already set."""
+        # The global OTel dispatcher may already be set by a prior test file
+        # in this worker (xdist --dist loadfile).  If not, establish it so
+        # the second init() correctly raises RuntimeError.
+        if not is_telemetry_initialized():
+            setup = TelemetryConfig("setup-tracer").with_noop_exporter()
+            setup.init()
 
-        In pytest the ToolRecorder (used in other tests) triggers OTel initialisation
-        the moment its Rust implementation creates a Meter, so the global dispatcher is
-        always occupied by the time this test runs.  We therefore expect init() to fail.
-        """
         cfg = TelemetryConfig("pytest-run").with_noop_exporter()
         with pytest.raises(RuntimeError):
             cfg.init()
+
+        shutdown_telemetry()
 
     def test_shutdown_idempotent(self):
         """shutdown_telemetry() can be called multiple times without error."""

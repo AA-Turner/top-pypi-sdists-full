@@ -1,7 +1,7 @@
-from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
 
+from allianceauth.authentication.models import User
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.framework.api.user import get_sentinel_user
 

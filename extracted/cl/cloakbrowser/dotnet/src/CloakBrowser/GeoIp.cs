@@ -48,6 +48,28 @@ public static class GeoIp
             ["TH"] = "th-TH", ["VN"] = "vi-VN", ["MY"] = "ms-MY",
             ["SE"] = "sv-SE", ["NO"] = "nb-NO", ["DK"] = "da-DK", ["FI"] = "fi-FI",
             ["GR"] = "el-GR", ["HU"] = "hu-HU", ["BG"] = "bg-BG",
+            // Extended coverage - common residential/mobile proxy exits
+            ["SI"] = "sl-SI", ["SK"] = "sk-SK", ["HR"] = "hr-HR", ["RS"] = "sr-RS", ["LT"] = "lt-LT",
+            ["LV"] = "lv-LV", ["EE"] = "et-EE", ["IS"] = "is-IS", ["LU"] = "fr-LU", ["MT"] = "en-MT",
+            ["CY"] = "el-CY", ["MD"] = "ro-MD", ["BY"] = "ru-BY", ["GE"] = "ka-GE", ["AL"] = "sq-AL",
+            ["MK"] = "mk-MK", ["BA"] = "bs-BA",
+            ["PE"] = "es-PE", ["VE"] = "es-VE", ["EC"] = "es-EC", ["UY"] = "es-UY", ["CR"] = "es-CR",
+            ["DO"] = "es-DO", ["GT"] = "es-GT", ["BO"] = "es-BO", ["PY"] = "es-PY",
+            ["PK"] = "en-PK", ["BD"] = "bn-BD", ["LK"] = "si-LK", ["KZ"] = "ru-KZ", ["IR"] = "fa-IR",
+            ["IQ"] = "ar-IQ", ["JO"] = "ar-JO", ["LB"] = "ar-LB", ["KW"] = "ar-KW", ["QA"] = "ar-QA",
+            ["OM"] = "ar-OM", ["BH"] = "ar-BH",
+            ["NG"] = "en-NG", ["KE"] = "en-KE", ["MA"] = "fr-MA", ["DZ"] = "ar-DZ", ["TN"] = "ar-TN",
+            ["GH"] = "en-GH",
+            ["AM"] = "hy-AM", ["AZ"] = "az-AZ", ["UZ"] = "uz-UZ", ["KG"] = "ky-KG", ["TJ"] = "tg-TJ",
+            ["TM"] = "tk-TM",
+            ["ME"] = "sr-ME", ["XK"] = "sq-XK", ["LI"] = "de-LI", ["MC"] = "fr-MC", ["AD"] = "ca-AD",
+            ["MM"] = "my-MM", ["KH"] = "km-KH", ["LA"] = "lo-LA", ["MN"] = "mn-MN", ["BN"] = "ms-BN",
+            ["MO"] = "zh-MO",
+            ["YE"] = "ar-YE", ["SY"] = "ar-SY", ["PS"] = "ar-PS", ["LY"] = "ar-LY",
+            ["ET"] = "am-ET", ["TZ"] = "sw-TZ", ["UG"] = "en-UG", ["SN"] = "fr-SN", ["CI"] = "fr-CI",
+            ["CM"] = "fr-CM", ["AO"] = "pt-AO", ["MZ"] = "pt-MZ", ["ZM"] = "en-ZM", ["ZW"] = "en-ZW",
+            ["HN"] = "es-HN", ["NI"] = "es-NI", ["SV"] = "es-SV", ["PA"] = "es-PA", ["JM"] = "en-JM",
+            ["TT"] = "en-TT", ["PR"] = "es-PR",
         };
 
     /// <summary>
@@ -55,7 +77,7 @@ public static class GeoIp
     /// Returns (timezone, locale) - either or both may be null on failure. Never throws.
     /// </summary>
     public static async Task<(string? Timezone, string? Locale)> ResolveProxyGeoAsync(
-        string proxyUrl, CancellationToken ct = default)
+        string? proxyUrl, CancellationToken ct = default)
     {
         var (tz, locale, _) = await ResolveProxyGeoWithIpAsync(proxyUrl, ct).ConfigureAwait(false);
         return (tz, locale);
@@ -64,21 +86,28 @@ public static class GeoIp
     /// <summary>
     /// Resolve timezone, locale, and exit IP from a proxy.
     /// The exit IP is a free bonus from the lookup - reused for WebRTC spoofing
-    /// without an extra HTTP call.
+    /// without an extra HTTP call. When <paramref name="proxyUrl"/> is null/empty,
+    /// the machine's own public IP is used (echo services queried directly), so
+    /// geoip works proxy-free too.
     /// </summary>
     public static async Task<(string? Timezone, string? Locale, string? ExitIp)> ResolveProxyGeoWithIpAsync(
-        string proxyUrl, CancellationToken ct = default)
+        string? proxyUrl, CancellationToken ct = default)
     {
+        // Ensure the DB first - the download must NOT be bounded by the resolution
+        // timeout (a first-use ~70MB fetch legitimately outlasts it).
         var dbPath = await EnsureGeoIpDbAsync(ct).ConfigureAwait(false);
-        if (dbPath == null)
-            return (null, null, null);
 
         var timeout = GetGeoIpTimeoutSeconds();
         var deadline = DeadlineFromTimeout(timeout);
 
-        // Exit IP (through proxy) is most accurate - gateway DNS may differ from exit.
+        // Exit IP (through proxy, or the machine's own public IP when proxyUrl is
+        // null/empty) is most accurate - gateway DNS may differ from exit. Resolved
+        // even when the DB is unavailable: the IP does not need the DB, and dropping
+        // it on a DB hiccup would let WebRTC fall back to the real IP behind a proxy
+        // while the connection shows the proxy IP - a real deanonymization.
         var ip = await ResolveExitIpAsync(proxyUrl, RemainingSeconds(deadline), ct).ConfigureAwait(false);
-        if (ip == null && !DeadlineExpired(deadline))
+        // Hostname fallback only applies to a proxy; no proxy -> echo services only.
+        if (ip == null && !string.IsNullOrEmpty(proxyUrl) && !DeadlineExpired(deadline))
             ip = ResolveProxyIp(proxyUrl);
         if (ip == null || DeadlineExpired(deadline))
         {
@@ -86,6 +115,10 @@ public static class GeoIp
                 CloakLog.Warning("GeoIP resolution timed out after {0:0.0}s; continuing without GeoIP", timeout);
             return (null, null, null);
         }
+
+        // DB only drives tz/locale; a missing/failed DB still returns the exit IP.
+        if (dbPath == null)
+            return (null, null, ip);
 
         try
         {
@@ -180,8 +213,12 @@ public static class GeoIp
     private static double Now() =>
         System.Diagnostics.Stopwatch.GetTimestamp() / (double)System.Diagnostics.Stopwatch.Frequency;
 
-    /// <summary>Resolve only the proxy exit IP, bounded by the GeoIP timeout.</summary>
-    public static async Task<string?> ResolveProxyExitIpAsync(string proxyUrl, CancellationToken ct = default)
+    /// <summary>
+    /// Resolve the egress IP, bounded by the GeoIP timeout. With a proxy this is
+    /// the proxy's exit IP; with no proxy it is the machine's own public IP
+    /// (echo services queried directly).
+    /// </summary>
+    public static async Task<string?> ResolveProxyExitIpAsync(string? proxyUrl, CancellationToken ct = default)
     {
         var timeout = GetGeoIpTimeoutSeconds();
         var deadline = DeadlineFromTimeout(timeout);
@@ -191,22 +228,31 @@ public static class GeoIp
         return ip;
     }
 
-    private static async Task<string?> ResolveExitIpAsync(string proxyUrl, double? timeout, CancellationToken ct)
+    private static async Task<string?> ResolveExitIpAsync(string? proxyUrl, double? timeout, CancellationToken ct)
     {
         var deadline = DeadlineFromTimeout(timeout ?? 0);
+        var direct = string.IsNullOrEmpty(proxyUrl);
 
         HttpClient client;
         try
         {
-            var handler = new HttpClientHandler
+            if (direct)
             {
-                Proxy = new WebProxy(NormalizeProxyForWebProxy(proxyUrl)),
-                UseProxy = true,
-            };
-            var creds = ExtractProxyCredentials(proxyUrl);
-            if (creds != null)
-                handler.Proxy.Credentials = creds;
-            client = new HttpClient(handler);
+                // No proxy: query the echo services directly -> the machine's own public IP.
+                client = new HttpClient();
+            }
+            else
+            {
+                var handler = new HttpClientHandler
+                {
+                    Proxy = new WebProxy(NormalizeProxyForWebProxy(proxyUrl!)),
+                    UseProxy = true,
+                };
+                var creds = ExtractProxyCredentials(proxyUrl!);
+                if (creds != null)
+                    handler.Proxy.Credentials = creds;
+                client = new HttpClient(handler);
+            }
         }
         catch (Exception)
         {
@@ -239,7 +285,7 @@ public static class GeoIp
                 }
                 catch (Exception) { /* try next */ }
             }
-            CloakLog.Warning("Failed to discover exit IP through proxy");
+            CloakLog.Warning(direct ? "Failed to discover public IP" : "Failed to discover exit IP through proxy");
             return null;
         }
         finally

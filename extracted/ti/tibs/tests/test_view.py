@@ -1,6 +1,6 @@
 import pytest
 
-from tibs import BitOrder, Endianness, Mutibs, MutableView, Tibs, View
+from tibs import BitOrder, ByteOrder, Mutibs, MutableView, Tibs, View
 
 
 def test_view_constructor_accepts_tibs_and_mutibs():
@@ -8,16 +8,16 @@ def test_view_constructor_accepts_tibs_and_mutibs():
     m = Mutibs("0x1234")
 
     assert repr(View(t)) == (
-        "View(Tibs('0x1234'), Endianness.Unspecified, BitOrder.Msb0)"
+        "View(Tibs('0x1234'), ByteOrder.Unspecified, BitOrder.Msb0)"
     )
     assert repr(View(m)) == (
-        "View(Tibs('0x1234'), Endianness.Unspecified, BitOrder.Msb0)"
+        "View(Tibs('0x1234'), ByteOrder.Unspecified, BitOrder.Msb0)"
     )
-    assert repr(View(t, byte_order=Endianness.Little)) == (
-        "View(Tibs('0x1234'), Endianness.Little, BitOrder.Msb0)"
+    assert repr(View(t, byte_order=ByteOrder.Little)) == (
+        "View(Tibs('0x1234'), ByteOrder.Little, BitOrder.Msb0)"
     )
     assert repr(View(t, bit_order=BitOrder.Lsb0)) == (
-        "View(Tibs('0x1234'), Endianness.Unspecified, BitOrder.Lsb0)"
+        "View(Tibs('0x1234'), ByteOrder.Unspecified, BitOrder.Lsb0)"
     )
 
 
@@ -36,7 +36,7 @@ def test_view_constructor_validates_byte_oriented_layout():
     assert isinstance(View(t), View)
 
     with pytest.raises(ValueError):
-        _ = View(t, byte_order=Endianness.Little)
+        _ = View(t, byte_order=ByteOrder.Little)
     with pytest.raises(ValueError):
         _ = View(t, bit_order=BitOrder.Lsb0)
 
@@ -79,7 +79,7 @@ def test_view_equality_uses_type_source_and_layout():
     assert View(t) != t
     assert View(t) != MutableView(m)
     assert View(t) != View(Tibs("0x13"))
-    assert View(t) != View(t, byte_order=Endianness.Big)
+    assert View(t) != View(t, byte_order=ByteOrder.Big)
     assert View(t) != View(t, bit_order=BitOrder.Lsb0)
 
 
@@ -88,22 +88,22 @@ def test_tibs_view_aliases_create_views():
 
     assert isinstance(t.view(), View)
     assert repr(t.view()) == (
-        "View(Tibs('0x1234'), Endianness.Unspecified, BitOrder.Msb0)"
+        "View(Tibs('0x1234'), ByteOrder.Unspecified, BitOrder.Msb0)"
     )
-    assert t.view().byte_order == Endianness.Unspecified
+    assert t.view().byte_order == ByteOrder.Unspecified
     assert t.view().bit_order == BitOrder.Msb0
-    assert repr(t.le) == "View(Tibs('0x1234'), Endianness.Little, BitOrder.Msb0)"
-    assert t.le.byte_order == Endianness.Little
+    assert repr(t.le) == "View(Tibs('0x1234'), ByteOrder.Little, BitOrder.Msb0)"
+    assert t.le.byte_order == ByteOrder.Little
     assert t.le.bit_order == BitOrder.Msb0
-    assert repr(t.be) == "View(Tibs('0x1234'), Endianness.Big, BitOrder.Msb0)"
-    assert t.be.byte_order == Endianness.Big
+    assert repr(t.be) == "View(Tibs('0x1234'), ByteOrder.Big, BitOrder.Msb0)"
+    assert t.be.byte_order == ByteOrder.Big
     assert repr(t.lsb0) == (
-        "View(Tibs('0x1234'), Endianness.Unspecified, BitOrder.Lsb0)"
+        "View(Tibs('0x1234'), ByteOrder.Unspecified, BitOrder.Lsb0)"
     )
-    assert t.lsb0.byte_order == Endianness.Unspecified
+    assert t.lsb0.byte_order == ByteOrder.Unspecified
     assert t.lsb0.bit_order == BitOrder.Lsb0
     assert repr(t.msb0) == (
-        "View(Tibs('0x1234'), Endianness.Unspecified, BitOrder.Msb0)"
+        "View(Tibs('0x1234'), ByteOrder.Unspecified, BitOrder.Msb0)"
     )
     assert len(t.le) == len(t)
 
@@ -111,11 +111,11 @@ def test_tibs_view_aliases_create_views():
 def test_view_layout_properties_are_read_only():
     v = Tibs("0x1234").le.lsb0
 
-    assert v.byte_order == Endianness.Little
+    assert v.byte_order == ByteOrder.Little
     assert v.bit_order == BitOrder.Lsb0
 
     with pytest.raises(AttributeError):
-        v.byte_order = Endianness.Big
+        v.byte_order = ByteOrder.Big
     with pytest.raises(AttributeError):
         v.bit_order = BitOrder.Msb0
 
@@ -124,15 +124,15 @@ def test_mutibs_view_aliases_create_views():
     m = Mutibs("0xaa")
 
     assert isinstance(m.view(), MutableView)
-    assert m.view().byte_order == Endianness.Unspecified
+    assert m.view().byte_order == ByteOrder.Unspecified
     assert m.view().bit_order == BitOrder.Msb0
-    assert repr(m.le) == "MutableView(Mutibs('0xaa'), Endianness.Little, BitOrder.Msb0)"
-    assert m.le.byte_order == Endianness.Little
+    assert repr(m.le) == "MutableView(Mutibs('0xaa'), ByteOrder.Little, BitOrder.Msb0)"
+    assert m.le.byte_order == ByteOrder.Little
     assert m.le.bit_order == BitOrder.Msb0
     assert repr(m.lsb0) == (
-        "MutableView(Mutibs('0xaa'), Endianness.Unspecified, BitOrder.Lsb0)"
+        "MutableView(Mutibs('0xaa'), ByteOrder.Unspecified, BitOrder.Lsb0)"
     )
-    assert m.lsb0.byte_order == Endianness.Unspecified
+    assert m.lsb0.byte_order == ByteOrder.Unspecified
     assert m.lsb0.bit_order == BitOrder.Lsb0
     assert len(m.lsb0) == len(m)
 
@@ -140,11 +140,11 @@ def test_mutibs_view_aliases_create_views():
 def test_mutable_view_layout_properties_are_read_only():
     v = Mutibs("0x1234").le.lsb0
 
-    assert v.byte_order == Endianness.Little
+    assert v.byte_order == ByteOrder.Little
     assert v.bit_order == BitOrder.Lsb0
 
     with pytest.raises(AttributeError):
-        v.byte_order = Endianness.Big
+        v.byte_order = ByteOrder.Big
     with pytest.raises(AttributeError):
         v.bit_order = BitOrder.Msb0
 
@@ -162,7 +162,7 @@ def test_mutable_view_from_indices_accepts_ranges_and_iterables():
 
     assert repr(v) == (
         "MutableView.from_indices(Mutibs('0x00'), range(0, 8, 2), "
-        "Endianness.Unspecified, BitOrder.Msb0)"
+        "ByteOrder.Unspecified, BitOrder.Msb0)"
     )
     assert v.bin == "0000"
 
@@ -195,7 +195,7 @@ def test_mutable_view_equality_uses_type_source_layout_and_source_indices():
     assert MutableView(m1) != View(m1)
     assert MutableView(m1) != m1
     assert MutableView(m1) != MutableView(Mutibs("0x00"))
-    assert MutableView(m1) != MutableView(m1, byte_order=Endianness.Big)
+    assert MutableView(m1) != MutableView(m1, byte_order=ByteOrder.Big)
     assert MutableView(m1) != MutableView(m1, bit_order=BitOrder.Lsb0)
     assert MutableView.from_indices(m1, range(0, 4)) != (
         MutableView.from_indices(m1, range(4, 8))
@@ -214,25 +214,25 @@ def test_view_chaining_preserves_source_and_updates_layout():
 
     v = t.le.lsb0
     assert repr(v) == (
-        "View(Tibs('0xabcd'), Endianness.Little, BitOrder.Lsb0)"
+        "View(Tibs('0xabcd'), ByteOrder.Little, BitOrder.Lsb0)"
     )
 
     assert repr(v.be) == (
-        "View(Tibs('0xabcd'), Endianness.Big, BitOrder.Lsb0)"
+        "View(Tibs('0xabcd'), ByteOrder.Big, BitOrder.Lsb0)"
     )
-    assert repr(v.msb0) == "View(Tibs('0xabcd'), Endianness.Little, BitOrder.Msb0)"
+    assert repr(v.msb0) == "View(Tibs('0xabcd'), ByteOrder.Little, BitOrder.Msb0)"
 
 
 def test_view_method_can_set_both_layout_fields():
     t = Tibs("0xff")
 
-    v = t.view(byte_order=Endianness.Little, bit_order=BitOrder.Lsb0)
+    v = t.view(byte_order=ByteOrder.Little, bit_order=BitOrder.Lsb0)
     assert repr(v) == (
-        "View(Tibs('0xff'), Endianness.Little, BitOrder.Lsb0)"
+        "View(Tibs('0xff'), ByteOrder.Little, BitOrder.Lsb0)"
     )
 
-    assert repr(v.view(byte_order=Endianness.Big)) == (
-        "View(Tibs('0xff'), Endianness.Big, BitOrder.Lsb0)"
+    assert repr(v.view(byte_order=ByteOrder.Big)) == (
+        "View(Tibs('0xff'), ByteOrder.Big, BitOrder.Lsb0)"
     )
 
 
@@ -252,7 +252,7 @@ def test_byte_oriented_view_requires_whole_byte_source():
     with pytest.raises(ValueError):
         _ = t.lsb0
     with pytest.raises(ValueError):
-        _ = t.view(byte_order=Endianness.Little)
+        _ = t.view(byte_order=ByteOrder.Little)
     with pytest.raises(ValueError):
         _ = t.view(bit_order=BitOrder.Lsb0)
     with pytest.raises(ValueError):
@@ -262,38 +262,81 @@ def test_byte_oriented_view_requires_whole_byte_source():
 
 
 def test_view_to_methods_use_byte_order_for_numeric_interpretation():
-    t = Tibs.from_u(100, 16, Endianness.Little)
+    t = Tibs.from_u(100, 16, ByteOrder.Little)
 
-    assert t.view(Endianness.Little).to_u() == 100
+    assert t.view(ByteOrder.Little).to_u() == 100
     assert t.le.to_u() == 100
     assert t.le.u == 100
     assert t.le.to_i() == 100
     assert t.le.i == 100
-    assert t.be.u == t.view(Endianness.Big).to_u()
+    assert t.be.u == t.view(ByteOrder.Big).to_u()
     assert Tibs("0x0100").le.to_tibs() == Tibs("0x0001")
 
-    f = Tibs.from_f(1.5, 32, Endianness.Little)
+    f = Tibs.from_f(1.5, 32, ByteOrder.Little)
     assert f.le.to_f() == 1.5
     assert f.le.f == 1.5
 
 
-def test_view_to_methods_use_bit_order_for_materialized_bits():
-    t = Tibs("0b00010010")
+def test_view_to_methods_use_lsb0_value_order():
+    single_byte = Tibs("0b00010010").lsb0
+
+    assert single_byte.to_bin() == "00010010"
+    assert single_byte.to_hex() == "12"
+    assert single_byte.to_u() == 0x12
+
+    t = Tibs("0x1234")
     v = t.lsb0
 
-    assert v.to_bin() == "01001000"
-    assert v.bin == "01001000"
-    assert v.to_hex() == "48"
-    assert v.hex == "48"
-    assert v.to_bytes() == b"\x48"
-    assert bytes(v) == b"\x48"
-    assert v.bytes == b"\x48"
-    assert v.to_u() == 0x48
-    assert v.to_tibs() == Tibs("0x48")
-    assert v.to_mutibs() == Mutibs("0x48")
+    assert v.to_bin() == "0011010000010010"
+    assert v.bin == "0011010000010010"
+    assert v.to_hex() == "3412"
+    assert v.hex == "3412"
+    assert v.to_bytes() == b"\x34\x12"
+    assert bytes(v) == b"\x34\x12"
+    assert v.bytes == b"\x34\x12"
+    assert v.to_u() == 0x3412
+    assert v.to_tibs() == Tibs("0x3412")
+    assert v.to_mutibs() == Mutibs("0x3412")
 
-    assert Tibs("0x123456").lsb0.to_oct() == Tibs("0x482c6a").to_oct()
-    assert Tibs("0x123456").lsb0.oct == Tibs("0x482c6a").oct
+    assert Tibs("0x123456").lsb0.to_oct() == Tibs("0x563412").to_oct()
+    assert Tibs("0x123456").lsb0.oct == Tibs("0x563412").oct
+
+
+def test_view_whole_value_matches_full_width_field():
+    t = Tibs("0x0100")
+    views = [t.view(), t.le, t.lsb0, t.lsb0.le]
+
+    for view in views:
+        field = view.field(0, len(view) - 1)
+        assert view.bin == field.bin
+        assert view.hex == field.hex
+        assert view.u == field.u
+
+
+def test_lsb0_little_endian_bit_zero_displays_as_value_lsb():
+    m = Mutibs.from_zeros(32)
+    v = m.lsb0.le
+
+    v.field(0, 0).u = 1
+
+    assert v.bin == "00000000000000000000000000000001"
+    assert v.u == 1
+    assert m.hex == "01000000"
+
+
+@pytest.mark.parametrize("view_name", ["lsb0", "lsb0.le"])
+def test_mutable_lsb0_whole_view_write_matches_bit_zero_field(view_name):
+    via_field = Mutibs.from_zeros(32)
+    via_whole = Mutibs.from_zeros(32)
+
+    field_view = via_field.lsb0.le if view_name == "lsb0.le" else via_field.lsb0
+    whole_view = via_whole.lsb0.le if view_name == "lsb0.le" else via_whole.lsb0
+
+    field_view.field(0, 0).u = 1
+    whole_view.u = 1
+
+    assert whole_view.bin == "00000000000000000000000000000001"
+    assert via_whole == via_field == Mutibs("0x01000000")
 
 
 def test_views_do_not_have_to_padded_bytes():
@@ -305,24 +348,24 @@ def test_mutable_view_reflects_current_source_value():
     m = Mutibs("0x12")
     v = m.lsb0
 
-    assert v.to_hex() == "48"
+    assert v.to_hex() == "12"
 
     m[0] = True
-    assert v.to_bin() == "01001001"
+    assert v.to_bin() == "10010010"
 
 
 def test_explicit_view_constructor_snapshots_mutibs_source():
     m = Mutibs("0x12")
     v = View(m, bit_order=BitOrder.Lsb0)
 
-    assert v.to_hex() == "48"
+    assert v.to_hex() == "12"
 
     m[0] = True
-    assert v.to_bin() == "01001000"
+    assert v.to_bin() == "00010010"
 
 
 def test_mutable_view_write_u_uses_view_layout():
-    m = Mutibs.from_u(99, 16, Endianness.Little)
+    m = Mutibs.from_u(99, 16, ByteOrder.Little)
 
     assert m.le.u == 99
 
@@ -331,7 +374,7 @@ def test_mutable_view_write_u_uses_view_layout():
     assert result is None
     assert len(m) == 16
     assert m.le.u == 45
-    assert m == Mutibs.from_u(45, 16, Endianness.Little)
+    assert m == Mutibs.from_u(45, 16, ByteOrder.Little)
 
 
 def test_mutable_view_numeric_property_setters_use_view_layout():
@@ -339,16 +382,16 @@ def test_mutable_view_numeric_property_setters_use_view_layout():
 
     m.le.u = 0x1234
     assert m.le.u == 0x1234
-    assert m == Mutibs.from_u(0x1234, 16, Endianness.Little)
+    assert m == Mutibs.from_u(0x1234, 16, ByteOrder.Little)
 
     m.le.i = -300
     assert m.le.i == -300
-    assert m == Mutibs.from_i(-300, 16, Endianness.Little)
+    assert m == Mutibs.from_i(-300, 16, ByteOrder.Little)
 
     f = Mutibs.from_zeros(32)
     f.le.f = 1.5
     assert f.le.f == 1.5
-    assert f == Mutibs.from_f(1.5, 32, Endianness.Little)
+    assert f == Mutibs.from_f(1.5, 32, ByteOrder.Little)
 
 
 def test_mutable_view_lsb0_write_u_uses_bit_order_layout():
@@ -357,7 +400,7 @@ def test_mutable_view_lsb0_write_u_uses_bit_order_layout():
     m.lsb0.u = 0x12
 
     assert m.lsb0.u == 0x12
-    assert m == Mutibs("0x48")
+    assert m == Mutibs("0x12")
 
 
 def test_mutable_view_combined_layout_write_u_roundtrips():
@@ -366,7 +409,7 @@ def test_mutable_view_combined_layout_write_u_roundtrips():
     m.lsb0.le.u = 0x1234
 
     assert m.lsb0.le.u == 0x1234
-    assert m == Mutibs("0x2c48")
+    assert m == Mutibs("0x3412")
 
 
 def test_mutable_view_representation_setters_preserve_length_and_use_layout():
@@ -388,7 +431,7 @@ def test_mutable_view_representation_setters_preserve_length_and_use_layout():
     assert len(bits) == 8
     assert bytes(bits.lsb0) == b"\x12"
     assert bits.lsb0.bin == "00010010"
-    assert bits == Mutibs("0x48")
+    assert bits == Mutibs("0x12")
 
     octal = Mutibs.from_zeros(6)
     octal.view().oct = "17"
@@ -436,7 +479,7 @@ def test_mutable_view_field_repr_includes_source_selection():
     v = m.be.field(0, 11)
     namespace = {
         "BitOrder": BitOrder,
-        "Endianness": Endianness,
+        "ByteOrder": ByteOrder,
         "Mutibs": Mutibs,
         "MutableView": MutableView,
         "range": range,
@@ -445,7 +488,7 @@ def test_mutable_view_field_repr_includes_source_selection():
     assert v.hex == "000"
     assert repr(v) == (
         "MutableView.from_indices(Mutibs('0x000fff'), range(0, 12), "
-        "Endianness.Unspecified, BitOrder.Msb0)"
+        "ByteOrder.Unspecified, BitOrder.Msb0)"
     )
     recreated = eval(repr(v), namespace)
     assert isinstance(recreated, MutableView)
@@ -570,6 +613,23 @@ def test_view_field_extracts_lsb0_spec_labels():
     assert v.field(31, 26).u == 4
 
 
+def test_view_decodes_published_lsb0_little_endian_ebpf_instruction():
+    # Linux's eBPF ISA documentation gives these bytes as a little-endian
+    # instruction decoded as "r1 += 0x11223344".
+    # https://docs.kernel.org/bpf/standardization/instruction-set.html
+    instruction = Tibs.from_bytes(
+        bytes.fromhex("07 01 00 00 44 33 22 11")
+    ).lsb0.le
+
+    assert instruction.field(2, 0).u == 0x7  # BPF_ALU64 instruction class.
+    assert instruction.field(3, 3).u == 0x0  # BPF_K source mode.
+    assert instruction.field(7, 4).u == 0x0  # BPF_ADD operation code.
+    assert instruction.field(11, 8).u == 1  # dst_reg.
+    assert instruction.field(15, 12).u == 0  # src_reg.
+    assert instruction.field(31, 16).i == 0
+    assert instruction.field(63, 32).u == 0x11223344
+
+
 def test_view_field_endpoint_order_does_not_change_value():
     v = Tibs("0x88040410").lsb0
 
@@ -580,7 +640,7 @@ def test_view_field_preserves_byte_order_for_whole_byte_fields():
     v = Tibs("0x0102").lsb0.le
     field = v.field(15, 0)
 
-    assert repr(field) == "View(Tibs('0x0102'), Endianness.Little, BitOrder.Msb0)"
+    assert repr(field) == "View(Tibs('0x0102'), ByteOrder.Little, BitOrder.Msb0)"
     assert field.u == 0x0201
 
 
@@ -589,14 +649,14 @@ def test_view_field_drops_byte_order_for_non_whole_byte_fields():
     field = v.field(31, 26)
 
     assert repr(field) == (
-        "View(Tibs('0b000100'), Endianness.Unspecified, BitOrder.Msb0)"
+        "View(Tibs('0b000100'), ByteOrder.Unspecified, BitOrder.Msb0)"
     )
     assert field.u == 4
     assert field.u == Tibs("0x88040410").lsb0.field(31, 26).u
 
     payload = Tibs("0x23a11234").lsb0.le.field(11, 0)
     assert repr(payload) == (
-        "View(Tibs('0x123'), Endianness.Unspecified, BitOrder.Msb0)"
+        "View(Tibs('0x123'), ByteOrder.Unspecified, BitOrder.Msb0)"
     )
     assert payload.u == 0x123
 
@@ -646,7 +706,7 @@ def test_view_field_rejects_empty_view():
 
 def test_mutibs_views():
     m = Mutibs('0x1234')
-    v = View(m, Endianness.Little)
+    v = View(m, ByteOrder.Little)
     assert v.hex == '3412'
     m += '0x5'
     assert v.hex == '3412'
@@ -656,9 +716,9 @@ def test_bin_views():
     t = Tibs('0x0100')
     assert t.bin == '0000000100000000'
     assert t.msb0.bin == '0000000100000000'
-    assert t.lsb0.bin == '1000000000000000'
+    assert t.lsb0.bin == '0000000000000001'
     assert t.le.bin == '0000000000000001'
-    assert t.le.lsb0.bin == '0000000010000000'
+    assert t.le.lsb0.bin == '0000000000000001'
 
 
 def test_bin_field_views():

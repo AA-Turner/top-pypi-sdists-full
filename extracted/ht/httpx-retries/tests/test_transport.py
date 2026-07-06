@@ -9,6 +9,7 @@ import pytest
 from httpx import Request, Response
 
 from httpx_retries import Retry, RetryTransport
+from httpx_retries.transport import _retry_operation, _retry_operation_async
 
 
 def status_codes(
@@ -252,20 +253,19 @@ def test_retryable_exception_custom_exception(mock_responses: MockResponse) -> N
 
 @pytest.mark.parametrize("status_code", Retry.RETRYABLE_STATUS_CODES)
 def test_retry_operation_always_closes_response(status_code: int) -> None:
-    transport = RetryTransport()
-
     responses = []
 
     def send_method(request: httpx.Request) -> httpx.Response:
         response = Mock(spec=httpx.Response)
         response.status_code = status_code
         response.headers = httpx.Headers()
+        response.extensions = {}
         response.close = Mock()
 
         responses.append(response)
         return response
 
-    transport._retry_operation(request=httpx.Request("GET", "https://example.com"), send_method=send_method)
+    _retry_operation(request=httpx.Request("GET", "https://example.com"), send_method=send_method, retry=Retry())
 
     assert all(r.close.called for r in responses[:-1])
 
@@ -522,6 +522,60 @@ async def test_async_from_base_transport() -> None:
         assert response.status_code == 200
 
 
+def test_retry_extension_overrides_transport(mock_responses: MockResponse) -> None:
+    mock_sleep, status_code_sequences = mock_responses
+    status_code_sequences["https://example.com/fail"] = status_codes([(429, None)])
+    transport = RetryTransport(retry=Retry(total=10))
+
+    request = httpx.Request("GET", "https://example.com/fail", extensions={"retry": Retry(total=2)})
+    with httpx.Client(transport=transport) as client:
+        response = client.send(request)
+
+    assert response.status_code == 429
+    assert mock_sleep.call_count == 2
+    assert response.extensions["retry"].attempts_made == 2
+
+
+def test_retry_extension_set_from_transport_when_absent(mock_responses: MockResponse) -> None:
+    mock_sleep, _ = mock_responses
+    transport = RetryTransport(retry=Retry(total=3))
+
+    request = httpx.Request("GET", "https://example.com")
+    with httpx.Client(transport=transport) as client:
+        response = client.send(request)
+
+    assert request.extensions["retry"] is transport.retry
+    assert response.extensions["retry"] is transport.retry
+
+
+@pytest.mark.asyncio
+async def test_async_retry_extension_overrides_transport(mock_async_responses: AsyncMockResponse) -> None:
+    mock_asleep, status_code_sequences = mock_async_responses
+    status_code_sequences["https://example.com/fail"] = astatus_codes([(429, None)])
+    transport = RetryTransport(retry=Retry(total=10))
+
+    request = httpx.Request("GET", "https://example.com/fail", extensions={"retry": Retry(total=2)})
+    async with httpx.AsyncClient(transport=transport) as client:
+        response = await client.send(request)
+
+    assert response.status_code == 429
+    assert mock_asleep.call_count == 2
+    assert response.extensions["retry"].attempts_made == 2
+
+
+@pytest.mark.asyncio
+async def test_async_retry_extension_set_from_transport_when_absent(mock_async_responses: AsyncMockResponse) -> None:
+    mock_asleep, _ = mock_async_responses
+    transport = RetryTransport(retry=Retry(total=3))
+
+    request = httpx.Request("GET", "https://example.com")
+    async with httpx.AsyncClient(transport=transport) as client:
+        response = await client.send(request)
+
+    assert request.extensions["retry"] is transport.retry
+    assert response.extensions["retry"] is transport.retry
+
+
 def test_retry_after_capped_by_total_timeout(mock_responses: MockResponse) -> None:
     mock_sleep, status_code_sequences = mock_responses
     status_code_sequences["https://example.com/fail"] = status_codes([(429, "120")])
@@ -558,20 +612,21 @@ async def test_async_retry_after_capped_by_total_timeout(
 @pytest.mark.parametrize("status_code", Retry.RETRYABLE_STATUS_CODES)
 @pytest.mark.asyncio
 async def test_retry_operation_async_always_closes_response(status_code: int) -> None:
-    transport = RetryTransport()
-
     responses = []
 
     async def send_method(request: httpx.Request) -> httpx.Response:
         response = AsyncMock(spec=httpx.Response)
         response.status_code = status_code
         response.headers = httpx.Headers()
+        response.extensions = {}
         response.aclose = AsyncMock()
 
         responses.append(response)
         return response
 
-    await transport._retry_operation_async(request=httpx.Request("GET", "https://example.com"), send_method=send_method)
+    await _retry_operation_async(
+        request=httpx.Request("GET", "https://example.com"), send_method=send_method, retry=Retry()
+    )
 
     assert all(r.aclose.called for r in responses[:-1])
 
@@ -706,3 +761,166 @@ async def test_async_shared_transport_isolates_retry_state() -> None:
         # must not mutate it, or retry budgets leak across requests.
         assert transport.retry.attempts_made == 0
         assert transport.retry.elapsed_sleep == 0.0
+
+
+def test_validate_response_retries_on_failure(mock_responses: MockResponse) -> None:
+    mock_sleep, status_code_sequences = mock_responses
+    call_count = 0
+
+    def validate(response: httpx.Response) -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            raise httpx.TimeoutException("not ready yet")
+
+    retry = Retry(total=5, validate_response=validate)
+    transport = RetryTransport(retry=retry)
+
+    with httpx.Client(transport=transport) as client:
+        response = client.get("https://example.com")
+
+    assert response.status_code == 200
+    assert call_count == 3
+    assert mock_sleep.call_count == 2
+
+
+def test_validate_response_non_retryable_exception_raises(mock_responses: MockResponse) -> None:
+    mock_sleep, _ = mock_responses
+
+    def validate(response: httpx.Response) -> None:
+        raise ValueError("bad response")
+
+    retry = Retry(total=5, validate_response=validate)
+    transport = RetryTransport(retry=retry)
+
+    with pytest.raises(ValueError, match="bad response"):
+        with httpx.Client(transport=transport) as client:
+            client.get("https://example.com")
+
+    assert mock_sleep.call_count == 0
+
+
+def test_validate_response_exhausted_returns_response(mock_responses: MockResponse) -> None:
+    mock_sleep, _ = mock_responses
+
+    def validate(response: httpx.Response) -> None:
+        raise httpx.TimeoutException("always bad")
+
+    retry = Retry(total=3, validate_response=validate)
+    transport = RetryTransport(retry=retry)
+
+    with httpx.Client(transport=transport) as client:
+        response = client.get("https://example.com")
+
+    assert response.status_code == 200
+    assert mock_sleep.call_count == 3
+
+
+def test_validate_response_async_callback_raises_for_sync_transport(mock_responses: MockResponse) -> None:
+    mock_sleep, _ = mock_responses
+
+    async def validate(response: httpx.Response) -> None:  # pragma: no cover
+        pass
+
+    retry = Retry(total=3, validate_response=validate)
+    transport = RetryTransport(retry=retry)
+
+    with pytest.raises(TypeError, match="validate_response must be a sync function"):
+        with httpx.Client(transport=transport) as client:
+            client.get("https://example.com")
+
+
+@pytest.mark.asyncio
+async def test_async_validate_response_retries_on_failure(mock_async_responses: AsyncMockResponse) -> None:
+    mock_asleep, _ = mock_async_responses
+    call_count = 0
+
+    async def validate(response: httpx.Response) -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            raise httpx.TimeoutException("not ready yet")
+
+    retry = Retry(total=5, validate_response=validate)
+    transport = RetryTransport(retry=retry)
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        response = await client.get("https://example.com")
+
+    assert response.status_code == 200
+    assert call_count == 3
+    assert mock_asleep.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_async_validate_response_non_retryable_exception_raises(mock_async_responses: AsyncMockResponse) -> None:
+    mock_asleep, _ = mock_async_responses
+
+    async def validate(response: httpx.Response) -> None:
+        raise ValueError("bad response")
+
+    retry = Retry(total=5, validate_response=validate)
+    transport = RetryTransport(retry=retry)
+
+    with pytest.raises(ValueError, match="bad response"):
+        async with httpx.AsyncClient(transport=transport) as client:
+            await client.get("https://example.com")
+
+    assert mock_asleep.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_async_validate_response_sync_callback(mock_async_responses: AsyncMockResponse) -> None:
+    mock_asleep, _ = mock_async_responses
+    call_count = 0
+
+    def validate(response: httpx.Response) -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count < 2:
+            raise httpx.TimeoutException("not ready yet")
+
+    retry = Retry(total=5, validate_response=validate)
+    transport = RetryTransport(retry=retry)
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        response = await client.get("https://example.com")
+
+    assert response.status_code == 200
+    assert call_count == 2
+    assert mock_asleep.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_async_validate_response_exhausted_returns_response(mock_async_responses: AsyncMockResponse) -> None:
+    mock_asleep, _ = mock_async_responses
+
+    async def validate(response: httpx.Response) -> None:
+        raise httpx.TimeoutException("always bad")
+
+    retry = Retry(total=3, validate_response=validate)
+    transport = RetryTransport(retry=retry)
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        response = await client.get("https://example.com")
+
+    assert response.status_code == 200
+    assert mock_asleep.call_count == 3
+
+
+def test_validate_response_not_called_for_retryable_status(mock_responses: MockResponse) -> None:
+    mock_sleep, status_code_sequences = mock_responses
+    status_code_sequences["https://example.com/fail"] = status_codes([(503, None), (200, None)])
+    validated = []
+
+    def validate(response: httpx.Response) -> None:
+        validated.append(response.status_code)
+
+    retry = Retry(total=5, validate_response=validate)
+    transport = RetryTransport(retry=retry)
+
+    with httpx.Client(transport=transport) as client:
+        response = client.get("https://example.com/fail")
+
+    assert response.status_code == 200
+    assert validated == [200]

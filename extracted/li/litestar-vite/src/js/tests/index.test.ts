@@ -1,5 +1,6 @@
 import type * as FsModule from "fs"
 import fs from "node:fs"
+import os from "node:os"
 import path from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import litestar from "../src"
@@ -1337,6 +1338,30 @@ describe("litestar-vite-plugin", () => {
     expect(() => plugin.config({}, { command: "serve", mode: "development" })).toThrow(/Unable to find the certificate files/)
   })
 
+  it("uses the validated TLS environment variables for certificate loading", () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "litestar-vite-tls-"))
+    const keyPath = path.join(tempDir, "server.key")
+    const certPath = path.join(tempDir, "server.crt")
+    fs.writeFileSync(keyPath, "key-data")
+    fs.writeFileSync(certPath, "cert-data")
+    process.env.VITE_SERVER_KEY = keyPath
+    process.env.VITE_SERVER_CERT = certPath
+    process.env.APP_URL = "https://example.com"
+
+    try {
+      const plugin = litestar("resources/js/app.js")[0]
+      const config = plugin.config({}, { command: "serve", mode: "development" })
+
+      expect(config.server?.host).toBe("example.com")
+      expect(config.server?.https).toEqual({
+        key: Buffer.from("key-data"),
+        cert: Buffer.from("cert-data"),
+      })
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
   it("handles invalid APP_URL", () => {
     process.env.VITE_SERVER_KEY = "path/to/key"
     process.env.VITE_SERVER_CERT = "path/to/cert"
@@ -1511,6 +1536,26 @@ describe("litestar-vite-plugin", () => {
       // Expect actual content with replaced URL
       expect(mockRes.end).toHaveBeenCalledWith(actualPlaceholderContent.replace(/{{ APP_URL }}/g, appUrl))
       expect(mockServer.transformIndexHtml).not.toHaveBeenCalled()
+      expect(mockNext).not.toHaveBeenCalled()
+    })
+
+    it("caches placeholder path probing across placeholder responses", async () => {
+      const appUrl = "http://test.app"
+      process.env.APP_URL = appUrl
+      await setupServer()
+      mockFs(null)
+
+      const existsSpy = vi.spyOn(fs, "existsSync")
+
+      await mockMiddleware({ url: "/index.html", originalUrl: "/index.html" }, mockRes, mockNext)
+      const firstProbeCount = existsSpy.mock.calls.filter(([candidate]) => String(candidate).endsWith("dev-server-index.html")).length
+
+      mockRes.end.mockClear()
+      await mockMiddleware({ url: "/", originalUrl: "/" }, mockRes, mockNext)
+      const totalProbeCount = existsSpy.mock.calls.filter(([candidate]) => String(candidate).endsWith("dev-server-index.html")).length
+
+      expect(totalProbeCount).toBe(firstProbeCount)
+      expect(mockRes.end).toHaveBeenCalledWith(actualPlaceholderContent.replace(/{{ APP_URL }}/g, appUrl))
       expect(mockNext).not.toHaveBeenCalled()
     })
 

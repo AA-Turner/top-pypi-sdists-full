@@ -1,6 +1,6 @@
 """Unit tests for GeoIP-based timezone/locale detection."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 import time
 
 import pytest
@@ -9,6 +9,7 @@ from cloakbrowser.browser import maybe_resolve_geoip
 from cloakbrowser.geoip import (
     COUNTRY_LOCALE_MAP,
     _is_private_ip,
+    _resolve_exit_ip,
     _resolve_proxy_ip,
 )
 
@@ -92,6 +93,38 @@ def test_resolve_geo_returns_none_when_db_missing():
                 assert resolve_proxy_geo("http://10.50.96.5:8888") == (None, None)
 
 
+def test_resolve_geo_keeps_exit_ip_when_db_missing():
+    """DB missing but IP resolvable → still return the exit IP for WebRTC spoofing.
+
+    Resolving the egress IP does not need the GeoIP DB, so a DB download failure
+    must not drop it — otherwise WebRTC could fall back to the real IP behind a
+    proxy while the connection shows the proxy IP (a deanonymization).
+    """
+    mock_geoip2 = type("module", (), {"database": type("db", (), {"Reader": None})})()
+    with patch.dict("sys.modules", {"geoip2": mock_geoip2, "geoip2.database": mock_geoip2.database}):
+        with patch("cloakbrowser.geoip._ensure_geoip_db", return_value=None):
+            with patch("cloakbrowser.geoip._resolve_exit_ip", return_value="9.8.7.6"):
+                from cloakbrowser.geoip import resolve_proxy_geo_with_ip
+                assert resolve_proxy_geo_with_ip("http://10.50.96.5:8888") == (None, None, "9.8.7.6")
+
+
+# ---------------------------------------------------------------------------
+# _resolve_exit_ip direct (no-proxy) fetch
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_exit_ip_no_proxy_fetches_directly():
+    """No proxy → echo services queried directly (proxy=None)."""
+    resp = MagicMock()
+    resp.text = "5.6.7.8"
+    resp.raise_for_status = MagicMock()
+    with patch("httpx.get", return_value=resp) as mock_get:
+        ip = _resolve_exit_ip(None)
+    assert ip == "5.6.7.8"
+    # httpx.get called with proxy=None (direct), not through a proxy
+    assert mock_get.call_args.kwargs.get("proxy") is None
+
+
 # ---------------------------------------------------------------------------
 # maybe_resolve_geoip (browser.py helper)
 # ---------------------------------------------------------------------------
@@ -104,10 +137,33 @@ def test_maybe_resolve_skips_when_geoip_false():
     assert ip is None
 
 
-def test_maybe_resolve_skips_when_no_proxy():
-    tz, loc, ip = maybe_resolve_geoip(True, None, None, None)
-    assert tz is None
-    assert loc is None
+def test_maybe_resolve_no_proxy_uses_machine_ip():
+    """With no proxy, geoip resolves the machine's own public IP for tz/locale."""
+    with patch(
+        "cloakbrowser.geoip.resolve_proxy_geo_with_ip",
+        return_value=("Europe/Berlin", "de-DE", "5.6.7.8"),
+    ) as m:
+        tz, loc, ip = maybe_resolve_geoip(True, None, None, None)
+    # Called with proxy_url=None → echo services resolve machine IP
+    m.assert_called_once_with(None)
+    assert tz == "Europe/Berlin"
+    assert loc == "de-DE"
+    assert ip == "5.6.7.8"  # drives --fingerprint-webrtc-ip
+
+
+def test_maybe_resolve_no_proxy_both_explicit_skips_ip():
+    """No proxy + explicit tz/locale → skip the exit-IP fetch entirely.
+
+    With no proxy the WebRTC IP would just be the real connection IP the site
+    already sees (a no-op), so we don't make a third-party echo call.
+    """
+    with patch(
+        "cloakbrowser.geoip.resolve_proxy_exit_ip", return_value="5.6.7.8"
+    ) as m:
+        tz, loc, ip = maybe_resolve_geoip(True, None, "Europe/Berlin", "de-DE")
+    m.assert_not_called()
+    assert tz == "Europe/Berlin"
+    assert loc == "de-DE"
     assert ip is None
 
 

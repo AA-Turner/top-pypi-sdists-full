@@ -1,7 +1,7 @@
-from django.contrib.auth.models import Group, User
 from django.db import models
 
-from allianceauth.authentication.models import State
+from allianceauth.authentication.models import State, User
+from allianceauth.groupmanagement.models import Group
 
 
 class Teamspeak3User(models.Model):

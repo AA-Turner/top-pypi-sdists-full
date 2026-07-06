@@ -4,14 +4,13 @@ Test sentinel user
 
 import re
 
-# Django
-from django.contrib.auth.models import User
 from django.test import TestCase
 
+# Django
+from allianceauth.authentication.models import User
 # Alliance Auth
 from allianceauth.framework.api.user import (
-    get_main_character_from_user,
-    get_main_character_name_from_user,
+    get_main_character_from_user, get_main_character_name_from_user,
     get_sentinel_user,
 )
 from allianceauth.tests.auth_utils import AuthUtils

@@ -91,7 +91,7 @@ jobs:
         working-directory: ./ansible_collections/community/clickhouse
 
       # See the reports at https://codecov.io/gh/GITHUBORG/REPONAME
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: false
 
@@ -107,9 +107,10 @@ jobs:
           - stable-2.20
           - devel
         clickhouse:
-          - 23.8.16.40
           - 24.8.14.39
-          - 25.3.3.42
+          - 25.3.14.14
+          - 25.8.22.28
+          - 26.3.9.8
         python:
           - "3.12"
     steps:
@@ -138,6 +139,6 @@ jobs:
         run: ansible-test coverage xml -v --requirements --group-by command --group-by version
         working-directory: ./ansible_collections/community/clickhouse
 
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: false

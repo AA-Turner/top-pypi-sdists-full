@@ -1,19 +1,20 @@
 import logging
 from datetime import datetime, timedelta
+from datetime import timezone as dt_tz
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
-from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.crypto import get_random_string
+from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
 from esi.decorators import token_required
 
-from allianceauth.authentication.models import CharacterOwnership
+from allianceauth.authentication.models import CharacterOwnership, User
 from allianceauth.eveonline.models import (
     EveAllianceInfo, EveCharacter, EveCorporationInfo,
 )
@@ -195,9 +196,9 @@ def fatlink_personal_statistics_view(request, year=None) -> HttpResponse:
         if fatdate.year == year:
             monthlystats[fatdate.month - 1] += 1
 
-    monthlystats = [(i + 1, datetime(year, i + 1, 1).strftime("%h"), monthlystats[i]) for i in range(12)]
+    monthlystats = [(i + 1, date_format(datetime(year, i + 1, 1), "F"), monthlystats[i]) for i in range(12)]
 
-    if timezone.now() > datetime(year + 1, 1, 1):
+    if timezone.now() > datetime(year + 1, 1, 1, tzinfo=dt_tz.utc):
         context = {'user': user, 'monthlystats': monthlystats, 'year': year, 'previous_year': year - 1, 'next_year': year + 1}
     else:
         context = {'user': user, 'monthlystats': monthlystats, 'year': year, 'previous_year': year - 1}

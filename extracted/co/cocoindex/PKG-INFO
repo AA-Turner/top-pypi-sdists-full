@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cocoindex
-Version: 1.0.15
+Version: 1.0.16
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -33,6 +33,7 @@ Requires-Dist: pyarrow>=23.0.0 ; extra == 'all'
 Requires-Dist: asyncpg>=0.31.0 ; extra == 'all'
 Requires-Dist: pgvector>=0.4.2 ; extra == 'all'
 Requires-Dist: qdrant-client>=1.6.0 ; extra == 'all'
+Requires-Dist: google-cloud-bigquery>=3.0.0 ; extra == 'all'
 Requires-Dist: snowflake-connector-python>=3.0.0 ; extra == 'all'
 Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'all'
 Requires-Dist: surrealdb>=1.0.0 ; extra == 'all'
@@ -43,6 +44,8 @@ Requires-Dist: google-auth>=2.0.0 ; extra == 'all'
 Requires-Dist: google-auth-httplib2>=0.2.0 ; extra == 'all'
 Requires-Dist: httplib2>=0.22.0 ; extra == 'all'
 Requires-Dist: aiobotocore>=2.0.0 ; extra == 'all'
+Requires-Dist: azure-identity>=1.15.0 ; extra == 'all'
+Requires-Dist: azure-storage-blob>=12.19.0 ; extra == 'all'
 Requires-Dist: aiohttp>=3.9.0 ; extra == 'all'
 Requires-Dist: pymysql>=1.1.0 ; extra == 'all'
 Requires-Dist: aiomysql>=0.2.0 ; extra == 'all'
@@ -55,6 +58,10 @@ Requires-Dist: faiss-cpu>=1.7 ; extra == 'all'
 Requires-Dist: instructor>=1.0 ; extra == 'all'
 Requires-Dist: zvec>=0.5.0 ; extra == 'all'
 Requires-Dist: aiobotocore>=2.0.0 ; extra == 'amazon-s3'
+Requires-Dist: azure-identity>=1.15.0 ; extra == 'azure-blob'
+Requires-Dist: azure-storage-blob>=12.19.0 ; extra == 'azure-blob'
+Requires-Dist: google-cloud-bigquery>=3.0.0 ; extra == 'bigquery'
+Requires-Dist: google-auth>=2.0.0 ; extra == 'bigquery'
 Requires-Dist: colpali-engine ; extra == 'colpali'
 Requires-Dist: aiohttp>=3.9.0 ; extra == 'doris'
 Requires-Dist: pymysql>=1.1.0 ; extra == 'doris'
@@ -86,6 +93,8 @@ Requires-Dist: valkey-glide>=2.4.0 ; extra == 'valkey'
 Requires-Dist: zvec>=0.5.0 ; extra == 'zvec'
 Provides-Extra: all
 Provides-Extra: amazon_s3
+Provides-Extra: azure_blob
+Provides-Extra: bigquery
 Provides-Extra: colpali
 Provides-Extra: doris
 Provides-Extra: entity_resolution

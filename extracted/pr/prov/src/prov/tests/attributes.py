@@ -1,5 +1,6 @@
-from prov.model import *
+from typing import Any, ClassVar
 
+from prov.model import *
 
 EX_NS = Namespace("ex", "http://example.org/")
 EX_OTHER_NS = Namespace("other", "http://example.org/")
@@ -11,7 +12,7 @@ class TestAttributesBase:
     RoundTripTestCase.
     """
 
-    attribute_values = [
+    attribute_values: ClassVar[list[Any]] = [
         "un lieu",
         Literal("un lieu", langtag="fr"),
         Literal("a place", langtag="en"),
@@ -47,7 +48,7 @@ class TestAttributesBase:
 
     def run_entity_with_one_type_attribute(self, n):
         document = self.new_document()
-        document.entity(EX_NS["et%d" % n], {"prov:type": self.attribute_values[n]})
+        document.entity(EX_NS[f"et{n}"], {"prov:type": self.attribute_values[n]})
         self.do_tests(document)
 
     def test_entity_with_one_type_attribute_0(self):
@@ -137,7 +138,7 @@ class TestAttributesBase:
     def test_entity_with_multiple_attribute(self):
         document = self.new_document()
         attributes = [
-            (EX_NS["v_%d" % i], value) for i, value in enumerate(self.attribute_values)
+            (EX_NS[f"v_{i}"], value) for i, value in enumerate(self.attribute_values)
         ]
         document.entity(EX_NS["emov"], attributes)
         self.do_tests(document)

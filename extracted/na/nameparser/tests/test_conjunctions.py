@@ -111,6 +111,28 @@ class HumanNameConjunctionTestCase(HumanNameTestBase):
         self.m(hn.first, "John and Jane", hn)
         self.m(hn.last, "Smith", hn)
 
+    def test_couple_titles_ampersand_conjunction(self) -> None:
+        # issue 151: single-char conjunctions in the conjunctions list should
+        # be honored even when total_length < 4
+        hn = HumanName('Mr. & Mrs. John Smith')
+        self.m(hn.title, "Mr. & Mrs.", hn)
+        self.m(hn.first, "John", hn)
+        self.m(hn.last, "Smith", hn)
+
+    def test_ampersand_conjunction_short_name_no_titles(self) -> None:
+        # & is non-alpha so it should always be honored as a conjunction,
+        # even when total_length < 4 (no titles to inflate the count)
+        hn = HumanName('John & Jane')
+        self.m(hn.first, "John & Jane", hn)
+
+    def test_single_char_alpha_conjunction_still_treated_as_initial_when_short(self) -> None:
+        # single-char alpha conjunctions (e, y) are still treated as initials
+        # when total_length < 4; only non-alpha symbols like & bypass this guard
+        hn = HumanName('John y Jane')
+        self.m(hn.first, "John", hn)
+        self.m(hn.middle, "y", hn)
+        self.m(hn.last, "Jane", hn)
+
     def test_title_with_three_part_name_last_initial_is_suffix_uppercase_no_period(self) -> None:
         hn = HumanName("King John Alexander V")
         self.m(hn.title, "King", hn)
@@ -201,3 +223,54 @@ class HumanNameConjunctionTestCase(HumanNameTestBase):
     def test_name_is_conjunctions(self) -> None:
         hn = HumanName("e and e")
         self.m(hn.first, "e and e", hn)
+
+    def test_conjunction_bridges_prefix_chain(self) -> None:
+        # "von" and "zu" are both prefixes, but "und" between them is only a
+        # conjunction. join_on_conjunctions() merges "von und zu" into one
+        # piece before the prefix-joining step runs, so without registering
+        # that merged piece as a prefix too, it's stranded in the middle name
+        # instead of joining to the last name. See German nobility styles
+        # like "von und zu".
+        hn = HumanName("Alois von und zu Liechtenstein")
+        self.m(hn.first, "Alois", hn)
+        self.m(hn.middle, "", hn)
+        self.m(hn.last, "von und zu Liechtenstein", hn)
+
+    def test_conjunction_bridges_prefix_chain_with_leading_title(self) -> None:
+        # Same bridging, but with extra prefix words on both sides of the
+        # conjunction and a leading title-like word ("Freiherrin") that is
+        # itself a prefix, confirming the chain still joins fully into last.
+        hn = HumanName("Annette Charlotte Freiherrin von und zu der Tann-Rathsamhausen")
+        self.m(hn.first, "Annette", hn)
+        self.m(hn.middle, "Charlotte", hn)
+        self.m(hn.last, "Freiherrin von und zu der Tann-Rathsamhausen", hn)
+
+    def test_conjunction_prefix_merge_at_start_stays_first_name(self) -> None:
+        # Guards the i == 0 branch of the same fix: when the conjunction is
+        # merged with a following prefix at the very start of the name, the
+        # existing leading-prefix rule (a lone prefix opening the name is
+        # treated as part of the first name, not joined to last) must still
+        # apply to the merged piece.
+        hn = HumanName("and van Buren")
+        self.m(hn.first, "and van", hn)
+        self.m(hn.last, "Buren", hn)
+
+    def test_conjunction_bridges_word_that_is_both_title_and_prefix(self) -> None:
+        # "freiherr" is registered as both a title and a prefix. When it sits
+        # next to a conjunction, join_on_conjunctions() runs the is_title and
+        # is_prefix checks independently (not elif), so the merged piece
+        # ("freiherr und") is added to both constants sets. Confirms that
+        # dual registration doesn't break the prefix-bridging into last.
+        hn = HumanName("Fritz Freiherr und von Bar")
+        self.m(hn.first, "Fritz", hn)
+        self.m(hn.middle, "", hn)
+        self.m(hn.last, "Freiherr und von Bar", hn)
+
+    def test_conjunction_bridges_prefix_chain_with_multiple_conjunctions(self) -> None:
+        # Two separate conjunctions ("und" appearing twice, not contiguous)
+        # each bridge their own pair of adjacent prefixes, so both merges
+        # must register as prefixes for the whole chain to join into last.
+        hn = HumanName("Alois von und zu und von Liechtenstein")
+        self.m(hn.first, "Alois", hn)
+        self.m(hn.middle, "", hn)
+        self.m(hn.last, "von und zu und von Liechtenstein", hn)

@@ -13,44 +13,46 @@ References:
 """
 
 from __future__ import annotations  # needed for | type annotations in Python < 3.10
+
 from datetime import datetime
 from html import escape
-from typing import Any, Optional
+from typing import Any
+
+import pydot
 
 from prov.graph import INFERRED_ELEMENT_CLASS
 from prov.identifier import QualifiedName
 from prov.model import (
-    ProvEntity,
-    ProvActivity,
-    ProvAgent,
-    ProvBundle,
     PROV_ACTIVITY,
     PROV_AGENT,
     PROV_ALTERNATE,
     PROV_ASSOCIATION,
+    PROV_ATTRIBUTE_QNAMES,
     PROV_ATTRIBUTION,
     PROV_BUNDLE,
     PROV_COMMUNICATION,
-    PROV_DERIVATION,
     PROV_DELEGATION,
+    PROV_DERIVATION,
+    PROV_END,
     PROV_ENTITY,
     PROV_GENERATION,
     PROV_INFLUENCE,
     PROV_INVALIDATION,
-    PROV_END,
     PROV_MEMBERSHIP,
     PROV_MENTION,
     PROV_SPECIALIZATION,
     PROV_START,
     PROV_USAGE,
     Identifier,
-    PROV_ATTRIBUTE_QNAMES,
-    sorted_attributes,
+    ProvActivity,
+    ProvAgent,
+    ProvBundle,
+    ProvElement,
+    ProvEntity,
     ProvException,
     ProvRecord,
-    ProvElement,
+    sorted_attributes,
 )
-import pydot  # type: ignore[import]
 
 __author__ = "Trung Dong Huynh"
 __email__ = "trungdong@donggiang.com"
@@ -89,7 +91,7 @@ GENERIC_NODE_STYLE = {
         "fillcolor": "lightgray",
         "color": "dimgray",
     },
-}  # type: dict[Optional[type[ProvElement | ProvBundle]], dict[str, Any]]
+}  # type: dict[type[ProvElement | ProvBundle] | None, dict[str, Any]]
 # Value type is widened to Any (rather than str) because mypy treats a
 # dict[str, str] unpacked via `**style` as needing to satisfy *every*
 # named parameter pydot.Node/Edge/Cluster declare (e.g. `obj_dict`), not
@@ -180,7 +182,7 @@ ANNOTATION_END_ROW = "    </TABLE>>"
 def htlm_link_if_uri(value: Any) -> str:
     try:
         uri = value.uri
-        return '<a href="%s">%s</a>' % (uri, str(value))
+        return f'<a href="{uri}">{value!s}</a>'
     except AttributeError:
         return str(value)
 
@@ -220,11 +222,11 @@ def prov_to_dot(
     def _bundle_to_dot(dot: pydot.Dot | pydot.Cluster, bundle: ProvBundle) -> None:
         def _attach_attribute_annotation(node: pydot.Node, record: ProvRecord) -> None:
             # Adding a node to show all attributes
-            attributes = list(
+            attributes = [
                 (attr_name, value)
                 for attr_name, value in record.attributes
                 if attr_name not in PROV_ATTRIBUTE_QNAMES
-            )
+            ]
 
             if not attributes:
                 return  # No attribute to display
@@ -238,7 +240,7 @@ def prov_to_dot(
                 % (
                     attr.uri,
                     escape(str(attr)),
-                    ' href="%s"' % value.uri if isinstance(value, Identifier) else "",
+                    f' href="{value.uri}"' if isinstance(value, Identifier) else "",
                     escape(
                         str(value)
                         if not isinstance(value, datetime)
@@ -250,7 +252,7 @@ def prov_to_dot(
             ann_rows.append(ANNOTATION_END_ROW)
             count[3] += 1
             annotations = pydot.Node(
-                "ann%d" % count[3], label="\n".join(ann_rows), **ANNOTATION_STYLE
+                f"ann{count[3]}", label="\n".join(ann_rows), **ANNOTATION_STYLE
             )
             dot.add_node(annotations)
             dot.add_edge(pydot.Edge(annotations, node, **ANNOTATION_LINK_STYLE))
@@ -258,13 +260,13 @@ def prov_to_dot(
         def _add_bundle(bundle: ProvBundle) -> pydot.Cluster:
             count[2] += 1
             subdot = pydot.Cluster(
-                graph_name="c%d" % count[2],
+                graph_name=f"c{count[2]}",
                 URL=f'"{bundle.identifier.uri}"',  # type: ignore[union-attr]
             )
             # set_label is generated at runtime by pydot via setattr() for
             # every Graphviz attribute (see pydot.core.__generate_attribute_methods),
             # so it exists on Cluster instances but isn't visible to mypy.
-            subdot.set_label('"%s"' % str(bundle.identifier))  # type: ignore[attr-defined]
+            subdot.set_label(f'"{bundle.identifier!s}"')  # type: ignore[attr-defined]
             _bundle_to_dot(subdot, bundle)
             # pydot types Graph.add_subgraph() as accepting only a Subgraph,
             # but Cluster (a Graph subclass, not a Subgraph subclass) is the
@@ -274,7 +276,7 @@ def prov_to_dot(
 
         def _add_node(record: ProvRecord) -> pydot.Node:
             count[0] += 1
-            node_id = "n%d" % count[0]
+            node_id = f"n{count[0]}"
             if use_labels:
                 if record.label == record.identifier:
                     node_label = f'"{record.label}"'
@@ -292,7 +294,7 @@ def prov_to_dot(
 
             uri = record.identifier.uri  # type: ignore[union-attr]
             style = DOT_PROV_STYLE[record.get_type()]
-            node = pydot.Node(node_id, label=node_label, URL='"%s"' % uri, **style)
+            node = pydot.Node(node_id, label=node_label, URL=f'"{uri}"', **style)
             node_map[uri] = node
             dot.add_node(node)
 
@@ -301,29 +303,29 @@ def prov_to_dot(
             return node
 
         def _add_generic_node(
-            qname: QualifiedName, prov_type: Optional[type[ProvElement]] = None
+            qname: QualifiedName, prov_type: type[ProvElement] | None = None
         ) -> pydot.Node:
             count[0] += 1
-            node_id = "n%d" % count[0]
+            node_id = f"n{count[0]}"
             node_label = f'"{qname}"'
 
             uri = qname.uri
             style = GENERIC_NODE_STYLE[prov_type] if prov_type else DOT_PROV_STYLE[0]
-            node = pydot.Node(node_id, label=node_label, URL='"%s"' % uri, **style)
+            node = pydot.Node(node_id, label=node_label, URL=f'"{uri}"', **style)
             node_map[uri] = node
             dot.add_node(node)
             return node
 
         def _get_bnode() -> pydot.Node:
             count[1] += 1
-            bnode_id = "b%d" % count[1]
+            bnode_id = f"b{count[1]}"
             bnode = pydot.Node(bnode_id, label='""', shape="point", color="gray")
             dot.add_node(bnode)
             return bnode
 
         def _get_node(
-            qname: Optional[QualifiedName],
-            prov_type: Optional[type[ProvElement]] = None,
+            qname: QualifiedName | None,
+            prov_type: type[ProvElement] | None = None,
         ) -> pydot.Node:
             if qname is None:
                 return _get_bnode()
@@ -358,7 +360,8 @@ def prov_to_dot(
                     (attr_name, value)
                     for attr_name, value in rec.formal_attributes
                     if attr_name in PROV_ATTRIBUTE_QNAMES
-                )
+                ),
+                strict=False,
             )
             inferred_types = list(map(INFERRED_ELEMENT_CLASS.get, attr_names))
             other_attributes = [
@@ -395,7 +398,7 @@ def prov_to_dot(
                     style["color"] = "gray"  # all remaining segment to be gray
                     style["fontcolor"] = "dimgray"  # text in darker gray
                     for attr_name, node, inferred_type in zip(
-                        attr_names[2:], nodes[2:], inferred_types[2:]
+                        attr_names[2:], nodes[2:], inferred_types[2:], strict=False
                     ):
                         if node is not None:
                             style["label"] = attr_name.localpart

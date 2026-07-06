@@ -15,6 +15,7 @@ vi.mock("../src/geoip.js", () => ({
   resolveProxyGeo: vi.fn().mockResolvedValue({ timezone: null, locale: null }),
   maybeResolveGeoip: vi.fn().mockResolvedValue({}),
   resolveWebrtcArgs: vi.fn().mockImplementation((opts: any) => Promise.resolve(opts.args)),
+  appendWebrtcExitIp: vi.fn((args: any) => args),
 }));
 vi.mock("playwright-core", () => ({ chromium: { launchPersistentContext: vi.fn() } }));
 vi.mock("puppeteer-core", () => ({ default: { launch: vi.fn() } }));

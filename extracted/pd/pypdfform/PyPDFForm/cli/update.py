@@ -5,8 +5,8 @@ This module defines CLI commands for updating existing PDF files.
 It exposes the `update` command group for metadata changes, PDF version
 changes, field bounds edits, field renames, field property updates, and
 document-level JavaScript actions. Commands in this module load command-line or
-JSON input, apply the matching `PdfWrapper` operation, and write the modified
-PDF to either the requested output path or the original file.
+YAML/JSON input, apply the matching `PdfWrapper` operation, and write the
+modified PDF to either the requested output path or the original file.
 """
 
 from enum import Enum
@@ -22,10 +22,10 @@ from .common import (
     INPUT_PDF,
     OPTIONAL_OUTPUT_PDF,
     cli_bad_parameter,
+    data_file_option,
     get_widget,
     handle_font_registration,
-    json_file_option,
-    load_json_file,
+    load_data_file,
 )
 from .schemas.update import FIELD_SCHEMA, RENAME_SCHEMA
 
@@ -186,18 +186,20 @@ def bounds(
 
 @update_cli.command(
     no_args_is_help=True,
-    help="Rename form fields from JSON.",
+    help="Rename form fields from YAML or JSON.",
 )
 def rename(
     ctx: typer.Context,
     pdf: INPUT_PDF,
-    data: Annotated[Path, json_file_option("JSON file with form field renames.")],
+    data: Annotated[
+        Path, data_file_option("YAML or JSON file with form field renames.")
+    ],
     output: OPTIONAL_OUTPUT_PDF = None,
 ) -> None:
     """
-    Rename form fields using a validated JSON mapping file.
+    Rename form fields using a validated YAML or JSON mapping file.
 
-    The command rejects full widget name mode, validates the JSON file against
+    The command rejects full widget name mode, validates the input file against
     the rename schema, resolves each existing field, queues the requested key
     updates on the `PdfWrapper`, commits the rename operations, and writes the
     modified PDF to the requested output path or back to the input file.
@@ -206,13 +208,14 @@ def rename(
         ctx (typer.Context): Typer context containing global `PdfWrapper`
             options in `ctx.obj`.
         pdf (Path): Input PDF path.
-        data (Path): JSON file containing form field rename definitions.
+        data (Path): YAML or JSON file containing form field rename
+            definitions.
         output (Path, optional): Output PDF path. If omitted, the input PDF is
             overwritten. Defaults to None.
 
     Raises:
         typer.BadParameter: Raised when full widget name mode is enabled, the
-            JSON file is invalid, or a requested field does not exist.
+            input file is invalid, or a requested field does not exist.
     """
     if ctx.obj.get("use_full_widget_name"):
         cli_bad_parameter(
@@ -221,7 +224,7 @@ def rename(
             param_hint="--use-full-widget-name",
         )
 
-    input_data = load_json_file(data, RENAME_SCHEMA, "--file")
+    input_data = load_data_file(data, RENAME_SCHEMA, "--file")
 
     obj = PdfWrapper(str(pdf), **ctx.obj)
     for item in input_data:
@@ -234,20 +237,20 @@ def rename(
 
 @update_cli.command(
     no_args_is_help=True,
-    help="Update form field properties from JSON.",
+    help="Update form field properties from YAML or JSON.",
 )
 def field(
     ctx: typer.Context,
     pdf: INPUT_PDF,
     data: Annotated[
-        Path, json_file_option("JSON file with form field property updates.")
+        Path, data_file_option("YAML or JSON file with form field property updates.")
     ],
     output: OPTIONAL_OUTPUT_PDF = None,
 ) -> None:
     """
-    Update form field properties from a validated JSON file.
+    Update form field properties from a validated YAML or JSON file.
 
-    The command validates the JSON input against the field update schema, loads
+    The command validates the input file against the field update schema, loads
     the PDF with the global CLI options stored in `ctx.obj`, resolves each
     field name, registers any referenced fonts once per invocation, assigns the
     requested widget properties, and writes the modified PDF to the requested
@@ -257,15 +260,15 @@ def field(
         ctx (typer.Context): Typer context containing global `PdfWrapper`
             options in `ctx.obj`.
         pdf (Path): Input PDF path.
-        data (Path): JSON file containing form field property updates.
+        data (Path): YAML or JSON file containing form field property updates.
         output (Path, optional): Output PDF path. If omitted, the input PDF is
             overwritten. Defaults to None.
 
     Raises:
-        typer.BadParameter: Raised when the JSON file is invalid or a requested
+        typer.BadParameter: Raised when the input file is invalid or a requested
             field does not exist.
     """
-    input_data = load_json_file(data, FIELD_SCHEMA, "--file")
+    input_data = load_data_file(data, FIELD_SCHEMA, "--file")
 
     obj = PdfWrapper(str(pdf), **ctx.obj)
     registered_font = {}

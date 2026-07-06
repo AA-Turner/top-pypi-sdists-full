@@ -16,6 +16,7 @@ from scramp.core import (
     _set_client_final,
     _set_client_first,
     _set_server_first,
+    _username_unescape,
     _validate_channel_binding,
 )
 from scramp.utils import b64dec
@@ -85,6 +86,41 @@ def test_validate_channel_binding_fail(cb, msg):
         _validate_channel_binding(cb)
 
     assert str(exc_info.value) == msg
+
+
+@pytest.mark.parametrize(
+    "username, expected_username",
+    [
+        # RFC 5802, section 5.1
+        [
+            "u=3Dse=2Cr",
+            "u=se,r",
+        ],
+    ],
+)
+def test_username_unescape(username, expected_username):
+    actual_username = _username_unescape(username)
+    assert actual_username == expected_username
+
+
+@pytest.mark.parametrize(
+    "username,error_msg,server_error",
+    [
+        # RFC 5802, section 5.1
+        [
+            "=",
+            "An '=' in a username must be followed by '3D', or  '2C': "
+            "invalid-username-encoding",
+            "invalid-username-encoding",
+        ],
+    ],
+)
+def test_username_unescape_error(username, error_msg, server_error):
+    with pytest.raises(ScramException) as exc_info:
+        _username_unescape(username)
+
+    assert str(exc_info.value) == error_msg
+    assert str(exc_info.value.server_error) == server_error
 
 
 @pytest.mark.parametrize(

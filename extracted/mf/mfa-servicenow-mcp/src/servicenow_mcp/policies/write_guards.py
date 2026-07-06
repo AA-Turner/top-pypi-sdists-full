@@ -49,7 +49,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
@@ -203,14 +203,21 @@ CONFIRM_PUBLISH_VALUE = "approve"
 
 # tool_name → publish-class trigger condition. None=always publish-class.
 # Otherwise dict of arg matches (all must match).
-_PUBLISH_CLASS_TOOLS: Dict[str, Optional[Dict[str, Any]]] = {
+_PUBLISH_CLASS_TOOLS: Dict[str, Optional[Union[Dict[str, Any], List[Dict[str, Any]]]]] = {
     "publish_changeset": None,
     "commit_changeset": None,
     "update_remote_from_local": None,
     "approve_change": None,
     "submit_change_for_approval": None,
     "manage_changeset": {"action": ("publish", "commit")},
-    "manage_flow_designer": {"action": ("save",), "publish": True},
+    # A list means OR: publish-class if ANY match-dict matches. Flow Designer
+    # publishes two ways — save-then-publish (action='save', publish=True) AND
+    # the direct action='publish' snapshot recompile — both must demand the
+    # extra confirm_publish approval, so both are listed.
+    "manage_flow_designer": [
+        {"action": ("save",), "publish": True},
+        {"action": ("publish",)},
+    ],
 }
 
 
@@ -221,6 +228,11 @@ _PREVIEW_HINTS: Dict[str, str] = {
     "update_remote_from_local": (
         "Preview first with diff_local_component(path=...): it shows the exact line "
         "diff, whether the remote drifted, and who last edited it — then retry."
+    ),
+    "manage_flow_designer": (
+        "Preview first with action='get_detail' (what will be recompiled) and check "
+        "the current application/update set — then retry publish with "
+        "confirm='approve' AND confirm_publish='approve'."
     ),
 }
 
@@ -362,23 +374,31 @@ def _is_read_only(tool_name: str, arguments: Dict[str, Any]) -> bool:
     return True
 
 
+def _matches_publish_cond(cond: Dict[str, Any], arguments: Dict[str, Any]) -> bool:
+    """True when every (key, expected) in *cond* matches *arguments* (AND).
+    A tuple expected value matches membership; a scalar matches equality."""
+    for key, expected in cond.items():
+        actual = arguments.get(key)
+        if isinstance(expected, tuple):
+            if actual not in expected:
+                return False
+        elif actual != expected:
+            return False
+    return True
+
+
 def _is_publish_class(tool_name: str, arguments: Dict[str, Any]) -> bool:
     cond = _PUBLISH_CLASS_TOOLS.get(tool_name, "__nope__")
     if cond == "__nope__":
         return False
     if cond is None:
         return True
-    if not isinstance(cond, dict):
-        return False
-    for key, expected in cond.items():
-        actual = arguments.get(key)
-        if isinstance(expected, tuple):
-            if actual not in expected:
-                return False
-        else:
-            if actual != expected:
-                return False
-    return True
+    # A list of match-dicts is OR: publish-class if ANY matches.
+    if isinstance(cond, list):
+        return any(_matches_publish_cond(c, arguments) for c in cond)
+    if isinstance(cond, dict):
+        return _matches_publish_cond(cond, arguments)
+    return False
 
 
 def _current_username(server: Any) -> Optional[str]:
@@ -712,6 +732,62 @@ def _g9_duplicate_create(ctx: WriteGuardContext) -> None:
     )
 
 
+def _g10_session_identity(ctx: WriteGuardContext) -> None:
+    """G10 — the live session user must match the profile's declared owner.
+
+    Multi-user setups run each instance under a known person (declared via the
+    browser auth ``username``). Browser SSO sessions are adopted from a shared
+    per-instance disk cache, so after a reconnect the live session can silently
+    belong to a DIFFERENT user — every write would then be recorded under that
+    user and captured into THEIR active update set. One identity read (TTL-
+    cached, ~free); only runs for browser auth with a declared username.
+
+    Fail-open on an unresolvable identity (transient blip — the write itself
+    would 401 on a truly dead session); SERVICENOW_WRITE_GUARDS_FAIL=closed
+    blocks instead.
+    """
+    try:
+        auth = ctx.server.config.auth
+        if auth.type.value != "browser" or not auth.browser:
+            return
+        declared = str(auth.browser.username or "").strip()
+    except Exception:
+        return
+    if not declared:
+        return
+
+    from servicenow_mcp.tools.sn_api import resolve_live_username
+
+    try:
+        actual = str(resolve_live_username(ctx.server.config, ctx.server.auth_manager) or "")
+    except Exception:
+        actual = ""
+    actual = actual.strip()
+
+    if not actual:
+        if _fail_closed():
+            raise PolicyViolation(
+                "G10",
+                f"Could not verify who this session is logged in as, and "
+                f"{ENV_WRITE_GUARDS_FAIL}=closed blocks unverified writes. This "
+                f"instance is declared for user '{declared}'. Run sn_health, "
+                f"re-login if needed, then retry.",
+            )
+        return
+
+    if actual.lower() == declared.lower():
+        return
+
+    raise PolicyViolation(
+        "G10",
+        f"Blocked: this session is logged in as '{actual}', but this instance is "
+        f"declared for user '{declared}'. The write would be recorded as "
+        f"'{actual}' and captured into their active update set. Log in again as "
+        f"'{declared}' (or correct the declared username in the instance config), "
+        f"then retry.",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Update-set awareness (NON-blocking)
 # ---------------------------------------------------------------------------
@@ -870,6 +946,8 @@ def run_post_confirm_guards(server: Any, tool_name: str, arguments: Dict[str, An
     """Post-confirm network guards. Each makes ONE live remote read, so they run
     AFTER the confirm gate — an unconfirmed write is rejected first and never
     reaches the network. Covers:
+      • G10 — session identity: block writes when the live session user differs
+        from the profile's declared owner (browser auth with username set).
       • G3/G8 — concurrent edit: block overwriting a DIFFERENT user's recent edit
         on an update/delete (creates pass through).
       • G9 — duplicate create: block creating a same-name record where that is a
@@ -881,6 +959,9 @@ def run_post_confirm_guards(server: Any, tool_name: str, arguments: Dict[str, An
         return
 
     ctx = WriteGuardContext(server, tool_name, arguments)
+    # Identity first: with the wrong user logged in, the concurrent-edit and
+    # duplicate reads below would themselves run (and reason) as that user.
+    _g10_session_identity(ctx)
     _g3_concurrent_edit(ctx)
     _g8_generic_concurrent_edit(ctx)
     _g8_registry_concurrent_edit(ctx)

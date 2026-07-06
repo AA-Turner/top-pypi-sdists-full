@@ -132,7 +132,7 @@ class GbxPointTransform:
         if self._clamps is not None:
             # for global datasets in 4326 pixel edges sometimes reach just outside
             # of the valid region due to rounding errors when creating tiff files
-            # those coordinates can then not be converted properly to destintation crs
+            # those coordinates can then not be converted properly to destination crs
             range_x, range_y = self._clamps
             xx = np.clip(xx, *range_x)
             yy = np.clip(yy, *range_y)
@@ -506,7 +506,7 @@ def compute_reproject_roi(
             read_shrink = _pick_read_scale(scale)
         else:
             scale = 0
-            scale2 = XY(x=0, y=0)
+            scale2 = XY(x=0.0, y=0.0)
             read_shrink = 1
 
         return ReprojectInfo(
@@ -598,8 +598,8 @@ def compute_output_geobox(
       roughly square pixels. Takes precedence over ``resolution=`` parameter.
 
     :param tight:
-      By default output pixel grid is adjusted to align pixel edges to X/Y axis,
-      suppling ``tight=True`` produces unaligned geobox on the output.
+      By default, output pixel grid is adjusted to align pixel edges to X/Y axis,
+      supplying ``tight=True`` produces unaligned geobox on the output.
 
     :param anchor:
       Control pixel snapping, default is to snap pixel edge to ``X=0,Y=0``.

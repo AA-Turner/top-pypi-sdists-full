@@ -13,7 +13,12 @@ class id_household_and_dependent_care_expense_deduction(Variable):
         p = parameters(
             period
         ).gov.states.id.tax.income.deductions.dependent_care_expenses
-        expenses = tax_unit("tax_unit_childcare_expenses", period)
+        # Idaho Code §63-3022D adopts the IRC §21(b)(2) employment-related
+        # expense definition, which covers childcare plus care for a disabled
+        # adult qualifying individual (care_expenses).
+        childcare = tax_unit("tax_unit_childcare_expenses", period)
+        adult_care = add(tax_unit, period, ["care_expenses"])
+        expenses = childcare + adult_care
         # In 2023 Idaho implemented an increased cap independent of the number of children
         limit = max_(tax_unit("id_cdcc_limit", period), p.cap)
         eligible_capped_expenses = min_(expenses, limit)

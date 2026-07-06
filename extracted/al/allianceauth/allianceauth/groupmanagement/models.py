@@ -1,11 +1,22 @@
 from django.conf import settings
-from django.contrib.auth.models import Group, User
+from django.contrib.auth.models import Group as BaseGroup
 from django.db import models
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 
-from allianceauth.authentication.models import State
+from allianceauth.authentication.models import State, User
 from allianceauth.notifications import notify
+
+
+class Group(BaseGroup):
+    """Proxy model of `django.contrib.auth.models.Group` for typehinting and other purposes."""
+
+    authgroup: "AuthGroup"  # Reverse side of OneToOne
+
+    class Meta:
+        proxy = True
+        verbose_name = BaseGroup._meta.verbose_name
+        verbose_name_plural = BaseGroup._meta.verbose_name_plural
 
 
 class GroupRequest(models.Model):
@@ -192,7 +203,7 @@ class AuthGroup(models.Model):
             | User.objects.filter(groups__in=list(self.group_leader_groups.all()))
         )
 
-    def remove_users_not_matching_states(self):
+    def remove_users_not_matching_states(self) -> None:
         """Remove users not matching defined states from related group."""
         states_qs = self.states.all()
         if states_qs.exists():

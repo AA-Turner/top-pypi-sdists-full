@@ -16,7 +16,9 @@ like the model asking the operator a clarifying question are explicitly
 
 Out of slice (deferred)
 -----------------------
-- Context-pressure ``/compact`` recovery.
+- Context-pressure ``/compact`` recovery: now handled by the proactive
+  compaction lane (:mod:`bernstein.core.orchestration.proactive_compaction`),
+  which runs in the token-monitor tick and receipts every compaction.
 - ``redacted_thinking`` corruption restart-with-replay.
 - Stuck-class ML classifier.
 - Dashboard surfacing / per-session recovery counters in
@@ -357,15 +359,22 @@ def tick(
         if not session.is_paused:
             continue
         kind = classify_prompt(session.recent_output)
-        # Every paused-session probe conclusion, logged with the classifier
-        # input (last line) and verdict -- this is the decision that
-        # determines auto-answer vs. escalate vs. no-op.
+        # Bug fix (2026-07-04): the raw agent-stdout tail (`_last_line`) can
+        # contain secrets, API tokens, or file contents an operator never
+        # intended to persist to logs/log-aggregation - this fired on
+        # EVERY paused-session probe tick, not just failures. INFO now
+        # carries only the classifier's verdict (safe to persist); the raw
+        # tail is only emitted at DEBUG for deep debugging.
         logger.info(
-            "watchdog probe: session=%s is_paused=True classified=%s last_line=%r approved_classes=%s",
+            "watchdog probe: session=%s is_paused=True classified=%s approved_classes=%s",
             session.session_id,
             kind,
-            _last_line(session.recent_output),
             sorted(session.approved_prompt_classes),
+        )
+        logger.debug(
+            "watchdog probe raw tail: session=%s last_line=%r",
+            session.session_id,
+            _last_line(session.recent_output),
         )
         if kind == "model_question":
             skipped.append(session.session_id)

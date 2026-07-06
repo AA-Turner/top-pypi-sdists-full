@@ -1,10 +1,19 @@
 import os
 import warnings
+from importlib.metadata import Distribution
 
 from . import python_aio, python_aio_asyncio
 from .abstract import AbstractContext, AbstractOperation
-from .version import __author__, __version__
 
+__version__ = Distribution.from_name("caio").version
+__author__ = "Dmitry Orlov <me@mosquito.su>"
+
+
+try:
+    from . import linux_uring, linux_uring_asyncio
+except ImportError:
+    linux_uring = None          # type: ignore
+    linux_uring_asyncio = None  # type: ignore
 
 try:
     from . import linux_aio, linux_aio_asyncio
@@ -19,10 +28,11 @@ except ImportError:
     thread_aio_asyncio = None   # type: ignore
 
 
-variants = tuple(filter(None, [linux_aio, thread_aio, python_aio]))
+variants = tuple(filter(None, [linux_uring, linux_aio, thread_aio, python_aio]))
 variants_asyncio = tuple(
     filter(
         None, [
+            linux_uring_asyncio,
             linux_aio_asyncio,
             thread_aio_asyncio,
             python_aio_asyncio,
@@ -39,6 +49,7 @@ def __select_implementation():
     global preferred_asyncio
 
     implementations = {
+        "uring": (linux_uring, linux_uring_asyncio),
         "linux": (linux_aio, linux_aio_asyncio),
         "thread": (thread_aio, thread_aio_asyncio),
         "python": (python_aio, python_aio_asyncio),
@@ -93,6 +104,8 @@ __all__ = (
     "AbstractOperation",
     "python_aio",
     "python_aio_asyncio",
+    "linux_uring",
+    "linux_uring_asyncio",
     "linux_aio",
     "linux_aio_asyncio",
     "thread_aio",

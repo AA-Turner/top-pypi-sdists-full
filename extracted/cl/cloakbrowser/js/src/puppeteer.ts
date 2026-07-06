@@ -15,7 +15,7 @@ import { buildArgs } from "./args.js";
 import { maybeWarnWindowsFonts } from "./fonts.js";
 import { ensureBinary } from "./download.js";
 import { isSocksProxy, normalizeHttpStringUrl, parseProxyUrl, reconstructHttpUrl, resolveProxyConfig, supportsHttpProxyInlineAuth } from "./proxy.js";
-import { maybeResolveGeoip, resolveWebrtcArgs } from "./geoip.js";
+import { maybeResolveGeoip, resolveWebrtcArgs, appendWebrtcExitIp } from "./geoip.js";
 import { buildLaunchEnv } from "./license.js";
 import { seedWidevineHint } from "./widevine.js";
 
@@ -51,9 +51,7 @@ async function resolveArgs(options: LaunchOptions): Promise<{ binaryPath: string
   const { exitIp, ...resolved } = (await maybeResolveGeoip(options)) ?? {};
   let resolvedArgs = (await resolveWebrtcArgs(options)) ?? options.args;
 
-  if (exitIp && !(resolvedArgs ?? []).some(a => a.startsWith("--fingerprint-webrtc-ip"))) {
-    resolvedArgs = [...(resolvedArgs ?? []), `--fingerprint-webrtc-ip=${exitIp}`];
-  }
+  resolvedArgs = appendWebrtcExitIp(resolvedArgs, exitIp);
   const args = buildArgs({ ...options, ...resolved, args: resolvedArgs });
   maybeWarnWindowsFonts(args);
   return { binaryPath, args };

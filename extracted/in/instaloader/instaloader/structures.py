@@ -319,9 +319,11 @@ class Post:
 
     def _obtain_metadata(self):
         if not self._full_metadata_dict:
-            pic_json = self._context.doc_id_graphql_query(
+            response = self._context.doc_id_graphql_query(
                 "8845758582119845", {"shortcode": self.shortcode}
-            )["data"]["xdt_shortcode_media"]
+            )
+            data = (response or {}).get("data")
+            pic_json = data.get("xdt_shortcode_media") if data else None
             if pic_json is None:
                 raise BadResponseException("Fetching Post metadata failed.")
             try:
@@ -990,8 +992,10 @@ class Profile:
                     "__relay_internal__pv__PolarisCannesGuardianExperienceEnabledrelayprovider": True,
                     "__relay_internal__pv__PolarisCASB976ProfileEnabledrelayprovider": False,
                     "__relay_internal__pv__PolarisRepostsConsumptionEnabledrelayprovider": False,
+                    "__relay_internal__pv__PolarisWebSchoolsEnabledrelayprovider": False,
+                    "enable_integrity_filters": True,
                 }
-                data = self._context.doc_id_graphql_query('25980296051578533', variables)
+                data = self._context.doc_id_graphql_query('27937681195819736', variables)
                 if data is None:
                     raise QueryReturnedNotFoundException('GraphQL query returned None')
                 user_data = data.get('data', {}).get('user')

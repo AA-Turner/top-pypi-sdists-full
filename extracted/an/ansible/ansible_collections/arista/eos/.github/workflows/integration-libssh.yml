@@ -1,5 +1,5 @@
 ---
-name: Integration tests 💻
+name: "Integration tests with CML - libssh 💻"
 on:
   pull_request_target:
     branches: [main]
@@ -24,8 +24,12 @@ jobs:
 
   pre-configure-lab:
     needs: lab-create
-    name: Pre-Configure Lab Devices
+    name: "Pre-Configure ${{ matrix.ansible_version }}"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        ansible_version: ["stable-2.19", "stable-2.20", "stable-2.21", "milestone", "devel"]
     steps:
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -59,10 +63,10 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq
           LAB_NODES_JSON='${{ needs.lab-create.outputs.lab_nodes_json }}'
           CML_HOST='${{ secrets.VIRL_HOST }}'
-          INVENTORY_FILE=$(mktemp)
-          DEVICE_IP=$(echo "$LAB_NODES_JSON" | jq -r '.nodes."stable-2.16"')
+          DEVICE_IP=$(echo "$LAB_NODES_JSON" | jq -r '.nodes."${{ matrix.ansible_version }}"')
           LAST_OCTET=$(echo "$DEVICE_IP" | cut -d . -f 4)
           SSH_PORT=$((LAST_OCTET + 2000))
+          INVENTORY_FILE=$(mktemp)
           echo "[all:vars]" > $INVENTORY_FILE
           echo "ansible_network_os=arista.eos.eos" >> $INVENTORY_FILE
           echo "ansible_user=ansible" >> $INVENTORY_FILE
@@ -82,12 +86,12 @@ jobs:
         run: |
           ansible-playbook pre-config.yaml -i ${{ steps.inventory.outputs.inventory_path }} -v
 
-  integration-tests:
+  integration-tests-libssh:
     needs: [lab-create, pre-configure-lab]
     strategy:
       fail-fast: true
       matrix:
-        ansible_version: ["stable-2.16"]
+        ansible_version: ["stable-2.19", "stable-2.20", "stable-2.21", "milestone", "devel"]
     uses: ansible/ansible-content-actions/.github/workflows/cml_network_integration.yaml@main
     with:
       ansible_version: ${{ matrix.ansible_version }}
@@ -96,7 +100,7 @@ jobs:
 
   lab-destroy:
     if: ${{ always() }}
-    needs: [integration-tests, pre-configure-lab]
+    needs: [integration-tests-libssh, pre-configure-lab]
     uses: ansible/ansible-content-actions/.github/workflows/cml_lab_destroy.yaml@main
     secrets:
       virl_host: ${{ secrets.VIRL_HOST }}

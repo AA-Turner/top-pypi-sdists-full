@@ -1,8 +1,8 @@
 use crate::core::BitCollection;
-use crate::enums::{BitOrder, Endianness};
+use crate::enums::{BitOrder, ByteOrder};
 use crate::helpers::{
     BS, BV, bv_from_bin, bv_from_bytes_slice, bv_from_f64, bv_from_hex, bv_from_i128, bv_from_oct,
-    bv_from_u128,
+    bv_from_u128, bytes_like_to_vec,
 };
 use crate::mutibs::Mutibs;
 use crate::tibs_::Tibs;
@@ -10,48 +10,54 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyType;
 
-fn reverse_bits_within_bytes(source: &BS) -> BV {
-    let mut viewed = BV::with_capacity(source.len());
-    for byte in source.chunks(8) {
-        for bit in byte.iter().rev() {
-            viewed.push(*bit);
-        }
+fn byte_order_for_field_len(byte_order: ByteOrder, field_len: usize) -> ByteOrder {
+    if field_len.is_multiple_of(8) {
+        byte_order
+    } else {
+        ByteOrder::Unspecified
     }
-    viewed
 }
 
 fn view_bits_from_physical_bits(
     source: &BS,
-    byte_order: Endianness,
+    byte_order: ByteOrder,
     bit_order: BitOrder,
 ) -> PyResult<BV> {
-    let bits = match bit_order {
-        BitOrder::Msb0 => source.to_bitvec(),
-        BitOrder::Lsb0 => reverse_bits_within_bytes(source),
-    };
+    let len = source.len();
+    let byte_order = byte_order_for_field_len(byte_order, len);
+    let mut selected = BV::with_capacity(len);
+    for index in field_source_indices(bit_order, byte_order, 0, len) {
+        selected.push(source[index]);
+    }
 
-    if byte_order == Endianness::Little {
-        BitCollection::byte_swap_copy(&Tibs::from_bv(bits), None).map(|tibs| tibs.to_bitvec())
+    if byte_order == ByteOrder::Little {
+        BitCollection::byte_swap_copy(&Tibs::from_bv(selected), None).map(|tibs| tibs.to_bitvec())
     } else {
-        Ok(bits)
+        Ok(selected)
     }
 }
 
 fn physical_bits_from_view_bits(
     viewed: BV,
-    byte_order: Endianness,
+    byte_order: ByteOrder,
     bit_order: BitOrder,
 ) -> PyResult<BV> {
-    let bits = if byte_order == Endianness::Little {
+    let len = viewed.len();
+    let byte_order = byte_order_for_field_len(byte_order, len);
+    let selected = if byte_order == ByteOrder::Little {
         BitCollection::byte_swap_copy(&Tibs::from_bv(viewed), None)?.to_bitvec()
     } else {
         viewed
     };
 
-    Ok(match bit_order {
-        BitOrder::Msb0 => bits,
-        BitOrder::Lsb0 => reverse_bits_within_bytes(bits.as_bitslice()),
-    })
+    let mut physical = BV::repeat(false, len);
+    for (bit_index, source_index) in field_source_indices(bit_order, byte_order, 0, len)
+        .into_iter()
+        .enumerate()
+    {
+        physical.set(source_index, selected[bit_index]);
+    }
+    Ok(physical)
 }
 
 fn physical_index_for_label(bit_order: BitOrder, label: usize) -> usize {
@@ -87,7 +93,7 @@ fn validate_field_labels(len: usize, a: i64, b: i64) -> PyResult<(usize, usize)>
 
 fn field_source_indices(
     bit_order: BitOrder,
-    byte_order: Endianness,
+    byte_order: ByteOrder,
     low: usize,
     field_len: usize,
 ) -> Vec<usize> {
@@ -102,7 +108,7 @@ fn field_source_indices(
             // Fields should read and write value bits in field order, not
             // label order, so label 0 is the least significant bit. Whole-byte
             // little-endian fields keep byte chunks in little-endian order.
-            if byte_order == Endianness::Little && field_len.is_multiple_of(8) {
+            if byte_order == ByteOrder::Little && field_len.is_multiple_of(8) {
                 let mut chunk_low = low;
                 while chunk_low < high {
                     for label in (chunk_low..chunk_low + 8).rev() {
@@ -176,22 +182,22 @@ fn selected_source_bits(source: &BS, indices: &[usize], view_name: &str) -> PyRe
 ///         >>> t.le.u
 ///         1
 ///         >>> t.lsb0.hex
-///         '8000'
+///         '0001'
 ///
 #[pyclass(module = "tibs", frozen)]
 pub struct View {
     pub(crate) source: Tibs,
-    pub(crate) byte_order: Endianness,
+    pub(crate) byte_order: ByteOrder,
     pub(crate) bit_order: BitOrder,
 }
 
 impl View {
     pub(crate) fn validate_layout(
         len: usize,
-        byte_order: Endianness,
+        byte_order: ByteOrder,
         bit_order: BitOrder,
     ) -> PyResult<()> {
-        let is_byte_oriented = byte_order != Endianness::Unspecified || bit_order != BitOrder::Msb0;
+        let is_byte_oriented = byte_order != ByteOrder::Unspecified || bit_order != BitOrder::Msb0;
         if is_byte_oriented && !len.is_multiple_of(8) {
             return Err(PyValueError::new_err(format!(
                 "Cannot create a byte-oriented view with a length of {len} bits. It must be a whole number of bytes long."
@@ -200,7 +206,7 @@ impl View {
         Ok(())
     }
 
-    pub(crate) fn from_tibs(tibs: Tibs, byte_order: Endianness, bit_order: BitOrder) -> Self {
+    pub(crate) fn from_tibs(tibs: Tibs, byte_order: ByteOrder, bit_order: BitOrder) -> Self {
         View {
             source: tibs,
             byte_order,
@@ -211,7 +217,7 @@ impl View {
     fn from_indices_bits(
         source: &BS,
         indices: Vec<usize>,
-        byte_order: Endianness,
+        byte_order: ByteOrder,
         bit_order: BitOrder,
     ) -> PyResult<Self> {
         let selected = selected_source_bits(source, &indices, "View")?;
@@ -223,7 +229,7 @@ impl View {
         ))
     }
 
-    fn with_layout(&self, byte_order: Endianness, bit_order: BitOrder) -> PyResult<Self> {
+    fn with_layout(&self, byte_order: ByteOrder, bit_order: BitOrder) -> PyResult<Self> {
         Self::validate_layout(self.source.len(), byte_order, bit_order)?;
         Ok(View {
             source: self.source.clone(),
@@ -233,21 +239,15 @@ impl View {
     }
 
     fn to_tibs_view(&self) -> PyResult<Tibs> {
-        if self.bit_order == BitOrder::Msb0 && self.byte_order != Endianness::Little {
+        if self.bit_order == BitOrder::Msb0 && self.byte_order != ByteOrder::Little {
             return Ok(self.source.clone());
         }
 
-        let tibs = if self.bit_order == BitOrder::Lsb0 {
-            Tibs::from_bv(reverse_bits_within_bytes(self.source.to_bitslice()))
-        } else {
-            self.source.clone()
-        };
-
-        if self.byte_order == Endianness::Little {
-            BitCollection::byte_swap_copy(&tibs, None)
-        } else {
-            Ok(tibs)
-        }
+        Ok(Tibs::from_bv(view_bits_from_physical_bits(
+            self.source.to_bitslice(),
+            self.byte_order,
+            self.bit_order,
+        )?))
     }
 }
 
@@ -337,7 +337,7 @@ fn format_source_indices(indices: &[usize]) -> String {
 #[pyclass(module = "tibs")]
 pub struct MutableView {
     pub(crate) source: Py<Mutibs>,
-    pub(crate) byte_order: Endianness,
+    pub(crate) byte_order: ByteOrder,
     pub(crate) bit_order: BitOrder,
     selection: MutableSelection,
 }
@@ -345,7 +345,7 @@ pub struct MutableView {
 impl MutableView {
     pub(crate) fn from_mutibs(
         source: Py<Mutibs>,
-        byte_order: Endianness,
+        byte_order: ByteOrder,
         bit_order: BitOrder,
     ) -> Self {
         MutableView {
@@ -358,7 +358,7 @@ impl MutableView {
 
     fn from_parts(
         source: Py<Mutibs>,
-        byte_order: Endianness,
+        byte_order: ByteOrder,
         bit_order: BitOrder,
         selection: MutableSelection,
     ) -> Self {
@@ -373,7 +373,7 @@ impl MutableView {
     fn with_layout(
         &self,
         py: Python<'_>,
-        byte_order: Endianness,
+        byte_order: ByteOrder,
         bit_order: BitOrder,
     ) -> PyResult<Self> {
         let source = self.source.borrow(py);
@@ -416,7 +416,7 @@ impl MutableView {
         let source = self.source.borrow(py);
         self.validate_current_layout(source.len())?;
         let source_bits = self.selected_source_bits(&source)?;
-        if self.bit_order == BitOrder::Msb0 && self.byte_order != Endianness::Little {
+        if self.bit_order == BitOrder::Msb0 && self.byte_order != ByteOrder::Little {
             return Ok(Tibs::from_bv(source_bits));
         }
 
@@ -505,13 +505,13 @@ impl MutableView {
     /// little-endian or big-endian byte order, or when using ``BitOrder.Lsb0``.
     ///
     #[new]
-    #[pyo3(signature = (source, byte_order = Endianness::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(source, byte_order=Endianness.Unspecified, bit_order=BitOrder.Msb0)")]
+    #[pyo3(signature = (source, byte_order = ByteOrder::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(source, byte_order=None, bit_order=None)")]
     pub fn py_new(
         source: PyRef<'_, Mutibs>,
-        byte_order: Option<Endianness>,
+        byte_order: Option<ByteOrder>,
         bit_order: Option<BitOrder>,
     ) -> PyResult<Self> {
-        let byte_order = byte_order.unwrap_or(Endianness::Unspecified);
+        let byte_order = byte_order.unwrap_or(ByteOrder::Unspecified);
         let bit_order = bit_order.unwrap_or(BitOrder::Msb0);
         let selection = MutableSelection::Whole;
         View::validate_layout(selection.len(source.len())?, byte_order, bit_order)?;
@@ -540,15 +540,15 @@ impl MutableView {
     ///     '10101010'
     ///
     #[classmethod]
-    #[pyo3(signature = (source, indices, byte_order = Endianness::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(cls, source, indices, byte_order=Endianness.Unspecified, bit_order=BitOrder.Msb0)")]
+    #[pyo3(signature = (source, indices, byte_order = ByteOrder::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(cls, source, indices, byte_order=None, bit_order=None)")]
     pub fn from_indices(
         _cls: &Bound<'_, PyType>,
         source: PyRef<'_, Mutibs>,
         indices: &Bound<'_, PyAny>,
-        byte_order: Option<Endianness>,
+        byte_order: Option<ByteOrder>,
         bit_order: Option<BitOrder>,
     ) -> PyResult<Self> {
-        let byte_order = byte_order.unwrap_or(Endianness::Unspecified);
+        let byte_order = byte_order.unwrap_or(ByteOrder::Unspecified);
         let bit_order = bit_order.unwrap_or(BitOrder::Msb0);
         let indices = extract_source_indices(indices)?;
         let selection = MutableSelection::from_indices(indices, source.len())?;
@@ -569,7 +569,7 @@ impl MutableView {
     pub fn view(
         &self,
         py: Python<'_>,
-        byte_order: Option<Endianness>,
+        byte_order: Option<ByteOrder>,
         bit_order: Option<BitOrder>,
     ) -> PyResult<Self> {
         self.with_layout(
@@ -582,13 +582,13 @@ impl MutableView {
     /// Return a little-endian byte-order mutable view.
     #[getter]
     pub fn le(&self, py: Python<'_>) -> PyResult<Self> {
-        self.with_layout(py, Endianness::Little, self.bit_order)
+        self.with_layout(py, ByteOrder::Little, self.bit_order)
     }
 
     /// Return a big-endian byte-order mutable view.
     #[getter]
     pub fn be(&self, py: Python<'_>) -> PyResult<Self> {
-        self.with_layout(py, Endianness::Big, self.bit_order)
+        self.with_layout(py, ByteOrder::Big, self.bit_order)
     }
 
     /// Return an LSB0 bit-order mutable view.
@@ -605,7 +605,7 @@ impl MutableView {
 
     /// Return the byte-order interpretation setting for this mutable view.
     #[getter]
-    fn byte_order(&self) -> Endianness {
+    fn byte_order(&self) -> ByteOrder {
         self.byte_order
     }
 
@@ -705,8 +705,8 @@ impl MutableView {
 
     /// Write the viewed bits from a bytes-like object without changing the view length.
     #[pyo3(signature = (data, /), text_signature = "($self, data, /)")]
-    pub fn write_bytes(&self, py: Python<'_>, data: Vec<u8>) -> PyResult<()> {
-        let viewed = bv_from_bytes_slice(data, None, None)?;
+    pub fn write_bytes(&self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<()> {
+        let viewed = bv_from_bytes_slice(bytes_like_to_vec(data)?, None, None)?;
         self.assign_fixed_width_view_bits(py, viewed)
     }
 
@@ -732,7 +732,7 @@ impl MutableView {
         let byte_order = if field_len.is_multiple_of(8) {
             self.byte_order
         } else {
-            Endianness::Unspecified
+            ByteOrder::Unspecified
         };
         let source_indices = self.selection.source_indices(source.len())?;
         let indices = field_source_indices(self.bit_order, byte_order, low, field_len)
@@ -821,7 +821,7 @@ impl MutableView {
     }
 
     #[setter(bytes)]
-    fn write_bytes_property(&self, py: Python<'_>, data: Vec<u8>) -> PyResult<()> {
+    fn write_bytes_property(&self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<()> {
         self.write_bytes(py, data)
     }
 
@@ -878,22 +878,22 @@ impl View {
     /// little-endian or big-endian byte order, or when using ``BitOrder.Lsb0``.
     ///
     /// :param source: The :class:`Tibs` or :class:`Mutibs` to view.
-    /// :param Endianness byte_order: The byte order used when interpreting whole-byte values. Defaults to ``Endianness.Unspecified``.
+    /// :param ByteOrder byte_order: The byte order used when interpreting whole-byte values. Defaults to ``ByteOrder.Unspecified``.
     /// :param BitOrder bit_order: The bit numbering order used for field labels. Defaults to ``BitOrder.Msb0``.
     ///
     /// .. code-block:: pycon
     ///
-    ///     >>> View(Tibs('0x1234'), Endianness.Little).hex
+    ///     >>> View(Tibs('0x1234'), ByteOrder.Little).hex
     ///     '3412'
     ///
     #[new]
-    #[pyo3(signature = (source, byte_order = Endianness::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(source, byte_order=Endianness.Unspecified, bit_order=BitOrder.Msb0)")]
+    #[pyo3(signature = (source, byte_order = ByteOrder::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(source, byte_order=None, bit_order=None)")]
     pub fn py_new(
         source: &Bound<'_, PyAny>,
-        byte_order: Option<Endianness>,
+        byte_order: Option<ByteOrder>,
         bit_order: Option<BitOrder>,
     ) -> PyResult<Self> {
-        let byte_order = byte_order.unwrap_or(Endianness::Unspecified);
+        let byte_order = byte_order.unwrap_or(ByteOrder::Unspecified);
         let bit_order = bit_order.unwrap_or(BitOrder::Msb0);
 
         if let Ok(tibs) = source.extract::<PyRef<'_, Tibs>>() {
@@ -928,15 +928,15 @@ impl View {
     ///     '0000'
     ///
     #[classmethod]
-    #[pyo3(signature = (source, indices, byte_order = Endianness::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(cls, source, indices, byte_order=Endianness.Unspecified, bit_order=BitOrder.Msb0)")]
+    #[pyo3(signature = (source, indices, byte_order = ByteOrder::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(cls, source, indices, byte_order=None, bit_order=None)")]
     pub fn from_indices(
         _cls: &Bound<'_, PyType>,
         source: &Bound<'_, PyAny>,
         indices: &Bound<'_, PyAny>,
-        byte_order: Option<Endianness>,
+        byte_order: Option<ByteOrder>,
         bit_order: Option<BitOrder>,
     ) -> PyResult<Self> {
-        let byte_order = byte_order.unwrap_or(Endianness::Unspecified);
+        let byte_order = byte_order.unwrap_or(ByteOrder::Unspecified);
         let bit_order = bit_order.unwrap_or(BitOrder::Msb0);
 
         if let Ok(tibs) = source.extract::<PyRef<'_, Tibs>>() {
@@ -961,19 +961,19 @@ impl View {
     /// Byte-oriented views must have a whole-byte length. This applies when using
     /// little-endian or big-endian byte order, or when using ``BitOrder.Lsb0``.
     ///
-    /// :param Endianness byte_order: The byte order to use, or ``None`` to keep the current byte order.
+    /// :param ByteOrder byte_order: The byte order to use, or ``None`` to keep the current byte order.
     /// :param BitOrder bit_order: The bit order to use, or ``None`` to keep the current bit order.
     /// :return: A new ``View``.
     ///
     /// .. code-block:: pycon
     ///
-    ///     >>> Tibs('0x0100').view(byte_order=Endianness.Little).u
+    ///     >>> Tibs('0x0100').view(byte_order=ByteOrder.Little).u
     ///     1
     ///
     #[pyo3(signature = (byte_order = None, bit_order = None), text_signature = "($self, byte_order=None, bit_order=None)")]
     pub fn view(
         &self,
-        byte_order: Option<Endianness>,
+        byte_order: Option<ByteOrder>,
         bit_order: Option<BitOrder>,
     ) -> PyResult<Self> {
         self.with_layout(
@@ -984,24 +984,24 @@ impl View {
 
     /// Return a little-endian byte-order view.
     ///
-    /// Equivalent to ``view(byte_order=Endianness.Little)``.
+    /// Equivalent to ``view(byte_order=ByteOrder.Little)``.
     ///
     /// The view length must be a whole number of bytes.
     ///
     #[getter]
     pub fn le(&self) -> PyResult<Self> {
-        self.with_layout(Endianness::Little, self.bit_order)
+        self.with_layout(ByteOrder::Little, self.bit_order)
     }
 
     /// Return a big-endian byte-order view.
     ///
-    /// Equivalent to ``view(byte_order=Endianness.Big)``.
+    /// Equivalent to ``view(byte_order=ByteOrder.Big)``.
     ///
     /// The view length must be a whole number of bytes.
     ///
     #[getter]
     pub fn be(&self) -> PyResult<Self> {
-        self.with_layout(Endianness::Big, self.bit_order)
+        self.with_layout(ByteOrder::Big, self.bit_order)
     }
 
     /// Return an LSB0 bit-order view.
@@ -1031,7 +1031,7 @@ impl View {
 
     /// Return the byte-order interpretation setting for this view.
     #[getter]
-    fn byte_order(&self) -> Endianness {
+    fn byte_order(&self) -> ByteOrder {
         self.byte_order
     }
 
@@ -1235,7 +1235,7 @@ impl View {
         let byte_order = if field_len.is_multiple_of(8) {
             self.byte_order
         } else {
-            Endianness::Unspecified
+            ByteOrder::Unspecified
         };
 
         let source = self.source.to_bitslice();

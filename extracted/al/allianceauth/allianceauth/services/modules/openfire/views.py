@@ -3,10 +3,10 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
-from django.contrib.auth.models import Group
 from django.shortcuts import redirect, render
 from django.utils.translation import gettext_lazy as _
 
+from allianceauth.groupmanagement.models import Group
 from allianceauth.services.forms import ServicePasswordForm
 
 from .forms import JabberBroadcastForm

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyHanko
-Version: 0.35.1
+Version: 0.35.2
 Summary: Tools for stamping and signing PDF files
 Author-email: Matthias Valvekens <dev@mvalvekens.be>
 Maintainer-email: Matthias Valvekens <dev@mvalvekens.be>
@@ -44,7 +44,7 @@ Requires-Dist: python-barcode==0.16.1; extra == "image-support"
 Provides-Extra: pkcs11
 Requires-Dist: python-pkcs11~=0.9.3; extra == "pkcs11"
 Provides-Extra: async-http
-Requires-Dist: aiohttp<3.14,>=3.9; extra == "async-http"
+Requires-Dist: aiohttp<3.15,>=3.9; extra == "async-http"
 Provides-Extra: etsi
 Requires-Dist: xsdata<27.0,>=24.4; extra == "etsi"
 Requires-Dist: signxml>=4.2.0; extra == "etsi"

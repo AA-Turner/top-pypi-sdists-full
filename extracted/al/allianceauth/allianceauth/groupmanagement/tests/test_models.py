@@ -1,8 +1,8 @@
 from unittest import mock
 
-from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
 
+from allianceauth.groupmanagement.models import Group
 from allianceauth.tests.auth_utils import AuthUtils
 
 from ..models import GroupRequest, RequestLog, ReservedGroupName

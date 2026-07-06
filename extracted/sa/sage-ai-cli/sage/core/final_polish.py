@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Callable
 
 from sage.core.install_verify import verify_all
+from sage.core.validation_helpers import aggregate_status, strict_aggregate_status
 
 
 ProgressFn = Callable[[str], None]
@@ -279,18 +280,10 @@ def run_final_polish(
     # 3. One final verify run, capture results
     try:
         verify_reports = verify_all(out_dir)
-        report.final_install_ok = all(
-            r.install_ok in (True, None) for r in verify_reports
-        )
-        report.final_build_ok = all(
-            r.build_ok in (True, None) for r in verify_reports
-        )
-        report.final_runs_ok = all(
-            r.runs_ok in (True, None) for r in verify_reports
-        )
-        report.final_tests_ok = all(
-            r.tests_ok in (True, None) for r in verify_reports
-        )
+        report.final_install_ok = aggregate_status(verify_reports, "install_ok")
+        report.final_build_ok = aggregate_status(verify_reports, "build_ok")
+        report.final_runs_ok = aggregate_status(verify_reports, "runs_ok")
+        report.final_tests_ok = strict_aggregate_status(verify_reports, "tests_ok")
     except Exception as exc:  # noqa: BLE001
         log(f"  [polish] final verify failed to run: {exc}")
 

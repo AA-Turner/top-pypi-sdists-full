@@ -33,6 +33,8 @@ from itertools import permutations
 from dulwich.errors import ObjectFormatException
 from dulwich.objects import (
     MAX_TIME,
+    SIGNATURE_PGP,
+    SIGNATURE_SSH,
     ZERO_SHA,
     Blob,
     Commit,
@@ -40,6 +42,7 @@ from dulwich.objects import (
     Tag,
     Tree,
     TreeEntry,
+    _parse_message,
     _parse_tree_py,
     _sorted_tree_items_py,
     check_hexsha,
@@ -49,6 +52,8 @@ from dulwich.objects import (
     hex_to_sha,
     key_entry,
     object_class,
+    parse_commit_broken,
+    parse_time_entry_broken,
     parse_timezone,
     pretty_format_tree_entry,
     sha_to_hex,
@@ -838,9 +843,19 @@ nHxksHfeNln9RKseIDcy4b2ATjhDNIJZARHNfr6oy4u3XPW4svRqtBsLoMiIeuI=
         self.assertEqual(gpgsig, c.gpgsig)
         self.assertEqual(b"3.3.0 version bump and docs\n", c.message)
 
-    def test_commit_extract_signature_pgp(self) -> None:
-        from dulwich.objects import SIGNATURE_PGP
+    def test_parse_header_many_continuation_lines(self) -> None:
+        # A header value may be split across indented continuation lines. A
+        # value spread over a large number of them must still be reassembled
+        # exactly, and in linear time (the accumulation used to be quadratic).
+        n = 50000
+        body = b"".join(b" line%d\n" % i for i in range(n))
+        text = b"tree " + b"0" * 40 + b"\ngpgsig first\n" + body + b"\nthe message\n"
+        fields = dict((k, v) for (k, v) in _parse_message([text]) if k is not None)
+        expected = b"first\n" + b"".join(b"line%d\n" % i for i in range(n))
+        expected = expected[:-1]  # trailing newline is stripped from the value
+        self.assertEqual(expected, fields[b"gpgsig"])
 
+    def test_commit_extract_signature_pgp(self) -> None:
         gpgsig = b"""-----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
@@ -867,8 +882,6 @@ NScTHcxnk4/+bxyfk14xvJkNp7FlQ3npmBkA+lbV0Ubr33rvtIE5jiJPyz+SgWAg
         self.assertEqual(sig_type, SIGNATURE_PGP)
 
     def test_commit_extract_signature_ssh(self) -> None:
-        from dulwich.objects import SIGNATURE_SSH
-
         ssh_sig = b"""-----BEGIN SSH SIGNATURE-----
 U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgJwKO3yOmR5JlXCyN5bys
 ZTpDKBGsVP6ydcKdZxAvJlUAAAAEZmlsZQAAAAAAAAAGc2hhNTEyAAAAUwAAAAtz
@@ -903,8 +916,6 @@ ZTpDKBGsVP6ydcKdZxAvJlUAAAAEZmlsZQAAAAAAAAAGc2hhNTEyAAAAUwAAAAtz
         self.assertIsNone(sig_type)
 
     def test_commit_extract_signature_unknown(self) -> None:
-        from dulwich.objects import ObjectFormatException
-
         unknown_sig = b"UNKNOWN SIGNATURE FORMAT DATA"
 
         c = Commit()
@@ -921,8 +932,6 @@ ZTpDKBGsVP6ydcKdZxAvJlUAAAAEZmlsZQAAAAAAAAAGc2hhNTEyAAAAUwAAAAtz
             c.extract_signature()
 
     def test_parse_time_entry_broken_negative_date(self) -> None:
-        from dulwich.objects import parse_time_entry_broken
-
         author_line = b"Jane Doe <jdoe@example.org> -12345 +0100"
         expected_identity = b"Jane Doe <jdoe@example.org>"
         expected_time = -12345
@@ -938,8 +947,6 @@ ZTpDKBGsVP6ydcKdZxAvJlUAAAAEZmlsZQAAAAAAAAAGc2hhNTEyAAAAUwAAAAtz
         self.assertFalse(timezone_neg_utc)
 
     def test_parse_time_entry_broken_double_negative_timezone(self) -> None:
-        from dulwich.objects import parse_time_entry_broken
-
         author_line = b"Jane Doe <jdoe@example.org> 12345 --700"
         expected_identity = b"Jane Doe <jdoe@example.org>"
         expected_time = 12345
@@ -955,8 +962,6 @@ ZTpDKBGsVP6ydcKdZxAvJlUAAAAEZmlsZQAAAAAAAAAGc2hhNTEyAAAAUwAAAAtz
         self.assertTrue(timezone_neg_utc)
 
     def test_parse_time_entry_broken_long_timezone(self) -> None:
-        from dulwich.objects import parse_time_entry_broken
-
         author_line = (
             b"Geoff Cant <nem@lisp.geek.nz> 1170648114 -72000"  # codespell:ignore
         )
@@ -973,8 +978,6 @@ ZTpDKBGsVP6ydcKdZxAvJlUAAAAEZmlsZQAAAAAAAAAGc2hhNTEyAAAAUwAAAAtz
         self.assertEqual(timezone, expected_timezone)
 
     def test_parse_time_entry_broken_short_timezone(self) -> None:
-        from dulwich.objects import parse_time_entry_broken
-
         author_line = (
             b"Pl\xc3\xa1cidoMonteiro <Pl\xc3\xa1cidoMonteiro@.(none)> 1380083482 +02"
         )
@@ -991,8 +994,6 @@ ZTpDKBGsVP6ydcKdZxAvJlUAAAAEZmlsZQAAAAAAAAAGc2hhNTEyAAAAUwAAAAtz
         self.assertEqual(timezone, expected_timezone)
 
     def test_parse_time_entry_broken_unsigned_timezone(self) -> None:
-        from dulwich.objects import parse_time_entry_broken
-
         author_line = (
             b"applehq <applehq@203d044e-caa7-11dc-91ec-67e1038599e7> 1205785941 0000"
         )
@@ -1010,8 +1011,6 @@ ZTpDKBGsVP6ydcKdZxAvJlUAAAAEZmlsZQAAAAAAAAAGc2hhNTEyAAAAUwAAAAtz
 
     def test_parse_time_entry_broken_nonsensical_timezone(self) -> None:
         """Timezone is 'UTC + 5 hours and 75 minutes'."""
-        from dulwich.objects import parse_time_entry_broken
-
         author_line = b"acpmasquerade <d@picovico.com> 1460127297 +0575"
         expected_identity = b"acpmasquerade <d@picovico.com>"
         expected_time = 1460127297
@@ -1026,8 +1025,6 @@ ZTpDKBGsVP6ydcKdZxAvJlUAAAAEZmlsZQAAAAAAAAAGc2hhNTEyAAAAUwAAAAtz
         self.assertEqual(timezone, expected_timezone)
 
     def test_parse_time_entry_broken_missing_brackets(self) -> None:
-        from dulwich.objects import parse_time_entry_broken
-
         author_line = b"kapil.foss@gmail.com 1297013737 -0500"
         expected_identity = b"kapil.foss@gmail.com"
         expected_time = 1297013737
@@ -1075,8 +1072,6 @@ class BrokenCommitParseTests(TestCase):
         return b"\n".join(lines)
 
     def test_negative_timestamp(self) -> None:
-        from dulwich.objects import parse_commit_broken
-
         author_line = b"Jane Doe <jdoe@example.org> -12345 +0100"
         commit_text = self.make_commit_text(author=author_line, committer=author_line)
         commit = parse_commit_broken(commit_text)
@@ -1086,8 +1081,6 @@ class BrokenCommitParseTests(TestCase):
         self.assertEqual(commit.author_timezone, +1 * 60 * 60)
 
     def test_double_negative_timezone(self) -> None:
-        from dulwich.objects import parse_commit_broken
-
         author_line = b"Jane Doe <jdoe@example.org> 12345 --700"
         commit_text = self.make_commit_text(author=author_line, committer=author_line)
         commit = parse_commit_broken(commit_text)
@@ -1098,8 +1091,6 @@ class BrokenCommitParseTests(TestCase):
         self.assertTrue(commit._author_timezone_neg_utc)
 
     def test_long_timezone(self) -> None:
-        from dulwich.objects import parse_commit_broken
-
         # Real example from https://github.com/lisp/geek-nz
         author_line = (
             b"Geoff Cant <nem@lisp.geek.nz> 1170648114 -72000"  # codespell:ignore
@@ -1115,8 +1106,6 @@ class BrokenCommitParseTests(TestCase):
         self.assertEqual(commit.author_timezone, -720 * 60 * 60)
 
     def test_short_timezone(self) -> None:
-        from dulwich.objects import parse_commit_broken
-
         author_line = (
             b"Pl\xc3\xa1cidoMonteiro <Pl\xc3\xa1cidoMonteiro@.(none)> 1380083482 +02"
         )
@@ -1130,8 +1119,6 @@ class BrokenCommitParseTests(TestCase):
         self.assertEqual(commit.author_timezone, +2 * 60)
 
     def test_unsigned_timezone(self) -> None:
-        from dulwich.objects import parse_commit_broken
-
         author_line = (
             b"applehq <applehq@203d044e-caa7-11dc-91ec-67e1038599e7> 1205785941 0000"
         )
@@ -1145,8 +1132,6 @@ class BrokenCommitParseTests(TestCase):
         self.assertEqual(commit.author_timezone, 0)
 
     def test_nonsensical_timezone(self) -> None:
-        from dulwich.objects import parse_commit_broken
-
         # Timezone is 'UTC + 5 hours and 75 minutes'
         author_line = b"acpmasquerade <d@picovico.com> 1460127297 +0575"
         commit_text = self.make_commit_text(author=author_line, committer=author_line)
@@ -1157,8 +1142,6 @@ class BrokenCommitParseTests(TestCase):
         self.assertEqual(commit.author_timezone, +6 * 60 * 60 + 15 * 60)
 
     def test_missing_angle_brackets(self) -> None:
-        from dulwich.objects import parse_commit_broken
-
         # Real example from https://github.com/noderabbit-team/tasks
         author_line = b"kapil.foss@gmail.com 1297013737 -0500"
         commit_text = self.make_commit_text(author=author_line, committer=author_line)
@@ -1674,8 +1657,6 @@ OK2XeQOiEeXtT76rV4t2WR4=
         )
 
     def test_tag_extract_signature_pgp(self) -> None:
-        from dulwich.objects import SIGNATURE_PGP
-
         x = Tag()
         x.set_raw_string(self.make_tag_text())
         payload, signature, sig_type = x.extract_signature()
@@ -1684,8 +1665,6 @@ OK2XeQOiEeXtT76rV4t2WR4=
         self.assertEqual(sig_type, SIGNATURE_PGP)
 
     def test_tag_extract_signature_ssh(self) -> None:
-        from dulwich.objects import SIGNATURE_SSH
-
         tag_text_lines = self.make_tag_lines()
         # Replace PGP signature with SSH signature
         tag_text_lines[-1] = b"""\
@@ -1712,8 +1691,6 @@ ZTpDKBGsVP6ydcKdZxAvJlUAAAAEZmlsZQAAAAAAAAAGc2hhNTEyAAAAUwAAAAtz
         self.assertIsNone(sig_type)
 
     def test_tag_extract_signature_unknown(self) -> None:
-        from dulwich.objects import ObjectFormatException
-
         # Create a tag with a signature that has an unknown format
         # It needs to look like a signature to be detected but not be PGP or SSH
         tag_text = b"""object a38d6181ff27824c79fc7df825164a212eff6a3f

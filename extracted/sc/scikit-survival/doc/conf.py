@@ -148,7 +148,7 @@ nbsphinx_execute = "never"
 nbsphinx_prolog = r"""
 {% set docname = "doc/" + env.doc2path(env.docname, base=None)|string %}
 {% set notebook = env.doc2path(env.docname, base=None)|replace("user_guide/", "notebooks/") %}
-{% set branch = 'master' if 'dev' in env.config.release else 'v{}'.format(env.config.release) %}
+{% set branch = 'main' if 'dev' in env.config.release else 'v{}'.format(env.config.release) %}
 
 .. raw:: html
 
@@ -217,11 +217,12 @@ extlinks = {
 }
 
 intersphinx_mapping = {
-    "sklearn": ("https://scikit-learn.org/1.8", None),
+    "sklearn": ("https://scikit-learn.org/1.9", None),
     "cython": ("https://cython.readthedocs.io/en/latest/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
     "pandas": ("https://pandas.pydata.org/docs/", None),
+    "polars": ("https://docs.pola.rs/api/python/stable/", None),
 }
 
 
@@ -283,7 +284,7 @@ def linkcode_resolve(domain, info):
         if m:
             branch = m.group(1)
         elif "dev" in release:
-            branch = "master"
+            branch = "main"
         else:
             branch = f"v{release}"
         return "https://github.com/sebp/scikit-survival/blob/{branch}/{filename}{linespec}".format(
@@ -348,19 +349,7 @@ def patch_sklearn_gb_doc():
     _BaseComposition.steps = []
 
 
-def patch_sklearn_metadata_requests_doc():
-    # Workaround for https://github.com/scikit-learn/scikit-learn/issues/31804
-    # introduced in scikit-learn 1.7.1
-    from sklearn.utils import _metadata_requests
-
-    _metadata_requests.REQUESTER_DOC = _metadata_requests.REQUESTER_DOC.replace(
-        "\nConfigure whether metadata should be requested",
-        "        Configure whether metadata should be requested",
-    )
-
-
 patch_sklearn_gb_doc()
-patch_sklearn_metadata_requests_doc()
 
 # configure matplotlib plot directive
 # https://matplotlib.org/stable/api/sphinxext_plot_directive_api.html#configuration-options

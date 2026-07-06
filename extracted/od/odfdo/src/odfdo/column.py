@@ -26,7 +26,7 @@
 from __future__ import annotations
 
 import contextlib
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from .element import Element, register_element_class
 
@@ -83,7 +83,7 @@ class Column(Element):
     @property
     def clone(self) -> Column:
         """Return a clone of the column."""
-        clone: Column = Element.clone.fget(self)  # type: ignore[attr-defined]
+        clone: Column = cast(Column, Element.clone.fget(self))
         clone.x = self.x
         return clone
 

@@ -174,17 +174,66 @@ class TestMappedArray:
         np.testing.assert_array_equal(
             mapped_array.top_n_mask(1), np.array([False, False, True, False, True, False, True, False, False])
         )
+        np.testing.assert_array_equal(
+            mapped_array.top_n_mask(0), np.array([False, False, False, False, False, False, False, False, False])
+        )
 
     def test_bottom_n_mask(self):
         np.testing.assert_array_equal(
             mapped_array.bottom_n_mask(1), np.array([True, False, False, True, False, False, False, False, True])
         )
+        np.testing.assert_array_equal(
+            mapped_array.bottom_n_mask(0), np.array([False, False, False, False, False, False, False, False, False])
+        )
+
+    def test_top_bottom_n_mask_with_nan(self):
+        mapped_array_with_nan = mapped_array.replace(
+            mapped_arr=np.array([10.0, np.nan, 12.0, 13.0, np.nan, 13.0, np.nan, np.nan, 10.0])
+        )
+        np.testing.assert_array_equal(
+            mapped_array_with_nan.top_n_mask(1, engine="numba"),
+            np.array([False, False, True, False, False, True, False, False, True]),
+        )
+        assert mapped_array_with_nan.top_n_mask(1, engine="numba").sum() == 3
+        np.testing.assert_array_equal(
+            mapped_array_with_nan.bottom_n_mask(2, engine="numba"),
+            np.array([True, False, True, True, False, True, True, False, True]),
+        )
+        assert mapped_array_with_nan.bottom_n_mask(2, engine="numba").sum() == 6
+
+    def test_top_bottom_n_mask_all_nan_col(self):
+        mapped_array_with_nan = mapped_array.replace(
+            mapped_arr=np.array([np.nan, np.nan, 12.0, 13.0, np.nan, 13.0, np.nan, np.nan, np.nan])
+        )
+        top_mask = mapped_array_with_nan.top_n_mask(2, engine="numba")
+        bottom_mask = mapped_array_with_nan.bottom_n_mask(2, engine="numba")
+        np.testing.assert_array_equal(
+            np.bincount(mapped_array_with_nan.col_arr[top_mask], minlength=3),
+            np.array([2, 2, 2]),
+        )
+        np.testing.assert_array_equal(
+            np.bincount(mapped_array_with_nan.col_arr[bottom_mask], minlength=3),
+            np.array([2, 2, 2]),
+        )
+
+    def test_top_bottom_n_mask_tie_order(self):
+        mapped_array_with_ties = mapped_array.replace(mapped_arr=np.array([1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 5.0, 5.0, 5.0]))
+        np.testing.assert_array_equal(
+            mapped_array_with_ties.top_n_mask(2, engine="numba"),
+            np.array([False, True, True, False, True, True, False, True, True]),
+        )
+        np.testing.assert_array_equal(
+            mapped_array_with_ties.bottom_n_mask(2, engine="numba"),
+            np.array([True, True, False, True, True, False, True, True, False]),
+        )
 
     def test_top_n(self):
         np.testing.assert_array_equal(mapped_array.top_n(1).id_arr, np.array([2, 4, 6]))
+        np.testing.assert_array_equal(mapped_array.top_n(0).id_arr, np.array([], dtype=np.int64))
 
     def test_bottom_n(self):
         np.testing.assert_array_equal(mapped_array.bottom_n(1).id_arr, np.array([0, 3, 8]))
+        np.testing.assert_array_equal(mapped_array.bottom_n(0).id_arr, np.array([], dtype=np.int64))
 
     def test_to_pd(self):
         target = pd.DataFrame(
@@ -492,7 +541,8 @@ class TestMappedArray:
 
     def test_idxmin(self):
         assert mapped_array["a"].idxmin() == mapped_array["a"].to_pd().idxmin()
-        pd.testing.assert_series_equal(mapped_array.idxmin(), mapped_array.to_pd().idxmin().rename("idxmin"))
+        expected = mapped_array.to_pd().apply(lambda sr: sr.idxmin() if sr.notna().any() else np.nan).rename("idxmin")
+        pd.testing.assert_series_equal(mapped_array.idxmin(), expected)
         pd.testing.assert_series_equal(
             mapped_array_grouped.idxmin(),
             pd.Series(np.array(["x", "z"], dtype=object), index=pd.Index(["g1", "g2"], dtype="object")).rename(
@@ -502,7 +552,8 @@ class TestMappedArray:
 
     def test_idxmax(self):
         assert mapped_array["a"].idxmax() == mapped_array["a"].to_pd().idxmax()
-        pd.testing.assert_series_equal(mapped_array.idxmax(), mapped_array.to_pd().idxmax().rename("idxmax"))
+        expected = mapped_array.to_pd().apply(lambda sr: sr.idxmax() if sr.notna().any() else np.nan).rename("idxmax")
+        pd.testing.assert_series_equal(mapped_array.idxmax(), expected)
         pd.testing.assert_series_equal(
             mapped_array_grouped.idxmax(),
             pd.Series(np.array(["y", "x"], dtype=object), index=pd.Index(["g1", "g2"], dtype="object")).rename(

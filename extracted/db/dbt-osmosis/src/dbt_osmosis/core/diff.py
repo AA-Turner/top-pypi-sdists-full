@@ -14,27 +14,94 @@ from __future__ import annotations
 
 import typing as t
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
-from dbt.contracts.graph.nodes import ColumnInfo, ResultNode  # pyright: ignore[reportPrivateImportUsage]
-from dbt_common.contracts.metadata import ColumnMetadata  # pyright: ignore[reportPrivateImportUsage]
+from dbt.contracts.graph.nodes import (  # pyright: ignore[reportPrivateImportUsage]
+    ColumnInfo,
+    ResultNode,
+)
+from dbt_common.contracts.metadata import (
+    ColumnMetadata,  # pyright: ignore[reportPrivateImportUsage]
+)
 from rapidfuzz import fuzz, process
 
 if t.TYPE_CHECKING:
     from dbt_osmosis.core.dbt_protocols import YamlRefactorContextProtocol
 
+_INTEGER_NARROWING_ORDER = ["bigint", "int", "integer", "smallint", "tinyint"]
+
 __all__ = [
     "ChangeCategory",
     "ChangeSeverity",
-    "SchemaChange",
     "ColumnAdded",
     "ColumnRemoved",
     "ColumnRenamed",
     "ColumnTypeChanged",
-    "SchemaDiffResult",
+    "SchemaChange",
     "SchemaDiff",
+    "SchemaDiffResult",
 ]
+
+
+def _replace_added_removed_changes_with_renames(
+    changes: list[SchemaChange],
+    renames: list[ColumnRenamed],
+) -> list[SchemaChange]:
+    renamed_added = {rename.new_name for rename in renames}
+    renamed_removed = {rename.old_name for rename in renames}
+    kept_changes = [
+        change
+        for change in changes
+        if not _is_renamed_add_or_remove(change, renamed_added, renamed_removed)
+    ]
+    return [*kept_changes, *renames]
+
+
+def _is_renamed_add_or_remove(
+    change: SchemaChange,
+    renamed_added: set[str],
+    renamed_removed: set[str],
+) -> bool:
+    return (
+        isinstance(change, ColumnAdded)
+        and change.column_name in renamed_added
+        or isinstance(change, ColumnRemoved)
+        and change.column_name in renamed_removed
+    )
+
+
+def _extract_type_precision(type_str: str) -> tuple[str, int | None, int | None]:
+    """Extract base type, precision, and scale from a type string."""
+    import re
+
+    match = re.match(r"(\w+)(?:\((\d+)(?:,(\d+))?\))?", type_str.lower())
+    if match:
+        base = match.group(1)
+        precision = int(match.group(2)) if match.group(2) else None
+        scale = int(match.group(3)) if match.group(3) else None
+        return base, precision, scale
+    return type_str.lower(), None, None
+
+
+def _has_precision_narrowed(
+    old_base: str,
+    old_prec: int | None,
+    old_scale: int | None,
+    new_base: str,
+    new_prec: int | None,
+    new_scale: int | None,
+) -> bool:
+    return old_base == new_base and (
+        bool(old_prec and new_prec and new_prec < old_prec)
+        or bool(old_scale and new_scale and new_scale < old_scale)
+    )
+
+
+def _has_integer_narrowed(old_base: str, new_base: str) -> bool:
+    if old_base not in _INTEGER_NARROWING_ORDER or new_base not in _INTEGER_NARROWING_ORDER:
+        return False
+    return _INTEGER_NARROWING_ORDER.index(old_base) < _INTEGER_NARROWING_ORDER.index(new_base)
 
 
 class ChangeCategory(Enum):
@@ -177,7 +244,7 @@ class SchemaDiffResult:
     yaml_columns: dict[str, ColumnInfo]
     database_columns: dict[str, ColumnMetadata]
     changes: list[SchemaChange] = field(default_factory=list)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def summary(self) -> dict[str, int]:
@@ -225,13 +292,6 @@ class SchemaDiff:
         fuzzy_match_threshold: float = 85.0,
         detect_column_renames: bool = True,
     ) -> None:
-        """Initialize the schema diff engine.
-
-        Args:
-            context: The YamlRefactorContext instance
-            fuzzy_match_threshold: Threshold for detecting column renames (0-100)
-            detect_column_renames: Whether to enable fuzzy matching for renames
-        """
         self._context = context
         self._fuzzy_match_threshold = fuzzy_match_threshold
         self._rename_detection_enabled = detect_column_renames
@@ -245,7 +305,7 @@ class SchemaDiff:
         Returns:
             SchemaDiffResult with detected changes
         """
-        from dbt_osmosis.core.introspection import get_columns, normalize_column_name
+        from dbt_osmosis.core.introspection import get_columns
 
         # Get YAML columns
         yaml_columns: dict[str, ColumnInfo] = node.columns
@@ -253,119 +313,213 @@ class SchemaDiff:
         # Get database columns
         database_columns = get_columns(self._context, node)
 
-        # Normalize column names for comparison
-        credentials_type = self._context.project.runtime_cfg.credentials.type
-        yaml_col_names = {
-            normalize_column_name(c.name, credentials_type) for c in yaml_columns.values()
-        }
-        db_col_names = set(database_columns.keys())
+        yaml_columns_by_name, database_columns_by_name = self._comparison_columns_by_name(
+            node, yaml_columns, database_columns
+        )
+        yaml_col_names = set(yaml_columns_by_name)
+        db_col_names = set(database_columns_by_name)
 
         # Detect changes
         changes: list[SchemaChange] = []
 
         # Find added columns (in DB but not in YAML)
         added_columns = db_col_names - yaml_col_names
-        for col_name in added_columns:
-            col_meta = database_columns[col_name]
-            changes.append(
-                ColumnAdded(
-                    category=ChangeCategory.COLUMN_ADDED,
-                    severity=ChangeSeverity.SAFE,
-                    node=node,
-                    description="",
-                    column_name=col_name,
-                    data_type=col_meta.type,
-                    comment=col_meta.comment,
-                )
-            )
+        changes.extend(self._column_additions(node, added_columns, database_columns_by_name))
 
         # Find removed columns (in YAML but not in DB)
         removed_columns = yaml_col_names - db_col_names
-        for col_name in removed_columns:
-            # Get the original column info (before normalization)
-            original_col = next(
-                (
-                    c
-                    for c in yaml_columns.values()
-                    if normalize_column_name(c.name, credentials_type) == col_name
-                ),
-                None,
-            )
-            changes.append(
-                ColumnRemoved(
-                    category=ChangeCategory.COLUMN_REMOVED,
-                    severity=ChangeSeverity.MODERATE,
-                    node=node,
-                    description="",
-                    column_name=col_name,
-                    data_type=original_col.data_type if original_col else None,
-                )
-            )
+        removed_column_names, removals = self._column_removals(
+            node, removed_columns, yaml_columns_by_name
+        )
+        changes.extend(removals)
 
         # Detect column renames via fuzzy matching
-        if self._rename_detection_enabled and added_columns and removed_columns:
-            renames = self._detect_column_renames(
-                list(removed_columns),
-                list(added_columns),
-                database_columns,
-                node,
-            )
-            # Replace added/removed with rename if we found a match
-            changes = [
-                c
-                for c in changes
-                if not (
-                    isinstance(c, ColumnAdded) and c.column_name in {r.new_name for r in renames}
-                )
-            ]
-            changes = [
-                c
-                for c in changes
-                if not (
-                    isinstance(c, ColumnRemoved) and c.column_name in {r.old_name for r in renames}
-                )
-            ]
-            changes.extend(renames)
+        changes = self._replace_renamed_columns(
+            node,
+            changes,
+            added_columns,
+            removed_columns,
+            removed_column_names,
+            database_columns,
+            database_columns_by_name,
+        )
 
         # Detect type changes for common columns
         common_columns = yaml_col_names & db_col_names
-        for col_name in common_columns:
-            yaml_col = next(
-                (
-                    c
-                    for c in yaml_columns.values()
-                    if normalize_column_name(c.name, credentials_type) == col_name
-                ),
-                None,
+        changes.extend(
+            self._column_type_changes(
+                node, common_columns, yaml_columns_by_name, database_columns_by_name
             )
-            db_col = database_columns[col_name]
-
-            if yaml_col and db_col:
-                old_type = yaml_col.data_type or "unknown"
-                new_type = db_col.type
-                if self._normalize_comparable_type(old_type) == self._normalize_comparable_type(
-                    new_type
-                ):
-                    continue
-
-                severity = self._classify_type_change(old_type, new_type)
-                changes.append(
-                    ColumnTypeChanged(
-                        category=ChangeCategory.TYPE_CHANGED,
-                        severity=severity,
-                        node=node,
-                        description="",
-                        column_name=col_name,
-                        old_type=old_type,
-                        new_type=new_type,
-                    )
-                )
+        )
 
         return SchemaDiffResult(
             node=node,
             yaml_columns=yaml_columns,
             database_columns=database_columns,  # pyright: ignore[reportArgumentType]
             changes=changes,
+        )
+
+    def _comparison_columns_by_name(
+        self,
+        node: ResultNode,
+        yaml_columns: dict[str, ColumnInfo],
+        database_columns: dict[str, ColumnMetadata],
+    ) -> tuple[dict[str, ColumnInfo], dict[str, tuple[str, ColumnMetadata]]]:
+        from dbt_osmosis.core.introspection import normalize_column_name
+
+        credentials_type = self._context.project.runtime_cfg.credentials.type
+        case_insensitive = self._case_insensitive_output_enabled(node)
+
+        def _yaml_compare_name(column_name: str) -> str:
+            normalized = normalize_column_name(column_name, credentials_type)
+            return normalized.lower() if case_insensitive else normalized
+
+        def _db_compare_name(column_name: str) -> str:
+            if case_insensitive:
+                return normalize_column_name(column_name, credentials_type).lower()
+            return column_name
+
+        return (
+            {_yaml_compare_name(c.name): c for c in yaml_columns.values()},
+            {_db_compare_name(name): (name, column) for name, column in database_columns.items()},
+        )
+
+    def _case_insensitive_output_enabled(self, node: ResultNode) -> bool:
+        from dbt_osmosis.core.introspection import resolve_setting
+
+        output_to_upper = bool(
+            resolve_setting(
+                self._context,
+                "output-to-upper",
+                node,
+                fallback=bool(self._context.settings.output_to_upper),
+            )
+        )
+        output_to_lower = bool(
+            resolve_setting(
+                self._context,
+                "output-to-lower",
+                node,
+                fallback=bool(self._context.settings.output_to_lower),
+            )
+        )
+        return output_to_upper or output_to_lower
+
+    def _column_additions(
+        self,
+        node: ResultNode,
+        added_columns: set[str],
+        database_columns_by_name: dict[str, tuple[str, ColumnMetadata]],
+    ) -> list[ColumnAdded]:
+        changes: list[ColumnAdded] = []
+        for col_name in added_columns:
+            original_col_name, col_meta = database_columns_by_name[col_name]
+            changes.append(
+                ColumnAdded(
+                    category=ChangeCategory.COLUMN_ADDED,
+                    severity=ChangeSeverity.SAFE,
+                    node=node,
+                    description="",
+                    column_name=original_col_name,
+                    data_type=col_meta.type,
+                    comment=col_meta.comment,
+                )
+            )
+        return changes
+
+    def _column_removals(
+        self,
+        node: ResultNode,
+        removed_columns: set[str],
+        yaml_columns_by_name: dict[str, ColumnInfo],
+    ) -> tuple[list[str], list[ColumnRemoved]]:
+        from dbt_osmosis.core.introspection import normalize_column_name
+
+        credentials_type = self._context.project.runtime_cfg.credentials.type
+        removed_column_names: list[str] = []
+        changes: list[ColumnRemoved] = []
+        for col_name in removed_columns:
+            original_col = yaml_columns_by_name.get(col_name)
+            original_col_name = (
+                normalize_column_name(original_col.name, credentials_type)
+                if original_col
+                else col_name
+            )
+            removed_column_names.append(original_col_name)
+            changes.append(
+                ColumnRemoved(
+                    category=ChangeCategory.COLUMN_REMOVED,
+                    severity=ChangeSeverity.MODERATE,
+                    node=node,
+                    description="",
+                    column_name=original_col_name,
+                    data_type=original_col.data_type if original_col else None,
+                )
+            )
+        return removed_column_names, changes
+
+    def _replace_renamed_columns(
+        self,
+        node: ResultNode,
+        changes: list[SchemaChange],
+        added_columns: set[str],
+        removed_columns: set[str],
+        removed_column_names: list[str],
+        database_columns: dict[str, ColumnMetadata],
+        database_columns_by_name: dict[str, tuple[str, ColumnMetadata]],
+    ) -> list[SchemaChange]:
+        if not self._rename_detection_enabled or not added_columns or not removed_columns:
+            return changes
+
+        renames = self._detect_column_renames(
+            removed_column_names,
+            [database_columns_by_name[col_name][0] for col_name in added_columns],
+            database_columns,
+            node,
+        )
+        return _replace_added_removed_changes_with_renames(changes, renames)
+
+    def _column_type_changes(
+        self,
+        node: ResultNode,
+        common_columns: set[str],
+        yaml_columns_by_name: dict[str, ColumnInfo],
+        database_columns_by_name: dict[str, tuple[str, ColumnMetadata]],
+    ) -> list[ColumnTypeChanged]:
+        changes: list[ColumnTypeChanged] = []
+        for col_name in common_columns:
+            change = self._column_type_change(
+                node,
+                yaml_columns_by_name.get(col_name),
+                database_columns_by_name[col_name],
+            )
+            if change is not None:
+                changes.append(change)
+        return changes
+
+    def _column_type_change(
+        self,
+        node: ResultNode,
+        yaml_col: ColumnInfo | None,
+        db_column: tuple[str, ColumnMetadata],
+    ) -> ColumnTypeChanged | None:
+        original_db_col_name, db_col = db_column
+        if not yaml_col or not db_col:
+            return None
+
+        old_type = yaml_col.data_type or "unknown"
+        new_type = db_col.type
+        if self._normalize_comparable_type(old_type) == self._normalize_comparable_type(new_type):
+            return None
+
+        return ColumnTypeChanged(
+            category=ChangeCategory.TYPE_CHANGED,
+            severity=self._classify_type_change(old_type, new_type),
+            node=node,
+            description="",
+            column_name=original_db_col_name,
+            old_type=old_type,
+            new_type=new_type,
         )
 
     def compare_all(
@@ -480,7 +634,7 @@ class SchemaDiff:
         }
 
         # Check if types are in the same family
-        for family, types in type_families.items():
+        for types in type_families.values():
             if any(t in old_norm for t in types) and any(t in new_norm for t in types):
                 # Same family - generally safe (e.g., int -> bigint, varchar(50) -> varchar(100))
                 # But narrowing is potentially breaking
@@ -501,32 +655,19 @@ class SchemaDiff:
         Returns:
             True if the new type is narrower than the old type
         """
-        # Extract precision/scale for numeric types
-        import re
-
-        def extract_precision(type_str: str) -> tuple[str, int | None, int | None]:
-            """Extract base type, precision, and scale from a type string."""
-            match = re.match(r"(\w+)(?:\((\d+)(?:,(\d+))?\))?", type_str.lower())
-            if match:
-                base = match.group(1)
-                precision = int(match.group(2)) if match.group(2) else None
-                scale = int(match.group(3)) if match.group(3) else None
-                return base, precision, scale
-            return type_str.lower(), None, None
-
-        old_base, old_prec, old_scale = extract_precision(old_type)
-        new_base, new_prec, new_scale = extract_precision(new_type)
+        old_base, old_prec, old_scale = _extract_type_precision(old_type)
+        new_base, new_prec, new_scale = _extract_type_precision(new_type)
 
         # Check for precision narrowing (e.g., varchar(100) -> varchar(50))
-        if old_base == new_base:
-            if old_prec and new_prec and new_prec < old_prec:
-                return True
-            if old_scale and new_scale and new_scale < old_scale:
-                return True
+        if _has_precision_narrowed(
+            old_base,
+            old_prec,
+            old_scale,
+            new_base,
+            new_prec,
+            new_scale,
+        ):
+            return True
 
         # Check for integer narrowing (e.g., bigint -> int -> smallint)
-        narrowing_order = ["bigint", "int", "integer", "smallint", "tinyint"]
-        if old_base in narrowing_order and new_base in narrowing_order:
-            return narrowing_order.index(old_base) < narrowing_order.index(new_base)
-
-        return False
+        return _has_integer_narrowed(old_base, new_base)

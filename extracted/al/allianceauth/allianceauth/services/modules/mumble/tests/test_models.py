@@ -1,13 +1,10 @@
-from allianceauth.authentication.admin import Permission
-from allianceauth.tests.auth_utils import AuthUtils
 from django.test import TestCase
-from django.contrib.auth.models import User, Group
 
-from ..models import (
-    MumbleUser,
-    IdlerHandler,
-    MumbleServerServer
-)
+from allianceauth.authentication.models import Permission, User
+from allianceauth.groupmanagement.models import Group
+from allianceauth.tests.auth_utils import AuthUtils
+
+from ..models import IdlerHandler, MumbleServerServer, MumbleUser
 
 MODULE_PATH = 'allianceauth.services.modules.mumble'
 DEFAULT_AUTH_GROUP = 'Member'

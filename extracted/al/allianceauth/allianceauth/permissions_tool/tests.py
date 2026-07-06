@@ -1,8 +1,9 @@
 from django_webtest import WebTest
 
 from django import urls
-from django.contrib.auth.models import Group, Permission
 
+from allianceauth.authentication.models import Permission
+from allianceauth.groupmanagement.models import Group
 from allianceauth.tests.auth_utils import AuthUtils
 
 

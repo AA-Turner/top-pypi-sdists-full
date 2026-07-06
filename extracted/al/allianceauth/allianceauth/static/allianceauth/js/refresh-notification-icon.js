@@ -64,5 +64,6 @@ $(() => {
         });
 
     // Initial start of refreshing on script loading
+    updateNotificationIcon();
     activateIconUpdate();
 });

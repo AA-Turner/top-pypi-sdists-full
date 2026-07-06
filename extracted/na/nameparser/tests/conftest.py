@@ -1,10 +1,9 @@
+import copy
 from collections.abc import Iterator
 
 import pytest
 
-from nameparser.config import CONSTANTS, SetManager, TupleManager
-
-ConfigCollection = SetManager | TupleManager
+from nameparser.config import CONSTANTS
 
 # Scalar (non-collection) config attributes that individual tests mutate on the
 # global CONSTANTS singleton. Several tests change these without restoring them;
@@ -17,6 +16,8 @@ _SCALAR_CONFIG_ATTRS = (
     "string_format",
     "initials_format",
     "initials_delimiter",
+    "initials_separator",
+    "suffix_delimiter",
     "capitalize_name",
     "force_mixed_case_capitalization",
 )
@@ -33,23 +34,13 @@ _COLLECTION_CONFIG_ATTRS = (
     "titles",
     "first_name_titles",
     "conjunctions",
+    "bound_first_names",
+    "non_first_name_prefixes",
     "capitalization_exceptions",
     "regexes",
+    "nickname_delimiters",
+    "maiden_delimiters",
 )
-
-
-def _clone_config_collection(value: ConfigCollection) -> ConfigCollection:
-    """Return an independent copy of a config collection manager.
-
-    ``copy.deepcopy`` is not used because ``RegexTupleManager`` carries compiled
-    patterns that its ``__reduce__`` cannot round-trip. Rebuilding from the
-    manager's own contents copies the container while sharing the (immutable)
-    elements, which is all the snapshot needs.
-    """
-    if isinstance(value, SetManager):
-        return SetManager(set(value))
-    # TupleManager / RegexTupleManager are dict subclasses.
-    return type(value)(dict(value))
 
 
 @pytest.fixture(autouse=True, params=['', None], ids=['default', 'none'])
@@ -66,7 +57,7 @@ def empty_attribute_default(request: pytest.FixtureRequest) -> Iterator[str | No
     """
     scalar_snapshot = {attr: getattr(CONSTANTS, attr) for attr in _SCALAR_CONFIG_ATTRS}
     collection_snapshot = {
-        attr: _clone_config_collection(getattr(CONSTANTS, attr))
+        attr: copy.deepcopy(getattr(CONSTANTS, attr))
         for attr in _COLLECTION_CONFIG_ATTRS
     }
     CONSTANTS.empty_attribute_default = request.param
@@ -75,6 +66,3 @@ def empty_attribute_default(request: pytest.FixtureRequest) -> Iterator[str | No
         setattr(CONSTANTS, attr, value)
     for attr, value in collection_snapshot.items():
         setattr(CONSTANTS, attr, value)
-    # Invalidate the lazily-built suffixes/prefixes/titles cache so it is
-    # recomputed from the restored collections rather than a mutated one.
-    CONSTANTS._pst = None

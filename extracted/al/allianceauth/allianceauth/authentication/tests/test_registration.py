@@ -1,12 +1,12 @@
 from unittest.mock import patch
 
-from django.contrib.auth.models import User
 from django.core import signing
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django_registration.backends.activation import REGISTRATION_SALT
 
 from allianceauth.authentication.forms import RegistrationActivationForm
+from allianceauth.authentication.models import User
 
 MODULE_PATH = "allianceauth.authentication.views"
 
@@ -116,8 +116,9 @@ class TestRegistrationView(TestCase):
 
     @patch(MODULE_PATH + ".RegistrationView.send_activation_email")
     def test_get_email_context_url_uses_querystring(self, mock_send):
-        from allianceauth.authentication.views import RegistrationView
         from unittest.mock import MagicMock
+
+        from allianceauth.authentication.views import RegistrationView
         self._set_session_uid(self.user.pk)
         # Capture what get_email_context produces via the real view
         view = RegistrationView()

@@ -8,8 +8,8 @@ import logging
 
 from django import template
 from django.conf import settings
-from django.contrib.auth.models import User
 
+from allianceauth.authentication.models import User
 from allianceauth.notifications.models import Notification
 
 logger = logging.getLogger(__name__)

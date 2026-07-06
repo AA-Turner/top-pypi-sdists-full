@@ -5,15 +5,17 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("fresh_caches")
+
 from dbt_osmosis.core.schema.parser import create_yaml_instance
 from dbt_osmosis.core.schema.reader import (
+    _YAML_BUFFER_CACHE,
+    _YAML_ORIGINAL_CACHE,
     LRUCache,
     _mark_yaml_caches_dirty,
     _read_yaml,
-    _YAML_BUFFER_CACHE,
-    _YAML_ORIGINAL_CACHE,
 )
-from dbt_osmosis.core.schema.writer import _write_yaml, _merge_preserved_sections, commit_yamls
+from dbt_osmosis.core.schema.writer import _merge_preserved_sections, _write_yaml, commit_yamls
 
 
 def test_create_yaml_instance_settings():
@@ -242,7 +244,7 @@ def test_yaml_string_representer_none_prefix_colon():
 
         assert has_folded == should_fold, (
             f"Description of {length} chars should {'use' if should_fold else 'not use'} "
-            f"folded style, but got: {repr(result.split('description:')[1].split(chr(10))[0])}"
+            f"folded style, but got: {result.split('description:')[1].split(chr(10))[0]!r}"
         )
 
 
@@ -755,13 +757,73 @@ models:
         temp_path.unlink(missing_ok=True)
 
 
+def test_yaml_string_representer_uses_literal_not_folded_for_multiline():
+    """Multiline strings must use literal block style (|) not strip-chomp (|-) or folded (>-).
+
+    Regression test for GitHub issue #392: descriptions with embedded newlines were
+    written as `|-` (strip-chomp) instead of `|` (clip-chomp) because ruamel.yaml
+    adds the `-` indicator when the scalar does not end with a newline character.
+    """
+    import io
+
+    yaml = create_yaml_instance()
+
+    # Case 1: two-line string with no trailing newline — the reported bug case.
+    data = {"description": "First line.\nSecond line."}
+    output = io.StringIO()
+    yaml.dump(data, output)
+    result = output.getvalue()
+
+    assert "description: |" in result, f"Expected literal block style, got: {result!r}"
+    assert "description: |-" not in result, f"Got strip-chomp style instead: {result!r}"
+    assert "description: >-" not in result, f"Got folded strip-chomp style instead: {result!r}"
+    assert "First line." in result
+    assert "Second line." in result
+
+    # Case 2: round-trip — re-reading the YAML must return the string with content intact.
+    # Use a plain ruamel.yaml instance to avoid OsmosisYAML's managed-key filter.
+    # YAML clip-chomp (|) semantics: the parser adds exactly one trailing newline, so a
+    # string that did not originally end with \n will gain one after round-trip.  This is
+    # intentional and correct — the content lines are preserved.
+    import ruamel.yaml as _ruamel
+
+    plain_yaml = _ruamel.YAML()
+    round_tripped = plain_yaml.load(io.StringIO(result))
+    assert round_tripped["description"].rstrip("\n") == "First line.\nSecond line.", (
+        f"Round-trip content changed: {round_tripped['description']!r}"
+    )
+
+    # Case 3: string that already ends with newline — must not double the newline.
+    data2 = {"description": "Alpha.\nBeta.\n"}
+    output2 = io.StringIO()
+    yaml.dump(data2, output2)
+    result2 = output2.getvalue()
+
+    assert "description: |" in result2
+    assert "description: |-" not in result2
+    round_tripped2 = plain_yaml.load(io.StringIO(result2))
+    # String already ended with \n; clip-chomp adds exactly one, so value is preserved.
+    assert round_tripped2["description"] == "Alpha.\nBeta.\n", (
+        f"Round-trip changed the value: {round_tripped2['description']!r}"
+    )
+
+    # Case 4: three-line string (original issue reproduction).
+    data3 = {"description": "Line one.\nLine two.\nLine three."}
+    output3 = io.StringIO()
+    yaml.dump(data3, output3)
+    result3 = output3.getvalue()
+
+    assert "description: |" in result3
+    assert "description: |-" not in result3
+
+
 def _clear_cache(cache, key):
     """Helper to safely clear a key from an LRUCache or dict."""
     if key in cache:
         del cache[key]
 
 
-def test_fresh_caches_preserves_production_cache_instances(fresh_caches):
+def test_fresh_caches_preserves_production_cache_instances():
     """The central cache fixture must clear production cache objects, not replace them."""
     from dbt_osmosis.core import introspection
     from dbt_osmosis.core.schema import reader

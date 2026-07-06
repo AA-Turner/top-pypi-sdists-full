@@ -463,3 +463,37 @@ def test_simple_text_stamp_on_page_with_leaky_graphics_state_without_coord_corre
             pdf_out,
             f'{EXPECTED_OUTPUT_DIR}/leaky-graphics-state-stamp-no-corr-result.pdf',
         )
+
+
+@with_layout_comparison
+def test_multiline_textbox_with_nondefault_font_size():
+    w = empty_page()
+
+    style = TextStampStyle.from_config(
+        {
+            'stamp-text': "Test Test\ntest test",
+            'text-box-style': {'font': NOTO_SERIF_JP, 'font-size': 8},
+        }
+    )
+
+    ts = TextStamp(w, style)
+    ts.apply(0, x=30, y=120)
+    compare_output(
+        w, f'{EXPECTED_OUTPUT_DIR}/multiline-textbox-nondefault-fs.pdf'
+    )
+
+
+@with_layout_comparison
+def test_default_text_box_style_font_config():
+    w = empty_page()
+
+    style = TextStampStyle.from_config(
+        {
+            'stamp-text': "Test Test\ntest test",
+            'text-box-style': {},
+        }
+    )
+
+    ts = TextStamp(w, style)
+    ts.apply(0, x=30, y=120)
+    compare_output(w, f'{EXPECTED_OUTPUT_DIR}/default-font.pdf')

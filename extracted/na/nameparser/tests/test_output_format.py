@@ -12,18 +12,15 @@ class HumanNameOutputFormatTests(HumanNameTestBase):
 
     def test_formatting_constants_attribute(self) -> None:
         from nameparser.config import CONSTANTS
-        _orig = CONSTANTS.string_format
         CONSTANTS.string_format = "TEST2"
         hn = HumanName("Rev John A. Kenneth Doe III (Kenny)")
         self.assertEqual(str(hn), "TEST2")
-        CONSTANTS.string_format = _orig
 
     def test_capitalize_name_constants_attribute(self) -> None:
         from nameparser.config import CONSTANTS
         CONSTANTS.capitalize_name = True
         hn = HumanName("bob v. de la macdole-eisenhower phd")
         self.assertEqual(str(hn), "Bob V. de la MacDole-Eisenhower Ph.D.")
-        CONSTANTS.capitalize_name = False
 
     def test_force_mixed_case_capitalization_constants_attribute(self) -> None:
         from nameparser.config import CONSTANTS
@@ -31,7 +28,6 @@ class HumanNameOutputFormatTests(HumanNameTestBase):
         hn = HumanName('Shirley Maclaine')
         hn.capitalize()
         self.assertEqual(str(hn), "Shirley MacLaine")
-        CONSTANTS.force_mixed_case_capitalization = False
 
     def test_capitalize_name_and_force_mixed_case_capitalization_constants_attributes(self) -> None:
         from nameparser.config import CONSTANTS
@@ -103,6 +99,22 @@ class HumanNameOutputFormatTests(HumanNameTestBase):
         hn.nickname = ''
         self.assertEqual(str(hn), "Rev John A. Kenneth Doe III")
 
+    def test_empty_field_drops_surrounding_whitespace(self) -> None:
+        # issue #139: adjacent whitespace/punctuation should be dropped when a field is empty
+        hn = HumanName("John Smith")
+        hn.string_format = "{last} {suffix}, {first}"
+        self.assertEqual(str(hn), "Smith, John")
+
+    def test_empty_field_present_suffix_unaffected(self) -> None:
+        hn = HumanName("John Smith Jr")
+        hn.string_format = "{last} {suffix}, {first}"
+        self.assertEqual(str(hn), "Smith Jr, John")
+
+    def test_multiple_empty_fields_before_comma(self) -> None:
+        hn = HumanName("John Smith")
+        hn.string_format = "{title} {suffix}, {first} {last}"
+        self.assertEqual(str(hn), "John Smith")
+
     def test_remove_emojis(self) -> None:
         hn = HumanName("Sam Smith 😊")
         self.m(hn.first, "Sam", hn)
@@ -118,7 +130,7 @@ class HumanNameOutputFormatTests(HumanNameTestBase):
     def test_keep_emojis(self) -> None:
         from nameparser.config import Constants
         constants = Constants()
-        constants.regexes.emoji = False
+        constants.regexes.emoji = False  # type: ignore[assignment]
         hn = HumanName("∫≜⩕ Smith😊", constants)
         self.m(hn.first, "∫≜⩕", hn)
         self.m(hn.last, "Smith😊", hn)

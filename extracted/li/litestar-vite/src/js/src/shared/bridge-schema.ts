@@ -30,6 +30,7 @@ export interface BridgeTypesConfig {
   generatePageProps: boolean
   generateSchemas: boolean
   globalRoute: boolean
+  failOnError?: boolean
 }
 
 export interface BridgeSpaConfig {
@@ -114,6 +115,11 @@ const allowedLogLevels: ReadonlySet<string> = new Set(["quiet", "normal", "verbo
 
 function fail(message: string): never {
   throw new Error(`litestar-vite-plugin: invalid .litestar.json - ${message}`)
+}
+
+function warn(message: string): void {
+  // eslint-disable-next-line no-console
+  console.warn(`litestar-vite-plugin: invalid .litestar.json - ${message}`)
 }
 
 function assertObject(value: unknown, label: string): Record<string, unknown> {
@@ -221,6 +227,8 @@ function parseTypesConfig(value: unknown): BridgeTypesConfig | null {
   const generatePageProps = assertBoolean(obj, "generatePageProps")
   const generateSchemas = assertOptionalBoolean(obj, "generateSchemas", true) // Default to true for backward compatibility
   const globalRoute = assertBoolean(obj, "globalRoute")
+  const rawFailOnError = obj.failOnError
+  const failOnError = rawFailOnError === undefined || rawFailOnError === null ? undefined : assertBoolean(obj, "failOnError")
 
   return {
     enabled,
@@ -236,6 +244,7 @@ function parseTypesConfig(value: unknown): BridgeTypesConfig | null {
     generatePageProps,
     generateSchemas,
     globalRoute,
+    failOnError,
   }
 }
 
@@ -271,7 +280,7 @@ export function parseBridgeSchema(value: unknown): BridgeSchema {
 
   for (const key of Object.keys(obj)) {
     if (!allowedTopLevelKeys.has(key)) {
-      fail(`unknown top-level key "${key}"`)
+      warn(`unknown top-level key "${key}" ignored`)
     }
   }
 
@@ -326,18 +335,53 @@ export function parseBridgeSchema(value: unknown): BridgeSchema {
 export function readBridgeConfig(explicitPath?: string): BridgeSchema | null {
   const envPath = explicitPath ?? process.env.LITESTAR_VITE_CONFIG_PATH
   if (envPath) {
-    if (!fs.existsSync(envPath)) {
-      return null
-    }
-    return readBridgeConfigFile(envPath)
+    return readBridgeConfigFileCached(envPath)
   }
 
   const defaultPath = path.join(process.cwd(), ".litestar.json")
-  if (fs.existsSync(defaultPath)) {
-    return readBridgeConfigFile(defaultPath)
+  return readBridgeConfigFileCached(defaultPath)
+}
+
+interface BridgeConfigCacheEntry {
+  mtimeMs: number
+  config: BridgeSchema | null
+}
+
+const bridgeConfigCache = new Map<string, BridgeConfigCacheEntry>()
+
+function readBridgeConfigFileCached(filePath: string): BridgeSchema | null {
+  const resolvedPath = path.resolve(filePath)
+  if (!fs.existsSync(resolvedPath)) {
+    return null
   }
 
-  return null
+  let mtimeMs: number | null = null
+  try {
+    mtimeMs = fs.statSync(resolvedPath).mtimeMs
+  } catch {
+    mtimeMs = null
+  }
+
+  if (mtimeMs !== null) {
+    const cached = bridgeConfigCache.get(resolvedPath)
+    if (cached?.mtimeMs === mtimeMs) {
+      return cached.config
+    }
+  }
+
+  try {
+    const config = readBridgeConfigFile(resolvedPath)
+    if (mtimeMs !== null) {
+      bridgeConfigCache.set(resolvedPath, { mtimeMs, config })
+    }
+    return config
+  } catch (error) {
+    warn(error instanceof Error ? error.message : String(error))
+    if (mtimeMs !== null) {
+      bridgeConfigCache.set(resolvedPath, { mtimeMs, config: null })
+    }
+    return null
+  }
 }
 
 function readBridgeConfigFile(filePath: string): BridgeSchema {

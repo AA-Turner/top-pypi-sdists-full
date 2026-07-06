@@ -14,13 +14,12 @@ import requests_mock
 from django_webtest import WebTest
 from requests.exceptions import HTTPError
 
-from django.contrib.auth.models import Group, User
 from django.test import TransactionTestCase, override_settings
 from django.urls import reverse
 
-from allianceauth.authentication.models import State
+from allianceauth.authentication.models import State, User
 from allianceauth.eveonline.models import EveCharacter
-from allianceauth.groupmanagement.models import ReservedGroupName
+from allianceauth.groupmanagement.models import Group, ReservedGroupName
 from allianceauth.notifications.models import Notification
 from allianceauth.tests.auth_utils import AuthUtils
 from allianceauth.utils.cache import get_redis_client
@@ -31,17 +30,15 @@ from ..core import create_bot_client
 from ..discord_client import DiscordApiBackoff
 from ..discord_client.app_settings import DISCORD_API_BASE_URL
 from ..discord_client.tests.factories import (
-    TEST_GUILD_ID,
-    TEST_USER_ID,
-    TEST_USER_NAME,
+    TEST_GUILD_ID, TEST_USER_ID, TEST_USER_NAME,
     create_discord_error_response_unknown_member,
-    create_discord_guild_member_object,
-    create_discord_guild_object,
-    create_discord_role_object,
-    create_discord_user_object,
+    create_discord_guild_member_object, create_discord_guild_object,
+    create_discord_role_object, create_discord_user_object,
 )
 from ..models import DiscordUser
-from . import MODULE_PATH, TEST_MAIN_ID, TEST_MAIN_NAME, add_permissions_to_members
+from . import (
+    MODULE_PATH, TEST_MAIN_ID, TEST_MAIN_NAME, add_permissions_to_members,
+)
 from .factories import create_discord_user, create_user
 
 logger = logging.getLogger('allianceauth')

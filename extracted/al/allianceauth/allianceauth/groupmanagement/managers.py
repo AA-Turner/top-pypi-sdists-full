@@ -1,11 +1,10 @@
 import logging
 
-from django.contrib.auth.models import Group, User
 from django.db.models import Q, QuerySet
 
-from allianceauth.authentication.models import State
+from allianceauth.authentication.models import State, User
 
-from .models import GroupRequest
+from .models import Group, GroupRequest
 
 logger = logging.getLogger(__name__)
 

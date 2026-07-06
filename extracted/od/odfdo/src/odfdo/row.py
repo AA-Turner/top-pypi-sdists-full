@@ -40,7 +40,7 @@ from .table_cache import _XP_CELL_IDX, RowCache, TableCache
 from .utils import convert_coordinates, increment, translate_from_any
 
 if TYPE_CHECKING:
-    from lxml.etree import XPath
+    from lxml.etree import XPath  # ty: ignore[unresolved-import]
 
     from .style import Style
 
@@ -164,7 +164,7 @@ class Row(Element):
     @property
     def clone(self) -> Row:
         """Return a copy of the row."""
-        cloned_row: Row = Element.clone.fget(self)  # type: ignore[attr-defined]
+        cloned_row = cast(Row, Element.clone.fget(self))
         cloned_row.y = self.y
         cloned_row._table_cache = TableCache.copy(self._table_cache)
         cloned_row._row_cache = RowCache.copy(self._row_cache)
@@ -211,8 +211,8 @@ class Row(Element):
                 return
             # parent may be group of rows, not table
             if isinstance(upper, Element) and upper._tag == "table:table":
-                upper._table_cache = self._table_cache  # type: ignore[attr-defined]
-                upper._compute_table_cache()  # type: ignore[attr-defined]
+                upper._table_cache = self._table_cache  # ty: ignore[invalid-assignment]
+                upper._compute_table_cache()
                 return
             current = upper
 
@@ -364,7 +364,7 @@ class Row(Element):
             return None
         cell: Cell | None = self._row_cache.cached_cell(idx)
         if cell is None:
-            cell = self._get_element_idx2(_XP_CELL_IDX, idx)  # type: ignore[assignment]
+            cell = self._get_element_idx2(_XP_CELL_IDX, idx)  # ty: ignore[invalid-assignment]
             if cell is None:  # pragma: no cover
                 return None
             self._row_cache.store_cell(cell, idx)
@@ -569,7 +569,7 @@ class Row(Element):
         return cell
 
     # fix for unit test and typos
-    append = append_cell  # type:ignore[assignment]
+    append = append_cell  # ty: ignore[invalid-method-override]
 
     def delete_cell(self, x: int | str) -> None:
         """Delete the cell at the given position "x". Alphabetical positions

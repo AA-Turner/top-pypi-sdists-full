@@ -2,21 +2,25 @@ import logging
 
 from django.contrib.auth.models import User
 from django.db.models import Q
-from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete, pre_save
+from django.db.models.signals import (
+    m2m_changed, post_delete, post_save, pre_delete, pre_save,
+)
 from django.dispatch import Signal, receiver
 
 from esi.models import Token
 
 from allianceauth.eveonline.models import EveCharacter
 
-from .models import CharacterOwnership, OwnershipRecord, State, UserProfile, get_guest_state
+from .models import (
+    CharacterOwnership, OwnershipRecord, State, UserProfile, get_guest_state,
+)
 
 logger = logging.getLogger(__name__)
 
 state_changed = Signal()
 
 
-def trigger_state_check(state):
+def trigger_state_check(state: State) -> None:
     # evaluate all current members to ensure they still have access
     for profile in state.userprofile_set.all():
         profile.assign_state()
@@ -48,11 +52,13 @@ def state_member_alliances_changed(sender, instance, action, *args, **kwargs):
         logger.debug(f'State {instance} member alliances changed. Re-evaluating membership.')
         trigger_state_check(instance)
 
+
 @receiver(m2m_changed, sender=State.member_factions.through)
 def state_member_factions_changed(sender, instance, action, *args, **kwargs):
     if action.startswith('post_'):
         logger.debug(f'State {instance} member factions changed. Re-evaluating membership.')
         trigger_state_check(instance)
+
 
 @receiver(post_save, sender=State)
 def state_saved(sender, instance, *args, **kwargs):

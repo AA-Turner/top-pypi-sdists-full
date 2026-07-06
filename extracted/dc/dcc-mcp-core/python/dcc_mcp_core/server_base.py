@@ -20,13 +20,12 @@ import sys
 from typing import Any
 from typing import Callable
 
-from dcc_mcp_core import _core
-from dcc_mcp_core._core import create_skill_server
 from dcc_mcp_core._lifecycle_events import LifecycleEventDispatcher
+from dcc_mcp_core._runtime.core_availability import is_core_extension_available
+from dcc_mcp_core._runtime.server_factory import create_adapter_server
 from dcc_mcp_core._server import ExecutionBridgeBinder
 from dcc_mcp_core._server import LifecycleController
 from dcc_mcp_core._server import ObservabilityFacade
-from dcc_mcp_core._server import SkillDiscoveryController
 from dcc_mcp_core._server import SkillQueryClient
 from dcc_mcp_core._server import WindowResolver
 from dcc_mcp_core._server import build_mcp_http_config
@@ -38,10 +37,63 @@ from dcc_mcp_core._server.inprocess_executor import BaseDccCallableDispatcher
 from dcc_mcp_core._server.inprocess_executor import HostExecutionBridge
 from dcc_mcp_core._server.minimal_mode import MinimalModeConfig
 from dcc_mcp_core._server.options import DccServerOptions
+from dcc_mcp_core._server.skill_discovery import SkillDiscoveryController
 
-_PKG_VERSION: str = getattr(_core, "__version__", "0.0.0-dev")
+try:
+    from dcc_mcp_core import _core
+except ImportError:
+    _core = None
+
+_PKG_VERSION: str = getattr(_core, "__version__", "0.0.0-dev") if _core is not None else "0.0.0-dev"
 
 logger = logging.getLogger(__name__)
+
+
+def create_skill_server(
+    app_name: str,
+    config: Any | None = None,
+    extra_paths: list[str] | None = None,
+    dcc_name: str | None = None,
+    accumulated: bool = True,
+    **kwargs: Any,
+) -> Any:
+    """Public one-call Skills-First server factory."""
+    if _core is not None and is_core_extension_available():
+        return _core.create_skill_server(
+            app_name,
+            config=config,
+            extra_paths=extra_paths,
+            dcc_name=dcc_name,
+            accumulated=accumulated,
+            **kwargs,
+        )
+    return create_adapter_server(dcc_name or app_name, config, None)
+
+
+def _package_version() -> str:
+    try:
+        import dcc_mcp_core
+    except Exception:
+        dcc_mcp_core = None
+
+    if is_core_extension_available() and dcc_mcp_core is not None:
+        core = getattr(dcc_mcp_core, "_core", None)
+        version = getattr(core, "__version__", None)
+        if version is not None:
+            return str(version)
+
+    try:
+        from importlib import metadata as importlib_metadata
+    except ImportError:
+        try:
+            import importlib_metadata  # type: ignore[import-not-found]
+        except ImportError:
+            return _PKG_VERSION
+
+    try:
+        return importlib_metadata.version("dcc-mcp-core")
+    except Exception:
+        return _PKG_VERSION
 
 
 class DccServerBase:
@@ -126,8 +178,8 @@ class DccServerBase:
         # --- Job persistence -----------------------------------------------------
         self._init_job_persistence(options.dcc_name)
 
-        # Create the inner skill manager
-        self._server: Any = create_skill_server(options.dcc_name, self._config)
+        # Create the inner skill manager (embedded _core or sidecar binary).
+        self._server: Any = create_adapter_server(options.dcc_name, self._config, options)
         self._register_builtin_skills(options)
 
         # Wire execution bridge / dispatcher

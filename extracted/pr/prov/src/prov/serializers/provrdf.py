@@ -1,56 +1,54 @@
 """PROV-RDF serializers for ProvDocument"""
 
 from __future__ import annotations  # needed for | type annotations in Python < 3.10
+
 import base64
-from collections import OrderedDict
 import datetime
 import io
-from typing import Any, Optional
-from collections.abc import Generator
 import warnings
+from collections import OrderedDict
+from collections.abc import Generator, Iterable
+from typing import Any, cast
 
 import dateutil.parser
+from rdflib import RDF, RDFS, XSD
+from rdflib.graph import ConjunctiveGraph, Graph
+from rdflib.term import BNode, Literal as RDFLiteral, Node, URIRef
 
-from rdflib.term import URIRef, BNode  # type: ignore[import-not-found]
-from rdflib.term import Literal as RDFLiteral
-from rdflib.graph import ConjunctiveGraph  # type: ignore[import-not-found]
-from rdflib.namespace import RDF, RDFS, XSD  # type: ignore[import-not-found]
-
-from prov import Error
 import prov.model as pm
+from prov import Error
 from prov.constants import (
     PROV,
-    PROV_ID_ATTRIBUTES_MAP,
-    PROV_N_MAP,
-    PROV_BASE_CLS,
-    XSD_QNAME,
-    PROV_END,
-    PROV_START,
-    PROV_USAGE,
-    PROV_GENERATION,
-    PROV_DERIVATION,
-    PROV_INVALIDATION,
-    PROV_ALTERNATE,
-    PROV_MENTION,
-    PROV_DELEGATION,
     PROV_ACTIVITY,
-    PROV_ATTR_STARTTIME,
+    PROV_ALTERNATE,
+    PROV_ASSOCIATION,
+    PROV_ATTR_ENDER,
     PROV_ATTR_ENDTIME,
-    PROV_LOCATION,
-    PROV_ATTR_TIME,
-    PROV_ROLE,
-    PROV_COMMUNICATION,
     PROV_ATTR_INFORMANT,
     PROV_ATTR_RESPONSIBLE,
-    PROV_ATTR_TRIGGER,
-    PROV_ATTR_ENDER,
     PROV_ATTR_STARTER,
+    PROV_ATTR_STARTTIME,
+    PROV_ATTR_TIME,
+    PROV_ATTR_TRIGGER,
     PROV_ATTR_USED_ENTITY,
-    PROV_ASSOCIATION,
+    PROV_BASE_CLS,
+    PROV_COMMUNICATION,
+    PROV_DELEGATION,
+    PROV_DERIVATION,
+    PROV_END,
+    PROV_GENERATION,
+    PROV_ID_ATTRIBUTES_MAP,
+    PROV_INVALIDATION,
+    PROV_LOCATION,
+    PROV_MENTION,
+    PROV_N_MAP,
+    PROV_ROLE,
+    PROV_START,
+    PROV_USAGE,
+    XSD_QNAME,
 )
 from prov.identifier import QualifiedName
 from prov.serializers import Serializer
-
 
 __author__ = "Satrajit S. Ghosh"
 __email__ = "satra@mit.edu"
@@ -68,7 +66,7 @@ class AnonymousIDGenerator:
     def get_anon_id(self, obj: pm.ProvRecord, local_prefix: str = "id") -> str:
         if obj not in self._cache:
             self._count += 1
-            self._cache[obj] = "_:%s%d" % (local_prefix, self._count)
+            self._cache[obj] = f"_:{local_prefix}{self._count}"
         return self._cache[obj]
 
 
@@ -174,7 +172,9 @@ class ProvRDFSerializer(Serializer):
         newargs = kwargs.copy()
         newargs["format"] = rdf_format
         container = ConjunctiveGraph()
-        container.parse(stream, **newargs)
+        # rdflib accepts any readable stream at runtime (via create_input_source)
+        # but its declared parameter type does not include io.IOBase.
+        container.parse(stream, **newargs)  # type: ignore[arg-type]
         self.document = pm.ProvDocument()
         self.decode_document(
             container,
@@ -185,9 +185,11 @@ class ProvRDFSerializer(Serializer):
         return self.document
 
     def valid_identifier(
-        self, value: pm.QualifiedNameCandidate
+        self, value: pm.QualifiedNameCandidate | None
     ) -> pm.QualifiedName | None:
-        return self.document.valid_qualified_name(value)  # type: ignore[union-attr]
+        # valid_qualified_name returns None for falsy inputs, so passing None
+        # through is safe despite its declared parameter type.
+        return self.document.valid_qualified_name(value)  # type: ignore[union-attr, arg-type]
 
     def encode_rdf_representation(self, value: Any) -> RDFLiteral | URIRef:
         if isinstance(value, URIRef):
@@ -205,7 +207,7 @@ class ProvRDFSerializer(Serializer):
         else:
             return RDFLiteral(value)
 
-    def decode_rdf_representation(self, literal: Any, graph: ConjunctiveGraph) -> Any:
+    def decode_rdf_representation(self, literal: Any, graph: Graph) -> Any:
         if isinstance(literal, RDFLiteral):
             value = literal.value if literal.value is not None else literal
             datatype = literal.datatype
@@ -213,7 +215,8 @@ class ProvRDFSerializer(Serializer):
             if datatype and "XMLLiteral" in datatype:
                 value = literal
             if datatype and "base64Binary" in datatype:
-                value = base64.standard_b64encode(value)
+                # rdflib decodes xsd:base64Binary literals to bytes
+                value = base64.standard_b64encode(cast(bytes, value))
             if datatype == XSD["QName"]:
                 return pm.Literal(literal, datatype=XSD_QNAME)
             if datatype == XSD["dateTime"]:
@@ -258,15 +261,19 @@ class ProvRDFSerializer(Serializer):
                 identifier=item.identifier.uri,  # type: ignore[union-attr]
                 PROV_N_MAP=PROV_N_MAP,
             )
-            container.addN(bundle.quads())
+            # every quad of a ConjunctiveGraph carries its context graph, but
+            # rdflib types quads() with an optional context
+            container.addN(
+                cast("Iterable[tuple[Node, Node, Node, Graph]]", bundle.quads())
+            )
         return container
 
     def encode_container(
         self,
         bundle: pm.ProvBundle,
         PROV_N_MAP: dict[pm.QualifiedName, str] = PROV_N_MAP,
-        container: Optional[ConjunctiveGraph] = None,
-        identifier: Optional[str] = None,
+        container: ConjunctiveGraph | None = None,
+        identifier: str | None = None,
     ) -> ConjunctiveGraph:
         if container is None:
             container = ConjunctiveGraph(identifier=identifier)
@@ -308,7 +315,9 @@ class ProvRDFSerializer(Serializer):
                 has_qualifiers = len(record.extra_attributes) > 0 or formal_qualifiers
                 for idx, (attr, value) in enumerate(all_attributes):
                     if record.is_relation():
-                        pred = URIRef(PROV[PROV_N_MAP[rec_type]].uri)
+                        pred: URIRef | RDFLiteral = URIRef(
+                            PROV[PROV_N_MAP[rec_type]].uri
+                        )
                         # create bnode relation
                         if bnode is None:
                             valid_formal_indices = set()
@@ -317,7 +326,7 @@ class ProvRDFSerializer(Serializer):
                                 if val:
                                     valid_formal_indices.add(idx)
                             used_objects = [record.formal_attributes[0][0]]
-                            subj = None
+                            subj: URIRef | RDFLiteral | None = None
                             if record.formal_attributes[0][1]:
                                 subj = URIRef(record.formal_attributes[0][1].uri)
                             if identifier is None and subj is not None:
@@ -368,22 +377,21 @@ class ProvRDFSerializer(Serializer):
                                 qualifier = rec_type._localpart
                                 rec_uri = rec_type.uri
                                 for attr_name, val in record.extra_attributes:
-                                    if attr_name == PROV["type"]:
-                                        if (
-                                            PROV["Revision"] == val
-                                            or PROV["Quotation"] == val
-                                            or PROV["PrimarySource"] == val
-                                        ):
-                                            qualifier = val._localpart
-                                            rec_uri = val.uri
-                                            if identifier is not None:
-                                                container.remove(
-                                                    (
-                                                        identifier,
-                                                        RDF.type,
-                                                        URIRef(rec_type.uri),
-                                                    )
+                                    if attr_name == PROV["type"] and (
+                                        PROV["Revision"] == val
+                                        or PROV["Quotation"] == val
+                                        or PROV["PrimarySource"] == val
+                                    ):
+                                        qualifier = val._localpart
+                                        rec_uri = val.uri
+                                        if identifier is not None:
+                                            container.remove(
+                                                (
+                                                    identifier,
+                                                    RDF.type,
+                                                    URIRef(rec_type.uri),
                                                 )
+                                            )
                                 QRole = URIRef(PROV["qualified" + qualifier].uri)
                                 if identifier is not None:
                                     container.add((subj, QRole, identifier))
@@ -442,9 +450,12 @@ class ProvRDFSerializer(Serializer):
                                 if PROV["location"].uri in pred:
                                     pred = URIRef(PROV["atLocation"].uri)
                             if rec_type in [PROV_ACTIVITY]:
-                                if PROV_ATTR_STARTTIME in pred:
+                                # dead branch kept as-is: rec_type is never
+                                # PROV_ACTIVITY inside the is_relation() path, and
+                                # `QualifiedName in URIRef` would raise TypeError
+                                if PROV_ATTR_STARTTIME in pred:  # type: ignore[operator]
                                     pred = URIRef(PROV["startedAtTime"].uri)
-                                if PROV_ATTR_ENDTIME in pred:
+                                if PROV_ATTR_ENDTIME in pred:  # type: ignore[operator]
                                     pred = URIRef(PROV["endedAtTime"].uri)
                             if rec_type == PROV_DERIVATION:
                                 if PROV["activity"].uri in pred:
@@ -457,7 +468,9 @@ class ProvRDFSerializer(Serializer):
                                     pred = URIRef(PROV["entity"].uri)
                             container.add(
                                 (
-                                    identifier,
+                                    # a qualified relation always has a URIRef or
+                                    # BNode identifier by this point
+                                    cast("URIRef | BNode", identifier),
                                     pred,
                                     self.encode_rdf_representation(value),
                                 )
@@ -466,19 +479,29 @@ class ProvRDFSerializer(Serializer):
                     if value is None:
                         continue
                     if isinstance(value, pm.ProvRecord):
-                        obj = URIRef(str(real_or_anon_id(value)))
+                        obj: RDFLiteral | URIRef = URIRef(str(real_or_anon_id(value)))
                     else:
                         #  Assuming this is a datetime value
                         obj = self.encode_rdf_representation(value)
                     if attr == PROV["location"]:
                         pred = URIRef(PROV["atLocation"].uri)
-                        if False and isinstance(value, (URIRef, pm.QualifiedName)):
+                        # `False and ...` deliberately disables this branch (see
+                        # git history back to 2014): kept for now because touching
+                        # it risks changing frozen 2.x RDF output; scheduled for
+                        # deletion in 3.0 (item F2 in
+                        # docs/superpowers/specs/2026-07-04-3x-typing-api-improvements.md).
+                        if False and isinstance(value, (URIRef, pm.QualifiedName)):  # noqa: SIM223
                             if isinstance(value, pm.QualifiedName):
                                 value = URIRef(value.uri)
                             container.add((identifier, pred, value))
                         else:
                             container.add(
-                                (identifier, pred, self.encode_rdf_representation(obj))
+                                (
+                                    # elements always carry an identifier here
+                                    cast("URIRef | BNode", identifier),
+                                    pred,
+                                    self.encode_rdf_representation(obj),
+                                )
                             )
                         continue
                     if attr == PROV["type"]:
@@ -491,7 +514,8 @@ class ProvRDFSerializer(Serializer):
                         pred = URIRef(PROV["endedAtTime"].uri)
                     else:
                         pred = self.encode_rdf_representation(attr)
-                    container.add((identifier, pred, obj))
+                    # elements always carry an identifier here
+                    container.add((cast("URIRef | BNode", identifier), pred, obj))
         return container
 
     def decode_document(
@@ -513,7 +537,13 @@ class ProvRDFSerializer(Serializer):
                         predicate_mapper=predicate_mapper,
                     )
                 else:
-                    bundle_id = str(graph.identifier)
+                    # Resolve the bundle IRI to a qualified name; if no
+                    # registered namespace matches (rdflib >= 7 no longer
+                    # carries bundle-graph prefix bindings into TriG output,
+                    # so re-parsed documents may lack them), fall back to
+                    # minting a namespace via compute_qname, as
+                    # decode_rdf_representation does for all other IRIs.
+                    bundle_id = self.decode_rdf_representation(graph.identifier, graph)
                     bundle = document.bundle(bundle_id)
                     self.decode_container(
                         graph,
@@ -531,18 +561,22 @@ class ProvRDFSerializer(Serializer):
 
     def decode_container(
         self,
-        graph: ConjunctiveGraph,
+        graph: Graph,
         bundle: pm.ProvBundle,
         relation_mapper: dict[URIRef, str] = RELATION_MAP,
         predicate_mapper: dict[URIRef, pm.QualifiedName] = PREDICATE_MAP,
     ) -> None:
         record_types = {}  # type: dict[str, pm.QualifiedName]
         PROV_CLS_MAP = {}  # type: dict[str, pm.QualifiedName]
-        formal_attributes = {}  # type: dict[str, dict[pm.QualifiedName, Optional[pm.QualifiedNameCandidate | datetime.datetime]]]
+        formal_attributes = {}  # type: dict[str, dict[pm.QualifiedName, pm.QualifiedNameCandidate | datetime.datetime | None]]
         unique_sets = {}  # type: dict[str, dict[pm.QualifiedName, list[pm.QualifiedNameCandidate | datetime.datetime]]]
         for prov_type, _ in PROV_BASE_CLS.items():
             PROV_CLS_MAP[prov_type.uri] = PROV_BASE_CLS[prov_type]
         other_attributes = {}  # type: dict[str, list[tuple[pm.QualifiedNameCandidate, Any]]]
+        # subj/obj hold rdflib terms (Node) when bound by the triple loops below
+        # and their string forms after conversion
+        subj: str | Node
+        obj: str | Node
         for stmt in graph.triples((None, RDF.type, None)):
             subj = str(stmt[0])
             obj = str(stmt[2])
@@ -558,10 +592,12 @@ class ProvRDFSerializer(Serializer):
                 except AttributeError:
                     prov_obj = None
                 add_attr = True
+                # objects of rdf:type triples are URIRefs (str subclass);
+                # rdflib types them only as Node
                 isderivation = (
-                    pm.PROV["Revision"].uri in stmt[2]
-                    or pm.PROV["Quotation"].uri in stmt[2]
-                    or pm.PROV["PrimarySource"].uri in stmt[2]
+                    pm.PROV["Revision"].uri in cast(str, stmt[2])
+                    or pm.PROV["Quotation"].uri in cast(str, stmt[2])
+                    or pm.PROV["PrimarySource"].uri in cast(str, stmt[2])
                 )
                 if (
                     subj not in record_types
@@ -596,6 +632,8 @@ class ProvRDFSerializer(Serializer):
                 other_attributes[subj].append((pm.PROV["type"], obj))
         for subj, pred, obj in graph:
             subj = str(subj)
+            # predicates in RDF are always URIRefs; rdflib types them as Node
+            pred = cast(URIRef, pred)
             if subj not in other_attributes:
                 other_attributes[subj] = []
             if pred == RDF.type:
@@ -635,7 +673,7 @@ class ProvRDFSerializer(Serializer):
                 obj1 = self.decode_rdf_representation(obj, graph)
                 if obj is not None and obj1 is None:
                     raise ValueError(("Error transforming", obj))
-                pred_new = pred
+                pred_new: URIRef | pm.QualifiedName = pred
                 if pred in predicate_mapper:
                     pred_new = predicate_mapper[pred]
                 if record_types[subj] == PROV_COMMUNICATION and "activity" in str(
@@ -666,11 +704,10 @@ class ProvRDFSerializer(Serializer):
                     ):
                         other_attributes[subj].append((str(pred_new), obj1))
             local_key = str(obj)
-            if local_key in record_types:
-                if "qualified" in pred:
-                    formal_attributes[local_key][
-                        list(formal_attributes[local_key].keys())[0]
-                    ] = subj
+            if local_key in record_types and "qualified" in pred:
+                formal_attributes[local_key][
+                    next(iter(formal_attributes[local_key].keys()))
+                ] = subj
         for subj in record_types:
             attrs = None
             if subj in other_attributes:
@@ -695,20 +732,19 @@ class ProvRDFSerializer(Serializer):
                 del other_attributes[subj]
 
         if other_attributes:
-            # No explicit stacklevel to preserve historic warning behaviour;
-            # revisit in a follow-up.
-            warnings.warn(  # noqa: B028
+            warnings.warn(
                 "The following attributes were not converted: " + str(other_attributes),
                 UserWarning,
+                stacklevel=2,
             )
 
 
 def walk(
-    children: list,
+    children: list[tuple[Any, Any]],
     level: int = 0,
-    path: dict = None,  # type: ignore[assignment]
+    path: dict[Any, Any] | None = None,
     usename: bool = True,
-) -> Generator[dict]:
+) -> Generator[dict[Any, Any]]:
     """Generate all the full paths in a tree, as a dict.
 
     :Example:
@@ -721,7 +757,7 @@ def walk(
     [3, 4, 3, 4]
     """
     # Entry point
-    if level == 0:
+    if path is None:
         path = {}
 
     # Exit condition

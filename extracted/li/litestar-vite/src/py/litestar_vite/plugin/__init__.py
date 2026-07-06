@@ -20,7 +20,7 @@ Example::
 """
 
 import os
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, contextmanager, suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -30,7 +30,7 @@ from litestar.middleware import DefineMiddleware
 from litestar.plugins import CLIPlugin, InitPlugin
 from litestar.static_files import create_static_files_router  # pyright: ignore[reportUnknownVariableType]
 
-from litestar_vite.config import JINJA_INSTALLED, TRUE_VALUES, ExternalDevServer
+from litestar_vite.config import JINJA_INSTALLED, TRUE_VALUES, ExternalDevServer, TypeGenConfig
 from litestar_vite.loader import ViteAssetLoader
 from litestar_vite.plugin._process import ViteProcess
 from litestar_vite.plugin._proxy import (
@@ -50,6 +50,7 @@ from litestar_vite.plugin._utils import (
     get_litestar_route_prefixes,
     is_litestar_route,
     is_non_serving_assets_cli,
+    is_non_serving_context,
     log_fail,
     log_info,
     log_success,
@@ -182,6 +183,14 @@ class VitePlugin(InitPlugin, CLIPlugin):
         if self._vite_process is None:
             self._vite_process = ViteProcess(executor=self._config.executor)
         return self._vite_process
+
+    def _is_inert(self) -> bool:
+        """Return whether HTTP-serving Vite wiring should be skipped."""
+        if self._config.enabled is False:
+            return True
+        if self._config.enabled is True:
+            return False
+        return is_non_serving_context()
 
     def _get_ssr_process(self) -> ViteProcess:
         """Get or create the SSR process manager lazily.
@@ -483,7 +492,7 @@ class VitePlugin(InitPlugin, CLIPlugin):
             "opt": opt,
             "exception_handlers": {NotFoundException: static_not_found_handler},
         }
-        user_config = {k: v for k, v in self._static_files_config.items() if k != "opt"}
+        user_config = {k: v for k, v in self._static_files_config.items() if k != "opt" and v is not None}
         static_files_config: dict[str, Any] = {**base_config, **user_config}
         app_config.route_handlers.append(create_static_files_router(**static_files_config))
 
@@ -618,6 +627,12 @@ class VitePlugin(InitPlugin, CLIPlugin):
         Returns:
             The modified application configuration.
         """
+        if self._is_inert():
+            log_info("VitePlugin inert; skipping asset and route wiring")
+            return app_config
+
+        self._set_route_prefix_state(app_config.state)
+
         from litestar import Response
         from litestar.connection import Request as LitestarRequest
 
@@ -684,6 +699,14 @@ class VitePlugin(InitPlugin, CLIPlugin):
         app_config.lifespan.append(self.lifespan)  # pyright: ignore[reportUnknownMemberType]
 
         return app_config
+
+    def _set_route_prefix_state(self, state: Any) -> None:
+        """Store route-prefix config on Litestar state for request-time helpers."""
+        extra_prefixes = self._config.runtime.extra_route_prefixes
+        if getattr(state, "litestar_vite_extra_route_prefixes", None) != extra_prefixes:
+            with suppress(AttributeError):
+                del state.litestar_vite_route_prefixes
+        state.litestar_vite_extra_route_prefixes = extra_prefixes
 
     def _check_health(self) -> None:
         """Check if the Vite dev server is running and ready.
@@ -765,7 +788,13 @@ class VitePlugin(InitPlugin, CLIPlugin):
         Args:
             app: The Litestar application instance.
         """
-        from litestar_vite.codegen import export_integration_assets
+        if not isinstance(self._config.types, TypeGenConfig):
+            return
+
+        from litestar_vite.codegen import export_integration_assets, typegen_outputs_requested
+
+        if not typegen_outputs_requested(self._config, self._config.types):
+            return
 
         try:
             result = export_integration_assets(app, self._config)
@@ -796,6 +825,12 @@ class VitePlugin(InitPlugin, CLIPlugin):
         Yields:
             None
         """
+        if self._is_inert():
+            yield
+            return
+
+        self._set_route_prefix_state(app.state)
+
         if self._config.is_dev_mode:
             self._ensure_proxy_target()
 
@@ -886,6 +921,8 @@ class VitePlugin(InitPlugin, CLIPlugin):
         """
         from litestar_vite.loader import ViteAssetLoader
 
+        self._set_route_prefix_state(app.state)
+
         if self._config.set_environment:
             set_environment(config=self._config)
             set_app_environment(app)
@@ -900,7 +937,7 @@ class VitePlugin(InitPlugin, CLIPlugin):
         await self._asset_loader.initialize()
 
         if self._spa_handler is not None and not self._spa_handler.is_initialized:
-            self._spa_handler.initialize_sync(vite_url=self._proxy_target)
+            await self._spa_handler.initialize_async(vite_url=self._proxy_target)
             log_success("SPA handler initialized")
 
         is_ssr_mode = self._config.wants_html_proxy

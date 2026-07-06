@@ -412,6 +412,13 @@ def load_app_widget(app_state, app_script: AppScript, pathname: str):
         solara.server.esm.create_modules()
         solara.server.esm.create_import_map()
 
+    import ipyvue
+
+    if hasattr(ipyvue, "define_module"):
+        import solara.server.esm_vue
+
+        solara.server.esm_vue.create_modules()
+
     try:
         render_context = context.app_object
         app_state = app_state_initial
@@ -544,6 +551,11 @@ def solara_comm_target(comm, msg_first):
             reply = {
                 "method": "app-status",
                 "started": started,
+                # the root container's model id. A client whose rebuild was interrupted (socket
+                # drop between run() and the mount) has no view left but finds started=true here
+                # on its next reconnect; this id lets it RE-ATTACH to the running app (fetchAll +
+                # mount, the popout path) instead of resyncing state into a viewless page.
+                "containerId": context.container._model_id if context.container is not None else None,
                 # whether the client may soft-remount instead of showing the refresh dialog (§6.1)
                 "canRecover": _can_recover(context),
                 # opaque asset hash; a mismatch with the client's baked-in solara.clientVersion

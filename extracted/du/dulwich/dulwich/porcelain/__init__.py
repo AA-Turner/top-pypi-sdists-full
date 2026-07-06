@@ -607,6 +607,12 @@ def _checked_worktree_path(repo: "Repo", tree_path: bytes) -> bytes:
     outside the work tree or into the control directory, matching the bar git
     applies to its own path operands.
 
+    In addition to the name-based validation, refuse any path whose leading
+    directory components already exist in the work tree as a symlink. A
+    malicious repository could otherwise leave e.g. ``sub`` as a symlink to
+    ``.git/hooks`` and then have ``checkout(paths=["sub/post-checkout"])``
+    write attacker content through it.
+
     Args:
       repo: Repository the path is relative to.
       tree_path: Path in tree form (``/``-separated), as produced by
@@ -616,10 +622,16 @@ def _checked_worktree_path(repo: "Repo", tree_path: bytes) -> bytes:
       The filesystem path under the repository root, as bytes.
 
     Raises:
-      Error: If the path is absolute or carries a component the configured
-        ``core.protectNTFS``/``core.protectHFS`` validator rejects.
+      Error: If the path is absolute, carries a component the configured
+        ``core.protectNTFS``/``core.protectHFS`` validator rejects, or resolves
+        through a symlink already present in the work tree.
     """
-    from ..index import get_path_element_validator, validate_path
+    from ..index import (
+        InvalidPathError,
+        get_path_element_validator,
+        validate_path,
+        verify_leading_dirs,
+    )
 
     # Tree paths always use "/" as the separator; a leading "/" or "\\" would
     # make os.path.join discard the repository root, so treat it as absolute.
@@ -628,7 +640,12 @@ def _checked_worktree_path(repo: "Repo", tree_path: bytes) -> bytes:
     validator = get_path_element_validator(repo.get_config_stack())
     if not validate_path(tree_path, validator):
         raise Error(f"refusing to write unsafe path: {tree_path!r}")
-    return os.path.join(os.fsencode(repo.path), tree_path)
+    repo_path = os.fsencode(repo.path)
+    try:
+        verify_leading_dirs(tree_path, [], repo_path)
+    except InvalidPathError:
+        raise Error(f"refusing to write through symlink: {tree_path!r}")
+    return os.path.join(repo_path, tree_path)
 
 
 def parse_timezone_format(tz_str: str) -> int:
@@ -2729,12 +2746,21 @@ def verify_commit(
       gpg.errors.MissingSignatures: if commit was not signed by a key
         specified in keyids
     """
-    from dulwich.signature import get_signature_vendor_for_signature
+    from dulwich.signature import (
+        UntrustedSignature,
+        get_signature_vendor_for_signature,
+    )
 
     with open_repo_closing(repo) as r:
         commit = parse_commit(r, committish)
         payload, signature, _sig_type = commit.extract_signature()
         if signature is None:
+            if keyids:
+                raise UntrustedSignature(
+                    "commit is not signed by any of the trusted keys: "
+                    "no signature present",
+                    trusted_keys=list(keyids),
+                )
             return
 
         vendor = get_signature_vendor_for_signature(
@@ -5652,18 +5678,17 @@ def checkout(
                     # Create directories if needed
                     os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-                    # Write the file content
+                    # Write the file content. Route through build_file_from_blob
+                    # rather than a raw os.open: it replaces a symlink left at the
+                    # target instead of following it, so a malicious repository
+                    # cannot use a symlink to write outside the work tree.
                     if stat.S_ISREG(mode):
                         # Apply checkout filters (smudge)
                         if blob_normalizer:
                             obj = blob_normalizer.checkout_normalize(obj, path)
-
-                        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-                        if sys.platform == "win32":
-                            flags |= os.O_BINARY
-
-                        with os.fdopen(os.open(file_path, flags, mode), "wb") as f:
-                            f.write(obj.data)
+                        build_file_from_blob(obj, mode, file_path)
+                    elif stat.S_ISLNK(mode):
+                        build_file_from_blob(obj, mode, file_path)
 
                     # Update the index
                     worktree.stage(path, config=r.get_config_stack())

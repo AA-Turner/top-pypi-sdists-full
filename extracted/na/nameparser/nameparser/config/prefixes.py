@@ -1,3 +1,39 @@
+from nameparser.config.bound_first_names import BOUND_FIRST_NAMES
+
+#: The sub-set of :py:data:`PREFIXES` that are *never* a standalone first name.
+#: A name that *starts* with one of these has no first name -- the whole thing
+#: is a surname (e.g. "de Mesnil" -> last name "de Mesnil"). Curated to exclude
+#: anything that can be a given name in some culture (`al`, `van`, `von`,
+#: `della`, `di`, `del`, `da`, `vander`, ...) and anything that is also a first
+#: name prefix (`abu`). When unsure, leave a word out: a missing member just
+#: means that name is not auto-fixed, whereas a wrong member misparses a real
+#: person. Must stay a subset of :py:data:`PREFIXES` and disjoint from
+#: :py:data:`~nameparser.config.bound_first_names.BOUND_FIRST_NAMES`.
+NON_FIRST_NAME_PREFIXES = {
+    "'t",
+    'af',
+    'auf',
+    'av',
+    'bint',
+    'de',
+    "de'",
+    'degli',
+    'dei',
+    'delle',
+    'delli',
+    'dello',
+    'dem',
+    'der',
+    'dos',
+    'het',
+    'ibn',
+    'op',
+    'ter',
+    'vd',
+    'vom',
+    'zu',
+}
+
 #: Name pieces that appear before a last name. Prefixes join to the piece
 #: that follows them to make one new piece. They can be chained together, e.g
 #: "von der" and "de la". Because they only appear in middle or last names,
@@ -7,30 +43,33 @@
 #: appear after a prefixes. So in "pennie von bergen wessels MD", "von" will
 #: join with all following name pieces until the suffix "MD", resulting in the
 #: correct parsing of the last name "von bergen wessels".
-PREFIXES = set([
+#:
+#: Defined as a static union so every :py:data:`NON_FIRST_NAME_PREFIXES` member
+#: is guaranteed to also be a prefix (and still join forward), with no drift --
+#: mirroring ``TITLES = FIRST_NAME_TITLES | {...}`` in
+#: :py:mod:`nameparser.config.titles`.
+PREFIXES = NON_FIRST_NAME_PREFIXES | {
+    'aan',
+    'aen',
     'abu',
     'al',
+    'bar',
+    'bat',
     'bin',
     'bon',
     'da',
     'dal',
-    'de',
-    'de\'',
-    'degli',
-    'dei',
     'del',
     'dela',
     'della',
-    'delle',
-    'delli',
-    'dello',
-    'der',
+    'den',
     'di',
     'dí',
     'do',
-    'dos',
     'du',
-    'ibn',
+    'freiherr',
+    'freiherrin',
+    'heer',
     'la',
     'le',
     'mac',
@@ -39,9 +78,20 @@ PREFIXES = set([
     'santa',
     'st',
     'ste',
+    'te',
+    'tho',
+    'thoe',
     'van',
+    'vande',
     'vander',
     'vel',
     'von',
-    'vom',
-])
+}
+
+# Guard the two invariants the docstring above promises, so a future edit that
+# breaks them fails at import time instead of silently drifting until a test
+# happens to catch it.
+assert NON_FIRST_NAME_PREFIXES <= PREFIXES, \
+    "NON_FIRST_NAME_PREFIXES must stay a subset of PREFIXES"
+assert not (NON_FIRST_NAME_PREFIXES & BOUND_FIRST_NAMES), \
+    "NON_FIRST_NAME_PREFIXES must stay disjoint from BOUND_FIRST_NAMES"

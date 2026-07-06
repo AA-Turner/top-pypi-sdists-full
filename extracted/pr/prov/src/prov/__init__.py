@@ -1,4 +1,5 @@
 from __future__ import annotations  # needed for | type annotations in Python < 3.10
+
 import os
 from typing import TYPE_CHECKING
 
@@ -7,7 +8,7 @@ if TYPE_CHECKING:
 
 __author__ = "Trung Dong Huynh"
 __email__ = "trungdong@donggiang.com"
-__version__ = "2.2.0"
+__version__ = "2.3.0"
 
 __all__ = ["Error", "model", "read"]
 
@@ -19,7 +20,7 @@ class Error(Exception):
 
 
 def read(
-    source: str | bytes | os.PathLike, format: str | None = None
+    source: str | bytes | os.PathLike[str], format: str | None = None
 ) -> ProvDocument | None:
     """
     Convenience function returning a ProvDocument instance.
@@ -35,7 +36,6 @@ def read(
     """
     # Lazy imports to not globber the namespace.
     from prov.model import ProvDocument
-
     from prov.serializers import Registry
 
     Registry.load_serializers()

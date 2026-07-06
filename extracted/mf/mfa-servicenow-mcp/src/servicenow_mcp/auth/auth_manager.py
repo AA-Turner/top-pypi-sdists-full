@@ -6,6 +6,7 @@ import base64
 import json
 import logging
 import os
+import re
 import threading
 import time
 from pathlib import Path
@@ -58,6 +59,7 @@ from ._http_session import (  # noqa: F401
     _same_origin,
     _strip_sensitive_headers,
 )
+from ._keepalive import SessionKeepalive
 from ._response_predicates import (  # noqa: F401
     _STALE_PROFILE_COOKIE_NAMES,
     _extract_bigip_routing_hint,
@@ -71,7 +73,9 @@ from ._url_predicates import (  # noqa: F401
     USER_CLOSE_ERROR_MARKERS,
     _is_login_page_url,
     _is_mfa_challenge_url,
+    _login_poll_should_keep_waiting,
     _looks_like_user_close,
+    _visible_window_mid_auth,
 )
 
 logger = logging.getLogger(__name__)
@@ -131,16 +135,29 @@ class AuthManager:
     different authentication methods.
     """
 
-    def __init__(self, config: AuthConfig, instance_url: Optional[str] = None):
+    def __init__(
+        self,
+        config: AuthConfig,
+        instance_url: Optional[str] = None,
+        profile_label: Optional[str] = None,
+    ):
         """
         Initialize the authentication manager.
 
         Args:
             config: Authentication configuration.
             instance_url: ServiceNow instance URL.
+            profile_label: The instance-config profile/alias this manager serves.
+                When set, it becomes the session-cache identity unit: each declared
+                profile gets its OWN session file/Chromium profile even when two
+                profiles share a host and/or account, and a profile with no declared
+                username no longer collapses onto the bare-host key (the multi-user
+                session-mixing root cause, issue #64). None ⇒ legacy standalone
+                keying (host [+ declared username]).
         """
         self.config = config
         self.instance_url = instance_url
+        self._profile_label = profile_label
         self.logger = logger
         # Annotated requests.Session for static analysis: it lets mypy resolve
         # the .request()/.headers/.cookies call sites across this file to the
@@ -247,6 +264,10 @@ class AuthManager:
         # (rotated g_ck, fresh re-auth) so we can adopt the update before
         # firing a request with our now-stale in-memory token.
         self._session_disk_mtime: float = 0.0
+        # v1.18.45: background server-session keep-alive (see _keepalive.py).
+        # Started lazily from _mark_browser_session_recently_valid; never
+        # opens a browser.
+        self._session_keepalive = SessionKeepalive(self)
 
         # Lazy browser auth: only load disk cache on startup (no browser).
         # The actual browser login is deferred to the first tool call
@@ -389,6 +410,11 @@ class AuthManager:
     DEBUG_LOGIN_WAIT_BUDGET_MS: int = 1_800_000  # 30 min — DevTools inspection
     MIN_VISIBLE_LOGIN_WAIT_BUDGET_MS: int = 60_000  # human MFA/SSO entry floor
     MAX_HEADLESS_LOGIN_WAIT_BUDGET_MS: int = 30_000  # snappy fallback to visible
+    # Hard ceiling for the visible-window budget extension while the user is
+    # still on a login/MFA page (see _login_poll_should_keep_waiting). The
+    # login runs inside the blocking tool call, so this also bounds how long
+    # an abandoned window can hold that call open.
+    VISIBLE_AUTH_PAGE_HARD_CAP_MS: int = 300_000  # 5 min — TOTP entry ceiling
 
     @classmethod
     def _compute_login_wait_budget_ms(
@@ -654,15 +680,26 @@ class AuthManager:
         return cache_dir
 
     def _get_instance_user_suffix(self) -> str:
-        """Return the ``{instance}{_user}`` suffix used in cache filenames.
+        """Return the suffix used in session/profile cache filenames.
 
-        Replace ``@`` with ``_at_`` before ``.`` so usernames like
-        ``alice@corp.com`` and ``alice.corp.com`` produce distinct suffixes
-        (previously both collapsed to ``alice_corp_com``).
+        When a ``profile_label`` is set (multi-instance config), the PROFILE is
+        the identity unit: the key is ``{profile}_{host}`` so each declared
+        profile gets its own session even if two profiles share a host and/or
+        account, and a profile with no declared username never collapses onto
+        the bare-host key (issue #64). ``{host}`` is retained as a guard against
+        profile-name reuse across configs.
+
+        Legacy standalone (no profile_label): key by ``{host}{_user}`` — a
+        single config is a single identity, so host-scoped reuse is correct.
+        ``@`` becomes ``_at_`` before ``.`` so ``alice@corp.com`` and
+        ``alice.corp.com`` produce distinct suffixes (not both ``alice_corp_com``).
         """
         instance_id = "default"
         if self.instance_url:
             instance_id = (urlparse(self.instance_url).hostname or "default").replace(".", "_")
+        if self._profile_label:
+            safe_profile = re.sub(r"[^A-Za-z0-9_-]", "_", self._profile_label.strip())
+            return f"{safe_profile}_{instance_id}"
         username = ""
         raw_user: Optional[str] = None
         if self.config.browser and self.config.browser.username:
@@ -1225,10 +1262,15 @@ class AuthManager:
 
     def _start_keepalive(self) -> None:
         """No-op stub retained for backward-compat with tests that mock this
-        method. v1.12.4 removed the keep-alive thread entirely: REST API pings
-        don't reset the server-side idle timer on most ServiceNow instances,
-        so the thread burned resources without keeping sessions alive. Session
-        expiry now recovers via 401 detection in make_request → re-login.
+        method.
+
+        History note: v1.12.4 removed an EARLIER keep-alive thread, believing
+        REST pings didn't reset the server idle timer. 2026-07-05 field logs
+        showed the opposite — the inactivity timeout IS sliding and authenticated
+        requests DO reset it — so a session keep-alive was reintroduced in
+        v1.18.45, but as a separate opt-in daemon (``auth/_keepalive.py`` /
+        ``SessionKeepalive``), NOT via this stub. This stub stays a no-op; 401
+        detection in make_request → re-login remains the recovery path.
         """
         return
 
@@ -1731,7 +1773,7 @@ class AuthManager:
                 return False
         return True
 
-    def _mark_browser_session_recently_valid(self) -> None:
+    def _mark_browser_session_recently_valid(self, *, from_keepalive: bool = False) -> None:
         """Treat a successful authenticated API response as proof that the
         browser-backed session is still alive.
 
@@ -1761,6 +1803,14 @@ class AuthManager:
         if self._browser_cookie_expires_at is not None and self.config.browser:
             ttl_seconds = (self.config.browser.session_ttl_minutes or 30) * 60
             self._browser_cookie_expires_at = now + ttl_seconds
+        # v1.18.45: real request successes feed the keep-alive idle horizon
+        # and lazily start the ping thread. Keepalive's own pings pass
+        # from_keepalive=True so they slide the TTL without refreshing the
+        # horizon (a self-feeding ping would extend the server session
+        # forever after the user walked away).
+        if not from_keepalive:
+            self._session_keepalive.record_activity()
+            self._session_keepalive.ensure_started()
 
     def _absorb_response_bigip_rotation(self, response: requests.Response) -> Optional[str]:
         """v1.12.18: when a logout-redirect response carries a new
@@ -2859,7 +2909,26 @@ class AuthManager:
             # earlier is fine because the recovery path catches anything
             # the server actually rejects on the first real call.
             POST_AUTH_COOKIE_MARKERS = ("glide_user_session", "glide_session_store")
-            while (time.time() - start) * 1000 < wait_budget_ms:
+            on_auth_flow_page = False
+            visible_mid_auth = False
+            auth_page_extension_logged = False
+            while True:
+                elapsed_ms = (time.time() - start) * 1000
+                if not _login_poll_should_keep_waiting(
+                    elapsed_ms=elapsed_ms,
+                    wait_budget_ms=wait_budget_ms,
+                    use_headless=use_headless,
+                    on_auth_flow_page=visible_mid_auth,
+                    hard_cap_ms=self.VISIBLE_AUTH_PAGE_HARD_CAP_MS,
+                ):
+                    break
+                if elapsed_ms >= wait_budget_ms and not auth_page_extension_logged:
+                    auth_page_extension_logged = True
+                    self._auth_event(
+                        "login.poll.extended_on_auth_page",
+                        wait_budget_ms=wait_budget_ms,
+                        hard_cap_ms=self.VISIBLE_AUTH_PAGE_HARD_CAP_MS,
+                    )
                 try:
                     if page.is_closed():
                         _safe_close_context()
@@ -2880,6 +2949,17 @@ class AuthManager:
                     raise
 
                 current_host = (urlparse(current_url).hostname or "").lower()
+                on_auth_flow_page = _is_login_page_url(current_url)
+                # Extend the wait for a visible window that is either on a
+                # ServiceNow login/MFA page OR on an external SSO IdP host
+                # (foreign host, not the instance) — both mean a human is still
+                # authenticating. Keeps on_auth_flow_page's own meaning intact
+                # (used by the success gate below); only the extension widens.
+                visible_mid_auth = _visible_window_mid_auth(
+                    on_login_url=on_auth_flow_page,
+                    current_host=current_host,
+                    instance_host=instance_host,
+                )
 
                 # Headless can't satisfy an MFA/TOTP challenge — no human to
                 # type the code into an invisible window. The instant the
@@ -2890,16 +2970,30 @@ class AuthManager:
                 # success path's transient login.do is never mis-detected.
                 if use_headless and not _is_debug_mode() and _is_mfa_challenge_url(current_url):
                     self._last_login_started_at = prev_last_login_started_at
-                    self._auth_event("login.headless.mfa_detected", url=current_url)
+                    # v1.18.45: record whether the profile held a live
+                    # mfa-remembered cookie at the moment the server STILL
+                    # challenged us — 2026-07-05 logs show 22 of these in a
+                    # day and without this field we can't tell "cookie
+                    # expired" from "instance policy ignores remembered
+                    # browsers".
+                    try:
+                        _mfa_remembered_valid: Optional[bool] = (
+                            self._has_valid_mfa_remembered_cookie(context.cookies())
+                        )
+                    except Exception:  # noqa: BLE001
+                        _mfa_remembered_valid = None
+                    self._auth_event(
+                        "login.headless.mfa_detected",
+                        url=current_url,
+                        mfa_remembered_cookie_valid=_mfa_remembered_valid,
+                    )
                     _safe_close_context()
                     raise ValueError(
                         "MFA_REQUIRED: server presented an MFA/TOTP challenge "
                         "in headless mode — falling back to interactive login."
                     )
 
-                on_instance_non_login = current_host == instance_host and not _is_login_page_url(
-                    current_url
-                )
+                on_instance_non_login = current_host == instance_host and not on_auth_flow_page
                 if on_instance_non_login:
                     stable_instance_ticks += 1
                 else:

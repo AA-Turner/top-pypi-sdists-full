@@ -112,3 +112,8 @@ class ServerInfoMessage(DashboardModel):
     # add-on reached directly on its exposed port is False, unlike ha_addon.
     ha_ingress: bool = False
     requires_auth: bool = False
+    # ESPHome Desktop wrapper version, from ESPHOME_DESKTOP_VERSION; "" off-desktop.
+    desktop_version: str = ""
+    # True when the desktop app (0.14.0+) exposes its update `api` via
+    # ESPHOME_DESKTOP_BIN; gates the frontend's "Check for updates" menu item.
+    desktop_update_capable: bool = False

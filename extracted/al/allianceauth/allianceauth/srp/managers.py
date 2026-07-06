@@ -2,9 +2,8 @@ import logging
 
 import requests
 
-from django.contrib.auth.models import User
-
 from allianceauth import __title_useragent__, __url__, __version__
+from allianceauth.authentication.models import User
 
 from .models import SrpUserRequest
 from .providers import get_killmails_killmail_id_killmail_hash

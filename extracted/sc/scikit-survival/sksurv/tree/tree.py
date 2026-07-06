@@ -4,21 +4,21 @@ from numbers import Integral, Real
 import numpy as np
 from scipy.sparse import issparse
 from sklearn.base import BaseEstimator
-from sklearn.tree import _tree
 from sklearn.tree._classes import DENSE_SPLITTERS, SPARSE_SPLITTERS
 from sklearn.tree._splitter import Splitter
 from sklearn.tree._tree import BestFirstTreeBuilder, DepthFirstTreeBuilder, Tree
-from sklearn.tree._utils import _any_isnan_axis0
 from sklearn.utils._param_validation import Interval, RealNotInt, StrOptions
 from sklearn.utils.validation import (
     _assert_all_finite_element_wise,
     _check_n_features,
+    _check_sample_weight,
     assert_all_finite,
     check_is_fitted,
     check_random_state,
     validate_data,
 )
 
+from .._dataframe import ensure_eager_dataframe
 from ..base import SurvivalAnalysisMixin
 from ..docstrings import append_cumulative_hazard_example, append_survival_function_example
 from ..functions import StepFunction
@@ -26,8 +26,6 @@ from ..util import check_array_survival
 from ._criterion import LogrankCriterion, get_unique_times
 
 __all__ = ["ExtraSurvivalTree", "SurvivalTree"]
-
-DTYPE = _tree.DTYPE
 
 
 def _array_to_step_function(x, array):
@@ -248,7 +246,7 @@ class SurvivalTree(BaseEstimator, SurvivalAnalysisMixin):
         if not np.isnan(overall_sum):
             return None
 
-        missing_values_in_feature_mask = _any_isnan_axis0(X)
+        missing_values_in_feature_mask = np.isnan(np.sum(X, axis=0))
         return missing_values_in_feature_mask
 
     def fit(self, X, y, sample_weight=None, check_input=True):
@@ -285,7 +283,14 @@ class SurvivalTree(BaseEstimator, SurvivalAnalysisMixin):
         random_state = check_random_state(self.random_state)
 
         if check_input:
-            X = validate_data(self, X, dtype=DTYPE, ensure_min_samples=2, accept_sparse="csc", ensure_all_finite=False)
+            X = validate_data(
+                self,
+                ensure_eager_dataframe(X),
+                dtype=np.float32,
+                ensure_min_samples=2,
+                accept_sparse="csc",
+                ensure_all_finite=False,
+            )
             event, time = check_array_survival(X, y)
             time = time.astype(np.float64)
             self.unique_times_, self.is_event_time_ = get_unique_times(time, event)
@@ -300,6 +305,9 @@ class SurvivalTree(BaseEstimator, SurvivalAnalysisMixin):
             y_numeric, self.unique_times_, self.is_event_time_ = y
 
         n_samples, self.n_features_in_ = X.shape
+        if sample_weight is not None:
+            sample_weight = _check_sample_weight(sample_weight, X, dtype=np.float64)
+
         params = self._check_params(n_samples)
 
         if self.low_memory:
@@ -419,6 +427,7 @@ class SurvivalTree(BaseEstimator, SurvivalAnalysisMixin):
 
     def _validate_X_predict(self, X, check_input, accept_sparse="csr"):
         """Validate X whenever one tries to predict"""
+        X = ensure_eager_dataframe(X)
         if check_input:
             if self._support_missing_values(X):
                 ensure_all_finite = "allow-nan"
@@ -427,7 +436,7 @@ class SurvivalTree(BaseEstimator, SurvivalAnalysisMixin):
             X = validate_data(
                 self,
                 X,
-                dtype=DTYPE,
+                dtype=np.float32,
                 accept_sparse=accept_sparse,
                 reset=False,
                 ensure_all_finite=ensure_all_finite,

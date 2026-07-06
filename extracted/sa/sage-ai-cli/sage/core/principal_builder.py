@@ -52,6 +52,7 @@ from sage.core.pre_write_validator import (
     ValidationResult,
     validated_generate,
 )
+from sage.core.validation_helpers import aggregate_status, strict_aggregate_status
 from sage.core.principal_engineer import (
     CURRENT_VERSIONS,
     FileSpec,
@@ -284,15 +285,13 @@ def _heal_until_green(
             out_dir, generate=generate, log=log, stuck_threshold=stuck_threshold,
         )
 
-        install_ok = all(r.install_ok in (True, None) for r in last_reports)
-        build_ok = all(r.build_ok in (True, None) for r in last_reports)
-        runs_ok = all(r.runs_ok in (True, None) for r in last_reports)
+        install_ok = aggregate_status(last_reports, "install_ok")
+        build_ok = aggregate_status(last_reports, "build_ok")
+        runs_ok = aggregate_status(last_reports, "runs_ok")
         # We're stricter than the caller here: a build with no test step
         # detected is NOT considered green. We always scaffold tests, so a
         # missing test step means the verify discovery missed something.
-        tests_ok = bool(last_reports) and all(
-            r.tests_ok is True for r in last_reports
-        )
+        tests_ok = strict_aggregate_status(last_reports, "tests_ok")
         if install_ok and build_ok and runs_ok and tests_ok:
             log(f"[heal] round {round_idx}: GREEN")
             return install_ok, build_ok, runs_ok, tests_ok, last_reports
@@ -813,10 +812,10 @@ def _build_project_principal_inner(
         stuck_threshold=stuck_threshold,
     )
 
-    install_ok = all(r.install_ok in (True, None) for r in verify_reports)
-    build_ok = all(r.build_ok in (True, None) for r in verify_reports)
-    runs_ok = all(r.runs_ok in (True, None) for r in verify_reports)
-    tests_ok = all(r.tests_ok in (True, None) for r in verify_reports)
+    install_ok = aggregate_status(verify_reports, "install_ok")
+    build_ok = aggregate_status(verify_reports, "build_ok")
+    runs_ok = aggregate_status(verify_reports, "runs_ok")
+    tests_ok = strict_aggregate_status(verify_reports, "tests_ok")
 
     # ── 9. Final polish — types/* deps + ruff/eslint --fix + final verify ──
     # Catches the trailing issues: missing @types/jest etc. (typecheck
@@ -837,7 +836,7 @@ def _build_project_principal_inner(
     # ── 10. Heal-until-green ── sage MUST NOT report success when the
     # generated code can't install or its tests don't pass. This loop is
     # the user's "do not allow sage to complete early" guarantee.
-    if enable_heal and (install_ok is False or build_ok is False or runs_ok is False or tests_ok is False):
+    if enable_heal and (install_ok is False or build_ok is False or runs_ok is False or tests_ok in (False, None)):
         install_ok, build_ok, runs_ok, tests_ok, heal_reports = _heal_until_green(
             out_dir,
             generate=generate,
@@ -897,7 +896,7 @@ def _build_project_principal_inner(
     # Surface a hard failure if the heal loop couldn't make the build
     # green. Caller (CLI) is expected to catch BuildIncomplete and present
     # a clear message — sage MUST NOT silently return a broken project.
-    if enable_heal and (install_ok is False or build_ok is False or runs_ok is False or tests_ok is False):
+    if enable_heal and (install_ok is False or build_ok is False or runs_ok is False or tests_ok in (False, None)):
         raise BuildIncomplete(
             f"build did not converge: install_ok={install_ok} build_ok={build_ok} runs_ok={runs_ok} tests_ok={tests_ok}",
             report,

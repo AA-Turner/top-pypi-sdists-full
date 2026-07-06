@@ -11,12 +11,50 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from drf_api_logger import API_LOGGER_SIGNAL
+from drf_api_logger.observability import (
+    annotate_opentelemetry_span,
+    record_prometheus_metrics,
+)
 
 
 def as_json_dict(value):
     if isinstance(value, str):
         return json.loads(value)
     return value
+
+
+class FakeCounter:
+    def __init__(self):
+        self.calls = []
+        self._labels = None
+
+    def labels(self, **labels):
+        self._labels = labels
+        return self
+
+    def inc(self):
+        self.calls.append(("inc", self._labels.copy()))
+
+
+class FakeObserver:
+    def __init__(self):
+        self.calls = []
+        self._labels = None
+
+    def labels(self, **labels):
+        self._labels = labels
+        return self
+
+    def observe(self, value):
+        self.calls.append(("observe", self._labels.copy(), value))
+
+
+class FakeSpan:
+    def __init__(self):
+        self.attributes = {}
+
+    def set_attribute(self, key, value):
+        self.attributes[key] = value
 
 
 class TestMiddlewareIntegration(TestCase):
@@ -97,6 +135,83 @@ class TestMiddlewareIntegration(TestCase):
 
     @override_settings(
         DRF_API_LOGGER_SIGNAL=True,
+        DRF_API_LOGGER_ENABLE_CORRELATION=True
+    )
+    def test_correlation_signal_integration_with_real_resolver(self):
+        """Test correlation metadata with the real Django URL resolver."""
+        API_LOGGER_SIGNAL.listen += self.signal_listener
+
+        try:
+            response = self.client.get(
+                '/api/test/',
+                HTTP_X_REQUEST_ID='req-integration-123',
+                HTTP_TRACEPARENT='00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',
+            )
+            self.assertEqual(response.status_code, 200)
+
+            self.assertEqual(len(self.signal_data), 1)
+            signal_data = self.signal_data[0]
+            correlation = signal_data['correlation']
+            low_cardinality = signal_data['low_cardinality']
+
+            self.assertEqual(correlation['request_id'], 'req-integration-123')
+            self.assertEqual(correlation['trace_id'], '4bf92f3577b34da6a3ce929d0e0e4736')
+            self.assertEqual(correlation['route'], 'api/test/')
+            self.assertEqual(correlation['url_name'], 'test_api')
+            self.assertEqual(correlation['status_class'], '2xx')
+            self.assertEqual(low_cardinality['route'], 'api/test/')
+            self.assertEqual(low_cardinality['url_name'], 'test_api')
+            self.assertEqual(low_cardinality['status_class'], '2xx')
+            self.assertNotIn('request_id', low_cardinality)
+            self.assertNotIn('trace_id', low_cardinality)
+        finally:
+            API_LOGGER_SIGNAL.listen -= self.signal_listener
+
+    @override_settings(
+        DRF_API_LOGGER_SIGNAL=True,
+        DRF_API_LOGGER_ENABLE_CORRELATION=True
+    )
+    def test_observability_helpers_consume_signal_payload(self):
+        """Test observability helpers consume the middleware signal payload."""
+        counter = FakeCounter()
+        observer = FakeObserver()
+        span = FakeSpan()
+
+        def listener(**kwargs):
+            self.signal_data.append(kwargs)
+            record_prometheus_metrics(kwargs, counter, observer)
+            annotate_opentelemetry_span(span, kwargs)
+
+        API_LOGGER_SIGNAL.listen += listener
+
+        try:
+            response = self.client.get(
+                "/api/test/",
+                HTTP_X_REQUEST_ID="req-integration-123",
+                HTTP_TRACEPARENT="00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+            )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(len(counter.calls), 1)
+            self.assertEqual(len(observer.calls), 1)
+
+            counter_labels = counter.calls[0][1]
+            self.assertEqual(counter_labels["route"], "api/test/")
+            self.assertEqual(counter_labels["url_name"], "test_api")
+            self.assertEqual(counter_labels["status_class"], "2xx")
+            self.assertEqual(counter_labels["method"], "GET")
+            self.assertNotIn("request_id", counter_labels)
+            self.assertNotIn("trace_id", counter_labels)
+
+            self.assertEqual(observer.calls[0][2], self.signal_data[0]["execution_time"])
+            self.assertEqual(span.attributes["drf_api_logger.route"], "api/test/")
+            self.assertEqual(span.attributes["drf_api_logger.status_class"], "2xx")
+            self.assertNotIn("drf_api_logger.request_id", span.attributes)
+        finally:
+            API_LOGGER_SIGNAL.listen -= listener
+
+    @override_settings(
+        DRF_API_LOGGER_SIGNAL=True,
         DRF_API_LOGGER_METHODS=['POST', 'PUT']
     )
     def test_method_filtering_integration(self):
@@ -159,6 +274,55 @@ class TestMiddlewareIntegration(TestCase):
             # No signal should be triggered
             self.assertEqual(len(self.signal_data), 0)
             
+        finally:
+            API_LOGGER_SIGNAL.listen -= self.signal_listener
+
+    @override_settings(
+        DRF_API_LOGGER_SIGNAL=True,
+        DRF_API_LOGGER_POLICY={
+            "rules": [
+                {"url_name": "test_api", "log": False, "reason": "skip_test_api"},
+            ]
+        }
+    )
+    def test_policy_skip_uses_real_url_resolver(self):
+        API_LOGGER_SIGNAL.listen += self.signal_listener
+
+        try:
+            response = self.client.get('/api/test/')
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(self.signal_data, [])
+        finally:
+            API_LOGGER_SIGNAL.listen -= self.signal_listener
+
+    @override_settings(
+        DRF_API_LOGGER_SIGNAL=True,
+        DRF_API_LOGGER_POLICY={
+            "rules": [
+                {
+                    "url_name": "test_api",
+                    "mask_keys": ["email"],
+                    "reason": "mask_email_on_test_api",
+                },
+            ]
+        }
+    )
+    def test_policy_masking_uses_real_url_resolver(self):
+        API_LOGGER_SIGNAL.listen += self.signal_listener
+
+        try:
+            response = self.client.post(
+                '/api/test/?email=developer@example.invalid',
+                data={"email": "developer@example.invalid", "safe": "visible"},
+                format='json',
+            )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(len(self.signal_data), 1)
+            self.assertEqual(self.signal_data[0]['body']['email'], '***FILTERED***')
+            self.assertIn('email=***FILTERED***', self.signal_data[0]['api'])
+            self.assertEqual(self.signal_data[0]['policy']['reason'], 'mask_email_on_test_api')
         finally:
             API_LOGGER_SIGNAL.listen -= self.signal_listener
 

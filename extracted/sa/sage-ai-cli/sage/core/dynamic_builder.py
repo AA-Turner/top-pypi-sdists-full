@@ -58,6 +58,7 @@ from sage.core.spec_decomposer import (
     StackProfile,
     decompose_spec,
 )
+from sage.core.validation_helpers import aggregate_status, strict_aggregate_status
 from sage.core.tdd_loop import FeatureResult, run_feature_tdd
 
 
@@ -1145,10 +1146,10 @@ def build_project_dynamic(
         stuck_threshold=stuck_threshold,
     )
 
-    install_ok = all(r.install_ok in (True, None) for r in verify_reports)
-    build_ok = all(r.build_ok in (True, None) for r in verify_reports)
-    runs_ok = all(r.runs_ok in (True, None) for r in verify_reports)
-    tests_ok = all(r.tests_ok in (True, None) for r in verify_reports)
+    install_ok = aggregate_status(verify_reports, "install_ok")
+    build_ok = aggregate_status(verify_reports, "build_ok")
+    runs_ok = aggregate_status(verify_reports, "runs_ok")
+    tests_ok = strict_aggregate_status(verify_reports, "tests_ok")
 
     stuck = [r.feature for r in feature_results if r.stuck]
     log(f"[6/6] complete. install_ok={install_ok} build_ok={build_ok} runs_ok={runs_ok} tests_ok={tests_ok} stuck={stuck}")

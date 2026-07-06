@@ -24,17 +24,17 @@ if t.TYPE_CHECKING:
     from dbt_osmosis.core.config import DbtProjectContext
 
 __all__ = [
-    "LintLevel",
-    "LintViolation",
-    "LintResult",
-    "SQLLinter",
-    "lint_sql_code",
-    "LintRule",
     "KeywordCapitalizationRule",
     "LineLengthRule",
+    "LintLevel",
+    "LintResult",
+    "LintRule",
+    "LintViolation",
+    "QuotedIdentifierRule",
+    "SQLLinter",
     "SelectStarRule",
     "TableAliasRule",
-    "QuotedIdentifierRule",
+    "lint_sql_code",
 ]
 
 
@@ -248,62 +248,65 @@ class KeywordCapitalizationRule(LintRule):
             "partition",
         }
 
-    def __call__(self, ast: exp.Expression, sql: str) -> list[LintViolation]:
-        violations: list[LintViolation] = []
+    def _keyword_pattern(self) -> str:
+        return r"\b(" + "|".join(self.keywords) + r")\b"
 
-        # Find all keywords in the SQL
-        keyword_pattern = r"\b(" + "|".join(self.keywords) + r")\b"
-        matches = re.finditer(keyword_pattern, sql, re.IGNORECASE)
-
+    def _keyword_case_counts(self, sql: str, keyword_pattern: str) -> tuple[int, int]:
         upper_count = 0
         lower_count = 0
-
-        for match in matches:
+        for match in re.finditer(keyword_pattern, sql, re.IGNORECASE):
             keyword = match.group()
             if keyword.isupper():
                 upper_count += 1
             elif keyword.islower():
                 lower_count += 1
+        return upper_count, lower_count
 
-        # Determine expected case
+    def _expected_case(self, sql: str, keyword_pattern: str) -> str:
         if self.case == "upper":
-            expected_case = "upper"
-        elif self.case == "lower":
-            expected_case = "lower"
-        else:  # consistent
-            # Use the most common case as expected
-            expected_case = "upper" if upper_count >= lower_count else "lower"
+            return "upper"
+        if self.case == "lower":
+            return "lower"
 
-        # Find violations
+        upper_count, lower_count = self._keyword_case_counts(sql, keyword_pattern)
+        return "upper" if upper_count >= lower_count else "lower"
+
+    def _keyword_fix(self, keyword: str, expected_case: str) -> str | None:
+        if expected_case == "upper" and not keyword.isupper():
+            return keyword.upper()
+        if expected_case == "lower" and not keyword.islower():
+            return keyword.lower()
+        return None
+
+    def _keyword_violation(
+        self,
+        sql: str,
+        match: re.Match[str],
+        *,
+        expected_case: str,
+        fix: str,
+    ) -> LintViolation:
+        keyword = match.group()
+        return LintViolation(
+            rule_id=self.rule_id,
+            message=f"Keyword '{keyword}' should be {expected_case}case",
+            level=self.level,
+            line=self._find_line_number(sql, keyword),
+            col=match.start() - sql.rfind("\n", 0, match.start()),
+            sql_snippet=keyword,
+            fix=fix,
+        )
+
+    def __call__(self, ast: exp.Expression, sql: str) -> list[LintViolation]:
+        violations: list[LintViolation] = []
+        keyword_pattern = self._keyword_pattern()
+        expected_case = self._expected_case(sql, keyword_pattern)
         for match in re.finditer(keyword_pattern, sql, re.IGNORECASE):
-            keyword = match.group()
-            is_upper = keyword.isupper()
-            is_lower = keyword.islower()
-
-            violation = False
-            fix = None
-
-            if expected_case == "upper" and not is_upper:
-                violation = True
-                fix = keyword.upper()
-            elif expected_case == "lower" and not is_lower:
-                violation = True
-                fix = keyword.lower()
-
-            if violation:
-                line = self._find_line_number(sql, keyword)
+            fix = self._keyword_fix(match.group(), expected_case)
+            if fix is not None:
                 violations.append(
-                    LintViolation(
-                        rule_id=self.rule_id,
-                        message=f"Keyword '{keyword}' should be {expected_case}case",
-                        level=self.level,
-                        line=line,
-                        col=match.start() - sql.rfind("\n", 0, match.start()),
-                        sql_snippet=keyword,
-                        fix=fix,
-                    )
+                    self._keyword_violation(sql, match, expected_case=expected_case, fix=fix)
                 )
-
         return violations
 
 
@@ -487,13 +490,6 @@ class SQLLinter:
         enabled_rules: list[str] | None = None,
         disabled_rules: list[str] | None = None,
     ) -> None:
-        """Initialize the SQL linter.
-
-        Args:
-            dialect: SQL dialect to use (e.g., 'postgres', 'duckdb', 'snowflake')
-            enabled_rules: List of rule IDs to enable (None = all)
-            disabled_rules: List of rule IDs to disable
-        """
         self.dialect = dialect if isinstance(dialect, Dialect) else None
         self.dialect_name = str(dialect) if dialect else None
 
@@ -562,10 +558,10 @@ class SQLLinter:
                 try:
                     violations = rule(t.cast(exp.Expression, ast), sql_to_lint)
                     result.violations.extend(violations)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     logger.warning(f"Rule {rule.rule_id} failed: {e}")
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             # If parsing fails, add a parsing error violation
             result.violations.append(
                 LintViolation(
@@ -587,7 +583,7 @@ class SQLLinter:
 
         try:
             compiled_node = compile_sql_code(context, raw_sql)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug(":warning: SQL compilation failed: %s", e)
             return LintResult(
                 violations=[

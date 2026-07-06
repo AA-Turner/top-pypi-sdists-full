@@ -368,27 +368,43 @@ def _apply_defaults(config: dict, path: str) -> dict:
     We must set all properties, as well as nested properties to `None`, or PyO3
     will refuse to convert them, as the key must definitely exist.
     """
-    project_root = config["root_dir"] = os.path.dirname(path)
+    config["root_dir"] = os.path.dirname(path)
+    project_root = Path(config["root_dir"]).resolve()
 
     if "site_name" not in config:
         raise ConfigurationError("Missing required setting: site_name")
 
     # Set site directory
     set_default(config, "site_dir", "site", str)
-    if ".." in config.get("site_dir", ""):
-        raise ConfigurationError("site_dir must not contain '..'")
+    if config["site_dir"] == "":
+        raise ConfigurationError("site_dir must not be empty")
+    site_dir = Path(config["site_dir"])
+    if site_dir.is_absolute():
+        site_dir = site_dir.resolve()
+    else:
+        site_dir = project_root.joinpath(site_dir).resolve()
+    if not site_dir.is_relative_to(project_root):
+        raise ConfigurationError("site_dir must be within project root")
 
     # Set docs directory
     set_default(config, "docs_dir", "docs", str)
-    if ".." in config.get("docs_dir", ""):
-        raise ConfigurationError("docs_dir must not contain '..'")
+    if config["docs_dir"] == "":
+        raise ConfigurationError("docs_dir must not be empty")
+    docs_dir = Path(config["docs_dir"])
+    if docs_dir.is_absolute():
+        docs_dir = docs_dir.resolve()
+    else:
+        docs_dir = project_root.joinpath(docs_dir).resolve()
+    if not docs_dir.is_relative_to(project_root):
+        raise ConfigurationError("docs_dir must be within project root")
+
+    # Validate that site_dir is not the same as docs_dir
+    if site_dir == docs_dir:
+        raise ConfigurationError("site_dir and docs_dir must be different")
 
     # Validate that docs directory exists
-    docs_dir_path = os.path.join(project_root, config["docs_dir"])
-    if not os.path.isdir(docs_dir_path):
-        raise ConfigurationError(
-            f"Docs directory does not exist: {docs_dir_path}"
-        )
+    if not docs_dir.is_dir():
+        raise ConfigurationError(f"Docs directory does not exist: {docs_dir}")
 
     # Set defaults for core settings
     set_default(config, "site_url", None, str)
@@ -414,16 +430,16 @@ def _apply_defaults(config: dict, path: str) -> dict:
     set_default(config, "edit_uri", None, str)
 
     # Set defaults for repository name settings
-    docs_dir = config.get("docs_dir")
     repo_names = {
         "github.com": "GitHub",
         "gitlab.com": "Gitlab",
         "bitbucket.org": "Bitbucket",
     }
+    rel_docs_dir = docs_dir.relative_to(project_root)
     edit_uris = {
-        "github.com": f"edit/master/{docs_dir}",
-        "gitlab.com": f"edit/master/{docs_dir}",
-        "bitbucket.org": f"src/default/{docs_dir}",
+        "github.com": f"edit/master/{rel_docs_dir}",
+        "gitlab.com": f"edit/master/{rel_docs_dir}",
+        "bitbucket.org": f"src/default/{rel_docs_dir}",
     }
     repo_url = config.get("repo_url")
     if repo_url:
@@ -662,6 +678,7 @@ def _apply_defaults(config: dict, path: str) -> dict:
 
     # Map plugins configuration to Markdown extensions
     _shim_autorefs(config)
+    _shim_markdown_exec(config)
     _shim_mkdocstrings(config, path)
     _shim_glightbox(config)
     _shim_macros(config)
@@ -814,6 +831,33 @@ def _shim_autorefs(config: dict[str, Any]) -> None:
             config["markdown_extensions"].append(AutorefsExtension.name)
 
 
+def _shim_markdown_exec(config: dict[str, Any]) -> None:
+    # Map markdown-exec plugin configuration to superfences configuration
+    if "markdown-exec" in config["plugins"]:
+        markdown_exec_config = config["plugins"]["markdown-exec"]["config"]
+        enabled = markdown_exec_config.pop("enabled", True)
+        languages = markdown_exec_config.get("languages", None)
+        if enabled and (languages or languages is None):
+            trueish = ("auto", "required", True)
+            ansi = markdown_exec_config.get("ansi", False) in trueish
+            if ansi and not find_spec("pygments_ansi_color"):
+                raise ConfigurationError(
+                    "ANSI colors are required, but pygments-ansi-color is not "
+                    "installed. Please install pygments-ansi-color or turn off "
+                    "ANSI requirement in markdown-exec configuration."
+                )
+            if "pymdownx.superfences" not in config["markdown_extensions"]:
+                config["markdown_extensions"].append("pymdownx.superfences")
+            if "pymdownx.superfences" not in config["mdx_configs"]:
+                config["mdx_configs"]["pymdownx.superfences"] = {}
+            superfences = config["mdx_configs"]["pymdownx.superfences"]
+            if "custom_fences" not in superfences:
+                superfences["custom_fences"] = []
+            superfences["custom_fences"].extend(
+                _get_markdown_exec_superfences(languages)
+            )
+
+
 def _shim_mkdocstrings(config: dict[str, Any], path: str) -> None:
     # Map mkdocstrings plugin configuration to the extension configuration
     if "mkdocstrings" in config["plugins"]:
@@ -851,6 +895,28 @@ def _shim_macros(config: dict[str, Any]) -> None:
 def _ignore_directory(dirpath: str) -> bool:
     """Determine whether to ignore a folder based on its name."""
     return dirpath == "__pycache__" or dirpath.startswith(".venv")
+
+
+def _get_markdown_exec_superfences(
+    languages: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Get superfences configuration for markdown-exec."""
+    try:
+        import markdown_exec  # noqa: PLC0415  # ty:ignore[unresolved-import]
+    except ImportError as error:
+        raise ConfigurationError(
+            "markdown-exec plugin is enabled, but markdown-exec is not "
+            "installed. Please install markdown-exec or disable the plugin."
+        ) from error
+    return [
+        {
+            "name": language,
+            "class": language,
+            "validator": markdown_exec.validator,
+            "format": markdown_exec.formatter,
+        }
+        for language in languages or markdown_exec.formatters.keys()
+    ]
 
 
 def _list_py_modules(path: Path) -> Iterator[Path]:
@@ -1176,12 +1242,14 @@ def _convert_plugins(value: Any, config: dict) -> dict:
 
     # Ensure correct resolution of links when viewing the site from the
     # file system by disabling directory URLs
-    if offline.get("enabled"):
+    if offline.get("enabled", True):
         config["use_directory_urls"] = False
 
         # Append iframe-worker to polyfills/shims
         if not any(
-            "iframe-worker" in url for url in config["extra"]["polyfills"]
+            "iframe-worker"
+            in (url.get("path", "") if isinstance(url, dict) else url)
+            for url in config["extra"]["polyfills"]
         ):
             script = "https://unpkg.com/iframe-worker/shim"
             config["extra"]["polyfills"].append(

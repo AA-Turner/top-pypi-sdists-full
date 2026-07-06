@@ -15,7 +15,12 @@ def target_from_session_key(session_key: str) -> tuple[str, str]:
         if len(parts) == 3 and parts[1] and parts[2]:
             return f"gateway:{parts[1]}", parts[2]
         return "", ""
-    channel, chat_id = session_key.split(":", 1)
+    # 普通通道键为 channel:chat_id，或群聊 per_user 的 channel:chat_id:sender_id。
+    # 投递目标始终是群/会话本身(chat_id)，需剥离末段 sender 后缀。
+    # 前提(trusted-operator)：group-capable 通道的 chat_id 不含冒号。
+    parts = session_key.split(":")
+    channel = parts[0]
+    chat_id = parts[1] if len(parts) >= 2 else ""
     return (channel, chat_id) if channel and chat_id else ("", "")
 
 
@@ -56,8 +61,12 @@ def inbound_event_from_job(job: Any) -> InboundEvent:
     )
 
 
-def build_scheduled_job_handler(bus: Any) -> Callable[[Any], Awaitable[None]]:
+def build_scheduled_job_handler(bus: Any, *, inspection_runner: Any = None) -> Callable[[Any], Awaitable[None]]:
     async def _on_job(job: Any) -> None:
+        payload = job.payload if isinstance(job.payload, dict) else {}
+        if payload.get("_inspection_tick") and inspection_runner is not None:
+            await inspection_runner()
+            return
         accepted = await bus.publish_inbound(inbound_event_from_job(job))
         if not accepted:
             raise RuntimeError(

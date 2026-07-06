@@ -1,27 +1,25 @@
 from __future__ import annotations  # needed for | type annotations in Python < 3.10
-from collections import defaultdict
+
 import datetime
 import io
 import json
-from typing import Any, Optional
+import logging
+from collections import defaultdict
+from typing import Any, cast
 
 from prov import Error
-from prov.serializers import Serializer
 from prov.constants import *
+from prov.identifier import Identifier, Namespace, QualifiedName
 from prov.model import (
     Literal,
-    Identifier,
-    QualifiedName,
-    Namespace,
-    ProvDocument,
     ProvBundle,
-    first,
-    parse_xsd_datetime,
+    ProvDocument,
     ProvRecord,
     QualifiedNameCandidate,
+    first,
+    parse_xsd_datetime,
 )
-
-import logging
+from prov.serializers import Serializer
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +42,7 @@ class AnonymousIDGenerator:
     def get_anon_id(self, obj: ProvRecord, local_prefix: str = "id") -> Identifier:
         if obj not in self._cache:
             self._count += 1
-            self._cache[obj] = Identifier("_:%s%d" % (local_prefix, self._count))
+            self._cache[obj] = Identifier(f"_:{local_prefix}{self._count}")
         return self._cache[obj]
 
 
@@ -94,7 +92,7 @@ class ProvJSONSerializer(Serializer):
         if not isinstance(stream, io.TextIOBase):
             buf = io.StringIO(stream.read().decode("utf-8"))
             stream = buf
-        return json.load(stream, cls=ProvJSONDecoder, **args)
+        return cast(ProvDocument, json.load(stream, cls=ProvJSONDecoder, **args))
 
 
 class ProvJSONEncoder(json.JSONEncoder):
@@ -115,7 +113,7 @@ class ProvJSONDecoder(json.JSONDecoder):
 
 # Encoding/decoding functions
 def valid_qualified_name(
-    bundle: ProvBundle, value: Optional[QualifiedNameCandidate]
+    bundle: ProvBundle, value: QualifiedNameCandidate | None
 ) -> QualifiedName | None:
     if value is None:
         return None
@@ -133,7 +131,7 @@ def encode_json_document(document: ProvDocument) -> ProvJSONDict:
 
 
 def encode_json_container(bundle: ProvBundle) -> ProvJSONDict:
-    container = defaultdict(dict)  # type: dict[str, dict]
+    container = defaultdict(dict)  # type: dict[str, dict[str, Any]]
     prefixes = {}  # type: dict[str, str]
     for namespace in bundle._namespaces.get_registered_namespaces():
         prefixes[namespace.prefix] = namespace.uri
@@ -171,9 +169,9 @@ def encode_json_container(bundle: ProvBundle) -> ProvJSONDict:
                         )
                     else:
                         # multiple values
-                        record_json[attr_name] = list(
+                        record_json[attr_name] = [
                             encode_json_representation(value) for value in values
-                        )
+                        ]
         # Check if the container already has the id of the record
         if identifier not in container[rec_label]:
             # this is the first instance, just put in the new record
@@ -192,7 +190,7 @@ def encode_json_container(bundle: ProvBundle) -> ProvJSONDict:
 
 
 def decode_json_document(content: ProvJSONDict, document: ProvDocument) -> None:
-    bundles = dict()
+    bundles = {}
     if "bundle" in content:
         bundles = content["bundle"]
         del content["bundle"]
@@ -210,7 +208,7 @@ def decode_json_container(jc: ProvJSONDict, bundle: ProvBundle) -> None:
         prefixes = jc["prefix"]
         for prefix, uri in prefixes.items():
             if prefix != "default":
-                bundle.add_namespace(Namespace(prefix, uri))  # type: ignore
+                bundle.add_namespace(Namespace(prefix, uri))
             else:
                 bundle.set_default_namespace(uri)
         del jc["prefix"]
@@ -218,15 +216,12 @@ def decode_json_container(jc: ProvJSONDict, bundle: ProvBundle) -> None:
     for rec_type_str in jc:
         rec_type = PROV_RECORD_IDS_MAP[rec_type_str]
         for rec_id, content in jc[rec_type_str].items():
-            if hasattr(content, "items"):  # it is a dict
-                #  There is only one element, create a singleton list
-                elements = [content]
-            else:
-                # expect it to be a list of dictionaries
-                elements = content
+            #  If it is a dict, there is only one element: make a singleton list.
+            #  Otherwise, it is expected to already be a list of dictionaries.
+            elements = [content] if hasattr(content, "items") else content
 
             for element in elements:
-                attributes = dict()  # type: dict[QualifiedNameCandidate, Any]
+                attributes = {}  # type: dict[QualifiedNameCandidate, Any]
                 other_attributes = []  # type: list[tuple[QualifiedNameCandidate, Any]]
                 # this is for the multiple-entity membership hack to come
                 membership_extra_members = None
@@ -314,9 +309,9 @@ def decode_json_representation(literal: Any, bundle: ProvBundle) -> Any:
     if isinstance(literal, dict):
         # complex type
         value = literal["$"]
-        datatype_str = literal["type"] if "type" in literal else None  # type: Optional[str]
+        datatype_str = literal.get("type", None)  # type: str | None
         datatype = valid_qualified_name(bundle, datatype_str)
-        langtag = literal["lang"] if "lang" in literal else None
+        langtag = literal.get("lang", None)
         if datatype == XSD_ANYURI:
             return Identifier(value)
         elif datatype == PROV_QUALIFIEDNAME:

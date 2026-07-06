@@ -1,7 +1,10 @@
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group as BaseGroup
 from django.test import TestCase
 
-from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter, EveCorporationInfo
+from allianceauth.eveonline.models import (
+    EveAllianceInfo, EveCharacter, EveCorporationInfo,
+)
+from allianceauth.groupmanagement.models import Group
 from allianceauth.tests.auth_utils import AuthUtils
 
 from ..models import AutogroupsConfig, get_users_for_state
@@ -86,7 +89,7 @@ class AutogroupsConfigTestCase(TestCase):
         obj.update_corp_group_membership(self.member)  # check for no side effects
 
         group = obj.create_alliance_group(self.alliance)
-        group_qs = Group.objects.filter(pk=group.pk)
+        group_qs = BaseGroup.objects.filter(pk=group.pk)
 
         self.assertIn(group, self.member.groups.all())
         self.assertQuerySetEqual(self.member.groups.all(), pre_groups | group_qs, ordered=False)
@@ -165,7 +168,7 @@ class AutogroupsConfigTestCase(TestCase):
         obj.update_corp_group_membership(self.member)
 
         group = obj.get_corp_group(self.corp)
-        group_qs = Group.objects.filter(pk=group.pk)
+        group_qs = BaseGroup.objects.filter(pk=group.pk)
 
         self.assertIn(group, self.member.groups.all())
         self.assertQuerySetEqual(self.member.groups.all(), pre_groups | group_qs, ordered=False)

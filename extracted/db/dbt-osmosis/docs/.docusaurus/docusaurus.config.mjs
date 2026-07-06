@@ -12,7 +12,23 @@ export default {
   "organizationName": "z3z1ma",
   "projectName": "dbt-osmosis",
   "onBrokenLinks": "throw",
-  "onBrokenMarkdownLinks": "warn",
+  "markdown": {
+    "hooks": {
+      "onBrokenMarkdownLinks": "warn",
+      "onBrokenMarkdownImages": "throw"
+    },
+    "format": "mdx",
+    "mermaid": false,
+    "emoji": true,
+    "mdx1Compat": {
+      "comments": true,
+      "admonitions": true,
+      "headingIds": true
+    },
+    "anchors": {
+      "maintainCase": false
+    }
+  },
   "i18n": {
     "defaultLocale": "en",
     "locales": [
@@ -335,19 +351,30 @@ export default {
     }
   },
   "baseUrlIssueBanner": true,
+  "storage": {
+    "type": "localStorage",
+    "namespace": false
+  },
   "future": {
-    "experimental_faster": {
+    "v4": {
+      "removeLegacyPostBuildHeadAttribute": false,
+      "useCssCascadeLayers": false,
+      "siteStorageNamespacing": false,
+      "fasterByDefault": false,
+      "mdx1CompatDisabledByDefault": false
+    },
+    "faster": {
       "swcJsLoader": false,
       "swcJsMinimizer": false,
       "swcHtmlMinimizer": false,
       "lightningCssMinimizer": false,
       "mdxCrossCompilerCache": false,
-      "rspackBundler": false
+      "rspackBundler": false,
+      "rspackPersistentCache": false,
+      "ssgWorkerThreads": false,
+      "gitEagerVcs": false
     },
-    "experimental_storage": {
-      "type": "localStorage",
-      "namespace": false
-    },
+    "experimental_vcs": {},
     "experimental_router": "browser"
   },
   "onBrokenAnchors": "warn",
@@ -363,17 +390,5 @@ export default {
   "stylesheets": [],
   "clientModules": [],
   "titleDelimiter": "|",
-  "noIndex": false,
-  "markdown": {
-    "format": "mdx",
-    "mermaid": false,
-    "mdx1Compat": {
-      "comments": true,
-      "admonitions": true,
-      "headingIds": true
-    },
-    "anchors": {
-      "maintainCase": false
-    }
-  }
+  "noIndex": false
 };

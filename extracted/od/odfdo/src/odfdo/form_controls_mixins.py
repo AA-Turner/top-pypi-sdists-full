@@ -69,11 +69,11 @@ class FormAsDictMixin:
         Returns:
             The Form content as a Python dict.
         """
-        return {
-            "tag": self.tag,  # type: ignore[attr-defined]
-            "name": self.name,  # type: ignore[attr-defined]
-            "xml_id": self.xml_id,  # type: ignore[attr-defined]
-            "value": self.value,  # type: ignore[attr-defined]
+        return {  # ty: ignore[invalid-return-type]
+            "tag": self.tag,
+            "name": self.name,
+            "xml_id": self.xml_id,
+            "value": self.value,
             "current_value": self.current_value
             if hasattr(self, "current_value")
             else None,

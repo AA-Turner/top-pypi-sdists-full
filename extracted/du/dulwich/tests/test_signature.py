@@ -21,9 +21,14 @@
 
 """Tests for signature vendors."""
 
+import io
+import os
 import shutil
 import subprocess
+import tempfile
+import time
 import unittest
+from unittest import mock
 
 from dulwich.config import ConfigDict
 from dulwich.signature import (
@@ -35,6 +40,7 @@ from dulwich.signature import (
     GPGSignatureVendor,
     SSHCliSignatureVendor,
     SSHSigSignatureVendor,
+    UntrustedSignature,
     X509SignatureVendor,
     detect_signature_format,
     get_signature_vendor,
@@ -199,8 +205,6 @@ class GPGCliSignatureVendorTests(unittest.TestCase):
 
     def test_verify_invalid_signature(self) -> None:
         """Test that verify raises an error for invalid signatures."""
-        from dulwich.signature import BadSignature
-
         vendor = GPGCliSignatureVendor()
         test_data = b"test data"
         invalid_signature = b"this is not a valid signature"
@@ -243,8 +247,6 @@ class GPGCliSignatureVendorTests(unittest.TestCase):
 
     def test_verify_with_keyids(self) -> None:
         """Test verifying with specific trusted key IDs."""
-        from dulwich.signature import UntrustedSignature
-
         signer = GPGCliSignatureVendor()
         test_data = b"test data to sign"
 
@@ -314,44 +316,56 @@ class GPGCliSignatureVendorTests(unittest.TestCase):
 class KeyIDMatchingTests(unittest.TestCase):
     """Tests for trusted key ID matching, independent of an installed gpg."""
 
-    def _run_with_stderr(self, vendor, stderr: str) -> None:
-        from unittest import mock
-
+    def _run_with_status(self, vendor, status: bytes, stderr: bytes = b"") -> None:
         completed = subprocess.CompletedProcess(
-            ["gpg"], 0, stdout=b"", stderr=stderr.encode()
+            ["gpg"], 0, stdout=status, stderr=stderr
         )
         with mock.patch("subprocess.run", return_value=completed):
             vendor.verify(b"data", b"signature")
 
+    @staticmethod
+    def _validsig(fpr: str, primary: str | None = None) -> bytes:
+        primary = primary or fpr
+        return (
+            f"[GNUPG:] VALIDSIG {fpr} 2020-01-01 0 0 4 0 1 8 00 {primary}\n"
+        ).encode()
+
     def test_gpg_rejects_keyid_embedded_in_fingerprint(self) -> None:
         """A trusted ID buried inside an untrusted fingerprint is not a match."""
-        from dulwich.signature import UntrustedSignature
-
         vendor = GPGCliSignatureVendor(keyids=["DEADBEEF"])
-        stderr = (
-            "gpg: Good signature\n"
-            "Primary key fingerprint: 1111 1111 1111 1111 1111  "
-            "1111 1111 DEAD BEEF 1111\n"
-        )
+        status = self._validsig("1111111111111111111111111111DEADBEEF1111")
         with self.assertRaises(UntrustedSignature):
-            self._run_with_stderr(vendor, stderr)
+            self._run_with_status(vendor, status)
 
     def test_gpg_accepts_short_keyid_suffix(self) -> None:
-        """A short key ID reported by gpg matches a trusted full fingerprint."""
-        trusted = "AAAA1111BBBB2222CCCC3333DDDD4444EEEE5555"
-        vendor = GPGCliSignatureVendor(keyids=[trusted])
-        stderr = f"gpg: Good signature\ngpg: using RSA key {trusted[-16:]}\n"
+        """A short trusted key ID matches the suffix of the reported fingerprint."""
+        fpr = "AAAA1111BBBB2222CCCC3333DDDD4444EEEE5555"
+        vendor = GPGCliSignatureVendor(keyids=[fpr[-16:]])
         # Should not raise.
-        self._run_with_stderr(vendor, stderr)
+        self._run_with_status(vendor, self._validsig(fpr))
+
+    def test_gpg_ignores_spoofed_user_id_on_stderr(self) -> None:
+        """A trusted id echoed in the signer-controlled user id is not trusted."""
+        vendor = GPGCliSignatureVendor(keyids=["DEADBEEF1234"])
+        status = self._validsig("9999AAAA8888BBBB7777CCCC6666DDDD5555EEEE")
+        stderr = b'gpg: Good signature from "evil <x using RSA key DEADBEEF1234 >"\n'
+        with self.assertRaises(UntrustedSignature):
+            self._run_with_status(vendor, status, stderr=stderr)
 
     def test_x509_rejects_keyid_embedded_in_fingerprint(self) -> None:
         """Same suffix rule applies to the gpgsm/X.509 path."""
-        from dulwich.signature import UntrustedSignature, X509SignatureVendor
-
         vendor = X509SignatureVendor(keyids=["DEADBEEF"])
-        stderr = "gpgsm: Good signature from 1111DEADBEEF1111\n"
+        status = self._validsig("1111DEADBEEF1111111111111111111111111111")
         with self.assertRaises(UntrustedSignature):
-            self._run_with_stderr(vendor, stderr)
+            self._run_with_status(vendor, status)
+
+    def test_x509_ignores_spoofed_subject_on_stderr(self) -> None:
+        """A trusted id placed in the signer-controlled cert subject is not trusted."""
+        vendor = X509SignatureVendor(keyids=["DEADBEEF1234"])
+        status = self._validsig("9999AAAA8888BBBB7777CCCC6666DDDD5555EEEE")
+        stderr = b"gpgsm: Good signature from CN = DEADBEEF1234\n"
+        with self.assertRaises(UntrustedSignature):
+            self._run_with_status(vendor, status, stderr=stderr)
 
 
 class X509SignatureVendorTests(unittest.TestCase):
@@ -486,8 +500,6 @@ class SSHSigSignatureVendorTests(unittest.TestCase):
 
     def test_verify_without_config_raises(self) -> None:
         """Test that verify without config or keyids raises UntrustedSignature."""
-        from dulwich.signature import UntrustedSignature
-
         vendor = SSHSigSignatureVendor()
         with self.assertRaises(UntrustedSignature) as cm:
             vendor.verify(b"test data", b"fake signature")
@@ -510,9 +522,6 @@ class SSHSigSignatureVendorTests(unittest.TestCase):
 
     def test_verify_with_cli_generated_signature(self) -> None:
         """Test verifying a signature created by SSH CLI vendor."""
-        import os
-        import tempfile
-
         if shutil.which("ssh-keygen") is None:
             self.skipTest("ssh-keygen not available")
 
@@ -572,8 +581,6 @@ class SSHSigSignatureVendorTests(unittest.TestCase):
         from allowed_signers files, so this test verifies the code is in place
         but will be skipped until the library adds support.
         """
-        import io
-
         # Check if sshsig library supports parsing options
         import sshsig.allowed_signers
 
@@ -587,12 +594,6 @@ class SSHSigSignatureVendorTests(unittest.TestCase):
             )
 
         # If we get here, the library supports options, so we can test
-        import os
-        import tempfile
-        import time
-
-        from dulwich.signature import UntrustedSignature
-
         if shutil.which("ssh-keygen") is None:
             self.skipTest("ssh-keygen not available")
 
@@ -652,11 +653,6 @@ class SSHSigSignatureVendorTests(unittest.TestCase):
 
     def test_revocation_checking(self) -> None:
         """Test SSH key revocation checking."""
-        import os
-        import tempfile
-
-        from dulwich.signature import UntrustedSignature
-
         if shutil.which("ssh-keygen") is None:
             self.skipTest("ssh-keygen not available")
 
@@ -766,8 +762,6 @@ class SSHCliSignatureVendorTests(unittest.TestCase):
 
     def test_verify_without_allowed_signers_raises(self) -> None:
         """Test that verify without allowedSignersFile raises UntrustedSignature."""
-        from dulwich.signature import UntrustedSignature
-
         vendor = SSHCliSignatureVendor()
         with self.assertRaises(UntrustedSignature) as cm:
             vendor.verify(b"test data", b"fake signature")
@@ -775,9 +769,6 @@ class SSHCliSignatureVendorTests(unittest.TestCase):
 
     def test_sign_and_verify_with_ssh_key(self) -> None:
         """Test sign and verify cycle with SSH key."""
-        import os
-        import tempfile
-
         # Generate a test SSH key
         with tempfile.TemporaryDirectory() as tmpdir:
             private_key = os.path.join(tmpdir, "test_key")
@@ -828,9 +819,6 @@ class SSHCliSignatureVendorTests(unittest.TestCase):
 
     def test_default_key_command(self) -> None:
         """Test gpg.ssh.defaultKeyCommand support."""
-        import os
-        import tempfile
-
         # Generate a test SSH key
         with tempfile.TemporaryDirectory() as tmpdir:
             private_key = os.path.join(tmpdir, "test_key")

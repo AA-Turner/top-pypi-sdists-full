@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: f5-tts
-Version: 1.1.20
+Version: 1.1.21
 Summary: F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching
 License: MIT License
 Project-URL: Homepage, https://github.com/SWivid/F5-TTS
@@ -15,7 +15,7 @@ Requires-Dist: cached_path
 Requires-Dist: click
 Requires-Dist: datasets
 Requires-Dist: ema_pytorch>=0.5.2
-Requires-Dist: gradio<6.11,>=6.0.0
+Requires-Dist: gradio>=6.15.0
 Requires-Dist: hydra-core>=1.3.0
 Requires-Dist: librosa
 Requires-Dist: matplotlib
@@ -104,8 +104,17 @@ conda install ffmpeg
 
 > ```bash
 > # Install pytorch with your ROCm version (Linux only), e.g.
-> pip install torch==2.5.1+rocm6.2 torchaudio==2.5.1+rocm6.2 --extra-index-url https://download.pytorch.org/whl/rocm6.2
+> pip install torch==2.9.1+rocm7.2 torchaudio==2.9.1+rocm7.2 --extra-index-url https://download.pytorch.org/whl/rocm7.2
+>
+> # For older GPUs (RDNA1/2/3 only):
+> # pip install torch==2.5.1+rocm6.2 torchaudio==2.5.1+rocm6.2 --extra-index-url https://download.pytorch.org/whl/rocm6.2
 > ```
+>
+> **Note:** RDNA 3.5 and RDNA 4 GPUs (Radeon 8050S/8060S, RX 9060/9070 series) require
+> ROCm 7.x — these architectures (gfx1151/gfx1201) are not included in ROCm 6.x
+> ([6.2 compatibility matrix](https://rocm.docs.amd.com/en/docs-6.2.4/compatibility/compatibility-matrix.html) vs
+> [7.2 compatibility matrix](https://rocm.docs.amd.com/en/docs-7.2.3/compatibility/compatibility-matrix.html)).
+> Using ROCm 6.x on these GPUs causes `HIP error: invalid device function` ([#1236](https://github.com/SWivid/F5-TTS/issues/1236)).
 
 </details>
 

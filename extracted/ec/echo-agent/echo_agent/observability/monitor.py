@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -52,13 +53,19 @@ class TraceSpan:
 class TraceLogger:
     """Records full processing chain for each agent interaction."""
 
-    def __init__(self, logs_dir: Path | None = None, enabled: bool = True):
+    def __init__(self, logs_dir: Path | None = None, enabled: bool = True,
+                 max_trace_files: int = 500):
         self._logs_dir = logs_dir
         self._enabled = enabled
+        self._max_trace_files = int(max_trace_files)
         if logs_dir and enabled:
             logs_dir.mkdir(parents=True, exist_ok=True)
         self._traces: dict[str, list[TraceSpan]] = {}
         self._otel_tracer = None
+        # 写入顺序队列:裁剪以此为单一事实源,不依赖文件系统 mtime
+        # 或 trace_id 的字典序(UUID/雪花 ID 字典序 != 时间序)。
+        self._trace_order: deque[str] = deque()
+        self._init_trace_order()
 
     def set_otel_tracer(self, tracer) -> None:
         self._otel_tracer = tracer
@@ -98,6 +105,51 @@ class TraceLogger:
             path = self._logs_dir / f"trace_{trace_id}.json"
             data = [s.to_dict() for s in spans]
             path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            self._record_trace_written(trace_id)
+            self._prune_trace_files()
+
+    def _init_trace_order(self) -> None:
+        """进程启动时用磁盘上已存在的 trace 文件回填写入顺序队列。
+        内存队列重启后会清空,若不回填则旧文件永远不会被裁剪。
+        初始顺序用 mtime 兜底——这里只影响“重启前遗留文件”的相对老化顺序,
+        新写入的文件由 _record_trace_written 精确维护,不受此影响。"""
+        if not self._enabled or not self._logs_dir:
+            return
+        try:
+            files = sorted(
+                self._logs_dir.glob("trace_*.json"),
+                key=lambda p: (p.stat().st_mtime, p.name),
+            )
+        except OSError:
+            return
+        for path in files:
+            # 文件名形如 trace_<id>.json → 取出 <id>
+            trace_id = path.stem[len("trace_"):]
+            self._trace_order.append(trace_id)
+
+    def _record_trace_written(self, trace_id: str) -> None:
+        """登记一次写入:同一 trace_id 重复写入时移到队尾(视为最新)。"""
+        try:
+            self._trace_order.remove(trace_id)
+        except ValueError:
+            pass
+        self._trace_order.append(trace_id)
+
+    def _prune_trace_files(self) -> None:
+        """按数量上限轮转 trace 文件:超过上限时删最旧的。
+        裁剪顺序以内存写入队列 _trace_order 为准,不依赖文件系统 mtime
+        (同一毫秒内连写时 mtime 可能相同,排序不稳定会误删最新)。
+        best-effort——单个删除失败不影响主流程(trace 是 ephemeral 调试产物)。
+        max_trace_files <= 0 视为禁用轮转。"""
+        if self._max_trace_files <= 0 or not self._logs_dir:
+            return
+        while len(self._trace_order) > self._max_trace_files:
+            oldest = self._trace_order.popleft()
+            path = self._logs_dir / f"trace_{oldest}.json"
+            try:
+                path.unlink()
+            except OSError:
+                continue
 
     def get_recent_traces(self, limit: int = 20) -> list[str]:
         return list(self._traces.keys())[-limit:]
@@ -177,26 +229,6 @@ class HealthChecker:
                 self._components[name].message = str(e)
                 self._components[name].last_check = datetime.now().isoformat()
         return dict(self._components)
-
-    def get_status(self) -> dict[str, Any]:
-        overall = ComponentHealth.HEALTHY
-        for hs in self._components.values():
-            if hs.status == ComponentHealth.UNHEALTHY:
-                overall = ComponentHealth.UNHEALTHY
-                break
-            if hs.status == ComponentHealth.DEGRADED:
-                overall = ComponentHealth.DEGRADED
-        return {
-            "overall": overall.value,
-            "components": {
-                name: {
-                    "status": hs.status.value,
-                    "message": hs.message,
-                    "last_check": hs.last_check,
-                }
-                for name, hs in self._components.items()
-            },
-        }
 
     async def _check_loop(self) -> None:
         while self._running:

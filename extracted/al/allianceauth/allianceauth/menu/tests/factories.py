@@ -1,7 +1,6 @@
 from itertools import count
 
-from django.contrib.auth.models import User
-
+from allianceauth.authentication.models import User
 from allianceauth.menu.core import menu_item_hooks
 from allianceauth.menu.models import MenuItem
 from allianceauth.menu.templatetags.menu_menu_items import RenderedMenuItem

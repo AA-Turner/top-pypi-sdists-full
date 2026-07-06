@@ -1,0 +1,20 @@
+when:
+  - event: push
+    branch: master
+  - event: pull_request
+
+matrix:
+  PYTHON_VERSION:
+    - "3.11"
+    - "3.12"
+    - "3.13"
+    - "3.14"
+
+steps:
+  - name: test-python-${PYTHON_VERSION}
+    image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
+    commands:
+      - uv --version
+      - python --version
+      - uv sync --python python
+      - uv run --python python pytest

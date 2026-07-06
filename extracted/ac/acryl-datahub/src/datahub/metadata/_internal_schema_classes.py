@@ -16860,6 +16860,150 @@ class DocumentStatusClass(DictWrapper):
         self._inner_dict['state'] = value
     
     
+class DocumentUsageStatisticsClass(_Aspect):
+    """Experimental (Subject to breaking change) -- Stats corresponding to a document's usage.
+    
+    If this aspect represents the latest snapshot of the statistics about a Document, the eventGranularity field should be null.
+    If this aspect represents a bucketed window of usage statistics (e.g. over a day), then the eventGranularity field should be set accordingly."""
+
+
+    ASPECT_NAME = 'documentUsageStatistics'
+    ASPECT_TYPE = 'timeseries'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.knowledge.DocumentUsageStatistics")
+
+    def __init__(self,
+        timestampMillis: int,
+        eventGranularity: Union[None, "TimeWindowSizeClass"]=None,
+        partitionSpec: Optional[Union["PartitionSpecClass", None]]=None,
+        messageId: Union[None, str]=None,
+        viewsCount: Union[None, int]=None,
+        agentViewsCount: Union[None, int]=None,
+        uniqueUserCount: Union[None, int]=None,
+        lastViewedAt: Union[None, int]=None,
+        userCounts: Union[None, List["DatasetUserUsageCountsClass"]]=None,
+    ):
+        super().__init__()
+        
+        self.timestampMillis = timestampMillis
+        self.eventGranularity = eventGranularity
+        if partitionSpec is None:
+            # default: {'partition': 'FULL_TABLE_SNAPSHOT', 'type': 'FULL_TABLE', 'timePartition': None}
+            self.partitionSpec = _json_converter.from_json_object(self.RECORD_SCHEMA.fields_dict["partitionSpec"].default, writers_schema=self.RECORD_SCHEMA.fields_dict["partitionSpec"].type)
+        else:
+            self.partitionSpec = partitionSpec
+        self.messageId = messageId
+        self.viewsCount = viewsCount
+        self.agentViewsCount = agentViewsCount
+        self.uniqueUserCount = uniqueUserCount
+        self.lastViewedAt = lastViewedAt
+        self.userCounts = userCounts
+    
+    def _restore_defaults(self) -> None:
+        self.timestampMillis = int()
+        self.eventGranularity = self.RECORD_SCHEMA.fields_dict["eventGranularity"].default
+        self.partitionSpec = _json_converter.from_json_object(self.RECORD_SCHEMA.fields_dict["partitionSpec"].default, writers_schema=self.RECORD_SCHEMA.fields_dict["partitionSpec"].type)
+        self.messageId = self.RECORD_SCHEMA.fields_dict["messageId"].default
+        self.viewsCount = self.RECORD_SCHEMA.fields_dict["viewsCount"].default
+        self.agentViewsCount = self.RECORD_SCHEMA.fields_dict["agentViewsCount"].default
+        self.uniqueUserCount = self.RECORD_SCHEMA.fields_dict["uniqueUserCount"].default
+        self.lastViewedAt = self.RECORD_SCHEMA.fields_dict["lastViewedAt"].default
+        self.userCounts = self.RECORD_SCHEMA.fields_dict["userCounts"].default
+    
+    
+    @property
+    def timestampMillis(self) -> int:
+        """The event timestamp field as epoch at UTC in milli seconds."""
+        return self._inner_dict.get('timestampMillis')  # type: ignore
+    
+    @timestampMillis.setter
+    def timestampMillis(self, value: int) -> None:
+        self._inner_dict['timestampMillis'] = value
+    
+    
+    @property
+    def eventGranularity(self) -> Union[None, "TimeWindowSizeClass"]:
+        """Granularity of the event if applicable"""
+        return self._inner_dict.get('eventGranularity')  # type: ignore
+    
+    @eventGranularity.setter
+    def eventGranularity(self, value: Union[None, "TimeWindowSizeClass"]) -> None:
+        self._inner_dict['eventGranularity'] = value
+    
+    
+    @property
+    def partitionSpec(self) -> Union["PartitionSpecClass", None]:
+        """The optional partition specification."""
+        return self._inner_dict.get('partitionSpec')  # type: ignore
+    
+    @partitionSpec.setter
+    def partitionSpec(self, value: Union["PartitionSpecClass", None]) -> None:
+        self._inner_dict['partitionSpec'] = value
+    
+    
+    @property
+    def messageId(self) -> Union[None, str]:
+        """The optional messageId, if provided serves as a custom user-defined unique identifier for an aspect value."""
+        return self._inner_dict.get('messageId')  # type: ignore
+    
+    @messageId.setter
+    def messageId(self, value: Union[None, str]) -> None:
+        self._inner_dict['messageId'] = value
+    
+    
+    @property
+    def viewsCount(self) -> Union[None, int]:
+        """The total number of times this document has been read by a human in this bucket (e.g. UI views).
+    Follows the dataset/chart convention that a view count is a human view; agent reads are tracked separately in agentViewsCount."""
+        return self._inner_dict.get('viewsCount')  # type: ignore
+    
+    @viewsCount.setter
+    def viewsCount(self, value: Union[None, int]) -> None:
+        self._inner_dict['viewsCount'] = value
+    
+    
+    @property
+    def agentViewsCount(self) -> Union[None, int]:
+        """The total number of times this document has been read by an AI agent in this bucket,
+    counted when an MCP tool returns the document. Disjoint from viewsCount (the two never
+    overlap). Agent identity is intentionally not tracked, so agents never appear in userCounts."""
+        return self._inner_dict.get('agentViewsCount')  # type: ignore
+    
+    @agentViewsCount.setter
+    def agentViewsCount(self, value: Union[None, int]) -> None:
+        self._inner_dict['agentViewsCount'] = value
+    
+    
+    @property
+    def uniqueUserCount(self) -> Union[None, int]:
+        """Number of distinct human users that read this document in this bucket"""
+        return self._inner_dict.get('uniqueUserCount')  # type: ignore
+    
+    @uniqueUserCount.setter
+    def uniqueUserCount(self, value: Union[None, int]) -> None:
+        self._inner_dict['uniqueUserCount'] = value
+    
+    
+    @property
+    def lastViewedAt(self) -> Union[None, int]:
+        """Timestamp (epoch millis) the document was last read, by either a human or an agent"""
+        return self._inner_dict.get('lastViewedAt')  # type: ignore
+    
+    @lastViewedAt.setter
+    def lastViewedAt(self, value: Union[None, int]) -> None:
+        self._inner_dict['lastViewedAt'] = value
+    
+    
+    @property
+    def userCounts(self) -> Union[None, List["DatasetUserUsageCountsClass"]]:
+        """Human users within this bucket, with frequency counts. Agent reads are excluded."""
+        return self._inner_dict.get('userCounts')  # type: ignore
+    
+    @userCounts.setter
+    def userCounts(self, value: Union[None, List["DatasetUserUsageCountsClass"]]) -> None:
+        self._inner_dict['userCounts'] = value
+    
+    
 class ParentDocumentClass(DictWrapper):
     """The parent document of the document. """
     
@@ -17316,7 +17460,7 @@ class DashboardKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'dashboardKey'
-    ASPECT_INFO = {'keyForEntity': 'dashboard', 'entityCategory': '_unset_', 'entityAspects': ['domains', 'applications', 'container', 'deprecation', 'dashboardUsageStatistics', 'inputFields', 'subTypes', 'embed', 'dashboardInfo', 'editableDashboardProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation']}
+    ASPECT_INFO = {'keyForEntity': 'dashboard', 'entityCategory': '_unset_', 'entityAspects': ['domains', 'applications', 'container', 'deprecation', 'dashboardUsageStatistics', 'inputFields', 'subTypes', 'embed', 'dashboardInfo', 'editableDashboardProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation', 'access']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.DashboardKey")
 
     def __init__(self,
@@ -18172,7 +18316,7 @@ class DocumentKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'documentKey'
-    ASPECT_INFO = {'keyForEntity': 'document', 'entityCategory': 'core', 'entityAspects': ['documentInfo', 'documentSettings', 'status', 'ownership', 'domains', 'structuredProperties', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'documentation']}
+    ASPECT_INFO = {'keyForEntity': 'document', 'entityCategory': 'core', 'entityAspects': ['documentInfo', 'documentSettings', 'status', 'ownership', 'domains', 'structuredProperties', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'documentation', 'documentUsageStatistics']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.DocumentKey")
 
     def __init__(self,
@@ -18375,7 +18519,7 @@ class GlossaryTermKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'glossaryTermKey'
-    ASPECT_INFO = {'keyForEntity': 'glossaryTerm', 'entityCategory': 'core', 'entityAspects': ['glossaryTermInfo', 'glossaryRelatedTerms', 'institutionalMemory', 'schemaMetadata', 'ownership', 'deprecation', 'domains', 'applications', 'status', 'browsePaths', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'assetSettings']}
+    ASPECT_INFO = {'keyForEntity': 'glossaryTerm', 'entityCategory': 'core', 'entityAspects': ['glossaryTermInfo', 'glossaryRelatedTerms', 'institutionalMemory', 'schemaMetadata', 'ownership', 'deprecation', 'domains', 'applications', 'status', 'browsePaths', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.GlossaryTermKey")
 
     def __init__(self,
@@ -27695,7 +27839,7 @@ class StructuredPropertyDefinitionClass(_Aspect):
 
 
     ASPECT_NAME = 'propertyDefinition'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.structured.StructuredPropertyDefinition")
 
     def __init__(self,
@@ -27706,6 +27850,7 @@ class StructuredPropertyDefinitionClass(_Aspect):
         typeQualifier: Union[None, Dict[str, List[str]]]=None,
         allowedValues: Union[None, List["PropertyValueClass"]]=None,
         cardinality: Optional[Union[Union[str, "PropertyCardinalityClass"], None]]=None,
+        allowedPlatforms: Union[None, List[str]]=None,
         description: Union[None, str]=None,
         searchConfiguration: Union[None, "DataHubSearchConfigClass"]=None,
         immutable: Optional[bool]=None,
@@ -27726,6 +27871,7 @@ class StructuredPropertyDefinitionClass(_Aspect):
         else:
             self.cardinality = cardinality
         self.entityTypes = entityTypes
+        self.allowedPlatforms = allowedPlatforms
         self.description = description
         self.searchConfiguration = searchConfiguration
         if immutable is None:
@@ -27745,6 +27891,7 @@ class StructuredPropertyDefinitionClass(_Aspect):
         self.allowedValues = self.RECORD_SCHEMA.fields_dict["allowedValues"].default
         self.cardinality = self.RECORD_SCHEMA.fields_dict["cardinality"].default
         self.entityTypes = list()
+        self.allowedPlatforms = self.RECORD_SCHEMA.fields_dict["allowedPlatforms"].default
         self.description = self.RECORD_SCHEMA.fields_dict["description"].default
         self.searchConfiguration = self.RECORD_SCHEMA.fields_dict["searchConfiguration"].default
         self.immutable = self.RECORD_SCHEMA.fields_dict["immutable"].default
@@ -27826,6 +27973,18 @@ class StructuredPropertyDefinitionClass(_Aspect):
     @entityTypes.setter
     def entityTypes(self, value: List[str]) -> None:
         self._inner_dict['entityTypes'] = value
+    
+    
+    @property
+    def allowedPlatforms(self) -> Union[None, List[str]]:
+        """An optional list of data platforms that this property is restricted to. If specified, the property
+    can only be assigned to entities that belong to one of these data platforms. If not specified,
+    the property can be assigned to entities on any data platform."""
+        return self._inner_dict.get('allowedPlatforms')  # type: ignore
+    
+    @allowedPlatforms.setter
+    def allowedPlatforms(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['allowedPlatforms'] = value
     
     
     @property
@@ -29723,6 +29882,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.knowledge.DocumentSourceType': DocumentSourceTypeClass,
     'com.linkedin.pegasus2avro.knowledge.DocumentState': DocumentStateClass,
     'com.linkedin.pegasus2avro.knowledge.DocumentStatus': DocumentStatusClass,
+    'com.linkedin.pegasus2avro.knowledge.DocumentUsageStatistics': DocumentUsageStatisticsClass,
     'com.linkedin.pegasus2avro.knowledge.ParentDocument': ParentDocumentClass,
     'com.linkedin.pegasus2avro.knowledge.RelatedAsset': RelatedAssetClass,
     'com.linkedin.pegasus2avro.knowledge.RelatedDocument': RelatedDocumentClass,
@@ -30281,6 +30441,7 @@ __SCHEMA_TYPES = {
     'DocumentSourceType': DocumentSourceTypeClass,
     'DocumentState': DocumentStateClass,
     'DocumentStatus': DocumentStatusClass,
+    'DocumentUsageStatistics': DocumentUsageStatisticsClass,
     'ParentDocument': ParentDocumentClass,
     'RelatedAsset': RelatedAssetClass,
     'RelatedDocument': RelatedDocumentClass,
@@ -30617,6 +30778,7 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     DataProcessInstanceOutputClass,
     DataProcessInstanceRunEventClass,
     DataHubPageTemplatePropertiesClass,
+    DocumentUsageStatisticsClass,
     DocumentInfoClass,
     DocumentSettingsClass,
     TestInfoClass,
@@ -30861,6 +31023,7 @@ class AspectBag(TypedDict, total=False):
     dataProcessInstanceOutput: DataProcessInstanceOutputClass
     dataProcessInstanceRunEvent: DataProcessInstanceRunEventClass
     dataHubPageTemplateProperties: DataHubPageTemplatePropertiesClass
+    documentUsageStatistics: DocumentUsageStatisticsClass
     documentInfo: DocumentInfoClass
     documentSettings: DocumentSettingsClass
     testInfo: TestInfoClass

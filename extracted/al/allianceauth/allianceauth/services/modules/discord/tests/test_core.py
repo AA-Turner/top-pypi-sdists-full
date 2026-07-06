@@ -2,17 +2,12 @@ from unittest.mock import Mock, patch
 
 from requests.exceptions import HTTPError
 
-from django.contrib.auth.models import Group
-
-from allianceauth.groupmanagement.models import ReservedGroupName
+from allianceauth.groupmanagement.models import Group, ReservedGroupName
 from allianceauth.tests.auth_utils import AuthUtils
 from allianceauth.utils.testing import NoSocketsTestCase
 
 from ..core import (
-    _user_group_names,
-    calculate_roles_for_user,
-    group_to_role,
-    server_name,
+    _user_group_names, calculate_roles_for_user, group_to_role, server_name,
     user_formatted_nick,
 )
 from ..discord_client import DiscordApiBackoff, DiscordClient, RolesSet

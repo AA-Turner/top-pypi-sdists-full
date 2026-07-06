@@ -1,13 +1,13 @@
-from django.contrib.auth.models import Group, User
 from django.test import TestCase
 
 from esi.models import Token
 
 from allianceauth.eveonline.models import EveCharacter
+from allianceauth.groupmanagement.models import Group
 from allianceauth.tests.auth_utils import AuthUtils
 
 from ..backends import StateBackend
-from ..models import CharacterOwnership, OwnershipRecord, UserProfile
+from ..models import CharacterOwnership, OwnershipRecord, User, UserProfile
 
 MODULE_PATH = 'allianceauth.authentication'
 

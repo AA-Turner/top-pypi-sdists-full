@@ -234,6 +234,14 @@ class PoeTask(metaclass=MetaPoeTask):
         accessible in this task.
         """
 
+        uses_env: str | Sequence[str] = ()
+        """
+        Allows this task to use the output of other tasks which are executed first,
+        and their output is parsed like an env file to get zero or more environment
+        variables which will be accessible in this task.
+        The referenced task(s) determine(s) which variables (if any) are set.
+        """
+
         verbosity: Literal[-2, -1, 0, 1, 2] | None = None
         """
         Specify the verbosity level for this task, from -2 (least verbose) to 2
@@ -308,7 +316,7 @@ class PoeTask(metaclass=MetaPoeTask):
             self,
             parent_env: TaskEnv,
             io: PoeIO,
-            uses_values: Mapping[str, str] | None = None,
+            dependency_values: Mapping[str, str] | None = None,
         ) -> TaskEnv:
             """
             Resolve the TaskEnv for this task, relative to the given parent_env
@@ -316,9 +324,9 @@ class PoeTask(metaclass=MetaPoeTask):
 
             result = parent_env.clone(io=io)
 
-            # Include env vars from outputs of upstream dependencies
-            if uses_values:
-                result.update(uses_values)
+            # Include env vars contributed by this task's uses and uses_env options
+            if dependency_values:
+                result.update(dependency_values)
 
             result.set("POE_CONF_DIR", str(self.source.config_dir))
             result.apply_env_config(
@@ -418,9 +426,42 @@ class PoeTask(metaclass=MetaPoeTask):
                             f"'uses' option references task with 'use_exec' set to "
                             f"true: {dep_task_name!r}"
                         )
+                    if not referenced_task.accepts_option("capture_stdout", task_specs):
+                        raise ConfigValidationError(
+                            "'uses' option references task that does not support "
+                            f"output capture: {dep_task_name!r}"
+                        )
                     if referenced_task.options.get("capture_stdout"):
                         raise ConfigValidationError(
                             f"'uses' option references task with 'capture_stdout' "
+                            f"option set: {dep_task_name!r}"
+                        )
+
+            if uses_env := self.options.uses_env:
+                if isinstance(uses_env, str):
+                    uses_env = (uses_env,)
+                for dep in uses_env:
+                    dep_task_name = dep.split(" ", 1)[0]
+                    if dep_task_name not in task_specs:
+                        raise ConfigValidationError(
+                            "'uses_env' option includes reference to unknown task: "
+                            f"{dep_task_name!r}"
+                        )
+
+                    referenced_task = task_specs.get(dep_task_name)
+                    if referenced_task.options.get("use_exec", False):
+                        raise ConfigValidationError(
+                            f"'uses_env' option references task with 'use_exec' set "
+                            f"to true: {dep_task_name!r}"
+                        )
+                    if not referenced_task.accepts_option("capture_stdout", task_specs):
+                        raise ConfigValidationError(
+                            "'uses_env' option references task that does not support "
+                            f"output capture: {dep_task_name!r}"
+                        )
+                    if referenced_task.options.get("capture_stdout"):
+                        raise ConfigValidationError(
+                            f"'uses_env' option references task with 'capture_stdout' "
                             f"option set: {dep_task_name!r}"
                         )
 
@@ -434,6 +475,20 @@ class PoeTask(metaclass=MetaPoeTask):
             """
             Perform validations on this TaskSpec that apply to a specific task type
             """
+
+        def accepts_option(
+            self,
+            option_name: str,
+            task_specs: TaskSpecFactory,
+            _seen: set[int] | None = None,
+        ) -> bool:
+            """
+            Report whether this task can be configured with the named option.
+
+            _seen tracks visited spec identities (id()) to break cycles when
+            forwarding task types recurse into their targets.
+            """
+            return option_name in self.task_type.TaskOptions.get_fields()
 
     spec: TaskSpec
     ctx: TaskContext
@@ -591,21 +646,39 @@ class PoeTask(metaclass=MetaPoeTask):
 
         upstream_invocations = self._get_upstream_invocations(context)
 
-        if context.dry and upstream_invocations.get("uses", {}):
-            self._print_action(
-                (
-                    "unresolved dependency task results via uses option for task "
-                    f"{self.name!r}"
-                ),
-                dry=True,
-                unresolved=True,
-            )
+        if context.dry and (
+            upstream_invocations.get("uses", {})
+            or upstream_invocations.get("uses_env", [])
+        ):
+            if upstream_invocations.get("uses", {}):
+                self._print_action(
+                    (
+                        "unresolved dependency task results via uses option for task "
+                        f"{self.name!r}"
+                    ),
+                    dry=True,
+                    unresolved=True,
+                )
+            if upstream_invocations.get("uses_env", []):
+                self._print_action(
+                    (
+                        "unresolved dependency task results via uses_env option for "
+                        f"task {self.name!r}"
+                    ),
+                    dry=True,
+                    unresolved=True,
+                )
             return await PoeTaskRun(self.name).finalize()
 
+        base_env = parent_env or context.env
         task_env = self.spec.get_task_env(
-            parent_env or context.env,
+            base_env,
             io=self.ctx.io,
-            uses_values=context._get_dep_values(upstream_invocations["uses"]),
+            dependency_values=context._get_dependency_values(
+                upstream_invocations["uses"],
+                upstream_invocations["uses_env"],
+                base_env=base_env,
+            ),
         )
 
         if self.ctx.io.is_debug_enabled():
@@ -666,12 +739,20 @@ class PoeTask(metaclass=MetaPoeTask):
 
         return working_dir
 
-    def iter_upstream_tasks(self, context: RunContext) -> Iterator[tuple[str, PoeTask]]:
+    def iter_upstream_tasks(
+        self, context: RunContext
+    ) -> Iterator[tuple[bool, PoeTask]]:
+        """
+        Yield each upstream task along with whether its output should be captured
+        (True for uses/uses_env sources, False for plain deps).
+        """
         invocations = self._get_upstream_invocations(context)
         for invocation in invocations["deps"]:
-            yield ("", self._instantiate_dep(invocation, capture_stdout=False))
-        for key, invocation in invocations["uses"].items():
-            yield (key, self._instantiate_dep(invocation, capture_stdout=True))
+            yield (False, self._instantiate_dep(invocation, capture_stdout=False))
+        for invocation in invocations["uses"].values():
+            yield (True, self._instantiate_dep(invocation, capture_stdout=True))
+        for invocation in invocations["uses_env"]:
+            yield (True, self._instantiate_dep(invocation, capture_stdout=True))
 
     def _get_upstream_invocations(self, context: RunContext):
         """
@@ -689,6 +770,10 @@ class PoeTask(metaclass=MetaPoeTask):
             parsed_args, extra_args = self.get_parsed_arguments(env)
             env.register_task_args(parsed_args, extra_args)
 
+            uses_env_refs = options.get("uses_env", ())
+            if isinstance(uses_env_refs, str):
+                uses_env_refs = (uses_env_refs,)
+
             self.__upstream_invocations = {
                 "deps": [
                     tuple(shlex.split(env.fill_template(task_ref)))
@@ -698,6 +783,10 @@ class PoeTask(metaclass=MetaPoeTask):
                     key: tuple(shlex.split(env.fill_template(task_ref)))
                     for key, task_ref in options.get("uses", {}).items()
                 },
+                "uses_env": [
+                    tuple(shlex.split(env.fill_template(task_ref)))
+                    for task_ref in uses_env_refs
+                ],
             }
 
         return self.__upstream_invocations
@@ -725,7 +814,9 @@ class PoeTask(metaclass=MetaPoeTask):
 
     def has_deps(self) -> bool:
         return bool(
-            self.spec.options.get("deps", False) or self.spec.options.get("uses", False)
+            self.spec.options.get("deps", False)
+            or self.spec.options.get("uses", False)
+            or self.spec.options.get("uses_env", False)
         )
 
     @classmethod

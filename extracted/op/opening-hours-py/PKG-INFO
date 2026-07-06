@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opening_hours_py
-Version: 2.1.2
+Version: 2.1.3
 License-File: LICENSE-APACHE
 License-File: LICENSE-MIT
 Summary: A parser for the opening_hours fields from OpenStreetMap.

@@ -130,11 +130,17 @@ class TestMaybeResolveGeoip:
         assert locale is None
         assert ip is None
 
-    def test_geoip_no_proxy_skips_resolution(self):
+    @patch(
+        "cloakbrowser.geoip.resolve_proxy_geo_with_ip",
+        return_value=("America/New_York", "en-US", "1.2.3.4"),
+    )
+    def test_geoip_no_proxy_uses_machine_ip(self, mock_geo):
+        # No proxy → resolve the machine's own public IP (proxy_url=None).
         tz, locale, ip = maybe_resolve_geoip(True, None, None, None)
-        assert tz is None
-        assert locale is None
-        assert ip is None
+        mock_geo.assert_called_once_with(None)
+        assert tz == "America/New_York"
+        assert locale == "en-US"
+        assert ip == "1.2.3.4"
 
     @patch("cloakbrowser.geoip.resolve_proxy_geo_with_ip", return_value=("Asia/Tokyo", "ja-JP", "9.8.7.6"))
     def test_geoip_preserves_explicit_timezone(self, mock_geo):

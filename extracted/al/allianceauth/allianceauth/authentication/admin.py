@@ -1,10 +1,10 @@
 from collections import OrderedDict
 from typing import Any
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import (
-    Group, Permission as BasePermission, User as BaseUser,
+    Permission as BasePermission, User as BaseUser,
 )
 from django.db.models import Count, Q, QuerySet
 from django.db.models.functions import Lower
@@ -18,21 +18,24 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.text import slugify
 
-from allianceauth.authentication.models import (
-    CharacterOwnership, OwnershipRecord, State, UserProfile, get_guest_state,
-)
 from allianceauth.eveonline.models import (
     EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo,
 )
 from allianceauth.eveonline.tasks import update_character
+from allianceauth.groupmanagement.models import Group
 from allianceauth.hooks import get_hooks
 from allianceauth.services.hooks import ServicesHook
+from allianceauth.services.tasks import validate_services
 
 from .app_settings import (
     AUTHENTICATION_ADMIN_USERS_MAX_CHARS,
     AUTHENTICATION_ADMIN_USERS_MAX_GROUPS,
 )
 from .forms import UserChangeForm, UserProfileForm
+from .models import (
+    CharacterOwnership, OwnershipRecord, Permission, State, User, UserProfile,
+    get_guest_state,
+)
 
 
 def make_service_hooks_update_groups_action(service):
@@ -301,6 +304,30 @@ def update_main_character_model_blocking_forcerefresh(modeladmin: "UserAdmin", r
     )
 
 
+@admin.action(description="Verify User has a Main Character with valid CharacterOwnership")
+def check_main_character_and_character_ownership(modeladmin: "UserAdmin", request: HttpRequest, queryset: QuerySet["User"]) -> None:
+    tasks_count = 0
+    for obj in queryset:
+        if obj.profile.main_character and not obj.profile.main_character.character_ownership:
+            obj.profile.main_character = None
+            obj.profile.save()
+            tasks_count += 1
+    modeladmin.message_user(
+        request, f'Reset main character for {tasks_count} users that had invalid main character ownership'
+    )
+
+
+@admin.action(description="Validate Service accounts for User")
+def verify_service_accounts(modeladmin: "UserAdmin", request: HttpRequest, queryset: QuerySet["User"]) -> None:
+    tasks_count = 0
+    for obj in queryset:
+        validate_services(obj.pk)
+        tasks_count += 1
+    modeladmin.message_user(
+        request, f'Validated service accounts for {tasks_count} users.'
+    )
+
+
 class UserAdmin(BaseUserAdmin):
     """Extending Django's UserAdmin model
 
@@ -366,7 +393,9 @@ class UserAdmin(BaseUserAdmin):
         actions.update({  # Add this files defined actions to the default ones, in bulk
             'update_main_character_model': (update_main_character_model, 'update_main_character_model', update_main_character_model.short_description),
             'update_main_character_model_blocking': (update_main_character_model_blocking, 'update_main_character_model_blocking', update_main_character_model_blocking.short_description),
-            "update_main_character_model_blocking_forcerefresh": (update_main_character_model_blocking_forcerefresh, "update_main_character_model_blocking_forcerefresh", update_main_character_model_blocking_forcerefresh.short_description)
+            "update_main_character_model_blocking_forcerefresh": (update_main_character_model_blocking_forcerefresh, "update_main_character_model_blocking_forcerefresh", update_main_character_model_blocking_forcerefresh.short_description),
+            'check_main_character_and_character_ownership': (check_main_character_and_character_ownership, 'check_main_character_and_character_ownership', check_main_character_and_character_ownership.short_description),
+            'verify_service_accounts': (verify_service_accounts, 'verify_service_accounts', verify_service_accounts.short_description),
         })
 
         for hook in get_hooks('services_hook'):
@@ -465,10 +494,34 @@ class UserAdmin(BaseUserAdmin):
         return self.readonly_fields
 
 
+try:
+    admin.site.unregister(BaseUser)
+finally:
+    admin.site.register(User, UserAdmin)
+
+
+@admin.action(description="trigger_state_check for users in selected states")
+def trigger_state_check(modeladmin: "StateAdmin", request: HttpRequest, queryset: QuerySet["State"]) -> None:
+    if queryset.count() != 1:
+        modeladmin.message_user(
+            request,
+            'Please select exactly one state to trigger the state check.',
+            level=messages.ERROR
+        )
+        return
+    for obj in queryset:
+        for profile in obj.userprofile_set.all():
+            profile.assign_state()
+    modeladmin.message_user(
+        request, f'trigger_state_check executed for {queryset[0].name} users.'
+    )
+
+
 @admin.register(State)
 class StateAdmin(admin.ModelAdmin):
     list_select_related = True
     list_display = ('name', 'priority', '_user_count')
+    actions = [trigger_state_check]
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -581,6 +634,7 @@ class CharacterOwnershipAdmin(BaseOwnershipAdmin):
         return False
 
 
+@admin.register(Permission)
 class PermissionAdmin(admin.ModelAdmin):
     actions = None
     readonly_fields = [field.name for field in BasePermission._meta.fields]
@@ -604,28 +658,6 @@ class PermissionAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         # can see list but not edit it
         return not obj
-
-
-# Hack to allow registration of django.contrib.auth models in our authentication app
-class User(BaseUser):
-    class Meta:
-        proxy = True
-        verbose_name = BaseUser._meta.verbose_name
-        verbose_name_plural = BaseUser._meta.verbose_name_plural
-
-
-class Permission(BasePermission):
-    class Meta:
-        proxy = True
-        verbose_name = BasePermission._meta.verbose_name
-        verbose_name_plural = BasePermission._meta.verbose_name_plural
-
-
-try:
-    admin.site.unregister(BaseUser)
-finally:
-    admin.site.register(User, UserAdmin)
-    admin.site.register(Permission, PermissionAdmin)
 
 
 @receiver(pre_save, sender=User)

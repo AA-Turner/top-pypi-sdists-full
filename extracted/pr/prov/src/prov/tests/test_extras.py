@@ -1,10 +1,10 @@
+import io
 import unittest
 
-from prov.model import *
 from prov.dot import prov_to_dot
-from prov.serializers import Registry
+from prov.model import *
+from prov.serializers import DoNotExist, Registry, get as get_serializer
 from prov.tests.examples import primer_example, primer_example_alternate
-
 
 EX_NS = Namespace("ex", "http://example.org/")
 EX2_NS = Namespace("ex2", "http://example2.org/")
@@ -274,6 +274,36 @@ class TestExtras(unittest.TestCase):
         g2 = primer_example_alternate()
         self.assertEqual(g1, g2)
 
+    def test_get_serializer_for_unknown_format_chains_key_error(self):
+        with self.assertRaises(DoNotExist) as ctx:
+            get_serializer("no-such-format")
+        self.assertIsInstance(ctx.exception.__cause__, KeyError)
+        self.assertIn("no-such-format", str(ctx.exception))
+
+    def test_get_serializer_returns_class_for_each_known_format(self):
+        from prov.serializers.provjson import ProvJSONSerializer
+        from prov.serializers.provn import ProvNSerializer
+        from prov.serializers.provrdf import ProvRDFSerializer
+        from prov.serializers.provxml import ProvXMLSerializer
+
+        self.assertIs(get_serializer("json"), ProvJSONSerializer)
+        self.assertIs(get_serializer("rdf"), ProvRDFSerializer)
+        self.assertIs(get_serializer("provn"), ProvNSerializer)
+        self.assertIs(get_serializer("xml"), ProvXMLSerializer)
+
+    def test_get_serializer_lazily_populates_registry(self):
+        original = Registry.serializers
+        Registry.serializers = None
+        try:
+            self.assertIsNone(Registry.serializers)
+            get_serializer("json")
+            self.assertIsNotNone(Registry.serializers)
+            self.assertEqual(
+                set(Registry.serializers.keys()), {"json", "rdf", "provn", "xml"}
+            )
+        finally:
+            Registry.serializers = original
+
     def test_plot_without_matplotlib_raises_helpful_error(self):
         import builtins
 
@@ -281,7 +311,7 @@ class TestExtras(unittest.TestCase):
 
         def fake_import(name, *args, **kwargs):
             if name.startswith("matplotlib"):
-                raise ImportError("No module named %r" % name)
+                raise ImportError(f"No module named {name!r}")
             return real_import(name, *args, **kwargs)
 
         document = ProvDocument()
@@ -294,6 +324,19 @@ class TestExtras(unittest.TestCase):
             self.assertIn("prov[plot]", str(ctx.exception))
         finally:
             builtins.__import__ = real_import
+
+
+class TestProvNSerializer(unittest.TestCase):
+    """Covers ProvNSerializer.serialize()'s "no document" guard
+    (docs/test-gap-checklist.md, T13 item under serializers/provn.py)."""
+
+    def test_serialize_without_a_document_raises(self):
+        from prov.serializers.provn import ProvNSerializer
+
+        serializer = ProvNSerializer(document=None)
+        with self.assertRaises(Exception) as ctx:
+            serializer.serialize(io.StringIO())
+        self.assertIn("No document to serialize", str(ctx.exception))
 
 
 if __name__ == "__main__":

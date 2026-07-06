@@ -16,7 +16,7 @@ from prov.tests.examples import primer_example
 
 def _console_script(name):
     # Prefer the script installed alongside the interpreter running this
-    # test (the tox/uv env under test) over a same-named script that might
+    # test (the uv env under test) over a same-named script that might
     # appear earlier on PATH (e.g. a stray global `pip install prov` on a
     # contributor's machine).
     candidate = os.path.join(os.path.dirname(sys.executable), name)
@@ -33,7 +33,7 @@ class TestCLISmoke(unittest.TestCase):
 
     def test_console_scripts_installed(self):
         for script in ("prov-convert", "prov-compare"):
-            self.assertIsNotNone(_console_script(script), "%s not installed" % script)
+            self.assertIsNotNone(_console_script(script), f"{script} not installed")
 
     def test_prov_convert_and_compare_end_to_end(self):
         with tempfile.TemporaryDirectory() as tmp:

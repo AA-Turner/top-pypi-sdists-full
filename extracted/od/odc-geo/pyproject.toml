@@ -1,7 +1,7 @@
 [project]
 name = "odc-geo"
 description = "Geometry Classes and Operations (opendatacube)"
-version = "0.5.1"
+version = "0.5.2"
 authors = [
     {name = "Open Data Cube"},
 ]
@@ -43,11 +43,11 @@ Documentation = "https://odc-geo.readthedocs.io/en/latest/"
 [project.optional-dependencies]
 xr = [] # xarray is now a non-optional dependency
 warp = ["rasterio"]
-tiff = ["tifffile", "imagecodecs", "dask[array,distributed]", "rasterio"]
+tiff = ["tifffile", "imagecodecs>=2024.12.30,!=2026.3.6,!=2026.5.10", "dask[array,distributed]", "rasterio"]
 s3 = ["boto3"]
 az = ["azure-storage-blob"]
 las = ["laspy", "lazrs"]
-all = ["rasterio", "tifffile", "imagecodecs", "dask[array,distributed]", "boto3", "azure-storage-blob", "laspy", "lazrs"]
+all = ["rasterio", "tifffile", "imagecodecs>=2024.12.30,!=2026.3.6,!=2026.5.10", "dask[array,distributed]", "boto3", "azure-storage-blob", "laspy", "lazrs"]
 
 [build-system]
 requires = ["flit_core >=3.2,<4"]
@@ -57,7 +57,7 @@ build-backend = "flit_core.buildapi"
 name = "odc.geo"
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 ignore_missing_imports = true
 allow_redefinition = true
 
@@ -71,9 +71,6 @@ exclude_lines = [
   "pragma: no cover",
   "^ *\\.\\.\\.$",
 ]
-
-[tool.isort]
-profile = "black"
 
 [tool.pylint.messages_control]
 
@@ -94,22 +91,41 @@ disable = [
   "unsubscriptable-object",
 ]
 
+[tool.ruff.lint]
+select = [
+    "I",  # Isort
+]
+
 [dependency-groups]
 dev = [
     "azure-storage-blob>=12.25.0",
     "boto3>=1.37.21",
     "dask[array,distributed]>=2024.8.0",
-    "folium>=0.19.5",
-    "geopandas>=1.0.1",
-    "imagecodecs>=2024.12.30",
+    "imagecodecs>=2024.12.30,!=2026.3.6,!=2026.5.10",  # https://github.com/cgohlke/imagecodecs/issues/138 affects 2026.3.6, 2026.5.10
     "ipyleaflet>=0.19.2",
-    "matplotlib>=3.9.4",
+    "mypy",
+    "pre-commit>=4.0.1",
     "pytest>=8.3.5",
     "pytest-cov>=6.0.0",
     "pytest-timeout>=2.3.1",
     "rasterio>=1.4.3",
+    "ruff",
     "tifffile>=2024.8.30",
     "xarray>=0.19",
     "laspy>=2.5.4",
     "lazrs>=0.6.2",
+    "types-cachetools",
+    {include-group = "doc"},
+]
+
+doc = [
+    "odc-geo[all]",
+    "folium>=0.19.5",
+    "geopandas>=1.0.1",
+    "ipykernel",
+    "jupyter_sphinx",
+    "matplotlib>=3.9.4",
+    "sphinx<9",
+    "sphinx_rtd_theme",
+    "sphinx-autodoc-typehints",
 ]

@@ -12,13 +12,11 @@ import path from "node:path"
 import colors from "picocolors"
 import type { Plugin, ResolvedConfig, ViteDevServer } from "vite"
 
+import type { BridgeTypesConfig } from "./bridge-schema.js"
+import { DEBOUNCE_MS } from "./constants.js"
 import { debounce } from "./debounce.js"
-import { emitPagePropsTypes } from "./emit-page-props-types.js"
-import { emitSchemasTypes } from "./emit-schemas-types.js"
-import { emitStaticPropsTypes } from "./emit-static-props-types.js"
-import { formatPath } from "./format-path.js"
 import { shouldRegeneratePageProps, shouldRunOpenApiTs, updateOpenApiTsCache, updatePagePropsCache } from "./typegen-cache.js"
-import { buildHeyApiPlugins, findOpenApiTsConfig, runHeyApiGeneration, type TypeGenCoreConfig, type TypeGenLogger } from "./typegen-core.js"
+import { runTypeGeneration, type TypeGenCoreConfig, type TypeGenLogger, type TypeGenResult } from "./typegen-core.js"
 
 export interface RequiredTypeGenConfig {
   enabled: boolean
@@ -33,6 +31,7 @@ export interface RequiredTypeGenConfig {
   generatePageProps: boolean
   generateSchemas: boolean
   globalRoute: boolean
+  failOnError?: boolean
   debounce: number
 }
 
@@ -47,6 +46,127 @@ export interface TypeGenPluginOptions {
   executor?: string
   /** Whether .litestar.json was present (used for buildStart warnings) */
   hasPythonConfig?: boolean
+}
+
+export interface TypesConfigShape {
+  enabled?: boolean
+  output?: string
+  openapiPath?: string
+  routesPath?: string
+  pagePropsPath?: string
+  schemasTsPath?: string
+  generateZod?: boolean
+  generateSdk?: boolean
+  generateRoutes?: boolean
+  generatePageProps?: boolean
+  generateSchemas?: boolean
+  globalRoute?: boolean
+  failOnError?: boolean
+  debounce?: number
+}
+
+export interface ResolveTypesConfigOptions {
+  requested: boolean | "auto" | TypesConfigShape | undefined
+  pythonConfig?: BridgeTypesConfig
+  defaultOutput: string
+  mergePythonWhenTrue?: boolean
+  mergePythonForObject?: boolean
+}
+
+function buildTypeDefaults(output: string) {
+  return {
+    openapiPath: path.join(output, "openapi.json"),
+    routesPath: path.join(output, "routes.json"),
+    pagePropsPath: path.join(output, "inertia-pages.json"),
+    schemasTsPath: path.join(output, "schemas.ts"),
+  }
+}
+
+function resolveFromPython(pythonConfig: BridgeTypesConfig, defaultOutput: string): RequiredTypeGenConfig {
+  const output = pythonConfig.output ?? defaultOutput
+  const defaults = buildTypeDefaults(output)
+  return {
+    enabled: true,
+    output,
+    openapiPath: pythonConfig.openapiPath ?? defaults.openapiPath,
+    routesPath: pythonConfig.routesPath ?? defaults.routesPath,
+    pagePropsPath: pythonConfig.pagePropsPath ?? defaults.pagePropsPath,
+    schemasTsPath: pythonConfig.schemasTsPath ?? defaults.schemasTsPath,
+    generateZod: pythonConfig.generateZod ?? false,
+    generateSdk: pythonConfig.generateSdk ?? true,
+    generateRoutes: pythonConfig.generateRoutes ?? true,
+    generatePageProps: pythonConfig.generatePageProps ?? true,
+    generateSchemas: pythonConfig.generateSchemas ?? true,
+    globalRoute: pythonConfig.globalRoute ?? false,
+    failOnError: pythonConfig.failOnError,
+    debounce: DEBOUNCE_MS,
+  }
+}
+
+function resolveDefaultTypesConfig(defaultOutput: string): RequiredTypeGenConfig {
+  const defaults = buildTypeDefaults(defaultOutput)
+  return {
+    enabled: true,
+    output: defaultOutput,
+    openapiPath: defaults.openapiPath,
+    routesPath: defaults.routesPath,
+    pagePropsPath: defaults.pagePropsPath,
+    schemasTsPath: defaults.schemasTsPath,
+    generateZod: false,
+    generateSdk: true,
+    generateRoutes: true,
+    generatePageProps: true,
+    generateSchemas: true,
+    globalRoute: false,
+    failOnError: undefined,
+    debounce: DEBOUNCE_MS,
+  }
+}
+
+export function resolveTypesConfig(options: ResolveTypesConfigOptions): RequiredTypeGenConfig | false {
+  const { requested, pythonConfig, defaultOutput, mergePythonWhenTrue = false, mergePythonForObject = false } = options
+
+  if (requested === false) {
+    return false
+  }
+
+  if (requested === true) {
+    if (mergePythonWhenTrue && pythonConfig) {
+      return resolveFromPython(pythonConfig, defaultOutput)
+    }
+    return resolveDefaultTypesConfig(defaultOutput)
+  }
+
+  if (requested === "auto" || typeof requested === "undefined") {
+    return pythonConfig?.enabled ? resolveFromPython(pythonConfig, defaultOutput) : false
+  }
+
+  const userProvidedOutput = Object.hasOwn(requested, "output")
+  const output = requested.output ?? (mergePythonForObject ? pythonConfig?.output : undefined) ?? defaultOutput
+  const defaults = buildTypeDefaults(output)
+  const pathFallback = (key: "openapiPath" | "routesPath" | "pagePropsPath" | "schemasTsPath") => {
+    if (!mergePythonForObject || userProvidedOutput) {
+      return defaults[key]
+    }
+    return pythonConfig?.[key] ?? defaults[key]
+  }
+
+  return {
+    enabled: requested.enabled ?? true,
+    output,
+    openapiPath: requested.openapiPath ?? pathFallback("openapiPath"),
+    routesPath: requested.routesPath ?? pathFallback("routesPath"),
+    pagePropsPath: requested.pagePropsPath ?? pathFallback("pagePropsPath"),
+    schemasTsPath: requested.schemasTsPath ?? pathFallback("schemasTsPath"),
+    generateZod: requested.generateZod ?? (mergePythonForObject ? pythonConfig?.generateZod : undefined) ?? false,
+    generateSdk: requested.generateSdk ?? (mergePythonForObject ? pythonConfig?.generateSdk : undefined) ?? true,
+    generateRoutes: requested.generateRoutes ?? (mergePythonForObject ? pythonConfig?.generateRoutes : undefined) ?? true,
+    generatePageProps: requested.generatePageProps ?? (mergePythonForObject ? pythonConfig?.generatePageProps : undefined) ?? true,
+    generateSchemas: requested.generateSchemas ?? (mergePythonForObject ? pythonConfig?.generateSchemas : undefined) ?? true,
+    globalRoute: requested.globalRoute ?? (mergePythonForObject ? pythonConfig?.globalRoute : undefined) ?? false,
+    failOnError: requested.failOnError ?? pythonConfig?.failOnError,
+    debounce: requested.debounce ?? DEBOUNCE_MS,
+  }
 }
 
 async function getFileMtime(filePath: string): Promise<string> {
@@ -67,8 +187,10 @@ export function createLitestarTypeGenPlugin(typesConfig: RequiredTypeGenConfig, 
 
   let lastTypesHash: string | null = null
   let lastPagePropsHash: string | null = null
+  let lastRoutesHash: string | null = null
   let server: ViteDevServer | null = null
-  let isGenerating = false
+  let generationPromise: Promise<TypeGenResult> | null = null
+  let rerunRequested = false
   let resolvedConfig: ResolvedConfig | null = null
 
   /**
@@ -85,50 +207,34 @@ export function createLitestarTypeGenPlugin(typesConfig: RequiredTypeGenConfig, 
   /**
    * Run type generation with caching for HMR efficiency.
    */
-  async function runTypeGenerationWithCache(): Promise<boolean> {
-    if (isGenerating) {
-      return false
+  async function runTypeGenerationWithCache(): Promise<TypeGenResult> {
+    if (generationPromise) {
+      rerunRequested = true
+      return generationPromise
     }
 
-    isGenerating = true
-    const startTime = Date.now()
-
-    try {
+    generationPromise = (async () => {
+      const combined: TypeGenResult = {
+        generated: false,
+        generatedFiles: [],
+        skippedFiles: [],
+        durationMs: 0,
+        warnings: [],
+        errors: [],
+      }
       const projectRoot = resolvedConfig?.root ?? process.cwd()
-      const absoluteOpenapiPath = path.resolve(projectRoot, typesConfig.openapiPath)
-      const absolutePagePropsPath = path.resolve(projectRoot, typesConfig.pagePropsPath)
-
-      let generated = false
       const logger = createViteLogger()
+      const cache = {
+        shouldRunOpenApiTs,
+        updateOpenApiTsCache,
+        shouldRegeneratePageProps,
+        updatePagePropsCache,
+      }
 
-      // Find user config
-      const configPath = findOpenApiTsConfig(projectRoot)
-      const shouldGenerateSdk = configPath || typesConfig.generateSdk
-
-      // Generate OpenAPI types (with caching)
-      if (fs.existsSync(absoluteOpenapiPath) && shouldGenerateSdk) {
-        const plugins = buildHeyApiPlugins({
-          generateSdk: typesConfig.generateSdk,
-          generateZod: typesConfig.generateZod,
-          sdkClientPlugin,
-        })
-
-        const cacheOptions = {
-          generateSdk: typesConfig.generateSdk,
-          generateZod: typesConfig.generateZod,
-          plugins,
-        }
-
-        // Check cache to skip generation if inputs unchanged
-        const shouldRun = await shouldRunOpenApiTs(absoluteOpenapiPath, configPath, cacheOptions)
-
-        if (shouldRun) {
-          logger.info("Generating TypeScript types...")
-          if (configPath && resolvedConfig) {
-            const relConfigPath = formatPath(configPath, resolvedConfig.root)
-            logger.info(`openapi-ts config: ${colors.yellow(relConfigPath)}`)
-          }
-
+      try {
+        do {
+          rerunRequested = false
+          const startTime = Date.now()
           const coreConfig: TypeGenCoreConfig = {
             projectRoot,
             openapiPath: typesConfig.openapiPath,
@@ -137,106 +243,86 @@ export function createLitestarTypeGenPlugin(typesConfig: RequiredTypeGenConfig, 
             pagePropsPath: typesConfig.pagePropsPath,
             generateSdk: typesConfig.generateSdk,
             generateZod: typesConfig.generateZod,
-            generatePageProps: false, // Handle separately below
+            generatePageProps: typesConfig.generatePageProps,
             generateSchemas: typesConfig.generateSchemas,
+            schemasTsPath: typesConfig.schemasTsPath,
             sdkClientPlugin,
             executor,
           }
 
-          try {
-            await runHeyApiGeneration(coreConfig, configPath, plugins, logger)
-            await updateOpenApiTsCache(absoluteOpenapiPath, configPath, cacheOptions)
-            generated = true
-          } catch (error) {
-            const message = error instanceof Error ? error.message : String(error)
-            if (message.includes("not found") || message.includes("ENOENT")) {
-              logger.warn("@hey-api/openapi-ts not installed")
-            } else {
-              logger.error(`Type generation failed: ${message}`)
-            }
-          }
-        } else {
-          resolvedConfig?.logger.info(`${colors.cyan("•")} TypeScript types ${colors.dim("(unchanged)")}`)
-        }
-      }
+          const result = await runTypeGeneration(coreConfig, { logger, cache })
+          combined.generated ||= result.generated
+          combined.generatedFiles.push(...result.generatedFiles)
+          combined.skippedFiles.push(...result.skippedFiles)
+          combined.warnings.push(...result.warnings)
+          combined.errors.push(...result.errors)
+          combined.durationMs += result.durationMs || Date.now() - startTime
 
-      // Generate page props types (uses its own caching via emitPagePropsTypes)
-      if (typesConfig.generatePageProps && fs.existsSync(absolutePagePropsPath)) {
-        try {
-          const shouldRun = await shouldRegeneratePageProps(absolutePagePropsPath)
-          if (shouldRun) {
-            const changed = await emitPagePropsTypes(absolutePagePropsPath, typesConfig.output)
-            await updatePagePropsCache(absolutePagePropsPath)
-            if (changed) {
-              generated = true
-            } else {
-              resolvedConfig?.logger.info(`${colors.cyan("•")} Page props types ${colors.dim("(unchanged)")}`)
-            }
-          } else {
-            resolvedConfig?.logger.info(`${colors.cyan("•")} Page props types ${colors.dim("(unchanged)")}`)
+          for (const file of result.skippedFiles) {
+            const label = file.endsWith("page-props.ts") ? "Page props types" : file.endsWith("schemas.ts") ? "Schema types" : file.includes("api") ? "TypeScript types" : file
+            resolvedConfig?.logger.info(`${colors.cyan("•")} ${label} ${colors.dim("(unchanged)")}`)
           }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
-          logger.error(`Page props generation failed: ${message}`)
-        }
-      }
+        } while (rerunRequested)
 
-      // Generate schema helper types (uses its own caching via emitSchemasTypes)
-      const absoluteRoutesPath = path.resolve(projectRoot, typesConfig.routesPath)
-      if (typesConfig.generateSchemas && fs.existsSync(absoluteRoutesPath)) {
-        try {
-          const changed = await emitSchemasTypes(absoluteRoutesPath, typesConfig.output, typesConfig.schemasTsPath)
-          if (changed) {
-            generated = true
-          } else {
-            resolvedConfig?.logger.info(`${colors.cyan("•")} Schema types ${colors.dim("(unchanged)")}`)
-          }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
-          logger.error(`Schema types generation failed: ${message}`)
+        if (combined.generated && resolvedConfig) {
+          resolvedConfig.logger.info(`${colors.green("✓")} TypeScript artifacts updated ${colors.dim(`(${combined.durationMs}ms)`)}`)
         }
-      }
 
-      // Generate static props types from .litestar.json
-      try {
-        const changed = await emitStaticPropsTypes(typesConfig.output)
-        if (changed) {
-          generated = true
-        } else {
-          resolvedConfig?.logger.info(`${colors.cyan("•")} Static props types ${colors.dim("(unchanged)")}`)
+        if (combined.generated && server) {
+          server.ws.send({
+            type: "custom",
+            event: "litestar:types-updated",
+            data: {
+              output: typesConfig.output,
+              timestamp: Date.now(),
+            },
+          })
         }
+
+        return combined
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        logger.error(`Static props generation failed: ${message}`)
+        resolvedConfig?.logger.error(`${colors.cyan("litestar-vite")} ${colors.red("type generation failed:")} ${message}`)
+        combined.errors.push(message)
+        return combined
+      } finally {
+        generationPromise = null
       }
+    })()
 
-      if (generated && resolvedConfig) {
-        const duration = Date.now() - startTime
-        resolvedConfig.logger.info(`${colors.green("✓")} TypeScript artifacts updated ${colors.dim(`(${duration}ms)`)}`)
-      }
-
-      if (generated && server) {
-        server.ws.send({
-          type: "custom",
-          event: "litestar:types-updated",
-          data: {
-            output: typesConfig.output,
-            timestamp: Date.now(),
-          },
-        })
-      }
-
-      return true
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      resolvedConfig?.logger.error(`${colors.cyan("litestar-vite")} ${colors.red("type generation failed:")} ${message}`)
-      return false
-    } finally {
-      isGenerating = false
-    }
+    return generationPromise
   }
 
-  const debouncedRunTypeGeneration = debounce(runTypeGenerationWithCache, typesConfig.debounce)
+  const debouncedRunTypeGeneration = debounce(async (file: string, cacheKey: "openapi" | "pageProps" | "routes") => {
+    const newHash = await getFileMtime(file)
+    if (cacheKey === "openapi" && lastTypesHash === newHash) return
+    if (cacheKey === "pageProps" && lastPagePropsHash === newHash) return
+    if (cacheKey === "routes" && lastRoutesHash === newHash) return
+
+    const result = await runTypeGenerationWithCache()
+    if (result.errors.length === 0) {
+      if (cacheKey === "openapi") lastTypesHash = newHash
+      if (cacheKey === "pageProps") lastPagePropsHash = newHash
+      if (cacheKey === "routes") lastRoutesHash = newHash
+    }
+  }, typesConfig.debounce)
+
+  function shouldFailOnTypegenError(): boolean {
+    return typesConfig.failOnError ?? resolvedConfig?.command === "build"
+  }
+
+  function reportTypegenErrors(result: TypeGenResult, context: { error(message: string): void; warn(message: string): void }): void {
+    if (!result.errors.length) {
+      return
+    }
+
+    const message = `Litestar type generation failed:\n${result.errors.join("\n")}`
+    if (shouldFailOnTypegenError()) {
+      context.error(message)
+    } else {
+      context.warn(message)
+    }
+  }
 
   return {
     name: pluginName,
@@ -255,6 +341,10 @@ export function createLitestarTypeGenPlugin(typesConfig: RequiredTypeGenConfig, 
     },
 
     async buildStart() {
+      if (resolvedConfig?.command === "build" && process.env.LITESTAR_VITE_SKIP_BUILD_TYPEGEN === "1") {
+        return
+      }
+
       if (typesConfig.enabled && hasPythonConfig === false) {
         const projectRoot = resolvedConfig?.root ?? process.cwd()
         const openapiPath = path.resolve(projectRoot, typesConfig.openapiPath)
@@ -274,10 +364,13 @@ export function createLitestarTypeGenPlugin(typesConfig: RequiredTypeGenConfig, 
         const projectRoot = resolvedConfig?.root ?? process.cwd()
         const openapiPath = path.resolve(projectRoot, typesConfig.openapiPath)
         const pagePropsPath = path.resolve(projectRoot, typesConfig.pagePropsPath)
+        const routesPath = path.resolve(projectRoot, typesConfig.routesPath)
         const hasOpenapi = fs.existsSync(openapiPath)
         const hasPageProps = typesConfig.generatePageProps && fs.existsSync(pagePropsPath)
-        if (hasOpenapi || hasPageProps) {
-          await runTypeGenerationWithCache()
+        const hasRoutes = typesConfig.generateSchemas && fs.existsSync(routesPath)
+        if (hasOpenapi || hasPageProps || hasRoutes) {
+          const result = await runTypeGenerationWithCache()
+          reportTypegenErrors(result, this)
         }
       }
     },
@@ -288,24 +381,19 @@ export function createLitestarTypeGenPlugin(typesConfig: RequiredTypeGenConfig, 
       }
 
       const root = resolvedConfig?.root ?? process.cwd()
-      const relativePath = path.relative(root, file)
-      const openapiPath = typesConfig.openapiPath.replace(/^\.\//, "")
-      const pagePropsPath = typesConfig.pagePropsPath.replace(/^\.\//, "")
+      const absoluteFile = path.resolve(file)
+      const relativePath = path.relative(root, absoluteFile)
+      const openapiPath = path.resolve(root, typesConfig.openapiPath)
+      const pagePropsPath = path.resolve(root, typesConfig.pagePropsPath)
+      const routesPath = path.resolve(root, typesConfig.routesPath)
 
-      const isOpenapi = relativePath === openapiPath || file.endsWith(openapiPath)
-      const isPageProps = typesConfig.generatePageProps && (relativePath === pagePropsPath || file.endsWith(pagePropsPath))
+      const isOpenapi = absoluteFile === openapiPath
+      const isPageProps = typesConfig.generatePageProps && absoluteFile === pagePropsPath
+      const isRoutes = typesConfig.generateSchemas && absoluteFile === routesPath
 
-      if (isOpenapi || isPageProps) {
+      if (isOpenapi || isPageProps || isRoutes) {
         resolvedConfig?.logger.info(`${colors.cyan(frameworkName)} ${colors.dim("schema changed:")} ${colors.yellow(relativePath)}`)
-        const newHash = await getFileMtime(file)
-        if (isOpenapi) {
-          if (lastTypesHash === newHash) return
-          lastTypesHash = newHash
-        } else if (isPageProps) {
-          if (lastPagePropsHash === newHash) return
-          lastPagePropsHash = newHash
-        }
-        debouncedRunTypeGeneration()
+        debouncedRunTypeGeneration(absoluteFile, isOpenapi ? "openapi" : isPageProps ? "pageProps" : "routes")
       }
     },
   }

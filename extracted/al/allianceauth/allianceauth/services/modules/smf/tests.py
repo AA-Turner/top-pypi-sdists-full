@@ -1,10 +1,11 @@
 from unittest import mock
 
 from django import urls
-from django.contrib.auth.models import Group, Permission, User
 from django.core.exceptions import ObjectDoesNotExist
 from django.test import RequestFactory, TestCase
 
+from allianceauth.authentication.models import Permission, User
+from allianceauth.groupmanagement.models import Group
 from allianceauth.tests.auth_utils import AuthUtils
 
 from .auth_hooks import SmfService

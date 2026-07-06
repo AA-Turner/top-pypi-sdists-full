@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prov
-Version: 2.2.0
+Version: 2.3.0
 Summary: A library for W3C Provenance Data Model supporting PROV-JSON, PROV-XML and PROV-O (RDF)
 Author-email: Trung Dong Huynh <trungdong@donggiang.com>
 License-Expression: MIT
@@ -16,7 +16,6 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -28,14 +27,14 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Security
 Classifier: Topic :: System :: Logging
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: networkx>=2.0
 Requires-Dist: pydot>=1.2.0
 Requires-Dist: python-dateutil>=2.2
 Provides-Extra: rdf
-Requires-Dist: rdflib<7,>=4.2.1; extra == "rdf"
+Requires-Dist: rdflib<8,>=6.0.0; extra == "rdf"
 Provides-Extra: xml
 Requires-Dist: lxml>=3.3.5; extra == "xml"
 Provides-Extra: plot
@@ -99,3 +98,11 @@ The library is undergoing a staged modernisation (tooling, type hints, tests,
 documentation, standards conformance), a batch of bug fixes, and new format support.
 See `ROADMAP.md <ROADMAP.md>`_ for the plan and the 2.x API-stability promise.
 Feedback is welcome on the `issue tracker <https://github.com/trungdong/prov/issues>`_.
+
+
+Supported versions
+-------------------
+
+Only the latest 2.x release is supported; 1.x and earlier no longer receive
+fixes. See `SECURITY.md <SECURITY.md>`_ for the full support table and how to
+report a vulnerability.

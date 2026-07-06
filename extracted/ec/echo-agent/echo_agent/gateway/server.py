@@ -34,6 +34,7 @@ from echo_agent.gateway.rate_limiter import RateLimiter
 from echo_agent.gateway.router import DeliveryRouter
 from echo_agent.gateway.session_context import set_session_vars, clear_session_vars
 from echo_agent.gateway.session_policy import SessionResetPolicy
+from echo_agent.gateway.ws_session import resolve_client_session_key
 from echo_agent.session.manager import SessionManager
 
 
@@ -128,7 +129,17 @@ class GatewayServer:
             self._config.host,
             self._config.port,
         )
-        await self._site.start()
+        try:
+            await self._site.start()
+        except OSError as e:
+            import errno
+            if e.errno == errno.EADDRINUSE:
+                raise RuntimeError(
+                    f"网关端口 {self._config.host}:{self._config.port} 已被占用，"
+                    "可能本机已有一个常驻 echo-agent 在运行。若要接入它请用 "
+                    "`echo-agent cli`；若要另起实例请用 `--port` 指定其它端口。"
+                ) from e
+            raise
 
         actual_port = self._config.port
         if self._runner.addresses:
@@ -239,11 +250,88 @@ class GatewayServer:
                 return self._MEDIA_KIND_TO_CONTENT_TYPE[kind]
         return ContentType.FILE
 
+    def _build_ws_content_blocks(
+        self, text: str, attachments: list[Any]
+    ) -> list[ContentBlock]:
+        """Build inbound content blocks for a WS message frame.
+
+        With no attachments this yields a single TEXT block, identical to
+        ``InboundEvent.text_message`` — so the pure-text path is unchanged. Each
+        attachment is an id previously returned by POST /chat/attachments; we map it
+        back to the cached file (rejecting traversal) and append a typed block. The id
+        is resolved to a local path the agent reads directly, so behaviour is the same
+        whether the agent runs locally or remotely (the bytes were uploaded, not the path)."""
+        from echo_agent.gateway.api.chat_attachments import resolve_attachment_path
+
+        blocks = [ContentBlock(type=ContentType.TEXT, text=text)]
+        for item in attachments:
+            if not isinstance(item, dict):
+                continue
+            attachment_id = str(item.get("id") or "")
+            path = resolve_attachment_path(self, attachment_id)
+            if path is None:
+                logger.warning("Chat attachment id not found, skipping: {}", attachment_id)
+                continue
+            name = str(item.get("name") or path.name)
+            mime_type = str(item.get("mime_type") or "")
+            blocks.append(
+                ContentBlock(
+                    type=self._infer_media_content_type(str(path), name, mime_type=mime_type),
+                    url=str(path),
+                    mime_type=mime_type,
+                    metadata={"name": name},
+                )
+            )
+        return blocks
+
     def _request_token(self, request: web.Request) -> str:
         token = self.auth.token_from_headers(request.headers)
         if token:
             return token
         return request.query.get("token", "").strip()
+
+    @staticmethod
+    def _is_loopback_peer(request: web.Request) -> bool:
+        """Whether the request arrives over a loopback socket.
+
+        Derives the verdict from the real TCP peer (``transport.get_extra_info
+        ('peername')``), NEVER from ``request.remote`` or forwarded headers such
+        as ``X-Forwarded-For`` — those are client-controllable and would let a
+        remote caller spoof local trust. Used to grant the loopback exemption in
+        the user-authorization gate (see auth.py:is_authorized)."""
+        import ipaddress
+
+        transport = getattr(request, "transport", None)
+        peername = transport.get_extra_info("peername") if transport else None
+        if not peername:
+            return False
+        host = peername[0]
+        try:
+            return ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            return False
+
+    def _check_csrf(self, request: web.Request, *, action: str) -> web.Response | None:
+        """Reject cross-site browser requests to mutating endpoints.
+
+        Defends localhost deployments against CSRF-to-localhost / DNS-rebinding:
+        a malicious web page cannot drive shutdown/skills/knowledge just because
+        the user's browser can reach 127.0.0.1. Non-browser clients are
+        unaffected (they send no Origin/Sec-Fetch-Site).
+
+        Uses the default-on ``is_cross_site_browser`` primitive — same defense
+        as POST /message and the WS handshake. It must NOT use the opt-in
+        ``is_origin_allowed`` (which returns True when ``allowed_origins`` is
+        empty): these admin endpoints are the highest-risk surface and an
+        unauthenticated loopback deployment (no tokens, no allowlist — the
+        default form) would otherwise leave shutdown/skills/knowledge fully
+        exposed to CSRF-to-localhost."""
+        origin = request.headers.get("Origin", "").strip()
+        sec_fetch_site = request.headers.get("Sec-Fetch-Site", "").strip()
+        if not self.auth.is_cross_site_browser(origin, sec_fetch_site):
+            return None
+        self.auth.audit(action, ok=False, reason=f"cross-site origin rejected: {origin or '?'}")
+        return web.json_response({"error": "cross-site request forbidden"}, status=403)
 
     def _require_api_token(self, request: web.Request, *, action: str) -> web.Response | None:
         if not self._config.auth.api_tokens:
@@ -255,19 +343,44 @@ class GatewayServer:
         self.auth.audit(action, ok=False, reason="invalid api token")
         return web.json_response({"error": "unauthorized"}, status=401)
 
+    def _require_admin_token(self, request: web.Request, *, action: str) -> web.Response | None:
+        """Guard for high-risk admin endpoints (shutdown, skill import/install/
+        delete, knowledge upload/delete). Enforces CSRF, then an admin-scoped
+        token. The ``?token=`` query backdoor is NOT honoured here — admin
+        tokens must travel in a header so they can't leak via referrer/logs or
+        be triggered by a cross-site GET."""
+        csrf = self._check_csrf(request, action=action)
+        if csrf is not None:
+            return csrf
+        admin = self._config.auth.admin_tokens or self._config.auth.api_tokens
+        if not admin:
+            return None  # unauthenticated deployment (loopback, no tokens)
+        token = self.auth.token_from_headers(request.headers)
+        if self.auth.authenticate_admin_token(token):
+            self.auth.audit(action, ok=True)
+            return None
+        self.auth.audit(action, ok=False, reason="invalid admin token")
+        return web.json_response({"error": "admin authorization required"}, status=403)
+
     def _playground_path(self) -> Path:
         return Path(__file__).resolve().parent / "static" / "index.html"
 
     def _authenticate_and_check_rate_limit(
-        self, platform: str, user_id: str, chat_id: str,
+        self, platform: str, user_id: str, chat_id: str, *, trusted: bool = False,
     ) -> str | None:
         """统一的认证和限流检查。
+
+        Args:
+            trusted: 来自 loopback socket 的可信请求，跳过用户白名单闸门
+                （仍受限流约束）。必须由真实 peer 推导，见 _is_loopback_peer。
 
         Returns:
             str: 错误信息（如果被拒绝）
             None: 检查通过
         """
-        if not self.auth.is_authorized(platform, user_id):
+        # trusted 只放宽用户白名单闸门（loopback 豁免），不接受 is_authorized 的
+        # trusted 形参（Task 1 已移除）：正常授权或可信 loopback 二者其一即放行。
+        if not (self.auth.is_authorized(platform, user_id) or trusted):
             self.auth.audit("message", platform=platform, user_id=user_id, ok=False, reason="user unauthorized")
             return "unauthorized"
         if not self.rate_limiter.acquire(platform, chat_id):
@@ -299,6 +412,11 @@ class GatewayServer:
         guard = self._require_api_token(request, action="message")
         if guard is not None:
             return guard
+        origin = request.headers.get("Origin", "").strip()
+        sec_fetch_site = request.headers.get("Sec-Fetch-Site", "").strip()
+        if self.auth.is_cross_site_browser(origin, sec_fetch_site):
+            self.auth.audit("message", ok=False, reason=f"cross-site origin rejected: {origin or '?'}")
+            return web.json_response({"error": "cross-site request forbidden"}, status=403)
         try:
             body = await request.json()
         except json.JSONDecodeError:
@@ -315,7 +433,9 @@ class GatewayServer:
         if not text and not media_urls:
             return web.json_response({"error": "text or media_urls required"}, status=400)
 
-        rejection = self._authenticate_and_check_rate_limit(platform, user_id, chat_id)
+        rejection = self._authenticate_and_check_rate_limit(
+            platform, user_id, chat_id, trusted=self._is_loopback_peer(request),
+        )
         if rejection == "unauthorized":
             await self.hooks.emit("auth_failed", platform=platform, user_id=user_id)
             return web.json_response({"error": "unauthorized"}, status=403)
@@ -323,7 +443,22 @@ class GatewayServer:
             return web.json_response({"error": "rate limited"}, status=429)
         self.auth.audit("message", platform=platform, user_id=user_id, ok=True)
 
-        session_key = f"gateway:{platform}:{chat_id}"
+        # Gate B（身份收口，对齐 WS 握手）：仅靠 loopback 豁免放行的客户端
+        # （normally_ok=False）拿不到 server 派生的 gateway:{platform}:{chat_id}
+        # 兜底键，必须自带 cli: 前缀 key，否则被拒——否则本机裸调用者可自报
+        # platform=wechat,user_id=victim 落到他人隔离的 gateway:wechat:victim。
+        normally_ok = self.auth.is_authorized(platform, user_id)
+        session_key, sk_err = resolve_client_session_key(
+            body.get("session_key"),
+            platform=platform,
+            chat_id=chat_id,
+            allow_fallback=normally_ok,
+        )
+        if sk_err:
+            self.auth.audit(
+                "message", platform=platform, user_id=user_id, ok=False, reason=sk_err,
+            )
+            return web.json_response({"error": "forbidden session_key"}, status=403)
         session = await self.session_manager.get_or_create(session_key)
 
         if self.session_policy.should_reset(session):
@@ -484,12 +619,20 @@ class GatewayServer:
 
     # ── WebSocket handler ─────────────────────────────────────────────────
 
-    async def _handle_websocket(self, request: web.Request) -> web.WebSocketResponse:
-        """处理 WebSocket 连接：认证握手 → 消息循环 → 事件分发。"""
+    async def _handle_websocket(self, request: web.Request) -> web.StreamResponse:
+        """处理 WebSocket 连接：Origin 闸门 → 认证握手 → 消息循环 → 事件分发。"""
+        # Gate A: reject cross-site browser upgrades BEFORE prepare(). Once the
+        # socket is upgraded the browser's onopen fires, so this must run first.
+        origin = request.headers.get("Origin", "").strip()
+        sec_fetch_site = request.headers.get("Sec-Fetch-Site", "").strip()
+        if self.auth.is_cross_site_browser(origin, sec_fetch_site):
+            self.auth.audit("ws_auth", ok=False, reason=f"cross-site origin rejected: {origin or '?'}")
+            return web.json_response({"error": "cross-site request forbidden"}, status=403)
+
         websocket = web.WebSocketResponse()
         await websocket.prepare(request)
 
-        ws_id = None
+        delivery_key = None
         platform = "ws"
         user_id = ""
         chat_id = ""
@@ -504,82 +647,124 @@ class GatewayServer:
                         await websocket.send_json({"error": "invalid JSON"})
                         continue
 
-                    msg_type = data.get("type", "message")
+                    # Per-message isolation: a failure while handling one
+                    # message (audit, content build, publish, session ops…)
+                    # must return an error frame and continue, never propagate
+                    # out of the loop and silently drop the connection. Only
+                    # genuine socket-level errors reach the outer handler below.
+                    try:
+                        msg_type = data.get("type", "message")
 
-                    if msg_type == "auth":
-                        platform = data.get("platform", "ws")
-                        user_id = data.get("user_id", "")
-                        chat_id = data.get("chat_id", user_id)
-                        token = str(data.get("token") or self._request_token(request))
+                        if msg_type == "auth":
+                            platform = data.get("platform", "ws")
+                            user_id = data.get("user_id", "")
+                            chat_id = data.get("chat_id", user_id)
+                            token = str(data.get("token") or self._request_token(request))
 
-                        if self._config.auth.api_tokens and not self.auth.authenticate_token(token):
-                            self.auth.audit("ws_auth", platform=platform, user_id=user_id, ok=False, reason="invalid api token")
-                            await websocket.send_json({"type": "error", "error": "unauthorized"})
-                            await websocket.close()
-                            return websocket
+                            if self._config.auth.api_tokens and not self.auth.authenticate_token(token):
+                                self.auth.audit("ws_auth", platform=platform, user_id=user_id, ok=False, reason="invalid api token")
+                                await websocket.send_json({"type": "error", "error": "unauthorized"})
+                                await websocket.close()
+                                return websocket
 
-                        if not self.auth.is_authorized(platform, user_id):
-                            self.auth.audit("ws_auth", platform=platform, user_id=user_id, ok=False, reason="user unauthorized")
-                            await websocket.send_json({"type": "error", "error": "unauthorized"})
-                            await websocket.close()
-                            return websocket
+                            trusted = self._is_loopback_peer(request)
+                            normally_ok = self.auth.is_authorized(platform, user_id)
+                            if not (normally_ok or trusted):
+                                self.auth.audit("ws_auth", platform=platform, user_id=user_id, ok=False, reason="user unauthorized")
+                                await websocket.send_json({"type": "error", "error": "unauthorized"})
+                                await websocket.close()
+                                return websocket
 
-                        session_key = f"gateway:{platform}:{chat_id}"
-                        ws_id = session_key
-                        self._ws_clients[ws_id] = websocket
-
-                        session = await self.session_manager.get_or_create(session_key)
-                        if self.session_policy.should_reset(session):
-                            await self.session_policy.reset(session, self.session_manager)
-
-                        await websocket.send_json({"type": "auth_ok", "session_key": session_key})
-                        self.auth.audit("ws_auth", platform=platform, user_id=user_id, ok=True)
-                        await self.hooks.emit(
-                            "auth_success", platform=platform, user_id=user_id,
-                        )
-                        continue
-
-                    if msg_type == "message":
-                        if not session_key:
-                            await websocket.send_json({"type": "error", "error": "authenticate first"})
-                            continue
-
-                        text = data.get("text", "")
-                        if not text:
-                            continue
-
-                        if not self.rate_limiter.acquire(platform, chat_id):
-                            await websocket.send_json({"type": "error", "error": "rate limited"})
-                            continue
-
-                        tokens = set_session_vars(
-                            platform=platform,
-                            chat_id=chat_id,
-                            user_id=user_id,
-                            session_key=session_key,
-                        )
-                        try:
-                            event = InboundEvent.text_message(
-                                channel=f"gateway:{platform}",
-                                sender_id=user_id,
+                            # A client let in ONLY by the loopback exemption gets no
+                            # server-derived fallback key — it must present an explicit
+                            # cli: key, else it could self-report another user's identity.
+                            session_key, sk_err = resolve_client_session_key(
+                                data.get("session_key"),
+                                platform=platform,
                                 chat_id=chat_id,
-                                text=text,
-                                session_key_override=session_key,
+                                allow_fallback=normally_ok,
                             )
-                            event.metadata["gateway"] = True
-                            event.metadata["platform"] = platform
-                            if not await self._bus.publish_inbound(event):
-                                await websocket.send_json({"type": "error", "error": "server overloaded"})
-                                continue
-                            await websocket.send_json({
-                                "type": "accepted",
-                                "event_id": event.event_id,
-                            })
-                        finally:
-                            clear_session_vars(tokens)
+                            if sk_err:
+                                self.auth.audit(
+                                    "ws_auth", platform=platform, user_id=user_id,
+                                    ok=False, reason=sk_err,
+                                )
+                                await websocket.send_json({"type": "error", "error": "forbidden session_key"})
+                                await websocket.close()
+                                return websocket
+                            # 身份键 session_key（cli 自带时=cli:alice）用于会话隔离与冒充拒绝；
+                            # 投递键 delivery_key 用出站重算式 gateway:{platform}:{chat_id}，
+                            # 让 _handle_outbound 无需任何 metadata 透传即可命中所有出站路径。
+                            delivery_key = f"gateway:{platform}:{chat_id}"
+                            self._ws_clients[delivery_key] = websocket
 
-                    if msg_type == "ping":
-                        await websocket.send_json({"type": "pong"})
+                            session = await self.session_manager.get_or_create(session_key)
+                            if self.session_policy.should_reset(session):
+                                await self.session_policy.reset(session, self.session_manager)
+
+                            await websocket.send_json({"type": "auth_ok", "session_key": session_key})
+                            self.auth.audit("ws_auth", platform=platform, user_id=user_id, ok=True)
+                            await self.hooks.emit(
+                                "auth_success", platform=platform, user_id=user_id,
+                            )
+                            continue
+
+                        if msg_type == "message":
+                            if not session_key:
+                                await websocket.send_json({"type": "error", "error": "authenticate first"})
+                                continue
+
+                            text = data.get("text", "")
+                            attachments = data.get("attachments") or []
+                            if not text and not attachments:
+                                continue
+
+                            if not self.rate_limiter.acquire(platform, chat_id):
+                                await websocket.send_json({"type": "error", "error": "rate limited"})
+                                continue
+
+                            tokens = set_session_vars(
+                                platform=platform,
+                                chat_id=chat_id,
+                                user_id=user_id,
+                                session_key=session_key,
+                            )
+                            try:
+                                content_blocks = self._build_ws_content_blocks(text, attachments)
+                                event = InboundEvent(
+                                    channel=f"gateway:{platform}",
+                                    sender_id=user_id,
+                                    chat_id=chat_id,
+                                    content=content_blocks,
+                                    session_key_override=session_key,
+                                )
+                                event.metadata["gateway"] = True
+                                event.metadata["platform"] = platform
+                                if not await self._bus.publish_inbound(event):
+                                    await websocket.send_json({"type": "error", "error": "server overloaded"})
+                                    continue
+                                await websocket.send_json({
+                                    "type": "accepted",
+                                    "event_id": event.event_id,
+                                })
+                            finally:
+                                clear_session_vars(tokens)
+
+                        if msg_type == "ping":
+                            await websocket.send_json({"type": "pong"})
+                    except Exception as e:
+                        # One message failed to process — report it and keep the
+                        # connection alive. This is what stops a stray per-message
+                        # error (a bad attachment, a transient audit/session fault)
+                        # from silently tearing down the whole session.
+                        logger.warning("WebSocket message handling failed: {}", e)
+                        try:
+                            await websocket.send_json({"type": "error", "error": "internal error"})
+                        except Exception:
+                            # Send failed → the socket itself is gone; let the
+                            # outer loop observe the close on the next iteration.
+                            pass
+                        continue
 
                 elif raw_msg.type in (aiohttp.WSMsgType.ERROR, aiohttp.WSMsgType.CLOSE):
                     break
@@ -587,8 +772,11 @@ class GatewayServer:
         except Exception as e:
             logger.error("WebSocket error: {}", e)
         finally:
-            if ws_id and ws_id in self._ws_clients:
-                del self._ws_clients[ws_id]
+            # Only drop the slot if it still holds *this* socket — when two
+            # connections collapse onto the same delivery_key, an earlier
+            # connection's teardown must not delete the later one's slot.
+            if delivery_key and self._ws_clients.get(delivery_key) is websocket:
+                del self._ws_clients[delivery_key]
 
         return websocket
 

@@ -28,7 +28,7 @@ from echo_agent.channels.wecom import WeComChannel
 from echo_agent.channels.webhook import WebhookChannel
 from echo_agent.channels.weixin import WeixinChannel
 from echo_agent.channels.whatsapp import WhatsAppChannel
-from echo_agent.config.schema import ChannelsConfig
+from echo_agent.config.schema import ChannelsConfig, HeartbeatConfig
 
 _CHANNEL_REGISTRY: dict[str, type[BaseChannel]] = {
     "cli": CLIChannel,
@@ -87,8 +87,15 @@ class ChannelManager:
         self._channels: dict[str, BaseChannel] = {}
         self._send_progress = config.send_progress
         self._send_tool_hints = config.send_tool_hints
+        # Heartbeat verbosity tier. ChannelsConfig does not carry the heartbeat
+        # block (it lives at config.agent.heartbeat), so default here and let the
+        # composition root override _heartbeat_cfg when it wires the real value.
+        self._heartbeat_cfg = HeartbeatConfig()
         self._on_cli_exit = on_cli_exit
         self._stream_states: dict[str, _StreamState] = {}
+        self._heartbeat_msg_ids: dict[str, str] = {}  # inbound_event_id -> platform msg id
+        self._delivered_milestone: dict[str, int] = {}  # inbound_event_id -> max delivered seq
+        self._finalized_keys: dict[str, float] = {}  # inbound_event_id -> finalize time (bounded set)
         self._inbound_msg_ids: dict[str, tuple[str, str, float]] = {}
         self._max_inbound_ids = 1000
         self._max_stream_states = 500
@@ -98,9 +105,6 @@ class ChannelManager:
         self._cleanup_task: asyncio.Task | None = None
         self.bus.subscribe_outbound_global(self._filter_and_dispatch)
         self.bus.subscribe_inbound(self._on_inbound_lifecycle)
-
-    def get_channel(self, name: str) -> BaseChannel | None:
-        return self._channels.get(name)
 
     @property
     def active_channels(self) -> list[str]:
@@ -138,6 +142,11 @@ class ChannelManager:
             if event.metadata.get("_drop"):
                 return
 
+        if event.metadata.get("_heartbeat"):
+            await self._handle_heartbeat(event)
+            event.metadata["_drop"] = True
+            return
+
         if event.metadata.get("_progress"):
             is_tool_hint = event.metadata.get("_tool_hint", False)
             if is_tool_hint and not self._send_tool_hints:
@@ -167,6 +176,8 @@ class ChannelManager:
         inbound_event_id = str(event.metadata.get("_inbound_event_id", ""))
         async with self._state_lock:
             mapping = self._inbound_msg_ids.pop(inbound_event_id, None)
+            self._heartbeat_msg_ids.pop(inbound_event_id, None)
+            self._delivered_milestone.pop(inbound_event_id, None)
         if not mapping:
             return
         _, platform_msg_id, _ = mapping
@@ -187,6 +198,17 @@ class ChannelManager:
                 logger.debug("send_reaction failed on {}: {}", event.channel, e)
 
     async def _deliver_final(self, event: OutboundEvent) -> None:
+        # Authoritative finalize guard: mark this turn finalized synchronously,
+        # before any await yields the event loop, so a still-running heartbeat
+        # timer that fires during downstream channel I/O is discarded rather
+        # than overwriting or duplicating the final answer.
+        key = str(event.metadata.get("_inbound_event_id", ""))
+        if key:
+            async with self._state_lock:
+                self._finalized_keys[key] = time.monotonic()
+                while len(self._finalized_keys) > self._max_inbound_ids:
+                    oldest = next(iter(self._finalized_keys))
+                    del self._finalized_keys[oldest]
         channel = self._channels.get(event.channel)
         has_content = any(b.text or b.url for b in event.content)
         if not has_content:
@@ -194,6 +216,32 @@ class ChannelManager:
             return
         if not channel:
             return
+        # If a heartbeat already occupies a message on an editable channel, seal
+        # the final answer into that same message so the turn uses one slot total.
+        if key and getattr(channel, "supports_edit", False):
+            async with self._state_lock:
+                hb_msg_id = self._heartbeat_msg_ids.get(key)
+            if hb_msg_id:
+                try:
+                    result = await channel.edit_message(
+                        event.chat_id, hb_msg_id, event.text,
+                        metadata=self._public_metadata(event.metadata),
+                        finalize=True,
+                    )
+                    if result and not result.success:
+                        logger.warning("Final seal-edit failed on {}: {}", event.channel, result.error)
+                        # Best-effort delete the stale heartbeat message before
+                        # falling back to a fresh send, so the turn does not leave
+                        # a lingering "正在处理中…" message alongside the answer.
+                        await self._delete_stale_heartbeat(channel, event, hb_msg_id)
+                        # fall through to a fresh send if the in-place edit failed
+                    else:
+                        event.metadata["_drop"] = True
+                        return
+                except Exception as e:
+                    logger.error("Final seal-edit exception on {}: {}", event.channel, e)
+                    await self._delete_stale_heartbeat(channel, event, hb_msg_id)
+                    # fall through to a fresh send on edit failure
         send_event = OutboundEvent(
             channel=event.channel,
             chat_id=event.chat_id,
@@ -210,6 +258,120 @@ class ChannelManager:
         except Exception as e:
             logger.error("Final delivery exception on {}: {}", event.channel, e)
         event.metadata["_drop"] = True
+
+    async def _delete_stale_heartbeat(self, channel, event: OutboundEvent, msg_id: str) -> None:
+        """Best-effort removal of a lingering heartbeat message after a failed
+        seal-edit. Isolated from the caller: failures only log at debug level."""
+        try:
+            await channel.delete_message(
+                event.chat_id, msg_id,
+                metadata=self._public_metadata(event.metadata),
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.debug("stale heartbeat delete failed on {}: {}", event.channel, e)
+
+    async def _handle_heartbeat(self, event: OutboundEvent) -> None:
+        channel = self._channels.get(event.channel)
+        if not channel:
+            return
+        # Authoritative finalize guard: if the turn is already finalized, drop
+        # this late beat entirely — no typing refresh, no text, no edit — so it
+        # cannot overwrite the answer or post a stray "正在处理中…" after it.
+        key = str(event.metadata.get("_inbound_event_id", ""))
+        if key:
+            async with self._state_lock:
+                if key in self._finalized_keys:
+                    return
+        # Milestone dedup (Task 7): each turn delivers a given milestone seq at
+        # most once. The seq is set by ProgressHeartbeat and always present on
+        # real beats; _delivered_milestone keys off the turn's milestone, not a
+        # msg id. This is the structural fix for weixin spam.
+        has_milestone = "_hb_milestone" in event.metadata
+        milestone = int(event.metadata.get("_hb_milestone", 0))
+        pass_only_typing = False
+        if key and has_milestone:
+            async with self._state_lock:
+                pass_only_typing = milestone <= self._delivered_milestone.get(key, 0)
+        # Keep typing alive on every beat, regardless of text display.
+        try:
+            await channel.send_typing(event.chat_id, metadata=self._public_metadata(event.metadata))
+        except Exception as e:  # noqa: BLE001
+            logger.debug("heartbeat typing failed on {}: {}", event.channel, e)
+        if pass_only_typing or not event.text:
+            return
+        try:
+            await self._dispatch_heartbeat_text(channel, event, key, milestone, has_milestone)
+        except Exception as e:  # noqa: BLE001 — heartbeat must never crash delivery
+            logger.debug("heartbeat delivery failed on {}: {}", event.channel, e)
+
+    async def _dispatch_heartbeat_text(
+        self, channel, event: OutboundEvent, key: str, milestone: int, has_milestone: bool
+    ) -> None:
+        verbosity = getattr(getattr(self, "_heartbeat_cfg", None), "verbosity", "key_milestones")
+        if verbosity == "silent":
+            return
+        if not getattr(channel, "is_realtime", True):
+            return  # async tier (e.g. email): zero heartbeat
+        is_key = bool(event.metadata.get("_hb_key", False))
+        if (
+            verbosity == "key_milestones"
+            and has_milestone
+            and not getattr(channel, "supports_edit", False)
+            and not is_key
+        ):
+            return  # plain-text tier in key-only mode: skip non-key milestones
+        if getattr(channel, "supports_edit", False):
+            # Editable channel: reuse the turn's single heartbeat slot via edit.
+            await self._heartbeat_edit_or_send(channel, event, key)
+        elif has_milestone:
+            # Uneditable plain-text tier: milestone dedup upstream already
+            # guaranteed this seq is new, so just send (no msg-id bookkeeping).
+            await self._heartbeat_send(channel, event, key)
+        # Record the delivered milestone so repeat beats for the same seq are
+        # suppressed at the top of _handle_heartbeat.
+        if key and has_milestone:
+            async with self._state_lock:
+                self._delivered_milestone[key] = milestone
+                while len(self._delivered_milestone) > self._max_inbound_ids:
+                    oldest = next(iter(self._delivered_milestone))
+                    del self._delivered_milestone[oldest]
+
+    async def _heartbeat_edit_or_send(self, channel, event: OutboundEvent, key: str) -> None:
+        """Editable tier: edit the turn's draft if one exists, else first-send it."""
+        async with self._state_lock:
+            msg_id = self._heartbeat_msg_ids.get(key)
+        if msg_id:
+            await channel.edit_message(
+                event.chat_id, msg_id, event.text,
+                metadata=self._public_metadata(event.metadata),
+            )
+            return
+        result = await channel.send(self._heartbeat_send_event(event))
+        if result and result.success and result.message_id and key:
+            async with self._state_lock:
+                self._heartbeat_msg_ids[key] = result.message_id
+                while len(self._heartbeat_msg_ids) > self._max_inbound_ids:
+                    oldest = next(iter(self._heartbeat_msg_ids))
+                    del self._heartbeat_msg_ids[oldest]
+
+    def _heartbeat_send_event(self, event: OutboundEvent) -> OutboundEvent:
+        """Build the OutboundEvent used to deliver a heartbeat beat (DRY)."""
+        send_event = OutboundEvent.text_reply(
+            channel=event.channel, chat_id=event.chat_id,
+            text=event.text, reply_to_id=event.reply_to_id,
+        )
+        send_event.is_final = False
+        send_event.message_kind = "heartbeat"
+        send_event.metadata = self._public_metadata(event.metadata)
+        return send_event
+
+    async def _heartbeat_send(self, channel, event: OutboundEvent, key: str) -> None:
+        send_event = self._heartbeat_send_event(event)
+        result = await channel.send(send_event)
+        if result and result.success and not getattr(result, "skipped", False):
+            logger.info("heartbeat delivered: channel={} chat={}", event.channel, str(event.chat_id)[:8])
+        elif result and not result.success:
+            logger.info("heartbeat send failed: channel={} error={}", event.channel, getattr(result, "error", ""))
 
     async def _handle_token_stream(self, event: OutboundEvent) -> None:
         channel = self._channels.get(event.channel)
@@ -415,3 +577,10 @@ class ChannelManager:
                 ]
                 for k in stale_inbound:
                     del self._inbound_msg_ids[k]
+
+                stale_finalized = [
+                    k for k, ts in self._finalized_keys.items()
+                    if (now - ts) > self._inbound_ttl_seconds
+                ]
+                for k in stale_finalized:
+                    del self._finalized_keys[k]

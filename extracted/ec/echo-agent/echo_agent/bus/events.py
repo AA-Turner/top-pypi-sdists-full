@@ -65,16 +65,33 @@ class InboundEvent:
     content: list[ContentBlock] = field(default_factory=list)
     timestamp: datetime = field(default_factory=datetime.now)
     reply_to_id: str | None = None
+    # 引用上下文：用户引用某条历史消息发问时，承载被引用消息的原文与作者，
+    # 供 pipeline 统一注入到喂给模型的文本里做消歧（agent 才知道用户在追问哪条）。
+    # 通道入站自带原文则同步填充；拿不到则留空，注入侧降级为不注入。
+    reply_to_text: str | None = None        # 被引用消息的文本（可截断）
+    reply_to_sender: str | None = None      # 被引用消息的作者名/id
+    reply_to_is_own: bool = False           # 用户引用的是不是机器人自己发的消息
     thread_id: str | None = None
     session_key_override: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     gateway_metadata: dict[str, Any] = field(default_factory=dict)
+    is_group: bool = False
 
     @property
     def session_key(self) -> str:
         if self.session_key_override:
             return self.session_key_override
         return f"{self.channel}:{self.chat_id}"
+
+    def scoped_session_key(self, scope: str) -> str:
+        """会话作用域键。私聊及 shared 策略下等同 session_key；
+        群聊 + per_user 策略时把 sender_id 纳入键，实现群内每人隔离。"""
+        if self.session_key_override:
+            return self.session_key_override
+        base = f"{self.channel}:{self.chat_id}"
+        if scope == "per_user" and self.is_group and self.sender_id:
+            return f"{base}:{self.sender_id}"
+        return base
 
     @property
     def text(self) -> str:

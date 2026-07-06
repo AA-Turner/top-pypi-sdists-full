@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import pytest
-from tibs import Tibs, Mutibs, Endianness, Codec
+from tibs import Tibs, Mutibs, ByteOrder, Codec
 
 
 def test_creation():
@@ -238,6 +238,29 @@ def test_chunks():
     assert Mutibs().chunks(10) == []
 
 
+def test_split_at_returns_mutibs_pieces():
+    m = Mutibs('0b101100')
+
+    pieces = m.split_at([2, -1])
+
+    assert pieces == (Mutibs('0b10'), Mutibs('0b110'), Mutibs('0b0'))
+    assert isinstance(pieces, tuple)
+    assert all(isinstance(piece, Mutibs) for piece in pieces)
+
+    pieces[0][0] = False
+    assert pieces[0] == Tibs('0b00')
+    assert m == Tibs('0b101100')
+
+
+def test_split_at_mutibs_errors():
+    m = Mutibs('0b101100')
+
+    with pytest.raises(ValueError, match="out of range"):
+        _ = m.split_at(7)
+    with pytest.raises(ValueError, match="nondecreasing"):
+        _ = m.split_at([4, 3])
+
+
 def test_or():
     a = Mutibs('0x0f')
     b = Mutibs('0xf0')
@@ -417,6 +440,18 @@ def test_set_multiple_positions():
     a = Mutibs('0b0000')
     a.set([0, 2])
     assert a == Tibs('0b1010')
+
+
+def test_set_multiple_positions_tuple():
+    a = Mutibs('0b0000')
+    a.set((0, 2))
+    a.unset((2,))
+    assert a == Tibs('0b1000')
+
+    b = Mutibs.from_ones(4)
+    with pytest.raises(IndexError):
+        b.unset((0, 99))
+    assert b == Tibs('0b1111')
 
 
 def test_set_mixed_indices():
@@ -1431,10 +1466,10 @@ def test_tibs_byte_swapped_with_slice():
     assert b == Tibs('0x004433221155')
 
 
-def test_from_u_bad_endianness_type():
+def test_from_u_bad_byte_order_type():
     with pytest.raises(TypeError):
         a = Mutibs.from_u(101, 16, "asdf")
-    a = Mutibs.from_u(101, 16, Endianness.Unspecified)
+    a = Mutibs.from_u(101, 16, ByteOrder.Unspecified)
     assert a.to_u() == 101
 
 
@@ -1535,13 +1570,13 @@ def test_numeric_write_methods_do_not_accept_endianness():
     m = Mutibs.from_zeros(16)
 
     with pytest.raises(TypeError):
-        m.write_u(3, Endianness.Little)
+        m.write_u(3, ByteOrder.Little)
 
     with pytest.raises(TypeError):
-        m.write_i(-3, Endianness.Little)
+        m.write_i(-3, ByteOrder.Little)
 
     with pytest.raises(TypeError):
-        m.write_f(1.25, Endianness.Little)
+        m.write_f(1.25, ByteOrder.Little)
 
 
 def test_contains():
@@ -1581,9 +1616,9 @@ def test_replace_negative_count():
 
 def test_float_endianness():
     m1 = Mutibs.from_f(3.5, 32)
-    m2 = Mutibs.from_f(3.5, 32, Endianness.Unspecified)
-    m3 = Mutibs.from_f(3.5, 32, Endianness.Big)
-    m4 = Mutibs.from_f(3.5, 32, Endianness.Little)
+    m2 = Mutibs.from_f(3.5, 32, ByteOrder.Unspecified)
+    m3 = Mutibs.from_f(3.5, 32, ByteOrder.Big)
+    m4 = Mutibs.from_f(3.5, 32, ByteOrder.Little)
     assert m1.to_f() == m2.to_f() == 3.5
     assert m4.le.f == 3.5
     assert m3.be.to_f() == 3.5

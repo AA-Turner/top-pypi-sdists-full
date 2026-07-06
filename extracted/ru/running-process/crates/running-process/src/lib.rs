@@ -134,7 +134,7 @@ pub(crate) use helpers::{exit_code, feed_chunk, kill_drain_deadline, log_spawned
 pub use unix::{unix_set_priority, unix_signal_process, unix_signal_process_group, UnixSignal};
 #[cfg(windows)]
 pub(crate) use windows::{
-    assign_child_to_windows_kill_on_close_job_impl, windows_priority_flags, CapturePipeHandles,
+    assign_child_to_windows_kill_on_close_job_impl, windows_creation_flags, CapturePipeHandles,
     WindowsJobHandle,
 };
 
@@ -324,9 +324,48 @@ impl NativeProcess {
         if let Some(emitter) = self.shared.observer.as_ref() {
             emitter.emit_started(child.id());
         }
+        // #539 slice 2: when the observer requests EventCategory::Process,
+        // associate an IOCP with the per-spawn Job Object so a pump thread
+        // can forward descendant lifecycle events. The Lifecycle category
+        // is still served by emit_started / emit_exited above and below.
         #[cfg(windows)]
-        let job = public_symbols::rp_assign_child_to_windows_kill_on_close_job_public(&child)
-            .map_err(ProcessError::Spawn)?;
+        let job = {
+            let descendant_sink = self
+                .shared
+                .observer
+                .as_ref()
+                .and_then(|e| e.descendant_sink());
+            let direct_pid = child.id();
+            public_symbols::rp_assign_child_to_windows_kill_on_close_job_with_observer_public(
+                &child,
+                descendant_sink,
+                direct_pid,
+            )
+            .map_err(ProcessError::Spawn)?
+        };
+        // #539 slice 5: Linux descendant lifecycle via PR_SET_CHILD_SUBREAPER
+        // + /proc polling pump. No-admin, polling-based — see
+        // observer::descendants_linux module docs for tradeoffs.
+        #[cfg(target_os = "linux")]
+        {
+            if let Some(emitter) = self.shared.observer.as_ref() {
+                if let Some(sink) = emitter.descendant_sink() {
+                    crate::observer::descendants_linux::enable_subreaper();
+                    crate::observer::descendants_linux::spawn_pump(child.id(), sink);
+                }
+            }
+        }
+        // #539 slice 7: macOS descendant lifecycle via kqueue + EVFILT_PROC
+        // + NOTE_TRACK. Fully event-driven (no polling) — see
+        // observer::descendants_macos module docs for tradeoffs.
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(emitter) = self.shared.observer.as_ref() {
+                if let Some(sink) = emitter.descendant_sink() {
+                    crate::observer::descendants_macos::spawn_pump(child.id(), sink);
+                }
+            }
+        }
         if self.config.capture {
             let stdout = child.stdout.take().expect("stdout pipe missing");
             let stderr = child.stderr.take().expect("stderr pipe missing");
@@ -977,19 +1016,15 @@ impl NativeProcess {
         {
             use std::os::windows::process::CommandExt;
 
-            // CREATE_NEW_PROCESS_GROUP makes GenerateConsoleCtrlEvent
-            // with CTRL_BREAK_EVENT route to this child's group
-            // (rather than the daemon's group) — required for the
-            // pipe-session soft-signal path on Windows (#130 M4).
-            const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
-            let extra = if self.config.create_process_group {
-                CREATE_NEW_PROCESS_GROUP
-            } else {
-                0
-            };
-            let flags = self.config.creationflags.unwrap_or(0)
-                | extra
-                | windows_priority_flags(self.config.nice);
+            // #584: defaults to CREATE_NO_WINDOW so a console child spawned
+            // by the window-less daemon does not flash a console window,
+            // while preserving the caller's console opinion, priority, and
+            // CREATE_NEW_PROCESS_GROUP bits. See `windows_creation_flags`.
+            let flags = windows_creation_flags(
+                self.config.creationflags,
+                self.config.create_process_group,
+                self.config.nice,
+            );
             if flags != 0 {
                 command.creation_flags(flags);
             }

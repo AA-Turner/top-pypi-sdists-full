@@ -33,6 +33,52 @@ def _looks_like_user_close(error_text: str) -> bool:
     return any(marker in error_text for marker in USER_CLOSE_ERROR_MARKERS)
 
 
+def _login_poll_should_keep_waiting(
+    *,
+    elapsed_ms: float,
+    wait_budget_ms: int,
+    use_headless: bool,
+    on_auth_flow_page: bool,
+    hard_cap_ms: int,
+) -> bool:
+    """Decide whether the login polling loop keeps waiting past its budget.
+
+    Within budget: always keep waiting. Past budget: a VISIBLE window whose
+    last-polled URL is still in the login/MFA family means the user is
+    mid-authentication (typing a TOTP code, riding an SSO bounce) — closing
+    the window there rips it away mid-entry, misfires the walk-away cooldown,
+    and fails the tool call (observed 2026-07-05: poll.timeout while sitting
+    on validate_multifactor_auth_code.do). Keep waiting, bounded by
+    ``hard_cap_ms`` so a genuinely abandoned window still times out.
+    Headless windows never extend — no human is typing into them.
+    """
+    if elapsed_ms < wait_budget_ms:
+        return True
+    if use_headless or not on_auth_flow_page:
+        return False
+    return elapsed_ms < hard_cap_ms
+
+
+def _visible_window_mid_auth(*, on_login_url: bool, current_host: str, instance_host: str) -> bool:
+    """True when a visible login window is still mid-authentication.
+
+    Two shapes: (a) the URL is a ServiceNow login/MFA page (``on_login_url``),
+    or (b) the window is parked on a FOREIGN host — an external SSO IdP such as
+    Okta or ``login.microsoftonline.com`` — that is not the instance host.
+    Both mean a human is still typing/authenticating, so the poll loop should
+    extend past budget instead of ripping the window away (the 2026-07-05
+    failure, which recurs on SSO-federated instances whose MFA happens on the
+    IdP page, not a ServiceNow ``*.do`` URL). An empty/unknown current host
+    (about:blank) is NOT treated as mid-auth, so it can never hold the loop
+    open to its hard cap for no reason.
+    """
+    if on_login_url:
+        return True
+    ch = (current_host or "").strip().lower()
+    ih = (instance_host or "").strip().lower()
+    return bool(ch) and ch != ih
+
+
 def _is_login_page_url(url: str) -> bool:
     """Return True when the URL still indicates ServiceNow login or MFA flow.
 

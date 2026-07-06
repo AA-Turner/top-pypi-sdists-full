@@ -23,6 +23,7 @@
 
 import contextlib
 import importlib.util
+import io
 import os
 import platform
 import re
@@ -34,24 +35,41 @@ import tarfile
 import tempfile
 import threading
 import time
+import unicodedata
 from io import BytesIO, StringIO
+from pathlib import Path
 from unittest import skipIf
 
 from dulwich import porcelain
+from dulwich.am import AmConflict
 from dulwich.client import SendPackResult
+from dulwich.commit_graph import read_commit_graph
 from dulwich.diff_tree import tree_changes
-from dulwich.errors import CommitError
+from dulwich.errors import CommitError, WorkingTreeModifiedError
+from dulwich.index import (
+    Index,
+    IndexEntry,
+    validate_path_element_default,
+    validate_path_element_ntfs,
+)
 from dulwich.object_store import DEFAULT_TEMPFILE_GRACE_PERIOD
-from dulwich.objects import ZERO_SHA, Blob, Commit, Tag, Tree
+from dulwich.objects import S_IFGITLINK, ZERO_SHA, Blob, Commit, Tag, Tree
 from dulwich.patch import PatchApplicationFailure
 from dulwich.porcelain import (
     CheckoutError,  # Hypothetical or real error class
     CountObjectsResult,
+    _checked_worktree_path,
     add,
     commit,
 )
+from dulwich.porcelain.submodule import _check_submodule_path
 from dulwich.repo import NoIndexPresent, Repo
 from dulwich.server import DictBackend
+from dulwich.signature import (
+    BadSignature,
+    UntrustedSignature,
+    get_signature_vendor_for_signature,
+)
 from dulwich.tests.utils import build_commit_graph, make_commit, make_object
 from dulwich.web import make_server, make_wsgi_chain
 
@@ -656,12 +674,6 @@ class CommitSignTests(PorcelainGpgTestCase):
         commit = self.repo.get_object(sha)
         assert isinstance(commit, Commit)
         # GPG Signatures aren't deterministic, so we can't do a static assertion.
-        from dulwich.signature import (
-            BadSignature,
-            UntrustedSignature,
-            get_signature_vendor_for_signature,
-        )
-
         self.assertIsNotNone(commit.gpgsig)
         vendor = get_signature_vendor_for_signature(commit.gpgsig)
         vendor.verify(commit.raw_without_sig(), commit.gpgsig)
@@ -714,8 +726,6 @@ class CommitSignTests(PorcelainGpgTestCase):
         commit = self.repo.get_object(sha)
         assert isinstance(commit, Commit)
         # GPG Signatures aren't deterministic, so we can't do a static assertion.
-        from dulwich.signature import get_signature_vendor_for_signature
-
         self.assertIsNotNone(commit.gpgsig)
         vendor = get_signature_vendor_for_signature(commit.gpgsig)
         vendor.verify(commit.raw_without_sig(), commit.gpgsig)
@@ -749,8 +759,6 @@ class CommitSignTests(PorcelainGpgTestCase):
         commit = self.repo.get_object(sha)
         assert isinstance(commit, Commit)
         # Verify the commit is signed with the configured key
-        from dulwich.signature import get_signature_vendor_for_signature
-
         self.assertIsNotNone(commit.gpgsig)
         vendor = get_signature_vendor_for_signature(commit.gpgsig)
         vendor.verify(commit.raw_without_sig(), commit.gpgsig)
@@ -790,8 +798,6 @@ class CommitSignTests(PorcelainGpgTestCase):
         commit = self.repo.get_object(sha)
         assert isinstance(commit, Commit)
         # Verify the commit is signed due to config
-        from dulwich.signature import get_signature_vendor_for_signature
-
         self.assertIsNotNone(commit.gpgsig)
         vendor = get_signature_vendor_for_signature(commit.gpgsig)
         vendor.verify(commit.raw_without_sig(), commit.gpgsig)
@@ -862,8 +868,6 @@ class CommitSignTests(PorcelainGpgTestCase):
         commit = self.repo.get_object(sha)
         assert isinstance(commit, Commit)
         # Verify the commit is signed with default key
-        from dulwich.signature import get_signature_vendor_for_signature
-
         self.assertIsNotNone(commit.gpgsig)
         vendor = get_signature_vendor_for_signature(commit.gpgsig)
         vendor.verify(commit.raw_without_sig(), commit.gpgsig)
@@ -898,8 +902,6 @@ class CommitSignTests(PorcelainGpgTestCase):
         commit = self.repo.get_object(sha)
         assert isinstance(commit, Commit)
         # Verify the commit is signed despite config=false
-        from dulwich.signature import get_signature_vendor_for_signature
-
         self.assertIsNotNone(commit.gpgsig)
         vendor = get_signature_vendor_for_signature(commit.gpgsig)
         vendor.verify(commit.raw_without_sig(), commit.gpgsig)
@@ -975,8 +977,6 @@ class VerifyCommitTests(PorcelainGpgTestCase):
 
     def test_verify_commit_with_wrong_key(self) -> None:
         """Test that verifying with wrong keyid raises UntrustedSignature."""
-        from dulwich.signature import UntrustedSignature
-
         _c1, _c2, c3 = build_commit_graph(
             self.repo.object_store, [[1], [2, 1], [3, 1, 2]]
         )
@@ -1021,6 +1021,30 @@ class VerifyCommitTests(PorcelainGpgTestCase):
         # Verify should not raise for unsigned commits
         porcelain.verify_commit(self.repo.path, sha)
 
+    def test_verify_commit_unsigned_with_keyids(self) -> None:
+        """Test that an unsigned commit is rejected when trusted keyids are required."""
+        _c1, _c2, c3 = build_commit_graph(
+            self.repo.object_store, [[1], [2, 1], [3, 1, 2]]
+        )
+        self.repo.refs[b"HEAD"] = c3.id
+
+        sha = porcelain.commit(
+            self.repo.path,
+            message="Unsigned commit",
+            author="Joe <joe@example.com>",
+            committer="Bob <bob@example.com>",
+            sign=False,
+        )
+
+        # Caller demands a trusted signer; an unsigned commit satisfies none.
+        self.assertRaises(
+            UntrustedSignature,
+            porcelain.verify_commit,
+            self.repo.path,
+            sha,
+            keyids=[PorcelainGpgTestCase.DEFAULT_KEY_ID],
+        )
+
 
 @skipIf(
     platform.python_implementation() == "PyPy" or sys.platform == "win32",
@@ -1056,8 +1080,6 @@ class VerifyTagTests(PorcelainGpgTestCase):
 
     def test_verify_tag_with_wrong_key(self) -> None:
         """Test that verifying with wrong keyid raises UntrustedSignature."""
-        from dulwich.signature import UntrustedSignature
-
         _c1, _c2, c3 = build_commit_graph(
             self.repo.object_store, [[1], [2, 1], [3, 1, 2]]
         )
@@ -1103,6 +1125,31 @@ class VerifyTagTests(PorcelainGpgTestCase):
 
         # Verify should not raise for unsigned tags
         porcelain.verify_tag(self.repo.path, b"unsigned-tag")
+
+    def test_verify_tag_unsigned_with_keyids(self) -> None:
+        """Test that an unsigned tag is rejected when trusted keyids are required."""
+        _c1, _c2, c3 = build_commit_graph(
+            self.repo.object_store, [[1], [2, 1], [3, 1, 2]]
+        )
+        self.repo.refs[b"HEAD"] = c3.id
+
+        porcelain.tag_create(
+            self.repo.path,
+            b"unsigned-tag",
+            b"Tagger <tagger@example.com>",
+            b"Unsigned tag message",
+            annotated=True,
+            sign=False,
+        )
+
+        # Caller demands a trusted signer; an unsigned tag satisfies none.
+        self.assertRaises(
+            UntrustedSignature,
+            porcelain.verify_tag,
+            self.repo.path,
+            b"unsigned-tag",
+            keyids=[PorcelainGpgTestCase.DEFAULT_KEY_ID],
+        )
 
 
 class TimezoneTests(PorcelainTestCase):
@@ -1470,8 +1517,6 @@ class CloneTests(PorcelainTestCase):
             self.assertEqual(c3.id, r.refs[b"HEAD"])
 
     def test_clone_pathlib(self) -> None:
-        from pathlib import Path
-
         f1_1 = make_object(Blob, data=b"f1")
         commit_spec = [[1]]
         trees = {1: [(b"f1", f1_1)]}
@@ -1521,9 +1566,6 @@ class CloneTests(PorcelainTestCase):
 
         # Manually add the submodule to the index since submodule_add doesn't do it
         # when the repository is local (to maintain backward compatibility)
-        from dulwich.index import IndexEntry
-        from dulwich.objects import S_IFGITLINK
-
         index = self.repo.open_index()
         index[b"sub"] = IndexEntry(
             ctime=0,
@@ -1611,8 +1653,6 @@ class InitTests(TestCase):
         porcelain.init(repo_dir, bare=True)
 
     def test_init_pathlib(self) -> None:
-        from pathlib import Path
-
         repo_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, repo_dir)
         repo_path = Path(repo_dir)
@@ -1623,8 +1663,6 @@ class InitTests(TestCase):
         repo.close()
 
     def test_init_bare_pathlib(self) -> None:
-        from pathlib import Path
-
         repo_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, repo_dir)
         repo_path = Path(repo_dir)
@@ -1773,8 +1811,6 @@ class AddTests(PorcelainTestCase):
         self.assertEqual([], list(self.repo.open_index()))
 
     def test_add_file_clrf_conversion(self) -> None:
-        from dulwich.index import IndexEntry
-
         # Set the right configuration to the repo
         c = self.repo.get_config()
         c.set("core", "autocrlf", "input")
@@ -2252,8 +2288,6 @@ class AddTests(PorcelainTestCase):
         """With core.precomposeunicode, adding an NFD-form path updates
         the NFC-form index entry instead of creating a duplicate.
         """
-        import unicodedata
-
         nfc_name = unicodedata.normalize("NFC", "täst.txt")
         nfd_name = unicodedata.normalize("NFD", "täst.txt")
         self.assertNotEqual(nfc_name, nfd_name)
@@ -3620,12 +3654,6 @@ class TagCreateSignTests(PorcelainGpgTestCase):
         tag = self.repo[b"refs/tags/tryme"]
         assert isinstance(tag, Tag)
         # GPG Signatures aren't deterministic, so we can't do a static assertion.
-        from dulwich.signature import (
-            BadSignature,
-            UntrustedSignature,
-            get_signature_vendor_for_signature,
-        )
-
         self.assertIsNotNone(tag.signature)
         vendor = get_signature_vendor_for_signature(tag.signature)
         vendor.verify(tag.raw_without_sig(), tag.signature)
@@ -3684,8 +3712,6 @@ class TagCreateSignTests(PorcelainGpgTestCase):
         tag = self.repo[b"refs/tags/tryme"]
         assert isinstance(tag, Tag)
         # GPG Signatures aren't deterministic, so we can't do a static assertion.
-        from dulwich.signature import get_signature_vendor_for_signature
-
         self.assertIsNotNone(tag.signature)
         vendor = get_signature_vendor_for_signature(tag.signature)
         vendor.verify(tag.raw_without_sig(), tag.signature)
@@ -3720,8 +3746,6 @@ class TagCreateSignTests(PorcelainGpgTestCase):
         self.assertIsInstance(tag, Tag)
 
         # Verify the tag is signed with the configured key
-        from dulwich.signature import get_signature_vendor_for_signature
-
         self.assertIsNotNone(tag.signature)
         vendor = get_signature_vendor_for_signature(tag.signature)
         vendor.verify(tag.raw_without_sig(), tag.signature)
@@ -3762,8 +3786,6 @@ class TagCreateSignTests(PorcelainGpgTestCase):
         self.assertIsInstance(tag, Tag)
 
         # Verify the tag is signed due to config
-        from dulwich.signature import get_signature_vendor_for_signature
-
         self.assertIsNotNone(tag.signature)
         vendor = get_signature_vendor_for_signature(tag.signature)
         vendor.verify(tag.raw_without_sig(), tag.signature)
@@ -3836,8 +3858,6 @@ class TagCreateSignTests(PorcelainGpgTestCase):
         self.assertIsInstance(tag, Tag)
 
         # Verify the tag is signed with default key
-        from dulwich.signature import get_signature_vendor_for_signature
-
         self.assertIsNotNone(tag.signature)
         vendor = get_signature_vendor_for_signature(tag.signature)
         vendor.verify(tag.raw_without_sig(), tag.signature)
@@ -3873,8 +3893,6 @@ class TagCreateSignTests(PorcelainGpgTestCase):
         self.assertIsInstance(tag, Tag)
 
         # Verify the tag is signed despite config=false
-        from dulwich.signature import get_signature_vendor_for_signature
-
         self.assertIsNotNone(tag.signature)
         vendor = get_signature_vendor_for_signature(tag.signature)
         vendor.verify(tag.raw_without_sig(), tag.signature)
@@ -4683,8 +4701,6 @@ class CheckoutTests(PorcelainTestCase):
 
         # Checkout should fail when there are staged changes that would be lost
         # This matches Git's behavior to prevent data loss
-        from dulwich.errors import WorkingTreeModifiedError
-
         with self.assertRaises(WorkingTreeModifiedError) as cm:
             porcelain.checkout(self.repo, b"uni")
 
@@ -4960,6 +4976,85 @@ class CheckoutTests(PorcelainTestCase):
         hook = os.path.join(self.repo.path, ".git", "hooks", "post-checkout")
         self.assertFalse(os.path.exists(hook))
 
+    @skipIf(sys.platform == "win32", "requires symlink support")
+    def test_checkout_paths_replaces_symlink_target(self) -> None:
+        # A path-specific checkout must not follow a symlink already present at
+        # the target path. Otherwise a malicious tree that first lands a symlink
+        # pointing outside the work tree, then a regular file at the same path,
+        # could write attacker content anywhere the user can write.
+        outside = os.path.join(self.test_dir, "outside")
+        with open(outside, "w") as f:
+            f.write("original\n")
+
+        file_blob = Blob.from_string(b"payload\n")
+        file_tree = Tree()
+        file_tree.add(b"trigger", 0o100644, file_blob.id)
+        self.repo.object_store.add_object(file_blob)
+        self.repo.object_store.add_object(file_tree)
+        file_sha = self.repo.get_worktree().commit(
+            message=b"regular file",
+            tree=file_tree.id,
+            committer=b"Jane <jane@example.com>",
+            author=b"John <john@example.com>",
+        )
+
+        # Simulate an attacker-controlled work tree that already carries a
+        # symlink at the path about to be restored, pointing outside the repo.
+        trigger = os.path.join(self.repo.path, "trigger")
+        os.symlink(os.path.join("..", "outside"), trigger)
+        self.assertTrue(os.path.islink(trigger))
+
+        porcelain.checkout(self.repo, file_sha, paths=[b"trigger"])
+
+        # The file outside the work tree must be untouched, and the work tree
+        # path must now be a regular file holding the payload.
+        with open(outside) as f:
+            self.assertEqual("original\n", f.read())
+        self.assertFalse(os.path.islink(trigger))
+        with open(trigger) as f:
+            self.assertEqual("payload\n", f.read())
+
+    @skipIf(sys.platform == "win32", "requires symlink support")
+    def test_checkout_paths_rejects_intermediate_symlink(self) -> None:
+        # A path-specific checkout of ``sub/victim`` must refuse to write when
+        # ``sub`` already exists in the work tree as a symlink pointing
+        # elsewhere. Otherwise ``os.makedirs`` and the subsequent write would
+        # both traverse the symlink and land content outside the work tree.
+        outside_dir = os.path.join(self.test_dir, "outside")
+        os.makedirs(outside_dir)
+        outside_file = os.path.join(outside_dir, "victim")
+        with open(outside_file, "w") as f:
+            f.write("original\n")
+
+        payload = Blob.from_string(b"PWNED\n")
+        subdir_tree = Tree()
+        subdir_tree.add(b"victim", 0o100644, payload.id)
+        root_tree = Tree()
+        root_tree.add(b"sub", stat.S_IFDIR, subdir_tree.id)
+        for obj in (payload, subdir_tree, root_tree):
+            self.repo.object_store.add_object(obj)
+        sha = self.repo.get_worktree().commit(
+            message=b"malicious",
+            tree=root_tree.id,
+            committer=b"Jane <jane@example.com>",
+            author=b"John <john@example.com>",
+        )
+
+        os.symlink(
+            os.path.join("..", "outside"),
+            os.path.join(self.repo.path, "sub"),
+        )
+
+        self.assertRaises(
+            porcelain.Error,
+            porcelain.checkout,
+            self.repo,
+            sha,
+            paths=[b"sub/victim"],
+        )
+        with open(outside_file) as f:
+            self.assertEqual("original\n", f.read())
+
     def test_checkout_to_head(self) -> None:
         new_sha = self._commit_something_wrong()
 
@@ -5234,8 +5329,6 @@ class CheckWorktreePathTests(PorcelainTestCase):
     """Tests for the _checked_worktree_path defense-in-depth helper."""
 
     def test_rejects_unsafe_paths(self) -> None:
-        from dulwich.porcelain import _checked_worktree_path
-
         for bad in (
             b".git/hooks",
             b".git",
@@ -5247,8 +5340,6 @@ class CheckWorktreePathTests(PorcelainTestCase):
             self.assertRaises(porcelain.Error, _checked_worktree_path, self.repo, bad)
 
     def test_allows_ordinary_paths(self) -> None:
-        from dulwich.porcelain import _checked_worktree_path
-
         root = os.fsencode(self.repo.path)
         self.assertEqual(
             os.path.join(root, b"foo"),
@@ -5261,6 +5352,20 @@ class CheckWorktreePathTests(PorcelainTestCase):
         self.assertEqual(
             os.path.join(root, b".github/workflows/ci.yml"),
             _checked_worktree_path(self.repo, b".github/workflows/ci.yml"),
+        )
+
+    @skipIf(sys.platform == "win32", "requires symlink support")
+    def test_rejects_intermediate_symlink(self) -> None:
+        # A leading directory component that already exists in the work tree
+        # as a symlink must be refused: a crafted repository could otherwise
+        # leave ``sub`` as a symlink to ``.git/hooks`` and then have a
+        # subsequent write to ``sub/anything`` land through the link.
+        os.symlink(".git/hooks", os.path.join(self.repo.path, "sub"))
+        self.assertRaises(
+            porcelain.Error,
+            _checked_worktree_path,
+            self.repo,
+            b"sub/post-checkout",
         )
 
 
@@ -5616,9 +5721,6 @@ class SubmoduleTests(PorcelainTestCase):
         porcelain.submodule_add(self.repo, sub_repo_path, "test_submodule")
 
         # Manually add the submodule to the index
-        from dulwich.index import IndexEntry
-        from dulwich.objects import S_IFGITLINK
-
         index = self.repo.open_index()
         index[b"test_submodule"] = IndexEntry(
             ctime=0,
@@ -5693,9 +5795,6 @@ class SubmoduleTests(PorcelainTestCase):
         porcelain.submodule_add(middle_repo, nested_repo_path, "nested")
 
         # Manually add the nested submodule to the index
-        from dulwich.index import IndexEntry
-        from dulwich.objects import S_IFGITLINK
-
         middle_index = middle_repo.open_index()
         middle_index[b"nested"] = IndexEntry(
             ctime=0,
@@ -5844,12 +5943,6 @@ class SubmoduleTests(PorcelainTestCase):
         )
 
     def test_check_submodule_path(self) -> None:
-        from dulwich.index import (
-            validate_path_element_default,
-            validate_path_element_ntfs,
-        )
-        from dulwich.porcelain.submodule import _check_submodule_path
-
         # .git and .. components are rejected on every platform.
         for bad in (b".git/hooks", b"..", b"a/../b", b"/abs", b".git"):
             self.assertRaises(
@@ -6862,8 +6955,6 @@ class PullTests(PorcelainTestCase):
 
     def test_pull_protects_modified_files(self) -> None:
         """Test that pull refuses to overwrite uncommitted changes by default."""
-        from dulwich.errors import WorkingTreeModifiedError
-
         outstream = BytesIO()
         errstream = BytesIO()
 
@@ -7966,8 +8057,6 @@ class StatusTests(PorcelainTestCase):
 
     def test_get_untracked_paths_precompose_unicode(self) -> None:
         """Test that precompose_unicode normalizes NFD paths to NFC."""
-        import unicodedata
-
         # macOS git ships with core.precomposeunicode=true in the system
         # config. Override it at the repo level so open_index() below does
         # not apply NFC normalization to lookups; that would mask the
@@ -10449,8 +10538,6 @@ class FilterBranchTests(PorcelainTestCase):
     def setUp(self):
         super().setUp()
         # Create initial commits with different authors
-        from dulwich.objects import Commit, Tree
-
         # Create actual tree and blob objects
         tree = Tree()
         self.repo.object_store.add_object(tree)
@@ -10643,8 +10730,6 @@ class StashTests(PorcelainTestCase):
             self.assertEqual(b"modified content", f.read())
 
         # Verify new file is in the index
-        from dulwich.index import Index
-
         index = Index(os.path.join(self.repo.path, ".git", "index"))
         self.assertIn(b"new.txt", index)
 
@@ -11397,8 +11482,6 @@ class WriteCommitGraphTests(PorcelainTestCase):
         self.assertTrue(os.path.exists(graph_path))
 
         # Load and verify the commit graph
-        from dulwich.commit_graph import read_commit_graph
-
         commit_graph = read_commit_graph(graph_path)
         self.assertIsNotNone(commit_graph)
         self.assertEqual(3, len(commit_graph))
@@ -11456,8 +11539,6 @@ class WriteCommitGraphTests(PorcelainTestCase):
         self.assertTrue(os.path.exists(graph_path))
 
         # Load and verify the commit graph
-        from dulwich.commit_graph import read_commit_graph
-
         commit_graph = read_commit_graph(graph_path)
         self.assertIsNotNone(commit_graph)
 
@@ -12358,8 +12439,6 @@ class PorcelainMailinfoTests(TestCase):
 
     def test_mailinfo_basic(self) -> None:
         """Test basic mailinfo functionality."""
-        from io import BytesIO
-
         email_content = b"""From: Test User <test@example.com>
 Subject: [PATCH] Add feature
 Date: Mon, 1 Jan 2024 12:00:00 +0000
@@ -12378,8 +12457,6 @@ diff --git a/file.txt b/file.txt
 
     def test_mailinfo_write_to_files(self) -> None:
         """Test mailinfo writing message and patch to files."""
-        from io import BytesIO
-
         email_content = b"""From: Test <test@example.com>
 Subject: Test
 
@@ -12414,8 +12491,6 @@ Patch content
 
     def test_mailinfo_with_options(self) -> None:
         """Test mailinfo with various options."""
-        from io import BytesIO
-
         email_content = b"""From: Test <test@example.com>
 Subject: [RFC][PATCH] Feature
 Message-ID: <id@example.com>
@@ -12787,8 +12862,6 @@ index 1234567..abcdefg 100644
             body="This changes line 2 to line two.",
         )
 
-        import io
-
         shas = porcelain.am(self.repo_path, patches=[io.BytesIO(email_patch)])
         self.assertEqual(len(shas), 1)
 
@@ -12885,8 +12958,6 @@ index 1234567..abcdefg 100644
             diff=diff,
         )
 
-        import io
-
         shas = porcelain.am(self.repo_path, patches=[io.BytesIO(email_patch)])
         self.assertEqual(len(shas), 1)
 
@@ -12898,8 +12969,6 @@ index 1234567..abcdefg 100644
 
     def test_am_abort(self) -> None:
         """Test aborting am restores original HEAD."""
-        from dulwich.am import AmConflict
-
         # Create a file and commit it
         file_path = os.path.join(self.repo_path, "test.txt")
         with open(file_path, "wb") as f:
@@ -12939,8 +13008,6 @@ index 1234567..abcdefg 100644
             date="Mon, 1 Jan 2024 13:00:00 +0000",
         )
 
-        import io
-
         with self.assertRaises(AmConflict):
             porcelain.am(
                 self.repo_path,
@@ -12960,8 +13027,6 @@ index 1234567..abcdefg 100644
 
     def test_am_continue(self) -> None:
         """Test continuing am after resolving a conflict."""
-        from dulwich.am import AmConflict
-
         # Create a file and commit it
         file_path = os.path.join(self.repo_path, "test.txt")
         with open(file_path, "wb") as f:
@@ -13000,8 +13065,6 @@ index 1234567..abcdefg 100644
 """,
             date="Mon, 1 Jan 2024 13:00:00 +0000",
         )
-
-        import io
 
         with self.assertRaises(AmConflict):
             porcelain.am(
@@ -13029,8 +13092,6 @@ index 1234567..abcdefg 100644
 
     def test_am_skip(self) -> None:
         """Test skipping a patch during am."""
-        from dulwich.am import AmConflict
-
         # Create a file and commit it
         file_path = os.path.join(self.repo_path, "test.txt")
         with open(file_path, "wb") as f:
@@ -13069,8 +13130,6 @@ index 1234567..abcdefg 100644
 """,
             date="Mon, 1 Jan 2024 13:00:00 +0000",
         )
-
-        import io
 
         with self.assertRaises(AmConflict):
             porcelain.am(
@@ -13094,8 +13153,6 @@ index 1234567..abcdefg 100644
 
     def test_am_quit(self) -> None:
         """Test quitting am keeps partial progress."""
-        from dulwich.am import AmConflict
-
         # Create a file and commit it
         file_path = os.path.join(self.repo_path, "test.txt")
         with open(file_path, "wb") as f:
@@ -13134,8 +13191,6 @@ index 1234567..abcdefg 100644
 """,
             date="Mon, 1 Jan 2024 13:00:00 +0000",
         )
-
-        import io
 
         with self.assertRaises(AmConflict):
             porcelain.am(

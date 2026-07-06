@@ -3,6 +3,11 @@ import ComponentCreator from '@docusaurus/ComponentCreator';
 
 export default [
   {
+    path: '/dbt-osmosis/blog',
+    component: ComponentCreator('/dbt-osmosis/blog', 'fd1'),
+    exact: true
+  },
+  {
     path: '/dbt-osmosis/markdown-page',
     component: ComponentCreator('/dbt-osmosis/markdown-page', 'a0f'),
     exact: true

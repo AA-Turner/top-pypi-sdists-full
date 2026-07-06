@@ -83,6 +83,7 @@ no_trailing_whitespace_skip_paths = [
     "tests/integration/targets/setup_flatpak_remote/files/repo.tar.xz",
 ]
 no_trailing_whitespace_skip_directories = [
+    "tests/unit/plugins/modules/dnf_config_manager/fixtures/",
     "tests/unit/plugins/modules/interfaces_file/interfaces_file_fixtures/golden_output/",
     "tests/unit/plugins/modules/interfaces_file/interfaces_file_fixtures/input/",
 ]
@@ -117,3 +118,10 @@ include_devel = true
 
 [sessions.ansible_test_units]
 include_devel = true
+split_by_python_version = true
+
+[sessions.ansible_test_units.core_python_versions]
+"2.18" = ["3.8", "3.11", "3.13"]
+"2.19" = ["3.8", "3.11", "3.13"]
+"2.20" = ["3.9", "3.12", "3.14"]
+"2.21" = ["3.9", "3.12", "3.14"]

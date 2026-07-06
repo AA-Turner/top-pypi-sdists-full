@@ -3,9 +3,7 @@ Alliance Auth Evecharacter API
 """
 
 
-from django.contrib.auth.models import User
-
-from allianceauth.authentication.models import CharacterOwnership
+from allianceauth.authentication.models import CharacterOwnership, User
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.framework.api.user import get_sentinel_user
 

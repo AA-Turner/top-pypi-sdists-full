@@ -2,12 +2,12 @@
 import argparse
 import decimal
 import html
+import http.client
 import os
 import pathlib
 import sys
 import typing as t
 import urllib.parse
-import urllib.request
 from collections import OrderedDict
 from datetime import date, datetime
 from textwrap import dedent
@@ -25,10 +25,12 @@ from streamlit_elements_fluence import elements, event, sync
 
 from dbt_osmosis.core.config import (
     DbtConfiguration,
-    DbtProjectContext as DbtProject,
     create_dbt_project_context,
     discover_profiles_dir,
     discover_project_dir,
+)
+from dbt_osmosis.core.config import (
+    DbtProjectContext as DbtProject,
 )
 from dbt_osmosis.core.sql_operations import compile_sql_code, execute_sql_code
 from dbt_osmosis.workbench.components.ai_assistant import AIAssistant
@@ -128,9 +130,19 @@ def _get_demo_query() -> str:
 def _is_http_url(url: str) -> bool:
     try:
         parsed = urllib.parse.urlparse(url)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return False
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+def _parse_feed_url(feed_url: str) -> urllib.parse.ParseResult:
+    try:
+        parsed = urllib.parse.urlparse(feed_url)
+    except Exception as exc:
+        raise ValueError("Feed URL must use http or https") from exc
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("Feed URL must use http or https")
+    return parsed
 
 
 def _safe_url(value: t.Any) -> str | None:
@@ -149,10 +161,22 @@ def _entry_value(entry: t.Any, key: str) -> str:
 
 
 def _fetch_feed_bytes(feed_url: str, timeout_seconds: float) -> bytes:
-    if not _is_http_url(feed_url):
-        raise ValueError("Feed URL must use http or https")
-    with urllib.request.urlopen(feed_url, timeout=timeout_seconds) as response:
+    parsed = _parse_feed_url(feed_url)
+    path = parsed.path or "/"
+    if parsed.query:
+        path = f"{path}?{parsed.query}"
+    connection_cls = (
+        http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
+    )
+    connection = connection_cls(parsed.hostname, parsed.port, timeout=timeout_seconds)
+    try:
+        connection.request("GET", path, headers={"User-Agent": "dbt-osmosis-workbench"})
+        response = connection.getresponse()
+        if response.status >= 400:
+            raise ValueError("Feed request failed")
         feed_bytes = response.read(FEED_RESPONSE_MAX_BYTES + 1)
+    finally:
+        connection.close()
     if len(feed_bytes) > FEED_RESPONSE_MAX_BYTES:
         raise ValueError("Feed response exceeds maximum size")
     return feed_bytes
@@ -208,7 +232,7 @@ def build_feed_html(
             return _FEED_UNAVAILABLE_HTML
         entries = getattr(parsed_feed, "entries", [])
         feed_html = [_entry_html(entry) for entry in entries]
-    except Exception:
+    except Exception:  # noqa: BLE001
         return _FEED_UNAVAILABLE_HTML
 
     return "".join(feed_html) or _FEED_UNAVAILABLE_HTML
@@ -242,7 +266,7 @@ def _parse_args() -> dict[str, t.Any]:
             help="Opt in to fetching the external Hacker News RSS feed",
         )
         args = vars(parser.parse_args(sys.argv[1:]))
-    except Exception:
+    except Exception:  # noqa: BLE001
         args = {}
     return args
 
@@ -285,7 +309,7 @@ def _call_connection_cleanup(target: t.Any, method_name: str) -> None:
     if callable(method):
         try:
             method()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"Could not run adapter cleanup method {method_name}: {e}")
 
 
@@ -295,7 +319,7 @@ def _close_context_connections(ctx: DbtProject) -> None:
         try:
             close()
             return
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"Could not close previous dbt context: {e}")
 
     adapter = getattr(ctx, "adapter", None)
@@ -326,7 +350,7 @@ def change_target() -> None:
         new_ctx = create_dbt_project_context(
             config=_project_config_for_target(ctx, requested_target),
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         state.app.ctx = ctx
         state.app.target_name = current_target
         state.target_name = current_target
@@ -423,7 +447,7 @@ def compile(sql: str) -> str:
     ctx: DbtProject = state.app.ctx
     try:
         return compile_sql_code(ctx, sql).compiled_code or ""
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         return str(e)
 
 
@@ -448,7 +472,7 @@ def run_query() -> None:
     try:
         state.app.query_state = "running"
         resp, table = execute_sql_code(ctx, state.app.query_template.format(sql=sql))
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         state.app.query_state = "error"
         state.app.query_adapter_resp = str(error)
         state.app.query_result_columns = []
@@ -486,75 +510,102 @@ def run_profile(minimal: bool = True) -> None:
         state.app.profile_html = convert_profile_report_to_html(build_profile_report(minimal))
 
 
-def main():
-    args = _parse_args()
+def _new_dashboard_app() -> SimpleNamespace:
+    """Create the workbench app namespace and dashboard components."""
+    board = Dashboard()
+    return SimpleNamespace(
+        model="SCRATCH",
+        dashboard=board,
+        editor=Editor(board, 0, 0, 6, 11, minW=3, minH=3, compile_action=compile),
+        renderer=Renderer(board, 6, 0, 6, 11, minW=3, minH=3),
+        preview=Preview(board, 0, 11, 12, 9, minW=3, minH=3, query_action=run_query),
+        profiler=Profiler(board, 0, 20, 8, 9, minW=3, minH=3, prof_action=run_profile),
+        ai_assistant=AIAssistant(board, 8, 20, 4, 9, minW=3, minH=3),
+        feed=RssFeed(board, 12, 20, 4, 9, minW=3, minH=3),
+    )
 
-    st.title("dbt-osmosis 🌊")
 
+def _apply_dashboard_initial_state(app: SimpleNamespace) -> None:
+    """Copy component initial state into st.session_state.app."""
+    for value in vars(app).copy().values():
+        if isinstance(value, Dashboard.Item):
+            for key, state_val in value.initial_state().items():
+                setattr(app, key, state_val)
+
+
+def _workbench_paths(args: dict[str, t.Any]) -> tuple[str, str]:
+    """Return project and profiles directories for the workbench."""
+    proj_dir = args.get("project_dir") or discover_project_dir()
+    prof_dir = args.get("profiles_dir") or discover_profiles_dir()
+    return t.cast("str", proj_dir), t.cast("str", prof_dir)
+
+
+def _initial_query_for_project(project_dir: str) -> str:
+    """Return the initial workbench SQL for a project path."""
+    if project_dir.rstrip(os.path.sep).endswith(("demo_sqlite", "demo_duckdb")):
+        return _get_demo_query()
+    return default_prompt
+
+
+def _initialize_app(args: dict[str, t.Any]) -> SimpleNamespace:
+    """Initialize st.session_state.app for the first workbench render."""
+    app = _new_dashboard_app()
+    _apply_dashboard_initial_state(app)
+    state.app = app
+
+    proj_dir, prof_dir = _workbench_paths(args)
+    app.all_profiles = dbt_profile.read_profile(prof_dir)
+    app.query = _initial_query_for_project(proj_dir)
+    app.ctx = create_dbt_project_context(
+        config=DbtConfiguration(project_dir=proj_dir, profiles_dir=prof_dir),
+    )
+    app.target_name = app.ctx.runtime_cfg.target_name
+    app.editor.tabs[EditorTab.SQL]["content"] = app.query
+    app.compiled_query = compile(app.query) if app.query else ""
+    app.model_nodes = _model_nodes_for_context(app.ctx)
+    app.editor.update_content("SQL", app.query)
+    app.feed_html = build_feed_html(enable_external_feed=bool(args.get("enable_external_feed")))
+    return app
+
+
+def _workbench_app(args: dict[str, t.Any]) -> SimpleNamespace:
+    """Return existing workbench state or initialize it."""
     if "app" not in state:
-        # Initialize state
-        board = Dashboard()
+        return _initialize_app(args)
+    return state.app
 
-        app = SimpleNamespace(
-            model="SCRATCH",
-            dashboard=board,
-            editor=Editor(board, 0, 0, 6, 11, minW=3, minH=3, compile_action=compile),
-            renderer=Renderer(board, 6, 0, 6, 11, minW=3, minH=3),
-            preview=Preview(board, 0, 11, 12, 9, minW=3, minH=3, query_action=run_query),
-            profiler=Profiler(board, 0, 20, 8, 9, minW=3, minH=3, prof_action=run_profile),
-            ai_assistant=AIAssistant(board, 8, 20, 4, 9, minW=3, minH=3),
-            feed=RssFeed(board, 12, 20, 4, 9, minW=3, minH=3),
-        )
-        for v in vars(app).copy().values():
-            if isinstance(v, Dashboard.Item):
-                for k, v in v.initial_state().items():
-                    setattr(app, k, v)
 
-        state.app = app
+def _register_dashboard_hotkeys() -> None:
+    """Register dashboard keyboard shortcuts."""
+    event.Hotkey("ctrl+enter", sync(), bindInputs=True, overrideDefault=True)
+    event.Hotkey("command+s", sync(), bindInputs=True, overrideDefault=True)
+    event.Hotkey("ctrl+shift+enter", run_query, bindInputs=True, overrideDefault=True)
+    event.Hotkey("command+shift+s", run_query, bindInputs=True, overrideDefault=True)
 
-        proj_dir = args.get("project_dir") or discover_project_dir()
-        prof_dir = args.get("profiles_dir") or discover_profiles_dir()
 
-        app.all_profiles = dbt_profile.read_profile(prof_dir)
+def _render_dashboard(app: SimpleNamespace) -> None:
+    """Render dashboard components."""
+    with app.dashboard(rowHeight=57):
+        app.editor()
+        app.renderer()
+        app.preview()
+        app.profiler()
+        app.ai_assistant()
+        app.feed()
 
-        if proj_dir.rstrip(os.path.sep).endswith(("demo_sqlite", "demo_duckdb")):
-            app.query = _get_demo_query()
-        else:
-            app.query = default_prompt
 
-        app.ctx = create_dbt_project_context(
-            config=DbtConfiguration(project_dir=proj_dir, profiles_dir=prof_dir),
-        )
-        app.target_name = app.ctx.runtime_cfg.target_name
-
-        app.editor.tabs[EditorTab.SQL]["content"] = app.query
-        app.compiled_query = compile(app.query) if app.query else ""
-
-        app.model_nodes = _model_nodes_for_context(app.ctx)
-
-        app.editor.update_content("SQL", app.query)
-
-        app.feed_html = build_feed_html(enable_external_feed=bool(args.get("enable_external_feed")))
-    else:
-        app = state.app
+def main() -> None:
+    args = _parse_args()
+    st.title("dbt-osmosis 🌊")
+    app = _workbench_app(args)
 
     ctx: DbtProject = app.ctx
 
     sidebar(ctx)
 
     with elements("dashboard"):  # pyright: ignore[reportGeneralTypeIssues]
-        event.Hotkey("ctrl+enter", sync(), bindInputs=True, overrideDefault=True)
-        event.Hotkey("command+s", sync(), bindInputs=True, overrideDefault=True)
-        event.Hotkey("ctrl+shift+enter", lambda: run_query(), bindInputs=True, overrideDefault=True)
-        event.Hotkey("command+shift+s", lambda: run_query(), bindInputs=True, overrideDefault=True)
-
-        with app.dashboard(rowHeight=57):
-            app.editor()
-            app.renderer()
-            app.preview()
-            app.profiler()
-            app.ai_assistant()
-            app.feed()
+        _register_dashboard_hotkeys()
+        _render_dashboard(app)
 
 
 if __name__ == "__main__":

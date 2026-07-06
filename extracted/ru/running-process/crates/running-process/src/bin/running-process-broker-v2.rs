@@ -432,10 +432,19 @@ fn build_hello_reply(hello: &Hello, loader: &ServiceDefinitionLoader) -> HelloRe
     // 3. Happy path. Empty backend_pipe; real adopt-forwarding is a
     //    follow-up slice. The peer can still observe the Negotiated
     //    reply + the registered binary_path via subsequent control RPCs.
+    //
+    // `daemon_version` reports the **broker binary's own version**, not
+    // `definition.min_version`. Min-version is a per-service floor
+    // expressed *by* the service definition; daemon_version is the
+    // running broker's actual version — they are unrelated. Using
+    // min_version here regressed the original behavior (see PR #533's
+    // diff) and yields an empty string for any servicedef that
+    // doesn't explicitly opt in to a floor, which violates the test's
+    // and the proto's "non-empty" expectation.
     HelloReply {
         result: Some(hello_reply::Result::Negotiated(Negotiated {
             negotiated_protocol: ENVELOPE_VERSION as u32,
-            daemon_version: definition.min_version.clone(),
+            daemon_version: env!("CARGO_PKG_VERSION").into(),
             backend_pipe: String::new(),
             warnings: Vec::new(),
             server_capabilities: 0,
@@ -718,9 +727,18 @@ mod tests {
     }
 
     #[test]
-    fn is_already_bound_error_does_not_misclassify_permission_denied() {
+    fn is_already_bound_error_classifies_permission_denied() {
+        // PR #536 deliberately added `PermissionDenied` to the
+        // is_already_bound_error matcher: on Windows, a double-bind
+        // surfaces as `ERROR_ACCESS_DENIED` (raw os error 5) because
+        // the existing pipe instance's ACL blocks the second bind —
+        // not as `AddrInUse`. This test was added in PR #534 before
+        // that classification was widened, expecting the negation;
+        // PR #536 updated the impl but forgot the test, which then
+        // cascade-failed every CI run until this fix. Rename +
+        // invert to match the now-current contract.
         let err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied");
-        assert!(!is_already_bound_error(&err));
+        assert!(is_already_bound_error(&err));
     }
 
     #[test]

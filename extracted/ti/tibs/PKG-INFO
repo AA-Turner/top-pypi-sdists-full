@@ -1,11 +1,9 @@
 Metadata-Version: 2.4
 Name: tibs
-Version: 0.11.0
+Version: 0.12.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -47,7 +45,7 @@ License: The MIT License
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 	THE SOFTWARE.
 	
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: documentation, https://mutibs.readthedocs.io/
 Project-URL: homepage, https://github.com/scott-griffiths/tibs
@@ -88,7 +86,7 @@ The full documentation is available on [Read the Docs](https://mutibs.readthedoc
 pip install tibs
 ```
 
-Tibs works with Python 3.8 and later. There are pre-built wheels for most common
+Tibs works with Python 3.10 and later. There are pre-built wheels for most common
 platforms; if there are issues then please let me know.
 
 
@@ -96,7 +94,7 @@ platforms; if there are issues then please let me know.
 
 - Store bit sequences of any length, not just whole bytes.
 - Construct from strings, bytes, bools, integers, floats, random data or repeated typed values.
-- Slice at bit positions and interpret each slice as bytes, ints, floats, binary, octal or hex.
+- Slice or split at bit positions and interpret each piece as bytes, ints, floats, binary, octal or hex.
 - Read little-endian values and LSB0-labelled fields without manually reshuffling the source data.
 - Search, count, replace, rotate, reverse, byte-swap, set and unset bits with Rust-backed operations.
 - Use immutable `Tibs` for cheap slicing and stable values; switch to `Mutibs` when in-place edits are better.
@@ -118,12 +116,13 @@ Tibs('0xac804f4b')
 >>> len(packet)
 32
 
->>> # Slice at bit positions, then interpret each slice however you need.
->>> packet[:4].bin
+>>> # Split at bit positions, then interpret each piece however you need.
+>>> flags, size, payload = packet.split_at([4, 16])
+>>> flags.bin
 '1010'
->>> packet[4:16].to_u()
+>>> size.to_u()
 3200
->>> packet[16:].bytes
+>>> payload.bytes
 b'OK'
 
 >>> # Search and test using strings, bytes, booleans or other Tibs values.
@@ -154,19 +153,18 @@ For more information see the full [documentation](https://mutibs.readthedocs.io/
 
 ## Project status
 
-Tibs is currently beta: API changes are still possible when they improve the
-design, but the project is already performant and stable enough to be used as the core of the bitstring
-library, and it has millions of downloads per month.
+Tibs is currently at the 1.0 beta stage: the intended stable API is largely in
+place, but this pre-release still reserves room for final API adjustments before
+1.0.0. The project is already performant and stable enough to be used as
+the core of the bitstring library, and it has millions of downloads per month.
 
-There are over 600 unit tests, including Hypothesis tests and performance benchmarks.
-The Rust extension is built with PyO3 and supports Python 3.8 and later.
+There are over 800 unit tests, including Hypothesis tests and performance benchmarks.
+The Rust extension is built with PyO3 and supports Python 3.10 and later.
 
 
 For more examples and the full API reference, see the
 [documentation](https://mutibs.readthedocs.io/en/latest/). The runnable examples
 also live in the [`examples/`](examples/) directory.
-
-I hope to release version 1.0 before the end of 2026.
 
 
 ## Credits

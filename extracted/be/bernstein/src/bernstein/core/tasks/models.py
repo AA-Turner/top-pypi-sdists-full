@@ -185,6 +185,7 @@ class TaskStatus(Enum):
     PENDING_APPROVAL = "pending_approval"  # Completed; awaiting human approval before taking effect
     ABANDONED = "abandoned"  # Agent voluntarily abandoned with a structured reason (#1350)
     BLOCKED_BY_ABANDON = "blocked_by_abandon"  # Downstream task waiting on an abandoned dependency (#1350)
+    REFUSED = "refused"  # Worker reported a typed refusal via the completion contract (#2244)
 
 
 class TaskType(Enum):
@@ -452,6 +453,11 @@ class Task:
     # that report ``is_multimodal_capable() == False`` MUST refuse spawns
     # carrying a non-empty list before any process is launched.
     attachments: list[str] = field(default_factory=list[str])
+    # Explicit override for compute_max_turns()'s complexity-based auto-computation
+    # (see bernstein.core.agents.claude_max_turns.compute_max_turns). When set,
+    # this value is used verbatim for the Claude adapter's --max-turns flag,
+    # bypassing all scope/complexity-derived math. None = auto-compute as before.
+    max_turns: int | None = None
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> Task:
@@ -553,6 +559,7 @@ class Task:
             parallel_safe=bool(raw.get("parallel_safe", False)),
             story_id=(str(raw["story_id"]) if raw.get("story_id") else None),
             attachments=_normalize_attachments(raw.get("attachments")),
+            max_turns=(lambda v: None if v is None else int(v))(raw.get("max_turns")),
         )
 
 
@@ -927,6 +934,12 @@ class AgentSession:
     abort_detail: str = ""
     finish_reason: str = ""
     meta_messages: list[str] = field(default_factory=list[str])  # Operational nudges/hints (T423)
+    # Response-style profile applied at spawn. The profile name and the
+    # SHA-256 of the rendered style addendum are stamped here so the cost
+    # ledger entry written at task completion can attribute spend per
+    # profile without re-resolving config.
+    response_profile: str = ""
+    profile_content_sha256: str = ""
 
 
 class IsolationMode(StrEnum):
@@ -1277,6 +1290,10 @@ class OrchestratorConfig:
     max_crash_retries: int = 2  # Max times to resume in same worktree before escalating
     cross_model_verify: Any | None = None  # CrossModelVerifierConfig | None
     context_degradation: Any | None = None  # ContextDegradationConfig | None - restart agents on quality drop
+    # Proactive compaction lane: {proactive, threshold, max_per_task}.
+    # Resolved by orchestration.proactive_compaction.resolve_compaction_settings;
+    # None keeps the lane off so existing runs are unchanged.
+    compaction: Any | None = None
     force_parallel: bool = False  # Skip complexity advisor - always decompose/parallelize
     plan_mode: bool = False  # When True, tasks start as PLANNED and require approval before execution
     workflow: str | None = None  # "governed" activates governed workflow mode; None = adaptive (default)
@@ -1320,6 +1337,11 @@ class OrchestratorConfig:
     # Default off; enable once multi-tenant workloads exist.
     fair_scheduling_enabled: bool = False
     cost_autopilot: bool = False  # Wire CostAutopilot when True
+    # Janitor LLM-judge model/provider override, threaded from the seed's
+    # ``judge_model``/``judge_provider`` (bernstein.yaml). None = fall back
+    # to the janitor's hardcoded JUDGE_MODEL/JUDGE_PROVIDER defaults.
+    judge_model: str | None = None
+    judge_provider: str | None = None
 
     def __post_init__(self) -> None:
         """Parse nested workflow config if dict provided."""

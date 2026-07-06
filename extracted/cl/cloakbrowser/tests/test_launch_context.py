@@ -126,6 +126,45 @@ def test_custom_viewport(mock_launch, _mock_bin):
 
 @patch("cloakbrowser.browser.ensure_binary", return_value="/fake/chrome")
 @patch("cloakbrowser.browser.launch")
+def test_default_does_not_suppress_maximize(mock_launch, _mock_bin):
+    """No explicit viewport → let launch() auto-maximize (parity with JS/.NET)."""
+    browser, _ = _make_mock_browser()
+    mock_launch.return_value = browser
+
+    from cloakbrowser.browser import launch_context
+    launch_context()
+
+    assert mock_launch.call_args.kwargs["_suppress_maximize"] is False
+
+
+@patch("cloakbrowser.browser.ensure_binary", return_value="/fake/chrome")
+@patch("cloakbrowser.browser.launch")
+def test_explicit_viewport_suppresses_maximize(mock_launch, _mock_bin):
+    """Caller chose a viewport → suppress auto --start-maximized (parity with JS/.NET)."""
+    browser, _ = _make_mock_browser()
+    mock_launch.return_value = browser
+
+    from cloakbrowser.browser import launch_context
+    launch_context(viewport={"width": 800, "height": 600})
+
+    assert mock_launch.call_args.kwargs["_suppress_maximize"] is True
+
+
+@patch("cloakbrowser.browser.ensure_binary", return_value="/fake/chrome")
+@patch("cloakbrowser.browser.launch")
+def test_no_viewport_kwarg_suppresses_maximize(mock_launch, _mock_bin):
+    """Explicit no_viewport also counts as a chosen geometry → suppress."""
+    browser, _ = _make_mock_browser()
+    mock_launch.return_value = browser
+
+    from cloakbrowser.browser import launch_context
+    launch_context(no_viewport=True)
+
+    assert mock_launch.call_args.kwargs["_suppress_maximize"] is True
+
+
+@patch("cloakbrowser.browser.ensure_binary", return_value="/fake/chrome")
+@patch("cloakbrowser.browser.launch")
 def test_user_agent(mock_launch, _mock_bin):
     """user_agent forwarded to new_context()."""
     browser, context = _make_mock_browser()

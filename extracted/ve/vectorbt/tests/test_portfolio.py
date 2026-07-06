@@ -53,6 +53,83 @@ def assert_same_tuple(tup1, tup2):
         assert tup1[i] == tup2[i] or np.isnan(tup1[i]) and np.isnan(tup2[i])
 
 
+@pytest.mark.parametrize("test_row_wise", [False, True])
+@pytest.mark.parametrize("test_flexible", [False, True])
+def test_order_func_init_records(test_row_wise, test_flexible):
+    close = pd.Series([1.0])
+    seen = {}
+
+    def order_func(c):
+        seen["order_records"] = c.order_records.copy()
+        seen["log_records"] = c.log_records.copy()
+        seen["last_pos_record"] = c.last_pos_record.copy()
+        seen["pos_record_now"] = c.pos_record_now.copy()
+        return nb.NoOrder
+
+    def flex_order_func(c):
+        seen["order_records"] = c.order_records.copy()
+        seen["log_records"] = c.log_records.copy()
+        seen["last_pos_record"] = c.last_pos_record.copy()
+        return -1, nb.NoOrder
+
+    pf = vbt.Portfolio.from_order_func(
+        close,
+        flex_order_func if test_flexible else order_func,
+        use_numba=False,
+        row_wise=test_row_wise,
+        flexible=test_flexible,
+        init_temp_records=True,
+    )
+
+    assert pf.orders.count() == 0
+    record_arrays_close(
+        seen["order_records"],
+        np.array([( -1, -1, -1, np.nan, np.nan, np.nan, -1)], dtype=order_dt),
+    )
+    record_arrays_close(
+        seen["log_records"],
+        np.array(
+            [
+                (
+                    -1, -1, -1, -1, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
+                    np.nan, np.nan, -1, -1, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
+                    np.nan, False, False, False, False, np.nan, np.nan, np.nan, np.nan, np.nan,
+                    np.nan, np.nan, np.nan, np.nan, -1, -1, -1, -1
+                )
+            ],
+            dtype=log_dt,
+        ),
+    )
+    record_arrays_close(
+        seen["last_pos_record"],
+        np.array([(-1, -1, np.nan, -1, np.nan, np.nan, -1, np.nan, np.nan, np.nan, np.nan, -1, -1, -1)], dtype=trade_dt),
+    )
+    if not test_flexible:
+        record_arrays_close(
+            seen["pos_record_now"],
+            np.array((-1, -1, np.nan, -1, np.nan, np.nan, -1, np.nan, np.nan, np.nan, np.nan, -1, -1, -1), dtype=trade_dt),
+        )
+
+
+def test_sim_orders_init_temp_records():
+    order_records, log_records = nb.simulate_from_orders_nb(
+        (1, 1),
+        np.array([1]),
+        np.array([100.0]),
+        np.array([[0]]),
+        close=np.array([[1.0]]),
+        max_orders=1,
+        max_logs=1,
+        init_temp_records=False,
+    )
+
+    record_arrays_close(
+        order_records,
+        np.array([(0, 0, 0, 100.0, 1.0, 0.0, 0)], dtype=order_dt),
+    )
+    assert len(log_records) == 0
+
+
 def test_execute_order_nb():
     # Errors, ignored and rejected orders
     with pytest.raises(Exception):
@@ -2432,7 +2509,7 @@ class TestFromSignals:
         )
         record_arrays_close(pf_base.order_records, pf.order_records)
 
-    def test_ls_mode_routes_entries_and_exits_as_long_signals(self):
+    def test_ls_mode_routes_long_signals(self):
         pf = vbt.Portfolio.from_signals(
             pd.Series([1.0, 2.0, 3.0]),
             entries=pd.Series([True, False, False]),
@@ -2449,7 +2526,7 @@ class TestFromSignals:
         )
 
     @pytest.mark.parametrize("simulate_func", [dispatch.simulate_from_signals, nb.simulate_from_signals_nb])
-    def test_static_signal_default_direction_is_longonly(self, simulate_func):
+    def test_static_signal_defaults_longonly(self, simulate_func):
         kwargs = dict(
             entries=np.array([[True], [False], [False]]),
             exits=np.array([[False], [True], [False]]),

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import typing as t
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
@@ -32,12 +32,32 @@ from dbt_osmosis.core.diff import (
     SchemaDiffResult,
 )
 
+_BACKTICK_DIALECTS = frozenset({"bigquery", "spark", "databricks"})
 __all__ = [
-    "MigrationPlan",
-    "MigrationStep",
-    "MigrationPlanner",
     "MigrationFormat",
+    "MigrationPlan",
+    "MigrationPlanner",
+    "MigrationStep",
 ]
+
+
+def _is_quoted_identifier_part(
+    part: str, prefix: str, suffix: str, *, require_suffix: bool = False
+) -> bool:
+    if not part.startswith(prefix):
+        return False
+    return part.endswith(suffix) if require_suffix else True
+
+
+def _quote_identifier_parts(
+    parts: list[str], prefix: str, suffix: str, *, require_suffix: bool = False
+) -> str:
+    return ".".join(
+        part
+        if _is_quoted_identifier_part(part, prefix, suffix, require_suffix=require_suffix)
+        else f"{prefix}{part}{suffix}"
+        for part in parts
+    )
 
 
 class MigrationFormat(Enum):
@@ -85,7 +105,7 @@ class MigrationPlan:
     node_id: str
     node_name: str
     steps: list[MigrationStep] = field(default_factory=list)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def has_breaking_changes(self) -> bool:
@@ -252,13 +272,6 @@ class MigrationPlanner:
         dry_run: bool = False,
         format: MigrationFormat = MigrationFormat.SQL,
     ) -> None:
-        """Initialize the migration planner.
-
-        Args:
-            context: The YamlRefactorContext instance
-            dry_run: If True, generates SQL but doesn't apply changes
-            format: Output format for migration plans
-        """
         self._context = context
         self._dry_run = dry_run
         self._format = format
@@ -488,15 +501,13 @@ class MigrationPlanner:
         new_col = self._quote_identifier(change.new_name)
 
         # Different dialects use different syntax
-        if self._dialect == "snowflake":
-            sql = f"ALTER TABLE {table_name} RENAME COLUMN {old_col} TO {new_col};"
-        elif self._dialect in ("postgres", "redshift"):
-            sql = f"ALTER TABLE {table_name} RENAME COLUMN {old_col} TO {new_col};"
-        elif self._dialect == "bigquery":
-            sql = f"ALTER TABLE {table_name} RENAME COLUMN {old_col} TO {new_col};"
-        elif self._dialect == "duckdb":
-            sql = f"ALTER TABLE {table_name} RENAME COLUMN {old_col} TO {new_col};"
-        elif self._dialect == "spark":
+        if (
+            self._dialect == "snowflake"
+            or self._dialect in ("postgres", "redshift")
+            or self._dialect == "bigquery"
+            or self._dialect == "duckdb"
+            or self._dialect == "spark"
+        ):
             sql = f"ALTER TABLE {table_name} RENAME COLUMN {old_col} TO {new_col};"
         elif self._dialect == "sqlserver":
             sql = f"EXEC sp_rename '{table_name}.{change.old_name}', '{change.new_name}', 'COLUMN';"
@@ -591,34 +602,10 @@ class MigrationPlanner:
         # Split schema.table if present
         parts = identifier.split(".")
 
-        if self._dialect == "snowflake":
-            # Snowflake uses double quotes, case-insensitive without them
-            quoted = [f'"{part}"' if not part.startswith('"') else part for part in parts]
-            return ".".join(quoted)
-
-        if self._dialect in ("postgres", "redshift", "duckdb"):
-            # Postgres uses double quotes, case-sensitive
-            quoted = [f'"{part}"' if not part.startswith('"') else part for part in parts]
-            return ".".join(quoted)
-
-        if self._dialect == "bigquery":
-            # BigQuery uses backticks
-            quoted = [f"`{part}`" if not part.startswith("`") else part for part in parts]
-            return ".".join(quoted)
-
-        if self._dialect in ("spark", "databricks"):
-            # Spark uses backticks
-            quoted = [f"`{part}`" if not part.startswith("`") else part for part in parts]
-            return ".".join(quoted)
-
         if self._dialect == "sqlserver":
-            # SQL Server uses brackets
-            quoted = [
-                f"[{part}]" if not (part.startswith("[") and part.endswith("]")) else part
-                for part in parts
-            ]
-            return ".".join(quoted)
+            return _quote_identifier_parts(parts, "[", "]", require_suffix=True)
 
-        # Default: use double quotes
-        quoted = [f'"{part}"' if not part.startswith('"') else part for part in parts]
-        return ".".join(quoted)
+        if self._dialect in _BACKTICK_DIALECTS:
+            return _quote_identifier_parts(parts, "`", "`")
+
+        return _quote_identifier_parts(parts, '"', '"')

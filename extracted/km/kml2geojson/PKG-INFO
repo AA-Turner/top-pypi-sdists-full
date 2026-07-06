@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: kml2geojson
-Version: 5.1.1
-Summary: A Python library to covert KML files to GeoJSON files
-Project-URL: Homepage, https://github.com/araichev/kml2geojson
-Project-URL: Documentation, https://araichev.github.io/kml2geojson_docs
-Author-email: Alex Raichev <alex@raichev.net>
+Version: 6.0.0
+Summary: A Python library to convert KML files to GeoJSON files
+Project-URL: Homepage, https://codeberg.org/araichev/kml2geojson
+Project-URL: Documentation, https://araichev.codeberg.page/kml2geojson_docs
+Author-email: Alexander Raichev <alexander@raichev.net>
 License-Expression: MIT
 License-File: LICENSE.txt
 Requires-Python: >=3.11
@@ -13,19 +13,27 @@ Description-Content-Type: text/x-rst
 
 kml2geojson
 ************
-.. image:: https://github.com/araichev/kml2geojson/actions/workflows/test.yml/badge.svg
+Tests: |ci-badge|
+
+.. |ci-badge| image:: https://ci.codeberg.org/api/badges/araichev/kml2geojson/status.svg?branch=master
+   :target: https://ci.codeberg.org/repos/araichev/kml2geojson
+   :alt: pipeline status
     
-kml2geojson is a Python 3.11+ package to convert KML files to GeoJSON files.
-Most of its code is a translation into Python of the Node.js package `togeojson <https://github.com/mapbox/togeojson>`_, but kml2geojson also adds the following features.
+kml2geojson is a Python package to convert KML files to GeoJSON files.
+It's a lightweight, dependency-minimal, web-output-focused alternative to GDAL.
+Most of its code is a translation into Python of the Node.js package `togeojson <https://github.com/placemark/togeojson>`_, but kml2geojson also adds the following features.
 
 - Preserve KML object styling, such as color and opacity
-- Optionally create a style dictionary cataloging all the KML styles used
+- Optionally create a style dictionary cataloging all the KML styles used, including styles referenced through StyleMaps
 - Optionally create several GeoJSON FeatureCollections, one for each KML folder present
+- Optionally build a tree of Features that preserves nested KML folder structure
+- Convert GroundOverlays and NetworkLinks to Features alongside Placemarks
+- Convert typed ExtendedData via KML Schemas
+
 
 Authors
 ========
 - Alex Raichev (2015-10-03), maintainer
-
 
 
 Installation
@@ -41,7 +49,7 @@ For instructions on the latter, type ``k2g --help``.
 
 Documentation
 =============
-The documentation is built via Sphinx from the source code in the ``docs`` directory then published to Github Pages at `araichev.github.io/kml2geojson_docs <https://araichev.github.io/kml2geojson_docs>`_.
+The documentation is built via Sphinx from the source code in the ``docs`` directory then published at `Codeberg Pages <https://araichev.codeberg.page/kml2geojson_docs>`_.
 
 
 Contributing
@@ -64,10 +72,32 @@ Notes
 
 Maintainer Notes
 ================
-- After pushing to master, update the published docs via ``uv run make -C docs publish-docs-github``
+- After pushing to master, update the published docs via ``uv run make -C docs publish-docs``
 
 Changes
 ========
+
+6.0.0, 2026-07-06
+-----------------
+- Brought feature extraction to parity with `@tmcw/togeojson <https://github.com/placemark/togeojson>`_ v7, while keeping this package's reusable style catalog approach.
+- Added StyleMap resolution to the style catalogs, with a ``style_map_key`` option to choose the 'normal' or 'highlight' pair.
+- Added LabelStyle and richer IconStyle extraction (color, opacity, scale, heading, hot spot offset) and a new public function ``build_style``.
+- Fixed the bug where an IconStyle wiped previously collected line and polygon styles in the same Style element.
+- Fixed opacity conversion to divide alpha by 255 instead of 256.
+- Added GroundOverlay support for LatLonBox (with rotation) and gx:LatLonQuad via the new function ``build_ground_overlay``.
+- Added NetworkLink support (without fetching linked files) via the new function ``build_network_link``.
+- Added typed ExtendedData conversion via KML Schema SimpleFields and the new function ``build_schema``.
+- Added TimeStamp extraction into a ``timeStamp`` property.
+- Added extraction of address, phoneNumber, open, and visibility properties, with visibility converted to a boolean.
+- Added HTML-flagged descriptions for CDATA description content, following togeojson's convention.
+- Added the new function ``build_feature_tree`` to preserve nested KML folder structure.
+- Breaking change: track times moved from a ``times`` property to a ``coordinateProperties`` property, following the geojson-coordinate-properties convention.
+- Breaking change: features without geometry are now kept with a null geometry by default; use the new ``skip_null_geometry`` option to drop them.
+- Breaking change: geometry extraction now considers only direct geometry children of a Placemark, closes unclosed polygon rings, converts bare LinearRings to LineStrings, converts single-coordinate tracks to Points, and skips degenerate geometries.
+- Breaking change: ``convert`` now returns a dictionary with the key 'feature_collections' and, when a style type is given, the key 'style', instead of a variable-shape sequence.
+- Breaking change: removed the unused ``GEOTYPES`` constant and added ``__all__`` to the ``main`` module to stop star imports leaking implementation names.
+- Added the ``--style-map-key`` and ``--skip-null-geometry`` options to the ``k2g`` command line interface.
+- Removed stale test fixtures that reflected the old output format.
 
 5.1.1, 2026-03-12
 -----------------

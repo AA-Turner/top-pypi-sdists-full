@@ -18,11 +18,11 @@ DOCUMENTATION = r"""
 ---
 module: purefb_ntp
 version_added: '1.0.0'
-short_description: Configure Pure Storage FlashBlade NTP settings
+short_description: Configure Everpure FlashBlade NTP settings
 description:
-- Set or erase NTP configuration for Pure Storage FlashBlades.
+- Set or erase NTP configuration for Everpure FlashBlades.
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -66,11 +66,11 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PURITY_FB = True
+HAS_PYPURECLIENT = True
 try:
     from pypureclient.flashblade import Array
 except ImportError:
-    HAS_PURITY_FB = False
+    HAS_PYPURECLIENT = False
 
 
 from ansible.module_utils.basic import AnsibleModule
@@ -78,14 +78,10 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
-
-
-def remove(duplicate):
-    final_list = []
-    for num in duplicate:
-        if num not in final_list:
-            final_list.append(num)
-    return final_list
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    remove_duplicates,
+    get_error_message,
+)
 
 
 def delete_ntp(module, blade):
@@ -97,7 +93,7 @@ def delete_ntp(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Deletion of NTP servers failed. Error: {0}".format(
-                        res.errors[0].message
+                        get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -115,7 +111,7 @@ def create_ntp(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Update of NTP servers failed. Error: {0}".format(
-                    res.errors[0].message
+                    get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -136,7 +132,7 @@ def main():
         argument_spec, required_if=required_if, supports_check_mode=True
     )
 
-    if not HAS_PURITY_FB:
+    if not HAS_PYPURECLIENT:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     blade = get_system(module)
@@ -144,7 +140,7 @@ def main():
     if module.params["state"] == "absent":
         delete_ntp(module, blade)
     else:
-        module.params["ntp_servers"] = remove(module.params["ntp_servers"])
+        module.params["ntp_servers"] = remove_duplicates(module.params["ntp_servers"])
         if sorted(list(blade.get_arrays().items)[0].ntp_servers) != sorted(
             module.params["ntp_servers"][0:4]
         ):

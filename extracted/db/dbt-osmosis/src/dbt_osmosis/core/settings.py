@@ -9,6 +9,7 @@ from pathlib import Path
 
 import ruamel.yaml
 from dbt.artifacts.schemas.catalog import CatalogResults
+from typing_extensions import Self
 
 from dbt_osmosis.core import logger
 
@@ -146,7 +147,7 @@ class YamlRefactorContext:
     _closed: bool = field(default=False, init=False, repr=False)
     """Track whether the context has been closed to prevent double-cleanup."""
 
-    def __enter__(self) -> YamlRefactorContext:
+    def __enter__(self) -> Self:
         """Enter the context manager.
 
         Returns:
@@ -155,13 +156,13 @@ class YamlRefactorContext:
         """
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, _exc_type, _exc_val, _exc_tb) -> None:
         """Exit the context manager, ensuring resources are cleaned up.
 
         Args:
-            exc_type: Exception type if an exception was raised
-            exc_val: Exception value if an exception was raised
-            exc_tb: Exception traceback if an exception was raised
+            _exc_type: Exception type if an exception was raised
+            _exc_val: Exception value if an exception was raised
+            _exc_tb: Exception traceback if an exception was raised
 
         """
         self.close()
@@ -181,14 +182,14 @@ class YamlRefactorContext:
             if hasattr(self, "pool") and self.pool is not None:
                 logger.debug(":lock: Shutting down thread pool")
                 self.pool.shutdown(wait=True)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(":warning: Error shutting down thread pool: %s", e)
 
         try:
             # Close the project context
             if hasattr(self, "project") and self.project is not None:
                 self.project.close()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(":warning: Error closing project context: %s", e)
 
         self._closed = True
@@ -254,7 +255,7 @@ class YamlRefactorContext:
                 formatter = data.get("formatter")
                 if isinstance(formatter, str) and formatter.strip():
                     return formatter.strip()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.warning(
                     ":warning: Failed to read formatter from %s: %s",
                     supp_file,
@@ -325,7 +326,7 @@ class YamlRefactorContext:
         c = self.project.runtime_cfg.vars.to_dict()
         toplevel_conf = self._find_first(
             [c.get(k, {}) for k in ["dbt-osmosis", "dbt_osmosis"]],
-            lambda v: bool(v),
+            bool,
             {},
         )
         return toplevel_conf.get("sources", {})
@@ -336,7 +337,7 @@ class YamlRefactorContext:
         c = self.project.runtime_cfg.vars.to_dict()
         toplevel_conf = self._find_first(
             [c.get(k, {}) for k in ["dbt-osmosis", "dbt_osmosis"]],
-            lambda v: bool(v),
+            bool,
             {},
         )
         return toplevel_conf.get("column_ignore_patterns", [])
@@ -347,7 +348,7 @@ class YamlRefactorContext:
         c = self.project.runtime_cfg.vars.to_dict()
         toplevel_conf = self._find_first(
             [c.get(k, {}) for k in ["dbt-osmosis", "dbt_osmosis"]],
-            lambda v: bool(v),
+            bool,
             {},
         )
         return toplevel_conf.get("yaml_settings", {})
@@ -356,7 +357,7 @@ class YamlRefactorContext:
         """Read the catalog file if it exists."""
         logger.debug(":mag: Checking if catalog is already loaded => %s", bool(self._catalog))
         if not self._catalog:
-            from dbt_osmosis.core.introspection import _generate_catalog, _load_catalog
+            from dbt_osmosis.core.catalog_operations import _generate_catalog, _load_catalog
 
             catalog = _load_catalog(self.settings)
             if not catalog and self.settings.create_catalog_if_not_exists:

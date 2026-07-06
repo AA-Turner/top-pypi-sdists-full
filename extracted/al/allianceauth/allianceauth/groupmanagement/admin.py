@@ -1,13 +1,19 @@
 from django.apps import apps
 from django.contrib import admin
-from django.contrib.auth.models import Group as BaseGroup, Permission, User
+from django.contrib.auth.models import Group as BaseGroup
 from django.db.models import Count, Exists, OuterRef
 from django.db.models.functions import Lower
-from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete, pre_save
+from django.db.models.query import QuerySet
+from django.db.models.signals import (
+    m2m_changed, post_delete, post_save, pre_delete, pre_save,
+)
 from django.dispatch import receiver
+from django.http import HttpRequest
+
+from allianceauth.authentication.models import Permission, User
 
 from .forms import GroupAdminForm, ReservedGroupNameAdminForm
-from .models import AuthGroup, GroupRequest, ReservedGroupName
+from .models import AuthGroup, Group, GroupRequest, ReservedGroupName
 from .tasks import remove_users_not_matching_states_from_group
 
 if 'eve_autogroups' in apps.app_configs:
@@ -98,6 +104,17 @@ class HasLeaderFilter(admin.SimpleListFilter):
         return queryset
 
 
+@admin.action(description="remove_users_not_matching_states")
+def remove_users_not_matching_states(modeladmin: "GroupAdmin", request: HttpRequest, queryset: QuerySet["Group"]) -> None:
+    tasks_count = 0
+    for obj in queryset:
+        obj.authgroup.remove_users_not_matching_states()
+        tasks_count += 1
+    modeladmin.message_user(
+        request, f'remove_users_not_matching_states: {tasks_count}'
+    )
+
+
 class GroupAdmin(admin.ModelAdmin):
     form = GroupAdminForm
     ordering = ('name',)
@@ -119,6 +136,8 @@ class GroupAdmin(admin.ModelAdmin):
     list_filter.append(HasLeaderFilter)
 
     search_fields = ('name', 'authgroup__description')
+
+    actions = [remove_users_not_matching_states]
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -204,13 +223,6 @@ class GroupAdmin(admin.ModelAdmin):
         if not request.user.is_superuser:
             return self.readonly_fields + ("permissions",)
         return self.readonly_fields
-
-
-class Group(BaseGroup):
-    class Meta:
-        proxy = True
-        verbose_name = BaseGroup._meta.verbose_name
-        verbose_name_plural = BaseGroup._meta.verbose_name_plural
 
 
 try:

@@ -56,6 +56,13 @@ public class LaunchOptions
     /// pinned one. Port of Python/JS <c>browser_version</c> / <c>browserVersion</c>.
     /// </summary>
     public string? BrowserVersion { get; set; }
+
+    /// <summary>
+    /// Internal: suppress the auto <c>--start-maximized</c> flag. Set by the context
+    /// launchers when the caller chose a viewport geometry, so the window is not also
+    /// maximized. Mirrors Python <c>_suppress_maximize</c> / JS <c>explicitViewport</c>.
+    /// </summary>
+    internal bool SuppressMaximize { get; set; }
 }
 
 /// <summary>Options for context-producing launchers (adds context-level emulation settings).</summary>

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Literal, TypedDict
 
 from ...helpers.version_compat import VersionMatchPolicy
+from ..firmware import JobFailureReason
 
 
 class OffloaderPairStatusChangedData(TypedDict):
@@ -222,16 +223,19 @@ class OffloaderPeerLinkOpenedData(TypedDict):
     ``intent_response: ok`` state and the dispatch loop is
     parked. ``esphome_version`` is the receiver's
     :data:`esphome.const.__version__` lifted off the response;
-    empty if the receiver didn't carry the field. The
-    controller subscribes to refresh
-    :attr:`StoredPairing.esphome_version` so pick_build_path's
-    version-compat gate sees fresh values.
+    empty if the receiver didn't carry the field.
+    ``auto_provision_supported`` is the receiver's capability flag
+    (``False`` for an older receiver that never sent it). The
+    controller subscribes to refresh both onto the
+    :class:`StoredPairing` so pick_build_path's version-compat
+    gate sees fresh values.
     """
 
     receiver_hostname: str
     receiver_port: int
     pin_sha256: str
     esphome_version: str
+    auto_provision_supported: bool
 
 
 class OffloaderPeerLinkClosedData(TypedDict):
@@ -290,9 +294,12 @@ class OffloaderJobStateChangedData(TypedDict):
     Fires on every inbound ``job_state_changed`` frame from the
     receiver we submitted ``job_id`` to. Adds the source-receiver
     coordinates so subscribers can disambiguate transitions
-    across multiple paired receivers. ``error_message`` is
-    empty on non-terminal states and on ``completed``;
-    populated on ``failed`` / ``cancelled``.
+    across multiple paired receivers. Two distinct terminal fields:
+    ``error_message`` is the HUMAN-readable one-liner (empty on
+    non-terminal / ``completed``); ``failure_reason`` is the MACHINE
+    category (:class:`JobFailureReason` value) — ``"provision"`` on a
+    ``failed`` terminal the receiver couldn't provision the esphome
+    for (offloader rebuilds locally), ``""`` for an ordinary failure.
     """
 
     receiver_hostname: str
@@ -301,6 +308,7 @@ class OffloaderJobStateChangedData(TypedDict):
     job_id: str
     status: Literal["queued", "running", "completed", "failed", "cancelled"]
     error_message: str
+    failure_reason: JobFailureReason
 
 
 class OffloaderJobOutputData(TypedDict):

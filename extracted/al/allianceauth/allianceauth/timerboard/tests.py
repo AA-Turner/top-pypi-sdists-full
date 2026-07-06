@@ -3,10 +3,10 @@ from datetime import timedelta
 from django_webtest import WebTest
 
 from django.conf import settings
-from django.contrib.auth.models import Permission, User
 from django.urls import reverse
 from django.utils import timezone
 
+from allianceauth.authentication.models import Permission, User
 from allianceauth.eveonline.models import EveCorporationInfo
 from allianceauth.tests.auth_utils import AuthUtils
 

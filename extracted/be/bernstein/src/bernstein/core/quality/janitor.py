@@ -40,6 +40,12 @@ logger = logging.getLogger(__name__)
 # --- Judge constants ---
 
 MAX_JUDGE_RETRIES = 2
+# Last-resort fallback constants used only when neither the operator's
+# bernstein.yaml (judge_model/judge_provider) nor an explicit caller
+# argument supplies a value. Every quality-judge call was previously
+# hardcoded to these, billing Claude via OpenRouter regardless of the
+# run's configured model -- see judge_task()/run_janitor() for the
+# resolution order.
 JUDGE_MODEL = "anthropic/claude-sonnet-4-20250514"
 JUDGE_PROVIDER = "openrouter"
 JUDGE_MAX_DIFF_CHARS = 10_000  # Truncate diff to control cost
@@ -69,7 +75,13 @@ _JUDGE_TEMPLATE_PATH = _BUNDLED_TEMPLATES_DIR / "prompts" / "judge.md"
 
 # Task types that legitimately produce no diff (research/exploration output
 # lives in task notes, not the repo). Everything else must show work.
-_NOOP_TASK_TYPES = frozenset({TaskType.RESEARCH})
+#
+# TaskType.UPGRADE_PROPOSAL is included because verify_upgrade_task() (see
+# the UPGRADE_PROPOSAL branch above) is the real pass/fail authority for
+# these tasks, and UpgradeProposal.to_task() never sets owned_files -- there
+# is no attribution source for this task type, so the generic empty-diff
+# guard would hard-reject an already-verified upgrade proposal.
+_NOOP_TASK_TYPES = frozenset({TaskType.RESEARCH, TaskType.UPGRADE_PROPOSAL})
 
 _ATTRIBUTION_MAX_COMMITS = 50
 
@@ -293,6 +305,9 @@ async def _evaluate_judge_signals(
     task: Task,
     workdir: Path,
     signal_results: list[tuple[str, bool, str]],
+    *,
+    judge_model: str | None = None,
+    judge_provider: str | None = None,
 ) -> JudgeVerdict | None:
     """Evaluate llm_judge signals and append results to signal_results."""
     judge_signals = [s for s in task.completion_signals if s.type == "llm_judge"]
@@ -306,7 +321,7 @@ async def _evaluate_judge_signals(
         return None
 
     criteria = judge_signals[0].value
-    verdict = await judge_task(task, workdir, criteria)
+    verdict = await judge_task(task, workdir, criteria, judge_model=judge_model, judge_provider=judge_provider)
     judge_desc = f"llm_judge: {criteria}"
     if verdict.verdict == "accept":
         signal_results.append((judge_desc, True, f"accepted (confidence: {verdict.confidence:.2f})"))
@@ -464,6 +479,8 @@ async def run_janitor(
     server_url: str | None = None,
     guardrails_config: GuardrailsConfig | None = None,
     permission_mode: str | None = None,
+    judge_model: str | None = None,
+    judge_provider: str | None = None,
 ) -> list[JanitorResult]:
     """Evaluate tasks and return structured results.
 
@@ -483,6 +500,11 @@ async def run_janitor(
             (all checks enabled). Pass None to disable all guardrails.
         permission_mode: Permission mode string (bypass/plan/auto/default).
             When ``"bypass"``, non-immune guardrail checks are relaxed.
+        judge_model: Optional model override for llm_judge signal evaluation.
+            Falls back to the operator's ``bernstein.yaml`` judge_model, then
+            to ``JUDGE_MODEL`` as a last resort.
+        judge_provider: Optional provider override for llm_judge signal
+            evaluation. Same fallback order as ``judge_model``.
 
     Returns:
         List of JanitorResult for each evaluated task.
@@ -507,7 +529,13 @@ async def run_janitor(
             )
         else:
             signal_results = _collect_signal_results(task, workdir)
-            judge_verdict = await _evaluate_judge_signals(task, workdir, signal_results)
+            judge_verdict = await _evaluate_judge_signals(
+                task,
+                workdir,
+                signal_results,
+                judge_model=judge_model,
+                judge_provider=judge_provider,
+            )
             all_passed = all(passed for _, passed, _ in signal_results)
             failed_descs = [desc for desc, passed, _ in signal_results if not passed]
 
@@ -853,8 +881,15 @@ def _parse_judge_response(raw: str) -> JudgeVerdict:
     )
 
 
-async def judge_task(task: Task, workdir: Path, criteria: str) -> JudgeVerdict:
-    """Evaluate task completion using an LLM judge (Claude Sonnet).
+async def judge_task(
+    task: Task,
+    workdir: Path,
+    criteria: str,
+    *,
+    judge_model: str | None = None,
+    judge_provider: str | None = None,
+) -> JudgeVerdict:
+    """Evaluate task completion using an LLM judge.
 
     Gets the git diff, renders the judge prompt, calls the LLM, and parses
     the structured verdict. Cost-capped at ~$0.10 per invocation via
@@ -864,6 +899,11 @@ async def judge_task(task: Task, workdir: Path, criteria: str) -> JudgeVerdict:
         task: The completed task to judge.
         workdir: Project root directory.
         criteria: Evaluation criteria string from the llm_judge signal.
+        judge_model: Optional model override. Falls back to ``JUDGE_MODEL``
+            when unset (the operator's ``bernstein.yaml`` judge_model, if
+            any, should already be passed in here by the caller).
+        judge_provider: Optional provider override. Falls back to
+            ``JUDGE_PROVIDER`` when unset.
 
     Returns:
         JudgeVerdict with accept/retry decision, confidence, and feedback.
@@ -871,11 +911,22 @@ async def judge_task(task: Task, workdir: Path, criteria: str) -> JudgeVerdict:
     diff = _get_git_diff(task, workdir)
     prompt = _render_judge_prompt(task, diff, criteria)
 
+    model = judge_model or JUDGE_MODEL
+    provider = judge_provider or JUDGE_PROVIDER
+    logger.info(
+        "judge_task: resolved model=%s provider=%s (override_model=%s override_provider=%s) task=%s",
+        model,
+        provider,
+        judge_model,
+        judge_provider,
+        task.id,
+    )
+
     try:
         raw_response = await call_llm(
             prompt=prompt,
-            model=JUDGE_MODEL,
-            provider=JUDGE_PROVIDER,
+            model=model,
+            provider=provider,
             max_tokens=JUDGE_MAX_TOKENS,
             temperature=0.0,
         )

@@ -1,7 +1,9 @@
 from __future__ import annotations  # needed for | type annotations in Python < 3.10
-from abc import ABC, abstractmethod
+
 import io
-from typing import Any, ClassVar, TYPE_CHECKING
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Any, ClassVar
+
 from prov import Error
 
 if TYPE_CHECKING:
@@ -10,7 +12,7 @@ if TYPE_CHECKING:
 __author__ = "Trung Dong Huynh"
 __email__ = "trungdong@donggiang.com"
 
-__all__ = ["get", "Registry", "Serializer"]
+__all__ = ["Registry", "Serializer", "get"]
 
 
 class Serializer(ABC):
@@ -34,7 +36,7 @@ class Serializer(ABC):
 
         :param stream: Stream object to serialize the document into.
         """
-        pass
+        pass  # pragma: no cover -- abstract body, never executed directly
 
     @abstractmethod
     def deserialize(self, stream: io.IOBase, **args: Any) -> ProvDocument:
@@ -43,7 +45,7 @@ class Serializer(ABC):
 
         :param stream: Stream object to deserialize the document from.
         """
-        pass
+        pass  # pragma: no cover -- abstract body, never executed directly
 
 
 class DoNotExist(Error):
@@ -63,8 +65,8 @@ class Registry:
         """Loads all available serializers into the registry."""
         from prov.serializers.provjson import ProvJSONSerializer
         from prov.serializers.provn import ProvNSerializer
-        from prov.serializers.provxml import ProvXMLSerializer
         from prov.serializers.provrdf import ProvRDFSerializer
+        from prov.serializers.provxml import ProvXMLSerializer
 
         Registry.serializers = {
             "json": ProvJSONSerializer,
@@ -85,9 +87,7 @@ def get(format_name: str) -> type[Serializer]:
     assert serializers is not None  # load_serializers() always populates it
     try:
         return serializers[format_name]
-    except KeyError:
-        # Not chaining with `from` to preserve the historic DoNotExist
-        # traceback/behaviour; revisit in a follow-up.
-        raise DoNotExist(  # noqa: B904
-            'No serializer available for the format "%s"' % format_name
-        )
+    except KeyError as e:
+        raise DoNotExist(
+            f'No serializer available for the format "{format_name}"'
+        ) from e

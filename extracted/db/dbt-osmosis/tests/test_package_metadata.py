@@ -10,7 +10,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RUFF_VERSION = "0.8.6"
+RUFF_VERSION = "0.15.17"
 SUPPORTED_EXTRA_INSTALLS = (".[openai]", ".[azure]", ".[workbench]", ".[duckdb]", ".[proxy]")
 SUPPORT_POLICY_DOCS = (
     ROOT / "README.md",
@@ -107,6 +107,7 @@ def test_base_dependencies_and_optional_extras_are_intentional() -> None:
     workbench_packages = _package_names(extras["workbench"])
     assert "dbt-duckdb" not in _package_names(extras["workbench"])
     assert "openai" not in workbench_packages
+    assert "pandas" in workbench_packages
     assert "ydata-profiling" in workbench_packages
     assert "ipython" in workbench_packages
     assert "streamlit>=1.45.0,<2.0" in extras["workbench"]
@@ -121,6 +122,15 @@ def test_workbench_requirements_reference_current_supported_extras() -> None:
 
     assert "==1.1.5" not in requirements
     assert f"dbt-osmosis[workbench,duckdb]=={_pyproject()['project']['version']}" in requirements
+    for constraint in (
+        "gitpython>=3.1.50",
+        "h11>=0.16.0",
+        "idna>=3.15",
+        "ipython>=8.10.0,<9",
+        "pillow>=12.2.0",
+        "pyarrow>=23.0.1",
+    ):
+        assert constraint in requirements
 
 
 def test_dev_dependency_surfaces_are_canonicalized() -> None:

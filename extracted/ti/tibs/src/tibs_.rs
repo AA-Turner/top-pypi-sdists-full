@@ -1,12 +1,12 @@
 use crate::core::{BitCollection, count_bitslice};
 use crate::dtype::{Dtype, extract_dtype};
-use crate::enums::{BitOrder, Codec, DtypeKind, Endianness};
+use crate::enums::{BitOrder, ByteOrder, Codec, DtypeKind};
 use crate::helpers;
 use crate::helpers::{
     BS, BV, bv_from_bin, bv_from_bools, bv_from_bytes_slice, bv_from_f64, bv_from_hex,
     bv_from_i128, bv_from_oct, bv_from_ones, bv_from_random, bv_from_u128, bv_from_zeros,
-    compute_lps, find_bitvec_aligned, promote_to_bv, rfind_bitvec_aligned, str_to_bv,
-    validate_length, validate_logical_op_lengths, validate_shift, validate_slice,
+    bytes_like_to_vec, compute_lps, find_bitvec_aligned, promote_to_bv, rfind_bitvec_aligned,
+    str_to_bv, validate_length, validate_logical_op_lengths, validate_shift, validate_slice,
 };
 use crate::iterator::{BoolIterator, ChunksIterator, FindAllIterator, ValuesIterator};
 use crate::mutibs::Mutibs;
@@ -15,7 +15,7 @@ use bitvec::prelude::*;
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBool, PySlice, PyType};
+use pyo3::types::{PyBool, PySlice, PyTuple, PyType};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::ops::Not;
@@ -221,17 +221,17 @@ pub(crate) fn bv_from_value(dtype: &Dtype, value: &Bound<'_, PyAny>) -> PyResult
     match dtype.kind {
         DtypeKind::Float => {
             let is_little_endian =
-                Endianness::is_little_endian(Some(dtype.byte_order), dtype.length)?;
+                ByteOrder::is_little_endian(Some(dtype.byte_order), dtype.length)?;
             bv_from_f64(value.extract::<f64>()?, dtype.length, is_little_endian)
         }
         DtypeKind::Uint => {
             let is_little_endian =
-                Endianness::is_little_endian(Some(dtype.byte_order), dtype.length)?;
+                ByteOrder::is_little_endian(Some(dtype.byte_order), dtype.length)?;
             bv_from_u128(value.extract::<u128>()?, dtype.length, is_little_endian)
         }
         DtypeKind::Int => {
             let is_little_endian =
-                Endianness::is_little_endian(Some(dtype.byte_order), dtype.length)?;
+                ByteOrder::is_little_endian(Some(dtype.byte_order), dtype.length)?;
             bv_from_i128(value.extract::<i128>()?, dtype.length, is_little_endian)
         }
         DtypeKind::Bool => match helpers::convert_to_bool(value) {
@@ -245,9 +245,10 @@ pub(crate) fn bv_from_value(dtype: &Dtype, value: &Bound<'_, PyAny>) -> PyResult
             )),
         },
         DtypeKind::Bits => validate_dtype_value_length(dtype, value.extract::<Tibs>()?.to_bitvec()),
-        DtypeKind::Bytes => {
-            bv_from_bytes_slice(value.extract::<Vec<u8>>()?, Some(0), Some(dtype.length))
-        }
+        DtypeKind::Bytes => validate_dtype_value_length(
+            dtype,
+            bv_from_bytes_slice(bytes_like_to_vec(value)?, None, None)?,
+        ),
         DtypeKind::Bin => {
             validate_dtype_value_length(dtype, bv_from_bin(&value.extract::<String>()?)?)
         }
@@ -298,7 +299,7 @@ pub(crate) fn py_from_value_parts(
     py: Python<'_>,
     dtype_kind: DtypeKind,
     dtype_length: usize,
-    byte_order: Endianness,
+    byte_order: ByteOrder,
     value: &Tibs,
 ) -> PyResult<Py<PyAny>> {
     if value.len() != dtype_length {
@@ -311,15 +312,15 @@ pub(crate) fn py_from_value_parts(
 
     match dtype_kind {
         DtypeKind::Float => {
-            let is_little_endian = Endianness::is_little_endian(Some(byte_order), dtype_length)?;
+            let is_little_endian = ByteOrder::is_little_endian(Some(byte_order), dtype_length)?;
             BitCollection::to_f64(value, is_little_endian)?.into_py_any(py)
         }
         DtypeKind::Uint => {
-            let is_little_endian = Endianness::is_little_endian(Some(byte_order), dtype_length)?;
+            let is_little_endian = ByteOrder::is_little_endian(Some(byte_order), dtype_length)?;
             BitCollection::to_u128(value, is_little_endian)?.into_py_any(py)
         }
         DtypeKind::Int => {
-            let is_little_endian = Endianness::is_little_endian(Some(byte_order), dtype_length)?;
+            let is_little_endian = ByteOrder::is_little_endian(Some(byte_order), dtype_length)?;
             BitCollection::to_i128(value, is_little_endian)?.into_py_any(py)
         }
         DtypeKind::Bool => value.as_bitslice()[0].into_py_any(py),
@@ -430,16 +431,12 @@ impl Tibs {
     /// bits that are not considered part of the object's data. Usually using
     /// :meth:`~to_bytes` is what you really need.
     ///
-    /// The way that the data is stored is not considered part of the public interface
-    /// and so the output of this method may change between point releases, and even
-    /// during the running of a program.
-    ///
     /// :return: A tuple of the raw bytes, the bit offset and the bit length.
     ///
     /// .. code-block:: python
     ///
     ///     raw_bytes, offset, length = t.to_raw_data()
-    ///     assert t == Tibs.from_bytes(raw_bytes)[offset:offset + length]
+    ///     assert t == Tibs.from_bytes(raw_bytes, offset=offset, length=length)
     ///
     pub fn to_raw_data(&self) -> (Vec<u8>, usize, usize) {
         self.raw_data()
@@ -468,22 +465,22 @@ impl Tibs {
     /// Byte-oriented views must have a whole-byte length. This applies when using
     /// little-endian or big-endian byte order, or when using ``BitOrder.Lsb0``.
     ///
-    /// :param Endianness byte_order: The byte order used when interpreting whole-byte values. Defaults to ``Endianness.Unspecified``.
+    /// :param ByteOrder byte_order: The byte order used when interpreting whole-byte values. Defaults to ``ByteOrder.Unspecified``.
     /// :param BitOrder bit_order: The bit numbering order used for field labels. Defaults to ``BitOrder.Msb0``.
     /// :return: A new :class:`View`.
     ///
     /// .. code-block:: pycon
     ///
-    ///     >>> Tibs('0x0100').view(byte_order=Endianness.Little).u
+    ///     >>> Tibs('0x0100').view(byte_order=ByteOrder.Little).u
     ///     1
     ///
-    #[pyo3(signature = (byte_order = Endianness::Unspecified, bit_order = BitOrder::Msb0), text_signature = "($self, byte_order, bit_order)")]
+    #[pyo3(signature = (byte_order = ByteOrder::Unspecified, bit_order = BitOrder::Msb0), text_signature = "($self, byte_order=None, bit_order=None)")]
     pub fn view(
         slf: PyRef<'_, Self>,
-        byte_order: Option<Endianness>,
+        byte_order: Option<ByteOrder>,
         bit_order: Option<BitOrder>,
     ) -> PyResult<View> {
-        let byte_order = byte_order.unwrap_or(Endianness::Unspecified);
+        let byte_order = byte_order.unwrap_or(ByteOrder::Unspecified);
         let bit_order = bit_order.unwrap_or(BitOrder::Msb0);
         View::validate_layout(slf.len(), byte_order, bit_order)?;
         Ok(View::from_tibs(slf.clone(), byte_order, bit_order))
@@ -491,34 +488,30 @@ impl Tibs {
 
     /// Return a little-endian byte-order view.
     ///
-    /// Equivalent to ``view(byte_order=Endianness.Little)``.
+    /// Equivalent to ``view(byte_order=ByteOrder.Little)``.
     ///
     /// The ``Tibs`` length must be a whole number of bytes.
     ///
     #[getter]
     pub fn le(slf: PyRef<'_, Self>) -> PyResult<View> {
-        View::validate_layout(slf.len(), Endianness::Little, BitOrder::Msb0)?;
+        View::validate_layout(slf.len(), ByteOrder::Little, BitOrder::Msb0)?;
         Ok(View::from_tibs(
             slf.clone(),
-            Endianness::Little,
+            ByteOrder::Little,
             BitOrder::Msb0,
         ))
     }
 
     /// Return a big-endian byte-order view.
     ///
-    /// Equivalent to ``view(byte_order=Endianness.Big)``.
+    /// Equivalent to ``view(byte_order=ByteOrder.Big)``.
     ///
     /// The ``Tibs`` length must be a whole number of bytes.
     ///
     #[getter]
     pub fn be(slf: PyRef<'_, Self>) -> PyResult<View> {
-        View::validate_layout(slf.len(), Endianness::Big, BitOrder::Msb0)?;
-        Ok(View::from_tibs(
-            slf.clone(),
-            Endianness::Big,
-            BitOrder::Msb0,
-        ))
+        View::validate_layout(slf.len(), ByteOrder::Big, BitOrder::Msb0)?;
+        Ok(View::from_tibs(slf.clone(), ByteOrder::Big, BitOrder::Msb0))
     }
 
     /// Return an LSB0 bit-order view.
@@ -531,10 +524,10 @@ impl Tibs {
     ///
     #[getter]
     pub fn lsb0(slf: PyRef<'_, Self>) -> PyResult<View> {
-        View::validate_layout(slf.len(), Endianness::Unspecified, BitOrder::Lsb0)?;
+        View::validate_layout(slf.len(), ByteOrder::Unspecified, BitOrder::Lsb0)?;
         Ok(View::from_tibs(
             slf.clone(),
-            Endianness::Unspecified,
+            ByteOrder::Unspecified,
             BitOrder::Lsb0,
         ))
     }
@@ -550,7 +543,7 @@ impl Tibs {
     pub fn msb0(slf: PyRef<'_, Self>) -> PyResult<View> {
         Ok(View::from_tibs(
             slf.clone(),
-            Endianness::Unspecified,
+            ByteOrder::Unspecified,
             BitOrder::Msb0,
         ))
     }
@@ -567,7 +560,7 @@ impl Tibs {
     ///
     #[pyo3(signature = (a, b), text_signature = "($self, a, b)")]
     pub fn field(slf: PyRef<'_, Self>, a: i64, b: i64) -> PyResult<View> {
-        View::from_tibs(slf.clone(), Endianness::Unspecified, BitOrder::Msb0).field(a, b)
+        View::from_tibs(slf.clone(), ByteOrder::Unspecified, BitOrder::Msb0).field(a, b)
     }
 
     /// Iterate over the bits of the Tibs, yielding each bit as a boolean.
@@ -606,6 +599,32 @@ impl Tibs {
     #[pyo3(signature = (chunk_size, count = None), text_signature = "($self, chunk_size, count=None)")]
     pub fn chunks(&self, chunk_size: i64, count: Option<i64>) -> PyResult<Vec<Self>> {
         BitCollection::collect_chunks(self, chunk_size, count)
+    }
+
+    /// Split at one or more bit positions.
+    ///
+    /// ``pos`` may be a single integer or an iterable of integers. Negative
+    /// positions count from the end. Positions must be in nondecreasing order
+    /// after normalization, and each position must be in the range
+    /// ``0`` through ``len(self)``, inclusive.
+    ///
+    /// The returned pieces are normal ``Tibs`` slices. They share storage with
+    /// the original ``Tibs`` when possible.
+    ///
+    /// :param int | Iterable[int] pos: The bit position or positions where the split should occur.
+    /// :return: A tuple of ``Tibs`` pieces.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> Tibs('0b101100').split_at(3)
+    ///     (Tibs('0b101'), Tibs('0b100'))
+    ///     >>> Tibs('0b101100').split_at([2, 5])
+    ///     (Tibs('0b10'), Tibs('0b110'), Tibs('0b0'))
+    ///
+    #[pyo3(signature = (pos, /), text_signature = "($self, pos, /)")]
+    pub fn split_at(&self, py: Python<'_>, pos: &Bound<'_, PyAny>) -> PyResult<Py<PyTuple>> {
+        let pieces = BitCollection::collect_split_at(self, pos)?;
+        Ok(PyTuple::new(py, pieces)?.unbind())
     }
 
     /// Return an iterator by cutting into Tibs chunks.
@@ -732,7 +751,7 @@ impl Tibs {
 
     /// Find all occurrences of a bit sequence.
     ///
-    /// :param Tibs needle: The bit sequence to find.
+    /// :param object needle: The bit sequence to find. This can be anything promotable to ``Tibs``.
     /// :param int | None start: The starting bit position of the slice to search. Defaults to 0.
     /// :param int | None end: The end bit position of the slice to search. Defaults to len(self).
     /// :param bool byte_aligned: If ``True``, the Tibs will only be found on byte boundaries. Defaults to ``False``.
@@ -767,7 +786,6 @@ impl Tibs {
             py,
             slf.as_bitslice(),
             needle.as_bitslice(),
-            haystack_len,
             start,
             end,
             byte_aligned,
@@ -776,7 +794,7 @@ impl Tibs {
 
     /// Find all occurrences of a bit sequence, returning an iterator of bit positions.
     ///
-    /// :param Tibs needle: The bit sequence to find.
+    /// :param object needle: The bit sequence to find. This can be anything promotable to ``Tibs``.
     /// :param int | None start: The starting bit position of the slice to search. Defaults to 0.
     /// :param int | None end: The end bit position of the slice to search. Defaults to len(self).
     /// :param bool byte_aligned: If ``True``, the Tibs will only be found on byte boundaries. Defaults to ``False``.
@@ -787,7 +805,8 @@ impl Tibs {
     /// All occurrences of needle are found, even if they overlap.
     ///
     /// Note that this method is not available for :class:`Mutibs` as its value could change while the
-    /// generator is still active. For that case you should convert to a :class:`Tibs` first with :meth:`Mutibs.to_tibs`.
+    /// generator is still active. For that case, convert to a :class:`Tibs` first with
+    /// :meth:`Mutibs.to_tibs`, or use :meth:`Mutibs.as_tibs` if you no longer need the mutable object.
     ///
     /// .. code-block:: pycon
     ///
@@ -823,11 +842,16 @@ impl Tibs {
             (Some(haystack.into_owned()), Some(needle.into_owned()), base)
         });
         let py = slf.py();
-        let lps = { compute_lps(py, needle.to_bitslice())? };
+        let using_byte_search = byte_haystack.is_some();
+        let lps = if using_byte_search {
+            Vec::new()
+        } else {
+            compute_lps(py, needle.as_bitslice())?
+        };
         let iter_obj = FindAllIterator {
             haystack: slf.into(),
             haystack_len,
-            needle,
+            search_needle: needle,
             lps,
             start,
             end,
@@ -845,7 +869,7 @@ impl Tibs {
 
     /// Find all occurrences of a bit sequence in reverse, returning an iterator of bit positions.
     ///
-    /// :param Tibs needle: The bit sequence to find.
+    /// :param object needle: The bit sequence to find. This can be anything promotable to ``Tibs``.
     /// :param int | None start: The starting bit position of the slice to search. Defaults to 0.
     /// :param int | None end: The end bit position of the slice to search. Defaults to len(self).
     /// :param bool byte_aligned: If ``True``, the Tibs will only be found on byte boundaries. Defaults to ``False``.
@@ -856,7 +880,8 @@ impl Tibs {
     /// All occurrences of needle are found, even if they overlap.
     ///
     /// Note that this method is not available for :class:`Mutibs` as its value could change while the
-    /// generator is still active. For that case you should convert to a :class:`Tibs` first with :meth:`Mutibs.to_tibs`.
+    /// generator is still active. For that case, convert to a :class:`Tibs` first with
+    /// :meth:`Mutibs.to_tibs`, or use :meth:`Mutibs.as_tibs` if you no longer need the mutable object.
     ///
     /// .. code-block:: pycon
     ///
@@ -890,11 +915,19 @@ impl Tibs {
             (Some(haystack.into_owned()), Some(needle.into_owned()), base)
         });
         let py = slf.py();
-        let lps = { compute_lps(py, needle.to_bitslice())? };
+        let using_byte_search = byte_haystack.is_some();
+        let (search_needle, lps) = if using_byte_search {
+            (needle, Vec::new())
+        } else {
+            let reversed_needle =
+                Tibs::from_bv(needle.as_bitslice().iter().by_vals().rev().collect());
+            let lps = compute_lps(py, reversed_needle.as_bitslice())?;
+            (reversed_needle, lps)
+        };
         let iter_obj = FindAllIterator {
             haystack: slf.into(),
             haystack_len,
-            needle,
+            search_needle,
             lps,
             start,
             end,
@@ -1122,7 +1155,7 @@ impl Tibs {
     ///
     /// :param int u: An unsigned integer.
     /// :param int length: The bit length to create. Can be up to 128.
-    /// :param Endianness byte_order: The byte order used to store the integer. Defaults to Endianness.Unspecified.
+    /// :param ByteOrder byte_order: The byte order used to store the integer. Defaults to ByteOrder.Unspecified.
     /// :return: A newly constructed ``Tibs``.
     ///
     /// :raises ValueError: if the integer doesn't fit in the length given.
@@ -1133,15 +1166,15 @@ impl Tibs {
     ///     Tibs('0x0f')
     ///
     #[classmethod]
-    #[pyo3(signature = (u, /, length, byte_order = Endianness::Unspecified), text_signature = "(cls, u, /, length, byte_order=None)")]
+    #[pyo3(signature = (u, /, length, byte_order = ByteOrder::Unspecified), text_signature = "(cls, u, /, length, byte_order=None)")]
     pub fn from_u(
         _cls: &Bound<'_, PyType>,
         u: u128,
         length: i64,
-        byte_order: Option<Endianness>,
+        byte_order: Option<ByteOrder>,
     ) -> PyResult<Self> {
         let length = validate_length(length)?;
-        let is_little_endian = Endianness::is_little_endian(byte_order, length)?;
+        let is_little_endian = ByteOrder::is_little_endian(byte_order, length)?;
         Ok(Tibs::from_bv(bv_from_u128(u, length, is_little_endian)?))
     }
 
@@ -1180,7 +1213,7 @@ impl Tibs {
     ///
     /// :param int i: A signed integer.
     /// :param int length: The bit length to create. Can be up to 128.
-    /// :param Endianness byte_order: The byte order used to store the integer. Defaults to Endianness.Unspecified.
+    /// :param ByteOrder byte_order: The byte order used to store the integer. Defaults to ByteOrder.Unspecified.
     /// :return: A newly constructed ``Tibs``.
     ///
     /// :raises ValueError: if the integer doesn't fit in the length given.
@@ -1191,15 +1224,15 @@ impl Tibs {
     ///     Tibs('0xe')
     ///
     #[classmethod]
-    #[pyo3(signature = (i, /, length, byte_order = Endianness::Unspecified), text_signature = "(cls, i, /, length, byte_order=None)")]
+    #[pyo3(signature = (i, /, length, byte_order = ByteOrder::Unspecified), text_signature = "(cls, i, /, length, byte_order=None)")]
     pub fn from_i(
         _cls: &Bound<'_, PyType>,
         i: i128,
         length: i64,
-        byte_order: Option<Endianness>,
+        byte_order: Option<ByteOrder>,
     ) -> PyResult<Self> {
         let length = validate_length(length)?;
-        let is_little_endian = Endianness::is_little_endian(byte_order, length)?;
+        let is_little_endian = ByteOrder::is_little_endian(byte_order, length)?;
         Ok(Tibs::from_bv(bv_from_i128(i, length, is_little_endian)?))
     }
 
@@ -1238,7 +1271,7 @@ impl Tibs {
     ///
     /// :param float f: A floating point value.
     /// :param int length: The bit length to create. Must be 16, 32 or 64.
-    /// :param Endianness byte_order: The byte order used to store the float. Defaults to Endianness.Unspecified.
+    /// :param ByteOrder byte_order: The byte order used to store the float. Defaults to ByteOrder.Unspecified.
     /// :return: A newly constructed ``Tibs``.
     ///
     /// .. code-block:: pycon
@@ -1247,15 +1280,15 @@ impl Tibs {
     ///     Tibs('0x3fc00000')
     ///
     #[classmethod]
-    #[pyo3(signature = (f, /, length, byte_order = Endianness::Unspecified), text_signature = "(cls, f, /, length, byte_order=None)")]
+    #[pyo3(signature = (f, /, length, byte_order = ByteOrder::Unspecified), text_signature = "(cls, f, /, length, byte_order=None)")]
     pub fn from_f(
         _cls: &Bound<'_, PyType>,
         f: f64,
         length: i64,
-        byte_order: Option<Endianness>,
+        byte_order: Option<ByteOrder>,
     ) -> PyResult<Self> {
         let length = validate_length(length)?;
-        let is_little_endian = Endianness::is_little_endian(byte_order, length)?;
+        let is_little_endian = ByteOrder::is_little_endian(byte_order, length)?;
         let bv = bv_from_f64(f, length, is_little_endian)?;
         Ok(Tibs::from_bv(bv))
     }
@@ -1446,7 +1479,7 @@ impl Tibs {
     #[pyo3(signature = (data, /, offset=None, length=None), text_signature = "(cls, data, /, offset=None, length=None)")]
     pub fn from_bytes(
         _cls: &Bound<'_, PyType>,
-        data: Vec<u8>,
+        data: &Bound<'_, PyAny>,
         offset: Option<i64>,
         length: Option<i64>,
     ) -> PyResult<Self> {
@@ -1458,7 +1491,7 @@ impl Tibs {
             Some(offset) => Some(validate_length(offset)?),
             None => None,
         };
-        let bv = bv_from_bytes_slice(data, offset, length)?;
+        let bv = bv_from_bytes_slice(bytes_like_to_vec(data)?, offset, length)?;
         Ok(Self::from_bv(bv))
     }
 
@@ -1576,7 +1609,7 @@ impl Tibs {
     ///
     /// Returns the bit position if found, or None if not found.
     ///
-    /// :param Tibs needle: The bit sequence to find.
+    /// :param object needle: The bit sequence to find. This can be anything promotable to ``Tibs``.
     /// :param int | None start: The starting bit position. Defaults to 0.
     /// :param int | None end: The end position. Defaults to len(self).
     /// :param bool byte_aligned: If ``True``, the Tibs will only be found on byte boundaries.
@@ -1616,7 +1649,7 @@ impl Tibs {
     ///
     /// Returns the bit position if found, or None if not found.
     ///
-    /// :param Tibs needle: The bit sequence to find.
+    /// :param object needle: The bit sequence to find. This can be anything promotable to ``Tibs``.
     /// :param int | None start: The starting bit position. Defaults to 0.
     /// :param int | None end: The end position. Defaults to len(self).
     /// :param bool byte_aligned: If ``True``, the Tibs will only be found on byte boundaries.
@@ -1643,7 +1676,7 @@ impl Tibs {
 
     /// Return whether the current Tibs starts with prefix.
     ///
-    /// :param Tibs prefix: The bits to search for.
+    /// :param object prefix: The bits to search for. This can be anything promotable to ``Tibs``.
     /// :return: True if the Tibs starts with the prefix, otherwise False.
     ///
     /// .. code-block:: pycon
@@ -1659,7 +1692,7 @@ impl Tibs {
 
     /// Return whether the current Tibs ends with suffix.
     ///
-    /// :param Tibs suffix: The bits to search for.
+    /// :param object suffix: The bits to search for. This can be anything promotable to ``Tibs``.
     /// :return: True if the Tibs ends with the suffix, otherwise False.
     ///
     /// .. code-block:: pycon
@@ -1816,7 +1849,7 @@ impl Tibs {
     /// This is the immutable equivalent of :meth:`Mutibs.insert`.
     ///
     /// :param int pos: The bit position to insert at. Clips to the start or end if out of range.
-    /// :param Tibs bs: The bits to insert.
+    /// :param object bs: The bits to insert. This can be anything promotable to ``Tibs``.
     /// :return: A new Tibs.
     ///
     /// .. code-block:: pycon
@@ -1836,8 +1869,8 @@ impl Tibs {
     ///
     /// This is the immutable equivalent of :meth:`Mutibs.replace`.
     ///
-    /// :param Tibs old: The bits to search for.
-    /// :param Tibs new: The bits to replace with.
+    /// :param object old: The bits to search for. This can be anything promotable to ``Tibs``.
+    /// :param object new: The bits to replace with. This can be anything promotable to ``Tibs``.
     /// :param int | None start: The starting bit position. Defaults to 0.
     /// :param int | None end: The end position. Defaults to len(self).
     /// :param int | None count: If present, the maximum number of replacements to make.
@@ -1965,7 +1998,7 @@ impl Tibs {
 
     /// Concatenates two Tibs and return a newly constructed Tibs.
     ///
-    /// :param Tibs other: The bits to append.
+    /// :param object other: The bits to append. This can be anything promotable to ``Tibs``.
     /// :return: A new Tibs.
     ///
     /// .. code-block:: pycon
@@ -1983,7 +2016,7 @@ impl Tibs {
 
     /// Concatenates two Tibs and return a newly constructed Tibs.
     ///
-    /// :param Tibs other: The bits to prepend.
+    /// :param object other: The bits to prepend. This can be anything promotable to ``Tibs``.
     /// :return: A new Tibs.
     ///
     pub fn __radd__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
@@ -1996,7 +2029,7 @@ impl Tibs {
 
     /// Bit-wise 'and' between two Tibs. Returns new Tibs.
     ///
-    /// :param Tibs other: The other bits.
+    /// :param object other: The other bits. This can be anything promotable to ``Tibs``.
     /// :return: A new Tibs.
     /// :raises ValueError: if the two Tibs have differing lengths.
     ///
@@ -2011,7 +2044,7 @@ impl Tibs {
 
     /// Bit-wise 'or' between two Tibs. Returns new Tibs.
     ///
-    /// :param Tibs other: The other bits.
+    /// :param object other: The other bits. This can be anything promotable to ``Tibs``.
     /// :return: A new Tibs.
     /// :raises ValueError: if the two Tibs have differing lengths.
     ///
@@ -2026,7 +2059,7 @@ impl Tibs {
 
     /// Bit-wise 'xor' between two Tibs. Returns new Tibs.
     ///
-    /// :param Tibs other: The other bits.
+    /// :param object other: The other bits. This can be anything promotable to ``Tibs``.
     /// :return: A new Tibs.
     /// :raises ValueError: if the two Tibs have differing lengths.
     ///
@@ -2140,6 +2173,11 @@ impl Tibs {
     /// The bytes instance can be used to recreate the Tibs exactly -
     /// see :meth:`Tibs.decode`.
     ///
+    /// Use ``Codec.Raw`` when the encoded bytes themselves need to be a stable,
+    /// canonical representation. The default ``Codec.Auto`` chooses a valid
+    /// encoding for compactness and may produce different bytes for the same
+    /// value in a future release.
+    ///
     /// :param Codec codec: The codec to use. Defaults to Codec.Auto.
     /// :return: The encoded bytes.
     ///
@@ -2152,7 +2190,7 @@ impl Tibs {
     ///     >>> Tibs.decode(b)
     ///     Tibs('0b101')
     ///
-    #[pyo3(signature = (codec=Codec::Auto), text_signature = "($self, codec=Codec.Auto)")]
+    #[pyo3(signature = (codec=Codec::Auto), text_signature = "($self, codec=None)")]
     pub fn encode(&self, codec: Option<Codec>) -> PyResult<Vec<u8>> {
         <Tibs as BitCollection>::encode(self, codec)
     }

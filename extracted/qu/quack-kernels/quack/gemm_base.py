@@ -37,6 +37,9 @@ class NamedBarrierGemm(enum.IntEnum):
     EpiWG0 = enum.auto()
     EpiWG1 = enum.auto()
     TmemPtr = enum.auto()
+    # CLC-multicast throttle: CTA0 load warp arrives once per tile started,
+    # CTA0 scheduler warp syncs once per CLC query (2 warps, 64 threads).
+    ClcThrottle = enum.auto()
 
 
 class GemmBase:
@@ -339,6 +342,7 @@ class GemmBase:
                     )
                 ),
                 cu_seqlens_m=varlen_args.mCuSeqlensM,
+                max_active_clusters=scheduler_args.max_active_clusters,
                 raster_order=scheduler_args.raster_order,
                 group_size=scheduler_args.max_swizzle_size,
                 tile_shape_mn=self.cta_tile_shape_mnk[:2],

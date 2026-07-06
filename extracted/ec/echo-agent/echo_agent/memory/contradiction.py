@@ -153,6 +153,9 @@ class ContradictionDetector:
                 contradiction.created_at,
             ),
         )
+        marker = getattr(self._store, "mark_contradiction_unresolved", None)
+        if marker is not None:
+            marker(contradiction.id, contradiction.memory_id_a, contradiction.memory_id_b)
         logger.debug("Stored contradiction {}", contradiction.id)
 
     async def resolve(
@@ -168,6 +171,10 @@ class ContradictionDetector:
             (resolution, now, contradiction_id),
         )
         logger.info("Resolved contradiction {} as '{}'", contradiction_id, resolution)
+
+        clearer = getattr(self._store, "clear_contradiction", None)
+        if clearer is not None:
+            clearer(contradiction_id)
 
         if winner_id and resolution in ("a_wins", "b_wins"):
             rows = await self._storage.fetch_sql(
@@ -263,26 +270,6 @@ class ContradictionDetector:
         ]
 
         for candidate in same_prefix[:self.MAX_LLM_CANDIDATES]:
-            result = self._heuristic_check(new_entry, candidate)
-            if result is None:
-                result = self._temporal_conflict_check(new_entry, candidate)
-            if result is not None:
-                contradictions.append(result)
-        return contradictions
-
-    async def check_lightweight(
-        self,
-        new_entry: MemoryEntry,
-        candidates: list[MemoryEntry],
-        embed_fn: Callable[..., Any] | None = None,
-    ) -> list[Contradiction]:
-        """Lightweight contradiction check (heuristic + vector only, no LLM)."""
-        contradictions: list[Contradiction] = []
-        filtered = await self._pre_filter(new_entry, candidates, embed_fn)
-
-        for candidate in filtered:
-            if candidate.id == new_entry.id:
-                continue
             result = self._heuristic_check(new_entry, candidate)
             if result is None:
                 result = self._temporal_conflict_check(new_entry, candidate)

@@ -16,7 +16,6 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -29,7 +28,7 @@ classifiers = [
     "Topic :: Security",
     "Topic :: System :: Logging",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "networkx>=2.0",
     # Supporting graphic outputs (e.g. PNG, SVG, PDF) - a local graphviz is required
@@ -39,7 +38,7 @@ dependencies = [
 
 [project.optional-dependencies]
 rdf = [
-    "rdflib>=4.2.1,<7",
+    "rdflib>=6.0.0,<8",
 ]
 xml = [
     "lxml>=3.3.5",
@@ -67,6 +66,7 @@ build-backend = "setuptools.build_meta"
 version = {attr = "prov.__version__"}
 
 [tool.setuptools.package-data]
+prov = ["py.typed"]
 "prov.tests" = [
     "json/*.json",
     "xml/*.xml",
@@ -77,7 +77,6 @@ version = {attr = "prov.__version__"}
 
 [dependency-groups]
 dev = [
-    "bumpversion>=0.6.0",
     "coverage>=7.6.10",
     "lxml-stubs>=0.5.1",
     "mypy>=1.19.1",
@@ -85,18 +84,29 @@ dev = [
     "pytest>=8.4.2",
     "pytest-cov>=7.1.0",
     "ruff>=0.15.20",
-    "setuptools>=75.8.0",
-    "sphinx>=8.1.3; python_version >= '3.11'",
-    "sphinx-rtd-theme",
-    "tox>=4.23.2",
     "types-networkx>=3.4.2.20250509",
     "types-python-dateutil>=2.9.0.20260124",
-    "wheel>=0.45.1",
 ]
+docs = [
+    "sphinx>=8.1.3,<9",
+    "sphinx-rtd-theme",
+]
+
+[tool.uv]
+# numpy is a transitive typing dependency (via types-networkx/matplotlib), not
+# something prov imports itself. numpy 2.5 switched its inline stubs to
+# unconditional PEP 695 `type` statements, which mypy refuses to parse once
+# `[tool.mypy] python_version` is below 3.12 (see below) regardless of the
+# interpreter actually running mypy. Cap it below that until numpy's stubs
+# gate the new syntax on `python_version`, or this project's mypy floor rises
+# to 3.12. If a Dependabot bump of matplotlib or types-networkx ever fails to
+# resolve, this pin is the likely cause: lift it, run `uv run mypy src`, and
+# keep it lifted only if mypy stays green.
+constraint-dependencies = ["numpy<2.5"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py310"
 extend-exclude = ["build"]  # dist/.eggs are already in ruff's default excludes
 
 [tool.ruff.lint]
@@ -105,19 +115,19 @@ select = [
     "F",   # pyflakes
     "W",   # pycodestyle warnings
     "B",   # flake8-bugbear
-    "UP",  # pyupgrade (3.9-safe)
+    "C4",  # flake8-comprehensions
+    "I",   # isort (import sorting)
+    "SIM", # flake8-simplify
+    "UP",  # pyupgrade (3.10-safe)
+    "RUF", # ruff-specific rules
 ]
 ignore = [
     "E203",  # whitespace before ':' (black/ruff-format compatible)
     "E501",  # line length handled by the formatter
-    # These two pyupgrade rules only offer *unsafe* fixes when targeting py39
-    # (ruff can't prove nothing relies on runtime evaluation of the old
-    # syntax, e.g. via typing.get_type_hints()), so they fire on almost every
-    # annotated/`%`-formatted line in the project without an autofix.
-    # Deferred to a dedicated follow-up rather than mass hand-editing here.
-    "UP045",  # non-pep604-annotation-optional (`Optional[X]` -> `X | None`)
-    "UP031",  # printf-string-formatting (`%` -> `.format()`/f-string)
 ]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true  # keep multi-name `X as X` re-export blocks compact
 
 [tool.ruff.lint.per-file-ignores]
 # These modules intentionally re-export everything from another module with
@@ -143,47 +153,29 @@ python_classes = []
 [tool.coverage.run]
 branch = true
 source = ["prov"]
-omit = ["*/tests*"]
-
-[tool.coverage.paths]
-source = [
-    "src/prov",
-    ".tox/*/lib/python*/site-packages/prov",
-    ".tox/pypy*/site-packages/prov",
-]
+omit = ["*/prov/tests/*"]
 
 [tool.coverage.report]
+# Coverage ratchet (docs/test-gap-checklist.md). T13 fixed the `omit` glob
+# above (it previously did not exclude src/prov/tests/, inflating TOTAL by
+# ~3.8pt with near-fully-covered test code) and closed the remaining
+# checklist gaps; the honest package-only TOTAL measured after that work is
+# 97.42%, rounded down to this floor. Never lower without a documented
+# reason. Remaining misses are individually annotated as "defer" in the
+# checklist (dead/defensive branches unreachable via the public API, plus
+# the matplotlib-requiring interactive plot() path not installed in the
+# test env).
+fail_under = 97
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
     "raise AssertionError",
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
 ]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.10"
+strict = true
 exclude = ["^src/prov/tests/"]
-
-[[tool.mypy.overrides]]
-module = "prov.*"
-disallow_untyped_defs = true
-check_untyped_defs = true
-
-[[tool.mypy.overrides]]
-# rdflib ships its own inline types (py.typed) that are far stricter than
-# this module's historic behaviour of freely mixing rdflib term types
-# (URIRef/BNode/Literal/Node) with prov.model's QualifiedName/str
-# identifiers at runtime -- which works correctly (see the RDF round-trip
-# tests in prov.tests.test_rdf). Untangling that is a real typing refactor,
-# deferred to a follow-up; suppress the resulting noise for this module only
-# rather than scatter dozens of individually-justified ignores.
-module = "prov.serializers.provrdf"
-disable_error_code = ["arg-type", "assignment", "operator", "index"]
-
-[[tool.mypy.overrides]]
-# pydot.Dot.create() is annotated to return `str`, but its own docstring
-# says (and it actually does, for binary Graphviz formats) return `bytes`;
-# this is an inaccuracy in pydot's stub, not a bug in this module.
-module = "prov.scripts.convert"
-disable_error_code = ["arg-type"]

@@ -253,7 +253,10 @@ fn to_table_rows_carries_support_backend_and_reason() {
 #[test]
 fn render_summary_lists_every_category_and_aligns_columns() {
     let summary = ObserverCapabilities::negotiate().render_summary();
-    assert!(summary.starts_with("observer capabilities:\n"));
+    assert!(
+        summary.starts_with("observer capabilities (scope=system-wide):\n"),
+        "summary must lead with the scope header: {summary:?}"
+    );
     // Every category name shows up in the rendered output.
     for category in EventCategory::ALL {
         assert!(
@@ -286,4 +289,410 @@ fn category_and_support_string_forms_are_stable() {
     assert_eq!(CapabilitySupport::Supported.as_str(), "supported");
     assert_eq!(CapabilitySupport::Partial.as_str(), "partial");
     assert_eq!(CapabilitySupport::Unavailable.as_str(), "unavailable");
+}
+
+// ── #539: TraceScope dimension ──
+
+#[test]
+fn trace_scope_string_forms_are_stable() {
+    assert_eq!(
+        TraceScope::LaunchedProcessTree.as_str(),
+        "launched-process-tree"
+    );
+    assert_eq!(TraceScope::SystemWide.as_str(), "system-wide");
+    assert_eq!(TraceScope::ALL.len(), 2);
+}
+
+#[test]
+fn negotiate_defaults_to_system_wide_scope() {
+    // Pre-#539 callers used `negotiate()` and got the SystemWide matrix.
+    // Preserve that behavior so existing UX (e.g. clud capability table)
+    // does not silently flip to the new scope.
+    let caps = ObserverCapabilities::negotiate();
+    assert_eq!(caps.scope(), TraceScope::SystemWide);
+}
+
+#[test]
+fn negotiate_for_each_scope_yields_lifecycle_supported() {
+    // The portable started/exited baseline is scope-independent — owning
+    // the spawn boundary is sufficient on every platform.
+    for scope in TraceScope::ALL {
+        let caps = ObserverCapabilities::negotiate_for_scope(scope);
+        assert_eq!(caps.scope(), scope);
+        assert_eq!(
+            caps.support(EventCategory::Lifecycle),
+            CapabilitySupport::Supported,
+            "lifecycle must be supported under scope={}",
+            scope.as_str()
+        );
+        let entry = caps.category(EventCategory::Lifecycle);
+        assert_eq!(entry.backend, "portable-lifecycle");
+    }
+}
+
+#[test]
+fn launched_process_tree_scope_advertises_no_admin_backends() {
+    // The whole point of the LaunchedProcessTree scope is that its backend
+    // names are no-admin per-OS primitives, distinct from the admin-gated
+    // SystemWide backends. PRs 2–8 of #539 flip these from Unavailable to
+    // Supported one cell at a time; the names are the stable contract.
+    let caps = ObserverCapabilities::negotiate_for_scope(TraceScope::LaunchedProcessTree);
+    let file = caps.category(EventCategory::File);
+    let process = caps.category(EventCategory::Process);
+    let network = caps.category(EventCategory::Network);
+
+    #[cfg(target_os = "linux")]
+    {
+        assert_eq!(file.backend, "proc-fd-snapshot");
+        assert_eq!(process.backend, "subreaper-proc-poll");
+    }
+    #[cfg(target_os = "windows")]
+    {
+        assert_eq!(file.backend, "nt-handle-snapshot");
+        assert_eq!(process.backend, "job-object-iocp");
+    }
+    #[cfg(target_os = "macos")]
+    {
+        assert_eq!(file.backend, "proc-pidinfo");
+        assert_eq!(process.backend, "sysctl-proc-poll");
+    }
+
+    // Network is uniformly deferred for this scope — no admin-free
+    // per-child primitive exists across all three platforms.
+    assert_eq!(network.backend, "none");
+
+    // Every File/Network/Process reason in this scope must point at #539
+    // so a reader knows which ledger to consult.
+    for entry in [file, process, network] {
+        assert!(
+            entry.reason.contains("#539"),
+            "LaunchedProcessTree reason must reference #539: {:?}",
+            entry.reason
+        );
+    }
+}
+
+// ── #539 slice 2: Windows Job Object IOCP descendant lifecycle ──
+
+#[test]
+fn descendant_event_kind_string_forms_are_stable() {
+    assert_eq!(
+        ObserverEventKind::DescendantStarted.as_str(),
+        "descendant-started"
+    );
+    assert_eq!(
+        ObserverEventKind::DescendantExited.as_str(),
+        "descendant-exited"
+    );
+}
+
+// ── #551 slice 3: file-hook tier event variants ──
+
+#[test]
+fn file_hook_event_kind_string_forms_are_stable() {
+    // These are the hook-tier event names the running-process-observer
+    // sidecar (#551) will emit. Locking the lowercase forms now keeps
+    // serialization stable across the interposer payloads landing in
+    // slices 4–6 of #551.
+    let pb = std::path::PathBuf::from("/tmp/x");
+    assert_eq!(
+        ObserverEventKind::FileOpen {
+            path: pb.clone(),
+            flags: 0
+        }
+        .as_str(),
+        "file-open"
+    );
+    assert_eq!(
+        ObserverEventKind::FileWrite {
+            path: pb.clone(),
+            byte_count: 0
+        }
+        .as_str(),
+        "file-write"
+    );
+    assert_eq!(
+        ObserverEventKind::FileClose { path: pb.clone() }.as_str(),
+        "file-close"
+    );
+    assert_eq!(
+        ObserverEventKind::FileUnlink { path: pb.clone() }.as_str(),
+        "file-unlink"
+    );
+    assert_eq!(
+        ObserverEventKind::FileRename {
+            from: pb.clone(),
+            to: pb.clone(),
+        }
+        .as_str(),
+        "file-rename"
+    );
+}
+
+#[test]
+fn file_hook_event_kinds_carry_path_and_count_payloads() {
+    // Sanity check that the variants round-trip their payloads
+    // through pattern matching — locks the schema before slices 4–6
+    // of #551 start writing emit sites.
+    let path = std::path::PathBuf::from("/tmp/some-file.txt");
+    let ev = ObserverEventKind::FileOpen {
+        path: path.clone(),
+        flags: 0o644,
+    };
+    if let ObserverEventKind::FileOpen { path: p, flags } = ev {
+        assert_eq!(p, path);
+        assert_eq!(flags, 0o644);
+    } else {
+        panic!("variant did not match")
+    }
+
+    let ev = ObserverEventKind::FileWrite {
+        path: path.clone(),
+        byte_count: 1024,
+    };
+    if let ObserverEventKind::FileWrite { byte_count, .. } = ev {
+        assert_eq!(byte_count, 1024);
+    } else {
+        panic!("variant did not match")
+    }
+
+    let from = std::path::PathBuf::from("/tmp/a");
+    let to = std::path::PathBuf::from("/tmp/b");
+    let ev = ObserverEventKind::FileRename {
+        from: from.clone(),
+        to: to.clone(),
+    };
+    if let ObserverEventKind::FileRename { from: f, to: t } = ev {
+        assert_eq!(f, from);
+        assert_eq!(t, to);
+    } else {
+        panic!("variant did not match")
+    }
+}
+
+#[test]
+fn observer_event_can_carry_file_hook_variants() {
+    // ObserverEvent's struct must accept the new ObserverEventKind
+    // variants without further changes — pid + timestamp are
+    // category-agnostic. File events use EventCategory::File.
+    let ev = ObserverEvent::new_now(
+        EventCategory::File,
+        ObserverEventKind::FileOpen {
+            path: "/tmp/lock-file".into(),
+            flags: 0,
+        },
+        std::process::id(),
+    );
+    assert_eq!(ev.category, EventCategory::File);
+    assert_eq!(ev.kind.as_str(), "file-open");
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn windows_process_backend_supported_on_launched_process_tree_scope() {
+    // Slice 2 flips Windows Process from Unavailable → Supported under
+    // the LaunchedProcessTree scope. Lock the contract so a future
+    // refactor cannot silently downgrade it.
+    let caps = ObserverCapabilities::negotiate_for_scope(TraceScope::LaunchedProcessTree);
+    let process = caps.category(EventCategory::Process);
+    assert_eq!(
+        process.support,
+        CapabilitySupport::Supported,
+        "Windows LaunchedProcessTree Process backend should be Supported after slice 2"
+    );
+    assert_eq!(process.backend, "job-object-iocp");
+    assert!(
+        process.reason.contains("#539 slice 2"),
+        "reason should anchor to the slice that flipped it: {:?}",
+        process.reason
+    );
+    // Sanity check: the SystemWide matrix is untouched — Windows ETW
+    // process backend stays Unavailable per #469.
+    let sw = ObserverCapabilities::negotiate_for_scope(TraceScope::SystemWide);
+    let sw_process = sw.category(EventCategory::Process);
+    assert_eq!(sw_process.support, CapabilitySupport::Unavailable);
+    assert_eq!(sw_process.backend, "etw");
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn windows_iocp_pump_emits_descendant_lifecycle_for_subprocess_chain() {
+    // Direct child: cmd /C — that cmd then runs three nested `cmd /C exit 0`
+    // subprocesses sequentially via &&. The outer cmd is direct_pid
+    // (suppressed in the pump), each of the three inner cmds is a
+    // descendant in the Job Object, so the IOCP should fire at least
+    // three DescendantStarted + DescendantExited pairs.
+    let cfg = ProcessConfig {
+        command: CommandSpec::Shell("cmd /C exit 0 && cmd /C exit 0 && cmd /C exit 0".to_string()),
+        cwd: None,
+        env: None,
+        capture: false,
+        stderr_mode: StderrMode::Stdout,
+        creationflags: None,
+        create_process_group: false,
+        stdin_mode: StdinMode::Inherit,
+        nice: None,
+    };
+    let (process, subscriber) = NativeProcess::with_observer(
+        cfg,
+        ObserverConfig::with_categories([EventCategory::Process]),
+    );
+    process.start().expect("spawn shell chain");
+    let _ = process
+        .wait(Some(Duration::from_secs(30)))
+        .expect("shell chain exits");
+    process.close().ok();
+
+    // The IOCP pump exits on ACTIVE_PROCESS_ZERO, which fires once every
+    // process in the Job has exited. Give it a brief grace period to
+    // flush queued events to the subscriber's mpsc channel before we
+    // drain.
+    std::thread::sleep(Duration::from_millis(750));
+
+    let events = subscriber.drain();
+    let started: Vec<&ObserverEvent> = events
+        .iter()
+        .filter(|e| {
+            e.category == EventCategory::Process
+                && matches!(e.kind, ObserverEventKind::DescendantStarted)
+        })
+        .collect();
+    let exited: Vec<&ObserverEvent> = events
+        .iter()
+        .filter(|e| {
+            e.category == EventCategory::Process
+                && matches!(e.kind, ObserverEventKind::DescendantExited)
+        })
+        .collect();
+
+    assert!(
+        started.len() >= 3,
+        "expected ≥3 DescendantStarted events for the cmd chain, got {} (all events: {:?})",
+        started.len(),
+        events
+    );
+    assert!(
+        exited.len() >= 3,
+        "expected ≥3 DescendantExited events for the cmd chain, got {} (all events: {:?})",
+        exited.len(),
+        events
+    );
+
+    // No Lifecycle events should appear: the config asked for Process
+    // only, so the direct child's started/exited stays suppressed.
+    for ev in &events {
+        assert_eq!(
+            ev.category,
+            EventCategory::Process,
+            "Lifecycle category leaked into a Process-only subscriber: {ev:?}"
+        );
+    }
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn windows_iocp_pump_inert_when_only_lifecycle_requested() {
+    // Off-by-default contract: if the consumer only asked for Lifecycle,
+    // the descendant_sink is None and no Process events are emitted even
+    // when the child spawns descendants. The pump thread should not
+    // start.
+    let cfg = ProcessConfig {
+        command: CommandSpec::Shell("cmd /C exit 0 && cmd /C exit 0".to_string()),
+        cwd: None,
+        env: None,
+        capture: false,
+        stderr_mode: StderrMode::Stdout,
+        creationflags: None,
+        create_process_group: false,
+        stdin_mode: StdinMode::Inherit,
+        nice: None,
+    };
+    let (process, subscriber) = NativeProcess::with_observer(cfg, ObserverConfig::lifecycle());
+    process.start().expect("spawn");
+    let _ = process.wait(Some(Duration::from_secs(30))).expect("wait");
+    process.close().ok();
+    std::thread::sleep(Duration::from_millis(200));
+
+    let events = subscriber.drain();
+    for ev in &events {
+        assert_ne!(
+            ev.category,
+            EventCategory::Process,
+            "Process event leaked into a Lifecycle-only subscriber: {ev:?}"
+        );
+    }
+    // Lifecycle still fires exactly Started + Exited for the direct child.
+    let lifecycle: Vec<&ObserverEvent> = events
+        .iter()
+        .filter(|e| e.category == EventCategory::Lifecycle)
+        .collect();
+    assert_eq!(
+        lifecycle.len(),
+        2,
+        "expected exactly started + exited for the direct child, got {lifecycle:?}"
+    );
+}
+
+#[test]
+fn descendant_sink_is_some_only_when_process_category_observed() {
+    // The IOCP pump only spins up when the consumer actually requested
+    // descendant observation. With Lifecycle-only config (the most common
+    // path) the sink stays None and the off-by-default allocation
+    // contract is preserved.
+    let (emitter, _sub) = ObserverEmitter::new(ObserverConfig::lifecycle());
+    assert!(
+        emitter.descendant_sink().is_none(),
+        "lifecycle-only observer must not allocate a descendant sink"
+    );
+
+    let (emitter, _sub) =
+        ObserverEmitter::new(ObserverConfig::with_categories([EventCategory::Process]));
+    assert!(
+        emitter.descendant_sink().is_some(),
+        "Process-observing config must hand back a sink for the IOCP pump"
+    );
+
+    let (emitter, _sub) = ObserverEmitter::new(ObserverConfig::with_categories([
+        EventCategory::Lifecycle,
+        EventCategory::Process,
+    ]));
+    assert!(
+        emitter.descendant_sink().is_some(),
+        "config including Process must hand back a sink even alongside Lifecycle"
+    );
+}
+
+#[test]
+fn system_wide_scope_preserves_phase3_reason_contract() {
+    // The SystemWide matrix must keep matching the pre-#539 behavior so
+    // downstream tests and clud UX don't regress.
+    let caps = ObserverCapabilities::negotiate_for_scope(TraceScope::SystemWide);
+    for category in [
+        EventCategory::File,
+        EventCategory::Network,
+        EventCategory::Process,
+    ] {
+        let entry = caps.category(category);
+        assert_eq!(entry.support, CapabilitySupport::Unavailable);
+        assert!(
+            entry.reason.contains("Phase 3"),
+            "SystemWide reason must keep the Phase 3 anchor: {:?}",
+            entry.reason
+        );
+    }
+}
+
+#[test]
+fn render_summary_names_the_negotiated_scope() {
+    let lpt =
+        ObserverCapabilities::negotiate_for_scope(TraceScope::LaunchedProcessTree).render_summary();
+    assert!(
+        lpt.starts_with("observer capabilities (scope=launched-process-tree):\n"),
+        "LaunchedProcessTree summary must lead with its scope: {lpt:?}"
+    );
+    let sw = ObserverCapabilities::negotiate_for_scope(TraceScope::SystemWide).render_summary();
+    assert!(
+        sw.starts_with("observer capabilities (scope=system-wide):\n"),
+        "SystemWide summary must lead with its scope: {sw:?}"
+    );
 }

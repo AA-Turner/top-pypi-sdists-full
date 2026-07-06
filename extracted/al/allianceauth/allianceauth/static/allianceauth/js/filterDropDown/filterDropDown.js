@@ -361,12 +361,6 @@ $(document).ready(() => {
                     if (columnName in columnsOptions) {
                         columnsOptions[columnName].forEach((d) => addOption(select, d));
 
-                        if (columnName in columnsOptions) {
-                            columnsOptions[columnName].forEach((d) => addOption(select, d));
-                        } else {
-                            console.warn(`Missing column '${columnName}' in ajax response.`);
-                        }
-
                         setSelectFromColumnSearch(select, column);
                     } else {
                         console.warn(`Missing column '${columnName}' in ajax response.`);

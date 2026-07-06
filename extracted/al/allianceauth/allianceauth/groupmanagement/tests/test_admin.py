@@ -5,10 +5,9 @@ from django_webtest import WebTest
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.admin.sites import AdminSite
-from django.contrib.auth.models import User
 from django.test import Client, RequestFactory, TestCase, override_settings
 
-from allianceauth.authentication.models import CharacterOwnership, State
+from allianceauth.authentication.models import CharacterOwnership, State, User
 from allianceauth.eveonline.models import (
     EveAllianceInfo, EveCharacter, EveCorporationInfo,
 )

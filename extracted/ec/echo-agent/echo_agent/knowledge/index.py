@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
 import math
 import re
@@ -10,13 +12,17 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from loguru import logger
 
 
 _LATIN_OR_NUM_RE = re.compile(r"[a-z0-9_]+", re.I)
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+
+# Fusion baseline mirrors echo_agent/memory/retrieval.py resonance weights.
+# Kept as a module constant (not config) until tuning data justifies a knob.
+_FUSION_BASE = 0.5
 
 
 @dataclass
@@ -98,6 +104,11 @@ class KnowledgeIndex:
         self._df: Counter[str] = Counter()
         self._loaded = False
         self._lock = threading.Lock()
+        self._needs_rebuild = False
+        self._embed_fn: Callable[[str], Awaitable[list[float]]] | None = None
+        self._vector_store: Any = None
+        self._embed_timeout: float = 1.5
+        self._chunk_vectors: dict[str, list[float]] = {}
 
     @property
     def chunk_count(self) -> int:
@@ -112,6 +123,8 @@ class KnowledgeIndex:
     def ensure_ready(self, *, auto_index: bool = True) -> None:
         if self.index_path.exists() and not self._is_stale():
             self.load()
+            if self._needs_rebuild and auto_index:
+                self.rebuild()
             return
         if auto_index:
             self.rebuild()
@@ -132,12 +145,14 @@ class KnowledgeIndex:
             self._recompute_stats()
             self._save()
             self._loaded = True
+            self._needs_rebuild = False
         summary = {"documents": len(files), "chunks": len(self._chunks), "index_path": str(self.index_path)}
         logger.info("Knowledge index rebuilt: {} documents, {} chunks", summary["documents"], summary["chunks"])
         return summary
 
     def load(self) -> None:
         with self._lock:
+            self._needs_rebuild = False
             if not self.index_path.exists():
                 self._chunks = []
                 self._df = Counter()
@@ -145,22 +160,139 @@ class KnowledgeIndex:
                 return
             data = json.loads(self.index_path.read_text(encoding="utf-8"))
             self._chunks = list(data.get("chunks", []))
+            if data.get("format") != "echo-agent-knowledge-v2" or any(
+                "content_hash" not in c for c in self._chunks
+            ):
+                self._needs_rebuild = True
             self._recompute_stats()
             self._loaded = True
 
-    def search(self, query: str, *, limit: int = 5, user_id: str = "") -> list[KnowledgeSearchResult]:
+    def attach_embedding(
+        self, embed_fn: Callable[[str], Awaitable[list[float]]],
+        dimensions: int, *, embed_timeout: float = 1.5,
+    ) -> None:
+        """Wire an async embedding fn + sidecar vector store. Returns immediately;
+        does NOT compute embeddings (that happens in rebuild_async, backgrounded)."""
+        from echo_agent.knowledge.vector_store import KnowledgeVectorStore
+        self._embed_fn = embed_fn
+        self._embed_timeout = max(0.1, float(embed_timeout))
+        sidecar = self.index_path.with_name(self.index_path.name + ".vectors.npz")
+        self._vector_store = KnowledgeVectorStore(sidecar, dimensions=dimensions)
         self._ensure_loaded()
-        query_terms = _tokenize(query)
-        if not query_terms:
-            return []
+        self._chunk_vectors = self._vector_store.load()
+        ordered = [(c["id"], self._chunk_vectors[c["id"]])
+                   for c in self._chunks if c["id"] in self._chunk_vectors]
+        self._vector_store.build(ordered)
+
+    def needs_vector_backfill(self) -> bool:
+        if not self._vector_store or not self._vector_store.available or not self._embed_fn:
+            return False
+        self._ensure_loaded()
+        # 陈旧判定靠 sidecar 自记录的 content_hash:重启启动期 ensure_ready 已先把
+        # 文本索引 rebuild 成新内容(chunk id 不变但 content_hash 变),仅比对 id 命中
+        # 会漏判,导致语义检索一直吃旧向量。故 id 缺失或 hash 不一致都需补建。
+        sidecar_hashes = self._vector_store.content_hashes()
+        for c in self._chunks:
+            cid = c["id"]
+            if cid not in self._chunk_vectors:
+                return True
+            if sidecar_hashes.get(cid) != c.get("content_hash"):
+                return True
+        return False
+
+    async def rebuild_async(self) -> dict[str, Any]:
+        loop = asyncio.get_running_loop()
+        if not self._vector_store or not self._vector_store.available or not self._embed_fn:
+            return await loop.run_in_executor(None, self.rebuild)
+        # 0) 复用判定的权威依据是 sidecar 自记录的 content_hash,而非 self._chunks 的
+        #    旧 hash:重启启动期 ensure_ready 可能已把 self._chunks rebuild 成新内容,
+        #    此时旧 hash 已失真,只有 sidecar 知道每个向量是基于哪段文本算出来的。
+        self._ensure_loaded()
+        old_vectors = self._vector_store.load()
+        sidecar_hashes = self._vector_store.content_hashes()
+        # 1) 重建文本索引(同步内核,executor 防阻塞事件循环)
+        summary = await loop.run_in_executor(None, self.rebuild)
+        # 2) 仅对 id 命中且 sidecar 记录的 hash 与当前 chunk hash 一致的复用,余者重算
+        new_vectors: dict[str, list[float]] = {}
+        for chunk in self._chunks:
+            cid = chunk["id"]
+            reuse = old_vectors.get(cid)
+            if reuse is not None and sidecar_hashes.get(cid) == chunk["content_hash"]:
+                new_vectors[cid] = reuse
+                continue
+            try:
+                emb = await asyncio.wait_for(self._embed_fn(chunk["text"]), self._embed_timeout)
+            except Exception as e:
+                logger.warning("knowledge embed failed for {}: {}", cid, e)
+                continue
+            if emb:
+                new_vectors[cid] = emb
+        ordered = [(c["id"], new_vectors[c["id"]]) for c in self._chunks if c["id"] in new_vectors]
+        new_hashes = {c["id"]: c["content_hash"] for c in self._chunks if c["id"] in new_vectors}
+        self._vector_store.build(ordered)
+        self._vector_store.save(ordered, new_hashes)
+        self._chunk_vectors = new_vectors
+        logger.info("knowledge vectors backfilled: {} chunks", len(ordered))
+        return summary
+
+    async def search_async(self, query: str, *, limit: int = 5, user_id: str = "") -> list[KnowledgeSearchResult]:
+        self._ensure_loaded()
         with self._lock:
             chunks_snapshot = list(self._chunks)
             df_snapshot = Counter(self._df)
+        kw = self._keyword_scores(query, chunks_snapshot, df_snapshot, user_id=user_id)
+        vec: dict[str, float] = {}
+        if self._vector_store and self._vector_store.available and self._embed_fn:
+            try:
+                q_emb = await asyncio.wait_for(self._embed_fn(query), self._embed_timeout)
+                if q_emb:
+                    for cid, score in self._vector_store.search(q_emb, limit * 3):
+                        vec[cid] = score
+            except Exception:
+                logger.debug("knowledge query embed failed; keyword-only")
+        by_id = {c["id"]: c for c in chunks_snapshot}
+        allowed_vec = {cid: s for cid, s in vec.items()
+                       if cid in by_id and self._allowed_for_user(by_id[cid].get("metadata", {}), user_id)}
+        fused = self._fuse(query, kw, allowed_vec)
+        ranked = sorted(fused.items(), key=lambda kv: kv[1], reverse=True)[:limit]
+        return self._to_results([(by_id[cid], sc) for cid, sc in ranked if cid in by_id])
+
+    def _fuse(self, query: str, kw: dict[str, float], vec: dict[str, float]) -> dict[str, float]:
+        if not vec:
+            return kw  # 降级:等价同步 search 的纯关键词
+        kw_max = max(kw.values(), default=1.0) or 1.0
+        vec_max = max(vec.values(), default=1.0) or 1.0
+        e = self._query_entropy(query)
+        w_kw = _FUSION_BASE * (1 - e)
+        w_vec = _FUSION_BASE + _FUSION_BASE * e
+        fused: dict[str, float] = {}
+        for cid in set(kw) | set(vec):
+            fused[cid] = w_kw * (kw.get(cid, 0.0) / kw_max) + w_vec * (vec.get(cid, 0.0) / vec_max)
+        return fused
+
+    @staticmethod
+    def _query_entropy(query: str) -> float:
+        tokens = _tokenize(query)
+        if not tokens:
+            return 0.5
+        counts = Counter(tokens)
+        total = len(tokens)
+        entropy = -sum((c / total) * math.log2(c / total) for c in counts.values())
+        max_ent = math.log2(len(counts)) if len(counts) > 1 else 1.0
+        return min(entropy / max_ent, 1.0) if max_ent > 0 else 0.0
+
+    def _keyword_scores(
+        self, query: str, chunks: list[dict[str, Any]],
+        df: Counter, *, user_id: str,
+    ) -> dict[str, float]:
+        query_terms = _tokenize(query)
+        if not query_terms:
+            return {}
         query_counts = Counter(query_terms)
-        total_chunks = max(1, len(chunks_snapshot))
-        scored: list[tuple[float, dict[str, Any]]] = []
+        total_chunks = max(1, len(chunks))
         query_lower = query.lower()
-        for chunk in chunks_snapshot:
+        scores: dict[str, float] = {}
+        for chunk in chunks:
             if not self._allowed_for_user(chunk.get("metadata", {}), user_id):
                 continue
             terms = Counter(chunk.get("terms", {}))
@@ -172,16 +304,18 @@ class KnowledgeIndex:
                 tf = terms.get(term, 0)
                 if tf <= 0:
                     continue
-                idf = math.log((1 + total_chunks) / (1 + df_snapshot.get(term, 0))) + 1
+                idf = math.log((1 + total_chunks) / (1 + df.get(term, 0))) + 1
                 score += (tf / length) * idf * query_tf
             text_lower = chunk.get("text", "").lower()
             if query_lower and query_lower in text_lower:
                 score += 1.5
             if score > 0:
-                scored.append((score, chunk))
-        scored.sort(key=lambda item: item[0], reverse=True)
+                scores[chunk["id"]] = score
+        return scores
+
+    def _to_results(self, scored: list[tuple[dict[str, Any], float]]) -> list[KnowledgeSearchResult]:
         results: list[KnowledgeSearchResult] = []
-        for idx, (score, chunk) in enumerate(scored[:limit], 1):
+        for idx, (chunk, score) in enumerate(scored, 1):
             results.append(KnowledgeSearchResult(
                 citation_id=f"K{idx}",
                 path=chunk.get("path", ""),
@@ -192,6 +326,16 @@ class KnowledgeIndex:
                 metadata=chunk.get("metadata", {}),
             ))
         return results
+
+    def search(self, query: str, *, limit: int = 5, user_id: str = "") -> list[KnowledgeSearchResult]:
+        self._ensure_loaded()
+        with self._lock:
+            chunks_snapshot = list(self._chunks)
+            df_snapshot = Counter(self._df)
+        scores = self._keyword_scores(query, chunks_snapshot, df_snapshot, user_id=user_id)
+        by_id = {c["id"]: c for c in chunks_snapshot}
+        ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:limit]
+        return self._to_results([(by_id[cid], sc) for cid, sc in ranked])
 
     def format_results(self, results: list[KnowledgeSearchResult]) -> str:
         if not results:
@@ -236,10 +380,10 @@ class KnowledgeIndex:
         return False
 
     def _index_file(self, path: Path) -> None:
-        try:
-            raw = path.read_text(encoding="utf-8", errors="replace")
-        except Exception as e:
-            logger.warning("Failed to read knowledge document {}: {}", path, e)
+        from echo_agent.knowledge.extractors import extract_text
+
+        raw = extract_text(path)
+        if raw is None:
             return
         metadata, body = _extract_frontmatter(raw)
         rel_path = str(path.relative_to(self.workspace)) if path.is_relative_to(self.workspace) else str(path)
@@ -252,6 +396,7 @@ class KnowledgeIndex:
                 "title": title,
                 "text": text,
                 "terms": dict(terms),
+                "content_hash": hashlib.sha1(text.encode("utf-8")).hexdigest(),
                 "metadata": metadata,
                 "mtime": path.stat().st_mtime,
             })
@@ -300,7 +445,7 @@ class KnowledgeIndex:
     def _save(self) -> None:
         self.index_path.parent.mkdir(parents=True, exist_ok=True)
         data = {
-            "format": "echo-agent-knowledge-v1",
+            "format": "echo-agent-knowledge-v2",
             "generated_at": datetime.now().isoformat(),
             "docs_dir": str(self.docs_dir),
             "chunks": self._chunks,

@@ -32,7 +32,9 @@ public static class CloakLauncher
 
         var combined = new List<string>(args ?? new List<string>());
         combined.AddRange(proxyResolution.ExtraArgs);
-        var chromeArgs = BuildArgs(options.StealthArgs, combined, timezone, locale, options.Headless, options.ExtensionPaths);
+        var chromeArgs = BuildArgs(options.StealthArgs, combined, timezone, locale, options.Headless, options.ExtensionPaths,
+            startMaximized: Config.BinarySupportsMaximizedWindow(options.LicenseKey, options.BrowserVersion)
+                && !options.SuppressMaximize);
         MaybeWarnWindowsFonts(chromeArgs);
 
         CloakLog.Debug($"Launching stealth Chromium (headless={options.Headless}, args={chromeArgs.Count})");
@@ -96,6 +98,9 @@ public static class CloakLauncher
             BrowserVersion = options.BrowserVersion,
             // geoip already resolved above; don't re-resolve.
             GeoIp = false,
+            // Caller chose a viewport geometry → don't also auto-maximize the
+            // window (mirrors the persistent-context path + Python/JS).
+            SuppressMaximize = options.Viewport != null || options.NoViewport,
         }).ConfigureAwait(false);
 
         try
@@ -137,7 +142,9 @@ public static class CloakLauncher
 
         var combined = new List<string>(args ?? new List<string>());
         combined.AddRange(proxyResolution.ExtraArgs);
-        var chromeArgs = BuildArgs(options.StealthArgs, combined, timezone, locale, options.Headless, options.ExtensionPaths);
+        var chromeArgs = BuildArgs(options.StealthArgs, combined, timezone, locale, options.Headless, options.ExtensionPaths,
+            startMaximized: Config.BinarySupportsMaximizedWindow(options.LicenseKey, options.BrowserVersion)
+                && !options.NoViewport && options.Viewport == null);
         MaybeWarnWindowsFonts(chromeArgs);
 
         CloakLog.Debug($"Launching persistent stealth Chromium (headless={options.Headless}, user_data_dir={userDataDir})");
@@ -179,23 +186,28 @@ public static class CloakLauncher
     // -----------------------------------------------------------------------
 
     /// <summary>
-    /// Auto-fill timezone/locale from the proxy IP when geoip is enabled. Returns
+    /// Auto-fill timezone/locale from the egress IP when geoip is enabled. Returns
     /// (timezone, locale, exitIp). The exit IP is a free bonus used for WebRTC spoofing.
+    /// With a proxy the egress IP is the proxy's exit IP; with no proxy it is the
+    /// machine's own public IP, so geoip works proxy-free too.
     /// </summary>
     public static async Task<(string? Timezone, string? Locale, string? ExitIp)> MaybeResolveGeoIpAsync(
         bool geoip, object? proxy, string? timezone, string? locale)
     {
-        if (!geoip || proxy == null)
+        if (!geoip)
             return (timezone, locale, null);
 
-        string? proxyUrl = ProxyResolver.ExtractProxyUrl(proxy);
-        if (string.IsNullOrEmpty(proxyUrl))
-            return (timezone, locale, null);
+        // null when no proxy -> echo services resolve the machine's own public IP.
+        string? proxyUrl = proxy != null ? ProxyResolver.ExtractProxyUrl(proxy) : null;
 
-        // When both tz/locale are explicit, still resolve the exit IP for WebRTC.
+        // When both tz/locale are explicit, resolve the exit IP for WebRTC — but only
+        // with a proxy. With no proxy the WebRTC IP would just be the real connection
+        // IP the site already sees (a no-op), so skip the third-party echo call.
         if (timezone != null && locale != null)
         {
-            string? exitIpOnly = await GeoIp.ResolveProxyExitIpAsync(proxyUrl).ConfigureAwait(false);
+            string? exitIpOnly = proxyUrl != null
+                ? await GeoIp.ResolveProxyExitIpAsync(proxyUrl).ConfigureAwait(false)
+                : null;
             return (timezone, locale, exitIpOnly);
         }
 
@@ -273,7 +285,8 @@ public static class CloakLauncher
         string? timezone = null,
         string? locale = null,
         bool headless = true,
-        List<string>? extensionPaths = null)
+        List<string>? extensionPaths = null,
+        bool startMaximized = false)
     {
         // Preserve insertion order while deduping by key.
         var seen = new Dictionary<string, string>();
@@ -319,6 +332,18 @@ public static class CloakLauncher
             string extVal = string.Join(",", absPaths);
             Set("--load-extension", $"--load-extension={extVal}");
             Set("--disable-extensions-except", $"--disable-extensions-except={extVal}");
+        }
+
+        // Open maximized (real Chrome overwhelmingly runs maximized) so the window
+        // fills the spoofed screen. Skipped if the caller chose a window geometry.
+        // Gated to binaries where this stays coherent (see BinarySupportsMaximizedWindow)
+        // — below the gate it would make outerWidth < innerWidth.
+        if (startMaximized
+            && !seen.ContainsKey("--start-maximized")
+            && !seen.ContainsKey("--window-size")
+            && !seen.ContainsKey("--window-position"))
+        {
+            Set("--start-maximized", "--start-maximized");
         }
 
         return order.Select(k => seen[k]).ToList();

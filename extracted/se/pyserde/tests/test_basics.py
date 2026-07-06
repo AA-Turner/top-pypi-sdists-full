@@ -339,6 +339,65 @@ def test_enum_with_tuple_value(se: Any, de: Any) -> None:
     assert de(COpt, se(COpt(None))) == COpt(None)
 
 
+def test_deserialize_enum_helper_heterogeneous() -> None:
+    from serde.core import deserialize_enum
+
+    # An enum may mix value types. The conversion must be derived from the
+    # incoming value, not from the first member's value type.
+    class Mixed(enum.Enum):
+        NUM = 1  # first member: value type is int
+        TXT = "b"
+        PAIR = ("x", "y")  # tuple-valued member, not first
+
+    # list->tuple must fire even though the first member is not a tuple.
+    assert deserialize_enum(Mixed, ["x", "y"]) is Mixed.PAIR
+    # str->numeric must fire even though the first member's value is not numeric.
+    class Mixed2(enum.Enum):
+        NAME = "alice"  # first member: value type is str
+        AGE = 30  # numeric member, not first
+
+    assert deserialize_enum(Mixed2, "30") is Mixed2.AGE
+    # Invalid values still re-raise for every branch.
+    with pytest.raises((ValueError, KeyError)):
+        deserialize_enum(Mixed, ["p", "q"])
+    with pytest.raises((ValueError, KeyError)):
+        deserialize_enum(Mixed2, "99")
+
+
+@pytest.mark.parametrize("se,de", (format_dict + format_json + format_yaml))
+def test_enum_heterogeneous_tuple_member(se: Any, de: Any) -> None:
+    # Regression: a tuple-valued member that is not the first member serializes
+    # to a list and previously failed to deserialize (the member value type was
+    # sampled from the first member only).
+    class Mixed(enum.Enum):
+        NUM = 1
+        TXT = "b"
+        PAIR = ("x", "y")
+
+    @serde.serde
+    class C:
+        m: Mixed
+
+    for member in Mixed:
+        assert de(C, se(C(member))) == C(member)
+
+
+@pytest.mark.parametrize("se,de", (format_dict + format_json + format_yaml))
+def test_enum_heterogeneous_numeric_key(se: Any, de: Any) -> None:
+    # Regression: a numeric member that is not the first member arrives as a
+    # stringified dict key and previously failed to coerce back (the member
+    # value type was sampled from the first member only).
+    class Mixed(enum.Enum):
+        NAME = "alice"
+        AGE = 30
+
+    @serde.serde
+    class C:
+        d: dict[Mixed, int]
+
+    assert de(C, se(C({Mixed.AGE: 1}))) == C({Mixed.AGE: 1})
+
+
 @pytest.mark.parametrize("se,de", (format_dict + format_json + format_yaml))
 def test_aliased_enum_field(se: Any, de: Any) -> None:
     class IE(enum.IntEnum):
@@ -744,6 +803,79 @@ def test_default_rename_and_alias() -> None:
     assert ff.a == 10
     ff = serde.json.from_json(Foo, '{"e":10}')
     assert ff.a == 2
+
+
+def test_alias_with_list() -> None:
+    @serde.serde
+    class Foo:
+        a: list[int] = serde.field(alias=["b"])  # type: ignore[literal-required]
+
+    assert Foo([1, 2]) == serde.json.from_json(Foo, '{"a":[1,2]}')
+    assert Foo([1, 2]) == serde.json.from_json(Foo, '{"b":[1,2]}')
+
+
+def test_alias_with_optional_list_default() -> None:
+    @serde.serde
+    class Foo:
+        a: Optional[list[int]] = serde.field(alias=["b"], default=None)  # type: ignore[literal-required]
+
+    assert Foo([1]) == serde.json.from_json(Foo, '{"b":[1]}')
+    assert Foo(None) == serde.json.from_json(Foo, "{}")
+
+
+def test_alias_with_list_default_factory() -> None:
+    @serde.serde
+    class Foo:
+        a: list[int] = serde.field(alias=["b"], default_factory=list)  # type: ignore[literal-required]
+
+    assert Foo([1]) == serde.json.from_json(Foo, '{"b":[1]}')
+    assert Foo([]) == serde.json.from_json(Foo, "{}")
+
+
+def test_alias_with_dict() -> None:
+    @serde.serde
+    class Foo:
+        a: dict[str, int] = serde.field(alias=["b"])  # type: ignore[literal-required]
+
+    assert Foo({"x": 1}) == serde.json.from_json(Foo, '{"b":{"x":1}}')
+
+
+def test_alias_with_set() -> None:
+    @serde.serde
+    class Foo:
+        a: set[int] = serde.field(alias=["b"])  # type: ignore[literal-required]
+
+    assert Foo({1, 2}) == serde.json.from_json(Foo, '{"b":[1,2]}')
+
+
+def test_alias_with_tuple() -> None:
+    @serde.serde
+    class Foo:
+        a: tuple[int, str] = serde.field(alias=["b"])  # type: ignore[literal-required]
+
+    assert Foo((1, "x")) == serde.json.from_json(Foo, '{"b":[1,"x"]}')
+
+
+def test_alias_with_datetime() -> None:
+    @serde.serde
+    class Foo:
+        a: datetime.datetime = serde.field(alias=["b"])  # type: ignore[literal-required]
+
+    dt = datetime.datetime(2021, 1, 1, 0, 0, 0)
+    assert Foo(dt) == serde.json.from_json(Foo, '{"b":"2021-01-01T00:00:00"}')
+
+
+def test_alias_with_nested_dataclass() -> None:
+    @serde.serde
+    class Bar:
+        e: int
+        f: str
+
+    @serde.serde
+    class Foo:
+        a: Bar = serde.field(alias=["b"])  # type: ignore[literal-required]
+
+    assert Foo(Bar(1, "x")) == serde.json.from_json(Foo, '{"b":{"e":1,"f":"x"}}')
 
 
 def test_skip() -> None:

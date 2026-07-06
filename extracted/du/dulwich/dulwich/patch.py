@@ -956,8 +956,18 @@ def _find_scissors_line(lines: list[bytes]) -> int | None:
     Returns:
         Index of scissors line, or None if not found
     """
+    # The perforation alternatives are written so no two unbounded ``-+``
+    # quantifiers are separated by an optional/empty subpattern. The earlier
+    # form ``(?:>?\s*-+\s*)?(?:8<|>8)?\s*-+\s*`` let a single run of dashes be
+    # split between two ``-+`` groups, so a long non-matching line of dashes
+    # backtracked quadratically (ReDoS) when fed through ``mailinfo`` /
+    # ``git am --scissors`` on an untrusted mailbox. Here a marker is the
+    # mandatory pivot between the two dash runs, and the marker-less case uses a
+    # bounded ``(?:\s+-+)?`` second run, keeping the match linear.
     scissors_pattern = re.compile(
-        rb"^(?:>?\s*-+\s*)?(?:8<|>8)?\s*-+\s*$|^(?:>?\s*-+\s*)(?:cut here|scissors)(?:\s*-+)?$",
+        rb"^>?\s*-+(?:\s+-+)?\s*$"
+        rb"|^>?\s*(?:-+\s*)?(?:8<|>8)\s*-+\s*$"
+        rb"|^(?:>?\s*-+\s*)(?:cut here|scissors)(?:\s*-+)?$",
         re.IGNORECASE,
     )
 
@@ -1401,7 +1411,12 @@ def _apply_rename_or_copy(
         - ``original_lines``: Content lines if hunks need to be applied, None otherwise
         - ``should_continue``: True to skip to next patch, False to continue processing
     """
-    from .index import ConflictedIndexEntry, IndexEntry, index_entry_from_stat
+    from .index import (
+        ConflictedIndexEntry,
+        IndexEntry,
+        cleanup_mode,
+        index_entry_from_stat,
+    )
 
     # Strip path components
     src_stripped = src_path
@@ -1461,7 +1476,7 @@ def _apply_rename_or_copy(
         with open(dst_fs_path, "wb") as f:
             f.write(content)
         if patch.new_mode is not None:
-            os.chmod(dst_fs_path, patch.new_mode)
+            os.chmod(dst_fs_path, cleanup_mode(patch.new_mode))
 
     # Update index
     index = r.open_index(config=config)
@@ -1525,7 +1540,12 @@ def apply_patches(
     Raises:
         ValueError: If patch cannot be applied
     """
-    from .index import ConflictedIndexEntry, IndexEntry, index_entry_from_stat
+    from .index import (
+        ConflictedIndexEntry,
+        IndexEntry,
+        cleanup_mode,
+        index_entry_from_stat,
+    )
 
     if config is None:
         config = r.get_config_stack()
@@ -1625,7 +1645,7 @@ def apply_patches(
                     with open(fs_path, "wb") as f:
                         f.write(binary_content)
                     if patch.new_mode is not None:
-                        os.chmod(fs_path, patch.new_mode)
+                        os.chmod(fs_path, cleanup_mode(patch.new_mode))
 
                 # Update index
                 index = r.open_index(config=config)
@@ -1793,7 +1813,7 @@ def apply_patches(
 
                 # Update file mode if specified
                 if patch.new_mode is not None:
-                    os.chmod(fs_path, patch.new_mode)
+                    os.chmod(fs_path, cleanup_mode(patch.new_mode))
 
             # Update index
             index = r.open_index(config=config)

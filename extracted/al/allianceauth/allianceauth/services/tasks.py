@@ -3,8 +3,9 @@ import logging
 from celery import shared_task
 from celery_once import AlreadyQueued, QueueOnce as BaseTask
 
-from django.contrib.auth.models import User
 from django.core.cache import cache
+
+from allianceauth.authentication.models import User
 
 from .hooks import ServicesHook
 

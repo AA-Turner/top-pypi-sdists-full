@@ -827,7 +827,12 @@ def search_symbols(
             heapq.heapreplace(heap, (heap_score, candidates_scored, entry))
 
     # Extract results sorted by score descending
-    scored_results = [entry for _, _, entry in sorted(heap, key=lambda x: x[0], reverse=True)]
+    _sorted_heap = sorted(heap, key=lambda x: x[0], reverse=True)
+    scored_results = [entry for _, _, entry in _sorted_heap]
+    # Real ranking scores (top-first) for confidence/ledger — kept separate from
+    # the response entries so _meta.confidence grades on real gap/strength instead
+    # of flat-lining at the no-score neutral default (V6).
+    _conf_scores = [hs for hs, _, _ in _sorted_heap]
     heap_count = len(scored_results)  # save before budget packing
 
     # §1.2: Materialize full-detail payload BEFORE packing so byte_length reflects
@@ -1012,8 +1017,9 @@ def search_symbols(
     )
     if _runtime_summary:
         meta["runtime_freshness"] = _runtime_summary
-    _attach_confidence(result, scored_results, is_stale=_probe.repo_is_stale)
-    _feat = _ledger_feats(scored_results)
+    _conf_input = [{"score": s} for s in _conf_scores]
+    _attach_confidence(result, _conf_input, is_stale=_probe.repo_is_stale)
+    _feat = _ledger_feats(_conf_input)
     _record_ranking_event(
         tool="search_symbols",
         repo=f"{owner}/{name}",
@@ -1141,10 +1147,20 @@ def _search_symbols_semantic(
             all_emb.update(new_emb)
 
     # ── Two-pass scoring ───────────────────────────────────────────────────
-    # Pass 1: collect BM25 + cosine for every filtered symbol
-    raw: list[tuple[dict, float, float]] = []  # (sym, bm25, cosine)
-    max_bm25 = 0.0
+    # Pass 1: collect lexical BM25 (identity EXCLUDED), the identity signal, and
+    # cosine for every filtered symbol. Keeping identity out of the lexical
+    # normalisation basis is the fix for W5: folding the exact/prefix boost
+    # (50/30/20) into max_bm25 inflated the denominator whenever any exact match
+    # existed, crushing every non-exact result's genuine lexical score toward 0.
+    from ..retrieval.signal_fusion import _bm25_score_no_identity
+    raw: list[tuple[dict, float, float, float]] = []  # (sym, lex, identity, cosine)
+    max_lex = 0.0
+    max_id = 0.0
     max_cos = 0.0
+    # Identity-inclusive max (== the old max_bm25, since _bm25_score == lex + idn),
+    # kept only for the negative-evidence threshold below so that check is unchanged.
+    max_bm25 = 0.0
+    query_joined = " ".join(query_terms)
 
     for sym in index.symbols:
         if has_filters:
@@ -1157,28 +1173,45 @@ def _search_symbols_semantic(
             if decorator and not any(decorator.lower() in d.lower() for d in (sym.get("decorators") or [])):
                 continue
 
-        bm25 = 0.0 if semantic_only else _bm25_score(sym, query_terms, idf, avgdl, centrality, raw_query=query)
-        if bm25 > max_bm25:
-            max_bm25 = bm25
+        if semantic_only:
+            lex = idn = 0.0
+        else:
+            lex = _bm25_score_no_identity(sym, query_terms, idf, avgdl, centrality)
+            idn = _identity_score(sym, query_joined, raw_query=query)
+        if lex > max_lex:
+            max_lex = lex
+        if idn > max_id:
+            max_id = idn
+        if lex + idn > max_bm25:
+            max_bm25 = lex + idn
 
         sym_vec = all_emb.get(sym["id"])
         cos = _cosine_similarity(query_vec, sym_vec) if sym_vec else 0.0
         if cos > max_cos:
             max_cos = cos
 
-        raw.append((sym, bm25, cos))
+        raw.append((sym, lex, idn, cos))
 
-    # Pass 2: normalise BM25 and compute combined score
+    # Pass 2: normalise lexical and identity on their OWN scales, then take the
+    # max. An exact/prefix match still dominates — its identity term is max_id, so
+    # id_norm == 1.0 and the channel matches the value the old identity-boosted
+    # bm25_norm produced, leaving exact-match scores unchanged — while non-exact
+    # results keep their full lexical dynamic range instead of being divided down
+    # by the identity-inflated denominator (W5).
     scored: list[tuple[float, dict]] = []
-    for sym, bm25, cos in raw:
-        bm25_norm = (bm25 / max_bm25) if max_bm25 > 0.0 else 0.0
-        score = cos if semantic_only else (1.0 - semantic_weight) * bm25_norm + semantic_weight * cos
+    for sym, lex, idn, cos in raw:
+        lex_norm = (lex / max_lex) if max_lex > 0.0 else 0.0
+        id_norm = (idn / max_id) if max_id > 0.0 else 0.0
+        lexical_channel = max(lex_norm, id_norm)
+        score = cos if semantic_only else (1.0 - semantic_weight) * lexical_channel + semantic_weight * cos
         if score <= 0.0:
             continue
         scored.append((score, sym))
 
     scored.sort(key=lambda x: x[0], reverse=True)
     top = scored[:effective_limit]
+    # Real ranking scores (top-first) for confidence/ledger (V6).
+    _conf_scores = [s for s, _ in top]
 
     # ── Build result entries ───────────────────────────────────────────────
     scored_results: list[dict] = []
@@ -1287,8 +1320,9 @@ def _search_symbols_semantic(
     )
     if _runtime_summary:
         meta["runtime_freshness"] = _runtime_summary
-    _attach_confidence(result, scored_results, is_stale=_probe.repo_is_stale)
-    _feat = _ledger_feats(scored_results)
+    _conf_input = [{"score": s} for s in _conf_scores]
+    _attach_confidence(result, _conf_input, is_stale=_probe.repo_is_stale)
+    _feat = _ledger_feats(_conf_input)
     _record_ranking_event(
         tool="search_symbols",
         repo=f"{owner}/{name}",
@@ -1426,22 +1460,30 @@ def _search_symbols_fusion(
         struct_ch = build_structural_channel(candidates, pagerank, candidate_ids)
         channels.append(struct_ch)
 
-    # Similarity channel: only if embeddings exist for this repo
+    # Similarity channel: only if embeddings exist for this repo.
+    # (Mirrors the semantic path's EmbeddingStore(db_path) + get_all() usage and
+    #  embed_repo.embed_texts; the earlier EmbeddingStore(base_path=)/get_all(owner,name)/
+    #  _embed_texts forms all raised and were swallowed, so this channel never ran.)
+    similarity_used = False
     try:
         from ..storage.embedding_store import EmbeddingStore
-        emb_store = EmbeddingStore(base_path=store._base_path if hasattr(store, "_base_path") else None)
-        all_embeddings = emb_store.get_all(owner, name)
+        emb_store = EmbeddingStore(store._sqlite._db_path(owner, name))
+        all_embeddings = emb_store.get_all()
         if all_embeddings:
-            from .embed_repo import _detect_provider, _embed_texts
+            from .embed_repo import _detect_provider, embed_texts
             provider = _detect_provider()
             if provider:
-                q_emb = _embed_texts([query], provider[0], provider[1])
+                q_emb = embed_texts([query], provider[0], provider[1])
                 if q_emb and q_emb[0]:
                     from ..retrieval.signal_fusion import build_similarity_channel
                     sim_ch = build_similarity_channel(q_emb[0], all_embeddings)
                     channels.append(sim_ch)
+                    similarity_used = True
     except Exception:
-        pass  # Similarity is optional
+        import logging as _logging
+        _logging.getLogger(__name__).debug(
+            "fusion similarity channel unavailable", exc_info=True
+        )
 
     # Fuse
     fused = fuse(channels, smoothing=smoothing, weights=weights)
@@ -1449,6 +1491,8 @@ def _search_symbols_fusion(
     # Build result list
     sym_by_id = {sym["id"]: sym for sym in candidates}
     scored_results = []
+    # Real fused ranking scores (top-first) for confidence/ledger (V6).
+    _conf_scores = [fr.score for fr in fused[:effective_limit]]
 
     for fr in fused[:effective_limit]:
         sym = sym_by_id.get(fr.symbol_id)
@@ -1567,15 +1611,16 @@ def _search_symbols_fusion(
     )
     if _runtime_summary:
         meta["runtime_freshness"] = _runtime_summary
-    _attach_confidence(result, scored_results, is_stale=_probe.repo_is_stale)
-    _feat = _ledger_feats(scored_results)
+    _conf_input = [{"score": s} for s in _conf_scores]
+    _attach_confidence(result, _conf_input, is_stale=_probe.repo_is_stale)
+    _feat = _ledger_feats(_conf_input)
     _record_ranking_event(
         tool="search_symbols_fusion",
         repo=f"{owner}/{name}",
         query=query,
         returned_ids=[r.get("id", "") for r in scored_results],
         confidence=result["_meta"].get("confidence"),
-        semantic_used=True,
+        semantic_used=similarity_used,
         repo_is_stale=_probe.repo_is_stale,
         **_feat,
     )

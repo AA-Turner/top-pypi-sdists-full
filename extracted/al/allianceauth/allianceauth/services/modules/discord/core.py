@@ -4,9 +4,8 @@ import logging
 
 from requests.exceptions import HTTPError
 
-from django.contrib.auth.models import Group, User
-
-from allianceauth.groupmanagement.models import ReservedGroupName
+from allianceauth.authentication.models import User
+from allianceauth.groupmanagement.models import Group, ReservedGroupName
 from allianceauth.services.hooks import NameFormatter
 
 from . import __title__

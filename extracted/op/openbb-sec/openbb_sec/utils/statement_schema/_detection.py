@@ -45,7 +45,12 @@ def detect_type(
     is_financial = fin_count >= min_financial_signals
 
     if is_insurance and is_financial:
-        return "insurance" if ins_total > fin_count else "financial"
+        # Both templates plausible: prefer financial when core-banking signals
+        # outnumber insurance income-statement signals. This keeps genuine
+        # insurers (few financial signals) on the insurance template while
+        # classifying banks that carry an insurance subsidiary (e.g., BMO,
+        # 5 financial vs 4 insurance-IS signals) as financial.
+        return "insurance" if ins_is >= fin_count else "financial"
     if is_insurance:
         return "insurance"
     if is_financial:
@@ -166,10 +171,7 @@ def get_filing_dates(  # noqa: PLR0912
                 return set()
 
         # Fold a fiscal year-end into the quarterly series only when that
-        # fiscal year actually has at least one interim period. Foreign
-        # private issuers (6-K filers) often report annual results for many
-        # years but interim results for only a few; without this guard those
-        # annual-only years would surface as phantom standalone Q4/H2 rows.
+        # fiscal year actually has at least one interim period.
         sorted_annual = sorted(canonical_annual)
         for i, annual_end in enumerate(sorted_annual):
             fy_start = sorted_annual[i - 1] if i else ""
@@ -312,14 +314,7 @@ def get_fiscal_meta(  # noqa: PLR0912
                         if end not in best_quarterly or filed < best_quarterly[end][0]:
                             best_quarterly[end] = (filed, fy, fp)
                     elif form in SEMI_ANNUAL_FORMS:
-                        # A 6-K can carry quarterly, semi-annual, or full-year
-                        # periods. Classify by the period's duration so
-                        # quarterly 6-K reporting is not collapsed to
-                        # semi-annual. The 6-K fy field is unreliable for
-                        # foreign private issuers (comparatives carry the
-                        # filing-context year), so align the *fiscal* year and
-                        # quarter to the company's fiscal year-end and prefer
-                        # the SEC-reported fiscal period (fp) for the label.
+                        # A 6-K can carry quarterly, semi-annual, or full-year periods.
                         start = entry.get("start", "")
                         days = None
                         if start and start != end:
@@ -459,7 +454,6 @@ def detect_reporting_currency(facts: dict[str, Any]) -> str:
     for ns_facts in facts.values():
         for tag_data in ns_facts.values():
             for unit_key in tag_data.get("units", {}):
-
                 if unit_key in skip or "/" in unit_key:
                     continue
 

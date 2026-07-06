@@ -18,14 +18,17 @@ class MemoryTool(Tool):
         "Manage persistent memory across sessions. Actions: "
         "add (save a new memory), replace (update existing by key or substring match), "
         "remove (delete by key or substring), search (find relevant memories), "
-        "list (show all memories of a type)."
+        "list (show all memories of a type). "
+        "list_contradictions (show unresolved memory conflicts for review), "
+        "resolve_contradiction (pick winner_id to supersede the loser)."
     )
     parameters = {
         "type": "object",
         "properties": {
             "action": {
                 "type": "string",
-                "enum": ["add", "replace", "remove", "search", "list"],
+                "enum": ["add", "replace", "remove", "search", "list",
+                         "list_contradictions", "resolve_contradiction"],
                 "description": "The operation to perform",
             },
             "target": {
@@ -57,12 +60,30 @@ class MemoryTool(Tool):
                 "type": "number",
                 "description": "Importance score 0.0-1.0 (default 0.5)",
             },
+            "source": {
+                "type": "string",
+                "enum": ["user_stated", "model_inferred"],
+                "description": (
+                    "Provenance of this memory (for add/replace). Use 'user_stated' ONLY "
+                    "when the user explicitly asked to remember this or directly stated "
+                    "the fact; otherwise omit (defaults to 'model_inferred')."
+                ),
+            },
+            "contradiction_id": {
+                "type": "string",
+                "description": "Contradiction id (for resolve_contradiction)",
+            },
+            "winner_id": {
+                "type": "string",
+                "description": "Memory id that wins (for resolve_contradiction)",
+            },
         },
         "required": ["action"],
     }
 
-    def __init__(self, store: MemoryStore):
+    def __init__(self, store: MemoryStore, contradiction_detector: Any = None):
         self._store = store
+        self._contradiction_detector = contradiction_detector
 
     def _resolve_entry(
         self,
@@ -111,6 +132,10 @@ class MemoryTool(Tool):
             return self._search(params, mem_type, session_key)
         elif action == "list":
             return self._list(mem_type, session_key)
+        elif action == "list_contradictions":
+            return await self._list_contradictions()
+        elif action == "resolve_contradiction":
+            return await self._resolve_contradiction(params)
         return ToolResult(success=False, error=f"Unknown action '{action}'")
 
     def _add(self, params: dict[str, Any], mem_type: MemoryType, session_key: str) -> ToolResult:
@@ -124,16 +149,30 @@ class MemoryTool(Tool):
             importance = min(1.0, max(0.0, float(params.get("importance", 0.5))))
         except (TypeError, ValueError):
             importance = 0.5
+        source = params.get("source", "")
+        if source not in ("user_stated", "model_inferred"):
+            source = "model_inferred"
 
         entry = MemoryEntry(
             type=mem_type, key=key, content=content,
             tags=tags, importance=importance,
+            source=source,
             source_session=session_key if mem_type == MemoryType.USER else "",
         )
         try:
             result = self._store.add(entry)
         except ValueError as exc:
             return ToolResult(success=False, error=str(exc))
+        if result.content != entry.content:
+            # Provenance guard kept the existing higher-provenance content;
+            # do NOT claim we saved the new one.
+            return ToolResult(
+                success=True,
+                output=(
+                    f"Kept existing entry (higher provenance): [{result.type.value}] "
+                    f"{result.key} — conflict flagged for review"
+                ),
+            )
         return ToolResult(success=True, output=f"Memory saved: [{result.type.value}] {result.key}")
 
     def _replace(self, params: dict[str, Any], mem_type: MemoryType, session_key: str) -> ToolResult:
@@ -142,6 +181,9 @@ class MemoryTool(Tool):
         content = params.get("content", "")
         if not content:
             return ToolResult(success=False, error="content is required for replace")
+        source = params.get("source", "")
+        if source not in ("user_stated", "model_inferred"):
+            source = "model_inferred"
 
         entry, resolve_error = self._resolve_entry(key, old_text, mem_type, session_key)
         if resolve_error:
@@ -150,7 +192,7 @@ class MemoryTool(Tool):
             return ToolResult(success=False, error=f"No matching memory found for key='{key}' old_text='{old_text}'")
 
         try:
-            self._store.update(entry.id, content=content)
+            self._store.update(entry.id, content=content, source=source)
         except ValueError as exc:
             return ToolResult(success=False, error=str(exc))
         return ToolResult(success=True, output=f"Memory updated: [{entry.type.value}] {entry.key}")
@@ -177,6 +219,8 @@ class MemoryTool(Tool):
         if not results:
             return ToolResult(success=True, output="No matching memories found.")
 
+        self._store.reinforce([entry.id for entry, _ in results])
+
         lines = []
         for entry, score in results:
             tags = f" [{', '.join(entry.tags)}]" if entry.tags else ""
@@ -196,3 +240,32 @@ class MemoryTool(Tool):
         if total > 50:
             lines.append(f"... and {total - 50} more")
         return ToolResult(success=True, output="\n".join(lines))
+
+    async def _list_contradictions(self) -> ToolResult:
+        if self._contradiction_detector is None:
+            return ToolResult(success=False, error="Contradiction detection is disabled.")
+        items = await self._contradiction_detector.get_unresolved(limit=20)
+        if not items:
+            return ToolResult(success=True, output="No unresolved contradictions.")
+        lines = [
+            f"- {c.id}: {c.description} (a={c.memory_id_a}, b={c.memory_id_b})"
+            for c in items
+        ]
+        return ToolResult(success=True, output="\n".join(lines))
+
+    async def _resolve_contradiction(self, params: dict[str, Any]) -> ToolResult:
+        if self._contradiction_detector is None:
+            return ToolResult(success=False, error="Contradiction detection is disabled.")
+        cid = params.get("contradiction_id", "")
+        winner_id = params.get("winner_id", "")
+        if not cid or not winner_id:
+            return ToolResult(success=False, error="contradiction_id and winner_id are required")
+        unresolved = {c.id: c for c in await self._contradiction_detector.get_unresolved(limit=100)}
+        c = unresolved.get(cid)
+        if c is None:
+            return ToolResult(success=False, error=f"No unresolved contradiction '{cid}'")
+        if winner_id not in (c.memory_id_a, c.memory_id_b):
+            return ToolResult(success=False, error="winner_id must be memory_id_a or memory_id_b")
+        resolution = "a_wins" if winner_id == c.memory_id_a else "b_wins"
+        await self._contradiction_detector.resolve(cid, resolution, winner_id=winner_id)
+        return ToolResult(success=True, output=f"Resolved {cid}: {resolution}")

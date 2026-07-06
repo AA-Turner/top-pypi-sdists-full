@@ -37,8 +37,8 @@ import logging
 import random
 from uuid import uuid1
 
-from django.contrib.auth.models import Group, User
-
+from allianceauth.authentication.models import User
+from allianceauth.groupmanagement.models import Group
 from allianceauth.services.modules.discord.models import DiscordUser
 from allianceauth.utils.cache import get_redis_client
 

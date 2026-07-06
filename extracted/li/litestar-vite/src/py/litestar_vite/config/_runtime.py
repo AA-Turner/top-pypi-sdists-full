@@ -10,6 +10,44 @@ from litestar_vite.config._constants import TRUE_VALUES
 
 __all__ = ("ExternalDevServer", "RuntimeConfig", "resolve_trusted_proxies")
 
+_EXECUTOR_COMMANDS: dict[str, dict[str, tuple[str, ...]]] = {
+    "node": {
+        "run": ("npm", "run", "dev"),
+        "build": ("npm", "run", "build"),
+        "build_watch": ("npm", "run", "watch"),
+        "serve": ("npm", "run", "serve"),
+        "install": ("npm", "install"),
+    },
+    "bun": {
+        "run": ("bun", "run", "dev"),
+        "build": ("bun", "run", "build"),
+        "build_watch": ("bun", "run", "watch"),
+        "serve": ("bun", "run", "serve"),
+        "install": ("bun", "install"),
+    },
+    "deno": {
+        "run": ("deno", "task", "dev"),
+        "build": ("deno", "task", "build"),
+        "build_watch": ("deno", "task", "watch"),
+        "serve": ("deno", "task", "serve"),
+        "install": ("deno", "install"),
+    },
+    "yarn": {
+        "run": ("yarn", "dev"),
+        "build": ("yarn", "build"),
+        "build_watch": ("yarn", "watch"),
+        "serve": ("yarn", "serve"),
+        "install": ("yarn", "install"),
+    },
+    "pnpm": {
+        "run": ("pnpm", "dev"),
+        "build": ("pnpm", "build"),
+        "build_watch": ("pnpm", "watch"),
+        "serve": ("pnpm", "serve"),
+        "install": ("pnpm", "install"),
+    },
+}
+
 
 @lru_cache(maxsize=32)
 def _cached_resolve_trusted_proxies(env_value: str | None) -> "tuple[str, ...] | Literal['*'] | None":
@@ -160,6 +198,7 @@ class RuntimeConfig:
         spa_handler: Auto-register catch-all SPA route when mode="spa".
         http2: Enable HTTP/2 for proxy HTTP requests (better multiplexing).
             WebSocket traffic (HMR) uses a separate connection and is unaffected.
+        extra_route_prefixes: Additional backend route prefixes excluded from SPA/proxy fallbacks.
     """
 
     dev_mode: bool = field(default_factory=lambda: os.getenv("VITE_DEV_MODE", "False") in TRUE_VALUES)
@@ -210,9 +249,20 @@ class RuntimeConfig:
 
     Environment Variable: LITESTAR_TRUSTED_PROXIES
     """
+    extra_route_prefixes: tuple[str, ...] = ()
+    """Additional backend route prefixes for dev proxy and SPA fallback exclusion.
+
+    Use this to deliberately reserve custom backend paths such as ``"/admin"`` or
+    to re-add ``"/docs"`` when your app serves documentation there.
+    """
 
     def __post_init__(self) -> None:
         """Normalize runtime settings and apply derived defaults."""
+        if isinstance(self.extra_route_prefixes, str):
+            self.extra_route_prefixes = (self.extra_route_prefixes,)
+        else:
+            self.extra_route_prefixes = tuple(self.extra_route_prefixes)
+
         if isinstance(self.external_dev_server, str):
             self.external_dev_server = ExternalDevServer(target=self.external_dev_server)
 
@@ -222,53 +272,15 @@ class RuntimeConfig:
         if self.executor is None:
             self.executor = "node"
 
-        executor_commands = {
-            "node": {
-                "run": ["npm", "run", "dev"],
-                "build": ["npm", "run", "build"],
-                "build_watch": ["npm", "run", "watch"],
-                "serve": ["npm", "run", "serve"],
-                "install": ["npm", "install"],
-            },
-            "bun": {
-                "run": ["bun", "run", "dev"],
-                "build": ["bun", "run", "build"],
-                "build_watch": ["bun", "run", "watch"],
-                "serve": ["bun", "run", "serve"],
-                "install": ["bun", "install"],
-            },
-            "deno": {
-                "run": ["deno", "task", "dev"],
-                "build": ["deno", "task", "build"],
-                "build_watch": ["deno", "task", "watch"],
-                "serve": ["deno", "task", "serve"],
-                "install": ["deno", "install"],
-            },
-            "yarn": {
-                "run": ["yarn", "dev"],
-                "build": ["yarn", "build"],
-                "build_watch": ["yarn", "watch"],
-                "serve": ["yarn", "serve"],
-                "install": ["yarn", "install"],
-            },
-            "pnpm": {
-                "run": ["pnpm", "dev"],
-                "build": ["pnpm", "build"],
-                "build_watch": ["pnpm", "watch"],
-                "serve": ["pnpm", "serve"],
-                "install": ["pnpm", "install"],
-            },
-        }
-
-        if self.executor in executor_commands:
-            cmds = executor_commands[self.executor]
+        if self.executor in _EXECUTOR_COMMANDS:
+            cmds = _EXECUTOR_COMMANDS[self.executor]
             if self.run_command is None:
-                self.run_command = cmds["run"]
+                self.run_command = list(cmds["run"])
             if self.build_command is None:
-                self.build_command = cmds["build"]
+                self.build_command = list(cmds["build"])
             if self.build_watch_command is None:
-                self.build_watch_command = cmds["build_watch"]
+                self.build_watch_command = list(cmds["build_watch"])
             if self.serve_command is None:
-                self.serve_command = cmds["serve"]
+                self.serve_command = list(cmds["serve"])
             if self.install_command is None:
-                self.install_command = cmds["install"]
+                self.install_command = list(cmds["install"])

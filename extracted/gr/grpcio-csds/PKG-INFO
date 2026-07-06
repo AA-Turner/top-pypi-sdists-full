@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: grpcio-csds
-Version: 1.81.1
+Version: 1.82.0
 Summary: xDS configuration dump library
 Author-email: The gRPC Authors <grpc-io@googlegroups.com>
 License-Expression: Apache-2.0
@@ -12,9 +12,9 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: protobuf<7.0.0,>=6.33.5
-Requires-Dist: xds-protos==1.81.1
-Requires-Dist: grpcio>=1.81.1
+Requires-Dist: protobuf<8.0.0,>=6.33.5
+Requires-Dist: xds-protos==1.82.0
+Requires-Dist: grpcio>=1.82.0
 Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: requires-python

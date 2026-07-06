@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "cocoindex"
-version = "1.0.15"
+version = "1.0.16"
 description = "With CocoIndex, users declare the transformation, CocoIndex creates & maintains an index, and keeps the derived index up to date based on source update, with minimal computation and changes."
 authors = [{ name = "CocoIndex", email = "cocoindex.io@gmail.com" }]
 readme = "README.md"
@@ -75,6 +75,7 @@ colpali = ["colpali-engine"]
 lancedb = ["lancedb>=0.34.0", "pyarrow>=23.0.0"]
 postgres = ["asyncpg>=0.31.0"]
 qdrant = ["qdrant-client>=1.6.0"]
+bigquery = ["google-cloud-bigquery>=3.0.0", "google-auth>=2.0.0"]
 snowflake = ["snowflake-connector-python>=3.0.0"]
 sqlite = ["sqlite-vec>=0.1.6"]
 surrealdb = ["surrealdb>=1.0.0"]
@@ -88,6 +89,7 @@ google_drive = [
     "httplib2>=0.22.0",
 ]
 amazon_s3 = ["aiobotocore>=2.0.0"]
+azure_blob = ["azure-identity>=1.15.0", "azure-storage-blob>=12.19.0"]
 doris = ["aiohttp>=3.9.0", "pymysql>=1.1.0", "aiomysql>=0.2.0"]
 falkordb = ["falkordb>=1.1.0"]
 neo4j = ["neo4j>=5.18.0"]
@@ -110,6 +112,7 @@ all = [
     "asyncpg>=0.31.0",
     "pgvector>=0.4.2",
     "qdrant-client>=1.6.0",
+    "google-cloud-bigquery>=3.0.0",
     "snowflake-connector-python>=3.0.0",
     "sqlite-vec>=0.1.6",
     "surrealdb>=1.0.0",
@@ -120,6 +123,8 @@ all = [
     "google-auth-httplib2>=0.2.0",
     "httplib2>=0.22.0",
     "aiobotocore>=2.0.0",
+    "azure-identity>=1.15.0",
+    "azure-storage-blob>=12.19.0",
     "aiohttp>=3.9.0",
     "pymysql>=1.1.0",
     "aiomysql>=0.2.0",
@@ -201,6 +206,8 @@ module = [
     "torch.*",
     "qdrant_client",
     "qdrant_client.*",
+    "google.cloud",
+    "google.cloud.*",
     "snowflake",
     "snowflake.*",
     "sqlite_vec",
@@ -221,6 +228,8 @@ module = [
     "botocore.*",
     "aiobotocore",
     "aiobotocore.*",
+    "azure",
+    "azure.*",
     "aiohttp",
     "aiohttp.*",
     "aiomysql",

@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Iterable
+from typing import cast
 
 from .element import Element, _get_lxml_tag
 
@@ -96,7 +97,7 @@ def strip_tags(
     if modified and isinstance(result, list) and default:
         new: Element = Element.from_tag(default)
         for content in result:
-            new._Element__append(content)  # type: ignore[attr-defined]
+            new._Element__append(content)
         result = new
     return result
 
@@ -123,7 +124,7 @@ def _strip_tags(
     """
     element_clone = element.clone
     modified = False
-    children = []
+    children: list[Element | str] = []
     if protect and element.tag in protect:
         protect_below = True
     else:
@@ -133,7 +134,7 @@ def _strip_tags(
         if is_modified:
             modified = True
         if isinstance(striped_child, list):
-            children.extend(striped_child)
+            children.extend(cast(list[Element | str], striped_child))
         else:
             children.append(striped_child)
 
@@ -158,9 +159,9 @@ def _strip_tags(
         except ValueError:
             sys.stderr.write(f"strip_tags(): bad attribute in {element_clone}\n")
         if text:
-            element._Element__append(text)  # type: ignore[attr-defined]
+            element._Element__append(text)
         for child3 in children:
-            element._Element__append(child3)  # type: ignore[attr-defined]
+            element._Element__append(child3)
         if tail is not None:
             element.tail = tail
         return (element, True)

@@ -1,14 +1,13 @@
 from types import SimpleNamespace
 from unittest import mock
 
-from django.contrib.auth.models import Permission
 from django.test import TestCase
 
 from esi.errors import TokenError
 from esi.exceptions import HTTPClientError
 from esi.models import Token
 
-from allianceauth.authentication.models import CharacterOwnership
+from allianceauth.authentication.models import CharacterOwnership, Permission
 from allianceauth.eveonline.models import (
     EveAllianceInfo, EveCharacter, EveCorporationInfo,
 )

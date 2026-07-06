@@ -58,6 +58,7 @@ class EchoAgent(Agent):
 
     async def prompt(
         self,
+        session_id: str,
         prompt: list[
             TextContentBlock
             | ImageContentBlock
@@ -65,8 +66,6 @@ class EchoAgent(Agent):
             | ResourceContentBlock
             | EmbeddedResourceContentBlock
         ],
-        session_id: str,
-        message_id: str | None = None,
         **kwargs: Any,
     ) -> PromptResponse:
         for block in prompt:
@@ -76,7 +75,7 @@ class EchoAgent(Agent):
             chunk.content.field_meta = {"echo": True}
 
             await self._conn.session_update(session_id=session_id, update=chunk, source="echo_agent")
-        return PromptResponse(stop_reason="end_turn", user_message_id=message_id)
+        return PromptResponse(stop_reason="end_turn")
 
 
 async def main() -> None:

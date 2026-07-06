@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airflow-exporter
-Version: 2.0.0
+Version: 2.1.0
 Summary: Airflow plugin to export dag and task based metrics to Prometheus.
 Project-URL: Homepage, https://github.com/epoch8/airflow-exporter
 Author: Andrey Tatarinov <a@tatarinov.co>
@@ -140,6 +140,9 @@ Labels:
 * `paused`
 
 Value: 0 or 1 depending on wherever the current state of each `dag_id` is `status`.
+
+The "last" DAG run is the one with the most recent `updated_at` (not
+`logical_date`, which is `NULL` for manually triggered runs).
 
 ## License
 

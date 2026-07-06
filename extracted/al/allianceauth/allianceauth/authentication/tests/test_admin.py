@@ -5,7 +5,6 @@ from bs4 import BeautifulSoup
 from django_webtest import WebTest
 
 from django.contrib.admin.sites import AdminSite
-from django.contrib.auth.models import Group
 from django.test import Client, RequestFactory, TestCase
 
 from allianceauth.authentication.models import (
@@ -14,6 +13,7 @@ from allianceauth.authentication.models import (
 from allianceauth.eveonline.models import (
     EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo,
 )
+from allianceauth.groupmanagement.models import Group
 from allianceauth.services.hooks import ServicesHook
 from allianceauth.tests.auth_utils import AuthUtils
 

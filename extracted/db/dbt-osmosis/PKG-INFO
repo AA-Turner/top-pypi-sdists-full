@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: dbt-osmosis
-Version: 1.4.0
+Version: 1.5.0
 Summary: A dbt utility for managing YAML to make developing with dbt more delightful.
 Author-email: z3z1ma <butler.alex2010@gmail.com>
 License: Apache-2.0
@@ -14,36 +14,41 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Build Tools
 Requires-Python: <3.14,>=3.10
+Requires-Dist: agate<2,>=1.9
 Requires-Dist: click<9,>7
+Requires-Dist: dbt-common<2,>=1
 Requires-Dist: dbt-core-interface>=1.1.7
 Requires-Dist: dbt-core>=1.8
+Requires-Dist: packaging<26,>=24
 Requires-Dist: pluggy<2,>=1.5.0
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: rapidfuzz>=3.0.0
 Requires-Dist: rich>=10
-Requires-Dist: ruamel-yaml<0.19,>=0.17
-Requires-Dist: sqlglot<29,>=28
+Requires-Dist: ruamel-yaml<0.20,>=0.17
+Requires-Dist: sqlglot<31,>=28
+Requires-Dist: typing-extensions<5,>=4.12
 Provides-Extra: azure
 Requires-Dist: azure-identity<2,>=1.19; extra == 'azure'
 Provides-Extra: dev
-Requires-Dist: basedpyright~=1.38.4; extra == 'dev'
+Requires-Dist: basedpyright<1.40.0,>=1.38.4; extra == 'dev'
 Requires-Dist: dbt-duckdb<2,>=1; extra == 'dev'
 Requires-Dist: hypothesis; extra == 'dev'
 Requires-Dist: mutmut; extra == 'dev'
 Requires-Dist: pre-commit<5,>3.0.0; extra == 'dev'
 Requires-Dist: pytest-cov~=6.0; extra == 'dev'
-Requires-Dist: pytest<9.1.0,>=8.3.4; extra == 'dev'
-Requires-Dist: ruff==0.8.6; extra == 'dev'
+Requires-Dist: pytest<9.2.0,>=8.3.4; extra == 'dev'
+Requires-Dist: ruff==0.15.17; extra == 'dev'
 Requires-Dist: tomli>=2; (python_version < '3.11') and extra == 'dev'
 Provides-Extra: duckdb
 Requires-Dist: dbt-duckdb<2,>=1; extra == 'duckdb'
 Provides-Extra: openai
-Requires-Dist: openai~=1.58.1; extra == 'openai'
+Requires-Dist: openai<2.42.0,>=1.58.1; extra == 'openai'
 Provides-Extra: proxy
 Requires-Dist: mysql-mimic>=2.5.7; extra == 'proxy'
 Provides-Extra: workbench
 Requires-Dist: feedparser~=6.0.12; extra == 'workbench'
 Requires-Dist: ipython<9,>=8; extra == 'workbench'
+Requires-Dist: pandas<3,>=2.2; extra == 'workbench'
 Requires-Dist: setuptools<81,>=70; extra == 'workbench'
 Requires-Dist: streamlit-ace~=0.1.1; extra == 'workbench'
 Requires-Dist: streamlit-elements-fluence>=0.1.4; extra == 'workbench'
@@ -67,7 +72,7 @@ It centers on four primary surfaces:
 - ad-hoc SQL compile/run helpers
 - an optional Streamlit workbench for interactive dbt SQL development
 
-The repository also ships additional command families for generation, natural-language helpers, schema diffing, SQL linting, and test suggestions.
+The repository also ships additional command families for generation, natural-language helpers, schema diffing, migration planning, validation, documentation analysis, SQL linting, and test suggestions.
 
 The Docusaurus site is the canonical reference for the current CLI, configuration model, support matrix, and workflow guides:
 
@@ -152,6 +157,9 @@ Top-level commands currently exposed by `dbt-osmosis --help`:
 - `test` — suggest dbt tests
 - `test-llm` — validate LLM client configuration
 - `diff` — report schema drift between YAML and the database
+- `migration` — plan database migration SQL from schema diffs
+- `validate` — dry-run selected models without materializing them
+- `analyze` — inspect documentation coverage, gaps, and style
 - `lint` — lint SQL strings, models, or a whole project
 
 For command-by-command flags and examples, use the docs-site CLI reference rather than relying on this landing page.

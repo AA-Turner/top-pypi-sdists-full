@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: solara
-Version: 1.58.2
+Version: 1.59.1
 Dynamic: Summary
 Project-URL: Home, https://www.github.com/widgetti/solara
 Project-URL: Documentation, https://solara.dev
@@ -28,12 +28,12 @@ License: The MIT License (MIT)
         THE SOFTWARE.
 Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.8
-Requires-Dist: solara-server[dev,starlette]==1.58.2
-Requires-Dist: solara-ui[all]==1.58.2
+Requires-Dist: solara-server[dev,starlette]==1.59.1
+Requires-Dist: solara-ui[all]==1.59.1
 Provides-Extra: all
 Requires-Dist: altair; extra == 'all'
-Requires-Dist: bqplot; extra == 'all'
 Requires-Dist: bqplot-image-gl; extra == 'all'
+Requires-Dist: bqplot<0.13; extra == 'all'
 Requires-Dist: bump2version; extra == 'all'
 Requires-Dist: codespell; extra == 'all'
 Requires-Dist: fakeredis[lua]; extra == 'all'
@@ -53,16 +53,17 @@ Requires-Dist: playwright; extra == 'all'
 Requires-Dist: plotly; extra == 'all'
 Requires-Dist: polars; extra == 'all'
 Requires-Dist: pre-commit; extra == 'all'
+Requires-Dist: pyarrow; extra == 'all'
 Requires-Dist: pytest; extra == 'all'
+Requires-Dist: pytest-asyncio; extra == 'all'
 Requires-Dist: pytest-cov; extra == 'all'
-Requires-Dist: pytest-ipywidgets[all]==1.58.2; extra == 'all'
+Requires-Dist: pytest-ipywidgets[all]==1.59.1; extra == 'all'
 Requires-Dist: pytest-mock; extra == 'all'
 Requires-Dist: pytest-playwright; extra == 'all'
 Requires-Dist: pytest-timeout; extra == 'all'
-Requires-Dist: pytest-tornasync; extra == 'all'
 Requires-Dist: python-dotenv; extra == 'all'
 Requires-Dist: ruff; extra == 'all'
-Requires-Dist: solara-assets==1.58.2; extra == 'all'
+Requires-Dist: solara-assets==1.59.1; extra == 'all'
 Requires-Dist: tiktoken; (python_version >= '3.9') and extra == 'all'
 Requires-Dist: types-markdown; extra == 'all'
 Requires-Dist: types-pyyaml; extra == 'all'
@@ -72,10 +73,10 @@ Requires-Dist: vaex-hdf5; (python_version < '3.11') and extra == 'all'
 Requires-Dist: vaex-jupyter; (python_version < '3.11') and extra == 'all'
 Requires-Dist: vega-datasets; extra == 'all'
 Provides-Extra: assets
-Requires-Dist: solara-assets==1.58.2; extra == 'assets'
+Requires-Dist: solara-assets==1.59.1; extra == 'assets'
 Provides-Extra: dev
-Requires-Dist: bqplot; extra == 'dev'
 Requires-Dist: bqplot-image-gl; extra == 'dev'
+Requires-Dist: bqplot<0.13; extra == 'dev'
 Requires-Dist: bump2version; extra == 'dev'
 Requires-Dist: codespell; extra == 'dev'
 Requires-Dist: fakeredis[lua]; extra == 'dev'
@@ -89,12 +90,13 @@ Requires-Dist: playwright; extra == 'dev'
 Requires-Dist: plotly; extra == 'dev'
 Requires-Dist: polars; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: pyarrow; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-asyncio; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
 Requires-Dist: pytest-mock; extra == 'dev'
 Requires-Dist: pytest-playwright; extra == 'dev'
 Requires-Dist: pytest-timeout; extra == 'dev'
-Requires-Dist: pytest-tornasync; extra == 'dev'
 Requires-Dist: python-dotenv; extra == 'dev'
 Requires-Dist: ruff; extra == 'dev'
 Requires-Dist: types-markdown; extra == 'dev'
@@ -105,7 +107,7 @@ Requires-Dist: vaex-hdf5; (python_version < '3.11') and extra == 'dev'
 Requires-Dist: vaex-jupyter; (python_version < '3.11') and extra == 'dev'
 Provides-Extra: documentation
 Requires-Dist: altair; extra == 'documentation'
-Requires-Dist: bqplot; extra == 'documentation'
+Requires-Dist: bqplot<0.13; extra == 'documentation'
 Requires-Dist: folium; extra == 'documentation'
 Requires-Dist: ipycanvas; extra == 'documentation'
 Requires-Dist: ipyleaflet; extra == 'documentation'
@@ -119,7 +121,7 @@ Requires-Dist: vaex-core; (python_version < '3.11') and extra == 'documentation'
 Requires-Dist: vaex-hdf5; (python_version < '3.11') and extra == 'documentation'
 Requires-Dist: vega-datasets; extra == 'documentation'
 Provides-Extra: pytest
-Requires-Dist: pytest-ipywidgets[all]==1.58.2; extra == 'pytest'
+Requires-Dist: pytest-ipywidgets[all]==1.59.1; extra == 'pytest'
 Provides-Extra: redis
 Requires-Dist: solara-ui[redis]; extra == 'redis'
 Description-Content-Type: text/markdown

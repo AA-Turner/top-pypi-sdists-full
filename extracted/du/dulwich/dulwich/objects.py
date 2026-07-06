@@ -224,7 +224,7 @@ def valid_hexsha(hex: bytes | str) -> bool:
 PathT = TypeVar("PathT", str, bytes)
 
 
-def hex_to_filename(path: PathT, hex: str | bytes) -> PathT:
+def hex_to_filename(path: PathT, hex: ObjectID | str) -> PathT:
     """Takes a hex sha and returns its filename relative to the given path."""
     # os.path.join accepts bytes or unicode, but all args must be of the same
     # type. Make sure that hex which is expected to be bytes, is the same type
@@ -254,6 +254,12 @@ def hex_to_filename(path: PathT, hex: str | bytes) -> PathT:
 
 def filename_to_hex(filename: str | bytes) -> str:
     """Takes an object filename and returns its corresponding hex sha."""
+    import warnings
+
+    warnings.warn(
+        "filename_to_hex is unused and will be removed in a future version of Dulwich",
+        DeprecationWarning,
+    )
     # grab the last (up to) two path components
     errmsg = f"Invalid object filename: {filename!r}"
     if isinstance(filename, str):
@@ -1007,7 +1013,7 @@ def _parse_message(
     """
     f = BytesIO(b"".join(chunks))
     k = None
-    v = b""
+    v: list[bytes] = []
     eof = False
 
     def _strip_last_newline(value: bytes) -> bytes:
@@ -1019,19 +1025,23 @@ def _parse_message(
     # Parse the headers
     #
     # Headers can contain newlines. The next line is indented with a space.
-    # We store the latest key as 'k', and the accumulated value as 'v'.
+    # We store the latest key as 'k', and the accumulated value chunks as 'v'.
+    # The chunks are joined only once per header (rather than with ``+=`` per
+    # continuation line) so a value split across many indented lines stays
+    # linear instead of quadratic.
     for line in f:
         if line.startswith(b" "):
             # Indented continuation of the previous line
-            v += line[1:]
+            v.append(line[1:])
         else:
             if k is not None:
                 # We parsed a new header, return its value
-                yield (k, _strip_last_newline(v))
+                yield (k, _strip_last_newline(b"".join(v)))
             if line == b"\n":
                 # Empty line indicates end of headers
                 break
-            (k, v) = line.split(b" ", 1)
+            (k, rest) = line.split(b" ", 1)
+            v = [rest]
 
     else:
         # We reached end of file before the headers ended. We still need to
@@ -1039,7 +1049,7 @@ def _parse_message(
         # the text.
         eof = True
         if k is not None:
-            yield (k, _strip_last_newline(v))
+            yield (k, _strip_last_newline(b"".join(v)))
         yield (None, None)
 
     if not eof:

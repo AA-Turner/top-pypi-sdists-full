@@ -26,9 +26,11 @@ def discover_tools(
     session_manager: Any = None,
     skill_store: Any = None,
     memory_store: Any = None,
+    contradiction_detector: Any = None,
     task_manager: Any = None,
     workflow_engine: Any = None,
     knowledge_index: Any = None,
+    approval: Any = None,
 ) -> list[Tool]:
     ws = str(workspace)
     restrict = config.tools.restrict_to_workspace
@@ -65,6 +67,10 @@ def discover_tools(
                 proxy=config.tools.web.proxy,
                 timeout_seconds=config.tools.web.timeout_seconds,
             ))
+    if config.tools.browser.enabled and config.execution.network_policy != "deny":
+        from echo_agent.agent.tools.browser import BrowserTool
+        from echo_agent.agent.browser.session import manager as browser_manager
+        tools.append(BrowserTool(config=config.tools.browser, manager=browser_manager))
     tools.append(MessageTool(publish_fn=bus.publish_outbound))
 
     from echo_agent.agent.tools.send_file import SendFileTool
@@ -135,13 +141,13 @@ def discover_tools(
         from echo_agent.agent.tools.skills import SkillsListTool, SkillViewTool, SkillManageTool
         from echo_agent.agent.tools.skill_install import SkillInstallTool
         tools.append(SkillsListTool(store=skill_store))
-        tools.append(SkillViewTool(store=skill_store))
+        tools.append(SkillViewTool(store=skill_store, approval=approval, bus=bus, config=config))
         tools.append(SkillManageTool(store=skill_store))
         tools.append(SkillInstallTool(store=skill_store))
 
     if memory_store:
         from echo_agent.agent.tools.memory import MemoryTool
-        tools.append(MemoryTool(store=memory_store))
+        tools.append(MemoryTool(store=memory_store, contradiction_detector=contradiction_detector))
 
     if knowledge_index:
         from echo_agent.agent.tools.knowledge import KnowledgeIndexTool, KnowledgeSearchTool

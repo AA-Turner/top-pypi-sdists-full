@@ -66,7 +66,7 @@ class TestNumpyHelper(unittest.TestCase):
         np.testing.assert_equal(a, a_recover)
 
     def test_float16(self) -> None:
-        self._test_numpy_helper_float_type(np.float32)
+        self._test_numpy_helper_float_type(np.float16)
 
     def test_complex64(self) -> None:
         self._test_numpy_helper_float_type(np.complex64)
@@ -338,7 +338,3 @@ class TestNumpyHelper(unittest.TestCase):
         tensor.int32_data.append(0)  # encodes 16 elements, not 1000
         with self.assertRaises(ValueError, msg="payload too small for declared dims"):
             numpy_helper.to_array(tensor)
-
-
-if __name__ == "__main__":
-    unittest.main(verbosity=2)

@@ -1,32 +1,38 @@
+from __future__ import annotations
+
+from typing import Any
+
 import networkx as nx
+
+from prov.identifier import QualifiedName
 from prov.model import (
-    ProvDocument,
-    ProvRecord,
-    ProvElement,
-    ProvEntity,
-    ProvActivity,
-    ProvAgent,
-    ProvRelation,
-    PROV_ATTR_ENTITY,
     PROV_ATTR_ACTIVITY,
     PROV_ATTR_AGENT,
-    PROV_ATTR_TRIGGER,
-    PROV_ATTR_GENERATED_ENTITY,
-    PROV_ATTR_USED_ENTITY,
-    PROV_ATTR_DELEGATE,
-    PROV_ATTR_RESPONSIBLE,
-    PROV_ATTR_SPECIFIC_ENTITY,
-    PROV_ATTR_GENERAL_ENTITY,
     PROV_ATTR_ALTERNATE1,
     PROV_ATTR_ALTERNATE2,
-    PROV_ATTR_COLLECTION,
-    PROV_ATTR_INFORMED,
-    PROV_ATTR_INFORMANT,
     PROV_ATTR_BUNDLE,
-    PROV_ATTR_PLAN,
+    PROV_ATTR_COLLECTION,
+    PROV_ATTR_DELEGATE,
     PROV_ATTR_ENDER,
+    PROV_ATTR_ENTITY,
+    PROV_ATTR_GENERAL_ENTITY,
+    PROV_ATTR_GENERATED_ENTITY,
+    PROV_ATTR_INFORMANT,
+    PROV_ATTR_INFORMED,
+    PROV_ATTR_PLAN,
+    PROV_ATTR_RESPONSIBLE,
+    PROV_ATTR_SPECIFIC_ENTITY,
     PROV_ATTR_STARTER,
+    PROV_ATTR_TRIGGER,
+    PROV_ATTR_USED_ENTITY,
+    ProvActivity,
+    ProvAgent,
     ProvBundle,
+    ProvDocument,
+    ProvElement,
+    ProvEntity,
+    ProvRecord,
+    ProvRelation,
 )
 
 __author__ = "Trung Dong Huynh"
@@ -56,7 +62,7 @@ INFERRED_ELEMENT_CLASS = {
 }
 
 
-def prov_to_graph(prov_document: ProvDocument) -> nx.MultiDiGraph:
+def prov_to_graph(prov_document: ProvDocument) -> nx.MultiDiGraph[Any]:
     """
     Convert a :class:`~prov.model.ProvDocument` to a `MultiDiGraph
     <https://networkx.github.io/documentation/stable/reference/classes/multidigraph.html>`_
@@ -64,9 +70,9 @@ def prov_to_graph(prov_document: ProvDocument) -> nx.MultiDiGraph:
 
     :param prov_document: The :class:`~prov.model.ProvDocument` instance to convert.
     """
-    g = nx.MultiDiGraph()  # type: nx.MultiDiGraph
+    g: nx.MultiDiGraph[Any] = nx.MultiDiGraph()
     unified = prov_document.unified()
-    node_map = dict()
+    node_map: dict[QualifiedName | None, ProvRecord] = {}
     for element in unified.get_records(ProvElement):
         g.add_node(element)
         node_map[element.identifier] = element
@@ -89,7 +95,7 @@ def prov_to_graph(prov_document: ProvDocument) -> nx.MultiDiGraph:
     return g
 
 
-def graph_to_prov(g: nx.MultiDiGraph) -> ProvDocument:
+def graph_to_prov(g: nx.MultiDiGraph[Any]) -> ProvDocument:
     """
     Convert a `MultiDiGraph
     <https://networkx.github.io/documentation/stable/reference/classes/multidigraph.html>`_

@@ -22,7 +22,7 @@ short_description: Create, modify or delete FlashBlade user accounts
 description:
 - Modify user on a Pure Stoage FlashBlade.
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -125,24 +125,26 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PURESTORAGE = True
+HAS_PYPURECLIENT = True
 try:
     from pypureclient.flashblade import (
         AdminPatch,
         AdminPost,
-        AdminRole,
         ReferenceWritable,
     )
 except ImportError:
-    HAS_PURESTORAGE = False
+    HAS_PYPURECLIENT = False
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    convert_time_to_millisecs,
+from ansible_collections.purestorage.flashblade.plugins.module_utils.time_utils import (
+    time_to_milliseconds,
 )
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
+)
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
 )
 import re
 
@@ -178,18 +180,18 @@ def create_local_user(module, blade, user):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to create user {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
             if module.params["api"]:
-                ttl = convert_time_to_millisecs(module.params["timeout"])
+                ttl = time_to_milliseconds(module.params["timeout"])
                 res = blade.post_admins_api_tokens(
                     admin_names=[module.params["name"]], timeout=ttl
                 )
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to create API token. Error: {0}".format(
-                            res.errors[0].message
+                            get_error_message(res)
                         )
                     )
                 api_token = list(res.items)[0].api_token.token
@@ -201,7 +203,7 @@ def create_local_user(module, blade, user):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to add SSH key. Error: {0}".format(
-                            res.errors[0].message
+                            get_error_message(res)
                         )
                     )
     else:
@@ -225,17 +227,17 @@ def create_local_user(module, blade, user):
                     module.fail_json(
                         msg="Local User {0} password reset failed. Error: {1}"
                         "Check old password.".format(
-                            module.params["name"], res.errors[0].message
+                            module.params["name"], get_error_message(res)
                         )
                     )
         if module.params["api"]:
             api_changed = True
-            ttl = convert_time_to_millisecs(module.params["timeout"])
+            ttl = time_to_milliseconds(module.params["timeout"])
             res = blade.delete_admins_api_tokens(admin_names=[module.params["name"]])
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to delete original API token. Error: {0}".format(
-                        res.errors[0].message
+                        get_error_message(res)
                     )
                 )
             res = blade.post_admins_api_tokens(
@@ -244,7 +246,7 @@ def create_local_user(module, blade, user):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to recreate API token. Error: {0}".format(
-                        res.errors[0].message
+                        get_error_message(res)
                     )
                 )
             api_token = list(res.items)[0].api_token.token
@@ -258,12 +260,14 @@ def create_local_user(module, blade, user):
                 if not module.check_mode:
                     res = blade.patch_admins(
                         names=[module.params["name"]],
-                        admin=AdminPatch(role=AdminRole(name=module.params["role"])),
+                        admin=AdminPatch(
+                            role=ReferenceWritable(name=module.params["role"])
+                        ),
                     )
                     if res.status_code != 200:
                         module.fail_json(
                             msg="Local User {0} role changed failed. Error: {1}".format(
-                                module.params["name"], res.errors[0].message
+                                module.params["name"], get_error_message(res)
                             )
                         )
             else:
@@ -279,7 +283,7 @@ def create_local_user(module, blade, user):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to change SSH key. Error: {0}".format(
-                        res.errors[0].message
+                        get_error_message(res)
                     )
                 )
         changed = bool(passwd_changed or role_changed or api_changed or key_changed)
@@ -293,7 +297,7 @@ def update_ad_user(module, blade, user):
     if module.params["api"]:
         if user:
             api_changed = True
-            ttl = convert_time_to_millisecs(module.params["timeout"])
+            ttl = time_to_milliseconds(module.params["timeout"])
             if getattr(user.api_token, "token"):
                 res = blade.delete_admins_api_tokens(
                     admin_names=[module.params["name"]]
@@ -301,7 +305,7 @@ def update_ad_user(module, blade, user):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to delete original API token. Error: {0}".format(
-                            res.errors[0].message
+                            get_error_message(res)
                         )
                     )
             res = blade.post_admins_api_tokens(
@@ -310,20 +314,20 @@ def update_ad_user(module, blade, user):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to recreate API token. Error: {0}".format(
-                        res.errors[0].message
+                        get_error_message(res)
                     )
                 )
             api_token = list(res.items)[0].api_token.token
         else:
             api_changed = True
-            ttl = convert_time_to_millisecs(module.params["timeout"])
+            ttl = time_to_milliseconds(module.params["timeout"])
             res = blade.post_admins_api_tokens(
                 admin_names=[module.params["name"]], timeout=ttl
             )
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to create API token. Error: {0}".format(
-                        res.errors[0].message
+                        get_error_message(res)
                     )
                 )
             api_token = list(res.items)[0].api_token.token
@@ -335,7 +339,7 @@ def update_ad_user(module, blade, user):
         )
         if res.status_code != 200:
             module.fail_json(
-                msg="Failed to add SSH key. Error: {0}".format(res.errors[0].message)
+                msg="Failed to add SSH key. Error: {0}".format(get_error_message(res))
             )
     changed = bool(api_changed or ssh_changed)
     module.exit_json(changed=changed, user_info=api_token)
@@ -351,7 +355,7 @@ def delete_ad_user(module, blade, user):
             if res.status_code != 200:
                 module.fail_json(
                     msg="AD Account {0} API token deletion failed. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
             if hasattr(user, "public_key"):
@@ -362,14 +366,14 @@ def delete_ad_user(module, blade, user):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="AD Account {0} public key deletion failed. Error: {1}".format(
-                            module.params["name"], res.errors[0].message
+                            module.params["name"], get_error_message(res)
                         )
                     )
         res = blade.delete_admins_cache(names=[module.params["name"]])
         if res.status_code != 200:
             module.fail_json(
                 msg="Admin Cache deleteion failed for AD user {0}. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -383,7 +387,7 @@ def delete_local_user(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="User Account {0} deletion failed. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)

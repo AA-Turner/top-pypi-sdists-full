@@ -119,12 +119,13 @@ class ApprovalManager:
         self._save_state()
         return req
 
-    def approve(self, request_id: str, decided_by: str = "") -> bool:
+    def approve(self, request_id: str, level: str = "", decided_by: str = "") -> bool:
         req = self._pending.pop(request_id, None)
         if not req:
             return False
         self._pending_by_signature.pop(self._signature(req.action, req.tool_name, req.params, req.user_id), None)
         req.status = ApprovalStatus.APPROVED
+        req.reason = level  # 将 session/always 级别存入 reason,供 approval_gate 解析
         req.decided_by = decided_by
         req.decided_at = datetime.now().isoformat()
         if request_id not in self._waiters:
@@ -174,28 +175,6 @@ class ApprovalManager:
 
     def get_pending(self) -> list[ApprovalRequest]:
         return list(self._pending.values())
-
-    def check_and_request(
-        self,
-        action: str,
-        tool_name: str = "",
-        params: dict[str, Any] | None = None,
-        user_id: str = "",
-    ) -> tuple[bool, ApprovalRequest | None]:
-        """Unified permission check: returns (allowed, request_or_none).
-
-        If allowed is True, execution can proceed (request will have APPROVED status).
-        If allowed is False and request is not None, approval is pending.
-        If allowed is False and request is None, action was auto-denied.
-        """
-        if not self.needs_approval(action):
-            return True, None
-        req = self.request_approval(action, tool_name, params, user_id)
-        if req.status == ApprovalStatus.APPROVED:
-            return True, req
-        if req.status == ApprovalStatus.DENIED:
-            return False, None
-        return False, req
 
     def get(self, request_id: str) -> ApprovalRequest | None:
         return self._pending.get(request_id)

@@ -10,9 +10,9 @@ from datetime import datetime
 from packaging import version
 
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.db import connections
 
+from allianceauth.authentication.models import User
 from allianceauth.eveonline.models import EveCharacter
 
 logger = logging.getLogger(__name__)

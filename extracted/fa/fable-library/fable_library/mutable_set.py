@@ -19,7 +19,7 @@ from .types import FSharpRef
 from .util import UNIT, Disposable, Unit, dispose, get_enumerator, ignore, to_enumerable
 
 
-def _expr12(gen0: TypeInfo) -> TypeInfo:
+def _expr9(gen0: TypeInfo) -> TypeInfo:
     return class_type("Fable.Collections.HashSet", Array([gen0]), HashSet)
 
 
@@ -111,7 +111,7 @@ class HashSet[T](MutableSet[Any], Set[Any], EnumerableBase[Any]):
         self.Remove(value)
 
 
-HashSet_reflection = _expr12
+HashSet_reflection = _expr9
 
 
 def HashSet__ctor_Z6150332D[T](items: IEnumerable_1[T], comparer: IEqualityComparer_1[Any]) -> HashSet[T]:
@@ -123,20 +123,20 @@ def HashSet__TryFindIndex_2B595[T](this: HashSet[T], k: T) -> tuple[bool, int32,
     match_value: tuple[bool, list[Any]]
     out_arg: list[Any] = cast(list[Any], None)
 
-    def _arrow15(__unit: Unit = UNIT) -> list[T]:
+    def _arrow10(__unit: Unit = UNIT) -> list[T]:
         return out_arg
 
-    def _arrow16(v: list[T]) -> None:
+    def _arrow11(v: list[T]) -> None:
         nonlocal out_arg
         out_arg = v
 
-    match_value = (try_get_value(this.hash_map, h, FSharpRef_1(_arrow15, _arrow16)), out_arg)
+    match_value = (try_get_value(this.hash_map, h, FSharpRef_1(_arrow10, _arrow11)), out_arg)
     if match_value[0]:
 
-        def _arrow19(v_1: T = UNIT, this: Any = this, k: Any = k) -> bool:
+        def _arrow12(v_1: T = UNIT, this: Any = this, k: Any = k) -> bool:
             return this.comparer.Equals(k, v_1)
 
-        return (True, h, find_index(_arrow19, match_value[1]))
+        return (True, h, find_index(_arrow12, match_value[1]))
 
     else:
         return (False, h, int32.NEG_ONE)

@@ -22,9 +22,12 @@ from cutlass.cute.nvgpu.warp import (
     StMatrix16x8x8bOp,
 )
 from cutlass import Int32, Float32, Boolean, const_expr
-from cutlass.utils import LayoutEnum, SmemPartition
+from cutlass.utils import LayoutEnum
+from cutlass.cute.experimental import iket
+
 
 from quack.pipeline import (
+    PipelineAsync as QuackPipelineAsync,
     PipelineCpAsync,
     PipelineTmaUmma,
     PipelineTmaCpAsyncUmma,
@@ -32,6 +35,7 @@ from quack.pipeline import (
     mbarrier_arrive_release_cluster,
     mbarrier_acquire_cluster,
 )
+from quack.dsl.smem_struct import Reserved, partitioned_struct
 from quack.tile_scheduler import TileSchedulerOptions
 from quack.varlen_utils import VarlenArguments, VarlenManager
 from quack.gemm_base import GemmTmaBase, NamedBarrierGemm
@@ -215,6 +219,23 @@ class GemmSm100(GemmTmaBase):
         self.epilogue_barrier = pipeline.NamedBarrier(
             barrier_id=int(NamedBarrierGemm.Epilogue),
             num_threads=self.num_epi_warps * cute.arch.WARP_SIZE,
+        )
+        # CLC throttle: paces query issue to tile consumption so the multi-stage
+        # lookahead can't over-cancel the pending pool. Producer = CTA0 load warp
+        # (arrive per tile started), consumer = CTA0 scheduler warp (sync per
+        # query); 2 warps => 64 threads. Lives here (not the scheduler) because a
+        # NamedBarrier id is a whole-CTA resource coordinated by NamedBarrierGemm,
+        # and the participating-thread count is arch-specific (warp layout). A
+        # single barrier suffices: the dependency chain commit(k+1) <- fetch(k+1)
+        # <- query(k+1) <- sync(k) forces strict producer/consumer alternation, so
+        # <= 1 credit is ever outstanding; bar.sync also gives a hardware wakeup vs
+        # an mbarrier pipeline's PHASECHK + NANOSLEEP polling.
+        self.clc_throttle_barrier = (
+            pipeline.NamedBarrier(
+                barrier_id=int(NamedBarrierGemm.ClcThrottle), num_threads=2 * cute.arch.WARP_SIZE
+            )
+            if self.use_clc_persistence
+            else None
         )
         # Register reallocation for gather_A (3 warp groups, 504 regs total, 168 per WG default).
         # Heavy epilogues (e.g. colvec_reduce in DGated) override these to avoid register spilling.
@@ -453,7 +474,14 @@ class GemmSm100(GemmTmaBase):
             self.occupancy,
             self.epi_smem_warp_shape_mnk(),
         )
-        self.sched_stage = 1
+        # With CLC the try_cancel response lands directly in the consumer slot, so
+        # the next query can only be issued once all consumers (cluster-wide)
+        # release that slot. >=2 stages keep a query in flight while the previous
+        # tile's info is still being read (cutlass's SchedulerPipelineStageCount
+        # >= 2); the 3rd stage buys response slack for epilogue-bound tiles (e.g.
+        # symmetric's double store, ~3% at M=8192 K=512) and costs only 12 smem
+        # ints + one mbarrier pair.
+        self.sched_stage = 3 if self.use_clc_persistence else 1
         self.a_prefetch_stage = (
             0
             if not self.gather_A
@@ -788,9 +816,21 @@ class GemmSm100(GemmTmaBase):
                 self.cta_tile_shape_mnk[0] if varlen_m else self.cta_tile_shape_mnk[2]
             )
 
-        # Define shared storage for kernel
-        @cute.struct
+        # Define shared storage for kernel. sched_data lives in the RESERVED
+        # smem partition (with the pipeline mbarriers / TMEM holding buf): a
+        # small buffer before the 1024-byte aligned epilogue tensors would add
+        # a 1 KiB pad; CLC responses use i128 copies, so it stays 16-byte
+        # aligned.
+        # 4 Int32 per stage, shared by the two (mode-exclusive) users: STATIC/DYNAMIC
+        # store the STAS-broadcast (pid_m, pid_n, batch_idx, is_valid); CLC stores the
+        # 16-byte try_cancel response (16B-aligned since each stage slot is 16 bytes).
+        sched_smem_size = 4 * self.sched_stage if self.is_persistent else 0
+
+        @partitioned_struct
         class SharedStorage:
+            sched_data: Reserved[
+                cute.struct.Align[cute.struct.MemRange[Int32, sched_smem_size], 16]
+            ]
             sAIdx: cute.struct.Align[cute.struct.MemRange[Int32, a_idx_smem_size], 16]
             # (EPI_TILE_M, EPI_TILE_N, STAGE)
             sD: cute.struct.Align[
@@ -906,8 +946,6 @@ class GemmSm100(GemmTmaBase):
         GPU device kernel performing the Persistent batched GEMM computation.
         """
 
-        from cutlass.cute.experimental import iket
-
         varlen_m = const_expr(varlen_params.cu_seqlens_m is not None)
         varlen_k = const_expr(varlen_params.cu_seqlens_k is not None)
         assert not (varlen_m and varlen_k)
@@ -945,7 +983,7 @@ class GemmSm100(GemmTmaBase):
 
         # Alloc and init: a+b full/empty, accumulator full/empty, tensor memory dealloc barrier
         smem = cutlass.utils.SmemAllocator()
-        storage = smem.allocate(self.shared_storage)
+        storage = self.shared_storage.allocate(smem)
 
         # Initialize pipelines and states
         ab_pipeline = self.make_ab_pipeline(
@@ -961,15 +999,7 @@ class GemmSm100(GemmTmaBase):
         sched_data = None
         if const_expr(self.is_persistent):
             sched_pipeline = self.make_sched_pipeline(self.cluster_shape_mnk, has_C=has_epi_load)
-            # Keep scheduler scratch out of SharedStorage. A small buffer before
-            # the 1024-byte aligned epilogue tensors can add a 1 KiB pad; CLC
-            # responses also use i128 copies, so this stays 16-byte aligned.
-            sched_data = smem.allocate_tensor(
-                Int32,
-                cute.make_layout((12, self.sched_stage)),
-                byte_alignment=16,
-                partition=SmemPartition.RESERVED,
-            )
+            sched_data = storage.sched_data.get_tensor(cute.make_layout((4, self.sched_stage)))
         a_prefetch_pipeline = None
         if const_expr(self.gather_A):
             a_prefetch_pipeline = self.make_a_prefetch_pipeline()
@@ -1038,7 +1068,11 @@ class GemmSm100(GemmTmaBase):
         )
 
         TileSchedulerCls = partial(
-            TileSchedulerCls.create, tile_sched_params, sched_data, sched_pipeline
+            TileSchedulerCls.create,
+            tile_sched_params,
+            sched_data,
+            sched_pipeline,
+            throttle_barrier=self.clc_throttle_barrier,
         )
 
         epi_load_barrier = None
@@ -1071,7 +1105,16 @@ class GemmSm100(GemmTmaBase):
                 pipeline.PipelineUserType.Consumer, self.a_prefetch_stage
             )
             do_epi_load_barrier_arrive = Boolean(True)
+            # CLC throttle producer: only the first load warp of CTA 0 in the
+            # cluster signals; commit once per work tile started, or the scheduler
+            # warp starves of credits.
+            is_throttle_producer = Boolean(warp_idx == self.ab_load_warp_id)
+            if const_expr(cute.size(cluster_layout_vmnk) > 1):
+                is_throttle_producer = is_throttle_producer & Boolean(
+                    cute.arch.block_idx_in_cluster() == 0
+                )
             while work_tile.is_valid_tile:
+                tile_scheduler.throttle_producer_commit(is_throttle_producer)
                 tile_coord_mnkl = work_tile.tile_idx
                 batch_idx = tile_coord_mnkl[3]
                 # Local_tile partition global tensors
@@ -1224,8 +1267,10 @@ class GemmSm100(GemmTmaBase):
                         epi_load_barrier.arrive()
                         do_epi_load_barrier_arrive = Boolean(False)
                 # Advance to next tile
+                iket.range_push("sched_fetch")
                 tile_scheduler.advance_to_next_work()
                 work_tile = tile_scheduler.get_current_work()
+                iket.range_pop()
             # Wait A/B buffer empty
             if warp_idx == self.ab_load_warp_id:
                 ab_pipeline.producer_tail(ab_producer_state)
@@ -1246,11 +1291,19 @@ class GemmSm100(GemmTmaBase):
                 work_tile = tile_scheduler.initial_work_tile_info()
                 while work_tile.is_valid_tile:
                     # Advance to next tile
+                    iket.range_push("clc_produce")
                     tile_scheduler.advance_to_next_work(is_scheduler_warp=is_scheduler_warp)
+                    iket.range_pop()
+                    iket.range_push("clc_consume")
                     work_tile = tile_scheduler.get_current_work()
+                    iket.range_pop()
                     # End of persistent scheduler loop
                 if is_scheduler_warp:
                     tile_scheduler.producer_tail()
+                    # Drain the pending-cluster tail (varlen padding) with unobserved
+                    # cancels so it never launches; see cancel_pending_tail for the
+                    # grant-monotonicity assumption this relies on.
+                    tile_scheduler.cancel_pending_tail()
 
         # Specialized A-index prefetch warp (gather_A only)
         if const_expr(self.gather_A):
@@ -1588,6 +1641,13 @@ class GemmSm100(GemmTmaBase):
                 pipeline.PipelineUserType.Consumer, self.epi_c_stage
             )
             while work_tile.is_valid_tile:
+                # Prefetch the next work tile before the epilogue: the response is
+                # already in smem (3-stage sched pipeline), and consuming it here
+                # hides the ~300ns decode (swizzle + async fence) behind this tile's
+                # epilogue — the pacing chain for small-K / double-store epilogues.
+                # advance_to_next_work stays after the body: num_tiles_executed must
+                # count completed tiles during the body (sD stage cycling).
+                next_work_tile = tile_scheduler.get_current_work()
                 # Get tile coord from tile scheduler
                 tile_coord_mnkl = work_tile.tile_idx
                 batch_idx = tile_coord_mnkl[3]
@@ -1667,7 +1727,7 @@ class GemmSm100(GemmTmaBase):
 
                 # Advance to next tile
                 tile_scheduler.advance_to_next_work()
-                work_tile = tile_scheduler.get_current_work()
+                work_tile = next_work_tile
 
             # Wait for D store complete
             if is_tma_warp:
@@ -2215,13 +2275,23 @@ class GemmSm100(GemmTmaBase):
         sched_pipeline_consumer_group = pipeline.CooperativeGroup(
             pipeline.Agent.Thread, consumer_arrive_cnt
         )
-        return pipeline.PipelineAsync.create(
+        # Plain PipelineAsync on purpose (vs the DSL example's PipelineClcFetchAsync):
+        # expect_tx is per-phase mbarrier state, so each mode's producer arms the full
+        # barrier as a transaction barrier itself — CLC's multicast try_cancel or
+        # STATIC/DYNAMIC's STAS st.async, both arrive_and_expect_tx(16) per CTA — and
+        # only the consumer protocol (wait full, elect-one arrive at CTA 0's empty
+        # barrier) is shared across modes. A CLC-specific pipeline would hardwire the
+        # producer and still need this one for STATIC/DYNAMIC.
+        return QuackPipelineAsync.create(
             num_stages=self.sched_stage,
             producer_group=sched_pipeline_producer_group,
             consumer_group=sched_pipeline_consumer_group,
             # If there's cluster, the consumers must arrive at the mbar of CTA 0 in the cluster.
             consumer_mask=None if const_expr(cluster_size == 1) else 0,
             defer_sync=True,
+            # One arrive per consumer warp (consumer_arrive_cnt counts warps): syncwarp
+            # so every lane's slot read is complete, then one elected lane signals.
+            elect_one_release=True,
         )
 
     @cute.jit

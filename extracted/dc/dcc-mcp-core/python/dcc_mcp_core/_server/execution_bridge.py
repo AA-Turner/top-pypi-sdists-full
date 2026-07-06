@@ -12,12 +12,31 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from dcc_mcp_core._core import SandboxContext
+from dcc_mcp_core._runtime.core_availability import is_core_extension_available
 from dcc_mcp_core._server.inprocess_executor import BaseDccCallableDispatcher
 from dcc_mcp_core._server.inprocess_executor import HostExecutionBridge
 from dcc_mcp_core.script_execution import allow_script_materialization_root
 
+try:
+    from dcc_mcp_core._core import SandboxContext
+except ImportError:
+
+    class SandboxContext:  # type: ignore[no-redef]
+        """Fallback stub used when the native sandbox context is unavailable."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise NotImplementedError("SandboxContext requires dcc_mcp_core._core")
+
+
 logger = logging.getLogger(__name__)
+
+
+def _sandbox_context(policy: Any) -> Any:
+    if not is_core_extension_available():
+        return None
+    from dcc_mcp_core._core import SandboxContext
+
+    return SandboxContext(policy)
 
 
 class ExecutionBridgeBinder:
@@ -44,7 +63,7 @@ class ExecutionBridgeBinder:
                     owner._dcc_name,
                     exc,
                 )
-            bridge.sandbox_context = SandboxContext(policy)
+            bridge.sandbox_context = _sandbox_context(policy)
 
     # -- HTTP dispatcher -------------------------------------------------------
 

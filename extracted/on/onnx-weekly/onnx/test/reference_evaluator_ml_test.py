@@ -2165,7 +2165,7 @@ class TestReferenceEvaluatorAiOnnxMl(unittest.TestCase):
                     )
                 ],
                 "tfidf",
-                [make_tensor_value_info("tokens", TensorProto.INT64, [None, None])],
+                [make_tensor_value_info("tokens", TensorProto.STRING, [None, None])],
                 [make_tensor_value_info("out", TensorProto.FLOAT, [None, None])],
             ),
             opset_imports=OPSETS,
@@ -2174,7 +2174,3 @@ class TestReferenceEvaluatorAiOnnxMl(unittest.TestCase):
         oinf = ReferenceEvaluator(model)
         res = oinf.run(None, {"tokens": inputi})
         self.assertEqual(output.tolist(), res[0].tolist())
-
-
-if __name__ == "__main__":
-    unittest.main(verbosity=2)

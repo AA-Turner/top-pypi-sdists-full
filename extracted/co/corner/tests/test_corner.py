@@ -13,6 +13,7 @@ import corner
 def _run_corner(
     pandas=False,
     arviz=False,
+    arviz_preview=False,
     N=10000,
     seed=1234,
     ndim=3,
@@ -36,12 +37,20 @@ def _run_corner(
         data = pd.DataFrame.from_dict(
             OrderedDict(zip(map("d{0}".format, range(ndim)), data.T))
         )
-    elif arviz:
-        az = pytest.importorskip("arviz")
-        data = az.from_dict(
-            posterior={"x": data[None]},
-            sample_stats={"diverging": data[None, :, 0] < 0.0},
-        )
+    elif arviz_preview or arviz:
+        if arviz:
+            az = pytest.importorskip("arviz")
+        elif arviz_preview:
+            az = pytest.importorskip("arviz.preview")
+
+        input_dict = {
+            "posterior": {"x": data[None]},
+            "sample_stats": {"diverging": data[None, :, 0] < 0.0},
+        }
+        try:
+            data = az.from_dict(**input_dict)
+        except TypeError:
+            data = az.from_dict(input_dict)
         kwargs["truths"] = {"x": np.random.randn(ndim)}
 
     fig = corner.corner(data, **kwargs)
@@ -53,6 +62,46 @@ def _run_corner(
 )
 def test_basic():
     _run_corner()
+
+
+def test_axis_index():
+
+    labels = ["a", "b", "c"]
+    fig = _run_corner(labels=labels, n=100)
+
+    # This should be x=a vs. y=c plotted in the lower left corner with both labels
+    ax = corner.axis_from_param_indices(fig, 0, 2)
+    assert ax.get_xlabel() == labels[0]
+    assert ax.get_ylabel() == labels[2]
+
+    # This should be x=b vs. y=c, to the right of the previous with no y label
+    ax = corner.axis_from_param_indices(fig, 1, 2)
+    assert ax.get_xlabel() == labels[1]
+    assert ax.get_ylabel() == ""
+
+    # This should be the histogram of c at the lower right
+    ax = corner.axis_from_param_indices(fig, 2, 2)
+
+    # Some big number, probably 1584 depending on the seed?
+    assert ax.get_ylim()[1] > 100
+
+    # ix > iy is hidden, which have ranges set to (0,1)
+    ax = corner.axis_from_param_indices(fig, 2, 1)
+    assert np.allclose(ax.get_xlim(), [0, 1])
+    assert np.allclose(ax.get_ylim(), [0, 1])
+
+    with pytest.raises(ValueError):
+        ax = corner.axis_from_param_indices(fig, 2, 4)
+
+    # Inverse
+    for ix in range(len(labels)):
+        for iy in range(ix + 1, len(labels)):
+            i = corner.axis_from_param_indices(fig, ix, iy, return_axis=False)
+            ix_i, iy_i = corner.param_indices_from_axis(fig, i)
+            assert np.allclose([ix_i, iy_i], [ix, iy])
+
+    with pytest.raises(ValueError):
+        _ = corner.param_indices_from_axis(fig, 100)
 
 
 @image_comparison(
@@ -236,6 +285,16 @@ def test_titles2():
     _run_corner(show_titles=True, title_fmt=None, labels=["a", "b", "c"])
 
 
+@image_comparison(baseline_images=["titles_fmt_single"], extensions=["png"])
+def test_titles_fmt_single():
+    _run_corner(show_titles=True, title_fmt=".3f")
+
+
+@image_comparison(baseline_images=["titles_fmt_multi"], extensions=["png"])
+def test_titles_fmt_multi():
+    _run_corner(show_titles=True, title_fmt=[".2f", ".1f", ".3f"])
+
+
 @image_comparison(
     baseline_images=["top_ticks"], remove_text=True, extensions=["png"]
 )
@@ -243,7 +302,7 @@ def test_top_ticks():
     _run_corner(top_ticks=True)
 
 
-@image_comparison(baseline_images=["pandas"], extensions=["png"])
+@image_comparison(baseline_images=["pandas"], extensions=["png"], tol=7)
 def test_pandas():
     _run_corner(pandas=True)
 
@@ -382,6 +441,11 @@ def test_hist_bin_factor_log():
 @image_comparison(baseline_images=["arviz"], extensions=["png"])
 def test_arviz():
     _run_corner(arviz=True)
+
+
+@image_comparison(baseline_images=["arviz"], extensions=["png"])
+def test_arviz_preview():
+    _run_corner(arviz_preview=True)
 
 
 @image_comparison(

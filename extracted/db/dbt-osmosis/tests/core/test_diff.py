@@ -5,6 +5,8 @@ from unittest import mock
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("fresh_caches")
+
 from dbt_osmosis.core.diff import (
     ChangeCategory,
     ChangeSeverity,
@@ -37,7 +39,7 @@ def _patched_node_columns(node, columns):
         node.columns = original_columns
 
 
-def test_schema_diff_initialization(yaml_context: YamlRefactorContext, fresh_caches):
+def test_schema_diff_initialization(yaml_context: YamlRefactorContext):
     """Test that SchemaDiff can be initialized with a context."""
     differ = SchemaDiff(yaml_context)
     assert differ._context == yaml_context
@@ -45,19 +47,19 @@ def test_schema_diff_initialization(yaml_context: YamlRefactorContext, fresh_cac
     assert differ._rename_detection_enabled is True
 
 
-def test_schema_diff_custom_threshold(yaml_context: YamlRefactorContext, fresh_caches):
+def test_schema_diff_custom_threshold(yaml_context: YamlRefactorContext):
     """Test that SchemaDiff accepts custom fuzzy match threshold."""
     differ = SchemaDiff(yaml_context, fuzzy_match_threshold=90.0)
     assert differ._fuzzy_match_threshold == 90.0
 
 
-def test_schema_diff_disable_renames(yaml_context: YamlRefactorContext, fresh_caches):
+def test_schema_diff_disable_renames(yaml_context: YamlRefactorContext):
     """Test that SchemaDiff can disable rename detection."""
     differ = SchemaDiff(yaml_context, detect_column_renames=False)
     assert differ._rename_detection_enabled is False
 
 
-def test_schema_diff_compare_node(yaml_context: YamlRefactorContext, fresh_caches):
+def test_schema_diff_compare_node(yaml_context: YamlRefactorContext):
     """Test comparing a single node's schema."""
     import datetime
 
@@ -66,7 +68,7 @@ def test_schema_diff_compare_node(yaml_context: YamlRefactorContext, fresh_cache
     # Get a model node from the manifest
     from dbt.artifacts.resources.types import NodeType
 
-    for node_id, node in yaml_context.manifest.nodes.items():
+    for node in yaml_context.manifest.nodes.values():
         if node.resource_type == NodeType.Model:
             result = differ.compare_node(node)
             assert isinstance(result, SchemaDiffResult)
@@ -82,7 +84,6 @@ def test_schema_diff_compare_node(yaml_context: YamlRefactorContext, fresh_cache
 
 def test_schema_diff_detects_renamed_columns_without_context_node(
     yaml_context: YamlRefactorContext,
-    fresh_caches,
 ):
     """Rename detection should use the compared node, not mutable context state."""
     from dbt_common.contracts.metadata import ColumnMetadata
@@ -169,26 +170,26 @@ def test_schema_diff_rename_output_is_deterministic_for_ambiguous_candidates(
     ]
 
 
-def test_schema_diff_compare_all(yaml_context: YamlRefactorContext, fresh_caches):
+def test_schema_diff_compare_all(yaml_context: YamlRefactorContext):
     """Test comparing all nodes in the manifest."""
     differ = SchemaDiff(yaml_context)
     results = differ.compare_all()
 
     assert isinstance(results, dict)
     # Results should only contain nodes with changes
-    for node_id, result in results.items():
+    for result in results.values():
         assert isinstance(result, SchemaDiffResult)
         assert result.has_changes is True
 
 
-def test_schema_diff_result_properties(yaml_context: YamlRefactorContext, fresh_caches):
+def test_schema_diff_result_properties(yaml_context: YamlRefactorContext):
     """Test SchemaDiffResult properties."""
     differ = SchemaDiff(yaml_context)
 
     # Find a node and get its diff result
     from dbt.artifacts.resources.types import NodeType
 
-    for node_id, node in yaml_context.manifest.nodes.items():
+    for node in yaml_context.manifest.nodes.values():
         if node.resource_type == NodeType.Model:
             result = differ.compare_node(node)
 
@@ -219,7 +220,6 @@ def test_schema_diff_result_properties(yaml_context: YamlRefactorContext, fresh_
 
 def test_schema_diff_type_difference_ignores_case_only_changes(
     yaml_context: YamlRefactorContext,
-    fresh_caches,
 ):
     """Case-only type differences should not emit type changes."""
     from dbt_common.contracts.metadata import ColumnMetadata
@@ -228,18 +228,124 @@ def test_schema_diff_type_difference_ignores_case_only_changes(
     node = yaml_context.project.manifest.nodes["model.jaffle_shop_duckdb.customers"]
     database_columns = {"customer_id": ColumnMetadata(name="customer_id", type="varchar", index=1)}
 
-    with _patched_node_columns(node, {"customer_id": _column("customer_id", "VARCHAR")}):
-        with mock.patch(
-            "dbt_osmosis.core.introspection.get_columns", return_value=database_columns
-        ):
-            result = differ.compare_node(node)
+    with (
+        _patched_node_columns(node, {"customer_id": _column("customer_id", "VARCHAR")}),
+        mock.patch("dbt_osmosis.core.introspection.get_columns", return_value=database_columns),
+    ):
+        result = differ.compare_node(node)
 
     assert not any(isinstance(change, ColumnTypeChanged) for change in result.changes)
 
 
+def test_schema_diff_honors_output_to_upper_for_case_only_column_names(
+    yaml_context: YamlRefactorContext,
+):
+    """Configured output casing should not create add/remove noise for case-only names."""
+    from dbt_common.contracts.metadata import ColumnMetadata
+
+    differ = SchemaDiff(yaml_context)
+    node = yaml_context.project.manifest.nodes["model.jaffle_shop_duckdb.customers"]
+    database_columns = {"zebra": ColumnMetadata(name="zebra", type="TEXT", index=1)}
+
+    with (
+        _patched_node_columns(node, {"ZEBRA": _column("ZEBRA", "TEXT")}),
+        mock.patch("dbt_osmosis.core.introspection.get_columns", return_value=database_columns),
+        mock.patch(
+            "dbt_osmosis.core.introspection.resolve_setting",
+            side_effect=lambda context, setting_name, *args, fallback=None, **kwargs: {
+                "output-to-upper": True,
+                "output-to-lower": False,
+            }.get(setting_name, fallback),
+        ),
+    ):
+        result = differ.compare_node(node)
+
+    assert not result.changes
+
+
+def test_schema_diff_honors_output_case_settings_without_hiding_real_changes(
+    yaml_context: YamlRefactorContext,
+):
+    from dbt_common.contracts.metadata import ColumnMetadata
+
+    differ = SchemaDiff(yaml_context)
+    node = yaml_context.project.manifest.nodes["model.jaffle_shop_duckdb.customers"]
+    database_columns = {
+        "zebra": ColumnMetadata(name="zebra", type="TEXT", index=1),
+        "new_column": ColumnMetadata(name="new_column", type="TEXT", index=2),
+    }
+
+    with (
+        _patched_node_columns(
+            node,
+            {
+                "ZEBRA": _column("ZEBRA", "TEXT"),
+                "STALE_COLUMN": _column("STALE_COLUMN", "TEXT"),
+            },
+        ),
+        mock.patch("dbt_osmosis.core.introspection.get_columns", return_value=database_columns),
+        mock.patch(
+            "dbt_osmosis.core.introspection.resolve_setting",
+            side_effect=lambda context, setting_name, *args, fallback=None, **kwargs: {
+                "output-to-upper": True,
+                "output-to-lower": False,
+            }.get(setting_name, fallback),
+        ),
+    ):
+        result = differ.compare_node(node)
+
+    assert any(
+        isinstance(change, ColumnAdded) and change.column_name == "new_column"
+        for change in result.changes
+    )
+    assert any(
+        isinstance(change, ColumnRemoved) and change.column_name == "STALE_COLUMN"
+        for change in result.changes
+    )
+    assert not any(
+        isinstance(change, ColumnAdded) and change.column_name == "zebra"
+        for change in result.changes
+    )
+    assert not any(
+        isinstance(change, ColumnRemoved) and change.column_name == "ZEBRA"
+        for change in result.changes
+    )
+
+
+def test_schema_diff_remains_case_sensitive_without_output_case_conversion(
+    yaml_context: YamlRefactorContext,
+):
+    from dbt_common.contracts.metadata import ColumnMetadata
+
+    differ = SchemaDiff(yaml_context, detect_column_renames=False)
+    node = yaml_context.project.manifest.nodes["model.jaffle_shop_duckdb.customers"]
+    database_columns = {"zebra": ColumnMetadata(name="zebra", type="TEXT", index=1)}
+
+    with (
+        _patched_node_columns(node, {"ZEBRA": _column("ZEBRA", "TEXT")}),
+        mock.patch("dbt_osmosis.core.introspection.get_columns", return_value=database_columns),
+        mock.patch(
+            "dbt_osmosis.core.introspection.resolve_setting",
+            side_effect=lambda context, setting_name, *args, fallback=None, **kwargs: {
+                "output-to-upper": False,
+                "output-to-lower": False,
+            }.get(setting_name, fallback),
+        ),
+    ):
+        result = differ.compare_node(node)
+
+    assert any(
+        isinstance(change, ColumnAdded) and change.column_name == "zebra"
+        for change in result.changes
+    )
+    assert any(
+        isinstance(change, ColumnRemoved) and change.column_name == "ZEBRA"
+        for change in result.changes
+    )
+
+
 def test_schema_diff_type_difference_ignores_whitespace_only_changes(
     yaml_context: YamlRefactorContext,
-    fresh_caches,
 ):
     """Whitespace-only type differences should not emit type changes."""
     from dbt_common.contracts.metadata import ColumnMetadata
@@ -250,21 +356,20 @@ def test_schema_diff_type_difference_ignores_whitespace_only_changes(
         "customer_id": ColumnMetadata(name="customer_id", type="decimal(10,2)", index=1)
     }
 
-    with _patched_node_columns(
-        node,
-        {"customer_id": _column("customer_id", "DECIMAL(10, 2)")},
+    with (
+        _patched_node_columns(
+            node,
+            {"customer_id": _column("customer_id", "DECIMAL(10, 2)")},
+        ),
+        mock.patch("dbt_osmosis.core.introspection.get_columns", return_value=database_columns),
     ):
-        with mock.patch(
-            "dbt_osmosis.core.introspection.get_columns", return_value=database_columns
-        ):
-            result = differ.compare_node(node)
+        result = differ.compare_node(node)
 
     assert not any(isinstance(change, ColumnTypeChanged) for change in result.changes)
 
 
 def test_schema_diff_type_difference_preserves_original_type_strings(
     yaml_context: YamlRefactorContext,
-    fresh_caches,
 ):
     """Real type changes should report the original YAML and database strings."""
     from dbt_common.contracts.metadata import ColumnMetadata
@@ -275,14 +380,14 @@ def test_schema_diff_type_difference_preserves_original_type_strings(
         "customer_id": ColumnMetadata(name="customer_id", type="VARCHAR(100)", index=1)
     }
 
-    with _patched_node_columns(
-        node,
-        {"customer_id": _column("customer_id", "VARCHAR(50)")},
+    with (
+        _patched_node_columns(
+            node,
+            {"customer_id": _column("customer_id", "VARCHAR(50)")},
+        ),
+        mock.patch("dbt_osmosis.core.introspection.get_columns", return_value=database_columns),
     ):
-        with mock.patch(
-            "dbt_osmosis.core.introspection.get_columns", return_value=database_columns
-        ):
-            result = differ.compare_node(node)
+        result = differ.compare_node(node)
 
     type_changes = [change for change in result.changes if isinstance(change, ColumnTypeChanged)]
     assert len(type_changes) == 1

@@ -21,6 +21,8 @@ from unittest import mock
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("fresh_caches")
+
 from dbt_osmosis.core.inheritance import (
     _build_column_knowledge_graph,
     _build_node_ancestor_tree,
@@ -94,12 +96,9 @@ def test_ancestor_tree_detects_cycle_back_to_root_unique_id():
 
 def test_column_knowledge_processes_numeric_generations_farthest_to_closest(
     yaml_context,
-    fresh_caches,
     monkeypatch,
 ):
     """generation_10 should be treated as farther away than generation_2, not lexicographic."""
-    import dbt_osmosis.core.inheritance as inheritance_module
-
     manifest = yaml_context.project.manifest
     raw_customers = manifest.nodes["seed.jaffle_shop_duckdb.raw_customers"]
     raw_customers.columns["first_name"].description = "Raw source description"
@@ -109,8 +108,7 @@ def test_column_knowledge_processes_numeric_generations_farthest_to_closest(
     customers.columns["first_name"].description = ""
 
     monkeypatch.setattr(
-        inheritance_module,
-        "_build_node_ancestor_tree",
+        "dbt_osmosis.core.inheritance._build_node_ancestor_tree",
         lambda manifest, node: {
             "generation_0": [customers.unique_id],
             "generation_2": [stg_customers.unique_id],
@@ -150,7 +148,6 @@ def test_semantic_analysis_tag_merge_preserves_existing_then_suggested_order(
     monkeypatch,
 ):
     """Semantic tag suggestions should append unseen tags without set reordering."""
-    import dbt_osmosis.core.inheritance as inheritance_module
     import dbt_osmosis.core.llm as llm_module
 
     class FakeColumn:
@@ -189,11 +186,10 @@ def test_semantic_analysis_tag_merge_preserves_existing_then_suggested_order(
         return {"tags": ["semantic", "shared", "new"], "semantic_type": "primary_key"}
 
     monkeypatch.setattr(
-        inheritance_module, "_build_column_knowledge_graph", lambda context, node: {}
+        "dbt_osmosis.core.inheritance._build_column_knowledge_graph",
+        lambda context, node: {},
     )
-    monkeypatch.setitem(
-        fake_analyze_column_semantics.__globals__, "get_llm_client", lambda: object()
-    )
+    monkeypatch.setitem(fake_analyze_column_semantics.__globals__, "get_llm_client", object)
     monkeypatch.setattr(llm_module, "analyze_column_semantics", fake_analyze_column_semantics)
     monkeypatch.setattr(
         llm_module,
@@ -206,7 +202,7 @@ def test_semantic_analysis_tag_merge_preserves_existing_then_suggested_order(
     assert node.columns["id"].tags == ["existing", "shared", "semantic", "new"]
 
 
-def test_collect_column_variants_honors_project_level_prefix(tmp_path, fresh_caches):
+def test_collect_column_variants_honors_project_level_prefix(tmp_path):
     """Inheritance plugins should receive full context for project-level prefix settings."""
     (tmp_path / "dbt-osmosis.yml").write_text("prefix: raw_\n")
 
@@ -231,7 +227,7 @@ def test_collect_column_variants_honors_project_level_prefix(tmp_path, fresh_cac
     assert "customer_id" in variants["raw_customer_id"]
 
 
-def test_multi_generation_inheritance_chain(yaml_context, fresh_caches):
+def test_multi_generation_inheritance_chain(yaml_context):
     """Test that documentation propagates through multi-generation model chains.
 
     Scenario: raw_customers (seed) → stg_customers.v1 → customers
@@ -273,7 +269,7 @@ def test_multi_generation_inheritance_chain(yaml_context, fresh_caches):
     )
 
 
-def test_empty_column_inherits_from_upstream(yaml_context, fresh_caches):
+def test_empty_column_inherits_from_upstream(yaml_context):
     """Test that an empty column description inherits from the nearest upstream source.
 
     This is the most common use case: a downstream model has an undocumented column,
@@ -304,7 +300,6 @@ def test_empty_column_inherits_from_upstream(yaml_context, fresh_caches):
 
 def test_skip_inherit_descriptions_keeps_empty_description_but_inherits_tags_and_meta(
     yaml_context,
-    fresh_caches,
 ):
     """Opting out of description inheritance should not block tag/meta inheritance."""
     manifest = yaml_context.project.manifest
@@ -329,7 +324,6 @@ def test_skip_inherit_descriptions_keeps_empty_description_but_inherits_tags_and
 
 def test_skip_inherit_descriptions_wins_over_force_inherit_for_empty_description(
     yaml_context,
-    fresh_caches,
 ):
     """If force and skip are both enabled, skip wins deterministically."""
     manifest = yaml_context.project.manifest
@@ -349,7 +343,6 @@ def test_skip_inherit_descriptions_wins_over_force_inherit_for_empty_description
 
 def test_skip_inherit_descriptions_wins_over_force_inherit_for_existing_description(
     yaml_context,
-    fresh_caches,
 ):
     """Skip-wins behavior preserves local descriptions even when force is enabled."""
     manifest = yaml_context.project.manifest
@@ -367,7 +360,7 @@ def test_skip_inherit_descriptions_wins_over_force_inherit_for_existing_descript
     assert customers.columns["first_name"].description == "Local first name description"
 
 
-def test_skip_inherit_descriptions_resolves_from_column_meta(yaml_context, fresh_caches):
+def test_skip_inherit_descriptions_resolves_from_column_meta(yaml_context):
     """Column-level config can opt one child column out of description inheritance."""
     manifest = yaml_context.project.manifest
 
@@ -383,7 +376,7 @@ def test_skip_inherit_descriptions_resolves_from_column_meta(yaml_context, fresh
     assert customers.columns["first_name"].description == ""
 
 
-def test_partial_documentation_propagation(yaml_context, fresh_caches):
+def test_partial_documentation_propagation(yaml_context):
     """Test that only undocumented columns are inherited, not already documented ones.
 
     When a model has some documented and some undocumented columns:
@@ -412,7 +405,7 @@ def test_partial_documentation_propagation(yaml_context, fresh_caches):
     assert customers.columns["last_name"].description == "Customer family name (custom description)"
 
 
-def test_tag_and_meta_inheritance(yaml_context, fresh_caches):
+def test_tag_and_meta_inheritance(yaml_context):
     """Test that tags and meta fields propagate through inheritance.
 
     Tags and metadata are as important as descriptions for data governance.
@@ -442,7 +435,7 @@ def test_tag_and_meta_inheritance(yaml_context, fresh_caches):
     assert customers.columns["customer_id"].meta.get("governance") == "customer_key"
 
 
-def test_config_tag_and_meta_inheritance(yaml_context, fresh_caches):
+def test_config_tag_and_meta_inheritance(yaml_context):
     """Column config.tags and config.meta should inherit as effective tags/meta."""
     manifest = yaml_context.project.manifest
 
@@ -471,7 +464,7 @@ def test_config_tag_and_meta_inheritance(yaml_context, fresh_caches):
     assert customers.columns["customer_id"].meta.get("governance") == "config_customer_key"
 
 
-def test_skip_inheritance_for_classic_meta_keys_preserves_local_meta(yaml_context, fresh_caches):
+def test_skip_inheritance_for_classic_meta_keys_preserves_local_meta(yaml_context):
     """Configured classic meta keys should be filtered from inherited metadata only."""
     manifest = yaml_context.project.manifest
 
@@ -500,7 +493,7 @@ def test_skip_inheritance_for_classic_meta_keys_preserves_local_meta(yaml_contex
     }
 
 
-def test_skip_inheritance_for_config_meta_keys_preserves_other_meta(yaml_context, fresh_caches):
+def test_skip_inheritance_for_config_meta_keys_preserves_other_meta(yaml_context):
     """Configured config.meta keys should be filtered while other config meta inherits."""
     manifest = yaml_context.project.manifest
 
@@ -529,7 +522,7 @@ def test_skip_inheritance_for_config_meta_keys_preserves_other_meta(yaml_context
     }
 
 
-def test_diamond_pattern_inheritance(yaml_context, fresh_caches):
+def test_diamond_pattern_inheritance(yaml_context):
     """Test inheritance when a column comes from multiple upstream models.
 
     Scenario: customers model depends on stg_customers, stg_orders, and stg_payments.
@@ -557,7 +550,7 @@ def test_diamond_pattern_inheritance(yaml_context, fresh_caches):
     assert customers.columns["first_name"].meta.get("osmosis_progenitor") is not None
 
 
-def test_force_inherit_overrides_existing_descriptions(yaml_context, fresh_caches):
+def test_force_inherit_overrides_existing_descriptions(yaml_context):
     """Test that force_inherit_descriptions=true overrides existing documentation.
 
     When force_inherit_descriptions is enabled, even columns that already have
@@ -581,7 +574,7 @@ def test_force_inherit_overrides_existing_descriptions(yaml_context, fresh_cache
     assert customers.columns["first_name"].description == "Standardized first name"
 
 
-def test_skip_add_tags_preserves_local_tags(yaml_context, fresh_caches):
+def test_skip_add_tags_preserves_local_tags(yaml_context):
     """Test that skip_add_tags=true prevents upstream tags from being added.
 
     When skip_add_tags is enabled, local tags should be preserved and upstream
@@ -604,7 +597,7 @@ def test_skip_add_tags_preserves_local_tags(yaml_context, fresh_caches):
     assert customers.columns["customer_id"].tags == ["local_tag"]
 
 
-def test_skip_merge_meta_preserves_local_meta(yaml_context, fresh_caches):
+def test_skip_merge_meta_preserves_local_meta(yaml_context):
     """Test that skip_merge_meta=true prevents upstream meta from being merged.
 
     When skip_merge_meta is enabled, local meta should be preserved and upstream
@@ -627,7 +620,7 @@ def test_skip_merge_meta_preserves_local_meta(yaml_context, fresh_caches):
     assert customers.columns["customer_id"].meta == {"local_key": "local_value"}
 
 
-def test_inheritance_with_placeholder_descriptions(yaml_context, fresh_caches):
+def test_inheritance_with_placeholder_descriptions(yaml_context):
     """Test that empty descriptions are treated as undocumented.
 
     This test verifies that columns with empty descriptions inherit from upstream.
@@ -650,7 +643,7 @@ def test_inheritance_with_placeholder_descriptions(yaml_context, fresh_caches):
     assert customers.columns["first_name"].description == "Customer first name"
 
 
-def test_inheritance_across_all_models(yaml_context, fresh_caches):
+def test_inheritance_across_all_models(yaml_context):
     """Test that inheritance works correctly when run across all models in the project.
 
     This is an integration test that verifies inheritance works end-to-end
@@ -678,7 +671,7 @@ def test_inheritance_across_all_models(yaml_context, fresh_caches):
     )
 
 
-def test_progenitor_tracking_across_generations(yaml_context, fresh_caches):
+def test_progenitor_tracking_across_generations(yaml_context):
     """Test that osmosis_progenitor correctly tracks the column's origin.
 
     The progenitor field should always point to the ORIGINAL source of the column,
@@ -712,7 +705,6 @@ def test_progenitor_tracking_across_generations(yaml_context, fresh_caches):
 
 def test_default_progenitor_override_reuses_selected_ancestor_knowledge(
     yaml_context,
-    fresh_caches,
 ):
     """A default_progenitor should inherit the override node's resolved lineage, not its raw column."""
     manifest = yaml_context.project.manifest
@@ -754,7 +746,6 @@ def test_default_progenitor_override_reuses_selected_ancestor_knowledge(
 
 def test_column_default_progenitor_override_applies_without_progenitor_tracking(
     yaml_context,
-    fresh_caches,
 ):
     """column_default_progenitor should work even when osmosis_progenitor tracking is disabled."""
     manifest = yaml_context.project.manifest
@@ -794,7 +785,6 @@ def test_column_default_progenitor_override_applies_without_progenitor_tracking(
 
 def test_get_node_yaml_returns_versioned_block_with_top_level_fallback(
     yaml_context,
-    fresh_caches,
 ):
     """Versioned models should expose selected versions[].columns plus model fallback metadata."""
     manifest = yaml_context.project.manifest
@@ -827,7 +817,6 @@ def test_get_node_yaml_returns_versioned_block_with_top_level_fallback(
 
 def test_versioned_ancestor_unrendered_description_reads_version_columns(
     yaml_context,
-    fresh_caches,
 ):
     """Inheritance should preserve unrendered docs from version-level ancestor columns."""
     manifest = yaml_context.project.manifest

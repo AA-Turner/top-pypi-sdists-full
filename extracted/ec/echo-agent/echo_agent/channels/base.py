@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import aiohttp
 from loguru import logger
 
 from echo_agent.bus.events import InboundEvent, OutboundEvent, ContentBlock, ContentType, PollRequest
@@ -34,6 +33,8 @@ class BaseChannel(ABC):
     name: str = "base"
     transcription_api_key: str = ""
     supports_edit: bool = False
+    supports_reactions: bool = False  # overridden by channels that implement send_reaction
+    is_realtime: bool = True          # False for async channels (email/webhook/cron)
 
     def __init__(self, config: Any, bus: MessageBus):
         self.config = config
@@ -64,6 +65,14 @@ class BaseChannel(ABC):
         if self.supports_edit:
             return True
         if event.is_final:
+            return True
+        # Heartbeats are level-triggered progress beats that the ChannelManager
+        # has already deduped per the turn's milestone seq and filtered per the
+        # channel's verbosity tier before reaching here. Let them through on
+        # uneditable channels too, so the manager's tiering is authoritative
+        # rather than silently overridden by this guard (which only exists to
+        # suppress token-stream / progress chunks).
+        if event.message_kind == "heartbeat":
             return True
         return False
 
@@ -120,7 +129,11 @@ class BaseChannel(ABC):
         metadata: dict[str, Any] | None = None,
         session_key: str | None = None,
         reply_to_id: str | None = None,
+        reply_to_text: str | None = None,
+        reply_to_sender: str | None = None,
+        reply_to_is_own: bool = False,
         thread_id: str | None = None,
+        is_group: bool = False,
     ) -> InboundEvent:
         if not self.is_allowed(sender_id):
             logger.warning("Access denied for sender {} on channel {}", sender_id, self.name)
@@ -147,9 +160,13 @@ class BaseChannel(ABC):
             chat_id=str(chat_id),
             content=content_blocks,
             reply_to_id=reply_to_id,
+            reply_to_text=reply_to_text,
+            reply_to_sender=reply_to_sender,
+            reply_to_is_own=reply_to_is_own,
             thread_id=thread_id,
             session_key_override=session_key,
             metadata=metadata or {},
+            is_group=is_group,
         )
 
     async def _handle_message(
@@ -161,7 +178,11 @@ class BaseChannel(ABC):
         metadata: dict[str, Any] | None = None,
         session_key: str | None = None,
         reply_to_id: str | None = None,
+        reply_to_text: str | None = None,
+        reply_to_sender: str | None = None,
+        reply_to_is_own: bool = False,
         thread_id: str | None = None,
+        is_group: bool = False,
     ) -> InboundEvent | None:
         try:
             event = self._build_event(
@@ -172,7 +193,11 @@ class BaseChannel(ABC):
                 metadata=metadata,
                 session_key=session_key,
                 reply_to_id=reply_to_id,
+                reply_to_text=reply_to_text,
+                reply_to_sender=reply_to_sender,
+                reply_to_is_own=reply_to_is_own,
                 thread_id=thread_id,
+                is_group=is_group,
             )
         except PermissionError:
             return None
@@ -230,24 +255,12 @@ class BaseChannel(ABC):
             return None
 
     async def transcribe_audio(self, file_path: str | Path) -> str:
-        """Transcribe audio file via Groq Whisper API."""
-        api_key = self.transcription_api_key
-        if not api_key:
+        """Transcribe an audio file via the shared cloud whisper backend.
+
+        Kept as a thin delegator; inbound transcription now flows through
+        ContextBuilder + the media.understanding package, not this method.
+        """
+        from echo_agent.agent.media.understanding.audio import CloudWhisperBackend
+        if not self.transcription_api_key:
             return ""
-        path = Path(file_path)
-        if not path.exists():
-            return ""
-        try:
-            url = "https://api.groq.com/openai/v1/audio/transcriptions"
-            data = aiohttp.FormData()
-            data.add_field("file", path.open("rb"), filename=path.name)
-            data.add_field("model", "whisper-large-v3")
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, data=data, headers={"Authorization": f"Bearer {api_key}"}) as resp:
-                    if resp.status == 200:
-                        result = await resp.json()
-                        return result.get("text", "")
-                    logger.warning("Transcription failed ({}): {}", resp.status, await resp.text())
-        except Exception as e:
-            logger.error("Audio transcription error: {}", e)
-        return ""
+        return await CloudWhisperBackend(self.transcription_api_key).transcribe(Path(file_path))

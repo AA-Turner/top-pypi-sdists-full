@@ -3,7 +3,9 @@ Backward compatibility tests.
 Ensures that when profiling is disabled (default), behavior is identical
 to the pre-profiling version of the package.
 """
+import importlib
 import json
+from pathlib import Path
 from unittest.mock import Mock, patch
 from django.test import TestCase, RequestFactory
 from django.http import HttpResponse
@@ -74,6 +76,47 @@ class TestBackwardCompatMiddleware(TestCase):
 
         self.assertNotIn('profiling_data', call_data)
         self.assertNotIn('sql_query_count', call_data)
+
+    @override_settings(
+        DRF_API_LOGGER_DATABASE=True,
+        DRF_API_LOGGER_SIGNAL=False,
+        DRF_API_LOGGER_ENABLE_CORRELATION=True,
+        DRF_API_LOGGER_ENABLE_PROFILING=False
+    )
+    @patch('drf_api_logger.middleware.api_logger_middleware.resolve')
+    @patch('drf_api_logger.apps.LOGGER_THREAD')
+    def test_db_payload_unchanged_when_correlation_enabled(self, mock_thread, mock_resolve):
+        mock_resolve.return_value.namespace = None
+        mock_resolve.return_value.app_name = None
+        mock_resolve.return_value.url_name = 'test'
+        mock_resolve.return_value.route = 'api/test/'
+        mock_resolve.return_value.func = self.get_json_response
+        mock_thread.put_log_data = Mock()
+
+        middleware = APILoggerMiddleware(get_response=self.get_json_response)
+        request = self.factory.get('/api/test/', HTTP_X_REQUEST_ID='req-123')
+        middleware(request)
+
+        mock_thread.put_log_data.assert_called_once()
+        call_data = mock_thread.put_log_data.call_args[1]['data']
+        expected_keys = {
+            'api',
+            'headers',
+            'body',
+            'method',
+            'client_ip_address',
+            'response',
+            'status_code',
+            'execution_time',
+            'added_on',
+        }
+
+        self.assertEqual(set(call_data.keys()), expected_keys)
+        self.assertNotIn('correlation', call_data)
+        self.assertNotIn('low_cardinality', call_data)
+        self.assertNotIn('request_id', call_data)
+        self.assertNotIn('trace_id', call_data)
+        self.assertNotIn('tracing_id', call_data)
 
     @override_settings(DRF_API_LOGGER_SIGNAL=True, DRF_API_LOGGER_ENABLE_PROFILING=False)
     @patch('drf_api_logger.middleware.api_logger_middleware.resolve')
@@ -218,3 +261,185 @@ class TestBackwardCompatSettings(TestCase):
         self.assertEqual(middleware.DRF_API_LOGGER_STATUS_CODES, [200])
         self.assertTrue(middleware.DRF_API_LOGGER_ENABLE_TRACING)
         self.assertFalse(middleware.DRF_API_LOGGER_ENABLE_PROFILING)
+
+
+@override_settings(DRF_API_LOGGER_DATABASE=True)
+class TestCorrelationNoPersistence(TestCase):
+
+    def test_model_has_no_correlation_storage_fields(self):
+        from drf_api_logger.models import APILogsModel
+
+        field_names = {field.name for field in APILogsModel._meta.fields}
+        blocked_fields = {
+            'request_id',
+            'trace_id',
+            'correlation',
+            'low_cardinality',
+            'route',
+            'view_name',
+            'actor_id',
+            'tenant_id',
+        }
+
+        self.assertFalse(field_names.intersection(blocked_fields))
+
+    def test_no_correlation_migration_added(self):
+        migrations_dir = Path(__file__).resolve().parents[1] / 'drf_api_logger' / 'migrations'
+        migration_names = {
+            path.name
+            for path in migrations_dir.glob('*.py')
+            if path.name != '__init__.py'
+        }
+
+        self.assertEqual(
+            migration_names,
+            {
+                '0001_initial.py',
+                '0002_auto_20211221_2155.py',
+                '0003_apilogsmodel_profiling.py',
+            }
+        )
+
+
+class TestObservabilityCompatibility(TestCase):
+
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def get_json_response(self, request):
+        return HttpResponse(
+            json.dumps({"ok": True}),
+            content_type="application/json",
+            status=200
+        )
+
+    def test_observability_module_imports_without_optional_packages(self):
+        module = importlib.import_module("drf_api_logger.observability")
+
+        self.assertTrue(hasattr(module, "build_metric_labels"))
+        self.assertTrue(hasattr(module, "record_prometheus_metrics"))
+        self.assertTrue(hasattr(module, "annotate_opentelemetry_span"))
+        self.assertTrue(hasattr(module, "configure_sentry_scope"))
+
+    def test_observability_helpers_do_not_add_runtime_dependencies(self):
+        setup_text = Path(__file__).resolve().parents[1].joinpath("setup.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("prometheus-client", setup_text)
+        self.assertNotIn("opentelemetry-api", setup_text)
+        self.assertNotIn("opentelemetry-sdk", setup_text)
+        self.assertNotIn("sentry-sdk", setup_text)
+
+    @override_settings(
+        DRF_API_LOGGER_DATABASE=True,
+        DRF_API_LOGGER_SIGNAL=False,
+        DRF_API_LOGGER_ENABLE_CORRELATION=True
+    )
+    @patch("drf_api_logger.middleware.api_logger_middleware.resolve")
+    @patch("drf_api_logger.apps.LOGGER_THREAD")
+    def test_db_payload_stays_unchanged_when_observability_helpers_exist(self, mock_thread, mock_resolve):
+        mock_resolve.return_value.namespace = None
+        mock_resolve.return_value.app_name = None
+        mock_resolve.return_value.url_name = "test"
+        mock_resolve.return_value.route = "api/test/"
+        mock_resolve.return_value.func = self.get_json_response
+        mock_thread.put_log_data = Mock()
+
+        middleware = APILoggerMiddleware(get_response=self.get_json_response)
+        request = self.factory.get("/api/test/", HTTP_X_REQUEST_ID="req-123")
+        middleware(request)
+
+        mock_thread.put_log_data.assert_called_once()
+        call_data = mock_thread.put_log_data.call_args[1]["data"]
+
+        self.assertNotIn("correlation", call_data)
+        self.assertNotIn("low_cardinality", call_data)
+        self.assertNotIn("request_id", call_data)
+        self.assertNotIn("trace_id", call_data)
+        self.assertNotIn("observability", call_data)
+
+
+class TestPolicyCompatibility(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def get_json_response(self, request):
+        return HttpResponse(
+            json.dumps({"ok": True}),
+            content_type="application/json",
+            status=200
+        )
+
+    def test_policy_module_imports_without_optional_packages(self):
+        module = importlib.import_module("drf_api_logger.policy")
+
+        self.assertTrue(hasattr(module, "LoggingPolicyDecision"))
+        self.assertTrue(hasattr(module, "safe_evaluate_logging_policy"))
+
+    def test_policy_helpers_do_not_add_runtime_dependencies(self):
+        setup_text = Path(__file__).resolve().parents[1].joinpath("setup.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("prometheus-client", setup_text)
+        self.assertNotIn("opentelemetry-api", setup_text)
+        self.assertNotIn("opentelemetry-sdk", setup_text)
+        self.assertNotIn("sentry-sdk", setup_text)
+        self.assertNotIn("celery", setup_text)
+
+    @override_settings(
+        DRF_API_LOGGER_DATABASE=True,
+        DRF_API_LOGGER_SIGNAL=False,
+        DRF_API_LOGGER_POLICY=None,
+        DRF_API_LOGGER_POLICY_FUNC=None,
+    )
+    @patch("drf_api_logger.middleware.api_logger_middleware.resolve")
+    @patch("drf_api_logger.apps.LOGGER_THREAD")
+    def test_db_payload_stays_unchanged_when_policy_is_not_configured(self, mock_thread, mock_resolve):
+        mock_resolve.return_value.namespace = None
+        mock_resolve.return_value.app_name = None
+        mock_resolve.return_value.url_name = "test"
+        mock_resolve.return_value.route = "api/test/"
+        mock_resolve.return_value.func = self.get_json_response
+        mock_thread.put_log_data = Mock()
+
+        middleware = APILoggerMiddleware(get_response=self.get_json_response)
+        request = self.factory.get("/api/test/")
+        middleware(request)
+
+        mock_thread.put_log_data.assert_called_once()
+        call_data = mock_thread.put_log_data.call_args[1]["data"]
+        expected_keys = {
+            "api",
+            "headers",
+            "body",
+            "method",
+            "client_ip_address",
+            "response",
+            "status_code",
+            "execution_time",
+            "added_on",
+        }
+
+        self.assertEqual(set(call_data.keys()), expected_keys)
+        self.assertNotIn("policy", call_data)
+
+    def test_policy_adds_no_model_fields_or_migrations(self):
+        from drf_api_logger.models import APILogsModel
+
+        field_names = {field.name for field in APILogsModel._meta.fields}
+        self.assertNotIn("policy", field_names)
+        self.assertNotIn("policy_reason", field_names)
+
+        migrations_dir = Path(__file__).resolve().parents[1] / "drf_api_logger" / "migrations"
+        migration_names = {
+            path.name
+            for path in migrations_dir.glob("*.py")
+            if path.name != "__init__.py"
+        }
+
+        self.assertEqual(
+            migration_names,
+            {
+                "0001_initial.py",
+                "0002_auto_20211221_2155.py",
+                "0003_apilogsmodel_profiling.py",
+            }
+        )

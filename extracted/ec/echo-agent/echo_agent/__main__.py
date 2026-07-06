@@ -123,12 +123,36 @@ def _build_parser() -> argparse.ArgumentParser:
     cost_parser.add_argument("--days", type=int, default=7,
                              help="Trend window in days (default: 7)")
 
-    # gateway
-    gw_parser = subparsers.add_parser("gateway", help="Start the gateway server")
+    # gateway — foreground run (default) or service lifecycle management
+    gw_parser = subparsers.add_parser(
+        "gateway",
+        help="Run the gateway in the foreground, or manage it as a system service",
+    )
+    gw_parser.add_argument(
+        "action", nargs="?", default=None,
+        choices=["install", "uninstall", "start", "stop", "restart", "status", "logs"],
+        help="Service action (omit to run the gateway in the foreground)",
+    )
     gw_parser.add_argument("-c", "--config", help="Path to config file")
     gw_parser.add_argument("-w", "--workspace", help="Workspace directory")
-    gw_parser.add_argument("--host", help="Gateway host")
-    gw_parser.add_argument("--port", type=int, help="Gateway port")
+    gw_parser.add_argument("--host", help="Gateway host (foreground run only)")
+    gw_parser.add_argument("--port", type=int, help="Gateway port (foreground run only)")
+    gw_parser.add_argument("--system", action="store_true",
+                           help="Manage a system-scope service instead of a user-scope one (Linux)")
+    gw_parser.add_argument("--force", action="store_true",
+                           help="Rewrite the service file even if one is already installed")
+    gw_parser.add_argument("-f", "--follow", action="store_true",
+                           help="Follow log output (logs action)")
+
+    # cli — thin client attaching to a running local gateway
+    cli_parser = subparsers.add_parser(
+        "cli", help="Attach to a running local gateway as a thin client"
+    )
+    cli_parser.add_argument("--port", type=int, default=None, help="Gateway port (default: from config / 9000)")
+    cli_parser.add_argument("--token", default=None, help="API token (default: from gateway config)")
+    cli_parser.add_argument("--user", default="local", help="Client user id for the cli: session (default: local)")
+    cli_parser.add_argument("-c", "--config", help="Path to config file")
+    cli_parser.add_argument("-w", "--workspace", help="Workspace directory")
 
     # eval
     eval_parser = subparsers.add_parser("eval", help="Run evaluation test suite")
@@ -139,8 +163,11 @@ def _build_parser() -> argparse.ArgumentParser:
     eval_parser.add_argument("-c", "--config", help="Path to config file")
     eval_parser.add_argument("-w", "--workspace", help="Workspace directory")
 
-    # service
-    svc_parser = subparsers.add_parser("service", help="Manage systemd service (Linux)")
+    # service — deprecated alias for `gateway <action>` (kept for install.sh
+    # and existing user scripts; maps to the legacy Linux system-scope unit)
+    svc_parser = subparsers.add_parser(
+        "service", help="[deprecated] Use `echo-agent gateway <action>` instead"
+    )
     svc_parser.add_argument("action", choices=["install", "uninstall", "start", "stop", "restart", "status", "logs"], help="Service action")
     svc_parser.add_argument("-w", "--workspace", help="Workspace directory (used by install)")
 
@@ -166,6 +193,14 @@ def _build_parser() -> argparse.ArgumentParser:
     evo_parser.add_argument("-c", "--config", help="Path to config file")
     evo_parser.add_argument("-w", "--workspace", help="Workspace directory")
 
+    # skill (admission: staging / approve / reject) — not gated on evolution.enabled
+    skill_parser = subparsers.add_parser("skill", help="Manage skill-distillation admission (staging/approve/reject)")
+    skill_parser.add_argument("skill_action", choices=["list-staged", "approve", "reject"])
+    skill_parser.add_argument("candidate_id", nargs="?", default="")
+    skill_parser.add_argument("--reason", default="")
+    skill_parser.add_argument("-c", "--config", help="Path to config file")
+    skill_parser.add_argument("-w", "--workspace", help="Workspace directory")
+
     # config
     config_parser = subparsers.add_parser("config", help="Inspect and validate configuration")
     config_parser.add_argument(
@@ -178,6 +213,14 @@ def _build_parser() -> argparse.ArgumentParser:
                                help="Output format for dump (default: yaml)")
     config_parser.add_argument("-c", "--config", help="Path to config file")
     config_parser.add_argument("-w", "--workspace", help="Workspace directory")
+
+    # checkpoint
+    cp_parser = subparsers.add_parser("checkpoint", help="Inspect and roll back file checkpoints")
+    cp_parser.add_argument("action", choices=["list", "show", "restore", "prune"], help="Checkpoint action")
+    cp_parser.add_argument("sha", nargs="?", default="", help="Commit SHA (for show/restore)")
+    cp_parser.add_argument("-c", "--config", help="Path to config file")
+    cp_parser.add_argument("-w", "--workspace", help="Workspace directory")
+    cp_parser.add_argument("-y", "--yes", action="store_true", help="Skip restore confirmation")
 
     # top-level flags for backward compat
     parser.add_argument("-c", "--config", help="Path to config file", dest="top_config")
@@ -219,6 +262,16 @@ def _dispatch() -> None:
         return
 
     if args.command == "gateway":
+        if args.action:
+            from echo_agent.cli.service import run_service_action
+            run_service_action(
+                args.action,
+                workspace=args.workspace or args.top_workspace,
+                system=args.system,
+                force=args.force,
+                follow=args.follow,
+            )
+            return
         from echo_agent.app import run_gateway
         try:
             asyncio.run(run_gateway(config_path=args.config or args.top_config, host=args.host, port=args.port, workspace=args.workspace or args.top_workspace))
@@ -267,6 +320,20 @@ def _dispatch() -> None:
             pass
         return
 
+    if args.command == "skill":
+        from echo_agent.cli.skill_admission_cmd import run_skill_command
+        try:
+            run_skill_command(
+                args.skill_action,
+                candidate_id=args.candidate_id,
+                reason=args.reason,
+                config_path=args.config or args.top_config,
+                workspace=args.workspace or args.top_workspace,
+            )
+        except KeyboardInterrupt:
+            pass
+        return
+
     if args.command == "config":
         from echo_agent.cli.config_cmd import run_config_command
         import sys as _sys
@@ -278,6 +345,37 @@ def _dispatch() -> None:
             workspace=args.workspace or args.top_workspace,
         )
         _sys.exit(rc)
+
+    if args.command == "checkpoint":
+        from echo_agent.cli.checkpoint_cmd import run_checkpoint_command
+        run_checkpoint_command(
+            args.action,
+            sha=args.sha,
+            config_path=args.config or args.top_config,
+            workspace=args.workspace or args.top_workspace,
+            yes=args.yes,
+        )
+        return
+
+    if args.command == "cli":
+        from echo_agent.cli import attach_client
+        host, port, ws_path, token = attach_client.resolve_defaults(
+            config_path=args.config or args.top_config,
+            workspace=args.workspace or args.top_workspace,
+        )
+        if args.port is not None:
+            port = args.port
+        if args.token is not None:
+            token = args.token
+        import sys as _sys
+        rc = attach_client.run_cli_attach(
+            host=host, port=port, ws_path=ws_path,
+            user_id=args.user, token=token,
+            config_path=args.config or args.top_config,
+            workspace=args.workspace or args.top_workspace,
+        )
+        _sys.exit(rc)
+        return
 
     # "run" command or no command (backward compat)
     config_path = getattr(args, "config", None) or args.top_config

@@ -6,7 +6,6 @@ import os
 import sys
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 from acp import (
     PROTOCOL_VERSION,
@@ -18,14 +17,19 @@ from acp import (
 from acp.core import ClientSideConnection
 from acp.schema import (
     AgentMessageChunk,
+    AgentPlanContentUpdate,
+    AgentPlanRemovedUpdate,
     AgentPlanUpdate,
     AgentThoughtChunk,
     AudioContentBlock,
     AvailableCommandsUpdate,
     ClientCapabilities,
     ConfigOptionUpdate,
+    CreateElicitationResponse,
     CreateTerminalResponse,
     CurrentModeUpdate,
+    DeclineElicitationResponse,
+    ElicitationMode,
     EmbeddedResourceContentBlock,
     EnvVariable,
     ImageContentBlock,
@@ -51,27 +55,27 @@ from acp.schema import (
 
 class ExampleClient(Client):
     async def request_permission(
-        self, options: list[PermissionOption], session_id: str, tool_call: ToolCallUpdate, **kwargs: Any
+        self, session_id: str, tool_call: ToolCallUpdate, options: list[PermissionOption], **kwargs: Any
     ) -> RequestPermissionResponse:
         raise RequestError.method_not_found("session/request_permission")
 
     async def write_text_file(
-        self, content: str, path: str, session_id: str, **kwargs: Any
+        self, session_id: str, path: str, content: str, **kwargs: Any
     ) -> WriteTextFileResponse | None:
         raise RequestError.method_not_found("fs/write_text_file")
 
     async def read_text_file(
-        self, path: str, session_id: str, limit: int | None = None, line: int | None = None, **kwargs: Any
+        self, session_id: str, path: str, line: int | None = None, limit: int | None = None, **kwargs: Any
     ) -> ReadTextFileResponse:
         raise RequestError.method_not_found("fs/read_text_file")
 
     async def create_terminal(
         self,
-        command: str,
         session_id: str,
+        command: str,
         args: list[str] | None = None,
-        cwd: str | None = None,
         env: list[EnvVariable] | None = None,
+        cwd: str | None = None,
         output_byte_limit: int | None = None,
         **kwargs: Any,
     ) -> CreateTerminalResponse:
@@ -93,6 +97,13 @@ class ExampleClient(Client):
     async def kill_terminal(self, session_id: str, terminal_id: str, **kwargs: Any) -> KillTerminalResponse | None:
         raise RequestError.method_not_found("terminal/kill")
 
+    async def create_elicitation(self, message: str, mode: ElicitationMode, **kwargs: Any) -> CreateElicitationResponse:
+        print(f"| Agent requested input: {message} ({type(mode).__name__})")
+        return DeclineElicitationResponse(action="decline")
+
+    async def complete_elicitation(self, elicitation_id: str, **kwargs: Any) -> None:
+        print(f"| Agent completed elicitation: {elicitation_id}")
+
     async def session_update(
         self,
         session_id: str,
@@ -102,6 +113,8 @@ class ExampleClient(Client):
         | ToolCallStart
         | ToolCallProgress
         | AgentPlanUpdate
+        | AgentPlanContentUpdate
+        | AgentPlanRemovedUpdate
         | AvailableCommandsUpdate
         | CurrentModeUpdate
         | ConfigOptionUpdate
@@ -158,7 +171,6 @@ async def interactive_loop(conn: ClientSideConnection, session_id: str) -> None:
             await conn.prompt(
                 session_id=session_id,
                 prompt=[text_block(line)],
-                message_id=str(uuid4()),
             )
         except Exception as exc:
             logging.error("Prompt failed: %s", exc)  # noqa: TRY400

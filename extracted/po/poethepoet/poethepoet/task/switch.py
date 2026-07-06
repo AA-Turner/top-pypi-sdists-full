@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 DEFAULT_CASE = "__default__"
-SUBTASK_OPTIONS_BLOCKLIST = ("args", "uses", "deps")
+SUBTASK_OPTIONS_BLOCKLIST = ("args", "deps", "uses", "uses_env")
 CONTROL_TASK_TYPES = ("expr", "cmd", "script")
 
 
@@ -164,6 +164,24 @@ class SwitchTask(PoeTask):
             for _, case_task_spec in self.case_task_specs:
                 case_task_spec.validate(config, task_specs)
 
+        def accepts_option(
+            self,
+            option_name: str,
+            task_specs: TaskSpecFactory,
+            _seen: set[int] | None = None,
+        ) -> bool:
+            """
+            A switch forwards capture_stdout to the selected case at runtime, so
+            it can be captured only if every case can. Other options use the
+            default.
+            """
+            if option_name == "capture_stdout":
+                return all(
+                    case_spec.accepts_option(option_name, task_specs, _seen)
+                    for _, case_spec in self.case_task_specs
+                )
+            return super().accepts_option(option_name, task_specs, _seen)
+
     @classmethod
     def __schema_fragment__(cls, ctx: Any) -> dict:
         """
@@ -282,5 +300,8 @@ class SwitchTask(PoeTask):
             # registered for this switch task as well
             await case_task_run.wait(suppress_errors=False)
             context.save_task_output(
-                self.invocation, context.get_task_output(case_task.invocation).encode()
+                self.invocation,
+                context.get_task_output(
+                    case_task.invocation, collapse_whitespace=False
+                ).encode(),
             )

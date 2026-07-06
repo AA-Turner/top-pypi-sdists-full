@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import functools
 import importlib
 import os
@@ -15,19 +16,28 @@ from pathlib import Path
 import click
 import yaml as yaml_handler
 
-import dbt_osmosis.core.logger as logger
+from dbt_osmosis.core import logger
 from dbt_osmosis.core.config import (
     DbtConfiguration,
+    DbtProjectContext,
     create_dbt_project_context,
     discover_profiles_dir,
     discover_project_dir,
 )
 from dbt_osmosis.core.diff import SchemaDiff
+from dbt_osmosis.core.discovery import (
+    DiscoveryResult,
+    discover_undocumented_columns,
+    discover_undocumented_models,
+)
 from dbt_osmosis.core.generators import (
+    DocumentationCheckResult,
+    check_documentation,
     generate_sources_from_database,
     generate_staging_from_source,
 )
 from dbt_osmosis.core.llm import generate_dbt_model_from_nl, generate_sql_from_nl
+from dbt_osmosis.core.migration import MigrationPlan, MigrationPlanner
 from dbt_osmosis.core.path_management import create_missing_source_yamls
 from dbt_osmosis.core.restructuring import (
     apply_restructure_plan,
@@ -54,24 +64,21 @@ from dbt_osmosis.core.transforms import (
     synchronize_data_types,
     synthesize_missing_documentation_with_openai,
 )
+from dbt_osmosis.core.validation import (
+    ModelValidationStatus,
+    ValidationReport,
+    validate_models,
+)
+from dbt_osmosis.core.voice_learning import (
+    ProjectStyleProfile,
+    analyze_project_documentation_style,
+)
 
 T = t.TypeVar("T")
-if sys.version_info >= (3, 10):
-    P = t.ParamSpec("P")
-else:
-    import typing_extensions as te
-
-    P = te.ParamSpec("P")
+P = t.ParamSpec("P")
 
 _CONTEXT = {"max_content_width": 800}
 _WORKBENCH_EXTRA_HINT = "pip install dbt-osmosis[workbench]"
-_WORKBENCH_APP_MODULES = (
-    "feedparser",
-    "pandas",
-    "streamlit",
-    "streamlit_elements_fluence",
-    "ydata_profiling",
-)
 
 
 def _missing_streamlit_error() -> click.ClickException:
@@ -88,16 +95,39 @@ def _streamlit_executable() -> str:
     return executable
 
 
+def _record_missing_workbench_module(
+    missing: list[str],
+    module: str,
+    error: ImportError,
+) -> None:
+    if isinstance(error, ModuleNotFoundError) and error.name == module:
+        missing.append(module)
+    else:
+        missing.append(f"{module} ({error})")
+
+
 def _check_workbench_app_dependencies() -> None:
-    missing = []
-    for module in _WORKBENCH_APP_MODULES:
-        try:
-            importlib.import_module(module)
-        except ImportError as e:
-            if isinstance(e, ModuleNotFoundError) and e.name == module:
-                missing.append(module)
-            else:
-                missing.append(f"{module} ({e})")
+    missing: list[str] = []
+    try:
+        importlib.import_module("feedparser")
+    except ImportError as e:
+        _record_missing_workbench_module(missing, "feedparser", e)
+    try:
+        importlib.import_module("pandas")
+    except ImportError as e:
+        _record_missing_workbench_module(missing, "pandas", e)
+    try:
+        importlib.import_module("streamlit")
+    except ImportError as e:
+        _record_missing_workbench_module(missing, "streamlit", e)
+    try:
+        importlib.import_module("streamlit_elements_fluence")
+    except ImportError as e:
+        _record_missing_workbench_module(missing, "streamlit_elements_fluence", e)
+    try:
+        importlib.import_module("ydata_profiling")
+    except ImportError as e:
+        _record_missing_workbench_module(missing, "ydata_profiling", e)
 
     if missing:
         missing_modules = ", ".join(missing)
@@ -115,6 +145,7 @@ def _run_streamlit_command(
             [executable or _streamlit_executable(), *args],
             env=os.environ,
             cwd=Path.cwd(),
+            check=False,
         )
     except FileNotFoundError as e:
         raise _missing_streamlit_error() from e
@@ -124,8 +155,6 @@ def _run_streamlit_command(
 @click.version_option()
 def cli() -> None:
     """dbt-osmosis is a CLI tool for dbt that helps you manage, document, and organize your dbt yaml files"""
-
-    pass
 
 
 def test_llm_connection(llm_client: tuple[t.Any, str] | None = None) -> None:
@@ -211,7 +240,7 @@ def dbt_opts(func: t.Callable[P, T]) -> t.Callable[P, T]:
     @click.option(
         "--profiles-dir",
         type=click.Path(dir_okay=True, file_okay=False),
-        default=discover_profiles_dir,
+        default=None,
         help="Which directory to look in for the profiles.yml file. Defaults to DBT_PROFILES_DIR, the current directory, the discovered project root, or ~/.dbt.",
     )
     @click.option(
@@ -228,9 +257,96 @@ def dbt_opts(func: t.Callable[P, T]) -> t.Callable[P, T]:
     )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-        return func(*args, **kwargs)
+        wrapper_kwargs = t.cast("dict[str, t.Any]", kwargs)
+        wrapper_kwargs["profiles_dir"] = _resolve_profiles_dir(
+            project_dir=t.cast(str | None, wrapper_kwargs.get("project_dir")),
+            profiles_dir=t.cast(str | None, wrapper_kwargs.get("profiles_dir")),
+        )
+        return func(*args, **wrapper_kwargs)
 
     return wrapper
+
+
+def _resolve_profiles_dir(
+    project_dir: str | None,
+    profiles_dir: str | None,
+) -> str:
+    if profiles_dir is not None:
+        return profiles_dir
+    return discover_profiles_dir(project_dir)
+
+
+def _create_cli_project_context(
+    project_dir: str | None,
+    profiles_dir: str | None,
+    target: str | None,
+    **kwargs: t.Any,
+) -> DbtProjectContext:
+    settings = DbtConfiguration(
+        project_dir=t.cast(str, project_dir),
+        profiles_dir=t.cast(str, profiles_dir),
+        target=target,
+        **kwargs,
+    )
+    return create_dbt_project_context(settings)
+
+
+def _parsed_cli_vars(vars_value: str | None) -> dict[str, t.Any]:
+    parsed = yaml_handler.safe_load(vars_value) if vars_value else {}
+    if parsed is None:
+        return {}
+    if not isinstance(parsed, dict):
+        raise click.ClickException("--vars must parse to a YAML mapping.")
+    return t.cast("dict[str, t.Any]", parsed)
+
+
+def _create_cli_yaml_context(
+    *,
+    project_dir: str | None,
+    profiles_dir: str | None,
+    target: str | None,
+    profile: str | None = None,
+    threads: int | None = None,
+    vars_value: str | None = None,
+    disable_introspection: bool = False,
+    fqn: tuple[str, ...] = (),
+    models: tuple[str, ...] = (),
+    include_external: bool = False,
+    catalog_path: str | None = None,
+) -> YamlRefactorContext:
+    settings = DbtConfiguration(
+        project_dir=t.cast(str, project_dir),
+        profiles_dir=t.cast(str, profiles_dir),
+        target=target,
+        profile=profile,
+        threads=threads,
+        vars=_parsed_cli_vars(vars_value),
+        disable_introspection=disable_introspection,
+    )
+    return YamlRefactorContext(
+        project=create_dbt_project_context(settings),
+        settings=YamlRefactorSettings(
+            create_catalog_if_not_exists=False,
+            fqn=list(fqn),
+            models=list(models),
+            include_external=include_external,
+            catalog_path=catalog_path,
+        ),
+    )
+
+
+def _write_or_echo(text: str, output_path: str | None, *, label: str = "output") -> None:
+    if output_path:
+        Path(output_path).write_text(text, encoding="utf-8")
+        click.echo(f":white_check_mark: Wrote {label} to: {output_path}")
+        return
+    click.echo(text)
+
+
+def _json_text(data: t.Any) -> str:
+    import json
+
+    return json.dumps(data, indent=2, default=str)
 
 
 def yaml_opts(func: t.Callable[P, T]) -> t.Callable[P, T]:
@@ -480,7 +596,7 @@ def refactor(
         _run_formatter_if_configured(context)
 
         if check and context.mutated:
-            exit(1)
+            sys.exit(1)
 
 
 @yaml.command(context_settings=_CONTEXT)
@@ -538,7 +654,7 @@ def organize(
         _run_formatter_if_configured(context)
 
         if check and context.mutated:
-            exit(1)
+            sys.exit(1)
 
 
 @yaml.command(context_settings=_CONTEXT)
@@ -687,7 +803,7 @@ def document(
         _run_formatter_if_configured(context)
 
         if check and context.mutated:
-            exit(1)
+            sys.exit(1)
 
 
 @cli.group()
@@ -829,6 +945,265 @@ def _echo_planned_writes(paths: t.Iterable[Path | None]) -> None:
         click.echo(f"  - {path}")
 
 
+def _node_columns(node: t.Any) -> list[str]:
+    return list(node.columns.keys()) if hasattr(node, "columns") else []
+
+
+def _available_sources_from_manifest(project: t.Any) -> list[dict[str, t.Any]]:
+    available_sources: list[dict[str, t.Any]] = []
+    for node in project.manifest.nodes.values():
+        if getattr(node, "resource_type", None) == "model":
+            available_sources.append({
+                "name": node.name,
+                "type": "model",
+                "description": getattr(node, "description", ""),
+                "columns": _node_columns(node),
+            })
+
+    for source in project.manifest.sources.values():
+        if getattr(source, "resource_type", None) == "source":
+            available_sources.append({
+                "name": f"{source.source_name}.{source.name}",
+                "type": "source",
+                "description": getattr(source, "description", ""),
+                "columns": _node_columns(source),
+            })
+    return available_sources
+
+
+def _log_available_sources(available_sources: list[dict[str, t.Any]]) -> None:
+    logger.info(f":crystal_ball: Found {len(available_sources)} available sources/models")
+
+
+def _model_sql_content(model_spec: dict[str, t.Any]) -> str:
+    return (
+        f"-- {model_spec['description']}\n"
+        f"-- Materialized: {model_spec['materialized']}\n\n"
+        f"{model_spec['sql']}"
+    )
+
+
+def _generated_model_sql_path(
+    project: t.Any,
+    project_dir: str | None,
+    model_spec: dict[str, t.Any],
+    output_path: str | None,
+) -> Path:
+    project_root = _get_generated_project_root(project, project_dir)
+    if output_path is not None:
+        return _resolve_generated_file_path(output_path, project_root)
+    return _resolve_generated_file_path(
+        project_root / "models" / f"{model_spec['model_name']}.sql",
+        project_root,
+    )
+
+
+def _prepare_model_generation_outputs(
+    project: t.Any,
+    project_dir: str | None,
+    model_spec: dict[str, t.Any],
+    output_path: str | None,
+    schema_yml: str | None,
+    overwrite: bool,
+    dry_run: bool,
+) -> tuple[str, Path, tuple[Path, dict[str, t.Any]]]:
+    sql_content = _model_sql_content(model_spec)
+    output_path_obj = _generated_model_sql_path(project, project_dir, model_spec, output_path)
+    schema_path = schema_yml or output_path_obj.parent / f"{model_spec['model_name']}.yml"
+    schema_write = _prepare_generated_yaml_write(
+        project=project,
+        project_dir=project_dir,
+        yaml_path=schema_path,
+        yaml_data=_model_schema_data(model_spec),
+        overwrite=overwrite,
+        dry_run=dry_run,
+    )
+    return sql_content, output_path_obj, schema_write
+
+
+def _echo_generated_model_header(model_spec: dict[str, t.Any]) -> None:
+    click.echo(f"\n:sparkles: Generated model: {model_spec['model_name']}")
+    click.echo(f"Description: {model_spec['description']}")
+    click.echo(f"Materialized: {model_spec['materialized']}")
+
+
+def _echo_model_dry_run(
+    model_spec: dict[str, t.Any],
+    sql_content: str,
+    output_path: Path,
+    schema_write: tuple[Path, dict[str, t.Any]],
+    overwrite: bool,
+) -> None:
+    click.echo("\n" + "=" * 80)
+    click.echo("SQL:")
+    click.echo("=" * 80)
+    click.echo(sql_content)
+    click.echo("\n" + "=" * 80)
+    click.echo("Columns:")
+    click.echo("=" * 80)
+    for col in model_spec["columns"]:
+        click.echo(f"  - {col['name']}: {col['description']}")
+    _write_prepared_generated_yaml(schema_write, dry_run=True, overwrite=overwrite)
+    _echo_planned_writes([output_path, schema_write[0]])
+
+
+def _write_model_outputs(
+    sql_content: str,
+    output_path: Path,
+    schema_write: tuple[Path, dict[str, t.Any]],
+    overwrite: bool,
+) -> None:
+    _write_prepared_generated_yaml(schema_write, overwrite=overwrite)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(sql_content)
+    click.echo(f"\n:white_check_mark: Wrote SQL to: {output_path}")
+    click.echo(f":white_check_mark: Wrote schema.yml to: {schema_write[0]}")
+
+
+def _run_model_generation(
+    project: t.Any,
+    project_dir: str | None,
+    query: str,
+    model_name: str | None,
+    output_path: str | None,
+    schema_yml: str | None,
+    dry_run: bool,
+    overwrite: bool,
+) -> None:
+    available_sources = _available_sources_from_manifest(project)
+    _log_available_sources(available_sources)
+
+    try:
+        model_spec = generate_dbt_model_from_nl(query, available_sources)
+    except Exception as e:
+        logger.error(f":x: Failed to generate model: {e}")
+        raise
+
+    if model_name:
+        model_spec["model_name"] = model_name
+
+    _echo_generated_model_header(model_spec)
+    sql_content, output_path_obj, schema_write = _prepare_model_generation_outputs(
+        project,
+        project_dir,
+        model_spec,
+        output_path,
+        schema_yml,
+        overwrite,
+        dry_run,
+    )
+
+    if dry_run:
+        _echo_model_dry_run(model_spec, sql_content, output_path_obj, schema_write, overwrite)
+        return
+
+    _write_model_outputs(sql_content, output_path_obj, schema_write, overwrite)
+
+
+def _echo_generated_sql(sql: str) -> None:
+    click.echo("\n" + "=" * 80)
+    click.echo("Generated SQL:")
+    click.echo("=" * 80)
+    click.echo(sql)
+
+
+def _print_table(table: t.Any) -> None:
+    table.print_table(
+        max_rows=50,
+        max_columns=6,
+        output=sys.stdout,
+        max_column_width=20,
+        locale=None,
+        max_precision=3,
+    )
+
+
+def _run_sql_generation(project: t.Any, query: str, execute: bool) -> None:
+    available_sources = _available_sources_from_manifest(project)
+    _log_available_sources(available_sources)
+
+    try:
+        sql = generate_sql_from_nl(query, available_sources)
+    except Exception as e:
+        logger.error(f":x: Failed to generate SQL: {e}")
+        raise
+
+    _echo_generated_sql(sql)
+    if execute:
+        click.echo("\n" + "=" * 80)
+        click.echo("Executing SQL...")
+        click.echo("=" * 80)
+        _, table = execute_sql_code(project, sql)
+        _print_table(table)
+
+
+def _prepare_staging_outputs(
+    project: t.Any,
+    project_dir: str | None,
+    result: t.Any,
+    overwrite: bool,
+    dry_run: bool,
+) -> tuple[tuple[Path, dict[str, t.Any]] | None, Path | None]:
+    yaml_write = None
+    if result.yaml_content and result.yaml_path:
+        yaml_write = _prepare_generated_yaml_write(
+            project=project,
+            project_dir=project_dir,
+            yaml_path=result.yaml_path,
+            yaml_content=result.yaml_content,
+            overwrite=overwrite,
+            dry_run=dry_run,
+        )
+
+    sql_path = None
+    if result.sql_content and result.sql_path:
+        sql_path = _resolve_generated_file_path(
+            result.sql_path,
+            _get_generated_project_root(project, project_dir),
+        )
+    return yaml_write, sql_path
+
+
+def _echo_staging_dry_run(
+    result: t.Any,
+    yaml_write: tuple[Path, dict[str, t.Any]] | None,
+    sql_path: Path | None,
+) -> None:
+    click.echo("\n" + "=" * 80)
+    click.echo("Generated SQL:")
+    click.echo("=" * 80)
+    click.echo(result.sql_content)
+    click.echo("\n" + "=" * 80)
+    click.echo("Generated YAML:")
+    click.echo("=" * 80)
+    click.echo(result.yaml_content)
+    if yaml_write is not None:
+        _write_prepared_generated_yaml(yaml_write, dry_run=True)
+    _echo_planned_writes([sql_path, yaml_write[0] if yaml_write is not None else None])
+
+
+def _write_staging_outputs(
+    result: t.Any,
+    yaml_write: tuple[Path, dict[str, t.Any]] | None,
+    sql_path: Path | None,
+    overwrite: bool,
+) -> None:
+    click.echo(f"\n:sparkles: Generated staging model: {result.staging_name}")
+
+    if result.sql_content and sql_path:
+        sql_path.parent.mkdir(parents=True, exist_ok=True)
+        sql_path.write_text(result.sql_content, encoding="utf-8")
+        click.echo(f":white_check_mark: Wrote SQL to: {sql_path}")
+    elif result.sql_content:
+        raise click.ClickException("Generated SQL content is missing a target path.")
+
+    if result.yaml_content and yaml_write is not None:
+        _write_prepared_generated_yaml(yaml_write, overwrite=overwrite)
+        click.echo(f":white_check_mark: Wrote YAML to: {yaml_write[0]}")
+    elif result.yaml_content:
+        raise click.ClickException("Generated YAML content is missing a target path.")
+
+
 @generate.command(context_settings=_CONTEXT)
 @dbt_opts
 @logging_opts
@@ -880,92 +1255,17 @@ def model(
     and generate a complete dbt model with SQL and documentation.
     """
     logger.info(":water_wave: Executing dbt-osmosis natural language generation\n")
-    settings = DbtConfiguration(
-        project_dir=t.cast(str, project_dir),
-        profiles_dir=t.cast(str, profiles_dir),
-        target=target,
-        **kwargs,
+    project = _create_cli_project_context(project_dir, profiles_dir, target, **kwargs)
+    _run_model_generation(
+        project,
+        project_dir,
+        query,
+        model_name,
+        output_path,
+        schema_yml,
+        dry_run,
+        overwrite,
     )
-    project = create_dbt_project_context(settings)
-
-    available_sources: list[dict[str, t.Any]] = []
-
-    for node_id, node in project.manifest.nodes.items():
-        if hasattr(node, "resource_type") and node.resource_type == "model":
-            columns = list(node.columns.keys()) if hasattr(node, "columns") else []
-            available_sources.append({
-                "name": node.name,
-                "type": "model",
-                "description": getattr(node, "description", ""),
-                "columns": columns,
-            })
-
-    for source_id, source in project.manifest.sources.items():
-        if hasattr(source, "resource_type") and source.resource_type == "source":
-            columns = list(source.columns.keys()) if hasattr(source, "columns") else []
-            available_sources.append({
-                "name": f"{source.source_name}.{source.name}",
-                "type": "source",
-                "description": getattr(source, "description", ""),
-                "columns": columns,
-            })
-
-    logger.info(f":crystal_ball: Found {len(available_sources)} available sources/models")
-
-    try:
-        model_spec = generate_dbt_model_from_nl(query, available_sources)
-    except Exception as e:
-        logger.error(f":x: Failed to generate model: {e}")
-        raise
-
-    if model_name:
-        model_spec["model_name"] = model_name
-
-    click.echo(f"\n:sparkles: Generated model: {model_spec['model_name']}")
-    click.echo(f"Description: {model_spec['description']}")
-    click.echo(f"Materialized: {model_spec['materialized']}")
-
-    sql_content = f"-- {model_spec['description']}\n"
-    sql_content += f"-- Materialized: {model_spec['materialized']}\n\n"
-    sql_content += model_spec["sql"]
-
-    project_root = _get_generated_project_root(project, project_dir)
-    if output_path is None:
-        output_path_obj = _resolve_generated_file_path(
-            project_root / "models" / f"{model_spec['model_name']}.sql",
-            project_root,
-        )
-    else:
-        output_path_obj = _resolve_generated_file_path(output_path, project_root)
-    schema_path = schema_yml or output_path_obj.parent / f"{model_spec['model_name']}.yml"
-    schema_write = _prepare_generated_yaml_write(
-        project=project,
-        project_dir=project_dir,
-        yaml_path=schema_path,
-        yaml_data=_model_schema_data(model_spec),
-        overwrite=overwrite,
-        dry_run=dry_run,
-    )
-
-    if dry_run:
-        click.echo("\n" + "=" * 80)
-        click.echo("SQL:")
-        click.echo("=" * 80)
-        click.echo(sql_content)
-        click.echo("\n" + "=" * 80)
-        click.echo("Columns:")
-        click.echo("=" * 80)
-        for col in model_spec["columns"]:
-            click.echo(f"  - {col['name']}: {col['description']}")
-        _write_prepared_generated_yaml(schema_write, dry_run=True, overwrite=overwrite)
-        _echo_planned_writes([output_path_obj, schema_write[0]])
-        return
-
-    _write_prepared_generated_yaml(schema_write, overwrite=overwrite)
-    output_path_obj.parent.mkdir(parents=True, exist_ok=True)
-    output_path_obj.write_text(sql_content)
-    click.echo(f"\n:white_check_mark: Wrote SQL to: {output_path_obj}")
-    click.echo(f":white_check_mark: Wrote schema.yml to: {schema_write[0]}")
 
 
 @generate.command(context_settings=_CONTEXT)
@@ -1038,13 +1338,7 @@ def sources(
     This command discovers tables in your database and generates dbt source YAML definitions.
     """
     logger.info(":water_wave: Executing dbt-osmosis source generation\n")
-    settings = DbtConfiguration(
-        project_dir=t.cast(str, project_dir),
-        profiles_dir=t.cast(str, profiles_dir),
-        target=target,
-        **kwargs,
-    )
-    project = create_dbt_project_context(settings)
+    project = _create_cli_project_context(project_dir, profiles_dir, target, **kwargs)
 
     result = generate_sources_from_database(
         context=project,
@@ -1133,13 +1427,7 @@ def staging(
     generation via dbt-core-interface.
     """
     logger.info(":water_wave: Executing dbt-osmosis staging generation\n")
-    settings = DbtConfiguration(
-        project_dir=t.cast(str, project_dir),
-        profiles_dir=t.cast(str, profiles_dir),
-        target=target,
-        **kwargs,
-    )
-    project = create_dbt_project_context(settings)
+    project = _create_cli_project_context(project_dir, profiles_dir, target, **kwargs)
 
     try:
         result = generate_staging_from_source(
@@ -1150,55 +1438,19 @@ def staging(
             staging_path=Path(staging_path) if staging_path else None,
         )
 
-        yaml_write = None
-        if result.yaml_content and result.yaml_path:
-            yaml_write = _prepare_generated_yaml_write(
-                project=project,
-                project_dir=project_dir,
-                yaml_path=result.yaml_path,
-                yaml_content=result.yaml_content,
-                overwrite=overwrite,
-                dry_run=dry_run,
-            )
-        resolved_sql_path = (
-            _resolve_generated_file_path(
-                result.sql_path, _get_generated_project_root(project, project_dir)
-            )
-            if result.sql_content and result.sql_path
-            else None
+        yaml_write, resolved_sql_path = _prepare_staging_outputs(
+            project,
+            project_dir,
+            result,
+            overwrite,
+            dry_run,
         )
 
         if dry_run:
-            click.echo("\n" + "=" * 80)
-            click.echo("Generated SQL:")
-            click.echo("=" * 80)
-            click.echo(result.sql_content)
-            click.echo("\n" + "=" * 80)
-            click.echo("Generated YAML:")
-            click.echo("=" * 80)
-            click.echo(result.yaml_content)
-            if yaml_write is not None:
-                _write_prepared_generated_yaml(yaml_write, dry_run=True)
-            _echo_planned_writes([
-                resolved_sql_path,
-                yaml_write[0] if yaml_write is not None else None,
-            ])
+            _echo_staging_dry_run(result, yaml_write, resolved_sql_path)
             return
 
-        click.echo(f"\n:sparkles: Generated staging model: {result.staging_name}")
-
-        if result.sql_content and resolved_sql_path:
-            resolved_sql_path.parent.mkdir(parents=True, exist_ok=True)
-            resolved_sql_path.write_text(result.sql_content, encoding="utf-8")
-            click.echo(f":white_check_mark: Wrote SQL to: {resolved_sql_path}")
-        elif result.sql_content:
-            raise click.ClickException("Generated SQL content is missing a target path.")
-
-        if result.yaml_content and yaml_write is not None:
-            _write_prepared_generated_yaml(yaml_write, overwrite=overwrite)
-            click.echo(f":white_check_mark: Wrote YAML to: {yaml_write[0]}")
-        elif result.yaml_content:
-            raise click.ClickException("Generated YAML content is missing a target path.")
+        _write_staging_outputs(result, yaml_write, resolved_sql_path, overwrite)
 
     except Exception as e:
         logger.error(f":x: Failed to generate staging model: {e}")
@@ -1231,63 +1483,8 @@ def generate_query(
     The AI will translate your natural language query into SQL using dbt's ref() syntax.
     """
     logger.info(":water_wave: Executing dbt-osmosis natural language SQL generation\n")
-    settings = DbtConfiguration(
-        project_dir=t.cast(str, project_dir),
-        profiles_dir=t.cast(str, profiles_dir),
-        target=target,
-        **kwargs,
-    )
-    project = create_dbt_project_context(settings)
-
-    available_sources: list[dict[str, t.Any]] = []
-
-    for node_id, node in project.manifest.nodes.items():
-        if hasattr(node, "resource_type") and node.resource_type == "model":
-            columns = list(node.columns.keys()) if hasattr(node, "columns") else []
-            available_sources.append({
-                "name": node.name,
-                "type": "model",
-                "description": getattr(node, "description", ""),
-                "columns": columns,
-            })
-
-    for source_id, source in project.manifest.sources.items():
-        if hasattr(source, "resource_type") and source.resource_type == "source":
-            columns = list(source.columns.keys()) if hasattr(source, "columns") else []
-            available_sources.append({
-                "name": f"{source.source_name}.{source.name}",
-                "type": "source",
-                "description": getattr(source, "description", ""),
-                "columns": columns,
-            })
-
-    logger.info(f":crystal_ball: Found {len(available_sources)} available sources/models")
-
-    try:
-        sql = generate_sql_from_nl(query, available_sources)
-    except Exception as e:
-        logger.error(f":x: Failed to generate SQL: {e}")
-        raise
-
-    click.echo("\n" + "=" * 80)
-    click.echo("Generated SQL:")
-    click.echo("=" * 80)
-    click.echo(sql)
-
-    if execute:
-        click.echo("\n" + "=" * 80)
-        click.echo("Executing SQL...")
-        click.echo("=" * 80)
-        _, table = execute_sql_code(project, sql)
-
-        getattr(table, "print_table")(
-            max_rows=50,
-            max_columns=6,
-            output=sys.stdout,
-            max_column_width=20,
-            locale=None,
-            max_precision=3,
-        )
+    project = _create_cli_project_context(project_dir, profiles_dir, target, **kwargs)
+    _run_sql_generation(project, query, execute)
 
 
 @nl.command(context_settings=_CONTEXT, name="generate")
@@ -1347,98 +1544,17 @@ def nl_generate_deprecated(
         "Use `dbt-osmosis generate model` instead."
     )
     logger.info(":water_wave: Executing dbt-osmosis natural language generation\n")
-    settings = DbtConfiguration(
-        project_dir=t.cast(str, project_dir),
-        profiles_dir=t.cast(str, profiles_dir),
-        target=target,
-        **kwargs,
+    project = _create_cli_project_context(project_dir, profiles_dir, target, **kwargs)
+    _run_model_generation(
+        project,
+        project_dir,
+        query,
+        model_name,
+        output_path,
+        schema_yml,
+        dry_run,
+        overwrite,
     )
-    project = create_dbt_project_context(settings)
-
-    # Gather available sources and models from the manifest
-    available_sources: list[dict[str, t.Any]] = []
-
-    # Add models from manifest
-    for node_id, node in project.manifest.nodes.items():
-        if hasattr(node, "resource_type") and node.resource_type == "model":
-            columns = list(node.columns.keys()) if hasattr(node, "columns") else []
-            available_sources.append({
-                "name": node.name,
-                "type": "model",
-                "description": getattr(node, "description", ""),
-                "columns": columns,
-            })
-
-    # Add sources from manifest
-    for source_id, source in project.manifest.sources.items():
-        if hasattr(source, "resource_type") and source.resource_type == "source":
-            columns = list(source.columns.keys()) if hasattr(source, "columns") else []
-            available_sources.append({
-                "name": f"{source.source_name}.{source.name}",
-                "type": "source",
-                "description": getattr(source, "description", ""),
-                "columns": columns,
-            })
-
-    logger.info(f":crystal_ball: Found {len(available_sources)} available sources/models")
-
-    # Generate the model specification
-    try:
-        model_spec = generate_dbt_model_from_nl(query, available_sources)
-    except Exception as e:
-        logger.error(f":x: Failed to generate model: {e}")
-        raise
-
-    # Override model name if provided
-    if model_name:
-        model_spec["model_name"] = model_name
-
-    click.echo(f"\n:sparkles: Generated model: {model_spec['model_name']}")
-    click.echo(f"Description: {model_spec['description']}")
-    click.echo(f"Materialized: {model_spec['materialized']}")
-
-    # Generate SQL content
-    sql_content = f"-- {model_spec['description']}\n"
-    sql_content += f"-- Materialized: {model_spec['materialized']}\n\n"
-    sql_content += model_spec["sql"]
-
-    project_root = _get_generated_project_root(project, project_dir)
-    if output_path is None:
-        output_path_obj = _resolve_generated_file_path(
-            project_root / "models" / f"{model_spec['model_name']}.sql",
-            project_root,
-        )
-    else:
-        output_path_obj = _resolve_generated_file_path(output_path, project_root)
-    schema_path = schema_yml or output_path_obj.parent / f"{model_spec['model_name']}.yml"
-    schema_write = _prepare_generated_yaml_write(
-        project=project,
-        project_dir=project_dir,
-        yaml_path=schema_path,
-        yaml_data=_model_schema_data(model_spec),
-        overwrite=overwrite,
-        dry_run=dry_run,
-    )
-
-    if dry_run:
-        click.echo("\n" + "=" * 80)
-        click.echo("SQL:")
-        click.echo("=" * 80)
-        click.echo(sql_content)
-        click.echo("\n" + "=" * 80)
-        click.echo("Columns:")
-        click.echo("=" * 80)
-        for col in model_spec["columns"]:
-            click.echo(f"  - {col['name']}: {col['description']}")
-        _write_prepared_generated_yaml(schema_write, dry_run=True, overwrite=overwrite)
-        _echo_planned_writes([output_path_obj, schema_write[0]])
-        return
-
-    _write_prepared_generated_yaml(schema_write, overwrite=overwrite)
-    output_path_obj.parent.mkdir(parents=True, exist_ok=True)
-    output_path_obj.write_text(sql_content)
-    click.echo(f"\n:white_check_mark: Wrote SQL to: {output_path_obj}")
-    click.echo(f":white_check_mark: Wrote schema.yml to: {schema_write[0]}")
 
 
 @nl.command(context_settings=_CONTEXT)
@@ -1467,72 +1583,15 @@ def query(
     The AI will translate your natural language query into SQL using dbt's ref() syntax.
     """
     logger.info(":water_wave: Executing dbt-osmosis natural language SQL generation\n")
-    settings = DbtConfiguration(
-        project_dir=t.cast(str, project_dir),
-        profiles_dir=t.cast(str, profiles_dir),
-        target=target,
-        **kwargs,
-    )
-    project = create_dbt_project_context(settings)
-
-    # Gather available sources and models from the manifest
-    available_sources: list[dict[str, t.Any]] = []
-
-    for node_id, node in project.manifest.nodes.items():
-        if hasattr(node, "resource_type") and node.resource_type == "model":
-            columns = list(node.columns.keys()) if hasattr(node, "columns") else []
-            available_sources.append({
-                "name": node.name,
-                "type": "model",
-                "description": getattr(node, "description", ""),
-                "columns": columns,
-            })
-
-    for source_id, source in project.manifest.sources.items():
-        if hasattr(source, "resource_type") and source.resource_type == "source":
-            columns = list(source.columns.keys()) if hasattr(source, "columns") else []
-            available_sources.append({
-                "name": f"{source.source_name}.{source.name}",
-                "type": "source",
-                "description": getattr(source, "description", ""),
-                "columns": columns,
-            })
-
-    logger.info(f":crystal_ball: Found {len(available_sources)} available sources/models")
-
-    # Generate SQL
-    try:
-        sql = generate_sql_from_nl(query, available_sources)
-    except Exception as e:
-        logger.error(f":x: Failed to generate SQL: {e}")
-        raise
-
-    click.echo("\n" + "=" * 80)
-    click.echo("Generated SQL:")
-    click.echo("=" * 80)
-    click.echo(sql)
-
-    if execute:
-        click.echo("\n" + "=" * 80)
-        click.echo("Executing SQL...")
-        click.echo("=" * 80)
-        _, table = execute_sql_code(project, sql)
-
-        getattr(table, "print_table")(
-            max_rows=50,
-            max_columns=6,
-            output=sys.stdout,
-            max_column_width=20,
-            locale=None,
-            max_precision=3,
-        )
+    project = _create_cli_project_context(project_dir, profiles_dir, target, **kwargs)
+    _run_sql_generation(project, query, execute)
 
 
 @cli.command(
-    context_settings=dict(
-        ignore_unknown_options=True,
-        allow_extra_args=True,
-    )
+    context_settings={
+        "ignore_unknown_options": True,
+        "allow_extra_args": True,
+    }
 )
 @logging_opts
 @click.option(
@@ -1543,7 +1602,7 @@ def query(
 )
 @click.option(
     "--profiles-dir",
-    default=discover_profiles_dir,
+    default=None,
     type=click.Path(dir_okay=True, file_okay=False),
     help="Which directory to look in for the profiles.yml file. Defaults to DBT_PROFILES_DIR, the current directory, the discovered project root, or ~/.dbt.",
 )
@@ -1580,6 +1639,7 @@ def workbench(
     pass --config to see the output of streamlit config show
     """
     logger.info(":water_wave: Executing dbt-osmosis\n")
+    profiles_dir = _resolve_profiles_dir(project_dir, profiles_dir)
 
     if "--options" in ctx.args:
         proc = _run_streamlit_command(["run", "--help"])
@@ -1629,16 +1689,10 @@ def run(
     **kwargs: t.Any,
 ) -> None:
     """Executes a dbt SQL statement writing results to stdout"""
-    settings = DbtConfiguration(
-        project_dir=t.cast(str, project_dir),
-        profiles_dir=t.cast(str, profiles_dir),
-        target=target,
-        **kwargs,
-    )
-    project = create_dbt_project_context(settings)
+    project = _create_cli_project_context(project_dir, profiles_dir, target, **kwargs)
     _, table = execute_sql_code(project, sql)
 
-    getattr(table, "print_table")(
+    t.cast("t.Any", table).print_table(
         max_rows=50,
         max_columns=6,
         output=sys.stdout,
@@ -1660,13 +1714,7 @@ def compile(
     **kwargs: t.Any,
 ) -> None:
     """Compiles a dbt SQL statement and writes the result to stdout"""
-    settings = DbtConfiguration(
-        project_dir=t.cast(str, project_dir),
-        profiles_dir=t.cast(str, profiles_dir),
-        target=target,
-        **kwargs,
-    )
-    project = create_dbt_project_context(settings)
+    project = _create_cli_project_context(project_dir, profiles_dir, target, **kwargs)
     node = compile_sql_code(project, sql)
 
     print(node.compiled_code)
@@ -1787,82 +1835,14 @@ def schema(
             _output_diff_text(results, severity)
 
 
-def _output_diff_text(results: dict[str, t.Any], severity_filter: str) -> None:
-    """Output diff results in human-readable text format."""
-    if not results:
-        click.echo(":white_check_mark: No schema changes detected")
-        return
-
-    total_changes = sum(len(r.changes) for r in results.values())
-    click.echo(f":warning: Detected {total_changes} schema changes across {len(results)} node(s)\n")
-
-    # Group changes by node
-    for node_id, result in results.items():
-        # Filter by severity if needed
-        changes = result.changes
-        if severity_filter != "all":
-            from dbt_osmosis.core.diff import ChangeSeverity
-
-            severity_map = {
-                "safe": ChangeSeverity.SAFE,
-                "moderate": ChangeSeverity.MODERATE,
-                "breaking": ChangeSeverity.BREAKING,
-            }
-            changes = [c for c in changes if c.severity == severity_map[severity_filter]]
-
-        if not changes:
-            continue
-
-        # Node header
-        node = result.node
-        click.echo(f":page_facing_up: {node.name} ({node.resource_type})")
-        click.echo(f"   Unique ID: {node.unique_id}")
-        click.echo(f"   Path: {node.original_file_path}")
-
-        # Summary
-        summary = result.summary
-        if summary:
-            click.echo(f"   Summary: {', '.join(f'{k}: {v}' for k, v in summary.items())}")
-
-        # Changes list
-        for change in changes:
-            click.echo(f"\n   {change}")
-
-        # Add extra info for renames
-        from dbt_osmosis.core.diff import ColumnRenamed
-
-        for change in changes:
-            if isinstance(change, ColumnRenamed):
-                click.echo(f"      Similarity: {change.similarity_score:.1f}%")
-
-        click.echo("\n" + "-" * 80 + "\n")
-
-    # Overall summary
-    breaking_count = sum(
-        1 for r in results.values() for c in r.changes if c.severity.value == "breaking"
-    )
-    moderate_count = sum(
-        1 for r in results.values() for c in r.changes if c.severity.value == "moderate"
-    )
-    safe_count = sum(1 for r in results.values() for c in r.changes if c.severity.value == "safe")
-
-    click.echo("Overall Summary:")
-    click.echo(f"  Breaking changes: {breaking_count}")
-    click.echo(f"  Moderate changes: {moderate_count}")
-    click.echo(f"  Safe changes: {safe_count}")
-
-    if breaking_count > 0:
-        click.echo("\n:rotating_light: Breaking changes detected. Review required before applying.")
-
-
 def _output_diff_json(results: dict[str, t.Any], severity_filter: str) -> None:
     """Output diff results in JSON format."""
     import json
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     nodes: list[dict[str, object]] = []
     output: dict[str, object] = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "total_nodes": len(results),
         "total_changes": sum(len(r.changes) for r in results.values()),
         "nodes": nodes,
@@ -1904,6 +1884,137 @@ def _output_diff_json(results: dict[str, t.Any], severity_filter: str) -> None:
     click.echo(json.dumps(output, indent=2))
 
 
+def _diff_changes_for_severity(result: t.Any, severity_filter: str) -> list[t.Any]:
+    changes = result.changes
+    if severity_filter == "all":
+        return list(changes)
+
+    from dbt_osmosis.core.diff import ChangeSeverity
+
+    severity_map = {
+        "safe": ChangeSeverity.SAFE,
+        "moderate": ChangeSeverity.MODERATE,
+        "breaking": ChangeSeverity.BREAKING,
+    }
+    return [change for change in changes if change.severity == severity_map[severity_filter]]
+
+
+def _diff_change_counts(results: dict[str, t.Any]) -> tuple[int, int, int]:
+    breaking_count = sum(
+        1
+        for result in results.values()
+        for change in result.changes
+        if change.severity.value == "breaking"
+    )
+    moderate_count = sum(
+        1
+        for result in results.values()
+        for change in result.changes
+        if change.severity.value == "moderate"
+    )
+    safe_count = sum(
+        1
+        for result in results.values()
+        for change in result.changes
+        if change.severity.value == "safe"
+    )
+    return breaking_count, moderate_count, safe_count
+
+
+def _echo_diff_text_result(result: t.Any, changes: list[t.Any]) -> None:
+    from dbt_osmosis.core.diff import ColumnRenamed
+
+    node = result.node
+    click.echo(f":page_facing_up: {node.name} ({node.resource_type})")
+    click.echo(f"   Unique ID: {node.unique_id}")
+    click.echo(f"   Path: {node.original_file_path}")
+
+    if result.summary:
+        click.echo(f"   Summary: {', '.join(f'{k}: {v}' for k, v in result.summary.items())}")
+
+    for change in changes:
+        click.echo(f"\n   {change}")
+
+    for change in changes:
+        if isinstance(change, ColumnRenamed):
+            click.echo(f"      Similarity: {change.similarity_score:.1f}%")
+
+    click.echo("\n" + "-" * 80 + "\n")
+
+
+def _echo_diff_text_summary(results: dict[str, t.Any]) -> None:
+    breaking_count, moderate_count, safe_count = _diff_change_counts(results)
+    click.echo("Overall Summary:")
+    click.echo(f"  Breaking changes: {breaking_count}")
+    click.echo(f"  Moderate changes: {moderate_count}")
+    click.echo(f"  Safe changes: {safe_count}")
+
+    if breaking_count > 0:
+        click.echo("\n:rotating_light: Breaking changes detected. Review required before applying.")
+
+
+def _severity_emoji(severity_value: str) -> str:
+    return {
+        "safe": ":white_check_mark:",
+        "moderate": ":warning:",
+        "breaking": ":rotating_light:",
+    }.get(severity_value, "")
+
+
+def _echo_diff_markdown_change(change: t.Any) -> None:
+    from dbt_osmosis.core.diff import ColumnRenamed
+
+    click.echo(
+        f"#### {_severity_emoji(change.severity.value)} "
+        f"{change.category.value.replace('_', ' ').title()}\n\n"
+    )
+    click.echo(f"{change.description}\n\n")
+    if isinstance(change, ColumnRenamed):
+        click.echo(f"- **Similarity**: {change.similarity_score:.1f}%\n\n")
+
+
+def _echo_diff_markdown_result(result: t.Any, changes: list[t.Any]) -> None:
+    node = result.node
+    click.echo(f"## {node.name}\n\n")
+    click.echo(f"- **Unique ID**: `{node.unique_id}`\n")
+    click.echo(f"- **Type**: {node.resource_type}\n")
+    click.echo(f"- **Path**: `{node.original_file_path}`\n")
+
+    if result.summary:
+        summary_items = ", ".join(f"{k}: {v}" for k, v in result.summary.items())
+        click.echo(f"- **Summary**: {summary_items}\n")
+
+    click.echo("### Changes\n\n")
+    for change in changes:
+        _echo_diff_markdown_change(change)
+    click.echo("---\n\n")
+
+
+def _iter_diff_results_with_changes(
+    results: dict[str, t.Any],
+    severity_filter: str,
+) -> t.Iterator[tuple[t.Any, list[t.Any]]]:
+    for result in results.values():
+        changes = _diff_changes_for_severity(result, severity_filter)
+        if changes:
+            yield result, changes
+
+
+def _output_diff_text(results: dict[str, t.Any], severity_filter: str) -> None:
+    """Output diff results in human-readable text format."""
+    if not results:
+        click.echo(":white_check_mark: No schema changes detected")
+        return
+
+    total_changes = sum(len(r.changes) for r in results.values())
+    click.echo(f":warning: Detected {total_changes} schema changes across {len(results)} node(s)\n")
+
+    for result, changes in _iter_diff_results_with_changes(results, severity_filter):
+        _echo_diff_text_result(result, changes)
+
+    _echo_diff_text_summary(results)
+
+
 def _output_diff_markdown(results: dict[str, t.Any], severity_filter: str) -> None:
     """Output diff results in Markdown format."""
     if not results:
@@ -1915,55 +2026,289 @@ def _output_diff_markdown(results: dict[str, t.Any], severity_filter: str) -> No
         f"# Schema Diff Results\n\n**Detected {total_changes} changes across {len(results)} node(s)**\n"
     )
 
+    for result, changes in _iter_diff_results_with_changes(results, severity_filter):
+        _echo_diff_markdown_result(result, changes)
+
+
+@cli.group()
+def migration():
+    """Plan database migrations from schema diffs"""
+
+
+def _filtered_diff_results(
+    results: dict[str, t.Any],
+    severity_filter: str,
+) -> dict[str, t.Any]:
+    if severity_filter == "all":
+        return results
+    filtered_results = {}
     for node_id, result in results.items():
-        # Filter by severity if needed
-        changes = result.changes
-        if severity_filter != "all":
-            from dbt_osmosis.core.diff import ChangeSeverity
+        changes = _diff_changes_for_severity(result, severity_filter)
+        if changes:
+            filtered_results[node_id] = dataclasses.replace(result, changes=changes)
+    return filtered_results
 
-            severity_map = {
-                "safe": ChangeSeverity.SAFE,
-                "moderate": ChangeSeverity.MODERATE,
-                "breaking": ChangeSeverity.BREAKING,
-            }
-            changes = [c for c in changes if c.severity == severity_map[severity_filter]]
 
-        if not changes:
+def _migration_plan_summary(plan: MigrationPlan) -> dict[str, t.Any]:
+    return {
+        "node_id": plan.node_id,
+        "node_name": plan.node_name,
+        "total_steps": len(plan.steps),
+        "safe_steps": len(plan.safe_steps),
+        "breaking_steps": len(plan.breaking_steps),
+    }
+
+
+def _migration_plans_with_steps(plans: dict[str, MigrationPlan]) -> dict[str, MigrationPlan]:
+    return {node_id: plan for node_id, plan in plans.items() if plan.steps}
+
+
+def _render_migration_plans(
+    plans: dict[str, MigrationPlan],
+    output_format: str,
+    *,
+    include_rollback: bool,
+) -> str:
+    planned = _migration_plans_with_steps(plans)
+    if output_format == "json":
+        return _json_text({
+            "total_nodes": len(planned),
+            "plans": {node_id: plan.to_dict() for node_id, plan in planned.items()},
+        })
+
+    if not planned:
+        return ":white_check_mark: No migration steps generated"
+
+    if output_format == "markdown":
+        summary = "\n".join(
+            f"- `{plan.node_name}`: {len(plan.steps)} step(s), {len(plan.breaking_steps)} breaking"
+            for plan in planned.values()
+        )
+        plan_sections = "\n\n".join(plan.to_markdown() for plan in planned.values())
+        return f"# Migration Plans\n\n## Summary\n\n{summary}\n\n{plan_sections}"
+
+    header = "\n".join([
+        "-- dbt-osmosis migration plans",
+        *[
+            f"-- {item['node_name']}: {item['total_steps']} step(s), "
+            f"{item['breaking_steps']} breaking"
+            for item in (_migration_plan_summary(plan) for plan in planned.values())
+        ],
+        "",
+    ])
+    return header + "\n\n".join(
+        plan.to_sql(include_rollback=include_rollback) for plan in planned.values()
+    )
+
+
+@migration.command(context_settings=_CONTEXT, name="plan")
+@dbt_opts
+@logging_opts
+@click.argument("models", nargs=-1)
+@click.option(
+    "-f",
+    "--fqn",
+    multiple=True,
+    type=click.STRING,
+    help="Filter models by dbt fully qualified name.",
+)
+@click.option(
+    "--profile",
+    type=click.STRING,
+    help="Which profile to load. Overrides setting in dbt_project.yml.",
+)
+@click.option(
+    "--vars",
+    type=click.STRING,
+    help="Supply project variables as a YAML mapping.",
+)
+@click.option(
+    "--catalog-path",
+    type=click.Path(exists=True),
+    help="Read database columns from a catalog.json file instead of querying the warehouse.",
+)
+@click.option(
+    "--disable-introspection",
+    is_flag=True,
+    help="Load the project without live database introspection.",
+)
+@click.option(
+    "--include-external",
+    is_flag=True,
+    help="Include models and sources from external dbt packages.",
+)
+@click.option(
+    "--output-format",
+    type=click.Choice(["sql", "json", "markdown"], case_sensitive=False),
+    default="sql",
+    help="Output format for generated migration plans.",
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(),
+    help="Write the migration plan to a file instead of stdout.",
+)
+@click.option(
+    "--severity",
+    type=click.Choice(["safe", "moderate", "breaking", "all"], case_sensitive=False),
+    default="all",
+    help="Plan only schema changes at this severity.",
+)
+@click.option(
+    "--fuzzy-match-threshold",
+    type=click.FLOAT,
+    default=85.0,
+    help="Threshold for detecting column renames (0-100).",
+)
+@click.option(
+    "--detect-column-renames/--no-detect-column-renames",
+    default=True,
+    help="Enable or disable fuzzy matching for column rename detection.",
+)
+@click.option(
+    "--include-rollback/--no-rollback",
+    default=True,
+    help="Include rollback SQL comments in SQL output.",
+)
+def migration_plan_command(
+    target: str | None = None,
+    profile: str | None = None,
+    project_dir: str | None = None,
+    profiles_dir: str | None = None,
+    vars: str | None = None,
+    threads: int | None = None,
+    disable_introspection: bool = False,
+    fqn: tuple[str, ...] = (),
+    catalog_path: str | None = None,
+    include_external: bool = False,
+    output_format: str = "sql",
+    output: str | None = None,
+    severity: str = "all",
+    fuzzy_match_threshold: float = 85.0,
+    detect_column_renames: bool = True,
+    include_rollback: bool = True,
+    models: tuple[str, ...] = (),
+) -> None:
+    """Generate migration SQL, JSON, or Markdown from schema diff results."""
+    logger.info(":water_wave: Executing dbt-osmosis migration planning\n")
+    with _create_cli_yaml_context(
+        project_dir=project_dir,
+        profiles_dir=profiles_dir,
+        target=target,
+        profile=profile,
+        threads=threads,
+        vars_value=vars,
+        disable_introspection=disable_introspection,
+        fqn=fqn,
+        models=models,
+        include_external=include_external,
+        catalog_path=catalog_path,
+    ) as context:
+        differ = SchemaDiff(
+            t.cast(t.Any, context),
+            fuzzy_match_threshold=fuzzy_match_threshold,
+            detect_column_renames=detect_column_renames,
+        )
+        results = _filtered_diff_results(differ.compare_all(), severity)
+        plans = MigrationPlanner(t.cast(t.Any, context)).plan_for_results(results)
+
+    rendered = _render_migration_plans(plans, output_format, include_rollback=include_rollback)
+    _write_or_echo(rendered, output, label="migration plan")
+
+
+def _suggestion_ai_enabled(use_ai: bool, pattern_only: bool) -> bool:
+    return use_ai and not pattern_only
+
+
+def _echo_suggestion_mode(use_ai_for_suggestions: bool) -> None:
+    if use_ai_for_suggestions:
+        click.echo(
+            "AI test suggestions are enabled by default; if AI configuration fails, "
+            "dbt-osmosis falls back to pattern-based suggestions.",
+            err=True,
+        )
+    else:
+        click.echo("Pattern-only test suggestions enabled; AI will not be used.", err=True)
+
+
+def _selected_test_nodes(
+    project: t.Any, fqn: tuple[str, ...], models: tuple[str, ...]
+) -> list[t.Any]:
+    from dbt.artifacts.resources.types import NodeType
+
+    selected_nodes = []
+    for node in project.manifest.nodes.values():
+        if getattr(node, "resource_type", None) != NodeType.Model:
             continue
+        node_fqn = ".".join(getattr(node, "fqn", []))
+        node_name = getattr(node, "name", "")
+        if any(selector in node_fqn for selector in fqn) or any(
+            model == node_name for model in models
+        ):
+            selected_nodes.append(node)
+    return selected_nodes
 
-        node = result.node
-        click.echo(f"## {node.name}\n\n")
-        click.echo(f"- **Unique ID**: `{node.unique_id}`\n")
-        click.echo(f"- **Type**: {node.resource_type}\n")
-        click.echo(f"- **Path**: `{node.original_file_path}`\n")
 
-        # Summary
-        if result.summary:
-            summary_items = ", ".join(f"{k}: {v}" for k, v in result.summary.items())
-            click.echo(f"- **Summary**: {summary_items}\n")
-
-        click.echo("### Changes\n\n")
-
-        # Changes list
-        for change in changes:
-            severity_emoji = {
-                "safe": ":white_check_mark:",
-                "moderate": ":warning:",
-                "breaking": ":rotating_light:",
-            }.get(change.severity.value, "")
-
-            click.echo(
-                f"#### {severity_emoji} {change.category.value.replace('_', ' ').title()}\n\n"
+def _suggest_tests_for_nodes(
+    project: t.Any,
+    selected_nodes: list[t.Any],
+    use_ai_for_suggestions: bool,
+    temperature: float,
+) -> dict[str, t.Any]:
+    results: dict[str, t.Any] = {}
+    for node in selected_nodes:
+        model_name = getattr(node, "name", "unknown")
+        try:
+            analysis = suggest_tests_for_model(
+                context=YamlRefactorContext(project=project, settings=YamlRefactorSettings()),
+                node=node,
+                use_ai=use_ai_for_suggestions,
+                temperature=temperature,
             )
-            click.echo(f"{change.description}\n\n")
+            results[model_name] = analysis
+        except Exception as e:  # noqa: BLE001
+            logger.error(f":x: Failed to suggest tests for {model_name}: {e}")
+    return results
 
-            # Add extra info for renames
-            from dbt_osmosis.core.diff import ColumnRenamed
 
-            if isinstance(change, ColumnRenamed):
-                click.echo(f"- **Similarity**: {change.similarity_score:.1f}%\n\n")
+def _suggestion_results(
+    project: t.Any,
+    fqn: tuple[str, ...],
+    models: tuple[str, ...],
+    use_ai_for_suggestions: bool,
+    temperature: float,
+) -> dict[str, t.Any] | None:
+    if fqn or models:
+        selected_nodes = _selected_test_nodes(project, fqn, models)
+        if not selected_nodes:
+            click.echo("No models found matching the specified criteria.")
+            return None
+        return _suggest_tests_for_nodes(
+            project, selected_nodes, use_ai_for_suggestions, temperature
+        )
 
-        click.echo("---\n\n")
+    try:
+        context = YamlRefactorContext(project=project, settings=YamlRefactorSettings())
+        return suggest_tests_for_project(
+            context=context,
+            use_ai=use_ai_for_suggestions,
+            temperature=temperature,
+        )
+    except Exception as e:
+        logger.error(f":x: Failed to suggest tests: {e}")
+        raise
+
+
+def _output_suggestion_results(
+    results: dict[str, t.Any], format_name: str, output: str | None
+) -> None:
+    if format_name == "json":
+        _output_as_json(results, output)
+    elif format_name == "yaml":
+        _output_as_yaml(results, output)
+    else:
+        _output_as_table(results, output)
 
 
 @test.command(context_settings=_CONTEXT)
@@ -2051,80 +2396,11 @@ def suggest(
 
     project = create_dbt_project_context(settings)
 
-    # Determine if we should use AI
-    use_ai_for_suggestions = use_ai and not pattern_only
-    if use_ai_for_suggestions:
-        click.echo(
-            "AI test suggestions are enabled by default; if AI configuration fails, "
-            "dbt-osmosis falls back to pattern-based suggestions.",
-            err=True,
-        )
-    else:
-        click.echo(
-            "Pattern-only test suggestions enabled; AI will not be used.",
-            err=True,
-        )
-
-    # Check if specific models are requested via FQN or models args
-    if fqn or models:
-        # Suggest tests for specific models
-        from dbt.artifacts.resources.types import NodeType
-
-        selected_nodes = []
-        for node in project.manifest.nodes.values():
-            if getattr(node, "resource_type", None) != NodeType.Model:
-                continue
-
-            node_fqn = ".".join(getattr(node, "fqn", []))
-            node_name = getattr(node, "name", "")
-
-            # Check if node matches any FQN or model name
-            if any(f in node_fqn for f in fqn) or any(m == node_name for m in models):
-                selected_nodes.append(node)
-
-        if not selected_nodes:
-            click.echo("No models found matching the specified criteria.")
-            return
-
-        results: dict[str, t.Any] = {}
-        for node in selected_nodes:
-            model_name = getattr(node, "name", "unknown")
-            try:
-                analysis = suggest_tests_for_model(
-                    context=YamlRefactorContext(
-                        project=project,
-                        settings=YamlRefactorSettings(),
-                    ),
-                    node=node,
-                    use_ai=use_ai_for_suggestions,
-                    temperature=temperature,
-                )
-                results[model_name] = analysis
-            except Exception as e:
-                logger.error(f":x: Failed to suggest tests for {model_name}: {e}")
-    else:
-        # Suggest tests for all models
-        try:
-            context = YamlRefactorContext(
-                project=project,
-                settings=YamlRefactorSettings(),
-            )
-            results = suggest_tests_for_project(
-                context=context,
-                use_ai=use_ai_for_suggestions,
-                temperature=temperature,
-            )
-        except Exception as e:
-            logger.error(f":x: Failed to suggest tests: {e}")
-            raise
-
-    # Format and output results
-    if format == "json":
-        _output_as_json(results, output)
-    elif format == "yaml":
-        _output_as_yaml(results, output)
-    else:
-        _output_as_table(results, output)
+    use_ai_for_suggestions = _suggestion_ai_enabled(use_ai, pattern_only)
+    _echo_suggestion_mode(use_ai_for_suggestions)
+    results = _suggestion_results(project, fqn, models, use_ai_for_suggestions, temperature)
+    if results is not None:
+        _output_suggestion_results(results, format, output)
 
 
 def _output_as_json(results: dict[str, t.Any], output_path: str | None = None) -> None:
@@ -2191,29 +2467,40 @@ def _output_as_yaml(results: dict[str, t.Any], output_path: str | None = None) -
         click.echo(yaml_str)
 
 
+def _suggestion_table_lines(col_name: str, suggestions: t.Iterable[t.Any]) -> list[str]:
+    lines = [f"    - {col_name}:"]
+    for suggestion in suggestions:
+        conf_pct = int(suggestion.confidence * 100)
+        lines.append(f"      • {suggestion.test_type} (confidence: {conf_pct}%)")
+        if suggestion.reason:
+            lines.append(f"        Reason: {suggestion.reason}")
+        if suggestion.config:
+            lines.append(f"        Config: {suggestion.config}")
+    return lines
+
+
+def _analysis_table_lines(model_name: str, analysis: t.Any) -> list[str]:
+    summary = analysis.get_test_summary()
+    lines = [
+        f"\n:file_folder: Model: {model_name}",
+        f"  Columns: {summary['total_columns']}",
+        f"  Columns with tests: {summary['columns_with_tests']}",
+        f"  Existing tests: {summary['total_existing_tests']}",
+        f"  Suggested tests: {summary['total_suggested_tests']}",
+    ]
+    if analysis.suggested_tests:
+        lines.append("\n  :bulb: Suggested tests:")
+        for col_name, suggestions in analysis.suggested_tests.items():
+            lines.extend(_suggestion_table_lines(col_name, suggestions))
+    return lines
+
+
 def _output_as_table(results: dict[str, t.Any], output_path: str | None = None) -> None:
     """Output results as a formatted table."""
     lines = []
 
     for model_name, analysis in results.items():
-        summary = analysis.get_test_summary()
-        lines.append(f"\n:file_folder: Model: {model_name}")
-        lines.append(f"  Columns: {summary['total_columns']}")
-        lines.append(f"  Columns with tests: {summary['columns_with_tests']}")
-        lines.append(f"  Existing tests: {summary['total_existing_tests']}")
-        lines.append(f"  Suggested tests: {summary['total_suggested_tests']}")
-
-        if analysis.suggested_tests:
-            lines.append("\n  :bulb: Suggested tests:")
-            for col_name, suggestions in analysis.suggested_tests.items():
-                lines.append(f"    - {col_name}:")
-                for suggestion in suggestions:
-                    conf_pct = int(suggestion.confidence * 100)
-                    lines.append(f"      • {suggestion.test_type} (confidence: {conf_pct}%)")
-                    if suggestion.reason:
-                        lines.append(f"        Reason: {suggestion.reason}")
-                    if suggestion.config:
-                        lines.append(f"        Config: {suggestion.config}")
+        lines.extend(_analysis_table_lines(model_name, analysis))
 
     output_text = "\n".join(lines)
 
@@ -2222,6 +2509,596 @@ def _output_as_table(results: dict[str, t.Any], output_path: str | None = None) 
         click.echo(f":white_check_mark: Wrote suggestions to: {output_path}")
     else:
         click.echo(output_text)
+
+
+@cli.group()
+def validate():
+    """Validate dbt models without materializing them"""
+
+
+def _selected_model_nodes(context: YamlRefactorContext) -> list[tuple[str, t.Any]]:
+    from dbt.artifacts.resources.types import NodeType
+
+    from dbt_osmosis.core.node_filters import _iter_candidate_nodes
+
+    return [
+        (uid, node)
+        for uid, node in _iter_candidate_nodes(context)
+        if getattr(node, "resource_type", None) == NodeType.Model
+    ]
+
+
+def _validation_result_dict(result: t.Any) -> dict[str, t.Any]:
+    return {
+        "model_name": result.model_name,
+        "unique_id": result.unique_id,
+        "status": result.status.value
+        if isinstance(result.status, ModelValidationStatus)
+        else str(result.status),
+        "error_message": result.error_message,
+        "execution_time_seconds": result.execution_time_seconds,
+        "row_count": result.row_count,
+        "bytes_processed": result.bytes_processed,
+    }
+
+
+def _validation_report_dict(report: ValidationReport) -> dict[str, t.Any]:
+    return {
+        "summary": {
+            "total_models": report.total_models,
+            "successful": report.successful,
+            "failed": report.failed,
+            "success_rate": report.get_success_rate(),
+            "total_execution_time": report.total_execution_time,
+        },
+        "results": [_validation_result_dict(result) for result in report.results],
+    }
+
+
+def _validation_report_text(report: ValidationReport) -> str:
+    lines = [
+        "Model validation summary",
+        f"  Total models: {report.total_models}",
+        f"  Successful: {report.successful}",
+        f"  Failed: {report.failed}",
+        f"  Success rate: {report.get_success_rate():.1f}%",
+        f"  Total execution time: {report.total_execution_time:.2f}s",
+    ]
+    for result in report.results:
+        status = (
+            result.status.value
+            if isinstance(result.status, ModelValidationStatus)
+            else str(result.status)
+        )
+        detail = f" ({result.error_message})" if result.error_message else ""
+        lines.append(
+            f"  - {result.model_name}: {status}, "
+            f"{result.execution_time_seconds:.2f}s, rows={result.row_count or 0}{detail}"
+        )
+    return "\n".join(lines)
+
+
+@validate.command(context_settings=_CONTEXT, name="models")
+@dbt_opts
+@logging_opts
+@click.argument("models", nargs=-1)
+@click.option(
+    "-f",
+    "--fqn",
+    multiple=True,
+    type=click.STRING,
+    help="Filter models by dbt fully qualified name.",
+)
+@click.option(
+    "--profile",
+    type=click.STRING,
+    help="Which profile to load. Overrides setting in dbt_project.yml.",
+)
+@click.option(
+    "--vars",
+    type=click.STRING,
+    help="Supply project variables as a YAML mapping.",
+)
+@click.option(
+    "--timeout",
+    type=click.FLOAT,
+    default=None,
+    help="Best-effort local timeout in seconds for each model query.",
+)
+@click.option(
+    "--include-external",
+    is_flag=True,
+    help="Include models from external dbt packages.",
+)
+@click.option(
+    "--quiet",
+    is_flag=True,
+    help="Suppress per-model validation progress logs.",
+)
+@click.option(
+    "--format",
+    "format_name",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Output format. Default is table.",
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(),
+    help="Write validation results to a file instead of stdout.",
+)
+def validate_models_command(
+    target: str | None = None,
+    profile: str | None = None,
+    project_dir: str | None = None,
+    profiles_dir: str | None = None,
+    vars: str | None = None,
+    threads: int | None = None,
+    fqn: tuple[str, ...] = (),
+    timeout: float | None = None,
+    include_external: bool = False,
+    quiet: bool = False,
+    format_name: str = "table",
+    output: str | None = None,
+    models: tuple[str, ...] = (),
+) -> None:
+    """Compile and execute selected models as validation queries."""
+    logger.info(":water_wave: Executing dbt-osmosis model validation\n")
+    with _create_cli_yaml_context(
+        project_dir=project_dir,
+        profiles_dir=profiles_dir,
+        target=target,
+        profile=profile,
+        threads=threads,
+        vars_value=vars,
+        fqn=fqn,
+        models=models,
+        include_external=include_external,
+    ) as context:
+        selected_models = _selected_model_nodes(context)
+        report = validate_models(
+            context.project,
+            selected_models,
+            timeout_seconds=timeout,
+            quiet=quiet,
+        )
+
+    rendered = (
+        _json_text(_validation_report_dict(report))
+        if format_name == "json"
+        else _validation_report_text(report)
+    )
+    _write_or_echo(rendered, output, label="validation results")
+    if report.failed:
+        sys.exit(1)
+
+
+@cli.group()
+def analyze():
+    """Analyze documentation coverage, gaps, and style"""
+
+
+def _documentation_column_coverage(result: DocumentationCheckResult) -> float:
+    if result.total_columns == 0:
+        return 100.0
+    return (result.documented_columns / result.total_columns) * 100
+
+
+def _gap_to_dict(gap: t.Any) -> dict[str, t.Any]:
+    if dataclasses.is_dataclass(gap) and not isinstance(gap, type):
+        return {field.name: getattr(gap, field.name) for field in dataclasses.fields(gap)}
+    if isinstance(gap, dict):
+        return gap
+    return {
+        name: getattr(gap, name)
+        for name in (
+            "model_name",
+            "column_name",
+            "resource_name",
+            "gap_type",
+            "description",
+            "message",
+            "priority",
+            "severity",
+        )
+        if hasattr(gap, name)
+    }
+
+
+def _documentation_check_dict(result: DocumentationCheckResult) -> dict[str, t.Any]:
+    return {
+        "total_models": result.total_models,
+        "models_with_descriptions": result.models_with_descriptions,
+        "models_without_descriptions": result.models_without_descriptions,
+        "total_columns": result.total_columns,
+        "documented_columns": result.documented_columns,
+        "undocumented_columns": result.undocumented_columns,
+        "column_coverage_percent": _documentation_column_coverage(result),
+        "gaps": [_gap_to_dict(gap) for gap in result.gaps],
+    }
+
+
+def _documentation_check_text(result: DocumentationCheckResult) -> str:
+    lines = [
+        "Documentation check summary",
+        f"  Models described: {result.models_with_descriptions}/{result.total_models}",
+        f"  Columns documented: {result.documented_columns}/{result.total_columns} "
+        f"({_documentation_column_coverage(result):.1f}%)",
+        f"  Gaps: {len(result.gaps)}",
+    ]
+    for gap in result.gaps[:20]:
+        gap_data = _gap_to_dict(gap)
+        description = gap_data.get("description") or gap_data.get("message") or str(gap)
+        lines.append(f"  - {description}")
+    return "\n".join(lines)
+
+
+@analyze.command(context_settings=_CONTEXT, name="docs")
+@dbt_opts
+@logging_opts
+@click.option(
+    "--profile",
+    type=click.STRING,
+    help="Which profile to load. Overrides setting in dbt_project.yml.",
+)
+@click.option(
+    "--vars",
+    type=click.STRING,
+    help="Supply project variables as a YAML mapping.",
+)
+@click.option(
+    "--model-filter",
+    type=click.STRING,
+    default=None,
+    help="Optional model name filter for documentation checking.",
+)
+@click.option(
+    "--min-model-length",
+    type=click.INT,
+    default=10,
+    help="Minimum model description length.",
+)
+@click.option(
+    "--min-column-length",
+    type=click.INT,
+    default=5,
+    help="Minimum column description length.",
+)
+@click.option(
+    "--min-column-coverage",
+    type=click.FLOAT,
+    default=100.0,
+    help="Minimum documented-column percentage required for exit zero.",
+)
+@click.option(
+    "--fail-on-gaps/--allow-gaps",
+    default=True,
+    help="Exit non-zero when documentation gaps are reported.",
+)
+@click.option(
+    "--format",
+    "format_name",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Output format. Default is table.",
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(),
+    help="Write documentation check results to a file instead of stdout.",
+)
+def analyze_docs_command(
+    target: str | None = None,
+    profile: str | None = None,
+    project_dir: str | None = None,
+    profiles_dir: str | None = None,
+    vars: str | None = None,
+    threads: int | None = None,
+    model_filter: str | None = None,
+    min_model_length: int = 10,
+    min_column_length: int = 5,
+    min_column_coverage: float = 100.0,
+    fail_on_gaps: bool = True,
+    format_name: str = "table",
+    output: str | None = None,
+) -> None:
+    """Check project documentation completeness."""
+    logger.info(":water_wave: Executing dbt-osmosis documentation check\n")
+    project = _create_cli_project_context(
+        project_dir,
+        profiles_dir,
+        target,
+        profile=profile,
+        threads=threads,
+        vars=_parsed_cli_vars(vars),
+    )
+    result = check_documentation(
+        project,
+        model_filter=model_filter,
+        min_model_length=min_model_length,
+        min_column_length=min_column_length,
+    )
+    rendered = (
+        _json_text(_documentation_check_dict(result))
+        if format_name == "json"
+        else _documentation_check_text(result)
+    )
+    _write_or_echo(rendered, output, label="documentation check results")
+    if _documentation_column_coverage(result) < min_column_coverage or (
+        fail_on_gaps and result.gaps
+    ):
+        sys.exit(1)
+
+
+def _style_profile_text(profile: ProjectStyleProfile) -> str:
+    lines = ["Documentation style profile"]
+    if profile.description_length_stats:
+        avg = profile.description_length_stats.get("avg_length", 0)
+        lines.append(f"  Average description length: {avg:.1f} words")
+    if profile.common_phrases:
+        phrases = ", ".join(phrase for phrase, _ in profile.common_phrases[:5])
+        lines.append(f"  Common phrases: {phrases}")
+    if profile.terminology_preferences:
+        terms = ", ".join(
+            f"{preferred} over {alternative}"
+            for preferred, alternative in list(profile.terminology_preferences.items())[:5]
+        )
+        lines.append(f"  Terminology: {terms}")
+    if profile.tone_markers:
+        tones = ", ".join(f"{name}: {count}" for name, count in profile.tone_markers.items())
+        lines.append(f"  Tone markers: {tones}")
+    lines.append(f"  Model examples: {len(profile.model_description_samples)}")
+    lines.append(f"  Column examples: {len(profile.column_description_samples)}")
+    return "\n".join(lines)
+
+
+@analyze.command(context_settings=_CONTEXT, name="style")
+@dbt_opts
+@logging_opts
+@click.argument("models", nargs=-1)
+@click.option(
+    "-f",
+    "--fqn",
+    multiple=True,
+    type=click.STRING,
+    help="Filter models by dbt fully qualified name.",
+)
+@click.option(
+    "--profile",
+    type=click.STRING,
+    help="Which profile to load. Overrides setting in dbt_project.yml.",
+)
+@click.option(
+    "--vars",
+    type=click.STRING,
+    help="Supply project variables as a YAML mapping.",
+)
+@click.option(
+    "--include-external",
+    is_flag=True,
+    help="Include models and sources from external dbt packages.",
+)
+@click.option(
+    "--max-nodes",
+    type=click.INT,
+    default=50,
+    help="Maximum number of nodes to analyze.",
+)
+@click.option(
+    "--max-columns-per-node",
+    type=click.INT,
+    default=10,
+    help="Maximum columns to analyze per node.",
+)
+@click.option(
+    "--max-examples",
+    type=click.INT,
+    default=3,
+    help="Maximum examples to include in prompt output.",
+)
+@click.option(
+    "--format",
+    "format_name",
+    type=click.Choice(["table", "json", "prompt"]),
+    default="table",
+    help="Output format. Default is table.",
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(),
+    help="Write style analysis to a file instead of stdout.",
+)
+def analyze_style_command(
+    target: str | None = None,
+    profile: str | None = None,
+    project_dir: str | None = None,
+    profiles_dir: str | None = None,
+    vars: str | None = None,
+    threads: int | None = None,
+    fqn: tuple[str, ...] = (),
+    include_external: bool = False,
+    max_nodes: int = 50,
+    max_columns_per_node: int = 10,
+    max_examples: int = 3,
+    format_name: str = "table",
+    output: str | None = None,
+    models: tuple[str, ...] = (),
+) -> None:
+    """Analyze existing documentation style and examples."""
+    logger.info(":water_wave: Executing dbt-osmosis documentation style analysis\n")
+    with _create_cli_yaml_context(
+        project_dir=project_dir,
+        profiles_dir=profiles_dir,
+        target=target,
+        profile=profile,
+        threads=threads,
+        vars_value=vars,
+        fqn=fqn,
+        models=models,
+        include_external=include_external,
+    ) as context:
+        profile_result = analyze_project_documentation_style(
+            t.cast(t.Any, context),
+            max_nodes=max_nodes,
+            max_columns_per_node=max_columns_per_node,
+        )
+
+    if format_name == "json":
+        rendered = _json_text(dataclasses.asdict(profile_result))
+    elif format_name == "prompt":
+        rendered = profile_result.to_prompt_context(max_examples=max_examples)
+    else:
+        rendered = _style_profile_text(profile_result)
+    _write_or_echo(rendered, output, label="style analysis")
+
+
+def _discovery_result_text(label: str, result: DiscoveryResult, max_gaps: int) -> list[str]:
+    lines = [
+        f"{label} discovery summary",
+        f"  Coverage: {result.coverage_percent:.1f}%",
+        f"  Total gaps: {len(result.gaps)}",
+        f"  High priority: {len(result.high_priority_gaps)}",
+        f"  Medium priority: {len(result.medium_priority_gaps)}",
+        f"  Low priority: {len(result.low_priority_gaps)}",
+    ]
+    for gap in result.gaps[:max_gaps]:
+        lines.append(f"  - {gap.description} ({gap.priority:.1f}): {gap.reason}")
+    return lines
+
+
+@analyze.command(context_settings=_CONTEXT, name="discover")
+@dbt_opts
+@logging_opts
+@click.argument("models", nargs=-1)
+@click.option(
+    "-f",
+    "--fqn",
+    multiple=True,
+    type=click.STRING,
+    help="Filter models by dbt fully qualified name.",
+)
+@click.option(
+    "--profile",
+    type=click.STRING,
+    help="Which profile to load. Overrides setting in dbt_project.yml.",
+)
+@click.option(
+    "--vars",
+    type=click.STRING,
+    help="Supply project variables as a YAML mapping.",
+)
+@click.option(
+    "--include-external",
+    is_flag=True,
+    help="Include models and sources from external dbt packages.",
+)
+@click.option(
+    "--scope",
+    type=click.Choice(["models", "columns", "all"]),
+    default="all",
+    help="Documentation gap scope to discover.",
+)
+@click.option(
+    "--min-columns",
+    type=click.INT,
+    default=3,
+    help="Minimum model columns for model-level gap discovery.",
+)
+@click.option(
+    "--include-sources/--exclude-sources",
+    default=False,
+    help="Include source definitions in model-level discovery.",
+)
+@click.option(
+    "--min-priority",
+    type=click.FLOAT,
+    default=0.0,
+    help="Minimum column-gap priority to include.",
+)
+@click.option(
+    "--max-gaps",
+    type=click.INT,
+    default=20,
+    help="Maximum gaps to print in table output.",
+)
+@click.option(
+    "--check",
+    is_flag=True,
+    help="Exit non-zero when any selected discovery scope reports gaps.",
+)
+@click.option(
+    "--format",
+    "format_name",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Output format. Default is table.",
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(),
+    help="Write discovery results to a file instead of stdout.",
+)
+def analyze_discover_command(
+    target: str | None = None,
+    profile: str | None = None,
+    project_dir: str | None = None,
+    profiles_dir: str | None = None,
+    vars: str | None = None,
+    threads: int | None = None,
+    fqn: tuple[str, ...] = (),
+    include_external: bool = False,
+    scope: str = "all",
+    min_columns: int = 3,
+    include_sources: bool = False,
+    min_priority: float = 0.0,
+    max_gaps: int = 20,
+    check: bool = False,
+    format_name: str = "table",
+    output: str | None = None,
+    models: tuple[str, ...] = (),
+) -> None:
+    """Discover prioritized documentation gaps."""
+    logger.info(":water_wave: Executing dbt-osmosis documentation discovery\n")
+    results: dict[str, DiscoveryResult] = {}
+    with _create_cli_yaml_context(
+        project_dir=project_dir,
+        profiles_dir=profiles_dir,
+        target=target,
+        profile=profile,
+        threads=threads,
+        vars_value=vars,
+        fqn=fqn,
+        models=models,
+        include_external=include_external,
+    ) as context:
+        typed_context = t.cast(t.Any, context)
+        if scope in ("models", "all"):
+            results["models"] = discover_undocumented_models(
+                typed_context,
+                min_columns=min_columns,
+                exclude_sources=not include_sources,
+            )
+        if scope in ("columns", "all"):
+            results["columns"] = discover_undocumented_columns(
+                typed_context,
+                min_priority=min_priority,
+            )
+
+    if format_name == "json":
+        rendered = _json_text({name: result.to_dict() for name, result in results.items()})
+    else:
+        lines: list[str] = []
+        for name, result in results.items():
+            lines.extend(_discovery_result_text(name.title(), result, max_gaps))
+            lines.append("")
+        rendered = "\n".join(lines).rstrip()
+    _write_or_echo(rendered, output, label="discovery results")
+    if check and any(result.gaps for result in results.values()):
+        sys.exit(1)
 
 
 @cli.group()
@@ -2241,6 +3118,114 @@ def _lint_violation_groups(
         if violation.level not in (LintLevel.ERROR, LintLevel.WARNING)
     ]
     return errors, warnings, other
+
+
+def _rule_options(
+    rules: tuple[str, ...],
+    disable_rules: tuple[str, ...],
+) -> tuple[list[str] | None, list[str] | None]:
+    enabled_rules = list(rules) if rules else None
+    disabled_rules = list(disable_rules) if disable_rules else None
+    return enabled_rules, disabled_rules
+
+
+def _sql_lint_inputs(
+    project_dir: str | None,
+    profiles_dir: str | None,
+    target: str | None,
+    dialect: str | None,
+    rules: tuple[str, ...],
+    disable_rules: tuple[str, ...],
+    **kwargs: t.Any,
+) -> tuple[DbtProjectContext, str, list[str] | None, list[str] | None]:
+    project = _create_cli_project_context(project_dir, profiles_dir, target, **kwargs)
+    sql_dialect = dialect or project.adapter.type()
+    enabled_rules, disabled_rules = _rule_options(rules, disable_rules)
+    return project, sql_dialect, enabled_rules, disabled_rules
+
+
+def _sql_linter(
+    sql_dialect: str,
+    enabled_rules: list[str] | None,
+    disabled_rules: list[str] | None,
+) -> SQLLinter:
+    return SQLLinter(
+        dialect=sql_dialect,
+        enabled_rules=enabled_rules,
+        disabled_rules=disabled_rules,
+    )
+
+
+def _echo_violation_section(title: str, violations: list[LintViolation]) -> None:
+    if not violations:
+        return
+    click.echo(title)
+    for violation in violations:
+        click.echo(f"  {violation}")
+    click.echo()
+
+
+def _echo_lint_result(header: str, result: LintResult) -> tuple[int, int]:
+    click.echo(header)
+    if not result.violations:
+        click.echo(":white_check_mark: No issues found!")
+        return 0, 0
+
+    errors, warnings, other = _lint_violation_groups(result)
+    _echo_violation_section(":no_entry: Errors:", errors)
+    _echo_violation_section(":warning: Warnings:", warnings)
+    _echo_violation_section(":information_source: Other:", other)
+    return len(errors), len(warnings)
+
+
+def _exit_on_lint_failures(error_count: int, warning_count: int) -> None:
+    if error_count or warning_count:
+        sys.exit(1)
+
+
+def _project_lint_counts(
+    grouped_results: dict[
+        str, tuple[list[LintViolation], list[LintViolation], list[LintViolation]]
+    ],
+) -> tuple[int, int, int]:
+    total_errors = sum(len(errors) for errors, _, _ in grouped_results.values())
+    total_warnings = sum(len(warnings) for _, warnings, _ in grouped_results.values())
+    total_other = sum(len(other) for _, _, other in grouped_results.values())
+    return total_errors, total_warnings, total_other
+
+
+def _echo_project_lint_model(
+    model_name: str,
+    result: LintResult,
+    groups: tuple[list[LintViolation], list[LintViolation], list[LintViolation]],
+) -> None:
+    click.echo(f"\n:page_facing_up: {model_name} ({result.summary()})")
+    errors, warnings, other = groups
+    for violation in errors:
+        click.echo(f"  :no_entry: {violation}")
+    for violation in warnings:
+        click.echo(f"  :warning: {violation}")
+    for violation in other:
+        click.echo(f"  :information_source: {violation}")
+
+
+def _echo_project_lint_results(results: dict[str, LintResult]) -> tuple[int, int]:
+    grouped_results = {name: _lint_violation_groups(result) for name, result in results.items()}
+    total_errors, total_warnings, total_other = _project_lint_counts(grouped_results)
+
+    click.echo(f"\n:sparkles: Lint Results for {len(results)} models\n")
+    click.echo(
+        f"  Total: {total_errors} error(s), {total_warnings} warning(s), {total_other} info\n"
+    )
+
+    models_with_issues = {name: result for name, result in results.items() if result.violations}
+    if not models_with_issues:
+        click.echo(":white_check_mark: No issues found across all models!")
+        return 0, 0
+
+    for model_name, result in models_with_issues.items():
+        _echo_project_lint_model(model_name, result, grouped_results[model_name])
+    return total_errors, total_warnings
 
 
 @lint.command(context_settings=_CONTEXT, name="file")
@@ -2284,20 +3269,15 @@ def lint_file(
     This command analyzes SQL code for style issues, anti-patterns, and potential bugs.
     """
     logger.info(":water_wave: Executing dbt-osmosis SQL linting\n")
-    settings = DbtConfiguration(
-        project_dir=t.cast(str, project_dir),
-        profiles_dir=t.cast(str, profiles_dir),
-        target=target,
+    project, sql_dialect, enabled_rules, disabled_rules = _sql_lint_inputs(
+        project_dir,
+        profiles_dir,
+        target,
+        dialect,
+        rules,
+        disable_rules,
         **kwargs,
     )
-    project = create_dbt_project_context(settings)
-
-    # Use provided dialect or get from adapter
-    sql_dialect = dialect or project.adapter.type()
-
-    # Prepare rules list
-    enabled_rules = list(rules) if rules else None
-    disabled_rules = list(disable_rules) if disable_rules else None
 
     # Lint the SQL
     result = lint_sql_code(
@@ -2309,35 +3289,11 @@ def lint_file(
     )
 
     # Display results
-    click.echo(f"\n:sparkles: Lint Results: {result.summary()}\n")
-
-    if result.violations:
-        # Group by level
-        errors, warnings, other = _lint_violation_groups(result)
-
-        if errors:
-            click.echo(":no_entry: Errors:")
-            for violation in errors:
-                click.echo(f"  {violation}")
-            click.echo()
-
-        if warnings:
-            click.echo(":warning: Warnings:")
-            for violation in warnings:
-                click.echo(f"  {violation}")
-            click.echo()
-
-        if other:
-            click.echo(":information_source: Other:")
-            for violation in other:
-                click.echo(f"  {violation}")
-            click.echo()
-
-        # Exit with error code if there are errors or warnings
-        if errors or warnings:
-            exit(1)
-    else:
-        click.echo(":white_check_mark: No issues found!")
+    error_count, warning_count = _echo_lint_result(
+        f"\n:sparkles: Lint Results: {result.summary()}\n",
+        result,
+    )
+    _exit_on_lint_failures(error_count, warning_count)
 
 
 @lint.command(context_settings=_CONTEXT, name="model")
@@ -2381,59 +3337,26 @@ def lint_model_command(
     This command analyzes a dbt model's SQL for style issues, anti-patterns, and potential bugs.
     """
     logger.info(":water_wave: Executing dbt-osmosis SQL linting\n")
-    settings = DbtConfiguration(
-        project_dir=t.cast(str, project_dir),
-        profiles_dir=t.cast(str, profiles_dir),
-        target=target,
+    project, sql_dialect, enabled_rules, disabled_rules = _sql_lint_inputs(
+        project_dir,
+        profiles_dir,
+        target,
+        dialect,
+        rules,
+        disable_rules,
         **kwargs,
     )
-    project = create_dbt_project_context(settings)
-
-    # Use provided dialect or get from adapter
-    sql_dialect = dialect or project.adapter.type()
-
-    # Create linter
-    enabled_rules = list(rules) if rules else None
-    disabled_rules = list(disable_rules) if disable_rules else None
-    linter = SQLLinter(
-        dialect=sql_dialect,
-        enabled_rules=enabled_rules,
-        disabled_rules=disabled_rules,
-    )
+    linter = _sql_linter(sql_dialect, enabled_rules, disabled_rules)
 
     # Lint the model
     result = linter.lint_model(project, model_name)
 
     # Display results
-    click.echo(f"\n:sparkles: Lint Results for {model_name}: {result.summary()}\n")
-
-    if result.violations:
-        # Group by level
-        errors, warnings, other = _lint_violation_groups(result)
-
-        if errors:
-            click.echo(":no_entry: Errors:")
-            for violation in errors:
-                click.echo(f"  {violation}")
-            click.echo()
-
-        if warnings:
-            click.echo(":warning: Warnings:")
-            for violation in warnings:
-                click.echo(f"  {violation}")
-            click.echo()
-
-        if other:
-            click.echo(":information_source: Other:")
-            for violation in other:
-                click.echo(f"  {violation}")
-            click.echo()
-
-        # Exit with error code if there are errors or warnings
-        if errors or warnings:
-            exit(1)
-    else:
-        click.echo(":white_check_mark: No issues found!")
+    error_count, warning_count = _echo_lint_result(
+        f"\n:sparkles: Lint Results for {model_name}: {result.summary()}\n",
+        result,
+    )
+    _exit_on_lint_failures(error_count, warning_count)
 
 
 @lint.command(context_settings=_CONTEXT, name="project")
@@ -2484,66 +3407,24 @@ def lint_project_command(
     This command analyzes all dbt models' SQL for style issues, anti-patterns, and potential bugs.
     """
     logger.info(":water_wave: Executing dbt-osmosis SQL linting\n")
-    settings = DbtConfiguration(
-        project_dir=t.cast(str, project_dir),
-        profiles_dir=t.cast(str, profiles_dir),
-        target=target,
+    project, sql_dialect, enabled_rules, disabled_rules = _sql_lint_inputs(
+        project_dir,
+        profiles_dir,
+        target,
+        dialect,
+        rules,
+        disable_rules,
         **kwargs,
     )
-    project = create_dbt_project_context(settings)
-
-    # Use provided dialect or get from adapter
-    sql_dialect = dialect or project.adapter.type()
-
-    # Create linter
-    enabled_rules = list(rules) if rules else None
-    disabled_rules = list(disable_rules) if disable_rules else None
-    linter = SQLLinter(
-        dialect=sql_dialect,
-        enabled_rules=enabled_rules,
-        disabled_rules=disabled_rules,
-    )
+    linter = _sql_linter(sql_dialect, enabled_rules, disabled_rules)
 
     # Lint the project
     fqn_filter = list(fqn) if fqn else None
     results = linter.lint_project(project, fqn_filter=fqn_filter)
 
     # Display results
-    grouped_results = {name: _lint_violation_groups(result) for name, result in results.items()}
-    total_errors = sum(len(errors) for errors, _, _ in grouped_results.values())
-    total_warnings = sum(len(warnings) for _, warnings, _ in grouped_results.values())
-    total_other = sum(len(other) for _, _, other in grouped_results.values())
-
-    click.echo(f"\n:sparkles: Lint Results for {len(results)} models\n")
-    click.echo(
-        f"  Total: {total_errors} error(s), {total_warnings} warning(s), {total_other} info\n"
-    )
-
-    # Show models with issues
-    models_with_issues = {name: r for name, r in results.items() if r.violations}
-
-    if models_with_issues:
-        for model_name, result in models_with_issues.items():
-            click.echo(f"\n:page_facing_up: {model_name} ({result.summary()})")
-            errors, warnings, other = grouped_results[model_name]
-
-            if errors:
-                for violation in errors:
-                    click.echo(f"  :no_entry: {violation}")
-
-            if warnings:
-                for violation in warnings:
-                    click.echo(f"  :warning: {violation}")
-
-            if other:
-                for violation in other:
-                    click.echo(f"  :information_source: {violation}")
-
-        # Exit with error code if there are errors or warnings
-        if total_errors or total_warnings:
-            exit(1)
-    else:
-        click.echo(":white_check_mark: No issues found across all models!")
+    total_errors, total_warnings = _echo_project_lint_results(results)
+    _exit_on_lint_failures(total_errors, total_warnings)
 
 
 if __name__ == "__main__":

@@ -2,11 +2,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from django.contrib.admin.sites import AdminSite
-from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase
 
 from esi.exceptions import HTTPClientError, HTTPNotModified
 
+from allianceauth.authentication.models import User
 from allianceauth.eveonline.admin import (
     EveAllianceForm, EveAllianceInfoAdmin, EveCharacterAdmin, EveCharacterForm,
     EveCorporationForm, EveCorporationInfoAdmin, EveEntityExistsError,

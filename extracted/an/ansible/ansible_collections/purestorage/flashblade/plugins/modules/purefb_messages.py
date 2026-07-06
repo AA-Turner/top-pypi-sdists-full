@@ -22,7 +22,7 @@ short_description: List FlashBlade Alert Messages
 description:
 - List Alert messages based on filters provided
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   severity:
     description:
@@ -72,6 +72,9 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
+)
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
 )
 
 ALLOWED_PERIODS = ["h", "d", "w", "y"]
@@ -132,8 +135,8 @@ def main():
             multi_sev = True
     if multi_sev:
         severity = " and ("
-        for level in range(len(module.params["severity"])):
-            severity += "severity='" + str(module.params["severity"][level]) + "' or "
+        for level in module.params["severity"]:
+            severity += "severity='" + str(level) + "' or "
         severity = severity[0:-4] + ")"
     else:
         if module.params["severity"] == ["all"]:
@@ -149,33 +152,35 @@ def main():
     res = blade.get_alerts(filter=filter_string)
     if res.status_code != 200:
         module.fail_json(
-            msg="Failed to get alert messages. Error: {0}".format(res.errors[0].message)
+            msg="Failed to get alert messages. Error: {0}".format(
+                get_error_message(res)
+            )
         )
     alerts = list(res.items)
-    for message in range(len(alerts)):
-        name = alerts[message].name
+    for message in alerts:
+        name = message.name
         messages[name] = {
-            "summary": alerts[message].summary,
-            "component_type": alerts[message].component_type,
-            "component_name": alerts[message].component_name,
-            "description": alerts[message].description,
-            "code": alerts[message].code,
-            "severity": alerts[message].severity,
-            "state": alerts[message].state,
-            "flagged": alerts[message].flagged,
+            "summary": message.summary,
+            "component_type": message.component_type,
+            "component_name": message.component_name,
+            "description": message.description,
+            "code": message.code,
+            "severity": message.severity,
+            "state": message.state,
+            "flagged": message.flagged,
             "created": time.strftime(
                 "%Y-%m-%d %H:%M:%S",
-                time.gmtime(alerts[message].created / 1000),
+                time.gmtime(message.created / 1000),
             )
             + " UTC",
             "notified": time.strftime(
                 "%Y-%m-%d %H:%M:%S",
-                time.gmtime(alerts[message].notified / 1000),
+                time.gmtime(message.notified / 1000),
             )
             + " UTC",
             "updated": time.strftime(
                 "%Y-%m-%d %H:%M:%S",
-                time.gmtime(alerts[message].updated / 1000),
+                time.gmtime(message.updated / 1000),
             )
             + " UTC",
         }

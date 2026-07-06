@@ -2288,9 +2288,9 @@ class TestAccessors:
 
     def test_pos_rank_fns(self):
         sr = pd.Series([True, False, True])
-        assert sr.vbt.signals.first(wrap_kwargs={"dtype": np.int_}).dtype == np.dtype(int)
-        assert sr.vbt.signals.nth(1, wrap_kwargs={"dtype": np.int_}).dtype == np.dtype(int)
-        assert sr.vbt.signals.from_nth(1, wrap_kwargs={"dtype": np.int_}).dtype == np.dtype(int)
+        assert sr.vbt.signals.first(wrap_kwargs={"dtype": np.int64}).dtype == np.dtype(int)
+        assert sr.vbt.signals.nth(1, wrap_kwargs={"dtype": np.int64}).dtype == np.dtype(int)
+        assert sr.vbt.signals.from_nth(1, wrap_kwargs={"dtype": np.int64}).dtype == np.dtype(int)
 
         pd.testing.assert_frame_equal(
             (~mask).vbt.signals.first(),
@@ -2723,9 +2723,9 @@ class TestAccessors:
     @pytest.mark.parametrize(
         "test_func,test_func_pd",
         [
-            (lambda x, *args, **kwargs: x.AND(args, **kwargs), lambda x, y: x & y),
-            (lambda x, *args, **kwargs: x.OR(args, **kwargs), lambda x, y: x | y),
-            (lambda x, *args, **kwargs: x.XOR(args, **kwargs), lambda x, y: x ^ y),
+            (lambda x, *args, **kwargs: x.AND(args, **kwargs), lambda x, y: x & np.asarray(y)),
+            (lambda x, *args, **kwargs: x.OR(args, **kwargs), lambda x, y: x | np.asarray(y)),
+            (lambda x, *args, **kwargs: x.XOR(args, **kwargs), lambda x, y: x ^ np.asarray(y)),
         ],
     )
     def test_logical_funcs(self, test_func, test_func_pd):

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import typing as t
+from abc import abstractmethod
 from functools import lru_cache
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -82,7 +83,7 @@ LOGGER = get_logger()
 
 def set_log_level(level: int | str) -> None:
     """Set the log level for the default logger"""
-    global LOGGER
+    global LOGGER  # noqa: PLW0602
     if isinstance(level, str):
         level = getattr(logging, level, logging.INFO)
     LOGGER.setLevel(level)
@@ -95,7 +96,10 @@ def set_log_level(level: int | str) -> None:
 class LogMethod(t.Protocol):
     """Protocol for logger methods"""
 
-    def __call__(self, msg: t.Any, /, *args: t.Any, **kwds: t.Any) -> t.Any: ...
+    @abstractmethod
+    def __call__(self, msg: t.Any, /, *args: t.Any, **kwds: t.Any) -> t.Any:
+        del msg, kwds
+        raise NotImplementedError
 
 
 def __getattr__(name: str) -> LogMethod:

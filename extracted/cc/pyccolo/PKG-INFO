@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyccolo
-Version: 0.0.91
+Version: 0.0.92
 Summary: Declarative instrumentation for Python
 Home-page: https://github.com/smacke/pyccolo
 Author: Stephen Macke
@@ -27,7 +27,8 @@ Requires-Dist: typing_extensions
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-argparse; extra == "docs"
-Requires-Dist: sphinx-rtd-theme; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
+Requires-Dist: furo; extra == "docs"
 Provides-Extra: test
 Requires-Dist: black==25.1.0; python_version >= "3.9" and extra == "test"
 Requires-Dist: hypothesis; extra == "test"

@@ -3,9 +3,9 @@ from unittest.mock import MagicMock, patch
 from celery.exceptions import Retry
 from requests.exceptions import HTTPError
 
-from django.contrib.auth.models import Group
 from django.test.utils import override_settings
 
+from allianceauth.groupmanagement.models import Group
 from allianceauth.tests.auth_utils import AuthUtils
 from allianceauth.utils.testing import NoSocketsTestCase
 

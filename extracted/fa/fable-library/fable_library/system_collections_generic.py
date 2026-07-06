@@ -16,7 +16,7 @@ from .util import UNIT, Disposable, Unit, compare, compare_primitives, get_enume
 from .util import equals as equals_1
 
 
-def _expr228() -> TypeInfo:
+def _expr231() -> TypeInfo:
     return class_type(
         "System.Collections.Generic.KeyNotFoundException", None, KeyNotFoundException, class_type("System.Exception")
     )
@@ -28,7 +28,7 @@ class KeyNotFoundException(ExceptionBase):
         pass
 
 
-KeyNotFoundException_reflection = _expr228
+KeyNotFoundException_reflection = _expr231
 
 
 def KeyNotFoundException__ctor_Z721C83C5(message: str) -> KeyNotFoundException:
@@ -39,7 +39,7 @@ def KeyNotFoundException__ctor(__unit: Unit = UNIT) -> KeyNotFoundException:
     return KeyNotFoundException__ctor_Z721C83C5(SR_Arg_KeyNotFound)
 
 
-def _expr230(gen0: TypeInfo) -> TypeInfo:
+def _expr232(gen0: TypeInfo) -> TypeInfo:
     return class_type("System.Collections.Generic.Comparer`1", Array([gen0]), Comparer_1)
 
 
@@ -56,7 +56,7 @@ class Comparer_1[T]:
         )
 
 
-Comparer_1_reflection = _expr230
+Comparer_1_reflection = _expr232
 
 
 def Comparer_1__ctor_47C913C[T](comparison: Callable[[T, T], int32]) -> Comparer_1[T]:
@@ -75,7 +75,7 @@ def Comparer_1__Compare_5BDDA0[T](_: Comparer_1[T], x: T, y: T) -> int32:
     return _.comparison(x, y)
 
 
-def _expr231(gen0: TypeInfo) -> TypeInfo:
+def _expr233(gen0: TypeInfo) -> TypeInfo:
     return class_type("System.Collections.Generic.EqualityComparer`1", Array([gen0]), EqualityComparer_1)
 
 
@@ -97,7 +97,7 @@ class EqualityComparer_1[T]:
         return _.get_hash_code(x)
 
 
-EqualityComparer_1_reflection = _expr231
+EqualityComparer_1_reflection = _expr233
 
 
 def EqualityComparer_1__ctor_Z6EE254AB[T](
@@ -107,10 +107,10 @@ def EqualityComparer_1__ctor_Z6EE254AB[T](
 
 
 def EqualityComparer_1_get_Default[T](__unit: Unit = UNIT) -> EqualityComparer_1[T]:
-    def _arrow232(obj: T = UNIT) -> int32:
+    def _arrow234(obj: T = UNIT) -> int32:
         return structural_hash(obj)
 
-    return EqualityComparer_1__ctor_Z6EE254AB(equals_1, _arrow232)
+    return EqualityComparer_1__ctor_Z6EE254AB(equals_1, _arrow234)
 
 
 def EqualityComparer_1_Create_Z6EE254AB[T](
@@ -127,7 +127,7 @@ def EqualityComparer_1__GetHashCode_2B595[T](_: EqualityComparer_1[T], x: T) -> 
     return _.get_hash_code(x)
 
 
-def _expr238(gen0: TypeInfo) -> TypeInfo:
+def _expr239(gen0: TypeInfo) -> TypeInfo:
     return class_type("System.Collections.Generic.Stack`1", Array([gen0]), Stack_1)
 
 
@@ -139,30 +139,30 @@ class Stack_1[T](EnumerableBase[Any]):
     def GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[T]:
         _: Stack_1[Any] = self
 
-        def _arrow236(__unit: Unit = UNIT) -> IEnumerable_1[T]:
+        def _arrow238(__unit: Unit = UNIT) -> IEnumerable_1[T]:
             index: int32 = _.count - int32.ONE
 
-            def _arrow233(__unit: Unit = UNIT) -> bool:
+            def _arrow235(__unit: Unit = UNIT) -> bool:
                 return index >= int32.ZERO
 
-            def _arrow235(__unit: Unit = UNIT) -> IEnumerable_1[T]:
-                def _arrow234(__unit: Unit = UNIT) -> IEnumerable_1[T]:
+            def _arrow237(__unit: Unit = UNIT) -> IEnumerable_1[T]:
+                def _arrow236(__unit: Unit = UNIT) -> IEnumerable_1[T]:
                     nonlocal index
                     index = index - int32.ONE
                     return empty()
 
-                return append(singleton(_.contents[index]), delay(_arrow234))
+                return append(singleton(_.contents[index]), delay(_arrow236))
 
-            return enumerate_while(_arrow233, delay(_arrow235))
+            return enumerate_while(_arrow235, delay(_arrow237))
 
-        return get_enumerator(delay(_arrow236))
+        return get_enumerator(delay(_arrow238))
 
     def System_Collections_IEnumerable_GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[Any]:
         this: Stack_1[Any] = self
         return get_enumerator(this)
 
 
-Stack_1_reflection = _expr238
+Stack_1_reflection = _expr239
 
 
 def Stack_1__ctor_Z3B4C077E[T](initial_contents: Array[T], initial_count: int32) -> Stack_1[T]:
@@ -251,10 +251,10 @@ def Stack_1__TrimExcess[T](this: Stack_1[T]) -> None:
 
 
 def Stack_1__ToArray[T](_: Stack_1[T]) -> Array[T]:
-    def _arrow239(i: int32, _: Any = _) -> T:
+    def _arrow240(i: int32, _: Any = _) -> T:
         return _.contents[(_.count - int32.ONE) - i]
 
-    return initialize(_.count, _arrow239, None)
+    return initialize(_.count, _arrow240, None)
 
 
 def _expr241(gen0: TypeInfo) -> TypeInfo:

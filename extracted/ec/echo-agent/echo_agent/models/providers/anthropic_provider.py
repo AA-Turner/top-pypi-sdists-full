@@ -6,7 +6,7 @@ from typing import Any
 
 from loguru import logger
 
-from echo_agent.models.provider import LLMProvider, LLMResponse
+from echo_agent.models.provider import LLMProvider, LLMResponse, StreamDeltaCallback
 from echo_agent.models.providers.format_utils import (
     anthropic_response_to_llm_fields,
     openai_to_anthropic_messages,
@@ -33,6 +33,61 @@ def _max_output_for_model(model: str) -> int:
         if pattern in model:
             return limit
     return 64_000
+
+
+def parse_anthropic_message(resp: Any) -> LLMResponse:
+    """Convert a final Anthropic Messages response into an LLMResponse.
+
+    Shared by the native Anthropic provider and the Bedrock Claude path so the
+    block extraction and usage parsing (incl. prompt-cache token accounting)
+    live in one place — they had drifted, with the Bedrock copies dropping the
+    cache_read/cache_creation tokens.
+    """
+    blocks = []
+    for block in resp.content:
+        if block.type == "text":
+            blocks.append({"type": "text", "text": block.text})
+        elif block.type == "tool_use":
+            blocks.append({"type": "tool_use", "id": block.id, "name": block.name, "input": block.input})
+
+    usage_dict: dict[str, Any] = {}
+    if resp.usage:
+        usage_dict["input_tokens"] = resp.usage.input_tokens
+        usage_dict["output_tokens"] = resp.usage.output_tokens
+        if hasattr(resp.usage, "cache_read_input_tokens"):
+            usage_dict["cache_read_input_tokens"] = resp.usage.cache_read_input_tokens or 0
+        if hasattr(resp.usage, "cache_creation_input_tokens"):
+            usage_dict["cache_creation_input_tokens"] = resp.usage.cache_creation_input_tokens or 0
+
+    fields = anthropic_response_to_llm_fields(
+        content_blocks=blocks,
+        stop_reason=resp.stop_reason or "",
+        usage=usage_dict,
+        model=resp.model or "",
+    )
+    return LLMResponse(**fields)
+
+
+async def stream_anthropic_messages(
+    client: Any, params: dict[str, Any], on_delta: StreamDeltaCallback | None,
+) -> Any:
+    """Drive an Anthropic ``messages.stream``, emitting text deltas as they
+    arrive, and return the final accumulated message.
+
+    Shared by the native Anthropic provider and the Bedrock Claude streaming
+    path (both use the Anthropic SDK's streaming context manager). The caller
+    parses the returned message via ``parse_anthropic_message``.
+    """
+    from echo_agent.models.provider import _invoke_stream_callback
+
+    async with client.messages.stream(**params) as stream:
+        async for event in stream:
+            if getattr(event, "type", "") == "content_block_delta":
+                delta = getattr(event, "delta", None)
+                text = getattr(delta, "text", "") if delta is not None else ""
+                if text:
+                    await _invoke_stream_callback(on_delta, text)
+        return await stream.get_final_message()
 
 
 def _supports_adaptive_thinking(model: str) -> bool:
@@ -77,6 +132,24 @@ class AnthropicProvider(LLMProvider):
             logger.error("Anthropic API error: {}", e)
             return LLMResponse(content=f"Error: {e}", finish_reason="error")
         return self._parse_response(resp)
+
+    async def chat_stream(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        model: str | None = None,
+        tool_choice: str | dict | None = None,
+        on_delta: "StreamDeltaCallback | None" = None,
+        **kwargs: Any,
+    ) -> LLMResponse:
+        target_model = model or self._default_model
+        params = self._build_params(target_model, messages, tools, tool_choice, **kwargs)
+        try:
+            final = await stream_anthropic_messages(self._client, params, on_delta)
+        except Exception as e:
+            logger.error("Anthropic stream error: {}", e)
+            return LLMResponse(content=f"Error: {e}", finish_reason="error")
+        return self._parse_response(final)
 
     def get_default_model(self) -> str:
         return self._default_model
@@ -138,26 +211,4 @@ class AnthropicProvider(LLMProvider):
         return mapping.get(choice, {"type": "auto"})
 
     def _parse_response(self, resp: Any) -> LLMResponse:
-        blocks = []
-        for block in resp.content:
-            if block.type == "text":
-                blocks.append({"type": "text", "text": block.text})
-            elif block.type == "tool_use":
-                blocks.append({"type": "tool_use", "id": block.id, "name": block.name, "input": block.input})
-
-        usage_dict: dict[str, Any] = {}
-        if resp.usage:
-            usage_dict["input_tokens"] = resp.usage.input_tokens
-            usage_dict["output_tokens"] = resp.usage.output_tokens
-            if hasattr(resp.usage, "cache_read_input_tokens"):
-                usage_dict["cache_read_input_tokens"] = resp.usage.cache_read_input_tokens or 0
-            if hasattr(resp.usage, "cache_creation_input_tokens"):
-                usage_dict["cache_creation_input_tokens"] = resp.usage.cache_creation_input_tokens or 0
-
-        fields = anthropic_response_to_llm_fields(
-            content_blocks=blocks,
-            stop_reason=resp.stop_reason or "",
-            usage=usage_dict,
-            model=resp.model or "",
-        )
-        return LLMResponse(**fields)
+        return parse_anthropic_message(resp)

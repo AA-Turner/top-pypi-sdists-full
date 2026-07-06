@@ -3,15 +3,18 @@ from typing import ClassVar
 
 from requests.exceptions import HTTPError
 
-from django.contrib.auth.models import User
 from django.db import models
 from django.utils.translation import gettext_lazy
 
+from allianceauth.authentication.models import User
 from allianceauth.notifications import notify
 
 from . import __title__
 from .app_settings import DISCORD_GUILD_ID
-from .core import calculate_roles_for_user, create_bot_client, default_bot_client, user_formatted_nick
+from .core import (
+    calculate_roles_for_user, create_bot_client, default_bot_client,
+    user_formatted_nick,
+)
 from .discord_client import DiscordApiBackoff
 from .managers import DiscordUserManager
 from .utils import LoggerAddTag

@@ -64,7 +64,7 @@ class BlockAssembler:
             if state is None:
                 if b.ndim < axis + 2:
                     raise ValueError(
-                        f"Too few dimensions for `axis={axis}` ({b.ndim} < {axis+2})"
+                        f"Too few dimensions for `axis={axis}` ({b.ndim} < {axis + 2})"
                     )
                 state = (b.ndim, b.shape[:axis], b.shape[axis + 2 :])
 
@@ -126,9 +126,7 @@ class BlockAssembler:
         *,
         dtype=None,
         roi=None,
-        casting: (
-            Literal["no", "equiv", "safe", "same_kind", "unsafe"] | None
-        ) = "same_kind",
+        casting: Literal["no", "equiv", "safe", "same_kind", "unsafe"] = "same_kind",
     ) -> np.ndarray:
         """
         Paste all blocks together into one array possibly with type coercion.

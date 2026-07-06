@@ -13,14 +13,13 @@
 import numbers
 
 import numpy as np
-from scipy.sparse import csc_matrix, csr_matrix, issparse
+from scipy.sparse import csc_array, csr_array, issparse
 from sklearn.base import BaseEstimator
 from sklearn.ensemble._base import BaseEnsemble
 from sklearn.ensemble._gb import BaseGradientBoosting, VerboseReporter
 from sklearn.ensemble._gradient_boosting import _random_sample_mask
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeRegressor
-from sklearn.tree._tree import DTYPE
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.extmath import squared_norm
 from sklearn.utils.validation import (
@@ -31,6 +30,7 @@ from sklearn.utils.validation import (
     validate_data,
 )
 
+from .._dataframe import ensure_eager_dataframe
 from ..base import SurvivalAnalysisMixin
 from ..docstrings import append_cumulative_hazard_example, append_survival_function_example
 from ..linear_model.coxph import BreslowEstimator
@@ -396,7 +396,7 @@ class ComponentwiseGradientBoostingSurvivalAnalysis(BaseEnsemble, SurvivalAnalys
         if not self.warm_start:
             self._clear_state()
 
-        X = validate_data(self, X, ensure_min_samples=2)
+        X = validate_data(self, ensure_eager_dataframe(X), ensure_min_samples=2)
         event, time = check_array_survival(X, y)
 
         sample_weight = _check_sample_weight(sample_weight, X)
@@ -477,7 +477,7 @@ class ComponentwiseGradientBoostingSurvivalAnalysis(BaseEnsemble, SurvivalAnalys
             Predicted risk scores.
         """
         check_is_fitted(self, "estimators_")
-        X = validate_data(self, X, reset=False)
+        X = validate_data(self, ensure_eager_dataframe(X), reset=False)
 
         return self._predict(X)
 
@@ -663,13 +663,6 @@ class GradientBoostingSurvivalAnalysis(BaseGradientBoosting, SurvivalAnalysisMix
         Choosing `subsample < 1.0` leads to a reduction of variance
         and an increase in bias.
         Values must be in the range `(0.0, 1.0]`.
-
-    criterion : {'friedman_mse', 'squared_error'}, optional, default: 'friedman_mse'
-        The function to measure the quality of a split. Supported criteria are
-        'friedman_mse' for the mean squared error with improvement score by
-        Friedman, 'squared_error' for mean squared error. The default value of
-        'friedman_mse' is generally the best as it can provide a better
-        approximation in some cases.
 
     min_samples_split : int or float, optional, default: 2
         The minimum number of samples required to split an internal node:
@@ -878,7 +871,6 @@ class GradientBoostingSurvivalAnalysis(BaseGradientBoosting, SurvivalAnalysisMix
         learning_rate=0.1,
         n_estimators=100,
         subsample=1.0,
-        criterion="friedman_mse",
         min_samples_split=2,
         min_samples_leaf=1,
         min_weight_fraction_leaf=0.0,
@@ -899,7 +891,6 @@ class GradientBoostingSurvivalAnalysis(BaseGradientBoosting, SurvivalAnalysisMix
             loss=loss,
             learning_rate=learning_rate,
             n_estimators=n_estimators,
-            criterion=criterion,
             min_samples_split=min_samples_split,
             min_samples_leaf=min_samples_leaf,
             min_weight_fraction_leaf=min_weight_fraction_leaf,
@@ -997,7 +988,7 @@ class GradientBoostingSurvivalAnalysis(BaseGradientBoosting, SurvivalAnalysisMix
         for k in range(self.n_trees_per_iteration_):
             # induce regression tree on the negative gradient
             tree = DecisionTreeRegressor(
-                criterion=self.criterion,
+                criterion="squared_error",
                 splitter="best",
                 max_depth=self.max_depth,
                 min_samples_split=self.min_samples_split,
@@ -1070,8 +1061,8 @@ class GradientBoostingSurvivalAnalysis(BaseGradientBoosting, SurvivalAnalysisMix
             verbose_reporter = VerboseReporter(verbose=self.verbose)
             verbose_reporter.init(self, begin_at_stage)
 
-        X_csc = csc_matrix(X) if issparse(X) else None
-        X_csr = csr_matrix(X) if issparse(X) else None
+        X_csc = csc_array(X) if issparse(X) else None
+        X_csr = csr_array(X) if issparse(X) else None
 
         if self.n_iter_no_change is not None:
             loss_history = np.full(self.n_iter_no_change, np.inf)
@@ -1218,11 +1209,11 @@ class GradientBoostingSurvivalAnalysis(BaseGradientBoosting, SurvivalAnalysisMix
 
         X = validate_data(
             self,
-            X,
+            ensure_eager_dataframe(X),
             ensure_min_samples=2,
             order="C",
             accept_sparse=["csr", "csc", "coo"],
-            dtype=DTYPE,
+            dtype=np.float32,
         )
         event, time = check_array_survival(X, y)
 
@@ -1301,7 +1292,7 @@ class GradientBoostingSurvivalAnalysis(BaseGradientBoosting, SurvivalAnalysisMix
             # matrices. Finite values have already been checked in validate_data.
             X_train = check_array(
                 X_train,
-                dtype=DTYPE,
+                dtype=np.float32,
                 order="C",
                 accept_sparse="csr",
                 ensure_all_finite=False,
@@ -1373,7 +1364,7 @@ class GradientBoostingSurvivalAnalysis(BaseGradientBoosting, SurvivalAnalysisMix
         return raw_predictions
 
     def _dropout_staged_raw_predict(self, X):
-        X = validate_data(self, X, dtype=DTYPE, order="C", accept_sparse="csr")
+        X = validate_data(self, ensure_eager_dataframe(X), dtype=np.float32, order="C", accept_sparse="csr")
         raw_predictions = self._raw_predict_init(X)
 
         n_estimators, K = self.estimators_.shape
@@ -1421,7 +1412,9 @@ class GradientBoostingSurvivalAnalysis(BaseGradientBoosting, SurvivalAnalysisMix
         """
         check_is_fitted(self, "estimators_")
 
-        X = validate_data(self, X, reset=False, order="C", accept_sparse="csr", dtype=DTYPE)
+        X = validate_data(
+            self, ensure_eager_dataframe(X), reset=False, order="C", accept_sparse="csr", dtype=np.float32
+        )
         return self._predict(X)
 
     def staged_predict(self, X):
@@ -1446,6 +1439,8 @@ class GradientBoostingSurvivalAnalysis(BaseGradientBoosting, SurvivalAnalysisMix
             The predicted value of the input samples.
         """
         check_is_fitted(self, "estimators_")
+
+        X = ensure_eager_dataframe(X)
 
         # if dropout wasn't used during training, proceed as usual,
         # otherwise consider scaling factor of individual trees

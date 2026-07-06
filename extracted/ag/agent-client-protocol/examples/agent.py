@@ -89,12 +89,13 @@ class ExampleAgent(Agent):
         self._sessions.add(session_id)
         return LoadSessionResponse()
 
-    async def set_session_mode(self, mode_id: str, session_id: str, **kwargs: Any) -> SetSessionModeResponse | None:
+    async def set_session_mode(self, session_id: str, mode_id: str, **kwargs: Any) -> SetSessionModeResponse | None:
         logging.info("Received set session mode request %s -> %s", session_id, mode_id)
         return SetSessionModeResponse()
 
     async def prompt(
         self,
+        session_id: str,
         prompt: list[
             TextContentBlock
             | ImageContentBlock
@@ -102,8 +103,6 @@ class ExampleAgent(Agent):
             | ResourceContentBlock
             | EmbeddedResourceContentBlock
         ],
-        session_id: str,
-        message_id: str | None = None,
         **kwargs: Any,
     ) -> PromptResponse:
         logging.info("Received prompt request for session %s", session_id)
@@ -113,7 +112,7 @@ class ExampleAgent(Agent):
         await self._send_agent_message(session_id, text_block("Client sent:"))
         for block in prompt:
             await self._send_agent_message(session_id, block)
-        return PromptResponse(stop_reason="end_turn", user_message_id=message_id)
+        return PromptResponse(stop_reason="end_turn")
 
     async def cancel(self, session_id: str, **kwargs: Any) -> None:
         logging.info("Received cancel notification for session %s", session_id)

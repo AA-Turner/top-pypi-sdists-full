@@ -3,6 +3,7 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 import pandas as pd
 import pytest
 from sklearn.base import BaseEstimator
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.datasets import load_iris
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, roc_auc_score
@@ -51,7 +52,7 @@ def iris_data_with_estimator():
             LogisticRegression(solver="lbfgs"),
             [
                 ("tree", DecisionTreeClassifier(max_depth=1, random_state=0)),
-                ("svm", SVC(probability=True, gamma="auto", random_state=0)),
+                ("svm", CalibratedClassifierCV(SVC(gamma="auto", random_state=0), ensemble=False)),
             ],
         )
         return x, y, meta
@@ -166,7 +167,7 @@ class TestStackingClassifier:
         for i, c in enumerate(meta.meta_estimator.classes_):
             scores[i] = roc_auc_score(np.asarray(y == c, dtype=int), p[:, i])
 
-        assert_array_almost_equal(np.array([1.0, 0.9986, 0.9986]), scores)
+        assert_array_almost_equal(np.array([1.0, 0.9982, 0.9982]), scores)
 
     @staticmethod
     def test_feature_names_in():
@@ -178,7 +179,7 @@ class TestStackingClassifier:
             LogisticRegression(),
             [
                 ("tree", DecisionTreeClassifier(max_depth=1, random_state=0)),
-                ("svm", SVC(probability=True, gamma="auto", random_state=0)),
+                ("svm", CalibratedClassifierCV(SVC(gamma="auto", random_state=0), ensemble=False)),
             ],
         )
         meta.fit(x, y)
@@ -314,7 +315,7 @@ class TestStackingSurvivalAnalysis:
         meta.fit(whas500.x_data_frame, whas500.y)
         names = whas500.x_data_frame.columns.to_numpy()
         assert meta.n_features_in_ == len(names)
-        assert_array_equal(meta.feature_names_in_, names)
+        assert_array_equal(meta.feature_names_in_, names, strict=True)
 
         meta.fit(whas500.x, whas500.y)
         assert meta.n_features_in_ == len(names)

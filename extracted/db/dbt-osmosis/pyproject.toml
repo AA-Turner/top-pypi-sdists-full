@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling==1.26.3"]  # hatch-vcs
+requires = ["hatchling==1.30.1"]  # hatch-vcs
 build-backend = "hatchling.build"
 
 [project]
 name = "dbt-osmosis"
-version = "1.4.0"
+version = "1.5.0"
 description = "A dbt utility for managing YAML to make developing with dbt more delightful."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -23,19 +23,24 @@ classifiers = [
 requires-python = ">=3.10,<3.14"
 
 dependencies = [
+  "agate>=1.9,<2",
   "click>7,<9",
+  "dbt-common>=1,<2",
   "dbt-core>=1.8",
   "dbt-core-interface>=1.1.7",
-  "ruamel.yaml>=0.17,<0.19",
+  "packaging>=24,<26",
+  "ruamel.yaml>=0.17,<0.20",
   "rich>=10",
   "pluggy>=1.5.0,<2",
   "PyYAML>=6.0",
-  "sqlglot>=28,<29",
+  "sqlglot>=28,<31",
   "rapidfuzz>=3.0.0",
+  "typing-extensions>=4.12,<5",
 ]
 
 [project.optional-dependencies]
 workbench = [
+  "pandas>=2.2,<3",
   "streamlit>=1.45.0,<2.0",
   "streamlit-ace~=0.1.1",
   "ydata-profiling>=4.17.0",
@@ -45,7 +50,7 @@ workbench = [
   "setuptools>=70,<81",
 ]
 
-openai = ["openai~=1.58.1"]
+openai = ["openai>=1.58.1,<2.42.0"]
 
 azure = ["azure-identity>=1.19,<2"]
 
@@ -54,9 +59,9 @@ duckdb = ["dbt-duckdb>=1,<2"]
 proxy = ["mysql-mimic>=2.5.7"]
 
 dev = [
-  "basedpyright~=1.38.4",
-  "ruff==0.8.6",
-  "pytest>=8.3.4,<9.1.0",
+  "basedpyright>=1.38.4,<1.40.0",
+  "ruff==0.15.17",
+  "pytest>=8.3.4,<9.2.0",
   "pytest-cov~=6.0",
   "hypothesis",
   "mutmut",
@@ -69,6 +74,7 @@ dev = [
 "dbt-osmosis" = "dbt_osmosis.cli.main:cli"
 
 [tool.uv]
+exclude-newer = "7 days"
 override-dependencies = ["protobuf>=5.0,<6.0"]
 
 [tool.ruff]
@@ -96,6 +102,38 @@ reportAttributeAccessIssue = true
 reportPrivateImportUsage = false
 reportImportCycles = false
 reportUnsupportedDunderAll = false
+
+[tool.ty.src]
+exclude = [
+  "tests/**",
+  "src/dbt_osmosis/workbench/**",
+  "src/dbt_osmosis/sql/**",
+]
+
+[tool.ty.rules]
+unresolved-import = "ignore"
+
+[tool.mypy]
+python_version = "3.10"
+mypy_path = "typings"
+exclude = [
+  "^tests/",
+  "^src/dbt_osmosis/workbench/",
+  "^src/dbt_osmosis/sql/",
+]
+
+[[tool.mypy.overrides]]
+module = [
+  "agate",
+  "agate.*",
+  "azure",
+  "azure.*",
+  "dbt_core_interface",
+  "dbt_core_interface.*",
+  "openai",
+  "yaml",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -137,11 +175,31 @@ precision = 2
 show_missing = true
 skip_covered = false
 
+[tool.deptry]
+known_first_party = ["dbt_osmosis"]
+optional_dependencies_dev_groups = ["dev"]
+package_module_name_map = { "azure-identity" = ["azure"], "dbt-common" = ["dbt_common"], "streamlit-elements-fluence" = ["streamlit_elements_fluence"], "ydata-profiling" = ["ydata_profiling"] }
+
+[tool.deptry.per_rule_ignores]
+DEP002 = [
+  "streamlit-ace",
+  "ipython",
+  "setuptools",
+  "basedpyright",
+  "ruff",
+  "pytest",
+  "pytest-cov",
+  "hypothesis",
+  "mutmut",
+  "pre-commit",
+  "tomli",
+]
+
 [dependency-groups]
 dev = [
-  "basedpyright~=1.38.4",
-  "ruff==0.8.6",
-  "pytest>=8.3.4,<9.1.0",
+  "basedpyright>=1.38.4,<1.40.0",
+  "ruff==0.15.17",
+  "pytest>=8.3.4,<9.2.0",
   "pytest-cov~=6.0",
   "hypothesis",
   "mutmut",

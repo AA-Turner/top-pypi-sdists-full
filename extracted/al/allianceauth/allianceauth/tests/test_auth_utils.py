@@ -1,5 +1,7 @@
-from django.contrib.auth.models import Group, Permission, User
 from django.test import TestCase
+
+from allianceauth.authentication.models import Permission, User
+from allianceauth.groupmanagement.models import Group
 
 from .auth_utils import AuthUtils
 

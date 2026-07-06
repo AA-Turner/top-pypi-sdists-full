@@ -28,9 +28,8 @@ import path from "node:path"
 import colors from "picocolors"
 import type { Plugin } from "vite"
 import { type BridgeTypesConfig, readBridgeConfig } from "./shared/bridge-schema.js"
-import { DEBOUNCE_MS } from "./shared/constants.js"
 import { normalizeHost, resolveHotFilePath, resolveLitestarPort } from "./shared/network.js"
-import { createLitestarTypeGenPlugin } from "./shared/typegen-plugin.js"
+import { createLitestarTypeGenPlugin, type RequiredTypeGenConfig, resolveTypesConfig } from "./shared/typegen-plugin.js"
 import { hmrServerConfig } from "./shared/vite-compat.js"
 
 /**
@@ -123,6 +122,13 @@ export interface NuxtTypesConfig {
   globalRoute?: boolean
 
   /**
+   * Fail Vite when type generation fails.
+   *
+   * Defaults to true during build and false during dev.
+   */
+  failOnError?: boolean
+
+  /**
    * Debounce time in milliseconds for type regeneration.
    *
    * @default 300
@@ -183,7 +189,7 @@ export interface LitestarNuxtConfig {
 interface ResolvedNuxtConfig {
   apiProxy: string
   apiPrefix: string
-  types: Required<NuxtTypesConfig> | false
+  types: RequiredTypeGenConfig | false
   verbose: boolean
   hotFile?: string
   proxyMode: "vite" | "direct" | "proxy" | null
@@ -243,77 +249,13 @@ function resolveConfig(config: LitestarNuxtConfig = {}): ResolvedNuxtConfig {
     litestarPort = resolvedLitestarPort
   }
 
-  let typesConfig: Required<NuxtTypesConfig> | false = false
-
-  const defaultTypesOutput = "generated"
-  const buildTypeDefaults = (output: string) => ({
-    openapiPath: path.join(output, "openapi.json"),
-    routesPath: path.join(output, "routes.json"),
-    pagePropsPath: path.join(output, "inertia-pages.json"),
-    schemasTsPath: path.join(output, "schemas.ts"),
+  const typesConfig = resolveTypesConfig({
+    requested: config.types,
+    pythonConfig: pythonTypesConfig ?? undefined,
+    defaultOutput: "generated",
+    mergePythonWhenTrue: true,
+    mergePythonForObject: true,
   })
-
-  if (config.types === true) {
-    const output = pythonTypesConfig?.output ?? defaultTypesOutput
-    const defaults = buildTypeDefaults(output)
-    typesConfig = {
-      enabled: true,
-      output,
-      openapiPath: pythonTypesConfig?.openapiPath ?? defaults.openapiPath,
-      routesPath: pythonTypesConfig?.routesPath ?? defaults.routesPath,
-      pagePropsPath: pythonTypesConfig?.pagePropsPath ?? defaults.pagePropsPath,
-      schemasTsPath: pythonTypesConfig?.schemasTsPath ?? defaults.schemasTsPath,
-      generateZod: pythonTypesConfig?.generateZod ?? false,
-      generateSdk: pythonTypesConfig?.generateSdk ?? true,
-      generateRoutes: pythonTypesConfig?.generateRoutes ?? true,
-      generatePageProps: pythonTypesConfig?.generatePageProps ?? true,
-      generateSchemas: pythonTypesConfig?.generateSchemas ?? true,
-      globalRoute: pythonTypesConfig?.globalRoute ?? false,
-      debounce: DEBOUNCE_MS,
-    }
-  } else if (typeof config.types === "object" && config.types !== null) {
-    const userProvidedOutput = Object.hasOwn(config.types, "output")
-    const output = config.types.output ?? pythonTypesConfig?.output ?? defaultTypesOutput
-    const defaults = buildTypeDefaults(output)
-    const openapiFallback = userProvidedOutput ? defaults.openapiPath : (pythonTypesConfig?.openapiPath ?? defaults.openapiPath)
-    const routesFallback = userProvidedOutput ? defaults.routesPath : (pythonTypesConfig?.routesPath ?? defaults.routesPath)
-    const pagePropsFallback = userProvidedOutput ? defaults.pagePropsPath : (pythonTypesConfig?.pagePropsPath ?? defaults.pagePropsPath)
-    const schemasFallback = userProvidedOutput ? defaults.schemasTsPath : (pythonTypesConfig?.schemasTsPath ?? defaults.schemasTsPath)
-
-    typesConfig = {
-      enabled: config.types.enabled ?? true,
-      output,
-      openapiPath: config.types.openapiPath ?? openapiFallback,
-      routesPath: config.types.routesPath ?? routesFallback,
-      pagePropsPath: config.types.pagePropsPath ?? pagePropsFallback,
-      schemasTsPath: config.types.schemasTsPath ?? schemasFallback,
-      generateZod: config.types.generateZod ?? pythonTypesConfig?.generateZod ?? false,
-      generateSdk: config.types.generateSdk ?? pythonTypesConfig?.generateSdk ?? true,
-      generateRoutes: config.types.generateRoutes ?? pythonTypesConfig?.generateRoutes ?? true,
-      generatePageProps: config.types.generatePageProps ?? pythonTypesConfig?.generatePageProps ?? true,
-      generateSchemas: config.types.generateSchemas ?? pythonTypesConfig?.generateSchemas ?? true,
-      globalRoute: config.types.globalRoute ?? pythonTypesConfig?.globalRoute ?? false,
-      debounce: config.types.debounce ?? DEBOUNCE_MS,
-    }
-  } else if (config.types !== false && pythonTypesConfig?.enabled) {
-    const output = pythonTypesConfig.output ?? defaultTypesOutput
-    const defaults = buildTypeDefaults(output)
-    typesConfig = {
-      enabled: true,
-      output,
-      openapiPath: pythonTypesConfig.openapiPath ?? defaults.openapiPath,
-      routesPath: pythonTypesConfig.routesPath ?? defaults.routesPath,
-      pagePropsPath: pythonTypesConfig.pagePropsPath ?? defaults.pagePropsPath,
-      schemasTsPath: pythonTypesConfig.schemasTsPath ?? defaults.schemasTsPath,
-      generateZod: pythonTypesConfig.generateZod ?? false,
-      generateSdk: pythonTypesConfig.generateSdk ?? true,
-      generateRoutes: pythonTypesConfig.generateRoutes ?? true,
-      generatePageProps: pythonTypesConfig.generatePageProps ?? true,
-      generateSchemas: pythonTypesConfig.generateSchemas ?? true,
-      globalRoute: pythonTypesConfig.globalRoute ?? false,
-      debounce: DEBOUNCE_MS,
-    }
-  }
 
   return {
     apiProxy: config.apiProxy ?? "http://localhost:8000",

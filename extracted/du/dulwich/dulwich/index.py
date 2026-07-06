@@ -64,6 +64,7 @@ __all__ = [
     "get_path_element_validator",
     "get_unstaged_changes",
     "index_entry_from_stat",
+    "index_entry_from_tree_entry",
     "make_path_normalizer",
     "pathjoin",
     "pathsplit",
@@ -1774,6 +1775,40 @@ def index_entry_from_stat(
     )
 
 
+def index_entry_from_tree_entry(
+    mode: int,
+    hex_sha: bytes,
+    size: int = 0,
+) -> IndexEntry:
+    """Create an index entry from a tree entry, with zeroed stat fields.
+
+    Use this when populating an index directly from a tree without touching
+    the filesystem, matching ``git read-tree``. The stat-derived fields
+    (ctime/mtime/dev/ino/uid/gid) are zeroed; git treats such entries as
+    stat-unmerged and refreshes them on the next stat.
+
+    Args:
+      mode: File mode from the tree entry
+      hex_sha: Hex sha of the object
+      size: Size of the object (0 for gitlinks or when unknown)
+    """
+    from dulwich.objects import ObjectID
+
+    return IndexEntry(
+        ctime=0,
+        mtime=0,
+        dev=0,
+        ino=0,
+        mode=mode,
+        uid=0,
+        gid=0,
+        size=size,
+        sha=ObjectID(hex_sha),
+        flags=0,
+        extended_flags=0,
+    )
+
+
 if sys.platform == "win32":
     # On Windows, creating symlinks either requires administrator privileges
     # or developer mode. Raise a more helpful error when we're unable to
@@ -1866,6 +1901,13 @@ def build_file_from_blob(
         else:
             (symlink_fn or symlink)(contents, target_path)
     else:
+        if oldstat is not None and stat.S_ISLNK(oldstat.st_mode):
+            # A symlink left at the target path must not be written through.
+            # open(..., "wb") would follow it and clobber whatever it points
+            # at, possibly outside the work tree. Replace it with a fresh
+            # regular file, like git does on checkout.
+            _remove_file_with_readonly_handling(target_path)
+            oldstat = None
         if oldstat is not None and oldstat.st_size == len(contents):
             with open(target_path, "rb") as f:
                 if f.read() == contents:
@@ -1876,7 +1918,11 @@ def build_file_from_blob(
             f.write(contents)
 
         if honor_filemode:
-            os.chmod(target_path, mode)
+            # Canonicalize to the permission bits git honors (0o644/0o755).
+            # The mode comes from a tree/index entry, which for an untrusted
+            # repository can carry setuid/setgid/sticky or world-writable bits;
+            # git reduces every regular-file mode to 0o644 or 0o755 on checkout.
+            os.chmod(target_path, cleanup_mode(mode))
 
     return os.lstat(target_path)
 
@@ -2133,6 +2179,59 @@ def validate_path(
             return False
     else:
         return True
+
+
+def verify_leading_dirs(
+    tree_path: bytes,
+    safe_prefix: list[bytes],
+    repo_path: bytes,
+) -> None:
+    """Reject writes whose leading path resolves through a symlink.
+
+    Callers that materialize many paths in sorted order can pass a shared
+    ``safe_prefix`` list to cache the deepest chain of directory components
+    already verified to be real directories (or absent); each call only
+    ``lstat``s the components that differ from that chain. Callers that only
+    verify a single path can pass an empty list. Mirrors git's
+    ``lstat_cache_matchlen`` (see CVE-2021-21300).
+
+    Args:
+      tree_path: Tree-form path (``/``-separated) about to be written.
+      safe_prefix: Mutable cache of directory components already verified
+        under ``repo_path``. Updated in place.
+      repo_path: Filesystem path to the work-tree root.
+
+    Raises:
+      InvalidPathError: If any leading component is a symlink.
+    """
+    slash = tree_path.rfind(b"/")
+    if slash <= 0:
+        return
+    components = tree_path[:slash].split(b"/")
+
+    common = 0
+    while (
+        common < len(safe_prefix)
+        and common < len(components)
+        and safe_prefix[common] == components[common]
+    ):
+        common += 1
+    del safe_prefix[common:]
+
+    current = repo_path
+    for part in components[:common]:
+        current = os.path.join(current, part)
+    for part in components[common:]:
+        current = os.path.join(current, part)
+        try:
+            st = os.lstat(current)
+        except FileNotFoundError:
+            # Anything below here doesn't exist yet; makedirs will create
+            # it under a verified-real-directory prefix.
+            break
+        if stat.S_ISLNK(st.st_mode):
+            raise InvalidPathError(tree_path)
+        safe_prefix.append(part)
 
 
 def build_index_from_tree(

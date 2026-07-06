@@ -12,13 +12,13 @@ import functools
 import json
 import math
 import warnings
+from collections.abc import Hashable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
     Any,
     Callable,
     Dict,
-    Hashable,
     List,
     Literal,
     Optional,
@@ -606,7 +606,6 @@ def _extract_transform(
     crs_coord: xarray.DataArray | None,
     gcp: bool,
 ) -> Optional[Affine]:
-
     def is_1d(coord) -> bool:
         if coord is None:
             return False
@@ -752,6 +751,7 @@ def xr_reproject(
     anchor: GeoboxAnchor = "default",
     tol: float = 0.01,
     round_resolution: Union[None, bool, Callable[[float, str], float]] = None,
+    always_yx: bool = False,
     **kw,
 ) -> XrT:
     """
@@ -804,6 +804,10 @@ def xr_reproject(
     :param round_resolution:
       ``round_resolution(res: float, units: str) -> float``
 
+    :param always_yx:
+       If True, always use names ``y,x`` for spatial coordinates even for
+       geographic geoboxes.
+
     This method uses :py:mod:`rasterio`.
 
     .. seealso:: :py:meth:`odc.geo.overlap.compute_output_geobox`
@@ -816,6 +820,7 @@ def xr_reproject(
         "anchor": anchor,
         "tol": tol,
         "round_resolution": round_resolution,
+        "always_yx": always_yx,
         **kw,
     }
     if isinstance(src, xarray.DataArray):
@@ -880,6 +885,7 @@ def _xr_reproject_ds(
     dtype=None,
     **kw,
 ) -> xarray.Dataset:
+    # pylint: disable=too-many-locals
     assert isinstance(src, xarray.Dataset)
 
     if len(src.dims) == 1:
@@ -922,7 +928,20 @@ def _xr_reproject_ds(
             **kw,
         )
 
-    return src.map(_maybe_reproject)
+    data_vars = {name: _maybe_reproject(da) for name, da in src.data_vars.items()}
+    # Copy over non spatial-attrs and coords
+    attrs = {name: value for name, value in src.attrs if name not in SPATIAL_ATTRIBUTES}
+    dst = xarray.Dataset(data_vars, attrs=attrs)
+    src_spatial_dims: tuple = spatial_dims(src) or tuple()
+    src_crs_coords = _locate_crs_coords(src)
+    for src_coord_name, src_coord in src.coords.items():
+        if (
+            src_coord_name not in dst.coords
+            and not set(src_coord.dims).issubset(src_spatial_dims)
+            and src_coord not in src_crs_coords
+        ):
+            dst.coords[src_coord_name] = src_coord
+    return dst
 
 
 def _xr_reproject_da(
@@ -1014,9 +1033,17 @@ def _xr_reproject_da(
         return sdims.isdisjoint(coord.dims)
 
     coords = {k: coord for k, coord in src.coords.items() if should_keep(coord)}
-    coords.update(xr_coords(dst_geobox))
 
-    dims = (*src.dims[:ydim], *dst_geobox.dimensions, *src.dims[ydim + 2 :])
+    always_yx = kw.get("always_yx", False)
+    coords.update(xr_coords(dst_geobox, always_yx=always_yx))
+
+    # Force dimensions if needed
+    if always_yx:
+        gbx_dims = ("y", "x")
+    else:
+        gbx_dims = dst_geobox.dimensions
+
+    dims = (*src.dims[:ydim], *gbx_dims, *src.dims[ydim + 2 :])
 
     out = xarray.DataArray(dst, coords=coords, dims=dims, attrs=attrs)
     out.encoding["grid_mapping"] = _DEFAULT_CRS_COORD_NAME

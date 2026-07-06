@@ -8,9 +8,17 @@ from typing import Any
 
 from loguru import logger
 
-from echo_agent.models.provider import LLMProvider, LLMResponse, ToolCallRequest
+from echo_agent.models.provider import (
+    LLMProvider,
+    LLMResponse,
+    StreamDeltaCallback,
+    ToolCallRequest,
+)
+from echo_agent.models.providers.anthropic_provider import (
+    parse_anthropic_message,
+    stream_anthropic_messages,
+)
 from echo_agent.models.providers.format_utils import (
-    anthropic_response_to_llm_fields,
     openai_to_anthropic_messages,
     openai_to_anthropic_tools,
 )
@@ -60,6 +68,138 @@ class BedrockProvider(LLMProvider):
     def get_default_model(self) -> str:
         return self._default_model
 
+    async def chat_stream(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        model: str | None = None,
+        tool_choice: str | dict | None = None,
+        on_delta: "StreamDeltaCallback | None" = None,
+        **kwargs: Any,
+    ) -> LLMResponse:
+        target = model or self._default_model
+        if not _is_claude_model(target):
+            # The Converse streaming path only parses text deltas; it cannot
+            # collect toolUse blocks. When tools are supplied the model may
+            # respond with a tool call, so fall back to the non-streaming
+            # _chat_converse, which fully parses tool_calls/usage/stopReason.
+            # Correctness (never dropping tool calls) takes priority over the
+            # per-token streaming feel here — tool-bearing turns are typically
+            # not ones the user is watching stream. Without tools we keep the
+            # true streaming path.
+            if tools:
+                return await self._chat_converse(
+                    target, messages, tools, tool_choice, **kwargs
+                )
+            return await self._chat_stream_converse(
+                target, messages, tools, tool_choice, on_delta=on_delta, **kwargs
+            )
+
+        client = self._build_anthropic_bedrock()
+        system_blocks, converted = openai_to_anthropic_messages(messages)
+        params: dict[str, Any] = {
+            "model": target,
+            "messages": converted,
+            "max_tokens": kwargs.get("max_tokens", 4096),
+        }
+        if system_blocks:
+            params["system"] = system_blocks
+        if tools:
+            params["tools"] = openai_to_anthropic_tools(tools)
+        temp = kwargs.get("temperature", self.generation.temperature)
+        if temp is not None:
+            params["temperature"] = temp
+
+        try:
+            final = await stream_anthropic_messages(client, params, on_delta)
+        except Exception as e:
+            logger.error("Bedrock Claude stream error: {}", e)
+            return LLMResponse(content=f"Error: {e}", finish_reason="error")
+
+        # Shared parser keeps block extraction and usage (incl. prompt-cache
+        # tokens) consistent with the native Anthropic provider.
+        return parse_anthropic_message(final)
+
+    async def _chat_stream_converse(
+        self, model: str, messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None, tool_choice: str | dict | None,
+        *, on_delta: "StreamDeltaCallback | None" = None, **kwargs: Any,
+    ) -> LLMResponse:
+        import asyncio
+
+        from echo_agent.models.provider import _invoke_stream_callback
+        client = self._build_boto3_client()
+        converse_msgs = self._to_converse_messages(messages)
+        system_parts = self._extract_converse_system(messages)
+
+        params: dict[str, Any] = {"modelId": model, "messages": converse_msgs}
+        if system_parts:
+            params["system"] = system_parts
+        if tools:
+            params["toolConfig"] = self._to_converse_tools(tools)
+
+        config: dict[str, Any] = {"maxTokens": kwargs.get("max_tokens", 4096)}
+        temp = kwargs.get("temperature", self.generation.temperature)
+        if temp is not None:
+            config["temperature"] = temp
+        params["inferenceConfig"] = config
+
+        loop = asyncio.get_running_loop()
+        text_parts: list[str] = []
+        stop_reason = ""
+        usage: dict[str, int] = {}
+        try:
+            resp = await loop.run_in_executor(None, lambda: client.converse_stream(**params))
+            # boto3 EventStream is a synchronous iterator; pull one event at a
+            # time on the executor so each delta is emitted as it arrives rather
+            # than buffered until the stream is exhausted.
+            events = resp.get("stream", []) if isinstance(resp, dict) else []
+            it = iter(events)
+            sentinel = object()
+            while True:
+                ev = await loop.run_in_executor(None, lambda: next(it, sentinel))
+                if ev is sentinel:
+                    break
+                # Defend per event: a malformed block must not abort the stream.
+                try:
+                    if not isinstance(ev, dict):
+                        continue
+                    block = ev.get("contentBlockDelta")
+                    if block:
+                        text = (block or {}).get("delta", {}).get("text", "")
+                        if text:
+                            text_parts.append(text)
+                            await _invoke_stream_callback(on_delta, text)
+                    # messageStop carries the stop reason; metadata carries token
+                    # usage. Capture both so streamed turns report finish_reason
+                    # and usage just like the non-streaming _chat_converse path —
+                    # otherwise cost tracking silently records zero.
+                    stop_ev = ev.get("messageStop")
+                    if stop_ev:
+                        stop_reason = stop_ev.get("stopReason", "") or stop_reason
+                    meta = ev.get("metadata")
+                    if meta and meta.get("usage"):
+                        u = meta["usage"]
+                        usage["prompt_tokens"] = u.get("inputTokens", 0)
+                        usage["completion_tokens"] = u.get("outputTokens", 0)
+                except Exception:
+                    continue
+        except Exception as e:
+            logger.error("Bedrock converse stream error: {}", e)
+            return LLMResponse(content=f"Error: {e}", finish_reason="error")
+
+        # Map stopReason → finish_reason the same way _chat_converse does, so a
+        # max_tokens truncation is not misreported as a clean stop. The text-only
+        # stream path never collects toolUse (the tool case falls back to the
+        # non-streaming converse upstream), so tool_use is not expected here.
+        finish = "length" if stop_reason == "max_tokens" else "stop"
+        return LLMResponse(
+            content="".join(text_parts),
+            finish_reason=finish,
+            usage=usage,
+            model=model,
+        )
+
     async def _chat_claude(
         self, model: str, messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None, tool_choice: str | dict | None, **kwargs: Any,
@@ -86,20 +226,7 @@ class BedrockProvider(LLMProvider):
             logger.error("Bedrock Claude error: {}", e)
             return LLMResponse(content=f"Error: {e}", finish_reason="error")
 
-        blocks = []
-        for block in resp.content:
-            if block.type == "text":
-                blocks.append({"type": "text", "text": block.text})
-            elif block.type == "tool_use":
-                blocks.append({"type": "tool_use", "id": block.id, "name": block.name, "input": block.input})
-
-        usage_dict: dict[str, Any] = {}
-        if resp.usage:
-            usage_dict["input_tokens"] = resp.usage.input_tokens
-            usage_dict["output_tokens"] = resp.usage.output_tokens
-
-        fields = anthropic_response_to_llm_fields(blocks, resp.stop_reason or "", usage_dict, resp.model or "")
-        return LLMResponse(**fields)
+        return parse_anthropic_message(resp)
 
     def _build_anthropic_bedrock(self) -> Any:
         try:

@@ -1,9 +1,9 @@
 from unittest.mock import patch
 
-from django.contrib.auth.models import User
 from django.test import RequestFactory
 from django.urls import reverse
 
+from allianceauth.authentication.models import User
 from allianceauth.tests.auth_utils import AuthUtils
 from allianceauth.utils.testing import NoSocketsTestCase
 
@@ -11,10 +11,7 @@ from ..discord_client.tests.factories import TEST_USER_ID, TEST_USER_NAME
 from ..models import DiscordUser
 from ..utils import set_logger_to_file
 from ..views import (
-    activate_discord,
-    deactivate_discord,
-    discord_add_bot,
-    discord_callback,
+    activate_discord, deactivate_discord, discord_add_bot, discord_callback,
     reset_discord,
 )
 from . import MODULE_PATH, add_permissions_to_members

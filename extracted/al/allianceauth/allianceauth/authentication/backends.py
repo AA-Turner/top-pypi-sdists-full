@@ -1,9 +1,10 @@
 import logging
 
 from django.contrib.auth.backends import ModelBackend
-from django.contrib.auth.models import Permission, User
 
-from .models import CharacterOwnership, OwnershipRecord, UserProfile
+from .models import (
+    CharacterOwnership, OwnershipRecord, Permission, User, UserProfile,
+)
 
 logger = logging.getLogger(__name__)
 

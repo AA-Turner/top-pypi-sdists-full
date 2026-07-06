@@ -348,6 +348,14 @@ class WeixinChannelConfig(_Base):
             "desc_en": "Local data directory for the Weixin channel",
         },
     )
+    typing_indicator: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "channels/weixin.py",
+            "desc_zh": "处理消息期间是否向对方下发“对方正在输入”状态",
+            "desc_en": "Send a typing indicator to the user while a message is being processed",
+        },
+    )
 
 
 class QQBotChannelConfig(_Base):
@@ -1136,6 +1144,65 @@ class WebToolConfig(_Base):
     )
 
 
+class BrowserToolConfig(_Base):
+    enabled: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/tools/__init__.py",
+            "desc_zh": "是否开启浏览器自动化工具（默认开，未装 playwright/chromium 时 is_ready 探测自动降级不装配）",
+            "desc_en": "Enable browser automation tool (default on; auto-degrades if playwright/chromium missing)",
+        },
+    )
+    max_sessions: int = Field(
+        default=3,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/browser/session.py",
+            "desc_zh": "并发浏览器会话上限",
+            "desc_en": "Max concurrent browser sessions",
+        },
+    )
+    session_idle_timeout_sec: int = Field(
+        default=300,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/browser/session.py",
+            "desc_zh": "浏览器会话空闲多久(秒)后自动回收",
+            "desc_en": "Idle seconds before a browser session is reaped",
+        },
+    )
+    max_snapshot_chars: int = Field(
+        default=8000,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/browser/snapshot.py",
+            "desc_zh": "可访问性快照文本截断上限(字符)",
+            "desc_en": "Accessibility snapshot text truncation limit (chars)",
+        },
+    )
+    headless: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/browser/session.py",
+            "desc_zh": "无头模式（服务器环境必需）",
+            "desc_en": "Headless mode (required on servers)",
+        },
+    )
+    nav_timeout_sec: int = Field(
+        default=30,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/browser/actions.py",
+            "desc_zh": "单次页面导航超时(秒)",
+            "desc_en": "Per-navigation timeout (seconds)",
+        },
+    )
+    allow_private_addresses: bool = Field(
+        default=False,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/browser/actions.py",
+            "desc_zh": "是否允许导航到内网地址（默认拦截，复用 SSRF 口径）",
+            "desc_en": "Allow navigating to private addresses (default blocked, reuses SSRF policy)",
+        },
+    )
+
+
 class ImageGenConfig(_Base):
     backend: str = Field(
         default="openai",
@@ -1387,6 +1454,7 @@ class ToolsConfig(_Base):
     )
     exec: ExecToolConfig = Field(default_factory=ExecToolConfig)
     web: WebToolConfig = Field(default_factory=WebToolConfig)
+    browser: BrowserToolConfig = Field(default_factory=BrowserToolConfig)
     restrict_to_workspace: bool = Field(
         default=False,
         json_schema_extra={
@@ -1518,6 +1586,14 @@ class ExecutionConfig(_Base):
             "desc_en": "Network access policy for the execution environment",
         },
     )
+    max_background_tasks: int = Field(
+        default=64,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/loop.py:259",
+            "desc_zh": "后台任务并发上限,超限时可丢弃任务被丢、不可丢任务排队",
+            "desc_en": "Max concurrent background tasks; over limit discardable dropped, durable queued",
+        },
+    )
 
 
 # ── Permission configs ───────────────────────────────────────────────────────
@@ -1526,6 +1602,7 @@ class ApprovalConfig(_Base):
     require_approval: list[str] = Field(
         default_factory=lambda: [
             "cronjob",
+            "dep_install",
             "exec",
             "execute_code",
             "process",
@@ -1741,6 +1818,14 @@ class SessionConfig(_Base):
             "desc_en": "Skip history images when the current turn already has one",
         },
     )
+    group_session_scope: Literal["per_user", "shared"] = Field(
+        default="per_user",
+        json_schema_extra={
+            "status": "effective", "ref": "agent/loop.py:597",
+            "desc_zh": "群聊会话隔离策略:per_user 每人独立会话(默认,防群内串话),shared 整群共享一个会话",
+            "desc_en": "Group session scope: per_user = isolate per sender (default), shared = whole group shares one session",
+        },
+    )
 
 
 # ── Memory configs ───────────────────────────────────────────────────────────
@@ -1762,6 +1847,30 @@ class MemoryConfig(_Base):
             "desc_en": "Memory scope policy",
         },
     )
+    retrieval_on_miss: Literal["degrade", "sync"] = Field(
+        default="degrade",
+        json_schema_extra={
+            "status": "effective", "ref": "agent/pipeline/context_stage.py:197",
+            "desc_zh": "检索缓存未命中时的行为:degrade=本轮跳过检索,sync=同步补检索",
+            "desc_en": "Behavior on retrieval cache miss: degrade=skip this turn, sync=fetch synchronously",
+        },
+    )
+    cache_ttl_seconds: float = Field(
+        default=60.0,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/pipeline/context_stage.py:192",
+            "desc_zh": "检索预取缓存新鲜度 TTL(秒),超时即视为未命中",
+            "desc_en": "Retrieval prefetch cache freshness TTL in seconds",
+        },
+    )
+    cache_jaccard_min: float = Field(
+        default=0.3,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/pipeline/context_stage.py:192",
+            "desc_zh": "当前查询与缓存查询的最小 Jaccard 相似度,低于则视为话题突变未命中",
+            "desc_en": "Min Jaccard similarity between current and cached query; below is a miss",
+        },
+    )
     consolidation_threshold: int = Field(
         default=20,
         json_schema_extra={
@@ -1779,11 +1888,11 @@ class MemoryConfig(_Base):
         },
     )
     vector_dimensions: int = Field(
-        default=1536,
+        default=0,
         json_schema_extra={
             "status": "effective", "ref": "agent/loop.py:366",
-            "desc_zh": "记忆向量维度",
-            "desc_en": "Memory embedding vector dimensions",
+            "desc_zh": "记忆向量维度,0=自动跟随当前嵌入模型的实际维度",
+            "desc_en": "Memory embedding vector dimensions; 0 = follow the active embedding model",
         },
     )
     max_user_memories: int = Field(
@@ -1866,12 +1975,31 @@ class MemoryConfig(_Base):
             "desc_en": "Maximum working-memory entries",
         },
     )
+    embedding_backend: Literal["auto", "local", "provider"] = Field(
+        default="auto",
+        json_schema_extra={
+            "status": "effective", "ref": "agent/loop.py:_resolve_embed_and_index",
+            "desc_zh": "嵌入后端: auto=启动探测provider,失败静默回退fastembed; "
+                       "local=直接用本地fastembed免探测; provider=强制provider,探测失败报错不回退",
+            "desc_en": "Embedding backend: auto=probe provider at startup, fall back to fastembed "
+                       "on failure; local=use local fastembed directly; provider=force provider, "
+                       "error out if probe fails",
+        },
+    )
     embedding_model: str = Field(
         default="",
         json_schema_extra={
             "status": "effective", "ref": "agent/loop.py:370",
             "desc_zh": "记忆向量化使用的嵌入模型",
             "desc_en": "Embedding model used for memory vectorization",
+        },
+    )
+    local_embedding_model: str = Field(
+        default="BAAI/bge-small-zh-v1.5",
+        json_schema_extra={
+            "status": "effective", "ref": "memory/local_embed.py",
+            "desc_zh": "无embed能力provider时的本地嵌入兜底模型(fastembed),空串禁用兜底",
+            "desc_en": "Local fastembed fallback model when no embed-capable provider exists; empty string disables the fallback",
         },
     )
     # Latency budget for the per-message query-embedding round-trip in hybrid
@@ -1892,6 +2020,22 @@ class MemoryConfig(_Base):
             "status": "effective", "ref": "agent/loop.py:109",
             "desc_zh": "是否在写入记忆时即时扫描矛盾",
             "desc_en": "Scan for contradictions at memory store time",
+        },
+    )
+    auto_resolve_contradictions: bool = Field(
+        default=False,
+        json_schema_extra={
+            "status": "effective", "ref": "memory/consolidator.py:auto_resolve",
+            "desc_zh": "睡眠整合时自动消解同 key 矛盾(newest-wins),默认关闭只检测不消解",
+            "desc_en": "Auto-resolve same-key contradictions (newest-wins) during sleep consolidation; off by default",
+        },
+    )
+    reflection_enabled: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "memory/reflection.py",
+            "desc_zh": "是否启用睡眠反思(归纳提炼+LLM矛盾裁决),随睡眠整合运行",
+            "desc_en": "Enable sleep-time reflection (distillation + LLM conflict adjudication), piggybacking on sleep consolidation",
         },
     )
 
@@ -1954,7 +2098,10 @@ class KnowledgeConfig(_Base):
         },
     )
     allowed_extensions: list[str] = Field(
-        default_factory=lambda: [".md", ".txt", ".rst", ".json", ".yaml", ".yml", ".py"],
+        default_factory=lambda: [
+            ".md", ".txt", ".rst", ".json", ".yaml", ".yml", ".py",
+            ".pdf", ".docx", ".xlsx", ".pptx",
+        ],
         json_schema_extra={
             "status": "effective", "ref": "agent/loop.py:223",
             "desc_zh": "允许索引的文档扩展名",
@@ -2112,6 +2259,205 @@ class SchedulerConfig(_Base):
     )
 
 
+# ── Checkpoint configs ───────────────────────────────────────────────────────
+
+class CheckpointConfig(_Base):
+    enabled: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "checkpoint/manager.py",
+            "desc_zh": "是否开启编辑前影子git快照安全网（探测不到git时自动降级）",
+            "desc_en": "Enable pre-edit shadow-git checkpoint safety net (auto-degrades if git missing)",
+        },
+    )
+    store_path: str = Field(
+        default="~/.echo-agent/checkpoints/store",
+        json_schema_extra={
+            "status": "effective", "ref": "checkpoint/store.py",
+            "desc_zh": "影子git仓库存放路径",
+            "desc_en": "Path to the shadow git store",
+        },
+    )
+    max_snapshots_per_workspace: int = Field(
+        default=20,
+        json_schema_extra={
+            "status": "effective", "ref": "checkpoint/manager.py",
+            "desc_zh": "每个工作区保留的最大快照数量",
+            "desc_en": "Max snapshots retained per workspace",
+        },
+    )
+    max_total_size_mb: int = Field(
+        default=500,
+        json_schema_extra={
+            "status": "effective", "ref": "checkpoint/manager.py",
+            "desc_zh": "整个store的总大小上限（MB），超出触发gc",
+            "desc_en": "Total store size cap in MB; exceeding triggers gc",
+        },
+    )
+    max_file_size_mb: int = Field(
+        default=10,
+        json_schema_extra={
+            "status": "effective", "ref": "checkpoint/store.py",
+            "desc_zh": "单文件超过此大小（MB）不纳入快照",
+            "desc_en": "Files larger than this (MB) are excluded from snapshots",
+        },
+    )
+
+
+# ── Validation configs ───────────────────────────────────────────────────────
+
+class ValidationConfig(_Base):
+    enabled: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "validation/__init__.py",
+            "desc_zh": "是否开启写后增量校验反馈（检查器探测不到时自动降级）",
+            "desc_en": "Enable post-write incremental validation feedback (auto-degrades if checkers missing)",
+        },
+    )
+    timeout_sec: float = Field(
+        default=5.0,
+        json_schema_extra={
+            "status": "effective", "ref": "validation/validator.py",
+            "desc_zh": "单个文件校验的超时上限（秒），超时静默跳过",
+            "desc_en": "Per-file validation timeout in seconds; times out silently",
+        },
+    )
+    max_diagnostics: int = Field(
+        default=10,
+        json_schema_extra={
+            "status": "effective", "ref": "validation/validator.py",
+            "desc_zh": "追加到工具结果的诊断条数上限",
+            "desc_en": "Max diagnostics appended to the tool result",
+        },
+    )
+    max_file_size_kb: int = Field(
+        default=512,
+        json_schema_extra={
+            "status": "effective", "ref": "validation/validator.py",
+            "desc_zh": "超过此大小（KB）的文件跳过校验",
+            "desc_en": "Files larger than this (KB) skip validation",
+        },
+    )
+
+
+# ── Media understanding configs ──────────────────────────────────────────────
+
+class MediaUnderstandingConfig(_Base):
+    audio_enabled: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/media/understanding/registry.py",
+            "desc_zh": "是否开启入站音频/语音转写（provider 探测不到时自动降级）",
+            "desc_en": "Enable inbound audio/voice transcription (auto-degrades if no provider)",
+        },
+    )
+    audio_provider: str = Field(
+        default="auto",
+        json_schema_extra={
+            "status": "effective", "ref": "agent/media/understanding/registry.py",
+            "desc_zh": "转写后端：auto(探测) / cloud(云) / local(本地 faster-whisper)",
+            "desc_en": "Transcribe backend: auto (probe) / cloud / local (faster-whisper)",
+        },
+    )
+    min_audio_size_kb: float = Field(
+        default=1.0,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/media/understanding/audio.py",
+            "desc_zh": "小于此大小(KB)的音频跳过转写（噪音/误触）",
+            "desc_en": "Audio smaller than this (KB) skips transcription",
+        },
+    )
+    max_audio_size_kb: int = Field(
+        default=25000,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/media/understanding/audio.py",
+            "desc_zh": "大于此大小(KB)的音频跳过转写（控成本）",
+            "desc_en": "Audio larger than this (KB) skips transcription",
+        },
+    )
+    local_model_size: str = Field(
+        default="base",
+        json_schema_extra={
+            "status": "effective", "ref": "agent/media/understanding/audio.py",
+            "desc_zh": "本地 faster-whisper 模型规格（tiny/base/small/...）",
+            "desc_en": "Local faster-whisper model size (tiny/base/small/...)",
+        },
+    )
+    video_enabled: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/media/understanding/registry.py",
+            "desc_zh": "是否开启入站视频理解（抽帧+音轨；provider/ffmpeg 探测不到自动降级）",
+            "desc_en": "Enable inbound video understanding (frames + audio; auto-degrades)",
+        },
+    )
+    video_frame_count: int = Field(
+        default=4,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/media/understanding/video.py",
+            "desc_zh": "视频均匀抽帧数（喂 vision 模型）",
+            "desc_en": "Number of frames uniformly sampled from a video",
+        },
+    )
+    video_vision_model: str = Field(
+        default="",
+        json_schema_extra={
+            "status": "effective", "ref": "agent/media/understanding/video.py",
+            "desc_zh": "视频画面描述的 vision 模型覆盖（空=用 provider 默认模型）",
+            "desc_en": "Vision model override for video captioning (empty = provider default)",
+        },
+    )
+    video_vision_prompt: str = Field(
+        default="简要描述这段视频的画面内容。",
+        json_schema_extra={
+            "status": "effective", "ref": "agent/media/understanding/video.py",
+            "desc_zh": "视频抽帧描述的提示词",
+            "desc_en": "Prompt for video frame captioning",
+        },
+    )
+    min_video_size_kb: float = Field(
+        default=1.0,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/media/understanding/video.py",
+            "desc_zh": "小于此大小(KB)的视频跳过理解",
+            "desc_en": "Video smaller than this (KB) skips understanding",
+        },
+    )
+    max_video_size_kb: int = Field(
+        default=204800,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/media/understanding/video.py",
+            "desc_zh": "大于此大小(KB)的视频跳过理解（≈200MB，成本护栏）",
+            "desc_en": "Video larger than this (KB) skips understanding (~200MB cost guard)",
+        },
+    )
+    video_ffmpeg_concurrency: int = Field(
+        default=2,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/media/understanding/video.py",
+            "desc_zh": "同时运行的 ffmpeg 抽帧/抽音轨进程数上限（防多视频打爆 CPU）",
+            "desc_en": "Max concurrent ffmpeg processes for video frame/audio extraction",
+        },
+    )
+    transcription_base_url: str = Field(
+        default="https://api.groq.com/openai/v1",
+        json_schema_extra={
+            "status": "effective", "ref": "agent/media/understanding/registry.py",
+            "desc_zh": "云转写端点 base_url（OpenAI 兼容 /audio/transcriptions）",
+            "desc_en": "Cloud transcription endpoint base_url (OpenAI-compatible)",
+        },
+    )
+    transcription_model: str = Field(
+        default="whisper-large-v3",
+        json_schema_extra={
+            "status": "effective", "ref": "agent/media/understanding/registry.py",
+            "desc_zh": "云转写模型名",
+            "desc_en": "Cloud transcription model name",
+        },
+    )
+
+
 # ── Storage configs ──────────────────────────────────────────────────────────
 
 class StorageConfig(_Base):
@@ -2166,6 +2512,14 @@ class ObservabilityConfig(_Base):
             "status": "effective", "ref": "observability/monitor.py:55",
             "desc_zh": "是否记录执行轨迹(关闭则不写 trace 文件)",
             "desc_en": "Whether to record execution traces (off disables trace files)",
+        },
+    )
+    max_trace_files: int = Field(
+        default=500,
+        json_schema_extra={
+            "status": "effective", "ref": "observability/monitor.py:95",
+            "desc_zh": "trace 文件保留数量上限,超出按最旧优先轮转删除;<=0 表示不限制(禁用轮转)",
+            "desc_en": "Max retained trace files; oldest are rotated out when exceeded; <=0 disables rotation",
         },
     )
     health_check_interval_seconds: int = Field(
@@ -2384,6 +2738,22 @@ class GatewayAuthConfig(_Base):
             "desc_en": "Gateway API access tokens",
         },
     )
+    admin_tokens: list[str] = Field(
+        default_factory=list,
+        json_schema_extra={
+            "status": "effective", "ref": "gateway/auth.py:23",
+            "desc_zh": "高危管理接口(关停/技能导入安装删除/知识库上传删除)专用令牌；为空时回退到 api_tokens",
+            "desc_en": "Tokens required for high-risk admin endpoints (shutdown, skills import/install/delete, knowledge upload/delete); falls back to api_tokens when empty",
+        },
+    )
+    allowed_origins: list[str] = Field(
+        default_factory=list,
+        json_schema_extra={
+            "status": "effective", "ref": "gateway/server.py:_check_csrf",
+            "desc_zh": "浏览器 Origin 白名单(CSRF 防护)；留空则不启用 CSRF 检查(默认),配置后仅放行白名单内的跨站浏览器请求,非浏览器客户端始终不受影响",
+            "desc_en": "Allowlisted browser Origins (CSRF protection); empty disables the CSRF check (default). When set, only listed cross-site browser requests pass; non-browser clients are always unaffected",
+        },
+    )
     token_header: str = Field(
         default="X-Echo-Agent-Token",
         json_schema_extra={
@@ -2536,6 +2906,22 @@ class SkillsConfig(_Base):
             "status": "effective", "ref": "dependencies/lazy_deps.py:168",
             "desc_zh": "是否允许技能运行时按需安装依赖",
             "desc_en": "Allow lazy on-demand dependency installs for skills",
+        },
+    )
+    admission_policy: Literal["auto_write", "stage_for_review", "manual_only"] = Field(
+        default="stage_for_review",
+        json_schema_extra={
+            "status": "effective", "ref": "skills/admission.py",
+            "desc_zh": "技能自动沉淀准入策略:auto_write 按风险自动写 / stage_for_review 低风险自动高风险暂存 / manual_only 一律暂存",
+            "desc_en": "Skill auto-distillation admission policy",
+        },
+    )
+    auto_write_risk: Literal["low", "high"] = Field(
+        default="low",
+        json_schema_extra={
+            "status": "effective", "ref": "skills/admission.py",
+            "desc_zh": "auto_write 档下允许自动写盘的最高风险等级",
+            "desc_en": "Highest risk level auto-written under the auto_write policy",
         },
     )
 
@@ -2846,6 +3232,14 @@ class EvolutionConfig(_Base):
             "desc_en": "Require strict improvement before promotion",
         },
     )
+    min_eval_cases: int = Field(
+        default=3,
+        json_schema_extra={
+            "status": "effective", "ref": "evolution/gate.py:490",
+            "desc_zh": "晋升所需的最小评测用例数,样本不足则判定不确定不晋升",
+            "desc_en": "Minimum eval cases required to promote; fewer is inconclusive",
+        },
+    )
     record_trajectories: bool = Field(
         default=True,
         json_schema_extra={
@@ -2941,6 +3335,124 @@ class UIConfig(_Base):
     )
 
 
+class ToolConcurrencyConfig(_Base):
+    """Concurrent execution of read-only, non-overlapping tool calls."""
+
+    enabled: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/pipeline/inference_stage.py",
+            "desc_zh": "是否对只读、路径不冲突的工具并发执行",
+            "desc_en": "Run read-only, non-overlapping tool calls concurrently",
+        },
+    )
+    max_concurrent: int = Field(
+        default=4,
+        ge=1,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/pipeline/inference_stage.py",
+            "desc_zh": "工具并发上限(1 等价关闭并发,退化为串行)",
+            "desc_en": "Max concurrent tools (1 disables concurrency = serial)",
+        },
+    )
+
+
+class HeartbeatConfig(_Base):
+    """Long-running-turn progress heartbeat (level-triggered feedback)."""
+
+    enabled: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/progress_heartbeat.py",
+            "desc_zh": "长任务静默时是否定时播报进度心跳",
+            "desc_en": "Emit periodic progress heartbeat during long-running turns",
+        },
+    )
+    first_delay_sec: int = Field(
+        default=30, ge=0,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/progress_heartbeat.py",
+            "desc_zh": "首条心跳前的静默阈值(秒),短任务不触发",
+            "desc_en": "Silence threshold (sec) before the first heartbeat",
+        },
+    )
+    min_interval_sec: int = Field(
+        default=60, ge=1,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/progress_heartbeat.py",
+            "desc_zh": "两次可见反馈之间的最小间隔(秒),压制高频里程碑",
+            "desc_en": "Minimum interval (sec) between visible feedback",
+        },
+    )
+    verbosity: Literal["key_milestones", "every_tool", "silent"] = Field(
+        default="key_milestones",
+        json_schema_extra={
+            "status": "effective", "ref": "channels/manager.py",
+            "desc_zh": "心跳详细度:仅关键里程碑/每个工具/不发文字",
+            "desc_en": "Heartbeat verbosity tier",
+        },
+    )
+    template: str = Field(
+        default="⏳ {activity}（已用时 {elapsed}）",
+        json_schema_extra={
+            "status": "effective", "ref": "agent/progress_heartbeat.py",
+            "desc_zh": "心跳文案模板,支持 {elapsed} 与 {activity} 占位",
+            "desc_en": "Heartbeat text template with {elapsed}/{activity}",
+        },
+    )
+
+
+class InspectionConfig(_Base):
+    enabled: bool = Field(
+        default=False,
+        json_schema_extra={
+            "status": "effective", "ref": "app.py",
+            "desc_zh": "是否开启主动巡检（默认关；需在 INSPECT.md 声明巡检项）",
+            "desc_en": "Enable proactive inspection (default off; declare items in INSPECT.md)",
+        },
+    )
+    tick_interval_sec: int = Field(
+        default=300,
+        json_schema_extra={
+            "status": "effective", "ref": "app.py",
+            "desc_zh": "巡检节拍器扫描到期项的间隔（秒），非每项巡检频率",
+            "desc_en": "Inspection tick interval (seconds) for scanning due items",
+        },
+    )
+    inspect_file: str = Field(
+        default="INSPECT.md",
+        json_schema_extra={
+            "status": "effective", "ref": "agent/inspection/store.py",
+            "desc_zh": "巡检清单文件名（workspace 相对路径）",
+            "desc_en": "Inspection checklist filename (workspace-relative)",
+        },
+    )
+    max_items_per_tick: int = Field(
+        default=5,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/inspection/store.py",
+            "desc_zh": "单次节拍最多投给 agent 的到期巡检项数",
+            "desc_en": "Max due items dispatched to the agent per tick",
+        },
+    )
+    deliver_channel: str = Field(
+        default="",
+        json_schema_extra={
+            "status": "effective", "ref": "app.py",
+            "desc_zh": "巡检告警投递通道（空则用注册时的 session 兜底）",
+            "desc_en": "Inspection alert delivery channel (empty falls back to registering session)",
+        },
+    )
+    deliver_chat_id: str = Field(
+        default="",
+        json_schema_extra={
+            "status": "effective", "ref": "app.py",
+            "desc_zh": "巡检告警投递会话 id（空则用注册时的 session 兜底）",
+            "desc_en": "Inspection alert delivery chat id (empty falls back to registering session)",
+        },
+    )
+
+
 class AgentBehaviorConfig(_Base):
     """High-level agent loop tuning surfaced by the setup wizard.
 
@@ -2958,6 +3470,11 @@ class AgentBehaviorConfig(_Base):
             "desc_en": "Maximum iterations of the agent main loop",
         },
     )
+    tool_concurrency: ToolConcurrencyConfig = Field(
+        default_factory=ToolConcurrencyConfig,
+    )
+    heartbeat: HeartbeatConfig = Field(default_factory=HeartbeatConfig)
+    inspection: InspectionConfig = Field(default_factory=InspectionConfig)
 
 
 class CostConfig(_Base):
@@ -3008,6 +3525,9 @@ class Config(_Base):
     knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
     multi_agent: MultiAgentConfig = Field(default_factory=MultiAgentConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
+    checkpoint: CheckpointConfig = Field(default_factory=CheckpointConfig)
+    validation: ValidationConfig = Field(default_factory=ValidationConfig)
+    media_understanding: MediaUnderstandingConfig = Field(default_factory=MediaUnderstandingConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
     observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
     skills: SkillsConfig = Field(default_factory=SkillsConfig)

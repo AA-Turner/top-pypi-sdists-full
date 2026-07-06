@@ -1881,6 +1881,66 @@ _STRINGS.update({
                                   "zh": "[脚本已终止: 超时]\n脚本超过{sec}秒限制，已被强制终止。\n请将脚本拆分为更小的块或优化循环。",
                                   "en": "[SCRIPT_KILLED: TIMEOUT]\nScript exceeded {sec}s timeout and was forcibly terminated.\nSplit the script into smaller blocks or optimize the loop."},
 
+    # ── v5.1.6: 고아 curl 프로세스 wall-clock 타임아웃 (프로세스 그룹 강제 종료) ──
+    "wallclock_timeout_killed": {"ko": "⚠ WALL-CLOCK 타임아웃 ({elapsed}s) — bash 종료 후 자식 curl 프로세스가 남아있어 프로세스 그룹 강제 종료",
+                                  "zh": "⚠ WALL-CLOCK超时({elapsed}s) — bash退出后子curl进程残留，已强制终止进程组",
+                                  "en": "⚠ WALL-CLOCK TIMEOUT ({elapsed}s) — orphaned curl children after bash exit, process group force-killed"},
+    "watchdog_orphan_fixed":    {"ko": "v5.1.6: 워치독이 bash만 종료하고 자식 curl이 stdout을 유지해 스레드가 무한 대기하던 버그 수정 (proc.kill→os.killpg)",
+                                  "zh": "v5.1.6: 修复watchdog仅kill bash但子curl保持stdout导致线程无限等待的bug(proc.kill→os.killpg)",
+                                  "en": "v5.1.6: Fixed watchdog killing only bash while child curl kept stdout open causing thread to hang forever (proc.kill→os.killpg)"},
+
+    # ── v5.1.7: 스크립트 전처리 — curl 타임아웃 + while 카운터 자동 주입 ──
+    "script_sanitizer_curl_injected":  {
+        "ko": "🔧 [스크립트 전처리] curl -m 30 --connect-timeout 10 자동 주입됨 — 스크립트 자체가 30초 내 종료 보장",
+        "zh": "🔧 [脚本预处理] 自动注入 curl -m 30 --connect-timeout 10 — 脚本本身保证30秒内退出",
+        "en": "🔧 [Script pre-process] Auto-injected curl -m 30 --connect-timeout 10 — script self-terminates within 30s"},
+    "script_sanitizer_while_injected": {
+        "ko": "🔧 [스크립트 전처리] while true 루프에 _BINGO_CNT 카운터(최대 200회) 자동 삽입 — 무한 루프 방지",
+        "zh": "🔧 [脚本预处理] 在while true循环中自动插入_BINGO_CNT计数器(最多200次) — 防止无限循环",
+        "en": "🔧 [Script pre-process] Auto-inserted _BINGO_CNT counter (max 200) in while-true loop — prevents infinite loop"},
+    "script_sanitizer_root_cause":     {
+        "ko": "v5.1.7: 근본 해결 — 실행 전 스크립트 자체에 타임아웃 주입 (watchdog은 진짜 마지막 방어선으로 격하)",
+        "zh": "v5.1.7: 根本解决方案 — 执行前直接向脚本注入超时(watchdog降级为真正的最后防线)",
+        "en": "v5.1.7: Root cause fix — inject timeout into script before execution (watchdog is now a true last resort)"},
+
+    # ── v5.1.8: sqlmap/ghauri/hydra BASH_ALLOWED 복구 ──
+    "sqlmap_allowed_restored":  {
+        "ko": "v5.1.8: sqlmap, ghauri, hydra, medusa, wafw00f, wfuzz, wpscan을 _BASH_ALLOWED에 추가 — curl 전환 시 누락으로 DB 덤프 불가했던 문제 수정",
+        "zh": "v5.1.8: 将sqlmap/ghauri/hydra/medusa/wafw00f/wfuzz/wpscan加入_BASH_ALLOWED — 修复curl迁移时遗漏导致无法DB dump的问题",
+        "en": "v5.1.8: Added sqlmap/ghauri/hydra/medusa/wafw00f/wfuzz/wpscan to _BASH_ALLOWED — fixed DB dump broken since curl transition"},
+    "sysprompt_sqlmap_allowed": {
+        "ko": "v5.1.8: 시스템 프롬프트 'No sqlmap required' 삭제 → DB 덤프 시 sqlmap 적극 사용 지시",
+        "zh": "v5.1.8: 删除系统提示'No sqlmap required' → 指示DB dump时主动使用sqlmap",
+        "en": "v5.1.8: Removed 'No sqlmap required' from system prompt → LLM now instructed to use sqlmap for DB dump"},
+
+    # ── WAF bypass → sqlmap carry-over (v5.1.9+) ─────────────────────
+    "waf_bypass_sqlmap_rule": {
+        "ko": "v5.1.9: WAF 우회 기법을 sqlmap 명령에 자동 반영하는 규칙 추가 — curl 우회 성공 시 tamper/헤더를 sqlmap에 그대로 적용",
+        "zh": "v5.1.9: 新增WAF绕过技术自动应用到sqlmap命令的规则 — curl绕过成功时将tamper/header同步到sqlmap",
+        "en": "v5.1.9: Added WAF bypass carry-over rule for sqlmap — tamper scripts and bypass headers from curl are applied to sqlmap"},
+    "waf_sqlmap_cloudflare": {
+        "ko": "Cloudflare/Akamai/AWS WAF 감지 → sqlmap tamper: space2comment,randomcase,charencode,between + --random-agent --delay=2",
+        "zh": "检测到Cloudflare/Akamai/AWS WAF → sqlmap tamper: space2comment,randomcase,charencode,between + --random-agent --delay=2",
+        "en": "Cloudflare/Akamai/AWS WAF detected → sqlmap tamper: space2comment,randomcase,charencode,between + --random-agent --delay=2"},
+    "waf_sqlmap_korean": {
+        "ko": "한국 WAF(Wapples/Genian/Cloudbric) 감지 → sqlmap tamper: space2comment,versionedmorekeywords,randomcase + --random-agent --delay=3",
+        "zh": "检测到韩国WAF(Wapples/Genian/Cloudbric) → sqlmap tamper: space2comment,versionedmorekeywords,randomcase + --random-agent --delay=3",
+        "en": "Korean WAF (Wapples/Genian/Cloudbric) detected → sqlmap tamper: space2comment,versionedmorekeywords,randomcase + --random-agent --delay=3"},
+    "waf_sqlmap_header_carry": {
+        "ko": "curl에서 X-Forwarded-For/X-Real-IP 등 헤더 우회 성공 시 → sqlmap에 동일 헤더 -H 옵션으로 반드시 추가",
+        "zh": "curl通过X-Forwarded-For/X-Real-IP等header绕过时 → sqlmap必须用-H选项添加相同header",
+        "en": "If curl bypassed WAF via X-Forwarded-For/X-Real-IP headers → MUST add same header to sqlmap with -H option"},
+
+    # ── subprocess+time 차단 / Rich markup crash fix (v5.1.9+) ──────
+    "bash_subprocess_timing": {
+        "ko": "⛔ [BASH SUBPROCESS TIMING] bash 블록에서 subprocess+time 패턴 차단 — date +%s + curl 방식 사용",
+        "zh": "⛔ [BASH SUBPROCESS TIMING] 拦截bash块中的subprocess+time模式 — 请使用date +%s + curl方式",
+        "en": "⛔ [BASH SUBPROCESS TIMING] subprocess+time pattern inside bash is FORBIDDEN — use date +%s + curl instead"},
+    "rich_markup_crash_fix": {
+        "ko": "v5.1.9: [/dim] 태그 불일치 → rich MarkupError 크래시 수정 (try/except 방어)",
+        "zh": "v5.1.9: [/dim]标签不匹配 → 修复rich MarkupError崩溃（try/except防护）",
+        "en": "v5.1.9: [/dim] tag mismatch → fixed rich MarkupError crash (try/except guard)"},
+
     # ── VBScript 에러 / VBScript Error Detection (v2.3.21+) ──────────
     "vbscript_not_sqli_title":  {"ko": "⚠️  VBScript 에러 감지 — 이 파라미터들은 SQL 인젝션이 아닙니다",
                                   "zh": "⚠️  检测到VBScript错误 — 这些参数不是SQL注入点",
@@ -3324,13 +3384,13 @@ _STRINGS.update({
                                      "zh": "🔕 [LOOP v3.2.28] 超过150字符行 — 已排除循环检测（防日志行误报）",
                                      "en": "🔕 [LOOP v3.2.28] Line >150 chars — excluded from loop detection (log line false-positive prevention)"},
 
-    # ── 플랫폼 차단 메시지 (v3.2.55) ─────────────────────────────────
-    "platform_win32":               {"ko": "❌ bingo는 Windows에서 실행할 수 없습니다.\n   macOS 또는 Linux를 사용하세요.",
-                                     "zh": "❌ bingo 不支持 Windows。\n   请使用 macOS 或 Linux。",
-                                     "en": "❌ bingo does not support Windows.\n   Please use macOS or Linux."},
-    "platform_wsl":                 {"ko": "❌ bingo는 WSL(Windows Subsystem for Linux) 환경을 지원하지 않습니다.\n   네이티브 Linux 또는 macOS를 사용하세요.",
-                                     "zh": "❌ bingo 不支持 WSL（Windows Subsystem for Linux）。\n   请使用原生 Linux 或 macOS。",
-                                     "en": "❌ bingo does not support WSL (Windows Subsystem for Linux).\n   Please use native Linux or macOS."},
+    # ── 플랫폼 메시지 (v5.0.3) ────────────────────────────────────────
+    "platform_win32":               {"ko": "⚠️  Windows 네이티브 환경입니다.\n   WSL2(Windows Subsystem for Linux 2) 사용을 권장합니다.\n   일부 기능(curl/bash 실행)은 WSL2에서만 정상 동작합니다.",
+                                     "zh": "⚠️  检测到 Windows 原生环境。\n   建议使用 WSL2（Windows Subsystem for Linux 2）。\n   部分功能（curl/bash 执行）仅在 WSL2 下正常工作。",
+                                     "en": "⚠️  Windows native environment detected.\n   Recommended: WSL2 (Windows Subsystem for Linux 2).\n   Some features (curl/bash execution) work best on WSL2."},
+    "platform_wsl":                 {"ko": "✅ WSL2(Windows Subsystem for Linux) 환경을 감지했습니다.\n   bingo가 WSL2에서 정상적으로 실행됩니다.",
+                                     "zh": "✅ 检测到 WSL2（Windows Subsystem for Linux）环境。\n   bingo 在 WSL2 上可以正常运行。",
+                                     "en": "✅ WSL2 (Windows Subsystem for Linux) environment detected.\n   bingo runs normally on WSL2."},
 
     # ── v3.2.57: 스킬 로딩 / Playwright / 헬루시네이션 방지 ──────────
     "skill_auto_detected":       {"ko": "🧠 스킬 자동 매칭: {count}개 로드됨",
@@ -4009,9 +4069,9 @@ _STRINGS.update({
         "en": "⛔ Simulation blocked → requesting real HTTP code...",
     },
     "sim_code_blocked": {
-        "ko": "⛔ [코드 내 모의실행 감지] simulated_response / 模拟 변수 사용 금지 — 실제 requests.get() 사용 필수",
-        "zh": "⛔ [检测到代码内模拟执行] 禁止使用simulated_response/模拟变量 — 必须使用真实requests.get()",
-        "en": "⛔ [In-code simulation detected] simulated_response/模拟 vars forbidden — use real requests.get()",
+        "ko": "⛔ [코드 내 모의실행 감지] simulated_response / 模拟 변수 사용 금지 — ```bash 블록 안에서 curl 명령으로 실제 HTTP 요청 필수",
+        "zh": "⛔ [检测到代码内模拟执行] 禁止使用simulated_response/模拟变量 — 必须在```bash块中使用curl发送真实HTTP请求",
+        "en": "⛔ [In-code simulation detected] simulated_response/模拟 vars forbidden — use real curl inside a ```bash block",
     },
     "sim_var_warning": {
         "ko": "⚠️ 코드에서 모의/가짜 결과 변수 감지 — 네트워크 연결 정상, 실제 HTTP 요청 실행 가능",
@@ -6565,32 +6625,32 @@ _STRINGS.update({
     # ── v4.9.1: 텍스트 레벨 환각 스캐너 (Gap 1 수정) ─────────────────
     "text_hallucination_detected": {
         "ko": (
-            "⛔ [TEXT_HALLUCINATION v4.9.1] 코드 실행 없이 텍스트로 결과 서술 감지\n"
-            "  ```python 코드 블록을 작성하고 실제 print() 출력만 보고하세요."
+            "⛔ [TEXT_HALLUCINATION v4.9.7] 코드 실행 없이 텍스트로 결과 서술 감지\n"
+            "  ```bash 블록으로 curl 명령을 작성하고 실제 HTTP 응답만 보고하세요."
         ),
         "zh": (
-            "⛔ [TEXT_HALLUCINATION v4.9.1] 检测到未执行代码即通过文字描述结果\n"
-            "  请编写 ```python 代码块，只报告实际 print() 输出."
+            "⛔ [TEXT_HALLUCINATION v4.9.7] 检测到未执行代码即通过文字描述结果\n"
+            "  请编写 ```bash 代码块使用curl，只报告实际HTTP响应输出."
         ),
         "en": (
-            "⛔ [TEXT_HALLUCINATION v4.9.1] Claimed result in text without code execution detected\n"
-            "  Write a ```python code block and only report actual print() output."
+            "⛔ [TEXT_HALLUCINATION v4.9.7] Claimed result in text without code execution detected\n"
+            "  Write a ```bash block with curl and only report actual HTTP response output."
         ),
         "ja": (
-            "⛔ [TEXT_HALLUCINATION v4.9.1] コード実行なしでテキストに結果を記述することを検出\n"
-            "  ```python コードブロックを書いて、実際の print() 出力のみを報告してください."
+            "⛔ [TEXT_HALLUCINATION v4.9.7] コード実行なしでテキストに結果を記述することを検出\n"
+            "  ```bash ブロックでcurlを使い、実際のHTTPレスポンスのみを報告してください."
         ),
         "ru": (
-            "⛔ [TEXT_HALLUCINATION v4.9.1] Обнаружено описание результатов без выполнения кода\n"
-            "  Напишите блок ```python и сообщайте только реальный вывод print()."
+            "⛔ [TEXT_HALLUCINATION v4.9.7] Обнаружено описание результатов без выполнения кода\n"
+            "  Напишите блок ```bash с curl и сообщайте только реальный HTTP-ответ."
         ),
         "ar": (
-            "⛔ [TEXT_HALLUCINATION v4.9.1] تم اكتشاف وصف النتائج في النص بدون تنفيذ كود\n"
-            "  اكتب كتلة ```python وأبلغ فقط عن مخرجات print() الفعلية."
+            "⛔ [TEXT_HALLUCINATION v4.9.7] تم اكتشاف وصف النتائج في النص بدون تنفيذ كود\n"
+            "  اكتب كتلة ```bash مع curl وأبلغ فقط عن استجابة HTTP الفعلية."
         ),
         "es": (
-            "⛔ [TEXT_HALLUCINATION v4.9.1] Resultado reclamado en texto sin ejecución de código\n"
-            "  Escriba un bloque ```python y reporte solo la salida real de print()."
+            "⛔ [TEXT_HALLUCINATION v4.9.7] Resultado reclamado en texto sin ejecución de código\n"
+            "  Escriba un bloque ```bash con curl y reporte solo la respuesta HTTP real."
         ),
     },
     # ── v4.9.1: Pattern 6 확장 (Gap 4 수정) ──────────────────────────
@@ -6598,6 +6658,515 @@ _STRINGS.update({
         "ko": "⛔ [PATTERN6_EXT v4.9.1] 코드 블록 내 미실행 결과 서술 (확장 패턴) 감지 — 실행 차단",
         "zh": "⛔ [PATTERN6_EXT v4.9.1] 检测到代码块内描述未执行结果 (扩展模式) — 已阻止执行",
         "en": "⛔ [PATTERN6_EXT v4.9.1] Claimed result inside code block (extended pattern) detected — blocked",
+    },
+
+    # ── v4.9.3: Pattern 7 AST 기반 재작성 — regex 오탐 구조적 불가능 ────────────
+    # v4.9.2: regex로 헤더 제거 → 일부 엣지케이스 여전히 오탐 가능
+    # v4.9.3: ast.parse() 사용 → Python 파서 수준에서 주석/헤더 완전 제외
+    "pattern7_fp_fixed": {
+        "ko": (
+            "⛔ [PATTERN7 v4.9.3/AST] 타겟 외 도메인 HTTP 요청 감지 — 실행 차단\n"
+            "코드가 현재 타겟({target})이 아닌 다른 도메인({offender})으로 요청을 보내려 합니다.\n"
+            "AST 파싱으로 실제 요청 인수만 검사 (헤더/주석 내 URL 완전 제외)."
+        ),
+        "zh": (
+            "⛔ [PATTERN7 v4.9.3/AST] 检测到非目标域名HTTP请求 — 已阻止执行\n"
+            "代码尝试向 {offender} 发送请求，但活跃目标为 {target}。\n"
+            "使用AST解析仅检查实际请求参数（完全排除headers/注释中的URL）。"
+        ),
+        "en": (
+            "⛔ [PATTERN7 v4.9.3/AST] Non-target domain HTTP request detected — blocked\n"
+            "Code attempts to request {offender} but the ACTIVE TARGET is {target}.\n"
+            "AST parsing used — only actual request args checked (headers/comments fully excluded)."
+        ),
+        "ja": (
+            "⛔ [PATTERN7 v4.9.3/AST] 非ターゲットドメインへのHTTPリクエスト検出 — ブロック\n"
+            "コードが{offender}へリクエストしようとしていますが、アクティブターゲットは{target}です。\n"
+            "ASTパーシングで実際のリクエスト引数のみを検査（ヘッダー/コメント内URL完全除外）。"
+        ),
+        "es": (
+            "⛔ [PATTERN7 v4.9.3/AST] Solicitud HTTP a dominio no objetivo detectada — bloqueada\n"
+            "El código intenta solicitar {offender} pero el objetivo activo es {target}.\n"
+            "Análisis AST: solo se verifican argumentos reales de solicitud (headers/comentarios excluidos)."
+        ),
+        "ru": (
+            "⛔ [PATTERN7 v4.9.3/AST] Обнаружен HTTP-запрос к стороннему домену — заблокировано\n"
+            "Код пытается обратиться к {offender}, но активная цель — {target}.\n"
+            "Используется AST-анализ: проверяются только аргументы запроса (headers/комментарии исключены)."
+        ),
+        "ar": (
+            "⛔ [PATTERN7 v4.9.3/AST] تم اكتشاف طلب HTTP إلى نطاق غير مستهدف — تم الحظر\n"
+            "الكود يحاول الاتصال بـ {offender} لكن الهدف النشط هو {target}.\n"
+            "يستخدم تحليل AST: يتم فحص وسائط الطلب الفعلية فقط (URL في الترويسات/التعليقات مستبعدة تمامًا)."
+        ),
+    },
+
+    # ── v4.9.3: WAF 페이로드 차단 vs IP 차단 구분 (다중 경로 검증) ──────────────
+    # v4.9.2: 루트(/) 1개만 체크 → 루트가 WAF에 차단된 경우 IP 차단으로 오판 가능
+    # v4.9.3: /robots.txt, /favicon.ico 등 3개 경로 순차 시도 → 하나라도 응답 시 WAF 차단
+    "waf_payload_blocked_not_ip": {
+        "ko": (
+            "⚡ 'blocked' 감지됐지만 서버 응답 정상 확인 — "
+            "WAF 페이로드 차단 (IP 차단 아님, 다중경로 검증 완료)"
+        ),
+        "zh": (
+            "⚡ 检测到'blocked'但服务器正常响应 — "
+            "WAF拦截特定载荷（非IP封锁，多路径验证完成）"
+        ),
+        "en": (
+            "⚡ 'blocked' text found but server responding normally — "
+            "WAF payload block, NOT IP block (multi-path probe confirmed)"
+        ),
+        "ja": (
+            "⚡ 'blocked'テキスト検出もサーバーは正常応答 — "
+            "WAFペイロードブロック（IPブロックではない、複数パス検証済み）"
+        ),
+        "es": (
+            "⚡ Texto 'blocked' detectado pero el servidor responde normalmente — "
+            "Bloqueo de carga WAF, NO bloqueo de IP (verificación multi-ruta confirmada)"
+        ),
+        "ru": (
+            "⚡ Текст 'blocked' обнаружен, но сервер отвечает нормально — "
+            "WAF заблокировал нагрузку, IP не заблокирован (многопутевая проверка подтверждена)"
+        ),
+        "ar": (
+            "⚡ تم اكتشاف نص 'blocked' لكن الخادم يستجيب بشكل طبيعي — "
+            "WAF يحظر الحمولة وليس IP (تم تأكيد التحقق متعدد المسارات)"
+        ),
+    },
+
+    # ── v4.9.4: LFI 오탐 방지 (php://filter redirect 구별) ──────────────────
+    "lfi_redirect_fp_blocked": {
+        "ko": (
+            "⛔ [v4.9.4] LFI 오탐 차단: php://filter 응답이 HTML 페이지 → "
+            "홈페이지 리다이렉트 (실제 파일 내용 없음, base64 블록 미감지)"
+        ),
+        "zh": (
+            "⛔ [v4.9.4] LFI误报拦截: php://filter响应为HTML页面 → "
+            "主页重定向（无实际文件内容，未检测到base64块）"
+        ),
+        "en": (
+            "⛔ [v4.9.4] LFI false positive blocked: php://filter response is HTML page → "
+            "homepage redirect (no actual file content, no base64 block detected)"
+        ),
+        "ja": (
+            "⛔ [v4.9.4] LFI誤検知ブロック: php://filterレスポンスはHTMLページ → "
+            "ホームページリダイレクト（実ファイル内容なし、base64ブロック未検出）"
+        ),
+        "es": (
+            "⛔ [v4.9.4] Falso positivo LFI bloqueado: respuesta php://filter es página HTML → "
+            "redirección a página principal (sin contenido real de archivo, sin bloque base64)"
+        ),
+        "ru": (
+            "⛔ [v4.9.4] Ложное срабатывание LFI заблокировано: ответ php://filter — HTML страница → "
+            "перенаправление на главную (нет реального содержимого файла, нет base64 блока)"
+        ),
+        "ar": (
+            "⛔ [v4.9.4] إيقاف الإيجابي الكاذب LFI: استجابة php://filter هي صفحة HTML → "
+            "إعادة توجيه إلى الصفحة الرئيسية (لا محتوى ملف حقيقي، لا كتلة base64)"
+        ),
+    },
+
+    # ── v4.9.4: Oracle 실패 감지 (반복 문자 추출) ────────────────────────────
+    "oracle_failure_detected": {
+        "ko": (
+            "⛔ [v4.9.4] ORACLE_FAILURE: 추출값 동일 문자 반복 감지 → Oracle 무효 오탐. "
+            "이 추출 결과는 신뢰할 수 없음 — BINGO 찾기 억제됨"
+        ),
+        "zh": (
+            "⛔ [v4.9.4] ORACLE_FAILURE: 检测到重复字符提取 → Oracle无效误报. "
+            "此提取结果不可信 — BINGO发现已抑制"
+        ),
+        "en": (
+            "⛔ [v4.9.4] ORACLE_FAILURE: repeated same-char extraction detected → invalid oracle false positive. "
+            "Extraction result unreliable — BINGO finding suppressed"
+        ),
+        "ja": (
+            "⛔ [v4.9.4] ORACLE_FAILURE: 同一文字の繰り返し抽出を検出 → Oracleが無効な誤検知. "
+            "この抽出結果は信頼できない — BINGO検出を抑制"
+        ),
+        "es": (
+            "⛔ [v4.9.4] ORACLE_FAILURE: extracción de caracteres repetidos detectada → oráculo inválido falso positivo. "
+            "Resultado de extracción no confiable — hallazgo BINGO suprimido"
+        ),
+        "ru": (
+            "⛔ [v4.9.4] ORACLE_FAILURE: обнаружено повторное извлечение одинаковых символов → недействительный оракул. "
+            "Результат извлечения ненадёжен — обнаружение BINGO подавлено"
+        ),
+        "ar": (
+            "⛔ [v4.9.4] ORACLE_FAILURE: تم اكتشاف استخراج متكرر لنفس الأحرف → إيجابي كاذب لـ Oracle غير صالح. "
+            "نتيجة الاستخراج غير موثوقة — تم قمع اكتشاف BINGO"
+        ),
+    },
+    # ── v4.9.5: bash+curl 전환 관련 키 ─────────────────────────────────────────
+    "bash_exec_start": {
+        "ko": "🔧 bash 실행",
+        "zh": "🔧 bash 执行",
+        "en": "🔧 bash exec",
+        "ja": "🔧 bash 実行",
+        "es": "🔧 ejecución bash",
+        "ru": "🔧 выполнение bash",
+        "ar": "🔧 تنفيذ bash",
+    },
+    "bash_hallucination_blocked": {
+        "ko": "⛔ [v4.9.5] BASH_HALLUCINATION: curl/네트워크 명령 없는 bash 블록 차단. bash+curl 방식으로 재작성 요청",
+        "zh": "⛔ [v4.9.5] BASH_HALLUCINATION: 无curl/网络命令的bash块已拦截. 请求重写为bash+curl方式",
+        "en": "⛔ [v4.9.5] BASH_HALLUCINATION: bash block with no curl/network command blocked. Rewrite as bash+curl requested",
+        "ja": "⛔ [v4.9.5] BASH_HALLUCINATION: curl/ネットワークコマンドのないbashブロックをブロック. bash+curlで書き直しを要求",
+        "es": "⛔ [v4.9.5] BASH_HALLUCINATION: bloque bash sin curl/comando de red bloqueado. Reescritura como bash+curl solicitada",
+        "ru": "⛔ [v4.9.5] BASH_HALLUCINATION: bash-блок без curl/сетевых команд заблокирован. Запрошена перезапись в формат bash+curl",
+        "ar": "⛔ [v4.9.5] BASH_HALLUCINATION: تم حجب كتلة bash بدون curl/أوامر شبكية. مطلوب إعادة الكتابة بصيغة bash+curl",
+    },
+    "bash_placeholder_blocked": {
+        "ko": "⛔ [v4.9.5] BASH_PLACEHOLDER: TARGET_URL/example.com 플레이스홀더 감지 → 실제 대상 URL로 재작성 필요",
+        "zh": "⛔ [v4.9.5] BASH_PLACEHOLDER: 检测到TARGET_URL/example.com占位符 → 需要用真实目标URL重写",
+        "en": "⛔ [v4.9.5] BASH_PLACEHOLDER: TARGET_URL/example.com placeholder detected → must rewrite with real target URL",
+        "ja": "⛔ [v4.9.5] BASH_PLACEHOLDER: TARGET_URL/example.comプレースホルダーを検出 → 実際のターゲットURLで書き直しが必要",
+        "es": "⛔ [v4.9.5] BASH_PLACEHOLDER: placeholder TARGET_URL/example.com detectado → debe reescribirse con URL de destino real",
+        "ru": "⛔ [v4.9.5] BASH_PLACEHOLDER: обнаружен заполнитель TARGET_URL/example.com → необходимо переписать с реальным целевым URL",
+        "ar": "⛔ [v4.9.5] BASH_PLACEHOLDER: تم اكتشاف placeholder TARGET_URL/example.com → يجب إعادة الكتابة بعنوان URL الحقيقي للهدف",
+    },
+    # ── v4.9.6: heredoc/requests 차단 키 ──────────────────────────────────────
+    "bash_heredoc_blocked": {
+        "ko": "⛔ [v4.9.6] BASH_HEREDOC_PYTHON: bash 블록 안의 python3 << 'PYEOF' heredoc 차단 → curl | python3 -c 방식만 허용",
+        "zh": "⛔ [v4.9.6] BASH_HEREDOC_PYTHON: bash块内的python3 << 'PYEOF' heredoc已拦截 → 仅允许 curl | python3 -c 方式",
+        "en": "⛔ [v4.9.6] BASH_HEREDOC_PYTHON: python3 heredoc inside bash blocked → only curl | python3 -c pipe is allowed",
+        "ja": "⛔ [v4.9.6] BASH_HEREDOC_PYTHON: bash内のpython3 heredocをブロック → curl | python3 -c パイプのみ許可",
+        "es": "⛔ [v4.9.6] BASH_HEREDOC_PYTHON: heredoc de python3 en bash bloqueado → solo se permite curl | python3 -c",
+        "ru": "⛔ [v4.9.6] BASH_HEREDOC_PYTHON: heredoc python3 внутри bash заблокирован → разрешён только curl | python3 -c",
+        "ar": "⛔ [v4.9.6] BASH_HEREDOC_PYTHON: تم حجب heredoc python3 داخل bash → يُسمح فقط بـ curl | python3 -c",
+    },
+    "bash_requests_blocked": {
+        "ko": "⛔ [v4.9.6] BASH_CONTAINS_REQUESTS: bash 블록에 'import requests' 감지 → requests 금지, curl 사용 필수",
+        "zh": "⛔ [v4.9.6] BASH_CONTAINS_REQUESTS: bash块中检测到'import requests' → 禁止requests库，必须使用curl",
+        "en": "⛔ [v4.9.6] BASH_CONTAINS_REQUESTS: 'import requests' in bash block blocked → requests forbidden, must use curl",
+        "ja": "⛔ [v4.9.6] BASH_CONTAINS_REQUESTS: bashブロック内で'import requests'を検出 → requests禁止、curl使用必須",
+        "es": "⛔ [v4.9.6] BASH_CONTAINS_REQUESTS: 'import requests' detectado en bash → requests prohibido, debe usar curl",
+        "ru": "⛔ [v4.9.6] BASH_CONTAINS_REQUESTS: обнаружен 'import requests' в bash-блоке → requests запрещён, нужно использовать curl",
+        "ar": "⛔ [v4.9.6] BASH_CONTAINS_REQUESTS: تم اكتشاف 'import requests' في كتلة bash → requests محظور، يجب استخدام curl",
+    },
+
+    # ── v5.0.4: FP-ZERO — 크기 기반 WAF 판정 + 오발 제로 i18n 키 ─────────
+    "fp_waf_size_block": {
+        "ko": "⛔ WAF 차단 감지 — 응답 크기 {size}B (기준 {baseline}B의 {pct:.0f}%)",
+        "zh": "⛔ 检测到WAF拦截 — 响应大小 {size}B（基准 {baseline}B 的 {pct:.0f}%）",
+        "en": "⛔ WAF block detected — response size {size}B ({pct:.0f}% of baseline {baseline}B)",
+        "ja": "⛔ WAFブロック検出 — レスポンスサイズ {size}B（基準 {baseline}B の {pct:.0f}%）",
+        "es": "⛔ Bloqueo WAF detectado — tamaño de respuesta {size}B ({pct:.0f}% del baseline {baseline}B)",
+        "ru": "⛔ Обнаружена блокировка WAF — размер ответа {size}B ({pct:.0f}% от baseline {baseline}B)",
+        "ar": "⛔ تم اكتشاف حظر WAF — حجم الاستجابة {size}B ({pct:.0f}% من الأساس {baseline}B)",
+    },
+    "fp_waf_size_normal": {
+        "ko": "✅ 정상 응답 — 크기 {size}B (기준 {baseline}B, WAF 차단 아님)",
+        "zh": "✅ 正常响应 — 大小 {size}B（基准 {baseline}B，未被WAF拦截）",
+        "en": "✅ Normal response — size {size}B (baseline {baseline}B, not WAF blocked)",
+        "ja": "✅ 正常レスポンス — サイズ {size}B（基準 {baseline}B、WAFブロックなし）",
+        "es": "✅ Respuesta normal — tamaño {size}B (baseline {baseline}B, no bloqueado por WAF)",
+        "ru": "✅ Нормальный ответ — размер {size}B (baseline {baseline}B, WAF не блокирует)",
+        "ar": "✅ استجابة طبيعية — الحجم {size}B (الأساس {baseline}B، لا يوجد حظر WAF)",
+    },
+    "fp_boolean_no_diff": {
+        "ko": "❌ Boolean SQLi 오발 억제 — 1=1({t}B) ≈ 1=2({f}B) 크기 동일, WAF 차단 중일 가능성",
+        "zh": "❌ Boolean SQLi误判抑制 — 1=1({t}B) ≈ 1=2({f}B) 大小相同，可能被WAF拦截",
+        "en": "❌ Boolean SQLi FP suppressed — 1=1({t}B) ≈ 1=2({f}B) same size, likely WAF blocked",
+        "ja": "❌ Boolean SQLi誤検知抑制 — 1=1({t}B) ≈ 1=2({f}B) サイズ同じ、WAFブロック可能性",
+        "es": "❌ FP Boolean SQLi suprimido — 1=1({t}B) ≈ 1=2({f}B) mismo tamaño, posible bloqueo WAF",
+        "ru": "❌ Подавлен ложный позитив Boolean SQLi — 1=1({t}B) ≈ 1=2({f}B) одинаковый размер",
+        "ar": "❌ تم تجاهل الإيجابية الكاذبة Boolean SQLi — 1=1({t}B) ≈ 1=2({f}B) نفس الحجم",
+    },
+    "fp_xss_javascript_href": {
+        "ko": "❌ XSS 오발 억제 — javascript: href는 일반 HTML 링크, XSS 아님",
+        "zh": "❌ XSS误判抑制 — javascript: href 是普通HTML链接，不是XSS",
+        "en": "❌ XSS FP suppressed — javascript: href is normal HTML link, not XSS",
+        "ja": "❌ XSS誤検知抑制 — javascript: href は通常のHTMLリンク、XSSではない",
+        "es": "❌ FP XSS suprimido — javascript: href es enlace HTML normal, no XSS",
+        "ru": "❌ Подавлен ложный позитив XSS — javascript: href является обычной HTML-ссылкой",
+        "ar": "❌ تم تجاهل الإيجابية الكاذبة XSS — javascript: href هو رابط HTML عادي",
+    },
+    "fp_zero_rule99_violated": {
+        "ko": "⛔ [RULE 99] WAF 판정에 키워드 검색 사용 금지 — 크기 기반으로 판정할 것",
+        "zh": "⛔ [RULE 99] WAF判定禁止使用关键词搜索 — 必须基于响应大小判定",
+        "en": "⛔ [RULE 99] Keyword-based WAF detection forbidden — must use response size",
+        "ja": "⛔ [RULE 99] WAF判定にキーワード検索禁止 — レスポンスサイズで判定すること",
+        "es": "⛔ [RULE 99] Detección WAF por palabras clave prohibida — usar tamaño de respuesta",
+        "ru": "⛔ [RULE 99] Определение WAF по ключевым словам запрещено — использовать размер ответа",
+        "ar": "⛔ [RULE 99] يُحظر الكشف عن WAF بالكلمات المفتاحية — يجب استخدام حجم الاستجابة",
+    },
+    # ── v5.0.5: FP-ZERO RULE 102~104 (IDOR/RCE/SSRF 오발 방지) ──────────────────
+    "fp_idor_own_data": {
+        "ko": "⛔ [RULE 102] 자신의 계정 데이터 응답 — IDOR 아님. 타인 ID로 타인 데이터 반환 확인 필요.",
+        "zh": "⛔ [RULE 102] 这是自己的账户数据 — 非IDOR。需确认使用他人ID访问他人数据。",
+        "en": "⛔ [RULE 102] Own account data returned — not IDOR. Must confirm other user's data via other user's ID.",
+    },
+    "fp_rce_root_prefix": {
+        "ko": "⛔ [RULE 103] 'root:' 단독 출현 — RCE 아님. uid=0(root) 또는 /etc/passwd 레코드 형식 필요.",
+        "zh": "⛔ [RULE 103] 仅出现'root:'字符串 — 非RCE。需要uid=0(root)或/etc/passwd记录格式。",
+        "en": "⛔ [RULE 103] 'root:' alone is not RCE. Require uid=0(root) or /etc/passwd record format.",
+    },
+    "fp_ssrf_internal_word": {
+        "ko": "⛔ [RULE 104] 'internal' 단어 단독 — SSRF 아님. 사설 IP(10./172.16-31./192.168.) 직접 노출 필요.",
+        "zh": "⛔ [RULE 104] 仅出现'internal'单词 — 非SSRF。需要私有IP(10./172.16-31./192.168.)直接暴露。",
+        "en": "⛔ [RULE 104] 'internal' word alone is not SSRF. Require private IP (10./172.16-31./192.168.) direct exposure.",
+    },
+    "fp_rce_command_log": {
+        "ko": "⛔ [RULE 103] 스크립트 로그 'command output:' — RCE 아님. 실제 OS 명령 결과(uid=/hostname=) 필요.",
+        "zh": "⛔ [RULE 103] 脚本日志'command output:' — 非RCE。需要实际OS命令结果(uid=/hostname=)。",
+        "en": "⛔ [RULE 103] Script log 'command output:' is not RCE. Require actual OS command result (uid=/hostname=).",
+    },
+    # FP-ZERO 회귀 테스트 스위트 관련 메시지 (v5.0.6)
+    "fp_regression_pass": {
+        "ko": "✅ FP-ZERO 회귀 테스트 전체 통과 — 오발 없음 확인",
+        "zh": "✅ FP-ZERO 回归测试全部通过 — 已确认无误判",
+        "en": "✅ FP-ZERO regression suite passed — zero false positives confirmed",
+    },
+    "fp_regression_fail": {
+        "ko": "🚨 FP-ZERO 회귀 테스트 실패 — 릴리즈 전 오발 수정 필수",
+        "zh": "🚨 FP-ZERO 回归测试失败 — 发布前必须修复误判",
+        "en": "🚨 FP-ZERO regression suite FAILED — must fix false positives before release",
+    },
+    "fp_new_pattern_warning": {
+        "ko": "⚠️  MVVS 패턴 추가 시 tests/test_mvvs_false_positive.py에 FP/TP 케이스 반드시 추가",
+        "zh": "⚠️  添加MVVS模式时必须在tests/test_mvvs_false_positive.py中添加FP/TP用例",
+        "en": "⚠️  When adding MVVS patterns, always add FP/TP cases to tests/test_mvvs_false_positive.py",
+    },
+    # BINGO_SIGNAL 구조화 보고 시스템 관련 메시지 (v5.0.7)
+    "bingo_signal_detected": {
+        "ko": "🎯 BINGO_SIGNAL 구조화 신호 탐지됨 — 증거 검증 완료",
+        "zh": "🎯 检测到BINGO_SIGNAL结构化信号 — 已验证证据",
+        "en": "🎯 BINGO_SIGNAL structured signal detected — evidence validated",
+    },
+    "bingo_signal_rejected": {
+        "ko": "⛔ BINGO_SIGNAL 증거 불충분 — 오발 차단됨",
+        "zh": "⛔ BINGO_SIGNAL证据不足 — 已阻止误判",
+        "en": "⛔ BINGO_SIGNAL rejected — insufficient evidence, false positive blocked",
+    },
+    "bingo_signal_invalid_json": {
+        "ko": "⚠️  BINGO_SIGNAL JSON 파싱 실패 — 형식 오류",
+        "zh": "⚠️  BINGO_SIGNAL JSON解析失败 — 格式错误",
+        "en": "⚠️  BINGO_SIGNAL JSON parse failed — format error",
+    },
+    "bingo_signal_fallback_regex": {
+        "ko": "🔍 구조화 신호 없음 — 정규식 백업 모드로 탐지 시도",
+        "zh": "🔍 无结构化信号 — 切换至正则备用模式检测",
+        "en": "🔍 No structured signal — falling back to regex detection mode",
+    },
+    "bingo_signal_rule_add_reminder": {
+        "ko": "⚠️  새 BINGO_SIGNAL 타입 추가 시 _validate_bingo_signal 및 테스트 케이스 반드시 추가",
+        "zh": "⚠️  添加新BINGO_SIGNAL类型时必须同步更新_validate_bingo_signal及测试用例",
+        "en": "⚠️  When adding new BINGO_SIGNAL types, always update _validate_bingo_signal and test cases",
+    },
+    # ── v5.0.9: 타겟 메모리 도메인 오염 방지 ─────────────────────────────
+    "tm_purge_foreign": {
+        "ko": "🧹 타겟 메모리 정리 — {n}개 다른 도메인 항목 제거됨",
+        "zh": "🧹 目标记忆已清理 — 已移除 {n} 条其他域名记录",
+        "en": "🧹 Target memory cleaned — {n} foreign domain entries removed",
+    },
+    "tm_memory_ref_only": {
+        "ko": "🧠 타겟 메모리 로드됨 — 참고용 (새 세션 명령 우선)",
+        "zh": "🧠 已加载目标记忆 — 仅供参考（优先执行新指令）",
+        "en": "🧠 Target memory loaded — reference only (new session takes priority)",
+    },
+    # ── v5.1.0: 'n' 선택 시 메모리 초기화 (주입 없음) ─────────────────────
+    "tm_new_session_reset": {
+        "ko": "🗑️ 새 세션 — 이전 메모리 초기화 (파일은 유지, 컨텍스트 완전 비움)",
+        "zh": "🗑️ 新会话 — 已清空上下文（文件保留，可通过 'y' 恢复）",
+        "en": "🗑️ New session — context reset (file kept, use 'y' next time to restore)",
+    },
+    "tm_wrong_target_warn": {
+        "ko": "⚠️  타겟 메모리에 다른 도메인 URL이 섞여 있었습니다 — 자동 정리됨",
+        "zh": "⚠️  目标记忆中混入了其他域名URL — 已自动清理",
+        "en": "⚠️  Target memory contained foreign domain URLs — auto-cleaned",
+    },
+
+    # ── v5.1.1: FP-ZERO v1.2 — WAF 차단 / XSS · SQLi 오발 방지 ─────────────────
+    "fp_zero_v12_waf_blocked": {
+        "ko": "🛡️ WAF 차단 응답 감지 — 취약점 불인정 (RULE 106)",
+        "zh": "🛡️ 检测到WAF拦截响应 — 不认定为漏洞（RULE 106）",
+        "en": "🛡️ WAF block response detected — not treated as vulnerability (RULE 106)",
+    },
+    "fp_zero_v12_xss_src_skip": {
+        "ko": "ℹ️ 외부 스크립트 태그(src=) 감지 — XSS 증거 아님 (오발 방지)",
+        "zh": "ℹ️ 检测到外部脚本标签(src=) — 非XSS证据（防止误判）",
+        "en": "ℹ️ External script tag (src=) detected — not XSS evidence (FP guard)",
+    },
+    "fp_zero_v12_sqli_echo_skip": {
+        "ko": "ℹ️ bash 에코 메시지에서 SQLi 키워드 감지 — 서버 응답 아님 (오발 방지)",
+        "zh": "ℹ️ 在bash回显消息中检测到SQLi关键字 — 非服务器响应（防止误判）",
+        "en": "ℹ️ SQLi keyword in bash echo — not server response (FP guard)",
+    },
+    "fp_zero_v12_desc": {
+        "ko": "FP-ZERO v1.2: WAF차단·XSS src·SQLi echo 오발 방지 규칙 (RULE 106)",
+        "zh": "FP-ZERO v1.2: WAF拦截·XSS src·SQLi echo 误判防护规则（RULE 106）",
+        "en": "FP-ZERO v1.2: WAF block / XSS src / SQLi echo false-positive guards (RULE 106)",
+    },
+    "regression_fp_v12_pass": {
+        "ko": "✅ 회귀 테스트 v5.1.1 — FP-ZERO v1.2 패스 (신규 케이스 포함)",
+        "zh": "✅ 回归测试 v5.1.1 — FP-ZERO v1.2 通过（含新增案例）",
+        "en": "✅ Regression v5.1.1 — FP-ZERO v1.2 all passed (new cases included)",
+    },
+    # v5.1.2: Ctrl+C hint prompt asyncio crash 방어
+    "hint_asyncio_fallback": {
+        "ko": "⚠ 프롬프트 입력 오류 — 기본 입력 모드로 전환",
+        "zh": "⚠ 提示输入错误 — 切换到基本输入模式",
+        "en": "⚠ Prompt input error — switching to basic input mode",
+    },
+    # v5.1.3: bash 환각 감지 오탐 수정 — 주석 행 제외 / /tmp/ 후처리 확장 / example.com curl 한정
+    "bash_fp_fix_v513": {
+        "ko": (
+            "v5.1.3 bash 환각 감지 오탐 3건 수정:\n"
+            "  • B0/B0b/B2: 주석(#) 행에 등장한 패턴 오탐 제거\n"
+            "  • B1: cat/grep/jq 등 /tmp/ 후처리 블록 오탐 제거\n"
+            "  • B2(example.com): curl/wget URL에 직접 쓰인 경우만 오탐으로 처리"
+        ),
+        "zh": (
+            "v5.1.3 修复 bash 幻觉检测误判 3 处:\n"
+            "  • B0/B0b/B2: 注释(#)行中出现的模式不再误报\n"
+            "  • B1: cat/grep/jq 等 /tmp/ 后处理块不再误报\n"
+            "  • B2(example.com): 仅当 curl/wget URL 直接使用时才标记"
+        ),
+        "en": (
+            "v5.1.3 fixed 3 bash hallucination false positives:\n"
+            "  • B0/B0b/B2: patterns in comment (#) lines no longer trigger\n"
+            "  • B1: /tmp/ post-processing blocks (cat/grep/jq) are now allowed\n"
+            "  • B2(example.com): only flagged when used directly in curl/wget URL"
+        ),
+    },
+    "bash_no_curl_local_op_allowed": {
+        "ko": "✅ /tmp/ 후처리 블록 — curl 없이 허용 (이전 curl 결과 처리)",
+        "zh": "✅ /tmp/ 后处理块 — 无需 curl 即可通过（处理之前 curl 的结果）",
+        "en": "✅ /tmp/ post-processing block — allowed without curl (processing prior curl output)",
+    },
+    "bash_example_com_in_curl_blocked": {
+        "ko": "⛔ [v5.1.3] BASH_PLACEHOLDER_URL: curl/wget URL에 'example.com' 사용 감지 → 실제 대상 URL로 교체 필요",
+        "zh": "⛔ [v5.1.3] BASH_PLACEHOLDER_URL: 检测到 curl/wget URL 中使用 'example.com' → 需要替换为真实目标 URL",
+        "en": "⛔ [v5.1.3] BASH_PLACEHOLDER_URL: 'example.com' used as actual curl/wget target URL → replace with real target URL",
+    },
+    # v5.1.4 — 루프 감지 오탐 방지: HTTP 상태+크기 패턴 필터 추가
+    "loop_fp_http_status_size": {
+        "ko": "⚡ 루프 오탐 스킵: '{name}'은 HTTP 상태+크기 출력 — SQL 데이터 루프 아님.",
+        "zh": "⚡ 跳过循环误报: '{name}' 是 HTTP 状态+大小输出，不是 SQL 数据循环。",
+        "en": "⚡ Loop false-positive skipped: '{name}' is HTTP status+size output — not SQL data loop.",
+    },
+    # v5.1.4 — 시스템 프롬프트 bash 타이밍 템플릿 추가 (RULE SL-2)
+    "rule_sl2_timing_added": {
+        "ko": "[v5.1.4] RULE SL-2 추가: 타임기반 SQLi는 bash date+curl 타이밍 사용 (urllib 금지)",
+        "zh": "[v5.1.4] 新增 RULE SL-2: 时间盲注使用 bash date+curl 计时，禁止 urllib",
+        "en": "[v5.1.4] Added RULE SL-2: time-based SQLi MUST use bash date+curl timing, urllib forbidden",
+    },
+    "bash_urllib_in_bash_blocked": {
+        "ko": "⛔ [v5.1.4] BASH_NO_CURL: bash 내 urllib.request 사용 감지 → curl로 교체 필요",
+        "zh": "⛔ [v5.1.4] BASH_NO_CURL: 检测到 bash 中使用 urllib.request → 需替换为 curl",
+        "en": "⛔ [v5.1.4] BASH_NO_CURL: urllib.request inside bash detected → replace with curl",
+    },
+    "timing_template_guidance": {
+        "ko": "[v5.1.4] 타임기반 SQLi 타이밍: START=$(date +%s%N) → curl → END=$(date +%s%N) → ELAPSED=$((END-START)/1000000)ms",
+        "zh": "[v5.1.4] 时间盲注计时模板: START=$(date +%s%N) → curl → END=$(date +%s%N) → ELAPSED=$((END-START)/1000000)ms",
+        "en": "[v5.1.4] Time-based SQLi timing: START=$(date +%s%N) → curl → END=$(date +%s%N) → ELAPSED=$((END-START)/1000000)ms",
+    },
+    # ─────────────────────────────────────────────────────────────────
+    # v5.2.0 — TOOL_CALL 아키텍처 (환각 완전 차단)
+    # ─────────────────────────────────────────────────────────────────
+    "toolcall_arch_enabled": {
+        "ko": "[v5.2.0] TOOL_CALL 아키텍처 활성화 — LLM이 직접 Python 함수 호출 → bash 환각 완전 차단",
+        "zh": "[v5.2.0] TOOL_CALL 架构已启用 — LLM 直接调用 Python 函数 → 彻底消除 bash 幻觉",
+        "en": "[v5.2.0] TOOL_CALL architecture enabled — LLM calls Python functions directly → bash hallucination fully eliminated",
+    },
+    "toolcall_executing": {
+        "ko": "🔧 TOOL_CALL 실행 중",
+        "zh": "🔧 TOOL_CALL 执行中",
+        "en": "🔧 Executing TOOL_CALL",
+    },
+    "toolcall_success": {
+        "ko": "✅ TOOL_CALL 성공",
+        "zh": "✅ TOOL_CALL 成功",
+        "en": "✅ TOOL_CALL succeeded",
+    },
+    "toolcall_failed": {
+        "ko": "⚠ TOOL_CALL 실패",
+        "zh": "⚠ TOOL_CALL 失败",
+        "en": "⚠ TOOL_CALL failed",
+    },
+    "toolcall_json_error": {
+        "ko": "⛔ TOOL_CALL JSON 파싱 오류 — 형식: TOOL_CALL:{\"name\":\"함수명\",\"args\":{}}",
+        "zh": "⛔ TOOL_CALL JSON 解析错误 — 格式: TOOL_CALL:{\"name\":\"函数名\",\"args\":{}}",
+        "en": "⛔ TOOL_CALL JSON parse error — format: TOOL_CALL:{\"name\":\"func\",\"args\":{}}",
+    },
+    "toolcall_not_found": {
+        "ko": "⛔ TOOL_CALL 알 수 없는 함수 — TOOL_REGISTRY 에 없는 이름",
+        "zh": "⛔ TOOL_CALL 未知函数 — 不在 TOOL_REGISTRY 中",
+        "en": "⛔ TOOL_CALL unknown function — not in TOOL_REGISTRY",
+    },
+    "toolcall_pentest_tools_missing": {
+        "ko": "⛔ pentest_tools 모듈 로드 실패 — tools_ext/pentest_tools.py 확인 필요",
+        "zh": "⛔ pentest_tools 模块加载失败 — 请检查 tools_ext/pentest_tools.py",
+        "en": "⛔ pentest_tools module load failed — check tools_ext/pentest_tools.py",
+    },
+    "toolcall_result_preview": {
+        "ko": "TOOL_RESULT 미리보기 (상위 30줄)",
+        "zh": "TOOL_RESULT 预览（前30行）",
+        "en": "TOOL_RESULT preview (top 30 lines)",
+    },
+    "toolcall_no_bash_needed": {
+        "ko": "✅ TOOL_CALL 처리 완료 — bash 블록 실행 불필요",
+        "zh": "✅ TOOL_CALL 处理完成 — 无需执行 bash 块",
+        "en": "✅ TOOL_CALL processed — no bash block execution needed",
+    },
+    "toolcall_schema_injected": {
+        "ko": "[v5.2.0] TOOL_CALL 스키마 시스템 프롬프트에 동적 주입 완료",
+        "zh": "[v5.2.0] TOOL_CALL 架构已动态注入系统提示词",
+        "en": "[v5.2.0] TOOL_CALL schema dynamically injected into system prompt",
+    },
+    "toolcall_combined_method": {
+        "ko": "[v5.2.0] 통합 방식: LLM이 TOOL_CALL로 Python 함수 호출 → 함수 내부에서 bash/외부도구 실행 → 결과 반환",
+        "zh": "[v5.2.0] 组合方式: LLM 通过 TOOL_CALL 调用 Python 函数 → 函数内部执行 bash/外部工具 → 返回结果",
+        "en": "[v5.2.0] Combined method: LLM calls Python fn via TOOL_CALL → fn runs bash/external tools internally → returns result",
+    },
+
+    # ─────────────────────────────────────────────────────────────────
+    # v5.2.1 — sqlmap 다중 실행 경로 자동 탐색
+    # ─────────────────────────────────────────────────────────────────
+    "sqlmap_autodetect": {
+        "ko": "[v5.2.1] sqlmap 자동 탐색 — 설치 방식에 상관없이 자동 실행 (PATH/pip/module/git clone)",
+        "zh": "[v5.2.1] sqlmap 自动探测 — 无论安装方式均可自动执行 (PATH/pip/module/git clone)",
+        "en": "[v5.2.1] sqlmap auto-detect — runs automatically regardless of install method (PATH/pip/module/git clone)",
+    },
+    "sqlmap_found": {
+        "ko": "✅ sqlmap 발견: {}",
+        "zh": "✅ 找到 sqlmap: {}",
+        "en": "✅ sqlmap found: {}",
+    },
+    "sqlmap_not_found": {
+        "ko": "⛔ sqlmap 미발견 — pip install sqlmap / apt install sqlmap / brew install sqlmap 중 하나로 설치 필요",
+        "zh": "⛔ 未找到 sqlmap — 请通过 pip install sqlmap / apt install sqlmap / brew install sqlmap 安装",
+        "en": "⛔ sqlmap not found — install via pip install sqlmap / apt install sqlmap / brew install sqlmap",
+    },
+    "tool_autodetect": {
+        "ko": "[v5.2.1] 도구 자동 탐색 — PATH/homebrew/go/pip 경로 전부 탐색",
+        "zh": "[v5.2.1] 工具自动探测 — 搜索 PATH/homebrew/go/pip 所有路径",
+        "en": "[v5.2.1] Tool auto-detect — searches PATH/homebrew/go/pip all paths",
+    },
+    # ─────────────────────────────────────────────────────────────────
+    # v5.2.2 — bash 블록 미리보기 [/dim] 크래시 수정 + TOOL_CALL 루프 버그 수정
+    # ─────────────────────────────────────────────────────────────────
+    "fix_dim_escape": {
+        "ko": "[v5.2.2] bash 미리보기 [/dim] 크래시 수정 — Rich 마크업 이스케이프 적용",
+        "zh": "[v5.2.2] 修复bash预览[/dim]崩溃 — 应用Rich标记转义",
+        "en": "[v5.2.2] bash preview [/dim] crash fix — Rich markup escape applied",
+    },
+    "fix_toolcall_loop": {
+        "ko": "[v5.2.2] TOOL_CALL 루프 버그 수정 — TOOL_CALL만 있어도 bash 강제 재요청 안 함",
+        "zh": "[v5.2.2] 修复TOOL_CALL循环bug — 仅有TOOL_CALL时不再强制要求bash块",
+        "en": "[v5.2.2] TOOL_CALL loop bug fix — no forced bash re-request when only TOOL_CALL present",
+    },
+    "fix_toolcall_nested_json": {
+        "ko": "[v5.2.3] TOOL_CALL 중첩 JSON 파싱 버그 수정 — 비탐욕 정규식 → 괄호 카운터로 교체",
+        "zh": "[v5.2.3] 修复TOOL_CALL嵌套JSON解析bug — 用括号计数器替代非贪婪正则",
+        "en": "[v5.2.3] TOOL_CALL nested JSON parse fix — replaced non-greedy regex with brace counter",
+    },
+    "fix_dir_fuzz_flags": {
+        "ko": "[v5.2.4] dir_fuzz 수정 — ffuf 잘못된 -sf 플래그 제거 + macOS 워드리스트 자동 탐색 + 내장 미니 리스트",
+        "zh": "[v5.2.4] 修复dir_fuzz — 移除无效-sf标志 + macOS词表自动查找 + 内置迷你词表",
+        "en": "[v5.2.4] dir_fuzz fix — remove invalid -sf flag, auto-detect macOS wordlists, built-in mini wordlist",
     },
 })
 

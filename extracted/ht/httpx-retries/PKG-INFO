@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: httpx-retries
-Version: 0.5.0
+Version: 0.6.0
 Dynamic: License
 Dynamic: License-Expression
 Summary: A retry layer for HTTPX.
@@ -78,6 +78,11 @@ transport = RetryTransport(retry=retry)
 with httpx.Client(transport=transport) as client:
     response = client.get("https://example.com")
 ```
+
+> **Errors while reading the response body** (such as `ReadTimeout` part-way through a download) happen
+> after the transport has returned, so `RetryTransport` can't retry them. This is a niche case,
+> but if you read very large or slow bodies and need those retried, see the `retry_request` / `aretry_request` helpers in
+> [Why wasn't my `ReadTimeout` retried?](https://will-ockmore.github.io/httpx-retries/faq/#why-wasnt-my-readtimeout-retried).
 
 ## Features
 

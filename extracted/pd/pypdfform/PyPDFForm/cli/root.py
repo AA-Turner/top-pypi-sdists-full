@@ -8,7 +8,7 @@ commands. The root callback collects global flags in the Typer context so each
 subcommand can initialize `PdfWrapper` with consistent settings.
 
 Commands:
-    - `fill`: Fill an existing PDF form from JSON data.
+    - `fill`: Fill an existing PDF form from YAML or JSON data.
     - `create`: Create PDFs, fields, annotations, raw elements, and grid views.
     - `inspect`: Print form metadata and field data as JSON.
     - `update`: Modify PDF metadata, field names, properties, geometry, and scripts.
@@ -21,7 +21,7 @@ from typing import Annotated
 import typer
 
 from .. import PdfWrapper, Widgets, __version__
-from .common import INPUT_PDF, OPTIONAL_OUTPUT_PDF, json_file_option, load_json_file
+from .common import INPUT_PDF, OPTIONAL_OUTPUT_PDF, data_file_option, load_data_file
 from .create import create_cli
 from .inspect import inspect_cli
 from .remove import remove_cli
@@ -145,12 +145,14 @@ def main(
 
 @cli_app.command(
     no_args_is_help=True,
-    help="Fill a PDF form with JSON data.",
+    help="Fill a PDF form with YAML or JSON data.",
 )
 def fill(
     ctx: typer.Context,
     pdf: INPUT_PDF,
-    data: Annotated[Path, json_file_option("JSON file with form field values.")],
+    data: Annotated[
+        Path, data_file_option("YAML or JSON file with form field values.")
+    ],
     output: OPTIONAL_OUTPUT_PDF = None,
     flatten: Annotated[
         bool,
@@ -158,11 +160,11 @@ def fill(
     ] = None,
 ) -> None:
     """
-    Fill an existing PDF form from a validated JSON file.
+    Fill an existing PDF form from a validated YAML or JSON file.
 
     The command loads the input PDF with the global options stored by the root
     callback, expands the generated schema so image and signature widgets can
-    accept path objects, validates the JSON input, normalizes image and
+    accept path objects, validates the input file, normalizes image and
     signature values, and writes the filled PDF to the requested output path or
     back to the input file.
 
@@ -170,7 +172,7 @@ def fill(
         ctx (typer.Context): Typer context containing global `PdfWrapper`
             options in `ctx.obj`.
         pdf (Path): Input PDF form path.
-        data (Path): JSON file containing form field values.
+        data (Path): YAML or JSON file containing form field values.
         output (Path, optional): Output PDF path. If omitted, the input PDF is
             overwritten. Defaults to None.
         flatten (bool, optional): Whether to flatten form fields after filling.
@@ -196,7 +198,7 @@ def fill(
                 ]
             }
 
-    input_data = load_json_file(data, schema, "--file")
+    input_data = load_data_file(data, schema, "--file")
     for k, each in obj.widgets.items():
         if (
             k in input_data

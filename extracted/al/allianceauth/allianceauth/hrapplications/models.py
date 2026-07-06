@@ -1,9 +1,10 @@
+from typing import ClassVar
+
 from sortedm2m.fields import SortedManyToManyField
 
-from typing import ClassVar
-from django.contrib.auth.models import User
 from django.db import models
 
+from allianceauth.authentication.models import User
 from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
 
 from .managers import ApplicationManager

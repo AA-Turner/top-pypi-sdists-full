@@ -2,13 +2,14 @@ import functools
 
 from django import forms
 from django.contrib.admin.widgets import FilteredSelectMultiple
-from django.contrib.auth.models import Group, User
 from django.core.exceptions import ValidationError
 from django.db.models.functions import Lower
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 
-from .models import ReservedGroupName
+from allianceauth.authentication.models import User
+
+from .models import Group, ReservedGroupName
 
 
 class GroupAdminForm(forms.ModelForm):

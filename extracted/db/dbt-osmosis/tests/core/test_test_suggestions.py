@@ -17,14 +17,14 @@ from unittest import mock
 
 import pytest
 
-from dbt_osmosis.core.test_suggestions import (
-    AITestSuggester,
-    ModelTestAnalysis,
-    TestPatternExtractor,
-    TestSuggestion,
-    suggest_tests_for_model,
-    suggest_tests_for_project,
-)
+import dbt_osmosis.core.test_suggestions as test_suggestions_module
+
+AITestSuggester = test_suggestions_module.AITestSuggester
+ModelTestAnalysis = test_suggestions_module.ModelTestAnalysis
+TestPatternExtractor = test_suggestions_module.TestPatternExtractor
+TestSuggestion = test_suggestions_module.TestSuggestion
+suggest_tests_for_model = test_suggestions_module.suggest_tests_for_model
+suggest_tests_for_project = test_suggestions_module.suggest_tests_for_project
 
 
 @pytest.fixture
@@ -42,6 +42,7 @@ def sample_node(yaml_context):
         if hasattr(node, "columns") and node.columns:
             return node
     pytest.skip("No suitable model node found")
+    raise AssertionError("pytest.skip did not raise")
 
 
 class TestTestSuggestion:
@@ -527,7 +528,6 @@ class TestOsmosisFacade:
     def test_osmosis_exports_test_suggestions_without_openai(self):
         """Test that pattern-based test suggestions stay available without openai installed."""
         import dbt_osmosis.core.osmosis as osmosis_module
-        import dbt_osmosis.core.test_suggestions as test_suggestions_module
 
         original_find_spec = importlib.util.find_spec
 

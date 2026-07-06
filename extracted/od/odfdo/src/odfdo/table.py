@@ -35,7 +35,7 @@ from textwrap import wrap
 from typing import TYPE_CHECKING, Any, cast
 from warnings import warn
 
-from lxml.etree import XPath
+from lxml.etree import XPath  # ty: ignore[unresolved-import]
 
 from .cell import Cell
 from .column import Column
@@ -229,7 +229,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                     if isinstance(value, str):
                         value = value.strip()
                     line.append(value)
-                csv_writer.writerow(line)  # type: ignore[attr-defined]
+                csv_writer.writerow(line)
 
         out = StringIO(newline=os.linesep)
         csv_writer = csv.writer(
@@ -457,7 +457,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
     def _get_formatted_text_rst(self, context: dict) -> str:
         context["no_img_level"] += 1
         # Strip the table => We must clone
-        table: Table = self.clone  # type: ignore[assignment]
+        table: Table = self.clone  # ty: ignore[invalid-assignment]
         table.rstrip(aggressive=True)
 
         # Fill the rows
@@ -587,22 +587,22 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
     # Public API
     #
 
-    def append(self, something: Element | str) -> None:
+    def append(self, str_or_element: Element | str) -> None:
         """Append a Row or Column to the table.
 
         This method dispatches the call to `append_row` or `append_column` based
         on the type of the provided element.
 
         Args:
-            something (Element | str): The Row or Column to append.
+            str_or_element (Element | str): The Row or Column to append.
         """
-        if isinstance(something, Row):
-            self.append_row(something)
-        elif isinstance(something, Column):
-            self.append_column(something)
+        if isinstance(str_or_element, Row):
+            self.append_row(str_or_element)
+        elif isinstance(str_or_element, Column):
+            self.append_column(str_or_element)
         else:
             # probably still an error
-            self._append(something)
+            self._append(str_or_element)
 
     @property
     def height(self) -> int:
@@ -913,7 +913,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         # Step 1: remove empty rows below the table
         for row in reversed(self._get_rows()):
             if row.is_empty(aggressive=aggressive):
-                row.parent.delete(row)  # type: ignore[union-attr]
+                row.parent.delete(row)
             else:
                 break
         # Step 2: rstrip remaining rows
@@ -940,7 +940,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                     column.repeated = repeated
                     break
                 else:
-                    column.parent.delete(column)  # type: ignore[union-attr]
+                    column.parent.delete(column)
                     diff = -repeated
                     if diff == 0:
                         break
@@ -968,7 +968,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                 break
         if count > 0:
             for row in reversed(self._get_rows()):  # pragma: nocover
-                row.parent.delete(row)  # type: ignore[union-attr]
+                row.parent.delete(row)
                 count -= 1
                 if count <= 0:
                     break
@@ -1008,7 +1008,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                     column.repeated = repeated
                     break
                 else:
-                    column.parent.delete(column)  # type: ignore[union-attr]
+                    column.parent.delete(column)
                     diff = -repeated
                     if diff == 0:
                         break
@@ -1209,7 +1209,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
             return None
         row: Row | None = self._table_cache.cached_row(idx)
         if row is None:
-            row = self._get_element_idx2(_XP_ROW_IDX, idx)  # type: ignore[assignment]
+            row = self._get_element_idx2(_XP_ROW_IDX, idx)  # ty: ignore[invalid-assignment]
             if row is None:
                 return None
             self._table_cache.store_row(row, idx)
@@ -1773,7 +1773,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         if y is None:
             raise ValueError
         cell = self.get_cell((x, y))
-        image_frame = image_frame.clone  # type: ignore[assignment]
+        image_frame = image_frame.clone  # ty: ignore[invalid-assignment]
         # Remove any previous paragraph, frame, etc.
         for child in cell.children:
             cell.delete(child)
@@ -1982,11 +1982,11 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
             return None
         column = self._table_cache.cached_col(idx)
         if column is None:
-            column = self._get_element_idx2(_XP_COLUMN_IDX, idx)  # type:ignore[assignment]
+            column = self._get_element_idx2(_XP_COLUMN_IDX, idx)
             if column is None:
                 return None
-            self._table_cache.store_col(column, idx)
-        return column.clone
+            self._table_cache.store_col(cast(Column, column), idx)
+        return cast(Column, column.clone)
 
     @property
     def columns(self) -> list[Column]:
@@ -2394,11 +2394,11 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
             body = self.document_body
             if not body or not body.allow_named_range:
                 return []
-            named_ranges = body.get_named_ranges()  # type: ignore[attr-defined]
+            named_ranges = body.get_named_ranges()
         else:
             named_ranges = self._local_named_ranges()
         if not table_name:
-            return named_ranges  # type: ignore[no-any-return]
+            return named_ranges
         filter_ = []
         if isinstance(table_name, str):
             filter_.append(table_name)
@@ -2431,7 +2431,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                 raise ValueError("Table is not inside a document")
             if not body.allow_named_range:
                 return None
-            nr: NamedRange | None = body.get_named_range(name)  # type: ignore[attr-defined]
+            nr: NamedRange | None = body.get_named_range(name)
 
         else:
             nr = self._local_named_range(name)
@@ -2460,7 +2460,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                     "Presentation, Spreadsheet or Text"
                 )
                 raise TypeError(msg)
-            body.append_named_range(named_range)  # type: ignore[attr-defined]
+            body.append_named_range(named_range)
         else:
             self._local_append_named_range(named_range)
 
@@ -2501,7 +2501,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                 raise TypeError(msg)
             if not table_name:
                 table_name = self.name
-            body.set_named_range(  # type: ignore[attr-defined]
+            body.set_named_range(
                 name=name,
                 crange=crange,
                 table_name=table_name,
@@ -2534,7 +2534,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                     "Presentation, Spreadsheet or Text"
                 )
                 raise TypeError(msg)
-            body.delete_named_range(name)  # type: ignore[attr-defined]
+            body.delete_named_range(name)
         else:
             self._local_delete_named_range(name)
 
@@ -2624,7 +2624,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                         cell.clear()
             if val_list:
                 if len(val_list) == 1:
-                    cells[0][0].set_value(val_list[0])  # type: ignore[arg-type]
+                    cells[0][0].set_value(val_list[0])  # ty: ignore[invalid-argument-type]
                 else:
                     value = " ".join([str(v) for v in val_list if v])
                     cells[0][0].set_value(value)
@@ -2715,7 +2715,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                     if value is None:
                         value = ""
                     line.append(value)
-                csv_writer.writerow(line)  # type: ignore[attr-defined]
+                csv_writer.writerow(line)
 
         content = StringIO(newline="")
         csv_writer = csv.writer(content, dialect=dialect, **fmtparams)
@@ -2795,7 +2795,7 @@ def import_from_csv(
         content_b = path_or_file.getvalue()
     else:
         # Leave the file we were given open
-        content_b = path_or_file.read()  # type: ignore[attr-defined]
+        content_b = path_or_file.read()
     if isinstance(content_b, bytes):
         content = content_b.decode()
     else:

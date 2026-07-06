@@ -593,12 +593,14 @@ def test_get_llm_client_azure_ad_without_azure_identity(
     monkeypatch.setenv("AZURE_OPENAI_AD_TOKEN_SCOPE", "https://cognitiveservices.azure.com")
 
     # Mock _AZURE_IDENTITY_AVAILABLE to False
-    with mock.patch("dbt_osmosis.core.llm._AZURE_IDENTITY_AVAILABLE", False):
-        with pytest.raises(
+    with (
+        mock.patch("dbt_osmosis.core.llm._AZURE_IDENTITY_AVAILABLE", False),
+        pytest.raises(
             LLMConfigurationError,
             match="Azure Identity library is not installed",
-        ):
-            get_llm_client()
+        ),
+    ):
+        get_llm_client()
 
 
 def test_get_llm_client_azure_ad_token_failure(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -611,15 +613,17 @@ def test_get_llm_client_azure_ad_token_failure(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.delenv("AZURE_TENANT_ID", raising=False)
 
     # Mock credential to raise an exception
-    with mock.patch(
-        "dbt_osmosis.core.llm.DefaultAzureCredential.get_token",
-        side_effect=Exception("Authentication failed"),
-    ):
-        with pytest.raises(
+    with (
+        mock.patch(
+            "dbt_osmosis.core.llm.DefaultAzureCredential.get_token",
+            side_effect=Exception("Authentication failed"),
+        ),
+        pytest.raises(
             LLMConfigurationError,
             match="Failed to acquire Azure AD token",
-        ):
-            get_llm_client()
+        ),
+    ):
+        get_llm_client()
 
 
 def test_get_llm_client_azure_ad_scope_with_default_suffix(
@@ -628,7 +632,7 @@ def test_get_llm_client_azure_ad_scope_with_default_suffix(
     """Test that /.default suffix is added to scope if not present."""
     try:
         pytest.importorskip("azure.identity")
-    except Exception:
+    except Exception:  # noqa: BLE001
         pytest.skip("azure-identity not installed")
 
     monkeypatch.setenv("LLM_PROVIDER", "azure-openai-ad")
@@ -666,7 +670,7 @@ def test_get_llm_client_azure_ad_preserves_explicit_scoped_value(
     """Test that already-scoped gateway values are passed through unchanged."""
     try:
         pytest.importorskip("azure.identity")
-    except Exception:
+    except Exception:  # noqa: BLE001
         pytest.skip("azure-identity not installed")
 
     monkeypatch.setenv("LLM_PROVIDER", "azure-openai-ad")
@@ -740,11 +744,7 @@ def test_call_with_retry_success_on_first_attempt() -> None:
 
 def test_call_with_retry_success_after_rate_limit() -> None:
     """Test successful retry after rate limit error."""
-    # Import here to avoid issues if openai not installed
-    try:
-        import openai
-    except ImportError:
-        pytest.skip("openai not installed")
+    openai = pytest.importorskip("openai", reason="openai not installed")
 
     mock_func = mock.Mock()
     # First call raises RateLimitError, second succeeds
@@ -763,10 +763,7 @@ def test_call_with_retry_success_after_rate_limit() -> None:
 
 def test_call_with_retry_max_retries_exceeded() -> None:
     """Test that exception is raised when max retries exceeded."""
-    try:
-        import openai
-    except ImportError:
-        pytest.skip("openai not installed")
+    openai = pytest.importorskip("openai", reason="openai not installed")
 
     mock_func = mock.Mock()
     # Always raise RateLimitError
@@ -776,9 +773,8 @@ def test_call_with_retry_max_retries_exceeded() -> None:
         body=None,
     )
 
-    with mock.patch("time.sleep"):
-        with pytest.raises(openai.RateLimitError):
-            _call_with_retry(mock_func, max_retries=2, initial_delay=0.1)
+    with mock.patch("time.sleep"), pytest.raises(openai.RateLimitError):
+        _call_with_retry(mock_func, max_retries=2, initial_delay=0.1)
 
     # Should try initial + 2 retries = 3 times
     assert mock_func.call_count == 3
@@ -786,10 +782,7 @@ def test_call_with_retry_max_retries_exceeded() -> None:
 
 def test_call_with_retry_exponential_backoff() -> None:
     """Test that exponential backoff is applied correctly."""
-    try:
-        import openai
-    except ImportError:
-        pytest.skip("openai not installed")
+    openai = pytest.importorskip("openai", reason="openai not installed")
 
     mock_func = mock.Mock()
     mock_func.side_effect = [
@@ -815,10 +808,7 @@ def test_call_with_retry_exponential_backoff() -> None:
 
 def test_call_with_retry_respects_retry_after_header() -> None:
     """Test that retry logic respects Retry-After header if present."""
-    try:
-        import openai
-    except ImportError:
-        pytest.skip("openai not installed")
+    openai = pytest.importorskip("openai", reason="openai not installed")
 
     # Create mock response with retry-after header
     mock_response = _make_mock_response(headers={"retry-after": "5.0"})

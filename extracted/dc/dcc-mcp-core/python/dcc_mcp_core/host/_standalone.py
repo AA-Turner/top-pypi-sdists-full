@@ -21,9 +21,14 @@ import contextlib
 import threading
 
 # Import local modules
-from dcc_mcp_core._core import BlockingDispatcher
-from dcc_mcp_core._core import QueueDispatcher
 from dcc_mcp_core.host._protocols import TickableDispatcher
+
+try:
+    from dcc_mcp_core._core import BlockingDispatcher
+    from dcc_mcp_core._core import QueueDispatcher
+except ImportError:
+    from dcc_mcp_core.host._fallback import BlockingDispatcher
+    from dcc_mcp_core.host._fallback import QueueDispatcher
 
 
 class StandaloneHost:

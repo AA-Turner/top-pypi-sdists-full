@@ -14,7 +14,7 @@ import { buildArgs } from "./args.js";
 import { maybeWarnWindowsFonts } from "./fonts.js";
 import { ensureBinary } from "./download.js";
 import { resolveProxyConfig } from "./proxy.js";
-import { maybeResolveGeoip, resolveWebrtcArgs } from "./geoip.js";
+import { maybeResolveGeoip, resolveWebrtcArgs, appendWebrtcExitIp } from "./geoip.js";
 import { buildLaunchEnv } from "./license.js";
 import { seedWidevineHint } from "./widevine.js";
 
@@ -116,9 +116,7 @@ export async function buildLaunchOptions(
   const { exitIp, ...resolved } = await maybeResolveGeoip(options);
   const { proxyOption, proxyArgs } = resolveProxyConfig(options.proxy, options.browserVersion);
   let resolvedArgs = await resolveWebrtcArgs(options);
-  if (exitIp && !(resolvedArgs ?? []).some(a => a.startsWith("--fingerprint-webrtc-ip"))) {
-    resolvedArgs = [...(resolvedArgs ?? []), `--fingerprint-webrtc-ip=${exitIp}`];
-  }
+  resolvedArgs = appendWebrtcExitIp(resolvedArgs, exitIp);
   const args = buildArgs({ ...options, ...resolved, args: [...(resolvedArgs ?? []), ...proxyArgs] });
   maybeWarnWindowsFonts(args);
 
@@ -230,9 +228,7 @@ export async function launchContext(
   const { exitIp, ...resolved } = await maybeResolveGeoip(options);
   let launchArgs = await resolveWebrtcArgs(options);
   // Inject geoip exit IP for WebRTC spoofing (free — no extra HTTP call)
-  if (exitIp && !(launchArgs ?? []).some(a => a.startsWith("--fingerprint-webrtc-ip"))) {
-    launchArgs = [...(launchArgs ?? []), `--fingerprint-webrtc-ip=${exitIp}`];
-  }
+  launchArgs = appendWebrtcExitIp(launchArgs, exitIp);
   // --fingerprint-timezone is process-wide (reads CommandLine in renderer),
   // so it applies to ALL contexts, not just the default one.
   // locale and timezone are set via binary flags only — no CDP emulation.
@@ -302,9 +298,7 @@ export async function launchPersistentContext(
   const { exitIp, ...resolved } = await maybeResolveGeoip(options);
   const { proxyOption, proxyArgs } = resolveProxyConfig(options.proxy, options.browserVersion);
   let resolvedArgs = await resolveWebrtcArgs(options);
-  if (exitIp && !(resolvedArgs ?? []).some(a => a.startsWith("--fingerprint-webrtc-ip"))) {
-    resolvedArgs = [...(resolvedArgs ?? []), `--fingerprint-webrtc-ip=${exitIp}`];
-  }
+  resolvedArgs = appendWebrtcExitIp(resolvedArgs, exitIp);
   const args = buildArgs({ ...options, ...resolved, args: [...(resolvedArgs ?? []), ...proxyArgs] });
   maybeWarnWindowsFonts(args);
 

@@ -1,18 +1,19 @@
+import contextlib
 import difflib
 import glob
 import inspect
 import io
-from lxml import etree
 import os
 import unittest
 import warnings
 
-from prov.identifier import Namespace, QualifiedName
-from prov.constants import PROV
+from lxml import etree
+
 import prov.model as prov
+from prov.constants import PROV
+from prov.identifier import Namespace, QualifiedName
 from prov.tests.test_model import AllTestsBase
 from prov.tests.utility import RoundTripTestCase
-
 
 EX_NS = ("ex", "http://example.com/ns/ex#")
 EX_TR = ("tr", "http://example.com/ns/tr#")
@@ -36,14 +37,10 @@ def compare_xml(doc1, doc2):
     Helper function to compare two XML files. It will parse both once again
     and write them in a canonical fashion.
     """
-    try:
+    with contextlib.suppress(AttributeError):
         doc1.seek(0, 0)
-    except AttributeError:
-        pass
-    try:
+    with contextlib.suppress(AttributeError):
         doc2.seek(0, 0)
-    except AttributeError:
-        pass
 
     obj1 = etree.parse(doc1)
     obj2 = etree.parse(doc2)
@@ -365,7 +362,7 @@ class ProvXMLTestCase(unittest.TestCase):
           </entity>
         </document>"""
         document = prov.ProvDocument.deserialize(content=xml_string, format="xml")
-        entity = list(document.get_records(prov.ProvEntity))[0]
+        entity = next(iter(document.get_records(prov.ProvEntity)))
         # the <value> element is in the default (PROV) namespace:
         # it must parse as prov:value, not "None:value"
         values = list(entity.get_attribute(PROV["value"]))
@@ -389,9 +386,84 @@ class ProvXMLTestCase(unittest.TestCase):
           </prov:entity>
         </prov:document>"""
         document = prov.ProvDocument.deserialize(content=xml_string, format="xml")
-        entity = list(document.get_records(prov.ProvEntity))[0]
+        entity = next(iter(document.get_records(prov.ProvEntity)))
         values = list(entity.get_attribute(PROV["value"]))
         self.assertEqual(values, [1])
+
+
+class ProvXMLSerializerErrorsTestCase(unittest.TestCase):
+    """Covers ProvXMLSerializer error/warning paths not reached by the
+    round-trip fixtures (docs/test-gap-checklist.md, T13 item under
+    serializers/provxml.py)."""
+
+    def test_serialize_without_a_document_raises(self):
+        from prov.serializers.provxml import ProvXMLException, ProvXMLSerializer
+
+        serializer = ProvXMLSerializer(document=None)
+        with self.assertRaises(ProvXMLException) as ctx:
+            serializer.serialize(io.BytesIO())
+        self.assertIn("No document to serialize", str(ctx.exception))
+
+    def test_non_prov_top_level_element_raises(self):
+        from prov.serializers.provxml import ProvXMLException
+
+        xml_string = """<?xml version="1.0" encoding="UTF-8"?>
+        <prov:document
+            xmlns:prov="http://www.w3.org/ns/prov#"
+            xmlns:ex="http://example.com/ns/ex#">
+          <ex:notAProvElement/>
+        </prov:document>
+        """
+        with (
+            self.assertRaises(ProvXMLException) as ctx,
+            io.StringIO(xml_string) as xml,
+        ):
+            prov.ProvDocument.deserialize(source=xml, format="xml")
+        self.assertIn("Non PROV element discovered", str(ctx.exception))
+
+    def test_unrepresentable_sub_element_attribute_warns_and_is_ignored(self):
+        # An attribute on a PROV-XML sub-element other than prov:ref,
+        # xsi:type, or xml:lang cannot be represented in the internal data
+        # model; it is dropped with a warning rather than raising.
+        xml_string = """<?xml version="1.0" encoding="UTF-8"?>
+        <prov:document
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns:prov="http://www.w3.org/ns/prov#"
+            xmlns:ex="http://example.com/ns/ex#">
+          <prov:entity prov:id="ex:e1">
+            <ex:version xsi:type="xsd:string" custom="oops">2</ex:version>
+          </prov:entity>
+        </prov:document>
+        """
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            with io.StringIO(xml_string) as xml:
+                doc = prov.ProvDocument.deserialize(source=xml, format="xml")
+
+        self.assertTrue(
+            any(
+                "not representable in the prov module's internal data model"
+                in str(warning.message)
+                for warning in w
+            )
+        )
+        e1 = doc.get_record("ex:e1")[0]
+        self.assertEqual(list(e1.get_attribute("ex:version")), ["2"])
+
+    def test_xml_qname_to_qualifiedname_without_colon_or_default_ns_raises(self):
+        from prov.serializers.provxml import (
+            ProvXMLException,
+            xml_qname_to_QualifiedName,
+        )
+
+        element = etree.fromstring(
+            '<root xmlns:ex="http://example.com/ns/ex#"><child/></root>'
+        )
+        child = element[0]
+        with self.assertRaises(ProvXMLException) as ctx:
+            xml_qname_to_QualifiedName(child, "noColonNoDefaultNs")
+        self.assertIn("Could not create a valid QualifiedName", str(ctx.exception))
 
 
 class ProvXMLRoundTripFromFileTestCase(unittest.TestCase):
@@ -410,7 +482,7 @@ class ProvXMLRoundTripFromFileTestCase(unittest.TestCase):
 # function names make it clear what is going on.
 for filename in glob.iglob(os.path.join(DATA_PATH, "*" + os.path.extsep + "xml")):
     name = os.path.splitext(os.path.basename(filename))[0]
-    test_name = "test_roundtrip_from_xml_%s" % name
+    test_name = f"test_roundtrip_from_xml_{name}"
 
     # Cannot round trip this one as the namespace in the PROV data model are
     # always defined per bundle and not per element.
@@ -427,10 +499,7 @@ for filename in glob.iglob(os.path.join(DATA_PATH, "*" + os.path.extsep + "xml")
         # `name` is the outer loop variable, but it is only read here,
         # synchronously, on the same iteration it was set -- not from the
         # returned `fct` closure below, so late-binding is not an issue.
-        if name in ["pc1"]:  # noqa: B023
-            force_types = True
-        else:
-            force_types = False
+        force_types = name in ["pc1"]  # noqa: B023
 
         def fct(self):
             self._perform_round_trip(f, force_types=force_types)

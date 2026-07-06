@@ -47,7 +47,6 @@ Script path handling:
 import json
 import logging
 import re
-import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -55,6 +54,7 @@ from typing import Any
 import yaml
 
 from apm_cli.integration.base_integrator import BaseIntegrator, IntegrationResult
+from apm_cli.integration.hook_bundle import copy_deployed_hook_bundle
 from apm_cli.integration.hook_file_routing import filter_hook_files_for_target
 from apm_cli.utils.console import _rich_warning
 from apm_cli.utils.path_security import (
@@ -117,6 +117,23 @@ class _MergeHookConfig:
 # Copilot (camelCase) or Claude (PascalCase) names; targets that use
 # different conventions get their events renamed during merge.
 _HOOK_EVENT_MAP: dict[str, dict[str, str]] = {
+    "copilot": {
+        # Claude PascalCase -> Copilot camelCase
+        "PreToolUse": "preToolUse",
+        "preToolUse": "preToolUse",
+        "PostToolUse": "postToolUse",
+        "postToolUse": "postToolUse",
+        "UserPromptSubmit": "userPromptSubmit",
+        "userPromptSubmit": "userPromptSubmit",
+        "Stop": "stop",
+        "stop": "stop",
+        "AgentStop": "agentStop",
+        "agentStop": "agentStop",
+        "PreTaskExecution": "preTaskExecution",
+        "preTaskExecution": "preTaskExecution",
+        "PostTaskExecution": "postTaskExecution",
+        "postTaskExecution": "postTaskExecution",
+    },
     "claude": {
         # Copilot camelCase -> Claude PascalCase
         "preToolUse": "PreToolUse",
@@ -886,12 +903,18 @@ class HookIntegrator(BaseIntegrator):
         return rewritten, unique_scripts
 
     @staticmethod
+    def _root_local_identity_root(package_info, project_root: Path | None) -> Path | None:
+        """Return the project root used to identify root-local packages."""
+        return getattr(package_info, "root_local_project_root", None) or project_root
+
+    @staticmethod
     def _is_root_local_package(package_info, project_root: Path | None) -> bool:
         """Return True when *package_info* represents the project's own .apm content."""
-        if project_root is None:
+        identity_root = HookIntegrator._root_local_identity_root(package_info, project_root)
+        if identity_root is None:
             return False
         try:
-            return Path(package_info.install_path).resolve() == Path(project_root).resolve()
+            return Path(package_info.install_path).resolve() == Path(identity_root).resolve()
         except (OSError, RuntimeError):
             return False
 
@@ -951,7 +974,8 @@ class HookIntegrator(BaseIntegrator):
             str: Package name used as hook source marker and script namespace
         """
         if self._is_root_local_package(package_info, project_root):
-            return HookIntegrator._get_root_local_package_name(package_info, Path(project_root))
+            identity_root = HookIntegrator._root_local_identity_root(package_info, project_root)
+            return HookIntegrator._get_root_local_package_name(package_info, Path(identity_root))
         return package_info.install_path.name
 
     @staticmethod
@@ -1245,7 +1269,19 @@ class HookIntegrator(BaseIntegrator):
             ):
                 continue
 
-            _emit_hook_event_diagnostics(list(rewritten.get("hooks", {}).keys()), "copilot", {})
+            hooks = rewritten.get("hooks", {})
+            event_map = _HOOK_EVENT_MAP.get("copilot", {})
+            _emit_hook_event_diagnostics(list(hooks.keys()), "copilot", event_map)
+            if isinstance(hooks, dict):
+                renamed_hooks = {}
+                for raw_event_name, entries in hooks.items():
+                    event_name = event_map.get(raw_event_name, raw_event_name)
+                    if event_name in renamed_hooks and isinstance(renamed_hooks[event_name], list):
+                        if isinstance(entries, list):
+                            renamed_hooks[event_name].extend(entries)
+                            continue
+                    renamed_hooks[event_name] = entries
+                rewritten["hooks"] = renamed_hooks
 
             # Write rewritten JSON
             with open(target_path, "w", encoding="utf-8") as f:
@@ -1263,21 +1299,20 @@ class HookIntegrator(BaseIntegrator):
                 )
             )
 
-            # Copy referenced scripts (individual file tracking)
-            for source_file, target_rel in scripts:
-                target_script = project_root / target_rel
-                ensure_path_within(target_script, project_root)
-                if self.try_adopt_identical(target_script, source_file, target_paths):
-                    scripts_adopted += 1
-                    continue
-                if self.check_collision(
-                    target_script, target_rel, managed_files, force, diagnostics=diagnostics
-                ):
-                    continue
-                target_script.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source_file, target_script)
-                scripts_copied += 1
-                target_paths.append(target_script)
+            copy_result = copy_deployed_hook_bundle(
+                self,
+                package_path=package_info.install_path,
+                hook_file_dir=hook_file.parent,
+                project_root=project_root,
+                scripts=scripts,
+                managed_files=managed_files,
+                force=force,
+                diagnostics=diagnostics,
+                target_paths=target_paths,
+                hook_descriptor_files=set(hook_files),
+            )
+            scripts_copied += copy_result.scripts_copied
+            scripts_adopted += copy_result.files_adopted
 
         return HookIntegrationResult(
             files_integrated=hooks_integrated,
@@ -1612,25 +1647,20 @@ class HookIntegrator(BaseIntegrator):
                     config.target_key,
                 )
 
-            # Copy referenced scripts
-            for source_file, target_rel in scripts:
-                target_script = project_root / target_rel
-                ensure_path_within(target_script, project_root)
-                if self.try_adopt_identical(target_script, source_file, target_paths):
-                    scripts_adopted += 1
-                    continue
-                if self.check_collision(
-                    target_script,
-                    target_rel,
-                    managed_files,
-                    force,
-                    diagnostics=diagnostics,
-                ):
-                    continue
-                target_script.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source_file, target_script)
-                scripts_copied += 1
-                target_paths.append(target_script)
+            copy_result = copy_deployed_hook_bundle(
+                self,
+                package_path=package_info.install_path,
+                hook_file_dir=hook_file.parent,
+                project_root=project_root,
+                scripts=scripts,
+                managed_files=managed_files,
+                force=force,
+                diagnostics=diagnostics,
+                target_paths=target_paths,
+                hook_descriptor_files=set(hook_files),
+            )
+            scripts_copied += copy_result.scripts_copied
+            scripts_adopted += copy_result.files_adopted
 
         # Write JSON config back
         # Don't track the config file in target_paths -- it's a shared

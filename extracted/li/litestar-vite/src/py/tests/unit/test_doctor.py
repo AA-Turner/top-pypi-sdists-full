@@ -21,6 +21,9 @@ def _prepare_node_modules(root: Path) -> None:
     dist_dir.mkdir(parents=True, exist_ok=True)
     for name in ("index.js", "install-hint.js", "litestar-meta.js"):
         (dist_dir / name).write_text("// stub")
+    hey_api_dir = root / "node_modules" / "@hey-api" / "openapi-ts"
+    hey_api_dir.mkdir(parents=True, exist_ok=True)
+    (hey_api_dir / "package.json").write_text("{}")
 
 
 @pytest.fixture
@@ -233,6 +236,15 @@ def test_doctor_no_issues(doctor: ViteDoctor, tmp_path: Path) -> None:
     assert not doctor.issues
 
 
+def test_doctor_warns_when_typegen_package_dependency_missing(doctor: ViteDoctor, tmp_path: Path) -> None:
+    doctor.config.paths.root = tmp_path
+    (tmp_path / "node_modules").mkdir()
+
+    doctor._check_typegen_package_dependencies()
+
+    assert any(issue.check == "TypeGen Package Dependency" for issue in doctor.issues)
+
+
 def test_doctor_type_paths_mismatch(doctor: ViteDoctor, tmp_path: Path) -> None:
     doctor.config.paths.root = tmp_path
     _prepare_frontend_dirs(tmp_path)
@@ -309,7 +321,8 @@ def test_doctor_hotfile_missing(doctor: ViteDoctor, tmp_path: Path) -> None:
     ):
         doctor.run(fix=False, runtime_checks=True)
 
-    assert any(i.check == "Hotfile Missing" for i in doctor.issues)
+    hotfile_issues = [i for i in doctor.issues if i.check == "Hotfile Missing"]
+    assert len(hotfile_issues) == 1
 
 
 def test_doctor_env_mismatch(doctor: ViteDoctor, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

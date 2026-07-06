@@ -1,6 +1,8 @@
 import logging
 
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import (  # Signals must fire on Base Models, not proxies
+    Group,
+)
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 

@@ -40,6 +40,28 @@ export const COUNTRY_LOCALE_MAP: Record<string, string> = {
   TH: "th-TH", VN: "vi-VN", MY: "ms-MY",
   SE: "sv-SE", NO: "nb-NO", DK: "da-DK", FI: "fi-FI",
   GR: "el-GR", HU: "hu-HU", BG: "bg-BG",
+  // Extended coverage — common residential/mobile proxy exits
+  SI: "sl-SI", SK: "sk-SK", HR: "hr-HR", RS: "sr-RS", LT: "lt-LT",
+  LV: "lv-LV", EE: "et-EE", IS: "is-IS", LU: "fr-LU", MT: "en-MT",
+  CY: "el-CY", MD: "ro-MD", BY: "ru-BY", GE: "ka-GE", AL: "sq-AL",
+  MK: "mk-MK", BA: "bs-BA",
+  PE: "es-PE", VE: "es-VE", EC: "es-EC", UY: "es-UY", CR: "es-CR",
+  DO: "es-DO", GT: "es-GT", BO: "es-BO", PY: "es-PY",
+  PK: "en-PK", BD: "bn-BD", LK: "si-LK", KZ: "ru-KZ", IR: "fa-IR",
+  IQ: "ar-IQ", JO: "ar-JO", LB: "ar-LB", KW: "ar-KW", QA: "ar-QA",
+  OM: "ar-OM", BH: "ar-BH",
+  NG: "en-NG", KE: "en-KE", MA: "fr-MA", DZ: "ar-DZ", TN: "ar-TN",
+  GH: "en-GH",
+  AM: "hy-AM", AZ: "az-AZ", UZ: "uz-UZ", KG: "ky-KG", TJ: "tg-TJ",
+  TM: "tk-TM",
+  ME: "sr-ME", XK: "sq-XK", LI: "de-LI", MC: "fr-MC", AD: "ca-AD",
+  MM: "my-MM", KH: "km-KH", LA: "lo-LA", MN: "mn-MN", BN: "ms-BN",
+  MO: "zh-MO",
+  YE: "ar-YE", SY: "ar-SY", PS: "ar-PS", LY: "ar-LY",
+  ET: "am-ET", TZ: "sw-TZ", UG: "en-UG", SN: "fr-SN", CI: "fr-CI",
+  CM: "fr-CM", AO: "pt-AO", MZ: "pt-MZ", ZM: "en-ZM", ZW: "en-ZW",
+  HN: "es-HN", NI: "es-NI", SV: "es-SV", PA: "es-PA", JM: "en-JM",
+  TT: "en-TT", PR: "es-PR",
 };
 
 export interface GeoResult {
@@ -52,9 +74,12 @@ export interface GeoResult {
  * Resolve timezone and locale from a proxy's IP address.
  * Returns `{ timezone, locale }` — either may be null on failure.
  * Never throws.
+ *
+ * When `proxyUrl` is falsy, the machine's own public IP is used instead
+ * (echo services queried directly, no proxy), so geoip works proxy-free.
  */
 export async function resolveProxyGeo(
-  proxyUrl: string
+  proxyUrl: string | null
 ): Promise<GeoResult> {
   let Reader: any;
   try {
@@ -66,21 +91,30 @@ export async function resolveProxyGeo(
     );
   }
 
+  // Ensure the DB first — the download must NOT be bounded by the resolution
+  // timeout (a first-use ~70MB fetch legitimately outlasts it).
   const dbPath = await ensureGeoipDb();
-  if (!dbPath) return { timezone: null, locale: null, exitIp: null };
 
   const timeoutMs = getGeoipTimeoutMs();
   const deadline = deadlineFromTimeout(timeoutMs);
 
-  // Exit IP (through proxy) is most accurate — gateway DNS may differ from exit
+  // Exit IP (through proxy, or the machine's own public IP when proxyUrl is
+  // falsy) is most accurate — gateway DNS may differ from exit. Resolved even
+  // when the DB is unavailable: the IP does not need the DB, and dropping it on
+  // a DB hiccup would let WebRTC fall back to the real IP behind a proxy while
+  // the connection shows the proxy IP — a real deanonymization.
   let ip = await resolveExitIp(proxyUrl, remainingMs(deadline));
-  if (!ip && !deadlineExpired(deadline)) ip = await resolveProxyIp(proxyUrl);
+  // Hostname fallback only applies to a proxy; no proxy → echo services only
+  if (!ip && proxyUrl && !deadlineExpired(deadline)) ip = await resolveProxyIp(proxyUrl);
   if (!ip || deadlineExpired(deadline)) {
     if (deadlineExpired(deadline)) {
       console.warn(`[cloakbrowser] GeoIP resolution timed out after ${timeoutMs}ms; continuing without GeoIP`);
     }
     return { timezone: null, locale: null, exitIp: null };
   }
+
+  // DB only drives tz/locale; a missing/failed DB still returns the exit IP.
+  if (!dbPath) return { timezone: null, locale: null, exitIp: ip };
 
   try {
     const buf = fs.readFileSync(dbPath);
@@ -144,25 +178,38 @@ export async function resolveProxyIp(
   }
 }
 
-function isPrivateIp(ip: string): boolean {
-  // Quick check for common private ranges
-  if (ip.startsWith("10.") || ip.startsWith("127.") || ip === "::1") return true;
-  if (ip.startsWith("172.")) {
-    const second = parseInt(ip.split(".")[1], 10);
-    if (second >= 16 && second <= 31) return true;
-  }
-  if (ip.startsWith("192.168.")) return true;
-  return false;
-}
-
 const IP_ECHO_URLS = [
   "https://api.ipify.org",
   "https://checkip.amazonaws.com",
   "https://ifconfig.me/ip",
 ];
 
-async function resolveExitIp(proxyUrl: string, timeoutMs?: number): Promise<string | null> {
+async function resolveExitIp(proxyUrl: string | null | undefined, timeoutMs?: number): Promise<string | null> {
   const deadline = timeoutMs && timeoutMs > 0 ? performance.now() + timeoutMs : null;
+
+  // No proxy: query the echo services directly → the machine's own public IP.
+  if (!proxyUrl) {
+    for (const echoUrl of IP_ECHO_URLS) {
+      const remaining = remainingMs(deadline);
+      if (remaining !== undefined && remaining <= 0) return null;
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), Math.min(10_000, remaining ?? 10_000));
+        try {
+          const res = await fetch(echoUrl, { signal: controller.signal });
+          if (!res.ok) continue;
+          const ip = (await res.text()).trim();
+          if (net.isIP(ip)) return ip;
+        } finally {
+          clearTimeout(timer);
+        }
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  }
+
   const isSocks = isSocksProxy(proxyUrl);
 
   // SOCKS5: tunnel through the SOCKS5 proxy via socks-proxy-agent
@@ -358,19 +405,25 @@ function extractProxyUrl(proxy: string | ProxyDict | undefined): string | null {
 }
 
 /**
- * Auto-fill timezone/locale from proxy IP when geoip is enabled.
+ * Auto-fill timezone/locale from the egress IP when geoip is enabled.
  * Also returns exitIp as a free bonus (reused for WebRTC spoofing).
+ *
+ * With a proxy the egress IP is the proxy's exit IP; with no proxy it is
+ * the machine's own public IP, so geoip works proxy-free too.
  */
 export async function maybeResolveGeoip(
   options: LaunchOptions
 ): Promise<{ timezone?: string; locale?: string; exitIp?: string }> {
-  if (!options.geoip || !options.proxy) return { timezone: options.timezone, locale: options.locale };
+  if (!options.geoip) return { timezone: options.timezone, locale: options.locale };
 
-  const proxyUrl = extractProxyUrl(options.proxy);
-  if (!proxyUrl) return { timezone: options.timezone, locale: options.locale };
+  // null when no proxy → echo services resolve the machine's own public IP
+  const proxyUrl = options.proxy ? extractProxyUrl(options.proxy) : null;
 
-  // When both tz/locale are explicit, still resolve exit IP for WebRTC
+  // When both tz/locale are explicit, resolve the exit IP for WebRTC — but only
+  // with a proxy. With no proxy the WebRTC IP would just be the real connection
+  // IP the site already sees (a no-op), so skip the third-party echo call.
   if (options.timezone && options.locale) {
+    if (!proxyUrl) return { timezone: options.timezone, locale: options.locale };
     const timeoutMs = getGeoipTimeoutMs();
     const exitIp = await resolveExitIp(proxyUrl, timeoutMs) ?? undefined;
     return { timezone: options.timezone, locale: options.locale, exitIp };
@@ -383,6 +436,22 @@ export async function maybeResolveGeoip(
     locale: options.locale ?? geoLocale ?? undefined,
     exitIp,
   };
+}
+
+/**
+ * Append `--fingerprint-webrtc-ip=<exitIp>` unless the user already set the flag.
+ * The exit IP comes free from the geoip lookup; it spoofs the WebRTC IP to the
+ * egress IP. No-op when there is no exit IP or the flag is already present. This
+ * rule must stay identical across every launch path, so it lives in one place.
+ */
+export function appendWebrtcExitIp(
+  args: string[] | undefined,
+  exitIp: string | undefined,
+): string[] | undefined {
+  if (exitIp && !(args ?? []).some(a => a.startsWith("--fingerprint-webrtc-ip"))) {
+    return [...(args ?? []), `--fingerprint-webrtc-ip=${exitIp}`];
+  }
+  return args;
 }
 
 /**

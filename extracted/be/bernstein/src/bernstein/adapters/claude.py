@@ -377,6 +377,7 @@ class ClaudeCodeAdapter(CLIAdapter):
         batch_mode: bool = False,
         task_scope: str = "medium",
         budget_multiplier: float = 1.0,
+        explicit_max_turns: int | None = None,
     ) -> list[str]:
         """Build the claude CLI command with effort mapping.
 
@@ -408,12 +409,37 @@ class ClaudeCodeAdapter(CLIAdapter):
             budget_multiplier: Additional multiplier applied on top of the
                 scope-based budget (e.g. 2.0 when retrying after hitting the
                 budget cap in a previous attempt).
+            explicit_max_turns: When set (e.g. from ``Task.max_turns``), used
+                verbatim for ``--max-turns``, bypassing the batch_mode /
+                scope_multiplier / effort-based computation below entirely.
         """
         model_id = _MODEL_MAP.get(model_config.model, model_config.model)
         effort = getattr(model_config, "effort", "high")
-        base_turns = COST.effort_base_turns.get(effort, 50)
-        scope_multiplier = self._SCOPE_MULTIPLIERS.get(task_scope, 1.5)
-        max_turns = self.BATCH_MAX_TURNS if batch_mode else int(base_turns * scope_multiplier)
+        if explicit_max_turns is not None:
+            if explicit_max_turns <= 0:
+                _logger.warning(
+                    "_build_command: explicit_max_turns=%d is not a positive integer - rejecting "
+                    "rather than emitting an invalid --max-turns flag to the Claude CLI",
+                    explicit_max_turns,
+                )
+                raise ValueError(f"explicit_max_turns must be a positive integer, got {explicit_max_turns}")
+            max_turns = explicit_max_turns
+            _logger.info(
+                "_build_command: max_turns=%d (explicit override; bypassing batch_mode/scope_multiplier computation)",
+                max_turns,
+            )
+        else:
+            base_turns = COST.effort_base_turns.get(effort, 50)
+            scope_multiplier = self._SCOPE_MULTIPLIERS.get(task_scope, 1.5)
+            max_turns = self.BATCH_MAX_TURNS if batch_mode else int(base_turns * scope_multiplier)
+            _logger.info(
+                "_build_command: max_turns=%d (computed: batch_mode=%s effort=%s task_scope=%s scope_multiplier=%s)",
+                max_turns,
+                batch_mode,
+                effort,
+                task_scope,
+                scope_multiplier,
+            )
         claude_effort = ({"max": "max", "high": "high", "medium": "medium", "normal": "medium", "low": "low"}).get(
             effort, "high"
         )
@@ -716,6 +742,7 @@ class ClaudeCodeAdapter(CLIAdapter):
         budget_multiplier: float = 1.0,
         system_addendum: str = "",
         multimodal_context: Any | None = None,
+        explicit_max_turns: int | None = None,
     ) -> SpawnResult:
         self.enforce_network_policy()
         # Issue #1797: encode any attached images into the prompt body
@@ -759,6 +786,13 @@ class ClaudeCodeAdapter(CLIAdapter):
             _logger.info("Batch mode detected for session %s - using %d max-turns", session_id, self.BATCH_MAX_TURNS)
 
         agents_json = build_agents_json(role)
+        if explicit_max_turns is not None:
+            _logger.info(
+                "spawn: session=%s explicit_max_turns=%d supplied - will bypass batch_mode/scope_multiplier "
+                "max_turns computation in _build_command",
+                session_id,
+                explicit_max_turns,
+            )
         cmd = self._build_command(
             model_config,
             effective_mcp,
@@ -770,6 +804,7 @@ class ClaudeCodeAdapter(CLIAdapter):
             batch_mode=batch_mode,
             task_scope=task_scope,
             budget_multiplier=budget_multiplier,
+            explicit_max_turns=explicit_max_turns,
         )
 
         # Wrap with bernstein-worker for process visibility

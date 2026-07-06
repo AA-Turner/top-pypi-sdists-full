@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: astropy
-Version: 8.0.0
+Version: 8.0.1
 Summary: Astronomy and astrophysics core library
 Author-email: The Astropy Developers <astropy.team@gmail.com>
 License-Expression: BSD-3-Clause
@@ -37,7 +37,7 @@ License-File: licenses/PYFITS.rst
 License-File: licenses/PYTHON.rst
 License-File: licenses/README.rst
 License-File: licenses/WCSLIB_LICENSE.rst
-Requires-Dist: astropy-iers-data>=0.2026.6.1.17.39.59
+Requires-Dist: astropy-iers-data>=0.2026.6.22.1.23.34
 Requires-Dist: numpy>=2.0
 Requires-Dist: packaging>=25.0
 Requires-Dist: pyerfa>=2.0.1.3

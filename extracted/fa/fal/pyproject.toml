@@ -23,7 +23,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
     "isolate[build]>=0.26.9,<0.27.0",
-    "isolate-proto>=0.33.0,<1",
+    "isolate-proto>=0.34.0,<1",
     "grpcio>=1.64.0,<2",
     "dill==0.3.7",
     "cloudpickle>=3.0.0,<3.2",
@@ -37,6 +37,7 @@ dependencies = [
     "portalocker>=2.7.0,<3",
     "rich>=13.3.2,<15",
     "rich_argparse",
+    "argcomplete>=3.1.0,<4",
     "packaging>=21.3",
     "pathspec>=0.11.1,<1",
     "pydantic!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*",

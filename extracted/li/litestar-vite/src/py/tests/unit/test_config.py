@@ -84,6 +84,29 @@ def test_dev_mode_shortcut() -> None:
     assert config.is_dev_mode is True
 
 
+# ===== ViteConfig.enabled / inert resolution =====
+
+
+def test_vite_config_enabled_defaults_to_none_auto() -> None:
+    assert ViteConfig().enabled is None
+
+
+def test_vite_config_enabled_explicit_false_is_preserved() -> None:
+    assert ViteConfig(enabled=False).enabled is False
+
+
+def test_vite_config_enabled_reads_vite_enabled_env_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("VITE_ENABLED", "false")
+
+    assert ViteConfig().enabled is False
+
+
+def test_vite_config_enabled_constructor_beats_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("VITE_ENABLED", "false")
+
+    assert ViteConfig(enabled=True).enabled is True
+
+
 def test_mode_auto_detection_spa_with_index_html(tmp_path: Path) -> None:
     """Test mode auto-detection when index.html exists."""
     resource_dir = tmp_path / "resources"
@@ -384,6 +407,19 @@ def test_dev_mode_not_auto_enabled_when_mode_explicit(tmp_path: Path, monkeypatc
     )
 
     assert config.runtime.dev_mode is False
+
+
+def test_auto_enabled_dev_mode_recomputes_proxy_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("VITE_AUTO_DEV_MODE", "True")
+    resource_dir = tmp_path / "src"
+    resource_dir.mkdir()
+    (resource_dir / "index.html").write_text("<div></div>")
+
+    config = ViteConfig(paths=PathConfig(root=tmp_path, resource_dir=resource_dir, bundle_dir=tmp_path / "public"))
+
+    assert config.runtime.dev_mode is True
+    assert config.runtime.proxy_mode == "vite"
+    assert config.hot_reload is True
 
 
 def test_has_built_assets_detects_manifest_in_vite_dir(tmp_path: Path) -> None:

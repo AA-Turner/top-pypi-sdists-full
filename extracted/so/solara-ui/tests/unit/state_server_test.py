@@ -149,7 +149,9 @@ def test_double_reconnect_supersedes_stale_context(backend):
     # as superseded, create a fresh context, and restore B's latest value
     context_new = kc.initialize_virtual_kernel(session_id, kernel_id, Mock())
     assert context_new is not context_a
-    assert context_a.closed_event.is_set()
+    # the close can run on the flush worker thread, and the reconnect only checks _teardown_done,
+    # which is set at the start of close(): wait instead of is_set() (see state_redis_test.py)
+    assert context_a.closed_event.wait(timeout=5)
     assert context_a.close_reason == "superseded"
     assert context_new.state_persistence is not None
     with context_new:
@@ -185,7 +187,8 @@ def test_double_reconnect_supersedes_never_flushed_context(backend):
     # reconnect lands back on A's reuse branch: the never-flushed zombie must be superseded
     context_new = kc.initialize_virtual_kernel(session_id, kernel_id, Mock())
     assert context_new is not context_a
-    assert context_a.closed_event.is_set()
+    # wait instead of is_set(): the close may still be in progress on another thread
+    assert context_a.closed_event.wait(timeout=5)
     assert context_a.close_reason == "superseded"
     assert context_new.state_persistence is not None
     # the fresh context took over at a higher generation and starts from defaults (nothing stored)
@@ -508,6 +511,37 @@ def test_evict_comm_closes_context(backend, monkeypatch):
     assert context.closed_event.wait(timeout=5)
     assert context.close_reason == "evicted"
     assert kernel_id not in kc.contexts
+
+
+# --- app-status reply shape (the client reconnect state machine's PROBE input) -------------
+
+
+def test_app_status_reply_shape(backend):
+    """Pin the fields the client's reconnect state machine branches on (main-vuetify.js).
+
+    ``containerId`` in particular: it is what lets a client whose rebuild was interrupted
+    (started=true but no view mounted) RE-ATTACH to the running app instead of resyncing
+    state into a viewless page (the REPAIR verdict).
+    """
+    from solara.server.app import client_version, solara_comm_target
+
+    context = kc.initialize_virtual_kernel("sess-status", "kern-status", Mock())
+    fake = _FakeComm()
+    with context:
+        solara_comm_target(fake, None)
+        fake.dispatch({"method": "app-status"})
+        not_started = fake.sent[-1]
+        # a started context (the run handler sets context.container) reports its root container
+        context.container = Mock(_model_id="model-123")
+        fake.dispatch({"method": "app-status"})
+        started = fake.sent[-1]
+
+    assert not_started["started"] is False
+    assert not_started["containerId"] is None
+    assert not_started["clientVersion"] == client_version()
+    assert not_started["canRecover"] is True  # a backend is configured, no bail-out
+    assert started["started"] is True
+    assert started["containerId"] == "model-123"
 
 
 # --- bail-out storm valve (§4.3) ----------------------------------------------------------

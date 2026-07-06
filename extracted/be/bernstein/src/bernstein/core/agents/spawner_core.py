@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import inspect
 import json
 import logging
 import re
@@ -29,7 +30,17 @@ from bernstein.core.agents.adapter_health import AdapterHealthMonitor
 from bernstein.core.agents.container import ContainerConfig, ContainerError, ContainerManager
 from bernstein.core.agents.heartbeat import HeartbeatMonitor
 from bernstein.core.agents.in_process_agent import InProcessAgent
-from bernstein.core.agents.spawn_errors import RetryStrategy, classify_spawn_error
+from bernstein.core.agents.response_style import (
+    ResponseStyleTemplateError,
+    addendum_sha256,
+    render_style_addendum,
+    resolve_response_style,
+)
+from bernstein.core.agents.spawn_errors import (
+    ModelNotConfiguredError,
+    RetryStrategy,
+    classify_spawn_error,
+)
 from bernstein.core.agents.spawn_rate_limiter import SpawnRateLimiter, SpawnRateLimitExceeded
 
 # Import sub-module functions
@@ -770,6 +781,7 @@ def _render_prompt(
     task_graph: TaskGraph | None = None,
     token_budget: int = 0,
     meta_messages: list[str] | None = None,
+    max_turns: int | None = None,
 ) -> str:
     """Build the full agent prompt from role template + tasks + context.
 
@@ -794,6 +806,17 @@ def _render_prompt(
             team-awareness section. Empty string means no section is added.
         task_graph: Optional task graph for injecting typed-edge predecessor
             context (INFORMS / TRANSFORMS outputs).
+        max_turns: Optional best-effort resolution of the agent's tool-use
+            turn cap, known at the spawn call site (see
+            ``AgentSpawner.spawn_for_tasks``'s resolution logic just before
+            this function is called). When present, renders a static
+            "## Turn budget" section so the model self-polices instead of
+            exploring until ``MaxTurnsExceeded`` fires with zero output
+            (see work/bernstein/m27-nudge-plan.md, Approach C MINIMAL).
+            ``None`` means the caller could not resolve a value at
+            prompt-build time (e.g. SDK default applies, or the resolved
+            adapter doesn't use a turn-capped runner) - the section is
+            skipped in that case, not rendered with a placeholder.
 
     Returns:
         Complete prompt string ready for the CLI adapter.
@@ -989,6 +1012,63 @@ def _render_prompt(
     if meta_messages:
         nudges_block = "\n## Operational nudges\n" + "\n".join(f"- {m}" for m in meta_messages) + "\n"
         sections.append(nudges_block)
+
+    # Turn-budget nudge (work/bernstein/m27-nudge-plan.md, Approach C
+    # MINIMAL): models spawned in tool-use loops (observed worst on MiniMax
+    # M2.7-highspeed) burn their whole turn cap reading/re-verifying and
+    # never write output, then hit MaxTurnsExceeded with nothing to show.
+    # Since Bernstein has no live mid-run injection channel into the
+    # openai-agents SDK's internal Runner.run_sync loop (see the plan doc's
+    # feasibility analysis), the only buildable fix today is a STATIC
+    # budget baked into the prompt at spawn time from whatever max_turns
+    # value the caller could resolve before this render call. Only render
+    # when a real positive value is known - a placeholder/guessed value
+    # would be actively misleading.
+    if max_turns is not None and max_turns > 0:
+        halfway_turn = max(1, max_turns // 2)
+        # near_end heuristic: 3 turns before the cap, but never below/at
+        # halfway_turn (tiny caps like max_turns=4 would otherwise put
+        # near_end before halfway) and never past max_turns itself (the
+        # outer min enforces the cap; without it max_turns=1 rendered
+        # "By turn 2" against a 1-turn budget).
+        near_end_turn = min(max_turns, max(halfway_turn + 1, max_turns - 3))
+        turn_budget_block = (
+            "\n## Turn budget\n"
+            f"You have a hard budget of {max_turns} tool-use turns for this task.\n\n"
+            f"- By turn {halfway_turn} (roughly halfway): if the core task is already "
+            "done, STOP - write your final summary now. Do not spend remaining turns "
+            "re-reading files you've already read or re-verifying work that already "
+            "passed.\n"
+            f"- By turn {near_end_turn} (near your limit): if you have not yet written "
+            "any code/output, you are out of time for further exploration - write "
+            "SOMETHING now, even a partial/best-effort change, rather than continuing "
+            "to read.\n"
+            "- On your FINAL turn: your last message must be plain text summarizing "
+            "what you accomplished, what remains unfinished, and any risks. Do not "
+            "attempt further tool calls.\n\n"
+            "STOP CONDITIONS - if any of these are true, stop immediately and write "
+            "your summary:\n"
+            "- All requested changes are implemented and tests pass\n"
+            "- You have verified your work is correct\n"
+            "- You are re-reading files you already read with no new information to "
+            "gain\n"
+        )
+        sections.append(turn_budget_block)
+        logger.info(
+            "Turn budget nudge injected for session=%s: max_turns=%d halfway=%d near_end=%d",
+            session_id,
+            max_turns,
+            halfway_turn,
+            near_end_turn,
+        )
+    else:
+        logger.info(
+            "Turn budget nudge skipped for session=%s: max_turns not available at "
+            "prompt-build time (resolved value=%r) - agent will not receive a turn-budget "
+            "self-check section",
+            session_id,
+            max_turns,
+        )
 
     # Annotate prompt sections with cache hints so adapters can apply
     # provider-specific caching (e.g. Anthropic's cache_control).
@@ -1740,6 +1820,116 @@ class AgentSpawner:
                 exc,
             )
 
+    def _emit_response_profile_audit(
+        self,
+        *,
+        task_ids: list[str],
+        style: str,
+        source: str,
+        profile_content_sha256: str,
+    ) -> None:
+        """Append a ``task_response_profile`` event to the audit chain.
+
+        Every spawn declares a response-style profile; recording the profile
+        name and the rendered-addendum hash per task keeps the audit trail
+        aligned with the cost ledger entry written at completion. Audit
+        failures (key permission, disk full) never mask the spawn: they are
+        logged and swallowed.
+
+        Args:
+            task_ids: IDs of the tasks in this spawn batch.
+            style: Resolved response style (``verbose``/``balanced``/``terse``).
+            source: Which input supplied the style (resolution provenance).
+            profile_content_sha256: SHA-256 of the rendered style addendum.
+        """
+        try:
+            from bernstein.core.security.audit import (
+                TASK_RESPONSE_PROFILE,
+                AuditLog,
+            )
+
+            audit = AuditLog(audit_dir=self._workdir / ".sdd" / "audit")
+            for task_id in task_ids:
+                audit.log(
+                    event_type=TASK_RESPONSE_PROFILE,
+                    actor="spawner",
+                    resource_type="task",
+                    resource_id=task_id,
+                    details={
+                        "task_id": task_id,
+                        "response_profile": style,
+                        "style_source": source,
+                        "profile_content_sha256": profile_content_sha256,
+                    },
+                )
+        except Exception as exc:  # audit must never block the spawn
+            logger.warning(
+                "Could not emit task_response_profile audit event for tasks %s: %s",
+                task_ids,
+                exc,
+            )
+
+    def _maybe_record_profile_transition(
+        self,
+        *,
+        task_id: str,
+        session_id: str,
+        prev_profile: str,
+        prev_sha: str,
+        new_profile: str,
+        new_sha: str,
+    ) -> None:
+        """Record a ``profile_transition`` event when a re-spawn changes profile.
+
+        A task re-spawned under a different response-style profile (for
+        example after a role-policy edit between attempts) accumulates
+        ledger entries under two profiles. Per-profile cost attribution
+        must exclude such tasks rather than split their tokens, so the
+        change is recorded to ``.sdd/cost/profile_transitions.jsonl``
+        before the new profile overwrites the stamp on task metadata.
+        First spawns (no previous stamp) and same-profile re-spawns
+        record nothing. Failures are logged and swallowed - attribution
+        metadata must never block the spawn.
+
+        Args:
+            task_id: The task being re-spawned.
+            session_id: The new session's id (recorded as the agent).
+            prev_profile: Profile previously stamped on task metadata
+                (empty on first spawn).
+            prev_sha: Previously stamped addendum hash.
+            new_profile: Profile resolved for this spawn.
+            new_sha: Rendered-addendum hash for this spawn.
+        """
+        if not prev_profile or prev_profile == new_profile:
+            return
+        try:
+            from bernstein.core.cost.profile_attribution import (
+                default_transitions_path,
+                record_profile_transition,
+            )
+
+            record_profile_transition(
+                default_transitions_path(self._workdir / ".sdd"),
+                task_id=task_id,
+                agent_id=session_id,
+                from_profile=prev_profile,
+                to_profile=new_profile,
+                from_sha256=prev_sha,
+                to_sha256=new_sha,
+            )
+            logger.info(
+                "Profile transition recorded for task %s: %s -> %s",
+                task_id,
+                prev_profile,
+                new_profile,
+            )
+        except Exception as exc:  # attribution must never block the spawn
+            logger.warning(
+                "Could not record profile_transition for task %s: %s",
+                task_id,
+                exc,
+            )
+
     def _reap_openclaw(self, session: AgentSession) -> None:
         """Sync logs from the remote bridge for an OpenClaw session."""
         reap_openclaw(session, self._runtime_bridge, self._run_bridge_call)
@@ -1863,6 +2053,22 @@ class AgentSpawner:
         the ``HeartbeatMonitor`` polls - without this injection the
         heartbeat would land in the worktree and never be observed.
 
+        The SAME attribute gates injection of ``instrumentation_root``:
+        the orchestrator's wave-2 phase/task timing (``write_summary_json``)
+        lives under ``self._workdir / ".sdd" / "runs" / <run_id>`` (the
+        project root), but the runner subprocess only knows its own
+        per-session worktree path (``manifest.workdir``) under default
+        worktree isolation (``use_worktrees=True``). Without this
+        injection ``RunInstrumenter`` writes its llm-calls/tool-calls/
+        conversation JSONL under ``<worktree>/.sdd/runs/...`` instead -
+        a directory that (a) nobody looks in, since the run report lives
+        at the project root, and (b) is deleted outright when the
+        worktree is merged/cleaned up after the task finishes, so the
+        JSONL files vanish even on a fully successful run. This exactly
+        mirrors the pre-existing ``heartbeat_dir`` bug this docstring
+        describes above, just for wave-3 instrumentation instead of
+        wave-2 heartbeats.
+
         Adapters without the attribute get ``mcp_config`` back unchanged
         so their MCP config files stay byte-identical.
 
@@ -1877,15 +2083,20 @@ class AgentSpawner:
         injected = bool(consumes)
         if injected:
             heartbeat_dir = str(self._workdir / ".sdd" / "runtime" / "heartbeats")
+            instrumentation_root = str(self._workdir)
         logger.info(
-            "heartbeat_dir injection check: adapter=%s consumes_heartbeat_dir=%s injected=%s",
+            "heartbeat_dir/instrumentation_root injection check: adapter=%s consumes_heartbeat_dir=%s injected=%s",
             adapter.name() if hasattr(adapter, "name") else type(adapter).__name__,
             consumes,
             injected,
         )
         if not injected:
             return mcp_config
-        return {**(mcp_config or {}), "heartbeat_dir": heartbeat_dir}
+        return {
+            **(mcp_config or {}),
+            "heartbeat_dir": heartbeat_dir,
+            "instrumentation_root": instrumentation_root,
+        }
 
     def _primary_adapter_supports_sampling(
         self, model_config: ModelConfig, *, provider_name: str | None = None
@@ -2414,11 +2625,17 @@ class AgentSpawner:
         #      based on task complexity, scope, and role templates.
         # ---------------------------------------------------------------
         metrics_dir = self._workdir / ".sdd" / "metrics"
+        # role_model_policy may pin this role's model below; feed that pin to
+        # the heuristic selector as the default so a role-policy-only config
+        # (no run-level default_model) does not fail heuristic routing before
+        # the pin is applied.
+        _policy_preview = self._role_model_policy.get(tasks[0].role) or self._role_model_policy.get("default") or {}
         base_config = _select_batch_config(
             tasks,
             templates_dir=self._templates_dir,
             metrics_dir=metrics_dir if metrics_dir.exists() else None,
             workdir=self._workdir,
+            default_model=self._default_model or _policy_preview.get("model"),
         )
         if model_override:
             base_config = ModelConfig(
@@ -2429,7 +2646,44 @@ class AgentSpawner:
             )
         model_config = base_config
         provider_name: str | None = None
-        role_policy = self._role_model_policy.get(tasks[0].role, {})
+        role_name = tasks[0].role
+        role_policy = self._role_model_policy.get(role_name)
+        role_policy_match = "exact"
+        if role_policy is None:
+            role_policy = self._role_model_policy.get("default")
+            role_policy_match = "default"
+        if role_policy is None:
+            if self._role_model_policy:
+                # role_model_policy IS configured (non-empty) but neither this
+                # role nor a "default" key exists in it - this is an operator
+                # misconfiguration, not "no policy at all". Fail loudly rather
+                # than silently falling through to code-level defaults.
+                role_policy_match = "HARD FAIL"
+                logger.info(
+                    "role_model_policy resolution for role=%r: match=%s, resolved=None, available_keys=%s",
+                    role_name,
+                    role_policy_match,
+                    sorted(self._role_model_policy.keys()),
+                )
+                raise ModelNotConfiguredError(
+                    f"No model configured for role={role_name!r}: role_model_policy is "
+                    f"non-empty but has neither an entry for {role_name!r} nor a 'default' "
+                    f"entry. Available role_model_policy keys: "
+                    f"{sorted(self._role_model_policy.keys())}. Add a role entry or a "
+                    "'default' entry to role_model_policy in the YAML config."
+                )
+            # role_model_policy itself is empty/not configured at all - other
+            # mechanisms downstream (router, adapter defaults, seed config)
+            # may still supply a model, so it's OK to fall through with {}.
+            role_policy = {}
+            role_policy_match = "none"
+        logger.info(
+            "role_model_policy resolution for role=%r: match=%s, resolved=%s, available_keys=%s",
+            role_name,
+            role_policy_match,
+            role_policy,
+            sorted(self._role_model_policy.keys()),
+        )
         # Per-step CLI override (plan-file `cli:` field) wins over role-level
         # role_model_policy.provider, which in turn wins over the default
         # adapter. The string is treated as a provider/adapter identifier and
@@ -2624,6 +2878,73 @@ class AgentSpawner:
         # Render prompt (catalog system_prompt replaces role template when matched)
         bulletin_summary = self._bulletin.summary() if self._bulletin is not None else ""
         meta_messages = list(tasks[0].meta_messages)
+
+        # Best-effort max_turns resolution for the turn-budget prompt nudge
+        # (work/bernstein/m27-nudge-plan.md, Approach C MINIMAL). The
+        # AUTHORITATIVE value for openai_agents spawns is resolved later,
+        # inside OpenAIAgentsAdapter._build_manifest() (mcp_config override >
+        # _resolve_max_turns()), which runs after this prompt is already
+        # built - there is no Bernstein-owned hook to inject text into an
+        # already-rendered prompt from there. So we mirror that same
+        # precedence HERE, at prompt-build time, using a plain read (no
+        # mutation of task/adapter state): explicit per-task override first,
+        # then the same env-var/tuning-default resolver the runner itself
+        # uses. This can diverge from the adapter's final value only if a
+        # per-spawn mcp_config override is injected between here and the
+        # adapter call (not done anywhere in this codebase today - see grep
+        # for "mcp_config...max_turns" - so in practice they match for every
+        # current call path).
+        #
+        # Explicit values follow the same max-over-tasks rule as the
+        # explicit_max_turns threading in the spawn loop below, so the
+        # prompt describes the same cap the adapter is handed. The
+        # env/tuning fallback mirrors a resolver that ONLY the
+        # openai_agents runner enforces; other adapters compute their own
+        # turn budgets (e.g. the claude adapter's effort/scope-based
+        # computation in _build_command), so applying the fallback there
+        # would state a cap the adapter never enforces and would add the
+        # budget section to every default spawn's prompt. Gate the
+        # fallback to spawns resolved to the openai_agents adapter;
+        # everything else renders the section only for an explicit
+        # Task.max_turns. Default spawns on other adapters keep a
+        # byte-identical prompt.
+        _effective_max_turns = max((t.max_turns for t in tasks if t.max_turns is not None), default=None)
+        _max_turns_source = "task.max_turns (explicit per-task override)"
+        if _effective_max_turns is None:
+            _budget_adapter_name = adapter_name_for_provider(provider_name, model_config.model)
+            if _budget_adapter_name is None:
+                from bernstein.adapters.openai_agents import OpenAIAgentsAdapter
+
+                _spawns_turn_capped_runner = isinstance(self._adapter, OpenAIAgentsAdapter)
+            else:
+                _spawns_turn_capped_runner = _budget_adapter_name == "openai_agents"
+            if _spawns_turn_capped_runner:
+                try:
+                    from bernstein.adapters.openai_agents_runner import _resolve_max_turns
+
+                    _effective_max_turns = _resolve_max_turns()
+                    _max_turns_source = (
+                        "openai_agents_runner._resolve_max_turns "
+                        "(env BERNSTEIN_MAX_TURNS / tuning.agent.max_turns / SDK default)"
+                    )
+                except Exception as exc:
+                    logger.debug(
+                        "Turn-budget prompt injection: _resolve_max_turns() unavailable for session=%s (%s); "
+                        "prompt will omit the turn-budget section",
+                        session_id,
+                        exc,
+                    )
+                    _effective_max_turns = None
+                    _max_turns_source = "unresolved (import/call failed)"
+            else:
+                _max_turns_source = "skipped (adapter does not enforce the openai_agents turn-cap resolver)"
+        logger.info(
+            "Turn-budget max_turns resolution for session=%s: value=%r source=%s",
+            session_id,
+            _effective_max_turns,
+            _max_turns_source,
+        )
+
         if is_batch_mode:
             # Use the first batch task as the primary task for the /batch prompt.
             # Multi-task batches with mode=batch are unusual but we handle them by
@@ -2646,6 +2967,7 @@ class AgentSpawner:
                 bulletin_summary=bulletin_summary,
                 token_budget=task_token_budget,
                 meta_messages=meta_messages,
+                max_turns=_effective_max_turns,
             )
 
         agent_source = catalog_agent.source if catalog_agent else "built-in"
@@ -2663,6 +2985,54 @@ class AgentSpawner:
         elif self._use_worktrees:
             isolation_mode = IsolationMode.WORKTREE
 
+        # Resolve the per-spawn response-style profile.
+        # Resolution is deterministic (task metadata > role policy > seed
+        # default > "balanced") and the rendered addendum flows to the
+        # adapter via ``system_addendum`` - the rendered prompt itself is
+        # untouched, so a spawn whose resolution lands on the neutral
+        # "balanced" style (empty addendum) is byte-identical to a
+        # pre-change spawn. The profile name and addendum hash are stamped
+        # on the session and task metadata so the completion-time cost
+        # ledger entry and the audit trail can attribute spend per profile.
+        style_resolution = resolve_response_style(
+            task_metadata=task_metadata,
+            role_policy=role_policy,
+            default_policy=self._role_model_policy.get("default") or {},
+        )
+        try:
+            style_addendum = render_style_addendum(style_resolution.style, workdir=self._workdir)
+        except ResponseStyleTemplateError as exc:
+            raise SpawnError(
+                f"Response-style profile {style_resolution.style!r} for role {role!r} "
+                f"(source={style_resolution.source}) cannot be rendered: {exc}"
+            ) from exc
+        profile_content_sha = addendum_sha256(style_addendum)
+        for _t in tasks:
+            if isinstance(_t.metadata, dict):
+                self._maybe_record_profile_transition(
+                    task_id=_t.id,
+                    session_id=session_id,
+                    prev_profile=str(_t.metadata.get("response_profile") or ""),
+                    prev_sha=str(_t.metadata.get("profile_content_sha256") or ""),
+                    new_profile=style_resolution.style,
+                    new_sha=profile_content_sha,
+                )
+                _t.metadata["response_profile"] = style_resolution.style
+                _t.metadata["profile_content_sha256"] = profile_content_sha
+        logger.info(
+            "Response-style profile for role=%s: style=%s source=%s addendum_sha256=%s",
+            role,
+            style_resolution.style,
+            style_resolution.source,
+            profile_content_sha,
+        )
+        self._emit_response_profile_audit(
+            task_ids=[t.id for t in tasks],
+            style=style_resolution.style,
+            source=style_resolution.source,
+            profile_content_sha256=profile_content_sha,
+        )
+
         session = AgentSession(
             id=session_id,
             role=role,
@@ -2674,6 +3044,8 @@ class AgentSpawner:
             isolation=isolation_mode.value,
             token_budget=task_token_budget,
             meta_messages=meta_messages,
+            response_profile=style_resolution.style,
+            profile_content_sha256=profile_content_sha,
         )
 
         # Zero-trust: issue a short-lived, task-scoped JWT for this agent.
@@ -2946,6 +3318,66 @@ class AgentSpawner:
                     # adapter never inherits another adapter's extras.
                     attempt_mcp = self._mcp_config_for_adapter(target_adapter, effective_mcp)
 
+                    # Wave 3 (per-agent instrumentation): tell the
+                    # openai_agents runner subprocess which task it is
+                    # working so its RunInstrumenter writes to
+                    # .sdd/runs/<run_id>/tasks/<task_id>/agents/<agent_id>/
+                    # instead of an "unknown" task bucket. Scoped to the
+                    # openai_agents adapter only: other adapters pass
+                    # mcp_config through to their own CLI flags verbatim,
+                    # and a stray top-level "task_id" key there is an
+                    # unnecessary risk for no benefit (those adapters are
+                    # not instrumented in this wave).
+                    if "openai_agents" in adapter_name and tasks:
+                        attempt_mcp = dict(attempt_mcp or {})
+                        attempt_mcp.setdefault("task_id", tasks[0].id)
+                        # Bug fix (instrumentation audit, bug 3 - "4 of 9
+                        # implement tasks have zero instrumentation"): this
+                        # spawn can carry MULTIPLE tasks in one agent
+                        # process (role-batched spawns / spawn_for_resume
+                        # with a multi-task batch). Only tagging tasks[0].id
+                        # meant every OTHER task in the batch got no
+                        # instrumentation directory at all - the runner's
+                        # singleton RunInstrumenter only ever knew about the
+                        # first task. Pass the FULL id list so the runner
+                        # can fan its JSONL writes out to every task's own
+                        # agents/<agent_id>/ directory, not just the first.
+                        all_task_ids = [t.id for t in tasks if getattr(t, "id", None)]
+                        if len(all_task_ids) > 1:
+                            attempt_mcp.setdefault("task_ids", all_task_ids)
+                        logger.info(
+                            "instrumentation task-id injection: adapter=%s primary_task_id=%s "
+                            "batch_size=%d all_task_ids=%s",
+                            adapter_name,
+                            tasks[0].id,
+                            len(tasks),
+                            all_task_ids,
+                        )
+
+                    # Inline per-role council block
+                    # (``role_model_policy.<role>.council``, parsed and
+                    # validated by ``seed_parser._parse_council``): forward
+                    # it so the runner manifest gets the same ``council``
+                    # payload the ``model: councils/<name>.yaml`` file
+                    # convention produces via ``_load_council_config``.
+                    # Scoped to the openai_agents adapter only - its runner
+                    # is the sole consumer of ``manifest.council``, and
+                    # other adapters treat unknown top-level mcp_config
+                    # keys as MCP server entries (see claude.py's
+                    # bare-servers fallback). An operator-set
+                    # ``mcp_config["council"]`` always wins (setdefault).
+                    if "openai_agents" in adapter_name:
+                        role_council = role_policy.get("council")
+                        if isinstance(role_council, dict) and role_council:
+                            attempt_mcp = dict(attempt_mcp or {})
+                            attempt_mcp.setdefault("council", role_council)
+                            logger.info(
+                                "spawn_for_tasks: role=%r inline role_model_policy council block "
+                                "forwarded into the runner manifest (candidates=%d)",
+                                tasks[0].role if tasks else None,
+                                len(role_council.get("candidates") or ()),
+                            )
+
                     try:
                         # Apply OS-level resource limits to non-sandboxed spawns.
                         target_adapter.set_resource_limits(self._resource_limits)
@@ -3006,6 +3438,26 @@ class AgentSpawner:
                             # Extract budget_multiplier from task metadata
                             # (set by retry logic when previous attempt hit budget cap).
                             _budget_mult = max(float(t.metadata.get("budget_multiplier", 1.0)) for t in tasks)
+                            # Explicit per-task max_turns override (Task.max_turns):
+                            # thread it to the adapter as explicit_max_turns, but
+                            # only when its spawn() signature accepts the
+                            # parameter. Adapters without support keep their own
+                            # auto-computed turn budget; warn so the operator
+                            # knows the cap was not applied. When several grouped
+                            # tasks carry a value the largest wins, mirroring
+                            # budget_multiplier above.
+                            _extra_spawn_kwargs: dict[str, Any] = {}
+                            _explicit_turns = max((t.max_turns for t in tasks if t.max_turns is not None), default=None)
+                            if _explicit_turns is not None:
+                                if "explicit_max_turns" in inspect.signature(target_adapter.spawn).parameters:
+                                    _extra_spawn_kwargs["explicit_max_turns"] = _explicit_turns
+                                else:
+                                    logger.warning(
+                                        "Adapter %s spawn() does not accept explicit_max_turns; "
+                                        "task max_turns=%d ignored, falling back to adapter-computed turns",
+                                        adapter_name,
+                                        _explicit_turns,
+                                    )
                             # Cacheable prefix extraction is deferred to adapters
                             # that support provider-specific caching.
                             result = target_adapter.spawn(
@@ -3016,7 +3468,8 @@ class AgentSpawner:
                                 mcp_config=attempt_mcp,
                                 task_scope=max_scope,
                                 budget_multiplier=_budget_mult,
-                                system_addendum="",
+                                system_addendum=style_addendum,
+                                **_extra_spawn_kwargs,
                             )
                         spawn_duration = time.perf_counter() - spawn_start
                         agent_spawn_duration.labels(adapter=provider_name or adapter_name).observe(spawn_duration)
@@ -3244,16 +3697,53 @@ class AgentSpawner:
         )
 
         metrics_dir = self._workdir / ".sdd" / "metrics"
+        # Same role-policy fallback as the main spawn path: a role-policy-only
+        # config (no run-level default_model) must not fail heuristic routing.
+        _policy_preview = self._role_model_policy.get(tasks[0].role) or self._role_model_policy.get("default") or {}
         model_config = _select_batch_config(
             tasks,
             templates_dir=self._templates_dir,
             metrics_dir=metrics_dir if metrics_dir.exists() else None,
             workdir=self._workdir,
+            default_model=self._default_model or _policy_preview.get("model"),
         )
         role = tasks[0].role
         session_id = f"{role}-resume-{uuid.uuid4().hex[:8]}"
 
         meta_messages = ["This is a crash recovery session. Continue from where the previous agent left off."]
+
+        # Same best-effort max_turns resolution as spawn_for_tasks() above
+        # (work/bernstein/m27-nudge-plan.md) - crash-recovery sessions are
+        # exactly the kind of short, tightly-budgeted resume where a model
+        # exploring instead of finishing is most costly.
+        #
+        # Resume spawns go straight to ``self._adapter`` (no provider
+        # routing below), so the env/tuning fallback - which only the
+        # openai_agents runner enforces - applies only when that adapter
+        # is the openai_agents one. See the matching gate and rationale in
+        # spawn_for_tasks() above.
+        _resume_max_turns = max((t.max_turns for t in tasks if t.max_turns is not None), default=None)
+        if _resume_max_turns is None:
+            from bernstein.adapters.openai_agents import OpenAIAgentsAdapter
+
+            if isinstance(self._adapter, OpenAIAgentsAdapter):
+                try:
+                    from bernstein.adapters.openai_agents_runner import _resolve_max_turns
+
+                    _resume_max_turns = _resolve_max_turns()
+                except Exception as exc:
+                    logger.debug(
+                        "Turn-budget prompt injection: _resolve_max_turns() unavailable for resume session=%s (%s)",
+                        session_id,
+                        exc,
+                    )
+                    _resume_max_turns = None
+        logger.info(
+            "Turn-budget max_turns resolution for resume session=%s: value=%r",
+            session_id,
+            _resume_max_turns,
+        )
+
         prompt = _render_prompt(
             tasks,
             self._templates_dir,
@@ -3263,6 +3753,7 @@ class AgentSpawner:
             context_builder=self._context_builder,
             session_id=session_id,
             meta_messages=meta_messages,
+            max_turns=_resume_max_turns,
         )
         # Prepend crash recovery context
         prompt = resume_header + prompt

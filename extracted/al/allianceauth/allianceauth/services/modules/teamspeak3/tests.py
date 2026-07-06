@@ -2,19 +2,21 @@ from unittest import mock
 
 from django import urls
 from django.contrib.admin import AdminSite
-from django.contrib.auth.models import Group, Permission, User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import signals
 from django.test import RequestFactory, TestCase
 
-from allianceauth.groupmanagement.models import ReservedGroupName
+from allianceauth.authentication.models import Permission, User
+from allianceauth.groupmanagement.models import Group, ReservedGroupName
 from allianceauth.tests.auth_utils import AuthUtils
 
 from .admin import AuthTSgroupAdmin
 from .auth_hooks import Teamspeak3Service
 from .manager import Teamspeak3Manager
 from .models import AuthTS, StateGroup, Teamspeak3User, TSgroup
-from .signals import m2m_changed_authts_group, post_delete_authts, post_save_authts
+from .signals import (
+    m2m_changed_authts_group, post_delete_authts, post_save_authts,
+)
 from .tasks import Teamspeak3Tasks
 from .util.ts3 import TeamspeakError
 

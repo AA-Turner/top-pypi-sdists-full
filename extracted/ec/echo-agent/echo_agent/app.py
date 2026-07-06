@@ -113,14 +113,36 @@ async def bootstrap(
         provider = StubProvider(stub_message)
         router.register_provider("stub", provider)
 
-    from echo_agent.scheduler.service import Scheduler
+    from echo_agent.scheduler.service import Scheduler, ScheduledJob, TriggerKind
     scheduler: Scheduler | None = None
     if config.scheduler.enabled:
+        inspection_runner = None
+        insp_cfg = config.agent.inspection
+        if insp_cfg.enabled:
+            from echo_agent.agent.inspection.store import InspectStore
+            from echo_agent.agent.inspection.tick import run_inspection_tick
+            insp_store = InspectStore(
+                ws / insp_cfg.inspect_file,
+                ws / "data" / "inspect_state.json",
+            )
+
+            async def inspection_runner():
+                await run_inspection_tick(insp_store, insp_cfg, bus)
+
         scheduler = Scheduler(
             store_path=ws / "data" / "scheduler.json",
-            on_job=build_scheduled_job_handler(bus),
+            on_job=build_scheduled_job_handler(bus, inspection_runner=inspection_runner),
             max_concurrent=config.scheduler.max_concurrent_jobs,
         )
+        if insp_cfg.enabled and not any(
+            j.name == "__inspection_tick__" for j in scheduler.list_jobs()
+        ):
+            scheduler.add_job(ScheduledJob(
+                name="__inspection_tick__",
+                trigger=TriggerKind.INTERVAL,
+                interval_ms=insp_cfg.tick_interval_sec * 1000,
+                payload={"_inspection_tick": True},
+            ))
 
     from echo_agent.tasks.manager import TaskManager
     from echo_agent.tasks.workflow import WorkflowEngine
@@ -146,6 +168,20 @@ async def bootstrap(
     )
     await plugin_manager.discover_and_load()
     agent.set_plugin_manager(plugin_manager)
+
+    # Checkpoint safety net — snapshot workspace before write tools (fail-open)
+    try:
+        from echo_agent.checkpoint.hook import install_checkpoint
+        install_checkpoint(config, ws, plugin_manager.hooks)
+    except Exception as e:
+        logger.debug("checkpoint install failed (fail-open): {}", e)
+
+    # Post-write validation — lint the written file, feed errors back (fail-open)
+    try:
+        from echo_agent.validation.hook import install_validation
+        install_validation(config, ws, plugin_manager.hooks)
+    except Exception as e:
+        logger.debug("validation install failed (fail-open): {}", e)
 
     # Self-evolving skill harness
     if config.evolution.enabled:
@@ -195,6 +231,9 @@ async def bootstrap(
             logger.warning("Failed to attach evolution engine: {}", e)
 
     channels = ChannelManager(config.channels, bus, on_cli_exit=on_cli_exit)
+    # Wire the real heartbeat config so verbosity (key_milestones/every_tool/
+    # silent) actually takes effect at runtime; the manager otherwise defaults.
+    channels._heartbeat_cfg = config.agent.heartbeat
     health = HealthChecker(check_interval=config.observability.health_check_interval_seconds)
 
     from echo_agent.observability.monitor import ComponentHealth as CH
@@ -344,7 +383,12 @@ async def run(config_path: str | None = None, workspace: str | None = None) -> N
 
 def _apply_gateway_profile_default(config: "Config", config_path: str | None) -> None:
     """Tighten the gateway entrypoint to ``public_gateway`` when the user did
-    not explicitly choose a ``security.profile``. Explicit config is respected."""
+    not explicitly choose a ``security.profile``. Explicit config is respected.
+
+    NOTE: profile tightening must be injected into ``bootstrap`` overrides
+    *before* the agent loop registers its tools — see ``run_gateway``. This
+    helper only re-asserts the field on the resolved config as a guard; on its
+    own it does not re-filter an already-built tool registry."""
     from echo_agent.config.loader import profile_explicitly_set
 
     if not profile_explicitly_set(config_path):
@@ -353,6 +397,51 @@ def _apply_gateway_profile_default(config: "Config", config_path: str | None) ->
             "Gateway 入口未显式配置 security.profile，已默认切到 public_gateway 收紧档；"
             "如需放开请在配置中显式设置 security.profile"
         )
+
+
+def _gateway_profile_override(config_path: str | None) -> dict[str, Any]:
+    """Build the bootstrap override that tightens the gateway security profile
+    when the user did not set one explicitly. Returning an override (rather than
+    mutating config post-bootstrap) is what makes registration-time tool
+    filtering see ``public_gateway`` — otherwise high-risk tools (exec,
+    write_file, patch, workflow, ...) would already be registered and would
+    remain callable, since native tools have no per-call profile gate."""
+    from echo_agent.config.loader import profile_explicitly_set
+
+    if profile_explicitly_set(config_path):
+        return {}
+    logger.warning(
+        "Gateway 入口未显式配置 security.profile，已默认切到 public_gateway 收紧档；"
+        "如需放开请在配置中显式设置 security.profile"
+    )
+    return {"security": {"profile": "public_gateway"}}
+
+
+def _gateway_port_in_use(host: str, port: int) -> str | None:
+    """尽力（best-effort）探测 ``host:port`` 是否已被占用；占用时返回一条
+    面向用户的友好提示，否则 None。
+
+    这是一个尽力预检，非权威判定：权威判定在 ``GatewayServer.start()`` 的
+    EADDRINUSE 包装（server.py），它对真实 bind 失败给出同样的提示。本函数
+    对 ``0.0.0.0`` / ``::`` 仅探测 ``127.0.0.1``，因此可能漏报 IPv6 或指定
+    网卡地址的占用——那种情况仍会走到 start() 的 EADDRINUSE 兜底。用一个
+    throwaway socket（SO_REUSEADDR off）探测，尽量贴近 aiohttp 的 bind 行为。
+    Port 0 是 ephemeral 哨兵——永不「占用」，跳过探测。"""
+    if not port:
+        return None
+    import socket
+
+    probe_host = "127.0.0.1" if host in ("", "0.0.0.0", "::") else host
+    family = socket.AF_INET6 if ":" in probe_host else socket.AF_INET
+    with socket.socket(family, socket.SOCK_STREAM) as sock:
+        try:
+            sock.bind((probe_host, port))
+        except OSError:
+            return (
+                f"网关端口 {host}:{port} 已被占用，可能本机已有一个常驻 echo-agent 在运行。"
+                "若要接入它请用 `echo-agent cli`；若要另起实例请用 `--port` 指定其它端口。"
+            )
+    return None
 
 
 async def run_gateway(
@@ -367,11 +456,40 @@ async def run_gateway(
     if config_path is None and workspace:
         from echo_agent.config.loader import resolve_config_file
         config_path = str(resolve_config_file(search_dir=workspace) or "")
+
+    # Preflight the listen port BEFORE bootstrap(), so an occupied port (a
+    # resident gateway already running) exits with a friendly hint and never
+    # leaves a half-built storage handle open (bootstrap creates SQLiteBackend;
+    # AppRuntime.stop() is a no-op before start(), so a post-bootstrap bail
+    # would leak the connection). Resolve host/port from args first, else config.
+    from echo_agent.config.loader import load_config, resolve_config_file
+    _cfg_file = resolve_config_file(config_path)
+    _cfg = load_config(config_path=_cfg_file)
+    pre_host = host or _cfg.gateway.host
+    pre_port = port or _cfg.gateway.port
+    bind_err = _gateway_port_in_use(pre_host, pre_port)
+    if bind_err:
+        logger.error(bind_err)
+        return
+
+    # Mark this process as the gateway so `echo-agent gateway stop/restart`
+    # issued from inside it (agent exec tool) can refuse — with the service
+    # manager's KeepAlive/Restart=always that would be a kill/respawn loop.
+    import os as _os
+    _os.environ["_ECHO_AGENT_GATEWAY"] = "1"
+
     overrides: dict[str, Any] = {"workspace": workspace} if workspace else {}
+    # Force gateway on and tighten the security profile *before* bootstrap so the
+    # agent loop registers tools under the effective gateway policy. Applying
+    # these after bootstrap would leave already-registered high-risk tools in the
+    # registry (see _gateway_profile_override).
+    overrides.setdefault("gateway", {})["enabled"] = True
+    profile_override = _gateway_profile_override(config_path)
+    if profile_override:
+        overrides["security"] = {**overrides.get("security", {}), **profile_override["security"]}
     shutdown = asyncio.Event()
     ctx = await bootstrap(config_path=config_path, overrides=overrides or None, on_cli_exit=shutdown.set)
     ctx.config.gateway.enabled = True
-    _apply_gateway_profile_default(ctx.config, config_path)
     if host:
         ctx.config.gateway.host = host
     if port:
@@ -379,6 +497,7 @@ async def run_gateway(
 
     install_signal_handler(shutdown)
     runtime = AppRuntime(ctx, shutdown_event=shutdown)
+
     try:
         if not await runtime.start():
             return

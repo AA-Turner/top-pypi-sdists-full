@@ -6,7 +6,7 @@ from allianceauth.authentication.models import UserProfile
 class Command(BaseCommand):
     help = 'Ensures all main characters have an active ownership'
 
-    def handle(self, *args, **options):
+    def handle(self, *args, **options) -> None:
         profiles = UserProfile.objects.filter(main_character__isnull=False).filter(
             main_character__character_ownership__isnull=True)
         if profiles.exists():

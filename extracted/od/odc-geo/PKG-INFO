@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: odc-geo
-Version: 0.5.1
+Version: 0.5.2
 Summary: Geometry Classes and Operations (opendatacube)
 Keywords: gis,geospatial,opendatacube
 Author: Open Data Cube
@@ -27,7 +27,7 @@ Requires-Dist: shapely
 Requires-Dist: xarray>=0.19
 Requires-Dist: rasterio ; extra == "all"
 Requires-Dist: tifffile ; extra == "all"
-Requires-Dist: imagecodecs ; extra == "all"
+Requires-Dist: imagecodecs>=2024.12.30,!=2026.3.6,!=2026.5.10 ; extra == "all"
 Requires-Dist: dask[array, distributed] ; extra == "all"
 Requires-Dist: boto3 ; extra == "all"
 Requires-Dist: azure-storage-blob ; extra == "all"
@@ -38,7 +38,7 @@ Requires-Dist: laspy ; extra == "las"
 Requires-Dist: lazrs ; extra == "las"
 Requires-Dist: boto3 ; extra == "s3"
 Requires-Dist: tifffile ; extra == "tiff"
-Requires-Dist: imagecodecs ; extra == "tiff"
+Requires-Dist: imagecodecs>=2024.12.30,!=2026.3.6,!=2026.5.10 ; extra == "tiff"
 Requires-Dist: dask[array, distributed] ; extra == "tiff"
 Requires-Dist: rasterio ; extra == "tiff"
 Requires-Dist: rasterio ; extra == "warp"

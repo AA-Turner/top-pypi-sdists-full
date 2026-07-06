@@ -21,6 +21,8 @@ class GatewayAuth:
         self._allowed = set(config.allowed_users)
         self._admins = set(config.admin_users)
         self._api_tokens = list(config.api_tokens)
+        self._admin_tokens = list(config.admin_tokens)
+        self._allowed_origins = set(config.allowed_origins)
         self.token_header = config.token_header
         self._pairing_ttl = config.pairing_ttl_seconds
         self._data_dir = data_dir / "gateway_auth"
@@ -36,18 +38,22 @@ class GatewayAuth:
         self._load_pending()
 
     def is_authorized(self, platform: str, user_id: str) -> bool:
+        """Normal authorization only (open / allowlist / pairing).
+
+        The loopback exemption is applied by the transport layer (see
+        gateway/server.py), NOT here: a loopback peer merely means "this local
+        user need not be pre-listed", it never means "this caller may claim any
+        identity". Collapsing those two into an unconditional ``return True``
+        was the P0 in 820563d — removed."""
         if self._mode == "open":
             return True
-
         if self._mode == "allowlist":
             return user_id in self._allowed or f"{platform}:{user_id}" in self._allowed
-
         if self._mode == "pairing":
             if user_id in self._allowed or f"{platform}:{user_id}" in self._allowed:
                 return True
             approved = self._approved.get(platform, set())
             return user_id in approved
-
         return False
 
     def authenticate_token(self, token: str) -> bool:
@@ -57,6 +63,66 @@ class GatewayAuth:
             return False
         return any(hmac.compare_digest(token, configured) for configured in self._api_tokens)
 
+    def authenticate_admin_token(self, token: str) -> bool:
+        """Authorize a high-risk admin endpoint.
+
+        If ``admin_tokens`` is configured, only those tokens pass — this gives
+        real scope separation between chat-level and admin-level callers. When
+        ``admin_tokens`` is empty we fall back to ``api_tokens`` so existing
+        single-token deployments keep working (no silent privilege change)."""
+        admin = self._admin_tokens or self._api_tokens
+        if not admin:
+            return True  # unauthenticated deployment (loopback, no tokens)
+        if not token:
+            return False
+        return any(hmac.compare_digest(token, configured) for configured in admin)
+
+    def is_origin_allowed(self, origin: str, sec_fetch_site: str) -> bool:
+        """CSRF defense for browser clients — opt-in via ``allowed_origins``.
+
+        Disabled by default (empty ``allowed_origins``) so it never breaks
+        existing clients: native HTTP callers, the same-origin playground, or a
+        webview desktop client (which sends a cross-site Origin like
+        ``tauri://localhost``). When the operator opts in by configuring
+        ``allowed_origins``, genuine cross-site browser requests are rejected
+        unless their Origin is on the allowlist — this is what blocks
+        CSRF-to-localhost / DNS-rebinding from a malicious public web page.
+        """
+        # Opt-in: no allowlist configured → CSRF enforcement off (no behavior change).
+        if not self._allowed_origins:
+            return True
+        # No browser headers at all → not a browser-driven request → allow.
+        if not origin and not sec_fetch_site:
+            return True
+        # Same-origin / same-site / direct navigation are safe.
+        if sec_fetch_site in ("same-origin", "same-site", "none"):
+            return True
+        # Cross-site (or unknown): only an explicitly allowlisted Origin may proceed.
+        return bool(origin) and origin in self._allowed_origins
+
+    def is_cross_site_browser(self, origin: str, sec_fetch_site: str) -> bool:
+        """Whether the request is an *explicit cross-site browser* request.
+
+        Default-on CSRF primitive for the main channels (WS handshake and
+        POST /message). Unlike ``is_origin_allowed`` (opt-in, off when
+        ``allowed_origins`` is empty), this stays on even with an empty
+        allowlist — that is what closes the loopback WebSocket hole where a
+        malicious page drives the local agent. Native clients (cli/curl/SDK)
+        send neither header, so they are never flagged."""
+        origin = (origin or "").strip()
+        sec_fetch_site = (sec_fetch_site or "").strip()
+        # No browser metadata at all → native client → not a browser request.
+        if not origin and sec_fetch_site in ("", "none"):
+            return False
+        # Same-origin / same-site are safe.
+        if sec_fetch_site in ("same-origin", "same-site"):
+            return False
+        # Explicitly allowlisted Origin is trusted (webview / desktop escape hatch).
+        if origin and origin in self._allowed_origins:
+            return False
+        # Everything else that carries a cross-site Origin or Sec-Fetch-Site.
+        return True
+
     def token_from_headers(self, headers: Any) -> str:
         token = headers.get(self.token_header, "")
         if token:
@@ -65,9 +131,6 @@ class GatewayAuth:
         if auth.lower().startswith("bearer "):
             return auth[7:].strip()
         return ""
-
-    def authenticate_headers(self, headers: Any) -> bool:
-        return self.authenticate_token(self.token_from_headers(headers))
 
     def is_admin(self, platform: str, user_id: str, token: str = "") -> bool:
         if token and self._api_tokens and self.authenticate_token(token):
@@ -83,8 +146,16 @@ class GatewayAuth:
             "ok": ok,
             "reason": reason,
         }
-        with self._audit_path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        # Auditing is a side-channel: its failure must never break the caller's
+        # core flow (e.g. the WS message loop). Self-heal a missing data dir —
+        # the process may have been started from a cwd that was later unlinked —
+        # and downgrade any write failure to a warning.
+        try:
+            self._data_dir.mkdir(parents=True, exist_ok=True)
+            with self._audit_path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except OSError as e:
+            logger.warning("audit log write failed ({}): {}", action, e)
 
     def generate_pairing_code(self, platform: str) -> str:
         code = secrets.token_hex(5).upper()
