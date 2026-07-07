@@ -5,7 +5,6 @@ import shutil
 import sysconfig
 from pathlib import Path
 from textwrap import dedent
-from typing import TYPE_CHECKING
 
 import pytest
 from packaging.specifiers import SpecifierSet
@@ -16,6 +15,7 @@ from scikit_build_core.cmake import CMake, CMaker
 from scikit_build_core.errors import CMakeNotFoundError
 from scikit_build_core.settings.skbuild_read_settings import SettingsReader
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Generator
 
@@ -171,6 +171,43 @@ def test_cmake_args(
 
 
 @pytest.mark.configure
+def test_cmake_multi_config_generator_via_define(
+    tmp_path: Path,
+    fp,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # A multi-config generator set via ``cmake.define.CMAKE_GENERATOR`` must be
+    # detected so that single_config is False (no -DCMAKE_BUILD_TYPE, --config
+    # is used for build/install).
+    monkeypatch.delenv("CMAKE_GENERATOR", raising=False)
+    fp.register(
+        [fp.program("cmake"), "-E", "capabilities"],
+        stdout='{"version":{"string":"3.15.0"}}',
+    )
+    fp.register(
+        [fp.program("cmake3"), "-E", "capabilities"],
+        stdout='{"version":{"string":"3.15.0"}}',
+    )
+
+    config = CMaker(
+        CMake.default_search(),
+        source_dir=DIR / "packages" / "simple_pure",
+        build_dir=tmp_path / "build",
+        build_type="Release",
+    )
+
+    # Register any configure call; we only care about the resulting state.
+    fp.register([fp.program("cmake"), fp.any()])
+    fp.register([fp.program("cmake3"), fp.any()])
+
+    config.configure(defines={"CMAKE_GENERATOR": "Ninja Multi-Config"})
+
+    assert config.single_config is False
+    configure_call = next(c for c in fp.calls if "-E" not in c)
+    assert not any("CMAKE_BUILD_TYPE" in arg for arg in configure_call)
+
+
+@pytest.mark.configure
 def test_cmake_paths(
     generator: str,
     tmp_path: Path,
@@ -239,15 +276,64 @@ def test_cmake_defines(
     )
 
 
+def test_install_targets(tmp_path: Path, fp):
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    build_dir = tmp_path / "build"
+
+    config = CMaker(
+        CMake(Version("3.30"), Path("cmake")),
+        source_dir=source_dir,
+        build_dir=build_dir,
+        build_type="Release",
+        single_config=True,
+    )
+
+    fp.register([fp.program("cmake"), fp.any()], occurrences=10)
+
+    config.install(tmp_path / "prefix", strip=False, targets=["install-distribution"])
+
+    build_calls = [c for c in fp.calls if "--build" in c]
+    assert len(build_calls) == 1
+    call = [os.fspath(arg) for arg in build_calls[0]]
+    assert "--target" in call
+    assert call[call.index("--target") + 1] == "install-distribution"
+    assert os.fspath(build_dir) in call
+    # Target installs are emitted via `cmake --build`, not `cmake --install`.
+    assert not any("--install" in c for c in fp.calls)
+
+
+def test_install_targets_and_components(tmp_path: Path, fp):
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    build_dir = tmp_path / "build"
+
+    config = CMaker(
+        CMake(Version("3.30"), Path("cmake")),
+        source_dir=source_dir,
+        build_dir=build_dir,
+        build_type="Release",
+        single_config=True,
+    )
+
+    fp.register([fp.program("cmake"), fp.any()], occurrences=10)
+
+    config.install(
+        tmp_path / "prefix",
+        strip=False,
+        components=["runtime"],
+        targets=["install-distribution"],
+    )
+
+    assert any("--install" in c and "--component" in c for c in fp.calls)
+    assert any("--build" in c and "--target" in c for c in fp.calls)
+
+
 def test_get_cmake_via_envvar(monkeypatch: pytest.MonkeyPatch, fp):
     monkeypatch.setattr("shutil.which", lambda x: x)
     cmake_path = Path("some-prog")
     fp.register(
         [cmake_path, "-E", "capabilities"], stdout='{"version":{"string":"3.20.0"}}'
-    )
-    fp.register(
-        ["lipo", "-info", "some-prog"],
-        stdout="Architectures in the fat file: ... are: x86_64 arm64",
     )
     monkeypatch.setenv("CMAKE_EXECUTABLE", str(cmake_path))
     result = CMake.default_search(env=os.environ)

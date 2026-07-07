@@ -107,7 +107,7 @@ class Application(APIObject):
         t.Key("updated_at"): t.String,
         t.Key("datasets"): t.List(t.String),
         t.Key("deployment_status_id", optional=True): t.String,
-        t.Key("description", optional=True): t.String,
+        t.Key("description", optional=True): t.String(allow_blank=True),
         t.Key("cloud_provider"): t.String,
         t.Key("deployment_ids"): t.List(t.String),
         t.Key("deployment_name", optional=True): t.String,

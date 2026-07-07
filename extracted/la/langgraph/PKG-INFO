@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph
-Version: 1.2.7
+Version: 1.2.8
 Summary: Building stateful, multi-actor applications with LLMs
 Project-URL: Homepage, https://docs.langchain.com/oss/python/langgraph/overview
 Project-URL: Documentation, https://reference.langchain.com/python/langgraph/

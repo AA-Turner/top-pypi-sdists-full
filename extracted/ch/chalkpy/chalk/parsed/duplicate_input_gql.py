@@ -632,6 +632,7 @@ class UpdateGraphError:
 class UpsertSQLSourceGQL:
     name: Optional[str]
     kind: str
+    permissionTags: Optional[List[str]] = None
 
 
 @dataclasses_json.dataclass_json

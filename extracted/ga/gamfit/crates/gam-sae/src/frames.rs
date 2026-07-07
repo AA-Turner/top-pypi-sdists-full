@@ -41,6 +41,13 @@ impl FrameProjection {
         self.basis_sizes.iter().sum::<usize>() * self.p
     }
 
+    /// Owned per-atom output frames (`U_k`, `p × r_k`), `None` for an unframed
+    /// atom (`U_k = I_p`). Handed to the #974 whitened factored β-Hessian
+    /// operator so it can expand the factored coordinates through each frame.
+    pub(crate) fn frames_owned(&self) -> Vec<Option<Array2<f64>>> {
+        self.frames.clone()
+    }
+
     pub(crate) fn border_dim(&self) -> usize {
         self.basis_sizes
             .iter()
@@ -527,6 +534,63 @@ impl GrassmannFrame {
     /// Read-only view of the orthonormal frame `U` (`p × r`).
     pub fn frame(&self) -> ArrayView2<'_, f64> {
         self.frame.view()
+    }
+
+    /// Build a canonical-gauge frame from an already column-orthonormal matrix.
+    ///
+    /// This is for callers that obtained the left image frame through an
+    /// equivalent covariance/eigendecomposition path rather than a direct thin
+    /// SVD. The supplied gauge values must be finite, non-negative, descending,
+    /// and have one value per frame column.
+    pub fn from_orthonormal(
+        frame: Array2<f64>,
+        gauge_singular_values: Array1<f64>,
+    ) -> Result<Self, String> {
+        let (p, r) = frame.dim();
+        if p == 0 || r == 0 {
+            return Err("GrassmannFrame::from_orthonormal: frame must be non-empty".to_string());
+        }
+        if r > p {
+            return Err(format!(
+                "GrassmannFrame::from_orthonormal: frame rank r={r} cannot exceed output dim p={p}"
+            ));
+        }
+        if gauge_singular_values.len() != r {
+            return Err(format!(
+                "GrassmannFrame::from_orthonormal: gauge length {} must equal rank {r}",
+                gauge_singular_values.len()
+            ));
+        }
+        for i in 0..r {
+            let value = gauge_singular_values[i];
+            if !(value.is_finite() && value >= 0.0) {
+                return Err(format!(
+                    "GrassmannFrame::from_orthonormal: gauge value {i} must be finite and non-negative, got {value}"
+                ));
+            }
+            if i > 0 && gauge_singular_values[i - 1] < value {
+                return Err(
+                    "GrassmannFrame::from_orthonormal: gauge values must be descending"
+                        .to_string(),
+                );
+            }
+        }
+        let tol = 1.0e-8_f64;
+        for a in 0..r {
+            for b in a..r {
+                let mut dot = 0.0_f64;
+                for row in 0..p {
+                    dot += frame[[row, a]] * frame[[row, b]];
+                }
+                let target = if a == b { 1.0 } else { 0.0 };
+                if (dot - target).abs() > tol {
+                    return Err(format!(
+                        "GrassmannFrame::from_orthonormal: frame columns are not orthonormal at ({a}, {b}); dot={dot}"
+                    ));
+                }
+            }
+        }
+        Ok(Self::from_oriented(frame, gauge_singular_values))
     }
 
     /// Grassmann manifold dimension `r·(p − r)` of this frame — the count of

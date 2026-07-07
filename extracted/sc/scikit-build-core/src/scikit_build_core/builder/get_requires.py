@@ -1,16 +1,39 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._variants",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.format",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.program_search",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.resources",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.settings.skbuild_read_settings",
+    f"{__spec__.parent}._load_provider",
+    f"{__spec__.parent}.generator",
+    "importlib",
+    "importlib.util",
+    "packaging",
+    "packaging.tags",
+    "pathlib",
+    "shlex",
+    "sysconfig",
+    "typing",
+}
+
 import dataclasses
 import functools
 import importlib.util
 import os
+import shlex
 import sysconfig
-from typing import TYPE_CHECKING, Literal
+from pathlib import Path
+from typing import Any, Literal
 
 from packaging.tags import sys_tags
 
 from .._compat import tomllib
 from .._logging import logger
+from .._variants import variant_build_requires
 from ..format import pyproject_format
 from ..program_search import (
     best_program,
@@ -20,8 +43,10 @@ from ..program_search import (
 )
 from ..resources import resources
 from ..settings.skbuild_read_settings import SettingsReader
-from ._load_provider import load_provider
+from ._load_provider import load_dynamic_metadata, load_provider
+from .generator import parse_generator
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
 
@@ -40,9 +65,10 @@ def _uses_ninja_generator(settings: ScikitBuildSettings) -> bool | None:
     Returns True if Ninja is set, False if something else is set, and None
     otherwise.
     """
-    gen_args = [arg[2:] for arg in settings.cmake.args if arg.startswith("-G")]
-    if gen_args:
-        return any("Ninja" in gen for gen in gen_args)
+    args = [*settings.cmake.args, *shlex.split(os.environ.get("CMAKE_ARGS", ""))]
+    generator = parse_generator(args)
+    if generator:
+        return "Ninja" in generator
 
     if "CMAKE_GENERATOR" in os.environ:
         return "Ninja" in os.environ["CMAKE_GENERATOR"]
@@ -63,8 +89,24 @@ def is_known_platform(platforms: frozenset[str]) -> bool:
 
 def _load_scikit_build_settings(
     config_settings: Mapping[str, list[str] | str] | None = None,
+    state: Literal["sdist", "wheel", "editable"] = "sdist",
 ) -> ScikitBuildSettings:
-    return SettingsReader.from_file("pyproject.toml", config_settings).settings
+    return SettingsReader.from_file(
+        "pyproject.toml", config_settings, state=state
+    ).settings
+
+
+def _read_dynamic_metadata() -> list[dict[str, Any]]:
+    """Read the top-level ``[[tool.dynamic-metadata]]`` entries (0.3)."""
+    try:
+        with Path("pyproject.toml").open("rb") as f:
+            pyproject = tomllib.load(f)
+    except FileNotFoundError:
+        return []
+    entries: list[dict[str, Any]] = pyproject.get("tool", {}).get(
+        "dynamic-metadata", []
+    )
+    return entries
 
 
 @dataclasses.dataclass(frozen=True)
@@ -75,9 +117,11 @@ class GetRequires:
 
     @classmethod
     def from_config_settings(
-        cls, config_settings: Mapping[str, list[str] | str] | None
+        cls,
+        config_settings: Mapping[str, list[str] | str] | None,
+        state: Literal["sdist", "wheel", "editable"] = "sdist",
     ) -> Self:
-        return cls(_load_scikit_build_settings(config_settings))
+        return cls(_load_scikit_build_settings(config_settings, state))
 
     def cmake(self) -> Generator[str, None, None]:
         if self.settings.fail or os.environ.get("CMAKE_EXECUTABLE", ""):
@@ -126,8 +170,11 @@ class GetRequires:
             logger.debug("Found system Ninja: {} - not requiring PyPI package", ninja)
             return
 
+        # Only fall back to Make if the generator wasn't explicitly set to
+        # Ninja - Make can't substitute for a forced Ninja generator (#953).
         if (
-            self.settings.ninja.make_fallback
+            use_ninja is None
+            and self.settings.ninja.make_fallback
             and not is_known_platform(known_wheels("ninja"))
             and list(get_make_programs())
         ):
@@ -148,6 +195,7 @@ class GetRequires:
                 )
             )
 
+        # Deprecated tool.scikit-build.metadata table.
         for dynamic_metadata in self.settings.metadata.values():
             if "provider" in dynamic_metadata:
                 config = dynamic_metadata.copy()
@@ -157,3 +205,15 @@ class GetRequires:
                 yield from getattr(
                     module, "get_requires_for_dynamic_metadata", lambda _: []
                 )(config)
+
+        # Standard top-level [[tool.dynamic-metadata]] entries (0.3).
+        for provider, settings in load_dynamic_metadata(_read_dynamic_metadata()):
+            get_requires = getattr(provider, "get_requires_for_dynamic_metadata", None)
+            if get_requires is not None:
+                yield from get_requires(settings)
+
+    def variants(self) -> Generator[str, None, None]:
+        if self.settings.fail:
+            return
+
+        yield from variant_build_requires(self.settings)

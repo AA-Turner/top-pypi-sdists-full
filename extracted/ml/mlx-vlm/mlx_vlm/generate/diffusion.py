@@ -4,15 +4,24 @@ import logging
 import os
 import shutil
 import time
-import unicodedata
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Generator, List, Optional
 
 import mlx.core as mx
 import mlx.nn as nn
 from transformers import PreTrainedTokenizer
 
+from ..models.diffusion_visualizer import (
+    clip_display_width,
+    display_width,
+    escape_carriage_returns,
+)
 from ..tokenizer_utils import make_streaming_detokenizer
-from .common import GenerationResult, generation_stream, wired_limit
+from .common import (
+    GenerationResult,
+    _chunked_prefill_enabled,
+    generation_stream,
+    wired_limit,
+)
 
 logger = logging.getLogger("mlx_vlm.generate")
 
@@ -20,41 +29,7 @@ DEFAULT_TEMPERATURE = 0.0
 DEFAULT_DIFFUSION_MIN_CANVAS_LENGTH = 64
 DEFAULT_DIFFUSION_MAX_DENOISING_STEPS = 48
 DEFAULT_DIFFUSION_UNMASKING_WIDTH = 0
-
-
-def _display_width(text: str) -> int:
-    width = 0
-    for char in text:
-        if unicodedata.combining(char):
-            continue
-        width += 2 if unicodedata.east_asian_width(char) in ("F", "W") else 1
-    return width
-
-
-def _clip_display_width(text: str, max_width: int) -> str:
-    if max_width <= 0:
-        return ""
-
-    out = []
-    width = 0
-    clipped = False
-    for char in text:
-        if unicodedata.combining(char):
-            char_width = 0
-        else:
-            char_width = 2 if unicodedata.east_asian_width(char) in ("F", "W") else 1
-        if width + char_width > max_width:
-            clipped = True
-            break
-        out.append(char)
-        width += char_width
-
-    if clipped and max_width >= 3:
-        while out and _display_width("".join(out)) > max_width - 3:
-            out.pop()
-        out.append("...")
-
-    return "".join(out)
+DEFAULT_DIFFUSION_CONFIDENCE_THRESHOLD = 0.9
 
 
 def _diffusion_display_limit(requested_width: Optional[int] = None) -> Optional[int]:
@@ -80,10 +55,11 @@ def _format_diffusion_draft_line(
     response: GenerationResult,
     requested_width: Optional[int] = None,
 ) -> str:
+    text = escape_carriage_returns(response.draft_text)
     width = _diffusion_display_limit(requested_width)
     if width is None:
-        return response.draft_text
-    return _clip_display_width(response.draft_text, width)
+        return text
+    return clip_display_width(text, width)
 
 
 def _print_diffusion_draft(
@@ -98,15 +74,15 @@ def _format_diffusion_live_text(
     text: str,
     requested_width: Optional[int] = None,
     *,
-    preserve_newlines: bool = False,
+    preserve_newlines: bool = True,
 ) -> str:
     width = _diffusion_display_limit(requested_width)
-    text = text.replace("\r", "\\r")
+    text = escape_carriage_returns(text)
     if not preserve_newlines:
         text = text.replace("\n", "\\n")
     if width is None:
         return text
-    return _clip_display_width(text, width)
+    return clip_display_width(text, width)
 
 
 def _print_diffusion_live_text(
@@ -131,7 +107,7 @@ def _terminal_rows_for_text(text: str, columns: Optional[int] = None) -> int:
     columns = max(1, columns)
     rows = 0
     for line in text.split("\n"):
-        width = _display_width(line)
+        width = display_width(line)
         rows += max(1, (width + columns - 1) // columns)
     return rows
 
@@ -156,44 +132,68 @@ class _DiffusionRedrawer:
         self.rows = _terminal_rows_for_text(text)
 
 
-def _is_diffusion_config(config: Any) -> bool:
-    # Block-diffusion models declare the canvas length the denoising loop
-    # operates on; that trait is what the shared engine drives, so detection
-    # is not tied to a hardcoded model type.
+def _has_engine_diffusion_config(config: Any) -> bool:
+    # Engine-driven diffusion models declare the canvas length the denoising
+    # loop operates on; that trait is what the shared engine drives, so
+    # detection is not tied to a hardcoded model type.
     return getattr(config, "canvas_length", None) is not None
 
 
-def is_diffusion_model(model: nn.Module) -> bool:
-    """True for block-diffusion canvas models driven by the shared engine."""
-    return _is_diffusion_config(getattr(model, "config", None))
-
-
-def is_masked_diffusion_model(model: nn.Module) -> bool:
-    """True for masked-diffusion text models that own their generate loop."""
+def _has_model_diffusion_generator(model: nn.Module) -> bool:
+    """True for diffusion models that expose generation on the language model."""
     config = getattr(model, "config", None)
-    return getattr(config, "mask_token_id", None) is not None
+    language_model = getattr(model, "language_model", None)
+    return (
+        _has_engine_diffusion_config(config)
+        or getattr(config, "mask_token_id", None) is not None
+    ) and callable(getattr(language_model, "generate", None))
 
 
-def diffusion_generation_family(model: nn.Module) -> Optional[str]:
-    """Classify how a model generates, for request routing.
+def _uses_model_diffusion_generator(
+    model: nn.Module,
+    kwargs: Optional[Dict[str, Any]] = None,
+) -> bool:
+    if not _has_model_diffusion_generator(model):
+        return False
 
-    Returns ``"block"`` for canvas-denoising models the shared engine drives,
-    ``"masked"`` for masked-diffusion text models that run their own
-    ``generate()`` loop (unless the checkpoint defaults to autoregressive
-    generation, like nemotron), and ``None`` for ordinary autoregressive
-    models.
+    config = getattr(model, "config", None)
+    if getattr(config, "default_generation_mode", None) != "ar":
+        return True
+
+    generation_mode = (kwargs or {}).get("generation_mode")
+    if generation_mode is not None:
+        return generation_mode != "ar"
+
+    return False
+
+
+def is_diffusion_model(
+    model: nn.Module,
+    kwargs: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """True when this request should use the unified diffusion path."""
+    return _diffusion_stream_strategy(model, kwargs) is not None
+
+
+def diffusion_generation_family(
+    model: nn.Module,
+    kwargs: Optional[Dict[str, Any]] = None,
+) -> Optional[str]:
+    """Backward-compatible diffusion router.
+
+    New callers should use :func:`is_diffusion_model` and the unified stream
+    adapter directly.
     """
-    if is_diffusion_model(model):
-        return "block"
-    if is_masked_diffusion_model(model):
-        config = getattr(model, "config", None)
-        if getattr(config, "default_generation_mode", None) != "ar":
-            return "masked"
+    if is_diffusion_model(model, kwargs):
+        return "diffusion"
     return None
 
 
 def diffusion_kwargs_from_args(args: Any, config: Any) -> Dict[str, Any]:
-    if not _is_diffusion_config(config):
+    if not (
+        _has_engine_diffusion_config(config)
+        or getattr(config, "mask_token_id", None) is not None
+    ):
         return {}
 
     kwargs = {}
@@ -205,11 +205,25 @@ def diffusion_kwargs_from_args(args: Any, config: Any) -> Dict[str, Any]:
         kwargs["diffusion_min_canvas_length"] = args.diffusion_min_canvas_length
     if getattr(args, "diffusion_max_canvas_length", None) is not None:
         kwargs["diffusion_max_canvas_length"] = args.diffusion_max_canvas_length
-    if args.diffusion_sampler != "entropy-bound":
+    if args.diffusion_sampler != "confidence-threshold":
         kwargs["diffusion_sampler"] = args.diffusion_sampler
-        kwargs["diffusion_threshold"] = (
-            0.9 if args.threshold is None else args.threshold
-        )
+    if getattr(args, "block_length", None) is not None:
+        kwargs["block_length"] = args.block_length
+    if getattr(args, "num_to_transfer", None) is not None:
+        kwargs["num_to_transfer"] = args.num_to_transfer
+    if getattr(args, "max_transfer_per_step", None) is not None:
+        kwargs["max_transfer_per_step"] = args.max_transfer_per_step
+    if args.threshold is not None:
+        kwargs["diffusion_threshold"] = args.threshold
+        kwargs["threshold"] = args.threshold
+    if getattr(args, "min_threshold", None) is not None:
+        kwargs["min_threshold"] = args.min_threshold
+    if getattr(args, "editing_threshold", None) is not None:
+        kwargs["editing_threshold"] = args.editing_threshold
+    if getattr(args, "max_post_steps", None) is not None:
+        kwargs["max_post_steps"] = args.max_post_steps
+    if getattr(args, "stability_steps", None) is not None:
+        kwargs["stability_steps"] = args.stability_steps
     return kwargs
 
 
@@ -217,7 +231,9 @@ class DiffusionOutputHandler:
     def __init__(self, model: nn.Module, kwargs: Dict[str, Any], verbose: bool):
         self.verbose = verbose
         self.live_mode = bool(
-            kwargs.get("diffusion_show_unmasking", False) and is_diffusion_model(model)
+            kwargs.get("diffusion_show_unmasking", False)
+            and _has_model_diffusion_generator(model)
+            and not callable(getattr(model, "make_unmasking_visualizer", None))
         )
         self.width = kwargs.get(
             "diffusion_unmasking_width", DEFAULT_DIFFUSION_UNMASKING_WIDTH
@@ -324,55 +340,6 @@ def _diffusion_token_entropy(processed_logits: mx.array) -> mx.array:
     return -mx.sum(probs * log_probs, axis=-1)
 
 
-def _diffusion_soft_embedding_weight(embed_tokens: nn.Module) -> mx.array:
-    """Return a float weight matrix usable as ``probs @ weight``.
-
-    For quantized embeddings, the packed weight cannot feed a regular matmul
-    and ``mx.quantized_matmul(..., transpose=False)`` is several times slower
-    at this shape, so the table is dequantized once per generation call.
-    """
-    if isinstance(embed_tokens, nn.QuantizedEmbedding):
-        return mx.dequantize(
-            embed_tokens.weight,
-            embed_tokens.scales,
-            embed_tokens.biases,
-            group_size=embed_tokens.group_size,
-            bits=embed_tokens.bits,
-        )
-    return embed_tokens.weight
-
-
-@mx.compile
-def _diffusion_entropy_probs_chain(logits: mx.array) -> Tuple[mx.array, mx.array]:
-    log_probs = logits - mx.logsumexp(logits, axis=-1, keepdims=True)
-    probs = mx.exp(log_probs)
-    entropy = -mx.sum(probs * log_probs, axis=-1)
-    return probs, entropy
-
-
-def _diffusion_entropy_and_soft_embeddings(
-    processed_logits: mx.array,
-    embedding_weight: mx.array,
-    embed_scale: float,
-) -> Tuple[mx.array, mx.array]:
-    probs, entropy = _diffusion_entropy_probs_chain(processed_logits.astype(mx.float32))
-    soft_embeddings = (probs.astype(embedding_weight.dtype) @ embedding_weight).astype(
-        embedding_weight.dtype
-    ) * embed_scale
-    return entropy, soft_embeddings
-
-
-def _diffusion_soft_embeddings(
-    processed_logits: mx.array,
-    embedding_weight: mx.array,
-    embed_scale: float,
-) -> mx.array:
-    probs = mx.softmax(processed_logits, axis=-1, precise=True)
-    return (probs.astype(embedding_weight.dtype) @ embedding_weight).astype(
-        embedding_weight.dtype
-    ) * embed_scale
-
-
 def _diffusion_confidence_transfer_mask(
     confidence: mx.array,
     unrevealed_mask: mx.array,
@@ -425,64 +392,6 @@ def _diffusion_static_cache_length(
     return prompt_length + cached_canvas_tokens
 
 
-def _diffusion_has_visual_token_types(mm_token_type_ids: Optional[mx.array]) -> bool:
-    if mm_token_type_ids is None:
-        return False
-    return bool(mx.any((mm_token_type_ids == 1) | (mm_token_type_ids == 2)).item())
-
-
-def _diffusion_should_chunk_prefill(
-    *,
-    prefill_step_size: Optional[int],
-    prompt_length: int,
-    has_padding: bool,
-    use_static_cache: bool,
-    pixel_values: Optional[mx.array],
-    mm_token_type_ids: Optional[mx.array],
-) -> bool:
-    if prefill_step_size is None or prompt_length <= prefill_step_size:
-        return False
-    if has_padding or use_static_cache or pixel_values is not None:
-        return False
-    # Visual spans can use bidirectional attention inside the whole block. Keep
-    # those prompts on the existing single prefill until chunking can split on
-    # visual-block boundaries without changing attention semantics.
-    return not _diffusion_has_visual_token_types(mm_token_type_ids)
-
-
-def _diffusion_prefill_cache(
-    model: nn.Module,
-    input_ids: mx.array,
-    *,
-    attention_mask: Optional[mx.array],
-    kv_cache,
-    pixel_values: Optional[mx.array],
-    mm_token_type_ids: Optional[mx.array],
-    prefill_step_size: Optional[int],
-    chunk_prefill: bool,
-):
-    if not chunk_prefill:
-        _, kv_cache = model.model.encoder(
-            input_ids,
-            attention_mask=attention_mask,
-            cache=kv_cache,
-            pixel_values=pixel_values,
-            mm_token_type_ids=mm_token_type_ids,
-        )
-        return kv_cache
-
-    for start in range(0, input_ids.shape[1], prefill_step_size):
-        end = min(start + prefill_step_size, input_ids.shape[1])
-        _, kv_cache = model.model.encoder(
-            input_ids[:, start:end],
-            attention_mask=None,
-            cache=kv_cache,
-        )
-        mx.eval([c.state for c in kv_cache])
-        mx.clear_cache()
-    return kv_cache
-
-
 def _diffusion_stable_and_confident(
     accepted_canvas: mx.array,
     processed_logits: mx.array,
@@ -522,20 +431,20 @@ def _make_diffusion_decoder_logits_fns(
     compile_graph: bool,
 ):
     def without_self_conditioning(current_canvas):
-        return model(
+        return model.diffusion_decoder_logits(
+            current_canvas,
             cache=kv_cache,
-            canvas_ids=current_canvas,
-            self_conditioning_logits=None,
+            self_conditioning=None,
             decoder_attention_mask=mask_mapping,
-        ).logits
+        )
 
-    def with_self_conditioning(current_canvas, self_conditioning_embeddings):
-        return model(
+    def with_self_conditioning(current_canvas, self_conditioning):
+        return model.diffusion_decoder_logits(
+            current_canvas,
             cache=kv_cache,
-            canvas_ids=current_canvas,
-            self_conditioning_embeddings=self_conditioning_embeddings,
+            self_conditioning=self_conditioning,
             decoder_attention_mask=mask_mapping,
-        ).logits
+        )
 
     if compile_graph:
         return mx.compile(without_self_conditioning), mx.compile(with_self_conditioning)
@@ -573,8 +482,7 @@ def _decode_diffusion_masked_draft(
 
     flush_tokens()
     text = " ".join(piece for piece in pieces if piece)
-    text = text.replace("\r", "\\r").replace("\n", "\\n")
-    return text
+    return escape_carriage_returns(text)
 
 
 def stream_diffusion_generate(
@@ -593,8 +501,8 @@ def stream_diffusion_generate(
     diffusion_min_canvas_length: Optional[int] = None,
     diffusion_max_canvas_length: Optional[int] = None,
     diffusion_static_cache: bool = False,
-    diffusion_sampler: str = "entropy-bound",
-    diffusion_threshold: float = 0.9,
+    diffusion_sampler: str = "confidence-threshold",
+    diffusion_threshold: Optional[float] = None,
     diffusion_compile: bool = False,
     diffusion_show_unmasking: bool = False,
     diffusion_unmasking_interval: int = 1,
@@ -648,6 +556,8 @@ def stream_diffusion_generate(
         raise ValueError("diffusion_unmasking_width must be non-negative.")
     if diffusion_sampler not in ("entropy-bound", "confidence-threshold"):
         raise ValueError(f"Unsupported diffusion sampler: {diffusion_sampler!r}.")
+    if diffusion_threshold is None:
+        diffusion_threshold = DEFAULT_DIFFUSION_CONFIDENCE_THRESHOLD
     if not 0.0 <= diffusion_threshold <= 1.0:
         raise ValueError("diffusion_threshold must be between 0 and 1.")
     if prefill_step_size is not None:
@@ -710,13 +620,22 @@ def stream_diffusion_generate(
         cached_sequence_length = prompt_length
         kv_cache = model.make_cache()
     detokenizer = make_streaming_detokenizer(processor)
-    chunk_prefill = _diffusion_should_chunk_prefill(
-        prefill_step_size=prefill_step_size,
-        prompt_length=prompt_length,
-        has_padding=has_padding,
-        use_static_cache=use_static_cache,
-        pixel_values=pixel_values,
-        mm_token_type_ids=mm_token_type_ids,
+    prefill_policy_kwargs = {
+        "attention_mask": attention_mask,
+        "has_padding": has_padding,
+        "use_static_cache": use_static_cache,
+        "pixel_values": pixel_values,
+        "mm_token_type_ids": mm_token_type_ids,
+    }
+    chunk_prefill = (
+        prefill_step_size is not None
+        and prompt_length > prefill_step_size
+        and _chunked_prefill_enabled(
+            model,
+            input_ids=input_ids,
+            prompt_cache=kv_cache,
+            prefill_kwargs=prefill_policy_kwargs,
+        )
     )
 
     generated_tokens = 0
@@ -769,30 +688,24 @@ def stream_diffusion_generate(
         )
 
     with mx.stream(generation_stream):
-        # Float view of the embedding table for self-conditioning soft
-        # embeddings; dequantized once per call for quantized checkpoints.
-        soft_embedding_weight = _diffusion_soft_embedding_weight(
-            model.model.decoder.embed_tokens
-        )
+        self_conditioning_context = model.diffusion_prepare_self_conditioning()
         canvas_index = 0
         while generated_tokens < max_new_tokens:
             canvas_index += 1
             unprocessed_input_ids = input_ids if is_prefill else current_canvas
             if is_prefill:
-                kv_cache = _diffusion_prefill_cache(
-                    model,
+                kv_cache = model.diffusion_prefill_cache(
                     unprocessed_input_ids,
                     attention_mask=attention_mask if has_padding else None,
-                    kv_cache=kv_cache,
+                    cache=kv_cache,
                     pixel_values=pixel_values,
                     mm_token_type_ids=mm_token_type_ids,
                     prefill_step_size=prefill_step_size,
                     chunk_prefill=chunk_prefill,
                 )
             else:
-                _, kv_cache = model.model.encoder(
+                kv_cache = model.diffusion_update_cache(
                     unprocessed_input_ids,
-                    attention_mask=None,
                     cache=kv_cache,
                 )
 
@@ -829,9 +742,9 @@ def stream_diffusion_generate(
             draft_canvas = current_canvas
             accepted_canvas = current_canvas
             argmax_canvas = current_canvas
-            self_conditioning_embeddings = None
-            mask_mapping = model.model.decoder._make_decoder_masks(
-                current_canvas[..., None],
+            self_conditioning = None
+            mask_mapping = model.diffusion_decoder_masks(
+                current_canvas,
                 kv_cache,
                 current_decoder_attention_mask,
             )
@@ -866,12 +779,12 @@ def stream_diffusion_generate(
             for cur_step in reversed(range(1, max_denoising_steps + 1)):
                 denoising_steps_this_canvas += 1
                 try:
-                    if self_conditioning_embeddings is None:
+                    if self_conditioning is None:
                         processed_logits = decoder_logits_without_sc(current_canvas)
                     else:
                         processed_logits = decoder_logits_with_sc(
                             current_canvas,
-                            self_conditioning_embeddings,
+                            self_conditioning,
                         )
                 except Exception as exc:
                     if not diffusion_compile:
@@ -890,12 +803,12 @@ def stream_diffusion_generate(
                             compile_graph=False,
                         )
                     )
-                    if self_conditioning_embeddings is None:
+                    if self_conditioning is None:
                         processed_logits = decoder_logits_without_sc(current_canvas)
                     else:
                         processed_logits = decoder_logits_with_sc(
                             current_canvas,
-                            self_conditioning_embeddings,
+                            self_conditioning,
                         )
                 schedule_temperature = _diffusion_linear_temperature(
                     cur_step,
@@ -923,16 +836,14 @@ def stream_diffusion_generate(
 
                 if diffusion_sampler == "entropy-bound":
                     if cur_step > 1:
-                        token_entropy, next_self_conditioning_embeddings = (
-                            _diffusion_entropy_and_soft_embeddings(
-                                processed_logits,
-                                soft_embedding_weight,
-                                model.model.decoder.embed_scale,
-                            )
+                        token_entropy = _diffusion_token_entropy(processed_logits)
+                        next_self_conditioning = model.diffusion_self_conditioning(
+                            processed_logits,
+                            self_conditioning_context,
                         )
                     else:
                         token_entropy = _diffusion_token_entropy(processed_logits)
-                        next_self_conditioning_embeddings = None
+                        next_self_conditioning = None
                     acceptance_mask = _diffusion_entropy_transfer_mask(
                         token_entropy,
                         entropy_bound,
@@ -955,7 +866,7 @@ def stream_diffusion_generate(
                     draft_reveal_mask = acceptance_mask
                     draft_canvas = argmax_canvas
                 else:
-                    next_self_conditioning_embeddings = None
+                    next_self_conditioning = None
                     unrevealed_mask = ~draft_reveal_mask
                     confidence = _diffusion_token_probability(
                         processed_logits,
@@ -1026,13 +937,12 @@ def stream_diffusion_generate(
                     break
 
                 if cur_step > 1:
-                    if next_self_conditioning_embeddings is None:
-                        next_self_conditioning_embeddings = _diffusion_soft_embeddings(
+                    if next_self_conditioning is None:
+                        next_self_conditioning = model.diffusion_self_conditioning(
                             processed_logits,
-                            soft_embedding_weight,
-                            model.model.decoder.embed_scale,
+                            self_conditioning_context,
                         )
-                    self_conditioning_embeddings = next_self_conditioning_embeddings
+                    self_conditioning = next_self_conditioning
 
             current_canvas = argmax_canvas
             diffusion_canvas_tokens += canvas_length
@@ -1095,6 +1005,151 @@ def stream_diffusion_generate(
     yield make_result(detokenizer.last_segment, finish_reason=finish_reason)
 
 
+def _stream_model_diffusion_generate(
+    model: nn.Module,
+    processor: PreTrainedTokenizer,
+    tokenizer: PreTrainedTokenizer,
+    input_ids: mx.array,
+    pixel_values: Optional[mx.array],
+    attention_mask: Optional[mx.array],
+    *,
+    max_tokens: int,
+    skip_special_token_ids,
+    skip_special_tokens: bool = False,
+    temperature: float = DEFAULT_TEMPERATURE,
+    top_p: Optional[float] = None,
+    top_k: Optional[int] = None,
+    max_denoising_steps: Optional[int] = None,
+    block_length: Optional[int] = None,
+    verbose: bool = False,
+    on_result: Optional[Callable[[GenerationResult], bool]] = None,
+    **kwargs,
+) -> Generator[GenerationResult, None, None]:
+    if input_ids.shape[0] != 1:
+        raise ValueError("Diffusion streaming generation only supports batch size 1.")
+    if pixel_values is not None and not (
+        _has_engine_diffusion_config(getattr(model, "config", None))
+        or getattr(getattr(model, "config", None), "vision_config", None) is not None
+    ):
+        model_type = getattr(getattr(model, "config", None), "model_type", "This model")
+        raise ValueError(f"{model_type} is a text-only model.")
+
+    config = getattr(model, "config", None)
+    if max_denoising_steps is None:
+        max_denoising_steps = kwargs.pop("steps", None)
+        if max_denoising_steps is None and not _has_engine_diffusion_config(config):
+            max_denoising_steps = getattr(config, "default_diffusion_steps", 32)
+    else:
+        kwargs.pop("steps", None)
+
+    if block_length is None and not _has_engine_diffusion_config(config):
+        block_length = getattr(config, "default_block_length", None) or 32
+
+    tuned_kwargs = {}
+    for key, config_attr in (
+        ("threshold", "default_diffusion_threshold"),
+        ("min_threshold", "default_diffusion_min_threshold"),
+        ("editing_threshold", "default_diffusion_editing_threshold"),
+        ("num_to_transfer", "default_diffusion_num_to_transfer"),
+        ("max_transfer_per_step", "default_diffusion_max_transfer_per_step"),
+        ("max_post_steps", "default_diffusion_max_post_steps"),
+        ("stability_steps", "default_diffusion_stability_steps"),
+    ):
+        value = kwargs.pop(key, None)
+        if value is None:
+            value = getattr(config, config_attr, None)
+        if value is not None:
+            tuned_kwargs[key] = value
+
+    diffusion_show_unmasking = kwargs.get("diffusion_show_unmasking", False)
+
+    generation_stats = {}
+    pending_results: List[GenerationResult] = []
+
+    def emit(result: GenerationResult) -> bool:
+        if on_result is not None:
+            return bool(on_result(result))
+        pending_results.append(result)
+        return True
+
+    top_p_arg = None if top_p is None or top_p >= 1.0 else top_p
+    top_k_arg = None if top_k is None or top_k <= 0 else top_k
+    generated = model.language_model.generate(
+        input_ids,
+        temperature=temperature,
+        block_length=block_length,
+        steps=max_denoising_steps,
+        gen_length=max_tokens,
+        top_p=top_p_arg,
+        top_k=top_k_arg,
+        eos_early_stop=True,
+        visualize=bool(verbose or diffusion_show_unmasking),
+        processor=processor,
+        tokenizer=tokenizer,
+        attention_mask=attention_mask,
+        pixel_values=pixel_values,
+        skip_special_tokens=skip_special_tokens,
+        skip_special_token_ids=skip_special_token_ids,
+        stats=generation_stats,
+        on_result=emit,
+        **tuned_kwargs,
+        **kwargs,
+    )
+    mx.eval(generated)
+
+    if generation_stats.get("text_already_printed"):
+        for result in pending_results:
+            result.text_already_printed = True
+
+    yield from pending_results
+
+
+def _stream_model_diffusion_from_kwargs(
+    model: nn.Module,
+    processor: PreTrainedTokenizer,
+    tokenizer: PreTrainedTokenizer,
+    input_ids: mx.array,
+    pixel_values: Optional[mx.array],
+    attention_mask: Optional[mx.array],
+    skip_special_token_ids,
+    kwargs: Dict[str, Any],
+    *,
+    skip_special_tokens: bool = False,
+    verbose: bool = False,
+    on_result: Optional[Callable[[GenerationResult], bool]] = None,
+) -> Generator[GenerationResult, None, None]:
+    max_denoising_steps = kwargs.pop("max_denoising_steps", None)
+    block_length = kwargs.pop("block_length", None)
+    yield from _stream_model_diffusion_generate(
+        model,
+        processor,
+        tokenizer,
+        input_ids,
+        pixel_values,
+        attention_mask,
+        max_tokens=kwargs.pop("max_tokens", 2048),
+        temperature=kwargs.pop("temperature", DEFAULT_TEMPERATURE),
+        top_p=kwargs.pop("top_p", None),
+        top_k=kwargs.pop("top_k", None),
+        skip_special_token_ids=skip_special_token_ids,
+        skip_special_tokens=skip_special_tokens,
+        max_denoising_steps=max_denoising_steps,
+        block_length=block_length,
+        verbose=verbose,
+        on_result=on_result,
+        **kwargs,
+    )
+
+
+def _diffusion_stream_strategy(
+    model: nn.Module,
+    kwargs: Optional[Dict[str, Any]] = None,
+):
+    if _uses_model_diffusion_generator(model, kwargs):
+        return _stream_model_diffusion_from_kwargs
+    return None
+
+
 def stream_diffusion_generate_from_kwargs(
     model: nn.Module,
     processor: PreTrainedTokenizer,
@@ -1104,45 +1159,35 @@ def stream_diffusion_generate_from_kwargs(
     attention_mask: Optional[mx.array],
     skip_special_token_ids,
     kwargs: Dict[str, Any],
+    *,
+    skip_special_tokens: bool = False,
+    verbose: bool = False,
+    on_result: Optional[Callable[[GenerationResult], bool]] = None,
 ) -> Generator[GenerationResult, None, None]:
-    max_denoising_steps = kwargs.pop("max_denoising_steps", None)
-    diffusion_full_canvas = kwargs.pop("diffusion_full_canvas", False)
-    diffusion_min_canvas_length = kwargs.pop("diffusion_min_canvas_length", None)
-    diffusion_max_canvas_length = kwargs.pop("diffusion_max_canvas_length", None)
-    diffusion_static_cache = kwargs.pop("diffusion_static_cache", False)
-    diffusion_sampler = kwargs.pop("diffusion_sampler", "entropy-bound")
-    diffusion_threshold = kwargs.pop("diffusion_threshold", 0.9)
-    diffusion_compile = kwargs.pop("diffusion_compile", False)
-    diffusion_show_unmasking = kwargs.pop("diffusion_show_unmasking", False)
-    diffusion_unmasking_interval = kwargs.pop("diffusion_unmasking_interval", 1)
-    diffusion_unmasking_width = kwargs.pop(
-        "diffusion_unmasking_width", DEFAULT_DIFFUSION_UNMASKING_WIDTH
-    )
-    mm_token_type_ids = kwargs.pop("mm_token_type_ids", None)
-    prefill_step_size = kwargs.pop("prefill_step_size", None)
+    if kwargs.get("logits_processors") is not None:
+        raise ValueError(
+            "Structured response_format is not supported with diffusion models."
+        )
+    seed = kwargs.pop("seed", None)
+    if seed is not None:
+        mx.random.seed(seed)
+
+    stream_strategy = _diffusion_stream_strategy(model, kwargs)
+    if stream_strategy is None:
+        raise ValueError("Model does not support diffusion generation.")
+
     with wired_limit(model, [generation_stream]):
-        yield from stream_diffusion_generate(
+        yield from stream_strategy(
             model,
             processor,
             tokenizer,
             input_ids,
             pixel_values,
             attention_mask,
-            max_tokens=kwargs.get("max_tokens", 2048),
-            temperature=kwargs.get("temperature", DEFAULT_TEMPERATURE),
             skip_special_token_ids=skip_special_token_ids,
-            max_denoising_steps=max_denoising_steps,
-            diffusion_full_canvas=diffusion_full_canvas,
-            diffusion_min_canvas_length=diffusion_min_canvas_length,
-            diffusion_max_canvas_length=diffusion_max_canvas_length,
-            diffusion_static_cache=diffusion_static_cache,
-            diffusion_sampler=diffusion_sampler,
-            diffusion_threshold=diffusion_threshold,
-            diffusion_compile=diffusion_compile,
-            diffusion_show_unmasking=diffusion_show_unmasking,
-            diffusion_unmasking_interval=diffusion_unmasking_interval,
-            diffusion_unmasking_width=diffusion_unmasking_width,
-            mm_token_type_ids=mm_token_type_ids,
-            prefill_step_size=prefill_step_size,
+            kwargs=kwargs,
+            skip_special_tokens=skip_special_tokens,
+            verbose=verbose,
+            on_result=on_result,
         )
         mx.clear_cache()

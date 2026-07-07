@@ -10,10 +10,15 @@ from ...core.jsonable_encoder import encode_path_param
 from ...core.parse_error import ParsingError
 from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
+from ...errors.bad_gateway_error import BadGatewayError
+from ...errors.internal_server_error import InternalServerError
 from ...errors.not_found_error import NotFoundError
 from ...errors.not_implemented_error import NotImplementedError
 from ...errors.service_unavailable_error import ServiceUnavailableError
+from ...errors.unauthorized_error import UnauthorizedError
+from ...types.app_response import AppResponse
 from ...types.error_response import ErrorResponse
+from ...types.facets_response import FacetsResponse
 from ...types.list_response import ListResponse
 from pydantic import ValidationError
 
@@ -99,6 +104,28 @@ class RawAppsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 501:
                 raise NotImplementedError(
                     headers=dict(_response.headers),
@@ -110,6 +137,17 @@ class RawAppsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 502:
+                raise BadGatewayError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 503:
                 raise ServiceUnavailableError(
                     headers=dict(_response.headers),
@@ -130,7 +168,7 @@ class RawAppsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def facets(self, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[typing.Any]:
+    def facets(self, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[FacetsResponse]:
         """
         Mirrors `V1::AppsController#v2_facets` (`AppTypesenseSearch.facets`):
         returns `{ data: { category_name: [...], auth_type: [...] } }`.
@@ -142,7 +180,7 @@ class RawAppsClient:
 
         Returns
         -------
-        HttpResponse[typing.Any]
+        HttpResponse[FacetsResponse]
             Facet values keyed by field under `data`
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -151,17 +189,48 @@ class RawAppsClient:
             request_options=request_options,
         )
         try:
-            if _response is None or not _response.text.strip():
-                return HttpResponse(response=_response, data=None)
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Any,
+                    FacetsResponse,
                     parse_obj_as(
-                        type_=typing.Any,  # type: ignore
+                        type_=FacetsResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 502:
+                raise BadGatewayError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 503:
                 raise ServiceUnavailableError(
                     headers=dict(_response.headers),
@@ -182,7 +251,9 @@ class RawAppsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[typing.Any]:
+    def retrieve(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[AppResponse]:
         """
         Looks up a single app by hashid (e.g. `app_abc123`) or name_slug (e.g. `github`).
         If the value starts with `app_` it is treated as a hashid and matched against
@@ -198,7 +269,7 @@ class RawAppsClient:
 
         Returns
         -------
-        HttpResponse[typing.Any]
+        HttpResponse[AppResponse]
             The app, under `data`
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -207,19 +278,50 @@ class RawAppsClient:
             request_options=request_options,
         )
         try:
-            if _response is None or not _response.text.strip():
-                return HttpResponse(response=_response, data=None)
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Any,
+                    AppResponse,
                     parse_obj_as(
-                        type_=typing.Any,  # type: ignore
+                        type_=AppResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 404:
                 raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 502:
+                raise BadGatewayError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -331,6 +433,28 @@ class AsyncRawAppsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 501:
                 raise NotImplementedError(
                     headers=dict(_response.headers),
@@ -338,6 +462,17 @@ class AsyncRawAppsClient:
                         ErrorResponse,
                         parse_obj_as(
                             type_=ErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 502:
+                raise BadGatewayError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -362,7 +497,9 @@ class AsyncRawAppsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    async def facets(self, *, request_options: typing.Optional[RequestOptions] = None) -> AsyncHttpResponse[typing.Any]:
+    async def facets(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[FacetsResponse]:
         """
         Mirrors `V1::AppsController#v2_facets` (`AppTypesenseSearch.facets`):
         returns `{ data: { category_name: [...], auth_type: [...] } }`.
@@ -374,7 +511,7 @@ class AsyncRawAppsClient:
 
         Returns
         -------
-        AsyncHttpResponse[typing.Any]
+        AsyncHttpResponse[FacetsResponse]
             Facet values keyed by field under `data`
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -383,17 +520,48 @@ class AsyncRawAppsClient:
             request_options=request_options,
         )
         try:
-            if _response is None or not _response.text.strip():
-                return AsyncHttpResponse(response=_response, data=None)
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Any,
+                    FacetsResponse,
                     parse_obj_as(
-                        type_=typing.Any,  # type: ignore
+                        type_=FacetsResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 502:
+                raise BadGatewayError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 503:
                 raise ServiceUnavailableError(
                     headers=dict(_response.headers),
@@ -416,7 +584,7 @@ class AsyncRawAppsClient:
 
     async def retrieve(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[typing.Any]:
+    ) -> AsyncHttpResponse[AppResponse]:
         """
         Looks up a single app by hashid (e.g. `app_abc123`) or name_slug (e.g. `github`).
         If the value starts with `app_` it is treated as a hashid and matched against
@@ -432,7 +600,7 @@ class AsyncRawAppsClient:
 
         Returns
         -------
-        AsyncHttpResponse[typing.Any]
+        AsyncHttpResponse[AppResponse]
             The app, under `data`
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -441,19 +609,50 @@ class AsyncRawAppsClient:
             request_options=request_options,
         )
         try:
-            if _response is None or not _response.text.strip():
-                return AsyncHttpResponse(response=_response, data=None)
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Any,
+                    AppResponse,
                     parse_obj_as(
-                        type_=typing.Any,  # type: ignore
+                        type_=AppResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 404:
                 raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 502:
+                raise BadGatewayError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,

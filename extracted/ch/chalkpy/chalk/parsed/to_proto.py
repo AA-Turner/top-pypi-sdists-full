@@ -297,7 +297,9 @@ class ToProtoConverter:
 
     @staticmethod
     def _convert_sql_source(source: BaseSQLSource) -> sources_pb.DatabaseSource:
-        return sources_pb.DatabaseSource(source_type=source.kind.value, name=source.name)
+        return sources_pb.DatabaseSource(
+            source_type=source.kind.value, name=source.name, permission_tags=source.permission_tags
+        )
 
     @staticmethod
     def convert_sql_source(source: BaseSQLSource) -> sources_pb.DatabaseSource:

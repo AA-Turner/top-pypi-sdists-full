@@ -1,63 +1,103 @@
-import numpy as np
 from pgvector import Bit
 import pytest
+import random
+from struct import pack
+from .conftest import numpy as np
 
 
 class TestBit:
-    def test_list(self):
+    def test_list(self) -> None:
         assert Bit([True, False, True]).to_list() == [True, False, True]
 
-    def test_list_none(self):
-        with pytest.warns(UserWarning, match='expected elements to be boolean'):
-            assert Bit([True, None, True]).to_text() == '101'
+    def test_list_none(self) -> None:
+        with pytest.raises(ValueError) as error:
+            Bit([True, None, True])  # type: ignore
+        assert str(error.value) == 'expected list[bool]'
 
-    def test_list_int(self):
-        with pytest.warns(UserWarning, match='expected elements to be boolean'):
-            assert Bit([254, 7, 0]).to_text() == '110'
+    def test_list_int(self) -> None:
+        with pytest.raises(ValueError) as error:
+            Bit([254, 7, 0])  # type: ignore
+        assert str(error.value) == 'expected list[bool]'
 
-    def test_tuple(self):
-        assert Bit((True, False, True)).to_list() == [True, False, True]
+    def test_list_list(self) -> None:
+        with pytest.raises(ValueError) as error:
+            Bit([[True, False], [True, False]])  # type: ignore
+        assert str(error.value) == 'expected list[bool]'
 
-    def test_str(self):
+    def test_str(self) -> None:
         assert Bit('101').to_list() == [True, False, True]
 
-    def test_bytes(self):
+    def test_str_two(self) -> None:
+        with pytest.raises(ValueError) as error:
+            Bit('201')
+        assert str(error.value) == 'expected bit string'
+
+    def test_bytes(self) -> None:
         assert Bit(b'\xff\x00\xf0').to_text() == '111111110000000011110000'
         assert Bit(b'\xfe\x07\x00').to_text() == '111111100000011100000000'
 
-    def test_ndarray(self):
+    def test_ndarray(self) -> None:
+        if np is None:
+            pytest.skip('NumPy required')
+
         arr = np.array([True, False, True])
         assert Bit(arr).to_list() == [True, False, True]
         assert np.array_equal(Bit(arr).to_numpy(), arr)
 
-    def test_ndarray_unpackbits(self):
+    def test_ndarray_unpackbits(self) -> None:
+        if np is None:
+            pytest.skip('NumPy required')
+
         arr = np.unpackbits(np.array([254, 7, 0], dtype=np.uint8))
         assert Bit(arr).to_text() == '111111100000011100000000'
 
-    def test_ndarray_uint8(self):
+    def test_ndarray_uint8(self) -> None:
+        if np is None:
+            pytest.skip('NumPy required')
+
         arr = np.array([254, 7, 0], dtype=np.uint8)
-        with pytest.warns(UserWarning, match='expected elements to be boolean'):
-            assert Bit(arr).to_text() == '110'
+        with pytest.raises(ValueError) as error:
+            Bit(arr)
+        assert str(error.value) == 'expected elements to be boolean'
 
-    def test_ndarray_uint16(self):
+    def test_ndarray_uint16(self) -> None:
+        if np is None:
+            pytest.skip('NumPy required')
+
         arr = np.array([254, 7, 0], dtype=np.uint16)
-        with pytest.warns(UserWarning, match='expected elements to be boolean'):
-            assert Bit(arr).to_text() == '110'
-
-    def test_ndim_two(self):
         with pytest.raises(ValueError) as error:
-            Bit([[True, False], [True, False]])
-        assert str(error.value) == 'expected ndim to be 1'
+            Bit(arr)  # type: ignore
+        assert str(error.value) == 'expected elements to be boolean'
 
-    def test_ndim_zero(self):
+    def test_bool(self) -> None:
         with pytest.raises(ValueError) as error:
-            Bit(True)
-        assert str(error.value) == 'expected ndim to be 1'
+            Bit(True)  # type: ignore
+        assert str(error.value) == 'expected bytes, str, list, or ndarray'
 
-    def test_repr(self):
+    def test_random(self) -> None:
+        value = ''.join(random.choices(['0', '1'], k=random.randint(1024, 2048)))
+        assert Bit(value).to_text() == value
+
+    def test_repr(self) -> None:
         assert repr(Bit([True, False, True])) == 'Bit(101)'
         assert str(Bit([True, False, True])) == 'Bit(101)'
 
-    def test_equality(self):
+    def test_equality(self) -> None:
         assert Bit([True, False, True]) == Bit([True, False, True])
         assert Bit([True, False, True]) != Bit([True, False, False])
+        assert Bit([True, False, True]) != 1
+
+    def test_from_text(self) -> None:
+        vec = Bit.from_text('101')
+        assert vec.to_list() == [True, False, True]
+        if np is not None:
+            assert np.array_equal(vec.to_numpy(), [True, False, True])
+        assert vec.to_text() == '101'
+
+    def test_from_binary(self) -> None:
+        data = pack('>iB', 3, 5 << 5)
+        vec = Bit.from_binary(data)
+        assert vec.to_list() == [True, False, True]
+        if np is not None:
+            assert np.array_equal(vec.to_numpy(), [True, False, True])
+        assert vec.to_binary() == data

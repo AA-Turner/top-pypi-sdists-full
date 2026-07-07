@@ -1,9 +1,10 @@
-use super::target_app_id_utils::should_filter_spec_for_app;
+use super::{evaluation_plan::PlannedEvaluation, target_app_id_utils::should_filter_spec_for_app};
 use crate::{
     evaluation::{
         evaluator::{Evaluator, SpecType},
         evaluator_context::EvaluatorContext,
         evaluator_result::EvaluatorResult,
+        secondary_exposure_key::SecondaryExposureKey,
     },
     gcir::gcir_formatter::GCIRHashable,
     hashing::{self, HashUtil},
@@ -21,8 +22,13 @@ pub(crate) fn gcir_process_iter<T: GCIRHashable>(
     get_spec_type: impl Fn(&Spec) -> SpecType,
     mut evaluation_factory: impl FnMut(&str, &str, &mut EvaluatorContext) -> T,
 ) -> Result<HashMap<String, T>, StatsigErr> {
-    let mut results = HashMap::new();
-    let mut hashes = Vec::new();
+    let mut results = HashMap::with_capacity(specs_map.len());
+    let mut hashes = Vec::with_capacity(if options.previous_response_hash.is_some() {
+        specs_map.len()
+    } else {
+        0
+    });
+    let pipeline_override_names = get_pipeline_override_names(context);
     let mut keys = specs_map.keys().cloned().collect::<Vec<_>>();
     if options.previous_response_hash.is_some() {
         keys.sort_by(|a, b| a.as_str().cmp(b.as_str()));
@@ -37,7 +43,13 @@ pub(crate) fn gcir_process_iter<T: GCIRHashable>(
             continue;
         }
 
-        if should_filter_entity(spec, name.as_str(), options) {
+        if pipeline_override_names.contains(&name) {
+            continue;
+        }
+
+        if should_filter_entity(spec, name.as_str(), options)
+            || should_filter_experiment_in_layer(context, spec, name.as_str(), options)
+        {
             continue;
         }
 
@@ -55,13 +67,6 @@ pub(crate) fn gcir_process_iter<T: GCIRHashable>(
             && context.result.rule_id.as_deref() == Some("default")
             && !context.result.bool_value
             && context.result.secondary_exposures.is_empty()
-        {
-            continue;
-        }
-
-        if spec.entity == "experiment"
-            && options.remove_experiments_in_layers.unwrap_or(false)
-            && context.result.is_in_layer
         {
             continue;
         }
@@ -91,6 +96,106 @@ pub(crate) fn gcir_process_iter<T: GCIRHashable>(
     Ok(results)
 }
 
+pub(crate) fn gcir_process_plan<T: GCIRHashable>(
+    context: &mut EvaluatorContext,
+    options: &ClientInitResponseOptions,
+    sec_expo_hash_memo: &mut HashMap<InternedString, InternedString>,
+    specs_map: &SpecsHashMap,
+    plan: &[PlannedEvaluation],
+    mut evaluation_factory: impl FnMut(&str, &InternedString, &mut EvaluatorContext) -> T,
+) -> Result<HashMap<InternedString, T>, StatsigErr> {
+    let mut results = HashMap::with_capacity(plan.len());
+    let mut hashes = Vec::with_capacity(if options.previous_response_hash.is_some() {
+        plan.len()
+    } else {
+        0
+    });
+    let hash_algorithm = options.get_hash_algorithm();
+    for planned in plan {
+        let spec_ptr = match gcir_time!("plan.spec_lookup", specs_map.get(&planned.name)) {
+            Some(s) => s,
+            None => continue,
+        };
+        let spec = spec_ptr.as_spec_ref();
+
+        if gcir_time!("plan.filtering", {
+            should_filter_entity(spec, planned.name.as_str(), options)
+                || should_filter_experiment_in_layer(context, spec, planned.name.as_str(), options)
+                || should_filter_spec_for_app(spec, &context.app_id, &options.client_sdk_key)
+        }) {
+            continue;
+        }
+
+        context.reset_result();
+
+        gcir_time!("plan.evaluate", {
+            Evaluator::evaluate(context, planned.name.as_str(), &planned.spec_type)
+        })?;
+
+        if gcir_time!("plan.post_eval_filters", {
+            options.remove_default_value_gates.unwrap_or(false)
+                && spec.entity == "feature_gate"
+                && context.result.rule_id.as_deref() == Some("default")
+                && !context.result.bool_value
+                && context.result.secondary_exposures.is_empty()
+        }) {
+            continue;
+        }
+
+        let hashed_name = planned.hashed_name(hash_algorithm);
+        gcir_time!("plan.hash_secondary_exposures", {
+            hash_secondary_exposures(
+                &mut context.result,
+                context.hashing,
+                hash_algorithm,
+                sec_expo_hash_memo,
+            )
+        });
+
+        let eval = gcir_time!("plan.result_factory", {
+            evaluation_factory(planned.entity.as_str(), hashed_name, context)
+        });
+
+        if options.previous_response_hash.is_some() {
+            let hash = gcir_time!("plan.create_hash", eval.create_hash(&planned.name));
+            hashes.push(hash);
+        }
+        gcir_time!("plan.result_insert", {
+            results.insert(hashed_name.clone(), eval)
+        });
+    }
+
+    if options.previous_response_hash.is_some() {
+        gcir_time!("plan.section_hash_aggregate", {
+            context.gcir_hashes.push(hashing::hash_one(hashes))
+        });
+    }
+
+    Ok(results)
+}
+
+fn get_pipeline_override_names(context: &EvaluatorContext) -> HashSet<InternedString> {
+    context
+        .specs_data
+        .overrides
+        .as_ref()
+        .map(get_pipeline_override_names_from_mappings)
+        .unwrap_or_default()
+}
+
+fn get_pipeline_override_names_from_mappings(
+    overrides: &HashMap<String, Vec<crate::specs_response::spec_types::ConfigMapping>>,
+) -> HashSet<InternedString> {
+    overrides
+        .values()
+        .flat_map(|mappings| {
+            mappings
+                .iter()
+                .map(|mapping| mapping.new_config_name.clone())
+        })
+        .collect()
+}
+
 fn should_filter_entity(spec: &Spec, name: &str, options: &ClientInitResponseOptions) -> bool {
     match spec.entity.as_str() {
         "feature_gate" => options
@@ -113,6 +218,30 @@ fn should_filter_entity(spec: &Spec, name: &str, options: &ClientInitResponseOpt
     }
 }
 
+fn should_filter_experiment_in_layer(
+    context: &EvaluatorContext,
+    spec: &Spec,
+    name: &str,
+    options: &ClientInitResponseOptions,
+) -> bool {
+    if spec.entity != "experiment" || !options.remove_experiments_in_layers.unwrap_or(false) {
+        return false;
+    }
+
+    if is_experiment_in_layer_allowlisted(name, options) {
+        return false;
+    }
+
+    context.specs_data.experiment_to_layer.contains_key(name)
+}
+
+fn is_experiment_in_layer_allowlisted(name: &str, options: &ClientInitResponseOptions) -> bool {
+    options
+        .experiments_in_layers_allowlist
+        .as_ref()
+        .is_some_and(|allowlist| allowlist.contains(name))
+}
+
 pub fn hash_secondary_exposures(
     result: &mut EvaluatorResult,
     hashing: &HashUtil,
@@ -125,9 +254,9 @@ pub fn hash_secondary_exposures(
         hash_algorithm: &HashAlgorithm,
         memo: &mut HashMap<InternedString, InternedString>,
     ) {
-        let mut seen = HashSet::<String>::with_capacity(exposures.len());
+        let mut seen = HashSet::<SecondaryExposureKey>::with_capacity(exposures.len());
         exposures.retain_mut(|expo| {
-            let expo_key = expo.get_dedupe_key();
+            let expo_key = SecondaryExposureKey::from(&*expo);
             if seen.contains(&expo_key) {
                 return false;
             }
@@ -164,5 +293,30 @@ pub fn hash_secondary_exposures(
             hash_algorithm,
             memo,
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::specs_response::spec_types::{ConfigMapping, OverrideRule};
+
+    #[test]
+    fn filters_only_names_from_pipeline_override_mappings() {
+        let override_names = get_pipeline_override_names_from_mappings(&HashMap::from([(
+            "base_config".to_string(),
+            vec![ConfigMapping {
+                new_config_name: InternedString::from_str_ref("base_config::trigger_id"),
+                rules: vec![OverrideRule {
+                    rule_name: "phase_rule".to_string(),
+                    start_time: Some(0),
+                }],
+            }],
+        )]));
+
+        assert!(override_names.contains(&InternedString::from_str_ref("base_config::trigger_id")));
+        assert!(!override_names.contains(&InternedString::from_str_ref(
+            "manual_config::not_a_pipeline_override"
+        )));
     }
 }

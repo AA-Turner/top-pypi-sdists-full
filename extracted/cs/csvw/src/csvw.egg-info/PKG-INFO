@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: csvw
-Version: 4.0.0
+Version: 4.1.0
 Summary: Python library to work with CSVW described tabular data
 Home-page: https://github.com/cldf/csvw
 Author: Robert Forkel

@@ -1,11 +1,11 @@
 from django import VERSION
 from django.contrib.postgres.operations import CreateExtension
+from typing import Any
 
 
 class VectorExtension(CreateExtension):
-    if VERSION[0] >= 6:
-        def __init__(self, hints=None):
-            super().__init__('vector', hints=hints)
-    else:
-        def __init__(self):
+    def __init__(self, hints: Any = None) -> None:
+        if VERSION[0] >= 6:
+            super().__init__('vector', hints=hints)  # type: ignore
+        else:
             self.name = 'vector'

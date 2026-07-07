@@ -35,6 +35,10 @@ impl ExplicitParameters {
     pub fn to_vec_interned(&self) -> Vec<&InternedString> {
         self.inner.as_ref().iter().collect()
     }
+
+    pub fn as_slice(&self) -> &[InternedString] {
+        self.inner.as_ref()
+    }
 }
 
 impl<'de> Deserialize<'de> for ExplicitParameters {

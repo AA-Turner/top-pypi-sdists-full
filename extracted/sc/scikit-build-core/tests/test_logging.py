@@ -2,14 +2,23 @@ from __future__ import annotations
 
 import platform
 import sys
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from pytest import CaptureFixture, MonkeyPatch
 
 import scikit_build_core._logging
 from scikit_build_core import __version__
-from scikit_build_core._logging import Style, rich_print
+from scikit_build_core._logging import Style, colors, rich_print
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from pytest import CaptureFixture, MonkeyPatch
+
+
+def test_colors_no_stdout(monkeypatch: MonkeyPatch):
+    # Regression: sys.stdout can be None (pythonw / embedded interpreters).
+    # colors() must not raise AttributeError at import time.
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
+    monkeypatch.setattr(sys, "stdout", None)
+    assert colors() is False
 
 
 def test_rich_print_nocolor(capsys: CaptureFixture[str], monkeypatch: MonkeyPatch):

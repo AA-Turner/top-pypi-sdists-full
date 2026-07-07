@@ -26,6 +26,7 @@ import os
 import shutil
 import sys
 import tempfile
+import tracemalloc
 import types
 import zlib
 from hashlib import sha1
@@ -606,6 +607,7 @@ class TestPackData(PackTests):
             filename = os.path.join(self.tempdir, "v1test.idx")
             p.create_index_v1(filename)
             idx1 = load_pack_index(filename, DEFAULT_OBJECT_FORMAT)
+            self.addCleanup(idx1.close)
             idx2 = self.get_pack_index(pack1_sha)
             self.assertEqual(oct(os.stat(filename).st_mode), indexmode)
             self.assertEqual(idx1, idx2)
@@ -615,6 +617,7 @@ class TestPackData(PackTests):
             filename = os.path.join(self.tempdir, "v2test.idx")
             p.create_index_v2(filename)
             idx1 = load_pack_index(filename, DEFAULT_OBJECT_FORMAT)
+            self.addCleanup(idx1.close)
             idx2 = self.get_pack_index(pack1_sha)
             self.assertEqual(oct(os.stat(filename).st_mode), indexmode)
             self.assertEqual(idx1, idx2)
@@ -624,6 +627,7 @@ class TestPackData(PackTests):
             filename = os.path.join(self.tempdir, "v3test.idx")
             p.create_index_v3(filename)
             idx1 = load_pack_index(filename, DEFAULT_OBJECT_FORMAT)
+            self.addCleanup(idx1.close)
             idx2 = self.get_pack_index(pack1_sha)
             self.assertEqual(oct(os.stat(filename).st_mode), indexmode)
             self.assertEqual(idx1, idx2)
@@ -635,6 +639,7 @@ class TestPackData(PackTests):
             filename = os.path.join(self.tempdir, "version3test.idx")
             p.create_index(filename, version=3)
             idx = load_pack_index(filename, DEFAULT_OBJECT_FORMAT)
+            self.addCleanup(idx.close)
             self.assertIsInstance(idx, PackIndex3)
             self.assertEqual(idx.version, 3)
 
@@ -1035,6 +1040,20 @@ class WritePackTests(TestCase):
         finally:
             f.close()
 
+    def test_unpack_object_rejects_zero_ofs_delta(self) -> None:
+        # An OFS_DELTA with delta_base_offset == 0 would reference itself
+        # and cause resolve_object to loop forever. Reject at parse time.
+        header = bytes([(OFS_DELTA << 4) | 0])
+        ofs_bytes = bytes([0x00])
+        body = zlib.compress(b"")
+        f = BytesIO(header + ofs_bytes + body)
+        self.assertRaises(
+            ApplyDeltaError,
+            unpack_object,
+            f.read,
+            DEFAULT_OBJECT_FORMAT.hash_func,
+        )
+
     def test_write_pack_object_sha(self) -> None:
         f = BytesIO()
         f.write(b"header")
@@ -1138,14 +1157,13 @@ class BaseTestPackIndexWriting:
 class BaseTestFilePackIndexWriting(BaseTestPackIndexWriting):
     def setUp(self) -> None:
         self.tempdir = tempfile.mkdtemp()
-
-    def tearDown(self) -> None:
-        shutil.rmtree(self.tempdir)
+        self.addCleanup(shutil.rmtree, self.tempdir)
 
     def index(self, filename, entries, pack_checksum):
         path = os.path.join(self.tempdir, filename)
         self.writeIndex(path, entries, pack_checksum)
         idx = load_pack_index(path, DEFAULT_OBJECT_FORMAT)
+        self.addCleanup(idx.close)
         self.assertSucceeds(idx.check)
         self.assertEqual(idx.version, self._expected_version)
         return idx
@@ -1178,10 +1196,6 @@ class TestPackIndexWritingv1(TestCase, BaseTestFilePackIndexWriting):
         self._supports_large = False
         self._write_fn = write_pack_index_v1
 
-    def tearDown(self) -> None:
-        TestCase.tearDown(self)
-        BaseTestFilePackIndexWriting.tearDown(self)
-
 
 class TestPackIndexWritingv2(TestCase, BaseTestFilePackIndexWriting):
     def setUp(self) -> None:
@@ -1191,10 +1205,6 @@ class TestPackIndexWritingv2(TestCase, BaseTestFilePackIndexWriting):
         self._supports_large = True
         self._expected_version = 2
         self._write_fn = write_pack_index_v2
-
-    def tearDown(self) -> None:
-        TestCase.tearDown(self)
-        BaseTestFilePackIndexWriting.tearDown(self)
 
 
 class TestPackIndexWritingv3(TestCase, BaseTestFilePackIndexWriting):
@@ -1206,16 +1216,13 @@ class TestPackIndexWritingv3(TestCase, BaseTestFilePackIndexWriting):
         self._expected_version = 3
         self._write_fn = write_pack_index_v3
 
-    def tearDown(self) -> None:
-        TestCase.tearDown(self)
-        BaseTestFilePackIndexWriting.tearDown(self)
-
     def test_load_v3_index_returns_packindex3(self) -> None:
         """Test that loading a v3 index file returns a PackIndex3 instance."""
         entries = [(b"abcd" * 5, 0, zlib.crc32(b""))]
         filename = os.path.join(self.tempdir, "test.idx")
         self.writeIndex(filename, entries, b"1234567890" * 2)
         idx = load_pack_index(filename, DEFAULT_OBJECT_FORMAT)
+        self.addCleanup(idx.close)
         self.assertIsInstance(idx, PackIndex3)
         self.assertEqual(idx.version, 3)
         self.assertEqual(idx.hash_format, 1)  # SHA-1
@@ -1230,6 +1237,7 @@ class TestPackIndexWritingv3(TestCase, BaseTestFilePackIndexWriting):
         with GitFile(filename, "wb") as f:
             write_pack_index_v3(f, entries, b"1" * 20, hash_format=1)
         idx = load_pack_index(filename, DEFAULT_OBJECT_FORMAT)
+        self.addCleanup(idx.close)
         self.assertEqual(idx.hash_format, 1)
         self.assertEqual(idx.hash_size, 20)
 
@@ -1283,6 +1291,7 @@ class WritePackIndexTests(TestCase):
             write_pack_index(f, entries, b"P" * 20)
 
         idx = load_pack_index(filename, DEFAULT_OBJECT_FORMAT)
+        self.addCleanup(idx.close)
         self.assertEqual(DEFAULT_PACK_INDEX_VERSION, idx.version)
 
     def test_write_pack_index_version_1(self) -> None:
@@ -1296,6 +1305,7 @@ class WritePackIndexTests(TestCase):
             write_pack_index(f, entries, b"P" * 20, version=1)
 
         idx = load_pack_index(filename, DEFAULT_OBJECT_FORMAT)
+        self.addCleanup(idx.close)
         self.assertEqual(1, idx.version)
 
     def test_write_pack_index_version_3(self) -> None:
@@ -1309,6 +1319,7 @@ class WritePackIndexTests(TestCase):
             write_pack_index(f, entries, b"P" * 20, version=3)
 
         idx = load_pack_index(filename, DEFAULT_OBJECT_FORMAT)
+        self.addCleanup(idx.close)
         self.assertEqual(3, idx.version)
 
     def test_write_pack_index_invalid_version(self) -> None:
@@ -1429,6 +1440,26 @@ class ReadZlibTests(TestCase):
     def test_decompress_include_comp(self) -> None:
         self._do_decompress_test(4096, include_comp=True)
         self.assertEqual(self.comp, b"".join(self.unpacked.comp_chunks))
+
+    def test_decompress_bomb_rejected_before_full_inflation(self) -> None:
+        # Regression: a malicious pack entry that declares a small decomp_len
+        # but ships a highly compressible stream must not be fully inflated
+        # before the size check fires (decompression-bomb DoS).
+        payload = b"\x00" * (4 * 1024 * 1024)
+        comp = zlib.compress(payload)
+        # Sanity check that this stream is actually a bomb candidate.
+        self.assertLess(len(comp), len(payload) // 100)
+        unpacked = UnpackedObject(Blob.type_num, decomp_len=1, crc32=0)
+        read = BytesIO(comp + b"\x00" * 20).read
+        tracemalloc.start()
+        try:
+            self.assertRaises(zlib.error, read_zlib_chunks, read, unpacked)
+            _, peak = tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+        # We should never have allocated anywhere near the full payload.
+        # Give plenty of headroom for compression bookkeeping.
+        self.assertLess(peak, len(payload) // 4)
 
 
 class DeltifyTests(TestCase):

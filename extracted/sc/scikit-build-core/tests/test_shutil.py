@@ -3,12 +3,10 @@ from __future__ import annotations
 import shutil
 import stat
 import sys
-from typing import TYPE_CHECKING
 
 import pytest
 
-from scikit_build_core._shutil import _fix_all_permissions
-
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -43,8 +41,3 @@ def test_broken_all_permissions(make_dir_with_ro: Path) -> None:
             shutil.rmtree(make_dir_with_ro)
     else:
         shutil.rmtree(make_dir_with_ro)
-
-
-def test_fix_all_permissions(make_dir_with_ro: Path) -> None:
-    _fix_all_permissions(str(make_dir_with_ro))
-    shutil.rmtree(make_dir_with_ro)

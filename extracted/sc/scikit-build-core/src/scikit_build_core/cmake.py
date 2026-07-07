@@ -1,5 +1,25 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "contextlib",
+    f"{__spec__.parent}._compat.builtins",
+    f"{__spec__.parent}._logging",
+    f"{__spec__.parent}._shutil",
+    f"{__spec__.parent}.builder.generator",
+    f"{__spec__.parent}.errors",
+    f"{__spec__.parent}.file_api.query",
+    f"{__spec__.parent}.file_api.reply",
+    f"{__spec__.parent}.program_search",
+    "json",
+    "packaging",
+    "packaging.version",
+    "shutil",
+    "subprocess",
+    "sysconfig",
+    "textwrap",
+    "typing",
+}
+
 import contextlib
 import dataclasses
 import json
@@ -10,7 +30,7 @@ import sys
 import sysconfig
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from packaging.version import Version
 
@@ -18,11 +38,13 @@ from . import __version__
 from ._compat.builtins import ExceptionGroup
 from ._logging import logger
 from ._shutil import Run
+from .builder.generator import parse_generator
 from .errors import CMakeConfigError, CMakeNotFoundError, FailedLiveProcessError
 from .file_api.query import stateless_query
 from .file_api.reply import load_reply_dir
 from .program_search import Program, best_program, get_cmake_program, get_cmake_programs
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable, Mapping, Sequence
 
@@ -67,7 +89,7 @@ class CMake:
             msg = f"Could not find CMake with version {version}"
             raise CMakeNotFoundError(msg)
         if cmake_program.version is None:
-            msg = "CMake version undetermined @ {program.path}"
+            msg = f"CMake version undetermined @ {cmake_program.path}"
             raise CMakeNotFoundError(msg)
 
         return cls(version=cmake_program.version, cmake_path=cmake_program.path)
@@ -200,9 +222,10 @@ class CMaker:
                         f'set({pkg}_ROOT [===[{paths_str}]===] CACHE PATH "" FORCE)\n'
                     )
                     # Available since CMake 3.27 with CMP0144
-                    f.write(
-                        f'set({pkg.upper()}_ROOT [===[{paths_str}]===] CACHE PATH "" FORCE)\n'
-                    )
+                    if pkg != pkg.upper():
+                        f.write(
+                            f'set({pkg.upper()}_ROOT [===[{paths_str}]===] CACHE PATH "" FORCE)\n'
+                        )
 
         contents = self.init_cache_file.read_text(encoding="utf-8").strip()
         logger.debug(
@@ -249,9 +272,9 @@ class CMaker:
         Try to get the generator that will be used to build the project. If it's
         not set, return None (default generator will be used).
         """
-        generators = [g for g in args if g.startswith("-G")]
-        if generators:
-            return generators[-1][2:].strip()
+        generator = parse_generator(args)
+        if generator:
+            return generator
         if defines and "CMAKE_GENERATOR" in defines:
             gen_value = defines["CMAKE_GENERATOR"]
             assert isinstance(gen_value, str)
@@ -268,7 +291,7 @@ class CMaker:
         _cmake_args = self._compute_cmake_args(defines or {}, toolchain)
         all_args = [*_cmake_args, *cmake_args]
 
-        gen = self.get_generator(*all_args)
+        gen = self.get_generator(*all_args, defines=defines or {})
         if gen:
             self.single_config = gen == "Ninja" or "Makefiles" in gen
 
@@ -292,12 +315,14 @@ class CMaker:
         self,
         *,
         verbose: bool,
+        build_type: str | None = None,
     ) -> Generator[str, None, None]:
+        build_type = self.build_type if build_type is None else build_type
         if verbose:
             yield "-v"
-        if self.build_type and not self.single_config:
+        if build_type and not self.single_config:
             yield "--config"
-            yield self.build_type
+            yield build_type
 
     def build(
         self,
@@ -305,8 +330,11 @@ class CMaker:
         *,
         targets: Sequence[str] = (),
         verbose: bool = False,
+        build_type: str | None = None,
     ) -> None:
-        local_args = list(self._compute_build_args(verbose=verbose))
+        local_args = list(
+            self._compute_build_args(verbose=verbose, build_type=build_type)
+        )
         if not targets:
             self._build(*local_args, *build_args)
             return
@@ -327,15 +355,28 @@ class CMaker:
         *,
         strip: bool = False,
         components: Sequence[str] = (),
+        targets: Sequence[str] = (),
+        build_type: str | None = None,
     ) -> None:
+        build_type = self.build_type if build_type is None else build_type
         opts = ["--prefix", str(prefix)] if prefix else []
-        if not self.single_config and self.build_type:
-            opts += ["--config", self.build_type]
+        if not self.single_config and build_type:
+            opts += ["--config", build_type]
         if strip:
             opts.append("--strip")
 
+        # These are "built", so --prefix/--strip/--component do not apply.
+        for target in targets:
+            logger.info("Installing target {}", target)
+            build_args = list(
+                self._compute_build_args(verbose=False, build_type=build_type)
+            )
+            self._build(*build_args, "--target", target)
+
         if not components:
-            self._install(opts)
+            # With no components and no targets, run the default install.
+            if not targets:
+                self._install(opts)
             return
 
         for comp in components:

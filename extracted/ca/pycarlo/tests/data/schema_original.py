@@ -245,6 +245,18 @@ class AdfTaskRunModelStatus(sgqlc.types.Enum):
     )
 
 
+class AgentEvaluationRunSamplesStatus(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `OK`None
+    * `UNAVAILABLE`None
+    * `UNSUPPORTED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("OK", "UNAVAILABLE", "UNSUPPORTED")
+
+
 class AgentGraphNodeKind(sgqlc.types.Enum):
     """Kind of a fused agent-graph node — derived from the underlying
     span.  `is_llm_call=True` → LLM; `is_tool_call=True` → TOOL;
@@ -8796,6 +8808,46 @@ class AgentCreditBudgetInput(sgqlc.types.Input):
     __field_names__ = ("credits",)
     credits = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="credits")
     """Per-day credit cap for the capability's agent. Must be positive."""
+
+
+class AgentEvaluationRunSamplesInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "monitor_uuid",
+        "job_execution_uuid",
+        "metric_name",
+        "limit",
+        "offset",
+        "include_explanation",
+    )
+    monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
+    """Agent evaluation monitor UUID"""
+
+    job_execution_uuid = sgqlc.types.Field(
+        sgqlc.types.non_null(UUID), graphql_name="jobExecutionUuid"
+    )
+    """Monitor run UUID from the metric datapoint that produced this run.
+    Metric datapoints may carry a consolidating job UUID; direct job
+    execution UUIDs are also accepted.
+    """
+
+    metric_name = sgqlc.types.Field(String, graphql_name="metricName")
+    """Evaluation score field to fetch, usually the chart datapoint
+    field/metric name. Required when the run contains multiple
+    evaluation score fields.
+    """
+
+    limit = sgqlc.types.Field(Int, graphql_name="limit")
+    """Number of rows to return (max 100)"""
+
+    offset = sgqlc.types.Field(Int, graphql_name="offset")
+    """Number of stored evaluation rows to skip"""
+
+    include_explanation = sgqlc.types.Field(Boolean, graphql_name="includeExplanation")
+    """Include the stored judge explanation when available. Evaluation
+    runs recorded before stored explanations were enabled may return
+    null.
+    """
 
 
 class AgentFilterInput(sgqlc.types.Input):
@@ -19127,6 +19179,76 @@ class AgentDetails(sgqlc.types.Type):
     """Number of active (non-resolved, non-merged) incidents from agent
     monitors targeting this agent.
     """
+
+
+class AgentEvaluationRunSampleRow(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "score",
+        "metric_name",
+        "conversation_id",
+        "trace_id",
+        "span_id",
+        "explanation",
+        "input_preview",
+        "output_preview",
+        "prompt_preview",
+        "evaluated_at",
+    )
+    score = sgqlc.types.Field(Float, graphql_name="score")
+    """Stored evaluation score for the requested metric"""
+
+    metric_name = sgqlc.types.Field(String, graphql_name="metricName")
+    """Evaluation score field name"""
+
+    conversation_id = sgqlc.types.Field(String, graphql_name="conversationId")
+    """Conversation identifier, when available"""
+
+    trace_id = sgqlc.types.Field(String, graphql_name="traceId")
+    """Trace identifier, when available"""
+
+    span_id = sgqlc.types.Field(String, graphql_name="spanId")
+    """Span identifier, when available"""
+
+    explanation = sgqlc.types.Field(String, graphql_name="explanation")
+    """Stored judge reasoning, when available"""
+
+    input_preview = sgqlc.types.Field(String, graphql_name="inputPreview")
+    """Input/prompt preview, when available"""
+
+    output_preview = sgqlc.types.Field(String, graphql_name="outputPreview")
+    """Output/completion preview, when available"""
+
+    prompt_preview = sgqlc.types.Field(String, graphql_name="promptPreview")
+    """Prompt preview, when available"""
+
+    evaluated_at = sgqlc.types.Field(DateTime, graphql_name="evaluatedAt")
+    """Evaluation/run timestamp when available"""
+
+
+class AgentEvaluationRunSamplesResult(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("status", "message", "rows", "total_count", "has_more")
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(AgentEvaluationRunSamplesStatus), graphql_name="status"
+    )
+
+    message = sgqlc.types.Field(String, graphql_name="message")
+    """Human-readable unsupported/unavailable reason"""
+
+    rows = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(AgentEvaluationRunSampleRow))
+        ),
+        graphql_name="rows",
+    )
+    """Exact stored evaluated rows for this monitor run"""
+
+    total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
+    """Total row count when cheaply available"""
+
+    has_more = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasMore")
+    """Whether another page is available"""
 
 
 class AgentGraph(sgqlc.types.Type):
@@ -65600,6 +65722,7 @@ class Query(sgqlc.types.Type):
         "get_parsed_query",
         "get_agent_trace_export",
         "get_agent_spans_export",
+        "get_agent_evaluation_run_samples",
         "get_trace_tree_nodes",
         "get_agent_span_groups",
         "get_agent_span_sample",
@@ -74875,6 +74998,30 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `job_id` (`UUID!`): Job id returned by exportAgentSpans.
+    """
+
+    get_agent_evaluation_run_samples = sgqlc.types.Field(
+        AgentEvaluationRunSamplesResult,
+        graphql_name="getAgentEvaluationRunSamples",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AgentEvaluationRunSamplesInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fetch exact stored evaluated rows for a ClickHouse
+    AgentEvaluation monitor run.
+
+    Arguments:
+
+    * `input` (`AgentEvaluationRunSamplesInput!`)None
     """
 
     get_trace_tree_nodes = sgqlc.types.Field(

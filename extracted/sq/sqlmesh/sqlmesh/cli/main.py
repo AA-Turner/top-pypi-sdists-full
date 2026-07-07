@@ -41,6 +41,7 @@ SKIP_LOAD_COMMANDS = (
     "table_name",
 )
 SKIP_CONTEXT_COMMANDS = ("init", "ui")
+LOCAL_ONLY_COMMANDS = ("format",)
 
 
 def _sqlmesh_version() -> str:
@@ -115,6 +116,8 @@ def cli(
     configure_console(ignore_warnings=ignore_warnings)
 
     load = True
+    # Local-only gating must hold for any number of --paths, so it stays outside the block below.
+    load_state = ctx.invoked_subcommand not in LOCAL_ONLY_COMMANDS
 
     if len(paths) == 1:
         path = os.path.abspath(paths[0])
@@ -135,6 +138,7 @@ def cli(
             config=configs,
             gateway=gateway,
             load=load,
+            load_state=load_state,
         )
     except Exception:
         if debug:
@@ -165,7 +169,7 @@ def cli(
 @click.option(
     "--dlt-path",
     type=str,
-    help="The directory where the DLT pipeline resides. Use alongside template: dlt",
+    help="The DLT pipelines working directory, where DLT stores pipeline state (by default ~/.dlt/pipelines). Use alongside template: dlt",
 )
 @click.pass_context
 @error_handler
@@ -1151,7 +1155,7 @@ def table_name(
 @click.option(
     "--dlt-path",
     type=str,
-    help="The directory where the DLT pipeline resides.",
+    help="The DLT pipelines working directory, where DLT stores pipeline state (by default ~/.dlt/pipelines).",
 )
 @click.pass_context
 @error_handler

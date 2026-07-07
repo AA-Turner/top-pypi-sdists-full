@@ -204,7 +204,7 @@ impl ResponseData {
         Ok(buf)
     }
 
-    fn rewind(&mut self) -> Result<(), StatsigErr> {
+    pub(crate) fn rewind(&mut self) -> Result<(), StatsigErr> {
         self.stream
             .rewind()
             .map_err(|e| StatsigErr::SerializationError(e.to_string()))

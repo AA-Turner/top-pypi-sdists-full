@@ -325,6 +325,7 @@ impl StatsigDataStoreSpecsAdapter {
                 .err()
                 .map_or_else(String::new, |e| e.to_string()),
             false,
+            "datastore",
         );
     }
 

@@ -19,7 +19,10 @@
 //! few MB under the RAM-tight shared build gate.
 
 use super::*;
-use crate::assignment::{default_ibp_concentration_for_k_atoms, ordered_geometric_shrinkage_prior};
+use crate::assignment::{
+    AssignmentModeRequest, admit_assignment_mode_for_size, default_ibp_concentration_for_k_atoms,
+    ordered_geometric_shrinkage_prior,
+};
 use crate::basis::PeriodicHarmonicEvaluator;
 use gam_linalg::faer_ndarray::{FaerCholesky, fast_atb};
 use gam_terms::dictionary::{LinearDictionaryConfig, fit_linear_dictionary};
@@ -144,13 +147,21 @@ fn linear_ev(z: ArrayView2<'_, f64>, k: usize) -> f64 {
 /// At equal K the historical default `α = 1` structurally underfits an equal-K
 /// linear dictionary (the geometric-by-index prior masks late atoms), while the
 /// K-aware concentration recovers the capacity and matches-or-beats linear.
-/// Tiny (N=64, K=8) so it runs in seconds / a few MB.
+/// Tiny (N=256, K=8) so it runs in seconds / a few MB.
 #[test]
 fn ibp_default_alpha_underfits_but_k_aware_matches_linear_1784() {
-    let z = real_like_activations(64, 10, 6, 7);
+    // N MUST be large enough that α=1 lands on a MEASURABLE underfit rather than a
+    // total gate co-collapse: at α=1 the geometric mask starves the atom tail, and
+    // below ~N=100 the surviving early atoms cannot anchor K=8 charts either — the
+    // IBP gate collapses all mass onto ONE atom (mu_hat→1), the reconstruction EV
+    // falls below the signal-free null floor, and the fit's co-collapse guard
+    // rightly REFUSES (an error, not a low-EV number). N=64 (the first RAM-safe
+    // shrink of this test) sat in that refuse regime; N=256 restores the intended
+    // "α=1 underfits but still fits" regime while staying tiny (256×10 f64).
+    let z = real_like_activations(256, 10, 6, 7);
     let k = 8usize;
     let num_basis = 3usize;
-    let max_iter = 8usize;
+    let max_iter = 12usize;
 
     let lin = linear_ev(z.view(), k);
     let ev_alpha1 = fit_ev(z.view(), k, 1.0, num_basis, max_iter).expect("alpha=1 fit runs");
@@ -168,15 +179,14 @@ fn ibp_default_alpha_underfits_but_k_aware_matches_linear_1784() {
     );
 
     // Margins are calibrated to the deterministic effect at THIS (RAM-safe) scale.
-    // At the original K=32 / N=600 scale the α=1 underfit and K-aware recovery each
-    // cleared ~0.05 EV; shrinking to K=8 / N=64 / num_basis=3 (issue #1784, to keep
-    // the K=128 sibling test off the OOM path) preserves the qualitative ordering
-    // — α=1 (≈0.862) < linear (≈0.893) < K-aware (≈0.908) — but with smaller gaps
-    // (underfit ≈0.031, recovery ≈0.046). The thresholds below sit at roughly half
-    // the observed gap so the strict ordering is enforced with ~2× headroom without
-    // pinning to fragile exact values. The fit is deterministic here (no RNG; the
-    // parallel fold is bit-invariant per #1557), so the headroom guards only
-    // toolchain drift, not run-to-run noise.
+    // At K=8 / N=256 / num_basis=3 / max_iter=12 the ordering is α=1 (≈0.705) <
+    // linear (≈0.865) < K-aware (≈0.896): the α=1 mask underfits the equal-K linear
+    // dictionary, and the K-aware concentration recovers capacity past it. The
+    // recovery gap over α=1 (≈0.19) and the underfit gap under linear (≈0.16) are
+    // both wide, so the thresholds below hold with large headroom without pinning
+    // fragile exact values. The fit is deterministic here (no RNG; the parallel fold
+    // is bit-invariant per #1557), so the headroom guards only toolchain drift, not
+    // run-to-run noise.
 
     // The historical default α=1 must UNDERFIT the linear dictionary.
     assert!(
@@ -239,4 +249,63 @@ fn ibp_k_aware_prior_keeps_all_128_atoms_alive_1784() {
         "K-aware prior head/tail span must be <= ~e (got {:.3})",
         prior[0] / prior[k - 1]
     );
+}
+
+#[test]
+fn default_mode_admission_uses_top_k_at_large_k_and_never_implicit_ibp() {
+    let n = 300_000usize;
+    let k = 32_768usize;
+    let admitted =
+        admit_assignment_mode_for_size(AssignmentModeRequest::Default, n, k, 1.0, 1.0, false, 0.0)
+            .expect("default admission");
+    assert!(
+        matches!(admitted.mode, AssignmentMode::Softmax { .. }),
+        "default admission must choose the top-k softmax lane at large K, got {:?}",
+        admitted.mode
+    );
+    assert_eq!(
+        admitted.top_k,
+        Some(n.div_ceil(k)),
+        "large-K default cap must be derived from rows per atom"
+    );
+
+    let explicit_ibp =
+        admit_assignment_mode_for_size(AssignmentModeRequest::IbpMap, n, k, 1.0, 1.0, false, 0.0);
+    assert!(
+        explicit_ibp.is_err(),
+        "IBP-MAP must be refused once large-K top-k admission engages"
+    );
+}
+
+#[test]
+fn ibp_mode_admission_requires_explicit_small_fit_request() {
+    let n = 4096usize;
+    let k = 32usize;
+    let default_admitted =
+        admit_assignment_mode_for_size(AssignmentModeRequest::Default, n, k, 0.7, 1.0, false, 0.0)
+            .expect("default small-fit admission");
+    assert!(
+        matches!(default_admitted.mode, AssignmentMode::Softmax { .. }),
+        "default small-fit admission must still avoid implicit IBP-MAP"
+    );
+    assert_eq!(
+        default_admitted.top_k, None,
+        "small fit should keep dense softmax unless a caller supplies a cap"
+    );
+
+    let ibp =
+        admit_assignment_mode_for_size(AssignmentModeRequest::IbpMap, n, k, 0.7, 1.3, true, 0.0)
+            .expect("explicit small-fit IBP admission");
+    assert!(
+        matches!(
+            ibp.mode,
+            AssignmentMode::IBPMap {
+                alpha,
+                learnable_alpha: true,
+                ..
+            } if (alpha - 1.3).abs() < 1.0e-12
+        ),
+        "IBP-MAP is admitted only for the explicit small-fit request"
+    );
+    assert_eq!(ibp.top_k, None);
 }

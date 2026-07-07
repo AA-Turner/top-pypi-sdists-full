@@ -72,6 +72,8 @@ Extra
 - `core` (requires Python 3.8+): Platform library functions to improve building with DataRobot.
     This can be used in DataRobot Custom Applications, Custom Models, and Agent Workflows.
 - `fs` (requires Python 3.9+): Provides file system implementation to work with the DataRobot file system.
+- `query-engine` (requires Python 3.9+): Engine to run SQLAlchemy-compatible queries against DataRobot data stores
+    and JDBC connections.
 
 You can install these optional groups by specifying them in the pip command, for example:
 
@@ -162,6 +164,10 @@ files_require = [
     "fsspec>=2025.5.0",
 ]
 
+query_engine_require = [
+    "sqlalchemy>=2.0.0",
+]
+
 otel_require = [
     "opentelemetry-sdk>=1.33.0,<2.0.0",
 ]
@@ -177,6 +183,7 @@ lint_require = (
     + auth_lint_require
     + core_require
     + files_require
+    + query_engine_require
 )
 
 tests_require = (
@@ -193,6 +200,7 @@ tests_require = (
     + databricks_require
     + auth_test_require
     + files_require
+    + query_engine_require
 )
 
 docs_require = [
@@ -209,7 +217,9 @@ docs_require = [
     "myst-parser==4.0.0",
 ]
 
-dev_require = tests_require + lint_require + images_require + docs_require + core_require + files_require
+dev_require = (
+    tests_require + lint_require + images_require + docs_require + core_require + files_require + query_engine_require
+)
 
 example_require = [
     "jupyter<=5.0",
@@ -292,6 +302,7 @@ common_setup_kwargs = dict(
         "core": core_require,
         "fs": files_require,
         "otel": otel_require,
+        "query-engine": query_engine_require,
         "pipelines": pipelines_require,
     },
 )

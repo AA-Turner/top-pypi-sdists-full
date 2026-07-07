@@ -1,29 +1,39 @@
 #!/usr/bin/env python
 
 from setuptools import setup, find_packages
+import os
+import re
 
-import lunardate
+def get_version():
+    with open(
+        os.path.join(os.path.dirname(__file__), "lunardate.py"),
+        "r",
+        encoding="utf-8",
+    ) as f:
+        version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", f.read(), re.M)
+        if version_match:
+            return version_match.group(1)
+    raise RuntimeError("Unable to find version string.")
 
 setup(name='lunardate',
-      version=lunardate.__version__,
+      version=get_version(),
       py_modules = ['lunardate'],
       description = 'A Chinese Calendar Library in Pure Python',
-      long_description = lunardate.__doc__,
+      long_description = open("README.md", "r", encoding="utf-8").read(),
+      long_description_content_type="text/markdown",
       author = 'LI Daobing',
       author_email = 'lidaobing@gmail.com',
       url = 'https://github.com/lidaobing/python-lunardate',
-      license = 'GPLv3',
+      license = 'GPL-3.0-or-later',
+      python_requires='>=3.7',
       classifiers = [
                      'Development Status :: 4 - Beta',
-                     'Programming Language :: Python',
-                     'Programming Language :: Python :: 2',
-                     'Programming Language :: Python :: 2.7',
                      'Programming Language :: Python :: 3',
-                     'Programming Language :: Python :: 3.4',
-                     'Programming Language :: Python :: 3.5',
-                     'Programming Language :: Python :: 3.6',
                      'Programming Language :: Python :: 3.7',
-                     'License :: OSI Approved :: GNU General Public License (GPL)',
+                     'Programming Language :: Python :: 3.8',
+                     'Programming Language :: Python :: 3.9',
+                     'Programming Language :: Python :: 3.10',
+                     'Programming Language :: Python :: 3.11',
                      'Operating System :: OS Independent',
                      'Topic :: Software Development :: Libraries :: Python Modules'
                      ]

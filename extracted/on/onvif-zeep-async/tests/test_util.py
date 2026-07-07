@@ -12,6 +12,7 @@ from onvif.client import ONVIFCamera
 from onvif.settings import DEFAULT_SETTINGS
 from onvif.transport import ASYNC_TRANSPORT, AsyncSafeTransport
 from onvif.util import (
+    bracket_host,
     extract_subcodes_as_strings,
     is_auth_error,
     normalize_url,
@@ -39,6 +40,25 @@ def test_normalize_url():
     assert normalize_url("http://[dead:beef::1]:80") == "http://[dead:beef::1]:80"
     assert normalize_url(None) is None
     assert normalize_url(b"http://[dead:beef::1]:80") is None
+
+
+def test_normalize_url_preserves_port_with_userinfo():
+    """A valid URL carrying ``user:pass@`` must keep its single port.
+
+    The userinfo colon must not be counted as a duplicated-port colon.
+    Snapshot URIs and subscription addresses can embed credentials, so
+    stripping the port here would silently redirect requests to the wrong
+    port (e.g. 8080 -> default 80).
+    """
+    assert (
+        normalize_url("http://user:pass@host:8080/snapshot")
+        == "http://user:pass@host:8080/snapshot"
+    )
+    # Duplicated port is still collapsed even with userinfo present.
+    assert (
+        normalize_url("http://user:pass@host:8080:8080/snapshot")
+        == "http://user:pass@host:8080/snapshot"
+    )
 
 
 @pytest.mark.asyncio
@@ -88,6 +108,17 @@ def test_replace_host_port_ipv6_host_gets_bracketed():
         replace_host_port("http://192.168.1.100/x", "[dead:beef::1]", 80)
         == "http://[dead:beef::1]:80/x"
     )
+
+
+def test_bracket_host():
+    # Bare IPv6 literals get bracketed; everything else passes through.
+    assert bracket_host("dead:beef::1") == "[dead:beef::1]"
+    assert bracket_host("[dead:beef::1]") == "[dead:beef::1]"
+    assert bracket_host("192.168.1.100") == "192.168.1.100"
+    assert bracket_host("camera.local") == "camera.local"
+    # Single-colon (non-IPv6) values are left untouched, not bracketed.
+    assert bracket_host("camera.local:8080") == "camera.local:8080"
+    assert bracket_host("https://1.2.3.4") == "https://1.2.3.4"
 
 
 def test_replace_host_port_no_op_on_empty_or_none():

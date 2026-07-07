@@ -1,14 +1,16 @@
 use crate::console_capture::console_log_line_levels::StatsigLogLineLevel;
+use crate::evaluation::secondary_exposure_key::SecondaryExposureKey;
 use crate::event_logging::statsig_event::string_metadata_to_value_metadata;
 use crate::event_logging::statsig_event::StatsigEvent;
 use crate::sdk_diagnostics::diagnostics::DIAGNOSTICS_EVENT;
 use crate::user::StatsigUserLoggable;
 use crate::{evaluation::evaluation_types::SecondaryExposure, statsig_metadata::StatsigMetadata};
 
+use ahash::AHashSet;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 pub const GATE_EXPOSURE_EVENT_NAME: &str = "statsig::gate_exposure";
 pub const CONFIG_EXPOSURE_EVENT_NAME: &str = "statsig::config_exposure";
@@ -37,7 +39,7 @@ impl StatsigEventInternal {
             event_data: event,
             user,
             time,
-            secondary_exposures: secondary_exposure_keys_to_expos(secondary_exposures),
+            secondary_exposures: secondary_exposures.map(dedupe_secondary_exposures),
         }
     }
 
@@ -157,36 +159,24 @@ impl StatsigEventInternal {
     }
 }
 
-fn secondary_exposure_keys_to_expos(
-    secondary_exposures: Option<Vec<SecondaryExposure>>,
-) -> Option<Vec<SecondaryExposure>> {
-    match secondary_exposures.as_ref() {
-        Some(secondary_exposures) => {
-            let mut seen = HashSet::new();
-            let mut filtered = Vec::new();
-            for expo in secondary_exposures {
-                let key = format!(
-                    "{}.{}.{}",
-                    expo.gate,
-                    expo.rule_id.as_str(),
-                    expo.gate_value
-                );
-                if !seen.contains(&key) {
-                    seen.insert(key);
-                    filtered.push(expo);
-                }
-            }
-
-            Some(secondary_exposures.clone())
-        }
-        None => None,
-    }
+/// Consumes an event-local exposure vector and retains the first occurrence of
+/// each `(gate, rule ID, gate value)` tuple, preserving the original order.
+fn dedupe_secondary_exposures(
+    mut secondary_exposures: Vec<SecondaryExposure>,
+) -> Vec<SecondaryExposure> {
+    let mut seen = AHashSet::with_capacity(secondary_exposures.len());
+    secondary_exposures.retain(|exposure| seen.insert(SecondaryExposureKey::from(exposure)));
+    secondary_exposures
 }
 
 #[cfg(test)]
 mod statsig_event_internal_tests {
+    use crate::evaluation::evaluation_types::SecondaryExposure;
     use crate::event_logging::statsig_event::StatsigEvent;
-    use crate::event_logging::statsig_event_internal::StatsigEventInternal;
+    use crate::event_logging::statsig_event_internal::{
+        dedupe_secondary_exposures, StatsigEventInternal,
+    };
+    use crate::interned_string::InternedString;
     use crate::user::StatsigUserInternal;
     use crate::StatsigUser;
     use chrono::Utc;
@@ -217,6 +207,14 @@ mod statsig_event_internal_tests {
         )
     }
 
+    fn secondary_exposure(gate: &str, rule_id: &str, gate_value: &str) -> SecondaryExposure {
+        SecondaryExposure {
+            gate: InternedString::from_str_ref(gate),
+            rule_id: InternedString::from_str_ref(rule_id),
+            gate_value: InternedString::from_str_ref(gate_value),
+        }
+    }
+
     #[test]
     fn test_custom_event_fields() {
         let event = create_test_event();
@@ -240,6 +238,49 @@ mod statsig_event_internal_tests {
         assert_eq!(
             value.get("metadata").unwrap().to_string(),
             "{\"key\":\"value\"}"
+        );
+    }
+
+    #[test]
+    fn test_secondary_exposure_duplicates_are_removed() {
+        let duplicate = secondary_exposure("gate-a", "rule-a", "true");
+        let exposures = dedupe_secondary_exposures(vec![duplicate.clone(), duplicate]);
+
+        assert_eq!(exposures.len(), 1);
+        assert_eq!(exposures[0].gate.as_str(), "gate-a");
+        assert_eq!(exposures[0].rule_id.as_str(), "rule-a");
+        assert_eq!(exposures[0].gate_value.as_str(), "true");
+    }
+
+    #[test]
+    fn test_secondary_exposure_unique_order_is_preserved() {
+        let exposures = dedupe_secondary_exposures(vec![
+            secondary_exposure("gate-b", "rule-b", "false"),
+            secondary_exposure("gate-a", "rule-a", "true"),
+            secondary_exposure("gate-b", "rule-b", "false"),
+            secondary_exposure("gate-b", "rule-c", "false"),
+            secondary_exposure("gate-b", "rule-b", "true"),
+            secondary_exposure("gate-a", "rule-a", "true"),
+        ]);
+
+        let exposure_values: Vec<(&str, &str, &str)> = exposures
+            .iter()
+            .map(|exposure| {
+                (
+                    exposure.gate.as_str(),
+                    exposure.rule_id.as_str(),
+                    exposure.gate_value.as_str(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            exposure_values,
+            vec![
+                ("gate-b", "rule-b", "false"),
+                ("gate-a", "rule-a", "true"),
+                ("gate-b", "rule-c", "false"),
+                ("gate-b", "rule-b", "true"),
+            ]
         );
     }
 }

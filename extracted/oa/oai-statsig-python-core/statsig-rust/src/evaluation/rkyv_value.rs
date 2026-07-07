@@ -6,14 +6,7 @@ use serde::ser::{SerializeMap, SerializeSeq};
 // A bridging layer between Serde and Rkyv.
 // Based on Rkyv Examples: https://github.com/rkyv/rkyv/blob/main/rkyv/examples/json_like_schema.rs
 #[derive(
-    Archive,
-    Debug,
-    rkyv::Deserialize,
-    rkyv::Serialize,
-    Clone,
-    serde::Serialize,
-    serde::Deserialize,
-    PartialEq,
+    Archive, Debug, rkyv::Deserialize, rkyv::Serialize, Clone, serde::Serialize, PartialEq,
 )]
 #[rkyv(serialize_bounds(
     __S: rkyv::ser::Writer + rkyv::ser::Allocator,
@@ -34,6 +27,52 @@ pub enum RkyvValue {
     String(String),
     Array(#[rkyv(omit_bounds)] Vec<RkyvValue>),
     Object(#[rkyv(omit_bounds)] HashMap<String, RkyvValue>),
+}
+
+impl RkyvValue {
+    fn from_json_value(value: serde_json::Value) -> Result<Self, String> {
+        match value {
+            serde_json::Value::Null => Ok(Self::Null),
+            serde_json::Value::Bool(value) => Ok(Self::Bool(value)),
+            serde_json::Value::Number(value) => {
+                if let Some(value) = value.as_u64() {
+                    return Ok(Self::Number(RkyvNumber::PosInt(value)));
+                }
+                if let Some(value) = value.as_i64() {
+                    return Ok(Self::Number(RkyvNumber::NegInt(value)));
+                }
+                if let Some(value) = value.as_f64().filter(|value| value.is_finite()) {
+                    return Ok(Self::Number(RkyvNumber::Float(value)));
+                }
+
+                Err(format!("JSON number {value} cannot be represented"))
+            }
+            serde_json::Value::String(value) => Ok(Self::String(value)),
+            serde_json::Value::Array(values) => values
+                .into_iter()
+                .map(Self::from_json_value)
+                .collect::<Result<_, _>>()
+                .map(Self::Array),
+            serde_json::Value::Object(values) => values
+                .into_iter()
+                .map(|(key, value)| Self::from_json_value(value).map(|value| (key, value)))
+                .collect::<Result<_, _>>()
+                .map(Self::Object),
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for RkyvValue {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // serde_json represents numbers as a private marker map while buffering an
+        // untagged enum when its arbitrary_precision feature is enabled. Let Value's
+        // deserializer consume that representation before mapping into the rkyv schema.
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        Self::from_json_value(value).map_err(serde::de::Error::custom)
+    }
 }
 
 impl serde::Serialize for ArchivedRkyvValue {

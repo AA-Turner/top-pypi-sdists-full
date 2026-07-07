@@ -124,19 +124,19 @@ EXPORT THREEBYTES return_three_bytes(void)
 """
 
 @pytest.mark.thread_unsafe(reason="Parallel tests would share a build directory")
-class TestOwnLib(object):
+class TestOwnLib:
     Backend = CTypesBackend
 
     def setup_class(cls):
         cls.module = None
         from testing.udir import udir
-        udir.join('testownlib.c').write(SOURCE)
+        (udir / 'testownlib.c').write_text(SOURCE)
         if sys.platform == 'win32':
             # did we already build it?
             if cls.Backend is CTypesBackend:
-                dll_path = str(udir) + '\\testownlib1.dll'   # only ascii for the ctypes backend
+                dll_path = f"{udir}\\testownlib1.dll"  # only ascii for the ctypes backend
             else:
-                dll_path = str(udir) + '\\' + (u+'testownlib\u03be.dll')   # non-ascii char
+                dll_path = f"{udir}\\testownlib\u03be.dll"  # non-ascii char
             if os.path.exists(dll_path):
                 cls.module = dll_path
                 return
@@ -156,10 +156,9 @@ class TestOwnLib(object):
             if sys.maxsize > 2**32:
                 arch = 'amd64'
             if os.path.isfile(vcvarsall):
-                cmd = '"%s" %s' % (vcvarsall, arch) + ' & cl.exe testownlib.c ' \
-                        ' /LD /Fetestownlib.dll'
+                cmd = f'"{vcvarsall}" {arch} & cl.exe testownlib.c /LD /Fetestownlib.dll'
                 subprocess.check_call(cmd, cwd = str(udir), shell=True)
-                os.rename(str(udir) + '\\testownlib.dll', dll_path)
+                os.rename(f"{udir}\\testownlib.dll", dll_path)
                 cls.module = dll_path
         else:
             encoded = None
@@ -177,7 +176,7 @@ class TestOwnLib(object):
             subprocess.check_call(
                 "cc testownlib.c -shared -fPIC -o '%s.so'" % (encoded,),
                 cwd=str(udir), shell=True)
-            cls.module = os.path.join(str(udir), unicode_name + (u+'.so'))
+            cls.module = f"{udir / unicode_name}.so"
         print(repr(cls.module))
 
     def test_getting_errno(self):

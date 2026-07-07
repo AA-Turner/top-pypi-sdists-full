@@ -1,4 +1,4 @@
-//! Independent-subspace (ISA) deflationary birth producer (#2111 hardening).
+//! Independent-subspace (ISA) capture-and-joint-rotation birth producer (#2111 hardening).
 //!
 //! WHY FOURTH ORDER. The stagewise birth path mines the running residual for a
 //! circle's 2-plane. Whitening the above-noise signal subspace EXHAUSTS all
@@ -21,28 +21,39 @@
 //! dense circles at `κ → 1`, super-Gaussian gated circles at `κ = 1/q > 2`) and
 //! zeroed exactly on the blends the producer must refuse.
 //!
-//! PRODUCER. Whiten the above-Marchenko–Pastur signal subspace → partition its
-//! `r` coordinates into `⌊r/2⌋` candidate 2-planes → cyclic 2-plane JACOBI
-//! rotations: every coordinate pair `(i, j)` spanning two different planes is
-//! rotated by the angle maximizing the total contrast `Σ_planes (κ_m − 2)²`,
-//! which is exactly evaluable at any angle from one `O(n)` joint-moment pass
-//! (the rotated moments are closed-form trigonometric polynomials — see
-//! [`PairPolys`]). Multistart (`≥ 6` random orthogonal inits — the
-//! prototype-validated floor for escaping permutation/blend saddles on the
-//! equal-amplitude worst case, where second order gives NO ordering at all)
-//! keeps the best basin. The winning plane is accepted only on the ANALYTIC
-//! contrast certificate (anchors above; no tuned ε), and the accepted circle is
-//! DEFLATED by subtracting its FITTED CURVE — the least-squares harmonic
-//! `â₁cosθ·u₁ + â₂sinθ·u₂` on its active rows — NOT its plane projection.
-//! Subtracting the plane would also delete the plane's noise energy and the
-//! overlap other structure may share with it, biasing every later round;
-//! subtracting the fitted curve removes exactly the model the born atom will
-//! carry, which is also what the stagewise fit-then-residual loop does — so the
-//! in-fit deflation and this producer's harness deflation are the same operator.
+//! PRODUCER. Capture the above-Marchenko–Pastur signal subspace and count its
+//! candidate planes (`⌊r/2⌋`). Whitening that captured span exhausts second
+//! order and destroys amplitude ordering, so separation inside it must be
+//! JOINT, not greedy: partition the `r` whitened coordinates into candidate
+//! 2-planes, then run cyclic 2-plane JACOBI rotations over every coordinate
+//! pair `(i, j)` spanning different planes. Each rotation maximizes the total
+//! contrast `Σ_planes (κ_m − 2)²`, exactly evaluable at any angle from one
+//! `O(n)` joint-moment pass (closed-form trigonometric polynomials — see
+//! [`PlanePolys`]). Multistart (`≥ 6` random orthogonal inits — the
+//! prototype-validated floor for escaping permutation/blend saddles) keeps the
+//! best JOINT basin. Every plane in that single jointly rotated basis is then
+//! accepted or refused by the ANALYTIC contrast certificate (anchors above; no
+//! tuned ε) after mapping back through the GENERATIVE unwhitening `EΛ^{1/2}` to
+//! its ambient support plane. Deflation is not a separation method here; it is
+//! retained only as an external utility for callers that need to peel an
+//! accepted fitted curve.
 //!
 //! Everything here is derived from the residual spectrum (MP edge, bottom-
 //! quartile noise scale) plus the analytic κ anchors; the only dials are
 //! multistart/sweep COST caps, typed on [`IsaSeedConfig`].
+//!
+//! THEORY (Superposed Geometry, Prop. 1 — measure-level identifiability). A
+//! CENTERED circle's cone ℝ₊·Y coincides, as a set, with the whole 2-plane
+//! P∖{0}: no support test, no rank test, no Terracini border-block Jacobian
+//! can distinguish "this data lives on a circle" from "this data spans a
+//! plane" — the circle is SUPPORT-INVISIBLE. It is identifiable only through
+//! its RADIAL LAW, i.e. the MEASURE the data puts on that support, not the
+//! support itself. This file is the measure-level half of identifiability;
+//! the support/rank half (Terracini tests, border-block Jacobian) lives in
+//! sibling `identifiability.rs` + the certificate machinery. The two see
+//! COMPLEMENTARY halves of Prop. 1 — support existence vs. the law on that
+//! support — and neither subsumes the other: a centered circle is exactly the
+//! case the support test cannot see and this producer must.
 
 use faer::Side;
 use gam_linalg::faer_ndarray::FaerEigh;
@@ -203,9 +214,9 @@ pub struct IsaPlaneCandidate {
     pub amplitudes: [f64; 2],
     /// Per-row in-plane phase in turns `[0, 1)`, `(n, 1)` — the born chart seed.
     pub phases_turns: Array2<f64>,
-    /// Per-row OWN-PRESENCE gate: `ln(ρ_i² / 2λ₊)` where the plane radius
-    /// clears the derived 2-plane noise floor, else `−∞` (same contract as the
-    /// #2109 gate).
+    /// Per-row OWN-PRESENCE gate: `ln(ρ_i² / (2σ̂² ln n))` where the plane
+    /// radius clears the derived χ²₂ upper-tail noise floor, else `−∞` (same
+    /// contract as the #2109 gate).
     pub gate_logits: Vec<f64>,
     /// Observed raw-radius `κ` over all rows.
     pub kappa: f64,
@@ -403,6 +414,14 @@ fn pair_polys(
 
 /// Pair objective `J(θ) = Σ_{existing planes} (κ(θ) − 2)²` and its hand-derived
 /// derivative, exactly evaluable from the pair polynomials.
+///
+/// This IS the Prop. 1 measure-vs-support contrast made optimizable: `κ = 2`
+/// is not an arbitrary target but the one population — the Gaussian/CLT blend
+/// of many independent charts — whose radial law a plane and a circle share
+/// asymptotically. `(κ − 2)²` is zero exactly there and rises on BOTH sides
+/// (dense circle `κ → 1`, gated circle `κ = 1/q > 2`), so ascending it always
+/// moves toward whichever clean radial law is present and away from the blend
+/// no support/rank test could have ruled out in the first place.
 fn pair_objective(a: &Option<PlanePolys>, b: &Option<PlanePolys>, theta: f64) -> f64 {
     let (c2, s2) = ((2.0 * theta).cos(), (2.0 * theta).sin());
     let (c4, s4) = ((4.0 * theta).cos(), (4.0 * theta).sin());
@@ -429,6 +448,79 @@ fn pair_objective_deriv(a: &Option<PlanePolys>, b: &Option<PlanePolys>, theta: f
     dj
 }
 
+fn best_pair_rotation(a: &Option<PlanePolys>, b: &Option<PlanePolys>) -> (f64, f64) {
+    let step = std::f64::consts::PI / ISA_ANGLE_SAMPLES as f64;
+    let mut samples: Vec<(f64, f64, f64)> = Vec::with_capacity(ISA_ANGLE_SAMPLES + 1);
+    for k in 0..=ISA_ANGLE_SAMPLES {
+        let theta = -std::f64::consts::FRAC_PI_2 + step * k as f64;
+        samples.push((
+            theta,
+            pair_objective(a, b, theta),
+            pair_objective_deriv(a, b, theta),
+        ));
+    }
+
+    let mut best_theta = 0.0_f64;
+    let mut best_j = pair_objective(a, b, 0.0);
+    for &(theta, jv, _) in &samples {
+        if jv > best_j {
+            best_j = jv;
+            best_theta = theta;
+        }
+    }
+
+    for k in 0..ISA_ANGLE_SAMPLES {
+        let (mut lo, _, dlo) = samples[k];
+        let (mut hi, _, dhi) = samples[k + 1];
+        if !(dlo.is_finite() && dhi.is_finite()) {
+            continue;
+        }
+        if dlo == 0.0 {
+            let jv = pair_objective(a, b, lo);
+            if jv > best_j {
+                best_j = jv;
+                best_theta = lo;
+            }
+            continue;
+        }
+        if dhi == 0.0 {
+            let jv = pair_objective(a, b, hi);
+            if jv > best_j {
+                best_j = jv;
+                best_theta = hi;
+            }
+            continue;
+        }
+        if dlo.signum() == dhi.signum() {
+            continue;
+        }
+        let mut dlo_cur = dlo;
+        for _ in 0..60 {
+            let mid = 0.5 * (lo + hi);
+            let dmid = pair_objective_deriv(a, b, mid);
+            if dmid == 0.0 {
+                lo = mid;
+                hi = mid;
+                break;
+            }
+            if dmid.signum() == dlo_cur.signum() {
+                lo = mid;
+                dlo_cur = dmid;
+            } else {
+                hi = mid;
+            }
+        }
+        let theta = 0.5 * (lo + hi);
+        let jv = pair_objective(a, b, theta);
+        if jv > best_j {
+            best_j = jv;
+            best_theta = theta;
+        }
+    }
+
+    (best_theta, best_j)
+}
+
 /// κ of the plane made of coordinate rows `(2m, 2m+1)` of `y`, over columns.
 fn plane_rows_kappa(y: &Array2<f64>, m: usize) -> f64 {
     let n = y.ncols();
@@ -447,7 +539,12 @@ fn plane_rows_kappa(y: &Array2<f64>, m: usize) -> f64 {
     (s4 / n as f64) / (m2 * m2)
 }
 
-/// Total ISA contrast `Σ_planes (κ_m − 2)²` of the current rotation state.
+/// Total ISA contrast `Σ_planes (κ_m − 2)²` of the current rotation state —
+/// the objective the Jacobi sweep ascends and the score used to rank joint
+/// basins across multistart inits and planes inside a single basin (see
+/// [`isa_extract_certified_planes`]). Same Gaussian-anchor logic as
+/// [`pair_objective`], just summed over all current planes rather than the
+/// two planes touched by one rotation.
 fn total_contrast(y: &Array2<f64>, n_planes: usize) -> f64 {
     (0..n_planes)
         .map(|m| {
@@ -486,41 +583,10 @@ fn jacobi_optimize(y: &mut Array2<f64>, q: &mut Array2<f64>, n_planes: usize, ma
                     continue;
                 }
                 let j0 = pair_objective(&pa, &pb, 0.0);
-                // Nyquist-rate scan (derivation at ISA_ANGLE_SAMPLES) + argmax.
-                let mut best_theta = 0.0_f64;
-                let mut best_j = j0;
-                let step = std::f64::consts::PI / ISA_ANGLE_SAMPLES as f64;
-                for k in 0..ISA_ANGLE_SAMPLES {
-                    let theta = -std::f64::consts::FRAC_PI_2 + step * k as f64;
-                    let jv = pair_objective(&pa, &pb, theta);
-                    if jv > best_j {
-                        best_j = jv;
-                        best_theta = theta;
-                    }
-                }
-                // Polish inside the bracketing lattice cell with the exact
-                // derivative (bisection on dJ/dθ — hand-derived, no FD).
-                let (mut lo, mut hi) = (best_theta - step, best_theta + step);
-                let (dlo, dhi) = (
-                    pair_objective_deriv(&pa, &pb, lo),
-                    pair_objective_deriv(&pa, &pb, hi),
-                );
-                if dlo > 0.0 && dhi < 0.0 {
-                    for _ in 0..60 {
-                        let mid = 0.5 * (lo + hi);
-                        if pair_objective_deriv(&pa, &pb, mid) > 0.0 {
-                            lo = mid;
-                        } else {
-                            hi = mid;
-                        }
-                    }
-                    let polished = 0.5 * (lo + hi);
-                    let jp = pair_objective(&pa, &pb, polished);
-                    if jp > best_j {
-                        best_j = jp;
-                        best_theta = polished;
-                    }
-                }
+                // Nyquist-rate scan over the full period plus all derivative
+                // sign-change roots. The old single-cell polish missed maxima
+                // whose grid winner was not bracketed by `+ → -` derivatives.
+                let (best_theta, best_j) = best_pair_rotation(&pa, &pb);
                 if best_j > j0 * (1.0 + ISA_SWEEP_RTOL) + f64::MIN_POSITIVE {
                     let (c, s) = (best_theta.cos(), best_theta.sin());
                     for col in 0..y.ncols() {
@@ -557,127 +623,20 @@ fn subsample_columns(n: usize) -> Vec<usize> {
         .collect()
 }
 
-/// Analytic κ-contrast certificate + candidate assembly for one whitened-space
-/// plane. `w` is `(r, 2)` in the above-floor eigenbasis. Certification happens
-/// on the FULL data in AMBIENT coordinates: the plane is un-whitened,
-/// re-orthonormalized, and its raw-radius moments compared against the
-/// noise-corrected population anchors —
-///
-/// * clean gated circle: `E[r²] = q̂a² + 2σ̂²`, `E[r⁴] = q̂a⁴ + 8q̂a²σ̂² + 8σ̂⁴`
-///   (dense is `q̂ = 1`), so `κ_model = (q̂a⁴ + 8q̂a²σ̂² + 8σ̂⁴)/m₂²`;
-/// * nearest blend: the 45° two-circle sub-Gaussian blend, whose only change is
-///   the pure quartic term scaling by 5/4: `κ_blend = (1.25·q̂a⁴ + 8q̂a²σ̂² +
-///   8σ̂⁴)/m₂²`. Every blendier population (same-plane two-circle 3/2, Gaussian
-///   2) sits above it — all scaled by the same measured `1/q̂` — so the
-///   NEAREST adversary bounds them all.
-///
-/// Accept iff the anchors are ordered (`κ_model < κ_blend`) and the observed κ
-/// falls on the model side of their midpoint — a likelihood split between two
-/// derived populations, no tuned ε.
-fn certify_plane(
+/// Whitened above-floor coordinates, row-major as `(r, n_sub)` for the Jacobi
+/// moment pass. The rotation itself is estimated on the deterministic
+/// concentration-floor subsample; certification still uses all rows.
+fn whitened_subsample(
     residual: ArrayView2<'_, f64>,
     parts: &IsaEigenParts,
-    w: &Array2<f64>,
-) -> Option<IsaPlaneCandidate> {
-    let (n, p) = residual.dim();
-    let r = parts.above.len();
-    // Un-whiten to ambient: u_a / √λ_a per above-floor direction, then restore
-    // orthonormality (whitening skews the frame).
-    let mut amb = Array2::<f64>::zeros((p, 2));
-    for (a, &k) in parts.above.iter().enumerate().take(r) {
-        let inv = 1.0 / parts.evals[k].max(f64::MIN_POSITIVE).sqrt();
-        for j in 0..p {
-            amb[[j, 0]] += parts.evecs[[j, k]] * inv * w[[a, 0]];
-            amb[[j, 1]] += parts.evecs[[j, k]] * inv * w[[a, 1]];
-        }
-    }
-    if !orthonormalize2(&mut amb) {
-        return None;
-    }
-    let noise_2plane = 2.0 * parts.mp_edge;
-    let mut phases = Array2::<f64>::zeros((n, 1));
-    let mut gate = vec![f64::NEG_INFINITY; n];
-    let (mut r2_sum, mut r4_sum) = (0.0_f64, 0.0_f64);
-    let (mut c_num, mut c_den, mut s_num, mut s_den) = (0.0_f64, 0.0, 0.0, 0.0);
-    let mut n_active = 0usize;
-    for i in 0..n {
-        let (mut p1, mut p2) = (0.0_f64, 0.0_f64);
-        for j in 0..p {
-            let ri = residual[[i, j]] - parts.mean[j];
-            p1 += ri * amb[[j, 0]];
-            p2 += ri * amb[[j, 1]];
-        }
-        let theta = p2.atan2(p1);
-        phases[[i, 0]] = theta.rem_euclid(std::f64::consts::TAU) / std::f64::consts::TAU;
-        let r2 = p1 * p1 + p2 * p2;
-        r2_sum += r2;
-        r4_sum += r2 * r2;
-        if r2 > noise_2plane {
-            gate[i] = (r2 / noise_2plane).ln();
-            n_active += 1;
-            // LS harmonic amplitudes on active rows: p1 = ρcosθ regressed on cosθ.
-            let (ct, st) = (theta.cos(), theta.sin());
-            c_num += p1 * ct;
-            c_den += ct * ct;
-            s_num += p2 * st;
-            s_den += st * st;
-        }
-    }
-    if n_active == 0 {
-        return None;
-    }
-    let q_hat = n_active as f64 / n as f64;
-    let m2 = (r2_sum / n as f64).max(f64::MIN_POSITIVE);
-    let kappa_obs = (r4_sum / n as f64) / (m2 * m2);
-    let sig2 = parts.sigma2_cert;
-    // Noise-corrected squared amplitude: m₂ = q̂a² + 2σ̂².
-    let a2t = ((m2 - 2.0 * sig2) / q_hat).max(0.0);
-    let common = 8.0 * q_hat * a2t * sig2 + 8.0 * sig2 * sig2;
-    let kappa_model = (q_hat * a2t * a2t + common) / (m2 * m2);
-    let kappa_blend = (1.25 * q_hat * a2t * a2t + common) / (m2 * m2);
-    if !(kappa_model < kappa_blend) {
-        return None; // amplitude below noise — anchors unresolvable
-    }
-    let gate_mid = 0.5 * (kappa_model + kappa_blend);
-    if !(kappa_obs < gate_mid) {
-        return None; // blend side of the split — refuse the circle claim
-    }
-    let a1 = if c_den > 0.0 { c_num / c_den } else { 0.0 };
-    let a2 = if s_den > 0.0 { s_num / s_den } else { 0.0 };
-    if !(a1.is_finite() && a2.is_finite()) {
-        return None;
-    }
-    Some(IsaPlaneCandidate {
-        basis: amb,
-        amplitudes: [a1, a2],
-        phases_turns: phases,
-        gate_logits: gate,
-        kappa: kappa_obs,
-        q_hat,
-    })
-}
-
-/// Extract ONE certified circle plane from the residual, given its
-/// eigenstructure: whiten the above-floor subspace, run the multistart Jacobi
-/// contrast ascent, then walk the resulting planes in descending contrast order
-/// and return the first that passes the ambient certificate. `None` = the
-/// residual carries no certifiable clean circle (the caller's natural stop or
-/// rank-1 fallback).
-pub fn isa_extract_certified_plane(
-    residual: ArrayView2<'_, f64>,
-    parts: &IsaEigenParts,
-    config: &IsaSeedConfig,
-) -> Option<IsaPlaneCandidate> {
+) -> Option<Array2<f64>> {
     let n = residual.nrows();
     let r = parts.above.len();
     if r < 2 || n < 2 {
         return None;
     }
-    let n_planes = r / 2;
-    // Whitened above-floor coordinates, moment-floor subsample of the columns.
     let cols = subsample_columns(n);
-    let n_sub = cols.len();
-    let mut z = Array2::<f64>::zeros((r, n_sub));
+    let mut z = Array2::<f64>::zeros((r, cols.len()));
     for (a, &k) in parts.above.iter().enumerate() {
         let inv = 1.0 / parts.evals[k].max(f64::MIN_POSITIVE).sqrt();
         for (cc, &row) in cols.iter().enumerate() {
@@ -688,14 +647,33 @@ pub fn isa_extract_certified_plane(
             z[[a, cc]] = proj * inv;
         }
     }
-    // Multistart Jacobi: identity init + random orthogonal inits, keep the basin
-    // with the largest total contrast. Deterministic (LCG keyed by init + n).
+    Some(z)
+}
+
+/// Multistart joint Jacobi basis for the whole captured whitened span. Returns
+/// `(q, y)`, where `y = qᵀ z`; columns `(2m, 2m+1)` of `q` are the separated
+/// whitened-space plane `m`. This is the only separation step: callers may
+/// choose how many certified planes to consume, but they must not recursively
+/// re-separate by greedy deflation inside this captured span.
+fn joint_jacobi_basis(
+    residual: ArrayView2<'_, f64>,
+    parts: &IsaEigenParts,
+    config: &IsaSeedConfig,
+) -> Option<(Array2<f64>, Array2<f64>)> {
+    let z = whitened_subsample(residual, parts)?;
+    let r = z.nrows();
+    let n_planes = r / 2;
     let mut best: Option<(f64, Array2<f64>, Array2<f64>)> = None;
-    for init in 0..config.n_inits.max(1) {
+    let n_inits = if n_planes == 1 {
+        1
+    } else {
+        config.n_inits.max(1)
+    };
+    for init in 0..n_inits {
         let mut q = Array2::<f64>::eye(r);
         if init > 0 {
             // Random orthogonal via Gram-Schmidt of LCG normal columns.
-            let mut state = 0x2111_15A0_u64 ^ ((init as u64) << 32) ^ n as u64;
+            let mut state = 0x2111_15A0_u64 ^ ((init as u64) << 32) ^ residual.nrows() as u64;
             let mut g = Array2::<f64>::from_shape_fn((r, r), |_| lcg_normal(&mut state));
             for c in 0..r {
                 for prev in 0..c {
@@ -732,8 +710,175 @@ pub fn isa_extract_certified_plane(
             best = Some((contrast, q, y));
         }
     }
-    let (_, q, y) = best?;
-    // Planes in descending single-plane contrast; first to certify wins.
+    best.map(|(_, q, y)| (q, y))
+}
+
+pub(crate) fn capture_signal_span(
+    residual: ArrayView2<'_, f64>,
+    max_planes: usize,
+) -> Result<Option<IsaEigenParts>, String> {
+    if max_planes == 0 {
+        return Ok(None);
+    }
+    let max_dims = 2 * max_planes;
+    let Some(mut parts) = isa_eigen_parts(residual)? else {
+        return Ok(None);
+    };
+    let mut keep = parts.above.len().min(max_dims);
+    if keep % 2 == 1 {
+        keep -= 1;
+    }
+    if keep < 2 {
+        return Ok(None);
+    }
+    parts.above.truncate(keep);
+    Ok(Some(parts))
+}
+
+/// Analytic κ-contrast certificate + candidate assembly for one whitened-space
+/// plane. `w` is `(r, 2)` in the above-floor eigenbasis. Certification happens
+/// on the FULL data in AMBIENT coordinates: the plane is un-whitened,
+/// re-orthonormalized, and its raw-radius moments compared against the
+/// noise-corrected population anchors —
+///
+/// * clean gated circle: `E[r²] = q̂a² + 2σ̂²`, `E[r⁴] = q̂a⁴ + 8q̂a²σ̂² + 8σ̂⁴`
+///   (dense is `q̂ = 1`), so `κ_model = (q̂a⁴ + 8q̂a²σ̂² + 8σ̂⁴)/m₂²`;
+/// * nearest blend: the 45° two-circle sub-Gaussian blend, whose only change is
+///   the pure quartic term scaling by 5/4: `κ_blend = (1.25·q̂a⁴ + 8q̂a²σ̂² +
+///   8σ̂⁴)/m₂²`. Every blendier population (same-plane two-circle 3/2, Gaussian
+///   2) sits above it — all scaled by the same measured `1/q̂` — so the
+///   NEAREST adversary bounds them all.
+///
+/// Accept iff the anchors are ordered (`κ_model < κ_blend`) and the observed κ
+/// falls on the model side of their midpoint — a likelihood split between two
+/// derived populations, no tuned ε.
+///
+/// This is the actual certification instrument for Prop. 1: `amb`, the
+/// candidate 2-plane, is by construction support-indistinguishable from a
+/// generic plane (that ambiguity is exactly what the Jacobi ascent's contrast
+/// score cannot resolve on its own, since a lucky rotation could land near a
+/// blend's local optimum). What decides ACCEPT/REJECT here is not the plane
+/// itself but a comparison of two DERIVED MEASURES on it — `κ_model` (clean
+/// gated/dense circle law) vs. `κ_blend` (nearest Gaussian-mixture law) — so
+/// the accept/reject boundary lives entirely in measure space, never in
+/// support space. A circle and a plane occupying identical support pass or
+/// fail this test on the strength of their radial law alone.
+fn certify_plane(
+    residual: ArrayView2<'_, f64>,
+    parts: &IsaEigenParts,
+    w: &Array2<f64>,
+) -> Option<IsaPlaneCandidate> {
+    let (n, p) = residual.dim();
+    let r = parts.above.len();
+    // Un-whiten to the ambient SUPPORT plane: a whitened source direction `w`
+    // generates ambient variation as `E Λ^{1/2} w`. The reciprocal
+    // `E Λ^{-1/2} w` is the score functional used to READ the whitened
+    // coordinate, not the Euclidean support plane to birth/deflate. On unequal
+    // circle amplitudes the two maps span different mixed planes; using the
+    // score plane leaves the accepted strong circle's covariance behind, so
+    // later rounds keep seeing it instead of the weaker circles.
+    let mut amb = Array2::<f64>::zeros((p, 2));
+    for (a, &k) in parts.above.iter().enumerate().take(r) {
+        let scale = parts.evals[k].max(f64::MIN_POSITIVE).sqrt();
+        for j in 0..p {
+            amb[[j, 0]] += parts.evecs[[j, k]] * scale * w[[a, 0]];
+            amb[[j, 1]] += parts.evecs[[j, k]] * scale * w[[a, 1]];
+        }
+    }
+    if !orthonormalize2(&mut amb) {
+        return None;
+    }
+    let noise_2plane = 2.0 * parts.sigma2_cert.max(f64::MIN_POSITIVE) * (n as f64).ln();
+    let mut phases = Array2::<f64>::zeros((n, 1));
+    let mut gate = vec![f64::NEG_INFINITY; n];
+    let (mut r2_sum, mut r4_sum) = (0.0_f64, 0.0_f64);
+    let (mut c_num, mut c_den, mut s_num, mut s_den) = (0.0_f64, 0.0, 0.0, 0.0);
+    let mut n_active = 0usize;
+    for i in 0..n {
+        let (mut p1, mut p2) = (0.0_f64, 0.0_f64);
+        for j in 0..p {
+            let ri = residual[[i, j]] - parts.mean[j];
+            p1 += ri * amb[[j, 0]];
+            p2 += ri * amb[[j, 1]];
+        }
+        let theta = p2.atan2(p1);
+        phases[[i, 0]] = theta.rem_euclid(std::f64::consts::TAU) / std::f64::consts::TAU;
+        let r2 = p1 * p1 + p2 * p2;
+        r2_sum += r2;
+        r4_sum += r2 * r2;
+        if r2 > noise_2plane {
+            gate[i] = (r2 / noise_2plane).ln();
+            n_active += 1;
+            // LS harmonic amplitudes on active rows: p1 = ρcosθ regressed on cosθ.
+            let (ct, st) = (theta.cos(), theta.sin());
+            c_num += p1 * ct;
+            c_den += ct * ct;
+            s_num += p2 * st;
+            s_den += st * st;
+        }
+    }
+    if n_active == 0 {
+        return None;
+    }
+    // With the χ²₂ tail gate calibrated to one expected false-active row per
+    // plane, a resolvable circle must clear a super-Poisson tail count rather
+    // than a handful of accidental exceedances.
+    let active_floor = ((n as f64).ln().powi(2).ceil() as usize).max(4);
+    if n_active < active_floor {
+        return None;
+    }
+    let q_hat = n_active as f64 / n as f64;
+    let m2 = (r2_sum / n as f64).max(f64::MIN_POSITIVE);
+    let kappa_obs = (r4_sum / n as f64) / (m2 * m2);
+    let sig2 = parts.sigma2_cert;
+    // Noise-corrected squared amplitude: m₂ = q̂a² + 2σ̂².
+    let a2t = ((m2 - 2.0 * sig2) / q_hat).max(0.0);
+    let common = 8.0 * q_hat * a2t * sig2 + 8.0 * sig2 * sig2;
+    let kappa_model = (q_hat * a2t * a2t + common) / (m2 * m2);
+    let kappa_blend = (1.25 * q_hat * a2t * a2t + common) / (m2 * m2);
+    if !(kappa_model < kappa_blend) {
+        return None; // amplitude below noise — anchors unresolvable
+    }
+    let gate_mid = 0.5 * (kappa_model + kappa_blend);
+    if !(kappa_obs < gate_mid) {
+        return None; // blend side of the split — refuse the circle claim
+    }
+    let a1 = if c_den > 0.0 { c_num / c_den } else { 0.0 };
+    let a2 = if s_den > 0.0 { s_num / s_den } else { 0.0 };
+    if !(a1.is_finite() && a2.is_finite()) {
+        return None;
+    }
+    Some(IsaPlaneCandidate {
+        basis: amb,
+        amplitudes: [a1, a2],
+        phases_turns: phases,
+        gate_logits: gate,
+        kappa: kappa_obs,
+        q_hat,
+    })
+}
+
+/// Extract all certified circle planes from one captured above-floor span:
+/// whiten the span once, run one JOINT multistart Jacobi rotation over every
+/// candidate plane pair, then certify planes from that joint basis. `max_planes`
+/// is a caller safety bound on how many certified planes to consume, not a
+/// separation mechanism.
+pub fn isa_extract_certified_planes(
+    residual: ArrayView2<'_, f64>,
+    parts: &IsaEigenParts,
+    max_planes: usize,
+    config: &IsaSeedConfig,
+) -> Vec<IsaPlaneCandidate> {
+    let r = parts.above.len();
+    if r < 2 || max_planes == 0 {
+        return Vec::new();
+    }
+    let n_planes = r / 2;
+    let Some((q, y)) = joint_jacobi_basis(residual, parts, config) else {
+        return Vec::new();
+    };
+    // Planes in descending single-plane contrast, but all come from the same
+    // joint basin. This ordering only selects emission order under max_planes.
     let mut order: Vec<(f64, usize)> = (0..n_planes)
         .map(|m| {
             let k = plane_rows_kappa(&y, m);
@@ -742,6 +887,7 @@ pub fn isa_extract_certified_plane(
         })
         .collect();
     order.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let mut out = Vec::new();
     for (contrast, m) in order {
         if !(contrast > 0.0) {
             continue;
@@ -752,64 +898,108 @@ pub fn isa_extract_certified_plane(
             w[[row, 1]] = q[[row, 2 * m + 1]];
         }
         if let Some(cand) = certify_plane(residual, parts, &w) {
-            return Some(cand);
+            out.push(cand);
+            if out.len() >= max_planes {
+                break;
+            }
         }
     }
-    None
+    out
 }
 
-/// Subtract an accepted plane's FITTED CURVE from the residual, in place: on
-/// each active row (finite gate) remove `â₁cosθ·u₁ + â₂sinθ·u₂`. The plane's
-/// noise energy and any structure other atoms share with it stay — this is the
-/// deflation operator that matches the stagewise fit-then-residual loop.
+/// Extract one certified circle plane from the JOINT split of the current
+/// captured span. This is a compatibility shim for single-birth callers; it
+/// does not perform greedy recursive separation.
+pub fn isa_extract_certified_plane(
+    residual: ArrayView2<'_, f64>,
+    parts: &IsaEigenParts,
+    config: &IsaSeedConfig,
+) -> Option<IsaPlaneCandidate> {
+    isa_extract_certified_planes(residual, parts, 1, config)
+        .into_iter()
+        .next()
+}
+
+/// Subtract an accepted plane's centered residual projection, in place: on each
+/// active row (finite gate) remove the residual component in the certified
+/// ambient SUPPORT plane. Certification still emits the LS harmonic amplitudes
+/// used by the birth seed; harvest deflation must zero the accepted plane's
+/// covariance so the next eigendecomposition surfaces the next circle.
 pub fn isa_deflate_fitted_curve(residual: &mut Array2<f64>, cand: &IsaPlaneCandidate) {
     let (n, p) = residual.dim();
+    let mut mean = Array1::<f64>::zeros(p);
+    for i in 0..n {
+        for j in 0..p {
+            mean[j] += residual[[i, j]];
+        }
+    }
+    mean.mapv_inplace(|v| v / n as f64);
     for i in 0..n {
         if !cand.gate_logits[i].is_finite() {
             continue;
         }
-        let theta = cand.phases_turns[[i, 0]] * std::f64::consts::TAU;
-        let (ct, st) = (theta.cos(), theta.sin());
+        let (mut p1, mut p2) = (0.0_f64, 0.0_f64);
         for j in 0..p {
-            residual[[i, j]] -=
-                cand.amplitudes[0] * ct * cand.basis[[j, 0]] + cand.amplitudes[1] * st * cand.basis[[j, 1]];
+            let ri = residual[[i, j]] - mean[j];
+            p1 += ri * cand.basis[[j, 0]];
+            p2 += ri * cand.basis[[j, 1]];
+        }
+        for j in 0..p {
+            residual[[i, j]] -= p1 * cand.basis[[j, 0]] + p2 * cand.basis[[j, 1]];
+        }
+    }
+    if cand.gate_logits.iter().all(|g| g.is_finite()) {
+        // Dense circles are present on every row, so after the first pass the
+        // accepted support plane should carry only roundoff. Recenter and remove
+        // that last numerical component explicitly; this is a no-op for sparse
+        // gates, where off-row plane noise must remain available to the noise
+        // floor rather than being silently deleted.
+        mean.fill(0.0);
+        for i in 0..n {
+            for j in 0..p {
+                mean[j] += residual[[i, j]];
+            }
+        }
+        mean.mapv_inplace(|v| v / n as f64);
+        for i in 0..n {
+            let (mut p1, mut p2) = (0.0_f64, 0.0_f64);
+            for j in 0..p {
+                let ri = residual[[i, j]] - mean[j];
+                p1 += ri * cand.basis[[j, 0]];
+                p2 += ri * cand.basis[[j, 1]];
+            }
+            for j in 0..p {
+                residual[[i, j]] -= p1 * cand.basis[[j, 0]] + p2 * cand.basis[[j, 1]];
+            }
         }
     }
 }
 
-/// The producer's harvest: the certified planes in extraction order, and
-/// whether the loop exited NATURALLY (the certificate/noise floor said stop)
-/// rather than by hitting the caller's safety cap.
+/// The producer's harvest: the certified planes from one joint split, and
+/// whether harvest ended before hitting the caller's safety cap.
 pub struct IsaHarvest {
     pub planes: Vec<IsaPlaneCandidate>,
     pub natural_exit: bool,
 }
 
-/// Full deflationary run: extract-certify-deflate until the residual carries no
-/// certifiable circle (natural exit) or `max_planes` (a safety BOUND, not a stop
-/// criterion) is reached. This is the harness/e2e entry; the stagewise birth
-/// path calls [`isa_extract_certified_plane`] once per birth instead, because
-/// its fit-then-residual loop IS the deflation.
+/// Full producer run: capture the strongest even-dimensional above-floor
+/// support span and its candidate plane count, then jointly rotate every
+/// candidate plane inside that span and certify the resulting planes. Greedy
+/// deflation is deliberately absent from separation: after whitening, amplitude
+/// ordering is gone, so recursive extraction has no mathematical guarantee.
 pub fn isa_deflationary_producer(
     residual: ArrayView2<'_, f64>,
     max_planes: usize,
     config: &IsaSeedConfig,
 ) -> Result<IsaHarvest, String> {
-    let mut work = residual.to_owned();
-    let mut planes = Vec::new();
-    let mut natural_exit = false;
-    while planes.len() < max_planes {
-        let Some(parts) = isa_eigen_parts(work.view())? else {
-            natural_exit = true; // residual is noise — the derived-floor stop
-            break;
-        };
-        let Some(cand) = isa_extract_certified_plane(work.view(), &parts, config) else {
-            natural_exit = true; // nothing certifies — the contrast stop
-            break;
-        };
-        isa_deflate_fitted_curve(&mut work, &cand);
-        planes.push(cand);
-    }
+    let Some(parts) = capture_signal_span(residual, max_planes)? else {
+        return Ok(IsaHarvest {
+            planes: Vec::new(),
+            natural_exit: true,
+        });
+    };
+    let planes = isa_extract_certified_planes(residual, &parts, max_planes, config);
+    let natural_exit = planes.len() < max_planes;
     Ok(IsaHarvest {
         planes,
         natural_exit,
@@ -938,6 +1128,14 @@ mod tests {
     /// (any orthonormal pairing is a valid eigenbasis). Only the fourth-order
     /// contrast separates the circles. Gate: 6 planes, all distinct, all real,
     /// all clean, natural exit.
+    ///
+    /// This is the Davis–Kahan exhaustion case named in the module doc made
+    /// concrete: at second order the equal-amplitude 6-circle covariance is
+    /// exactly isotropic on its 12-dim signal subspace, so ANY orthonormal
+    /// re-pairing of coordinates is an equally valid eigenbasis and a
+    /// second-order method returns arbitrary blends. Recovering 6 clean,
+    /// distinct circles here is possible only because the κ contrast breaks
+    /// the degeneracy that support/covariance information cannot.
     #[test]
     fn isa_producer_gate_dense_torus_equal_amplitude() {
         let k = 6usize;
@@ -956,6 +1154,13 @@ mod tests {
     /// SPARSE GATED — six circles each active on a q = 0.25 Bernoulli row
     /// subset (κ = 1/q = 4, the super-Gaussian side of the contrast). Same
     /// gate: 6 distinct real clean planes, natural exit.
+    ///
+    /// Covers the OTHER anchor arm from the dense-torus test above: a gated
+    /// circle's support is a lower-dimensional slice of the plane (only a q
+    /// fraction of rows lie on the cone at all), yet the plane spanned by its
+    /// nonzero rows is still just a 2-plane — support alone still cannot
+    /// certify it. κ = 1/q = 4 on the super-Gaussian side of the anchor is
+    /// what carries the identification.
     #[test]
     fn isa_producer_gate_sparse_gated() {
         let k = 6usize;
@@ -970,10 +1175,168 @@ mod tests {
         );
     }
 
+    fn best_truth_overlaps(planes: &[Array2<f64>], truth: &[Array2<f64>]) -> Vec<f64> {
+        let mut per_truth = vec![0.0_f64; truth.len()];
+        for plane in planes {
+            for (idx, tp) in truth.iter().enumerate() {
+                per_truth[idx] = per_truth[idx].max(plane_overlap(plane, tp));
+            }
+        }
+        per_truth
+    }
+
+    fn candidate_overlaps(
+        planes: &[IsaPlaneCandidate],
+        truth: &[Array2<f64>],
+    ) -> Vec<f64> {
+        let bases: Vec<Array2<f64>> = planes.iter().map(|cand| cand.basis.clone()).collect();
+        best_truth_overlaps(&bases, truth)
+    }
+
+    fn ambient_plane_from_captured_parts(parts: &IsaEigenParts, q: &Array2<f64>, m: usize) -> Array2<f64> {
+        let p = parts.evecs.nrows();
+        let r = parts.above.len();
+        let mut amb = Array2::<f64>::zeros((p, 2));
+        for (a, &k) in parts.above.iter().enumerate().take(r) {
+            let scale = parts.evals[k].max(f64::MIN_POSITIVE).sqrt();
+            for j in 0..p {
+                amb[[j, 0]] += parts.evecs[[j, k]] * scale * q[[a, 2 * m]];
+                amb[[j, 1]] += parts.evecs[[j, k]] * scale * q[[a, 2 * m + 1]];
+            }
+        }
+        assert!(orthonormalize2(&mut amb), "captured joint plane must have rank 2");
+        amb
+    }
+
+    fn greedy_deflation_probe(
+        data: &Array2<f64>,
+        max_planes: usize,
+        config: &IsaSeedConfig,
+    ) -> Vec<IsaPlaneCandidate> {
+        let mut work = data.clone();
+        let mut planes = Vec::new();
+        while planes.len() < max_planes {
+            let Some(parts) = isa_eigen_parts(work.view()).expect("greedy probe eigensolve") else {
+                break;
+            };
+            let Some(cand) = isa_extract_certified_plane(work.view(), &parts, config) else {
+                break;
+            };
+            isa_deflate_fitted_curve(&mut work, &cand);
+            planes.push(cand);
+        }
+        planes
+    }
+
+    #[test]
+    fn isa_joint_rotation_recovers_unequal_gated_circles_where_greedy_collapses() {
+        let k = 6usize;
+        let amps = vec![1.00, 0.86, 0.73, 0.61, 0.50, 0.41];
+        let qs = vec![0.90, 0.65, 0.42, 0.25, 0.14, 0.08];
+        let (data, truth) = planted_circles_unequal_gates(
+            12_000,
+            32,
+            &qs,
+            &amps,
+            0.03,
+            0x2111_15A_u64,
+        );
+        let config = IsaSeedConfig {
+            n_inits: 10,
+            max_sweeps: 80,
+        };
+        let greedy = greedy_deflation_probe(&data, k, &config);
+        let greedy_overlaps = candidate_overlaps(&greedy, &truth);
+        let captured = capture_signal_span(data.view(), k)
+            .expect("capture must run")
+            .expect("capture must find signal span");
+        let (q, _y) = joint_jacobi_basis(data.view(), &captured, &config)
+            .expect("joint basis must optimize captured span");
+        let joint_planes: Vec<Array2<f64>> = (0..k)
+            .map(|m| ambient_plane_from_captured_parts(&captured, &q, m))
+            .collect();
+        let joint_overlaps = best_truth_overlaps(&joint_planes, &truth);
+        eprintln!(
+            "[#2111 unequal gated] greedy overlaps = {:?}; joint overlaps = {:?}",
+            greedy_overlaps, joint_overlaps
+        );
+        assert!(
+            joint_overlaps.iter().all(|&ov| ov > 0.35),
+            "joint ISA must recover every unequal gated plane above the weak-source floor; \
+             overlaps={joint_overlaps:?}"
+        );
+    }
+
+    fn planted_circles_unequal_gates(
+        n: usize,
+        p: usize,
+        qs: &[f64],
+        amps: &[f64],
+        sigma: f64,
+        seed: u64,
+    ) -> (Array2<f64>, Vec<Array2<f64>>) {
+        assert!(qs.len() == amps.len() && p >= 2 * qs.len());
+        let k = qs.len();
+        let mut state = seed;
+        let mut frame = Array2::<f64>::from_shape_fn((p, 2 * k), |_| lcg_normal(&mut state));
+        for c in 0..2 * k {
+            for prev in 0..c {
+                let mut dot = 0.0;
+                for row in 0..p {
+                    dot += frame[[row, c]] * frame[[row, prev]];
+                }
+                for row in 0..p {
+                    let sub = dot * frame[[row, prev]];
+                    frame[[row, c]] -= sub;
+                }
+            }
+            let mut nrm = 0.0;
+            for row in 0..p {
+                nrm += frame[[row, c]] * frame[[row, c]];
+            }
+            let nrm = nrm.sqrt();
+            for row in 0..p {
+                frame[[row, c]] /= nrm;
+            }
+        }
+        let mut data = Array2::<f64>::zeros((n, p));
+        for i in 0..n {
+            for c in 0..k {
+                if lcg_uniform(&mut state) >= qs[c] {
+                    continue;
+                }
+                let th = std::f64::consts::TAU * lcg_uniform(&mut state);
+                for j in 0..p {
+                    data[[i, j]] += amps[c]
+                        * (th.cos() * frame[[j, 2 * c]] + th.sin() * frame[[j, 2 * c + 1]]);
+                }
+            }
+            for j in 0..p {
+                data[[i, j]] += sigma * lcg_normal(&mut state);
+            }
+        }
+        let true_planes: Vec<Array2<f64>> = (0..k)
+            .map(|c| {
+                Array2::from_shape_fn((p, 2), |(row, col)| frame[[row, 2 * c + col]])
+            })
+            .collect();
+        (data, true_planes)
+    }
+
     /// PLANTED-BLEND REJECTION NULL — a low-rank GAUSSIAN factor structure
     /// (every 2-plane of it has κ = 2, the blend anchor exactly). The producer
     /// must extract NOTHING and exit naturally: a κ certificate that accepted
     /// any plane here would hallucinate circles out of covariance alone.
+    ///
+    /// This is the HONESTY FACE of Prop. 1: a rank-6 Gaussian factor model has
+    /// exactly the same support (a 6-dim subspace, decomposable into any
+    /// orthonormal 2-plane pairing) as six circles do, so a support/rank test
+    /// alone cannot tell them apart — that ambiguity is real, not a producer
+    /// bug. The only thing separating them is measure: every 2-plane slice of
+    /// a Gaussian factor sits at exactly κ = 2, the blend anchor `certify_plane`
+    /// is built to refuse. Certifying a plane here would be the precise
+    /// support-for-measure substitution Prop. 1 rules out — proving the
+    /// negative is as load-bearing as the two positive gates above.
     #[test]
     fn isa_producer_rejects_planted_gaussian_blend() {
         let n = 2000usize;

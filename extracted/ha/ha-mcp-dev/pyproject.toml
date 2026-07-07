@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ha-mcp-dev"
-version = "7.9.0.dev766"
+version = "7.10.0.dev772"
 description = "Home Assistant MCP Server - Complete control of Home Assistant through MCP"
 readme = "README.md"
 # Upper bound widened to <3.15 so the package installs on Home Assistant's
@@ -28,7 +28,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "fastmcp==3.4.2",
+    "fastmcp==3.4.3",
     "httpx[socks]==0.28.1",
     "pydantic==2.13.4",
     "python-dotenv==1.2.2",
@@ -100,6 +100,7 @@ module = [
     "aiohasupervisor",
     "aiohasupervisor.*",
     "aiohttp",
+    "awesomeversion",
     "yarl",
     "voluptuous",
     "jsonschema",
@@ -221,11 +222,6 @@ dev = [
 version_toml = ["pyproject.toml:project.version"]
 version_variables = [
     "src/ha_mcp/__init__.py:__version__",
-    # Keeps the in-process server's stable-channel pin in lockstep with the
-    # released server/add-on version - a hand-edited pin would drift the
-    # moment a release ships (owner: the server entry must always match the
-    # add-on version to avoid confusion).
-    "custom_components/ha_mcp_tools/const.py:PINNED_HA_MCP_VERSION",
 ]
 build_command = """
 pip install uv && uv lock

@@ -35,7 +35,7 @@ export const useRefreshOnNewDagRuns = (
 ) => {
   const queryClient = useQueryClient();
   const hasSyncedLatestRunRef = useRef(false);
-  const previousLatestRunSignatureRef = useRef("");
+  const previousLatestRunSignatureRef = useRef<string>("");
   const autoRefreshInterval = useConfig("auto_refresh_interval") as number;
 
   const pollIntervalMs = Boolean(autoRefreshInterval) ? autoRefreshInterval * 1000 : 5000;

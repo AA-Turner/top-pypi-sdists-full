@@ -5,9 +5,9 @@ use utils::mock_event_logging_adapter::MockEventLoggingAdapter;
 use utils::mock_specs_adapter::MockSpecsAdapter;
 
 use statsig_rust::{
-    evaluation::evaluation_types::AnyConfigEvaluation, hashing::djb2, output_logger::LogLevel,
-    SpecsSource, Statsig, StatsigHttpIdListsAdapter, StatsigOptions, StatsigUser,
-    StatsigUserBuilder,
+    evaluation::evaluation_types::AnyConfigEvaluation, hashing::djb2,
+    interned_string::InternedString, output_logger::LogLevel, SpecsSource, Statsig,
+    StatsigHttpIdListsAdapter, StatsigOptions, StatsigUser, StatsigUserBuilder,
 };
 
 fn get_sdk_key() -> String {
@@ -137,7 +137,8 @@ async fn test_gcir() {
     let configs = response.dynamic_configs.len();
     assert_ge!(configs, 62);
 
-    let a_config_opt = response.dynamic_configs.get(&djb2("big_number"));
+    let a_config_key = InternedString::from_string(djb2("big_number"));
+    let a_config_opt = response.dynamic_configs.get(&a_config_key);
     let a_config = match a_config_opt {
         Some(v) => match v {
             AnyConfigEvaluation::DynamicConfig(config) => &config.value,

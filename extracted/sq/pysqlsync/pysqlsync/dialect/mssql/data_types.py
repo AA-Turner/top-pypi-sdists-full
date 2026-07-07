@@ -1,3 +1,11 @@
+"""
+pysqlsync: Synchronize schema and large volumes of data.
+
+Copyright 2023-2026, Levente Hunyadi
+
+:see: https://github.com/hunyadi/pysqlsync
+"""
+
 import enum
 from typing import Any, Optional
 
@@ -102,9 +110,9 @@ def sql_to_odbc_type(data_type: SqlDataType) -> tuple[int, int, int]:
         return pyodbc.SQL_TYPE_TIME, data_type.precision or 6, 0
 
     elif isinstance(data_type, SqlFixedCharacterType):
-        return pyodbc.SQL_CHAR, data_type.limit or 0, 0
+        return pyodbc.SQL_WCHAR, data_type.limit or 0, 0
     elif isinstance(data_type, SqlVariableCharacterType):
-        return pyodbc.SQL_VARCHAR, data_type.limit or 0, 0
+        return pyodbc.SQL_WVARCHAR, data_type.limit or 0, 0
     elif isinstance(data_type, SqlFixedBinaryType):
         return pyodbc.SQL_BINARY, data_type.storage or 0, 0
     elif isinstance(data_type, SqlVariableBinaryType):

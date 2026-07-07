@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "posthoganalytics"
-version = "7.21.3"
+version = "7.22.0"
 description = "Integrate PostHog into any python application."
 authors = [
     { name = "PostHog", email = "engineering@posthog.com" },
@@ -46,6 +46,9 @@ Repository = "https://github.com/posthog/posthog-python"
 [project.optional-dependencies]
 langchain = [
     "langchain>=0.2.0",
+]
+zstd = [
+    "zstandard>=0.23.0",
 ]
 otel = [
     "opentelemetry-sdk>=1.20.0",
@@ -96,6 +99,7 @@ test = [
     "opentelemetry-sdk>=1.20.0",
     "opentelemetry-exporter-otlp-proto-http>=1.20.0",
     "pytest-bdd>=8.1.0",
+    "zstandard>=0.23.0",
 ]
 
 [tool.setuptools]

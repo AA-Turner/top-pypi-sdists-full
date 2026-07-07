@@ -61,17 +61,19 @@ def import_all_models():
         __getattr__(name)
 
     import airflow.models.asset
+    import airflow.models.asset_state_store
     import airflow.models.backfill
+    import airflow.models.connection_test
     import airflow.models.dag_favorite
     import airflow.models.dag_version
     import airflow.models.dagbag
     import airflow.models.dagbundle
-    import airflow.models.dagcode
     import airflow.models.dagwarning
     import airflow.models.deadline_alert
     import airflow.models.errors
     import airflow.models.revoked_token
     import airflow.models.serialized_dag
+    import airflow.models.task_state_store
     import airflow.models.taskinstancehistory
     import airflow.models.tasklog
     import airflow.models.team

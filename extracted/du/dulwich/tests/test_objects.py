@@ -316,6 +316,59 @@ class ShaFileTests(TestCase):
         self.assertEqual(sf.type_name, b"tag")
         self.assertEqual(sf.tagger, b" <@localhost>")
 
+    def test_from_file_rejects_decompression_bomb(self) -> None:
+        # Regression: a loose object whose zlib stream inflates far past the
+        # caller-supplied max_size must be rejected without allocating the
+        # full inflated payload (decompression-bomb DoS).
+        import tracemalloc
+        import zlib
+
+        payload = b"blob 5\x00hello" + b"\x00" * (4 * 1024 * 1024)
+        stream = zlib.compress(payload)
+        self.assertLess(len(stream), len(payload) // 100)
+        tracemalloc.start()
+        try:
+            self.assertRaises(
+                zlib.error,
+                ShaFile.from_file,
+                BytesIO(stream),
+                max_size=1024,
+            )
+            _, peak = tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+        self.assertLess(peak, len(payload) // 4)
+
+    def test_legacy_from_file_large(self) -> None:
+        # Regression (#2292): a loose object whose content inflates past the
+        # 8192-byte header scan window must still parse; only the header, not
+        # the whole payload, is bounded by that window.
+        b1 = Blob.from_string(b"x" * 200000)
+        b2 = ShaFile.from_file(BytesIO(b1.as_legacy_object()))
+        self.assertEqual(b1, b2)
+
+    def test_legacy_from_file_rejects_oversized_header(self) -> None:
+        import zlib
+
+        # A legacy object whose header has no NUL within the scan window is
+        # rejected without inflating the whole stream.
+        payload = b"blob " + b"9" * 20000 + b"\x00rest"
+        stream = zlib.compress(payload)
+        self.assertRaises(zlib.error, ShaFile.from_file, BytesIO(stream))
+
+    def test_from_file_has_default_size_limit(self) -> None:
+        # DEFAULT_LOOSE_OBJECT_SIZE_LIMIT must match Git's core.bigFileThreshold
+        # default (512 MiB). Callers that do not pass max_size inherit this cap.
+        import inspect
+
+        from dulwich.objects import DEFAULT_LOOSE_OBJECT_SIZE_LIMIT
+
+        self.assertEqual(DEFAULT_LOOSE_OBJECT_SIZE_LIMIT, 512 * 1024 * 1024)
+        sig = inspect.signature(ShaFile.from_file)
+        self.assertEqual(
+            sig.parameters["max_size"].default, DEFAULT_LOOSE_OBJECT_SIZE_LIMIT
+        )
+
 
 class CommitSerializationTests(TestCase):
     def make_commit(self, **kwargs):

@@ -1,6 +1,13 @@
-use crate::gcir::dynamic_configs_processor::get_dynamic_config_evaluations_init_v2;
-use crate::gcir::feature_gates_processor::{get_gate_evaluations, get_gate_evaluations_init_v2};
-use crate::gcir::layer_configs_processor::get_layer_evaluations_init_v2;
+use crate::gcir::dynamic_configs_processor::{
+    get_dynamic_config_evaluations_init_v2, get_dynamic_config_evaluations_with_plan,
+};
+use crate::gcir::evaluation_plan::GcirEvaluationPlan;
+use crate::gcir::feature_gates_processor::{
+    get_gate_evaluations, get_gate_evaluations_init_v2, get_gate_evaluations_with_plan,
+};
+use crate::gcir::layer_configs_processor::{
+    get_layer_evaluations_init_v2, get_layer_evaluations_with_plan,
+};
 use crate::hashing::opt_bool_to_hashable;
 use ahash::AHashMap;
 
@@ -59,50 +66,115 @@ impl GCIRFormatter {
         context: &mut EvaluatorContext,
         options: &ClientInitResponseOptions,
     ) -> Result<InitializeResponse, StatsigErr> {
-        let mut sec_expo_hash_memo = HashMap::new();
+        Self::generate_v1_format_internal(context, options, None)
+    }
 
-        let gates = get_gate_evaluations(context, options, &mut sec_expo_hash_memo)?;
-        let configs = get_dynamic_config_evaluations(context, options, &mut sec_expo_hash_memo)?;
-        let layers = get_layer_evaluations(context, options, &mut sec_expo_hash_memo)?;
+    pub fn generate_v1_format_with_plan(
+        context: &mut EvaluatorContext,
+        options: &ClientInitResponseOptions,
+        plan: &GcirEvaluationPlan,
+    ) -> Result<InitializeResponse, StatsigErr> {
+        gcir_time!("v1.total", {
+            Self::generate_v1_format_internal(context, options, Some(plan))
+        })
+    }
 
-        let param_stores = get_serializeable_param_stores(context, options);
-        let evaluated_keys = EvaluatedKeys::from_internal_user(context.user);
-        let session_replay_info = get_session_replay_info(context, options);
+    fn generate_v1_format_internal(
+        context: &mut EvaluatorContext,
+        options: &ClientInitResponseOptions,
+        plan: Option<&GcirEvaluationPlan>,
+    ) -> Result<InitializeResponse, StatsigErr> {
+        let mut sec_expo_hash_memo = gcir_time!("v1.sec_expo_memo_alloc", {
+            HashMap::with_capacity(plan.map_or(0, GcirEvaluationPlan::total_evaluation_count))
+        });
 
-        let mut full_response_hash: Option<String> = None;
-        if let Some(previous_full_hash) = &options.previous_response_hash {
-            let new_full_hash = hashing::hash_one(context.gcir_hashes.clone()).to_string();
-            if previous_full_hash.as_str() == new_full_hash {
-                return Ok(InitializeResponse::blank_without_user());
+        let gates = gcir_time!("v1.gates", {
+            match plan {
+                Some(plan) => {
+                    get_gate_evaluations_with_plan(context, options, &mut sec_expo_hash_memo, plan)
+                }
+                None => get_gate_evaluations(context, options, &mut sec_expo_hash_memo)
+                    .map(intern_response_keys),
             }
-            full_response_hash = Some(new_full_hash);
+        })?;
+        let configs = gcir_time!("v1.configs", {
+            match plan {
+                Some(plan) => get_dynamic_config_evaluations_with_plan(
+                    context,
+                    options,
+                    &mut sec_expo_hash_memo,
+                    plan,
+                ),
+                None => get_dynamic_config_evaluations(context, options, &mut sec_expo_hash_memo)
+                    .map(intern_response_keys),
+            }
+        })?;
+        let layers = gcir_time!("v1.layers", {
+            match plan {
+                Some(plan) => {
+                    get_layer_evaluations_with_plan(context, options, &mut sec_expo_hash_memo, plan)
+                }
+                None => get_layer_evaluations(context, options, &mut sec_expo_hash_memo)
+                    .map(intern_response_keys),
+            }
+        })?;
+
+        let param_stores = gcir_time!("v1.param_stores", {
+            get_serializeable_param_stores(context, options)
+        });
+        let evaluated_keys = gcir_time!("v1.evaluated_keys", {
+            EvaluatedKeys::from_internal_user(context.user)
+        });
+        let session_replay_info = gcir_time!("v1.session_replay_info", {
+            get_session_replay_info(context, options)
+        });
+
+        let mut should_return_blank = false;
+        let full_response_hash = gcir_time!("v1.full_response_checksum", {
+            if let Some(previous_full_hash) = &options.previous_response_hash {
+                let new_full_hash = hashing::hash_one(context.gcir_hashes.clone()).to_string();
+                if previous_full_hash.as_str() == new_full_hash {
+                    should_return_blank = true;
+                    None
+                } else {
+                    Some(new_full_hash)
+                }
+            } else {
+                None
+            }
+        });
+        if should_return_blank {
+            return Ok(InitializeResponse::blank_without_user());
         }
 
-        Ok(InitializeResponse {
-            feature_gates: gates,
-            dynamic_configs: configs,
-            layer_configs: layers,
-            time: context.specs_data.time,
-            has_updates: true,
-            hash_used: options.get_hash_algorithm().to_string(),
-            user: context.user.to_loggable(),
-            sdk_params: HashMap::new(),
-            evaluated_keys,
-            sdk_info: get_sdk_info(),
-            param_stores,
-            can_record_session: session_replay_info.can_record_session,
-            session_recording_rate: session_replay_info.session_recording_rate,
-            recording_blocked: session_replay_info.recording_blocked,
-            passes_session_recording_targeting: session_replay_info
-                .passes_session_recording_targeting,
-            session_recording_event_triggers: session_replay_info.session_recording_event_triggers,
-            session_recording_exposure_triggers: session_replay_info
-                .session_recording_exposure_triggers,
-            session_recording_privacy_settings: session_replay_info
-                .session_recording_privacy_settings,
-            pa_hash: context.user.get_hashed_private_attributes(),
-            full_checksum: full_response_hash,
-        })
+        Ok(gcir_time!("v1.response_assembly", {
+            InitializeResponse {
+                feature_gates: gates,
+                dynamic_configs: configs,
+                layer_configs: layers,
+                time: context.specs_data.time,
+                has_updates: true,
+                hash_used: options.get_hash_algorithm().to_string(),
+                user: context.user.to_loggable(),
+                sdk_params: HashMap::new(),
+                evaluated_keys,
+                sdk_info: get_sdk_info(),
+                param_stores,
+                can_record_session: session_replay_info.can_record_session,
+                session_recording_rate: session_replay_info.session_recording_rate,
+                recording_blocked: session_replay_info.recording_blocked,
+                passes_session_recording_targeting: session_replay_info
+                    .passes_session_recording_targeting,
+                session_recording_event_triggers: session_replay_info
+                    .session_recording_event_triggers,
+                session_recording_exposure_triggers: session_replay_info
+                    .session_recording_exposure_triggers,
+                session_recording_privacy_settings: session_replay_info
+                    .session_recording_privacy_settings,
+                pa_hash: context.user.get_hashed_private_attributes(),
+                full_checksum: full_response_hash,
+            }
+        }))
     }
 
     pub fn generate_v2_format(
@@ -217,6 +289,12 @@ impl GCIRFormatter {
             response_format: "init-v2".to_string(),
         })
     }
+}
+
+fn intern_response_keys<T>(map: HashMap<String, T>) -> HashMap<InternedString, T> {
+    map.into_iter()
+        .map(|(key, value)| (InternedString::from_string(key), value))
+        .collect()
 }
 
 fn get_sdk_info() -> HashMap<String, String> {
@@ -443,5 +521,148 @@ impl EvaluatedKeys {
             user_id,
             custom_ids,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use crate::{
+        dcs_str::DCS_STR,
+        evaluation::evaluator_context::{EvaluatorContext, IdListResolution},
+        gcir::{evaluation_plan::GcirEvaluationPlan, gcir_formatter::GCIRFormatter},
+        hashing::{HashAlgorithm, HashUtil},
+        specs_response::spec_types::SpecsResponseFull,
+        user::{StatsigUser, StatsigUserInternal},
+        ClientInitResponseOptions,
+    };
+
+    fn planned_and_unplanned_response_values(
+        options: &ClientInitResponseOptions,
+    ) -> (serde_json::Value, serde_json::Value) {
+        let mut specs: SpecsResponseFull = serde_json::from_str(DCS_STR).unwrap();
+        specs.session_replay_info = None;
+
+        let hashing = HashUtil::new();
+        let plan = GcirEvaluationPlan::new(&specs, &hashing);
+        let user = StatsigUser::with_user_id("user-in-test");
+        let user_internal = StatsigUserInternal::new(&user, None);
+        let id_list_callback = |_: &str, _: &str| false;
+
+        let mut unplanned_context = EvaluatorContext::new(
+            &user_internal,
+            &specs,
+            IdListResolution::Callback(&id_list_callback),
+            &hashing,
+            None,
+            None,
+            false,
+            None,
+            true,
+        );
+        let unplanned = GCIRFormatter::generate_v1_format(&mut unplanned_context, options).unwrap();
+
+        let mut planned_context = EvaluatorContext::new(
+            &user_internal,
+            &specs,
+            IdListResolution::Callback(&id_list_callback),
+            &hashing,
+            None,
+            None,
+            false,
+            None,
+            true,
+        );
+        let planned =
+            GCIRFormatter::generate_v1_format_with_plan(&mut planned_context, options, &plan)
+                .unwrap();
+
+        (
+            serde_json::to_value(unplanned).unwrap(),
+            serde_json::to_value(planned).unwrap(),
+        )
+    }
+
+    #[test]
+    fn planned_v1_format_matches_unplanned_output() {
+        let options = ClientInitResponseOptions {
+            hash_algorithm: Some(HashAlgorithm::Djb2),
+            client_sdk_key: Some("client-key".to_string()),
+            ..Default::default()
+        };
+
+        let (unplanned, planned) = planned_and_unplanned_response_values(&options);
+
+        assert_eq!(unplanned, planned);
+    }
+
+    #[test]
+    fn planned_v1_format_matches_unplanned_output_with_full_hash() {
+        let options = ClientInitResponseOptions {
+            hash_algorithm: Some(HashAlgorithm::Djb2),
+            client_sdk_key: Some("client-key".to_string()),
+            previous_response_hash: Some("stale-checksum".to_string()),
+            ..Default::default()
+        };
+
+        let (unplanned, planned) = planned_and_unplanned_response_values(&options);
+
+        assert_eq!(unplanned, planned);
+    }
+
+    #[test]
+    fn planned_v1_format_respects_entity_filters() {
+        let options = ClientInitResponseOptions {
+            hash_algorithm: Some(HashAlgorithm::Sha256),
+            client_sdk_key: Some("client-key".to_string()),
+            feature_gate_filter: Some(HashSet::from(["test_50_50".to_string()])),
+            dynamic_config_filter: Some(HashSet::from(["operating_system_config".to_string()])),
+            layer_filter: Some(HashSet::from(["test_layer".to_string()])),
+            ..Default::default()
+        };
+
+        let (unplanned, planned) = planned_and_unplanned_response_values(&options);
+
+        assert_eq!(unplanned, planned);
+    }
+
+    #[test]
+    fn planned_v1_format_removes_layered_experiments_before_response() {
+        let options = ClientInitResponseOptions {
+            hash_algorithm: Some(HashAlgorithm::None),
+            client_sdk_key: Some("client-key".to_string()),
+            remove_experiments_in_layers: Some(true),
+            ..Default::default()
+        };
+
+        let (unplanned, planned) = planned_and_unplanned_response_values(&options);
+
+        assert_eq!(unplanned, planned);
+        assert!(!planned["dynamic_configs"]
+            .as_object()
+            .unwrap()
+            .contains_key("running_exp_in_layer_no_holdout"));
+    }
+
+    #[test]
+    fn planned_v1_format_keeps_allowlisted_layered_experiments() {
+        let options = ClientInitResponseOptions {
+            hash_algorithm: Some(HashAlgorithm::None),
+            client_sdk_key: Some("client-key".to_string()),
+            remove_experiments_in_layers: Some(true),
+            experiments_in_layers_allowlist: Some(HashSet::from([
+                "running_exp_in_layer_no_holdout".to_string(),
+            ])),
+            ..Default::default()
+        };
+
+        let (unplanned, planned) = planned_and_unplanned_response_values(&options);
+
+        assert_eq!(unplanned, planned);
+        assert!(planned["dynamic_configs"]
+            .as_object()
+            .unwrap()
+            .contains_key("running_exp_in_layer_no_holdout"));
     }
 }

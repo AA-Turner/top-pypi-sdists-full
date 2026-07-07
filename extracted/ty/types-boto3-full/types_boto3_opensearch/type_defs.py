@@ -268,6 +268,7 @@ __all__ = (
     "EngineModeStatusTypeDef",
     "EnvironmentInfoTypeDef",
     "ErrorDetailsTypeDef",
+    "ExportOptionsTypeDef",
     "FilterTypeDef",
     "GetApplicationRequestTypeDef",
     "GetApplicationResponseTypeDef",
@@ -284,6 +285,8 @@ __all__ = (
     "GetDomainMaintenanceStatusResponseTypeDef",
     "GetIndexRequestTypeDef",
     "GetIndexResponseTypeDef",
+    "GetMigrationRequestTypeDef",
+    "GetMigrationResponseTypeDef",
     "GetPackageVersionHistoryRequestTypeDef",
     "GetPackageVersionHistoryResponseTypeDef",
     "GetUpgradeHistoryRequestTypeDef",
@@ -333,6 +336,8 @@ __all__ = (
     "ListInsightsResponseTypeDef",
     "ListInstanceTypeDetailsRequestTypeDef",
     "ListInstanceTypeDetailsResponseTypeDef",
+    "ListMigrationsRequestTypeDef",
+    "ListMigrationsResponseTypeDef",
     "ListPackagesForDomainRequestTypeDef",
     "ListPackagesForDomainResponseTypeDef",
     "ListScheduledActionsRequestTypeDef",
@@ -350,6 +355,11 @@ __all__ = (
     "LogPublishingOptionTypeDef",
     "LogPublishingOptionsStatusTypeDef",
     "MasterUserOptionsTypeDef",
+    "MigrationErrorTypeDef",
+    "MigrationOptionsTypeDef",
+    "MigrationSourceTypeDef",
+    "MigrationSummaryTypeDef",
+    "MigrationWorkspaceTypeDef",
     "ModifyingPropertiesTypeDef",
     "NaturalLanguageQueryGenerationOptionsInputTypeDef",
     "NaturalLanguageQueryGenerationOptionsOutputTypeDef",
@@ -396,6 +406,7 @@ __all__ = (
     "SAMLIdpTypeDef",
     "SAMLOptionsInputTypeDef",
     "SAMLOptionsOutputTypeDef",
+    "SavedObjectIdentifierTypeDef",
     "ScheduledActionTypeDef",
     "ScheduledAutoTuneDetailsTypeDef",
     "SecurityLakeDirectQueryDataSourceTypeDef",
@@ -410,6 +421,8 @@ __all__ = (
     "SoftwareUpdateOptionsTypeDef",
     "StartDomainMaintenanceRequestTypeDef",
     "StartDomainMaintenanceResponseTypeDef",
+    "StartMigrationRequestTypeDef",
+    "StartMigrationResponseTypeDef",
     "StartServiceSoftwareUpdateRequestTypeDef",
     "StartServiceSoftwareUpdateResponseTypeDef",
     "StorageTypeLimitTypeDef",
@@ -1069,6 +1082,13 @@ class ValidationFailureTypeDef(TypedDict):
     Message: NotRequired[str]
 
 
+SavedObjectIdentifierTypeDef = TypedDict(
+    "SavedObjectIdentifierTypeDef",
+    {
+        "type": str,
+        "id": str,
+    },
+)
 GetApplicationRequestTypeDef = TypedDict(
     "GetApplicationRequestTypeDef",
     {
@@ -1103,6 +1123,19 @@ class GetDomainMaintenanceStatusRequestTypeDef(TypedDict):
 class GetIndexRequestTypeDef(TypedDict):
     DomainName: str
     IndexName: str
+
+
+class GetMigrationRequestTypeDef(TypedDict):
+    migrationId: str
+
+
+class MigrationErrorTypeDef(TypedDict):
+    code: NotRequired[str]
+    message: NotRequired[str]
+
+
+class MigrationSourceTypeDef(TypedDict):
+    datasourceArn: str
 
 
 class GetPackageVersionHistoryRequestTypeDef(TypedDict):
@@ -1233,6 +1266,13 @@ class ListInstanceTypeDetailsRequestTypeDef(TypedDict):
     InstanceType: NotRequired[str]
 
 
+class ListMigrationsRequestTypeDef(TypedDict):
+    applicationId: str
+    status: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
 class ListPackagesForDomainRequestTypeDef(TypedDict):
     DomainName: str
     MaxResults: NotRequired[int]
@@ -1284,6 +1324,15 @@ class ListVpcEndpointsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+MigrationWorkspaceTypeDef = TypedDict(
+    "MigrationWorkspaceTypeDef",
+    {
+        "workspaceId": NotRequired[str],
+        "createWorkspace": NotRequired[bool],
+        "name": NotRequired[str],
+        "type": NotRequired[str],
+    },
+)
 NodeConfigTypeDef = TypedDict(
     "NodeConfigTypeDef",
     {
@@ -1573,6 +1622,12 @@ class PutDefaultApplicationSettingResponseTypeDef(TypedDict):
 
 class StartDomainMaintenanceResponseTypeDef(TypedDict):
     MaintenanceId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartMigrationResponseTypeDef(TypedDict):
+    migrationId: str
+    status: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1984,6 +2039,41 @@ class DryRunProgressStatusTypeDef(TypedDict):
     ValidationFailures: NotRequired[list[ValidationFailureTypeDef]]
 
 
+ExportOptionsTypeDef = TypedDict(
+    "ExportOptionsTypeDef",
+    {
+        "types": NotRequired[Sequence[str]],
+        "objects": NotRequired[Sequence[SavedObjectIdentifierTypeDef]],
+        "includeReferencesDeep": NotRequired[bool],
+    },
+)
+
+
+class GetMigrationResponseTypeDef(TypedDict):
+    migrationId: str
+    status: str
+    applicationId: str
+    source: MigrationSourceTypeDef
+    exportedCount: int
+    importedCount: int
+    error: MigrationErrorTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class MigrationSummaryTypeDef(TypedDict):
+    migrationId: NotRequired[str]
+    status: NotRequired[str]
+    applicationId: NotRequired[str]
+    source: NotRequired[MigrationSourceTypeDef]
+    exportedCount: NotRequired[int]
+    importedCount: NotRequired[int]
+    error: NotRequired[MigrationErrorTypeDef]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+
 class InsightFeedbackRequestTypeDef(TypedDict):
     Entity: InsightFeedbackEntityTypeDef
     InsightId: str
@@ -2319,6 +2409,19 @@ class UpdateVpcEndpointResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class MigrationOptionsTypeDef(TypedDict):
+    source: MigrationSourceTypeDef
+    workspace: MigrationWorkspaceTypeDef
+    exportOptions: NotRequired[ExportOptionsTypeDef]
+    conflictResolution: NotRequired[str]
+
+
+class ListMigrationsResponseTypeDef(TypedDict):
+    migrations: list[MigrationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class AssociatePackageRequestTypeDef(TypedDict):
     PackageID: str
     DomainName: str
@@ -2530,6 +2633,12 @@ class ListDirectQueryDataSourcesResponseTypeDef(TypedDict):
     DirectQueryDataSources: list[DirectQueryDataSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class StartMigrationRequestTypeDef(TypedDict):
+    applicationId: str
+    migrationOptions: MigrationOptionsTypeDef
+    clientToken: NotRequired[str]
 
 
 class AssociatePackageResponseTypeDef(TypedDict):

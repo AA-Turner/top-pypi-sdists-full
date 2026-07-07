@@ -9,6 +9,8 @@ import grpc
 import grpc.aio
 import typing
 import yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2
+import yandex.cloud.mdb.v1.backup_retention_policy_pb2
+import yandex.cloud.operation.operation_pb2
 
 _T = typing.TypeVar("_T")
 
@@ -21,6 +23,12 @@ class BackupRetentionPolicyServiceStub:
     """A set of methods for managing PostgreSQL Cluster backup retention policies."""
 
     def __init__(self, channel: typing.Union[grpc.Channel, grpc.aio.Channel]) -> None: ...
+    Get: grpc.UnaryUnaryMultiCallable[
+        yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.GetBackupRetentionPolicyRequest,
+        yandex.cloud.mdb.v1.backup_retention_policy_pb2.BackupRetentionPolicy,
+    ]
+    """Get a retention policy by ID."""
+
     List: grpc.UnaryUnaryMultiCallable[
         yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.ListBackupRetentionPoliciesRequest,
         yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.ListBackupRetentionPoliciesResponse,
@@ -29,18 +37,24 @@ class BackupRetentionPolicyServiceStub:
 
     Create: grpc.UnaryUnaryMultiCallable[
         yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.CreateBackupRetentionPolicyRequest,
-        yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.CreateBackupRetentionPolicyResponse,
+        yandex.cloud.operation.operation_pb2.Operation,
     ]
     """Add a new retention policy."""
 
     Delete: grpc.UnaryUnaryMultiCallable[
         yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.DeleteBackupRetentionPolicyRequest,
-        yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.DeleteBackupRetentionPolicyResponse,
+        yandex.cloud.operation.operation_pb2.Operation,
     ]
     """Delete retention policy."""
 
 class BackupRetentionPolicyServiceAsyncStub:
     """A set of methods for managing PostgreSQL Cluster backup retention policies."""
+
+    Get: grpc.aio.UnaryUnaryMultiCallable[
+        yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.GetBackupRetentionPolicyRequest,
+        yandex.cloud.mdb.v1.backup_retention_policy_pb2.BackupRetentionPolicy,
+    ]
+    """Get a retention policy by ID."""
 
     List: grpc.aio.UnaryUnaryMultiCallable[
         yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.ListBackupRetentionPoliciesRequest,
@@ -50,18 +64,26 @@ class BackupRetentionPolicyServiceAsyncStub:
 
     Create: grpc.aio.UnaryUnaryMultiCallable[
         yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.CreateBackupRetentionPolicyRequest,
-        yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.CreateBackupRetentionPolicyResponse,
+        yandex.cloud.operation.operation_pb2.Operation,
     ]
     """Add a new retention policy."""
 
     Delete: grpc.aio.UnaryUnaryMultiCallable[
         yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.DeleteBackupRetentionPolicyRequest,
-        yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.DeleteBackupRetentionPolicyResponse,
+        yandex.cloud.operation.operation_pb2.Operation,
     ]
     """Delete retention policy."""
 
 class BackupRetentionPolicyServiceServicer(metaclass=abc.ABCMeta):
     """A set of methods for managing PostgreSQL Cluster backup retention policies."""
+
+    @abc.abstractmethod
+    def Get(
+        self,
+        request: yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.GetBackupRetentionPolicyRequest,
+        context: _ServicerContext,
+    ) -> typing.Union[yandex.cloud.mdb.v1.backup_retention_policy_pb2.BackupRetentionPolicy, collections.abc.Awaitable[yandex.cloud.mdb.v1.backup_retention_policy_pb2.BackupRetentionPolicy]]:
+        """Get a retention policy by ID."""
 
     @abc.abstractmethod
     def List(
@@ -76,7 +98,7 @@ class BackupRetentionPolicyServiceServicer(metaclass=abc.ABCMeta):
         self,
         request: yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.CreateBackupRetentionPolicyRequest,
         context: _ServicerContext,
-    ) -> typing.Union[yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.CreateBackupRetentionPolicyResponse, collections.abc.Awaitable[yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.CreateBackupRetentionPolicyResponse]]:
+    ) -> typing.Union[yandex.cloud.operation.operation_pb2.Operation, collections.abc.Awaitable[yandex.cloud.operation.operation_pb2.Operation]]:
         """Add a new retention policy."""
 
     @abc.abstractmethod
@@ -84,7 +106,7 @@ class BackupRetentionPolicyServiceServicer(metaclass=abc.ABCMeta):
         self,
         request: yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.DeleteBackupRetentionPolicyRequest,
         context: _ServicerContext,
-    ) -> typing.Union[yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.DeleteBackupRetentionPolicyResponse, collections.abc.Awaitable[yandex.cloud.mdb.postgresql.v1.backup_retention_policy_service_pb2.DeleteBackupRetentionPolicyResponse]]:
+    ) -> typing.Union[yandex.cloud.operation.operation_pb2.Operation, collections.abc.Awaitable[yandex.cloud.operation.operation_pb2.Operation]]:
         """Delete retention policy."""
 
 def add_BackupRetentionPolicyServiceServicer_to_server(servicer: BackupRetentionPolicyServiceServicer, server: typing.Union[grpc.Server, grpc.aio.Server]) -> None: ...

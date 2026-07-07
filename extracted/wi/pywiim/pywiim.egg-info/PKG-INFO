@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywiim
-Version: 2.2.19
+Version: 2.3.0
 Summary: Python library for WiiM/LinkPlay device communication
 Author-email: Michael Cumming <mjcumming@gmail.com>
 License: MIT

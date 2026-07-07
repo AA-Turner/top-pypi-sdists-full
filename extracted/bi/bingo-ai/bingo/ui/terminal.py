@@ -225,7 +225,18 @@ class BingoTerminal:
         # Agent 루프 중단 플래그 (Ctrl+C)
         self._agent_stop_flag = threading.Event()
         # Agent 누적 상태 — 슬라이딩 윈도우에 잘려도 보존
-        self._agent_state_path = Path.home() / ".config" / "bingo" / "agent_state.json"
+        # v6.0.1: 프로세스 PID별 독립 파일 → 다중 터미널 동시 실행 시 상태 오염 방지
+        import os as _os
+        _state_dir = Path.home() / ".config" / "bingo"
+        self._agent_state_path = _state_dir / f"agent_state_{_os.getpid()}.json"
+        # 24시간 이상 된 stale agent_state 파일 자동 정리
+        try:
+            import time as _t
+            for _f in _state_dir.glob("agent_state_*.json"):
+                if _t.time() - _f.stat().st_mtime > 86400:
+                    _f.unlink(missing_ok=True)
+        except Exception:
+            pass
         self._agent_state: dict = self._load_agent_state()
         # ── 화이트박스 분석 상태 (v3.2.82) ────────────────────────────
         self._whitebox_context: str = ""          # AI에 주입할 화이트박스 컨텍스트
@@ -813,10 +824,19 @@ class BingoTerminal:
     def _get_input(self) -> str:
         model_cfg = self.config.get_active_model_config()
         model_name = model_cfg.display_name() if model_cfg else "no-model"
-        return self._session.prompt(
-            HTML(f'<ansigreen><b>❯</b></ansigreen> '),
-            style=PT_STYLE,
-        )
+        try:
+            return self._session.prompt(
+                HTML(f'<ansigreen><b>❯</b></ansigreen> '),
+                style=PT_STYLE,
+            )
+        except RuntimeError:
+            # v6.0.3: Python 3.12 + prompt_toolkit asyncio 충돌
+            # 장시간 에이전트 루프 후 asyncio.run() cannot be called from a running event loop
+            # → input() 폴백으로 크래시 방지
+            import sys as _sys
+            _sys.stdout.write("❯ ")
+            _sys.stdout.flush()
+            return input()
 
     # ────────────────────────────────────────────────────────────────
     # 실행 루프 중 힌트 입력 — Ctrl+C 후 힌트 주면 루프 유지
@@ -3610,10 +3630,6 @@ class BingoTerminal:
             self._cmd_hitl(arg)
         elif name == "/orch":
             self._cmd_orch(arg)
-        elif name == "/reset-phantom":
-            self._cmd_reset_phantom()
-        elif name == "/apt":
-            self._cmd_apt(arg)
         elif name == "/recon":
             self._cmd_recon(arg)
         else:
@@ -5264,17 +5280,94 @@ class BingoTerminal:
                 _ok  = _result.get("success", False)
                 _ec  = _result.get("exit_code", -1)
 
-                # 화면에 결과 미리보기 출력
-                _preview = "\n".join(_out.splitlines()[:30])
+                # 화면에 결과 미리보기 출력 (v5.2.7: 스마트 필터 적용)
                 _color = THEME["success"] if _ok else THEME["warn"]
                 self.console.print(
-                    f"[{_color}]{'✅' if _ok else '⚠'} TOOL_RESULT [{_tool_name}] "
+                    f"[{_color}]{'✅' if _ok else '⚠'} TOOL_RESULT  "
                     f"exit={_ec} elapsed={_elapsed}s[/]"
                 )
-                if _preview:
+                if _out:
+                    import re as _re_tr
                     from rich.markup import escape as _esc
+                    # ── TOOL_RESULT 스마트 필터 ──
+                    # AI에게 보내는 _result_str은 필터 없이 전체 보존
+                    # 터미널 미리보기만 핵심 줄로 제한
+                    _IMP_TR = _re_tr.compile(
+                        r'(?:'
+                        r'HTTP/\d'
+                        r'|status[=:\s]+\d{3}'
+                        r'|\b(?:200|201|204|301|302|307|400|401|403|404|429|500|502)\b'
+                        r'|content-length\s*:\s*\d'
+                        r'|location\s*:\s*https?'
+                        r'|set-cookie\s*:'
+                        r'|server\s*:\s*\S'
+                        r'|x-powered-by|waf|cloudflare'
+                        r'|detected|found|error|exception'
+                        r'|---http_status|---size'
+                        r'|\[\+\]|\[-\]|\[!\]'
+                        r'|✅|❌|⚠|🔍|💥'
+                        r')',
+                        _re_tr.IGNORECASE,
+                    )
+                    _HTML_TR = _re_tr.compile(r'<[a-zA-Z/!]')
+                    _HDR_TR  = _re_tr.compile(r'^[A-Za-z][A-Za-z0-9\-]+\s*:\s*\S')
+                    _disp_lines: list[str] = []
+                    _html_run = 0
+                    _hdr_run  = 0
+                    _suppressed_html = 0
+                    _suppressed_hdr  = 0
+                    for _ln in _out.splitlines()[:120]:  # 최대 120줄 검사
+                        _s = _ln.strip()
+                        if not _s:
+                            continue
+                        # 항상 표시: 중요 패턴
+                        if _IMP_TR.search(_s):
+                            if _suppressed_html:
+                                _disp_lines.append(f"  ⋯ {_suppressed_html} HTML lines hidden")
+                                _suppressed_html = 0
+                            if _suppressed_hdr:
+                                _disp_lines.append(f"  ⋯ {_suppressed_hdr} header lines hidden")
+                                _suppressed_hdr = 0
+                            _html_run = _hdr_run = 0
+                            _disp_lines.append(_ln[:200])
+                            continue
+                        # HTTP 헤더 블록
+                        if _HDR_TR.match(_s):
+                            _hdr_run += 1
+                            _html_run = 0
+                            if _hdr_run <= 6:
+                                _disp_lines.append(_ln[:200])
+                            else:
+                                _suppressed_hdr += 1
+                            continue
+                        else:
+                            if _suppressed_hdr:
+                                _disp_lines.append(f"  ⋯ {_suppressed_hdr} header lines hidden")
+                                _suppressed_hdr = 0
+                            _hdr_run = 0
+                        # HTML 태그 밀집 줄
+                        if len(_HTML_TR.findall(_s)) >= 2 or (_s.startswith("<") and _s.endswith(">")):
+                            _html_run += 1
+                            _hdr_run = 0
+                            if _html_run <= 3:
+                                _disp_lines.append(_ln[:200])
+                            else:
+                                _suppressed_html += 1
+                            continue
+                        else:
+                            if _suppressed_html:
+                                _disp_lines.append(f"  ⋯ {_suppressed_html} HTML lines hidden")
+                                _suppressed_html = 0
+                            _html_run = 0
+                        # 일반 줄 (200자 제한)
+                        _disp_lines.append(_ln[:200])
+                    if _suppressed_html:
+                        _disp_lines.append(f"  ⋯ {_suppressed_html} HTML lines hidden")
+                    if _suppressed_hdr:
+                        _disp_lines.append(f"  ⋯ {_suppressed_hdr} header lines hidden")
+                    _preview = "\n".join(_disp_lines)
                     try:
-                        self.console.print(f"[{THEME['dim']}]{_esc(_preview[:1200])}[/]")
+                        self.console.print(f"[{THEME['dim']}]{_esc(_preview)}[/]")
                     except Exception:
                         self.console.print(_preview[:1200])
 
@@ -5327,88 +5420,11 @@ class BingoTerminal:
             import re as _hall_re
             s = raw_code.strip()
 
-            # ── v4.9.5: bash 블록 전용 환각 감지 ─────────────────────────────
+            # ── v6.0.0: bash 블록 — Claude CLI 모드 (제약 없음) ─────────────────
+            # PhantomGuard bash 제약 완전 제거. Claude CLI처럼 모든 bash/python 패턴 허용.
+            # heredoc, import requests, subprocess, 네트워크 없는 블록 — 전부 허용.
             if _block_type == "bash":
-                # v5.1.3: B0/B0b/B2 오탐 방지 — 주석(#) 행을 제거한 사본으로 패턴 검사
-                # 이유: LLM이 설명 목적으로 "# python3 << 'PYEOF' 는 금지" 같은 주석을 남기면
-                #       실제 코드가 정상임에도 오탐 발생 → 주석 행은 환각 검사 대상 제외
-                _s_nc = '\n'.join(
-                    l for l in s.splitlines()
-                    if not l.strip().startswith('#')
-                )
-
-                # bash 패턴 B0: heredoc Python 감지 (가장 먼저 체크)
-                # "python3 << 'PYEOF'" 또는 "/usr/bin/python3 << 'EOF'" 등
-                # v5.1.3: _s_nc 사용 → 주석 행 "# python3 << 'EOF'" 오탐 제외
-                if _hall_re.search(r'python3?\s*<<\s*[\'"]?\w+[\'"]?', _s_nc):
-                    return (
-                        "BASH_HEREDOC_PYTHON: Python heredoc inside bash is FORBIDDEN. "
-                        "<<'PYEOF' / <<'EOF' wrapping 'import requests' is the same as a Python block. "
-                        "ONLY pipe is allowed: curl ... | /usr/bin/python3 -c \"import sys; ...\""
-                    )
-                # bash 패턴 B0b: bash 안에 import requests 있으면 무조건 차단
-                # v5.1.3: _s_nc 사용 → "# import requests 금지" 주석 오탐 제외
-                if "import requests" in _s_nc:
-                    return (
-                        "BASH_CONTAINS_REQUESTS: 'import requests' inside bash block is FORBIDDEN. "
-                        "Do NOT use Python requests library. Use: curl ... | /usr/bin/python3 -c \"import sys; ...\""
-                    )
-                # bash 패턴 B0c: subprocess+time 을 이용한 Python 타이밍 측정 차단 (v5.1.9)
-                # python3 -c "import subprocess, time" → HTTP 요청을 subprocess로 래핑하는 패턴
-                # 올바른 방법: START=$(date +%s); curl ...; END=$(date +%s)
-                _has_subprocess_time = (
-                    "import subprocess" in _s_nc and
-                    ("import time" in _s_nc or "time.time" in _s_nc or "time.sleep" in _s_nc) and
-                    "import sys" not in _s_nc  # sys 파이프 처리는 허용
-                )
-                if _has_subprocess_time:
-                    return (
-                        "BASH_SUBPROCESS_TIMING: python3 subprocess+time inside bash is FORBIDDEN. "
-                        "Use bash timing: START=$(date +%s); curl -sk -m 30 URL; END=$(date +%s); ELAPSED=$((END-START)). "
-                        "NEVER wrap curl in python3 subprocess for timing measurement."
-                    )
-                # bash 패턴 B1: 네트워크 명령 없는 bash 블록 차단
-                # v5.2.4: sqlmap, gobuster, nikto, hydra 등 pentest 도구도 네트워크 명령으로 인정
-                _NET_CMDS = [
-                    "curl ", "wget ", "nmap ", "ffuf ", "httpx ", "nuclei ",
-                    "sqlmap ", "gobuster ", "nikto ", "hydra ", "wfuzz ",
-                    "dirb ", "dirsearch ", "subfinder ", "amass ", "masscan ",
-                    "wafw00f ", "whatweb ", "wapiti ", "burpsuite ", "zaproxy ",
-                ]
-                _has_net_cmd = any(cmd in s for cmd in _NET_CMDS)
-                if not _has_net_cmd:
-                    # v5.1.1 FIX: 이전 curl로 저장한 /tmp/ 파일을 python3 -c 로 파싱 → 허용
-                    # v5.1.3 확장: /tmp/ 를 참조하는 모든 후처리 블록 허용
-                    _is_local_op = (
-                        "/tmp/" in s and
-                        "requests" not in s and
-                        "urllib" not in s and
-                        "httpx" not in s
-                    )
-                    if not _is_local_op:
-                        return (
-                            "BASH_NO_CURL: bash block has no network command (curl/wget/nmap/sqlmap/etc). "
-                            "You MUST use: curl -s -m 10 -k 'https://REAL_TARGET/path' | "
-                            "/usr/bin/python3 -c \"import sys; d=sys.stdin.buffer.read(); print(d[:1500])\""
-                        )
-                # bash 패턴 B2: placeholder URL
-                # v5.1.3: _s_nc 사용 → 주석 내 예시 URL 오탐 제외
-                #   TARGET_URL/YOUR_URL/PLACEHOLDER/TARGET_HOST → 주석 제외 후 검사
-                if _hall_re.search(r'(?:TARGET_URL|YOUR_URL|PLACEHOLDER|TARGET_HOST)', _s_nc, _hall_re.IGNORECASE):
-                    return (
-                        "BASH_PLACEHOLDER_URL: bash block contains placeholder URL. "
-                        "Replace with actual target URL."
-                    )
-                # example.com 은 주석/설명에 등장 가능 → curl/wget 실제 URL에 있을 때만 오탐
-                if _hall_re.search(
-                    r'(?:curl|wget)\s+[^\n]*\bexample\.com\b',
-                    _s_nc, _hall_re.IGNORECASE,
-                ):
-                    return (
-                        "BASH_PLACEHOLDER_URL: bash block uses 'example.com' as the actual target URL. "
-                        "Replace with the real target URL."
-                    )
-                return None  # bash 블록은 위 검사만 통과하면 OK
+                return None  # bash 블록은 무조건 통과
 
             # ── Python 블록 환각 감지 (기존 로직 유지) ────────────────────────
 
@@ -5423,16 +5439,11 @@ class BingoTerminal:
                         "Rewrite as bash: curl -s \"https://TARGET/\" | python3 -c \"import sys; print(sys.stdin.buffer.read()[:500])\""
                     )
 
-            # 패턴 2: 3줄 미만 & 네트워크 호출 없음 & import 있음 → stub
+            # 패턴 2: (v6.0.0 제거) STUB_CODE_NO_HTTP — Claude CLI 모드에서는 허용
             _lines = [l for l in s.splitlines() if l.strip() and not l.strip().startswith("#")]
             _has_network = any(kw in s for kw in
                 ["requests.", "urllib.", "httpx.", "socket.connect", "http.client",
                  "urlopen", "urlretrieve", "pymssql", "pyodbc"])
-            if len(_lines) <= 3 and not _has_network and "import" in s:
-                return (
-                    "STUB_CODE_NO_HTTP: Code has imports but NO HTTP calls. "
-                    "Use bash block: curl -s \"https://TARGET/\" | python3 -c \"...\""
-                )
 
             # 패턴 3: print("...") 만 있고 실제 네트워크/로직 없음
             _non_print = [l for l in _lines if not l.strip().startswith("print(")]
@@ -6351,36 +6362,8 @@ class BingoTerminal:
                 # "__SYNTAX_ERR__" = 수정 불가 문법 오류 (None 과 다름: None = 정상)
                 return ("__WARN_SYNTAX__" if _is_py312_fstring else "__SYNTAX_ERR__"), _applied_fix_names
 
-        # ── v4.9.6: Python 블록 완전 폐기 — bash+curl 전용 ─────────────────────
-        # Python 블록은 실행하지 않고 즉시 bash 재작성 요청으로 전환
+        # ── v6.2.0: Python 블록 실행 허용 — sqlmap 없이 Python으로 직접 SQLi ─────
         _hallucination_msgs: list[str] = []
-        python_blocks = re.findall(r"```python\s*(.*?)```", response, re.DOTALL)
-        if python_blocks:
-            _py_count = len([b for b in python_blocks if b.strip()])
-            _py_block_msg = (
-                f"PYTHON_BLOCK_FORBIDDEN: Found {_py_count} Python block(s). "
-                "Python blocks are DISABLED in v4.9.6+. "
-                "You MUST rewrite ALL code as bash blocks using curl piped to python3 -c. "
-                "Example:\n"
-                "```bash\n"
-                "curl -s -m 15 -k \\\n"
-                "  -H 'User-Agent: Mozilla/5.0' \\\n"
-                "  'https://REAL_TARGET/path' \\\n"
-                "  | /usr/bin/python3 -c \"\n"
-                "import sys\n"
-                "d=sys.stdin.buffer.read()\n"
-                "t=d.decode('utf-8',errors='replace')\n"
-                "print(f'[STATUS] {len(d)}B'); print(t[:1500])\n"
-                "\"\n"
-                "```"
-            )
-            self.console.print(
-                f"[{THEME['error']}]⛔ [v4.9.6 PYTHON_BLOCK_FORBIDDEN] "
-                f"{_py_count} Python block(s) detected — NOT executed. "
-                f"Rewrite as bash+curl.[/]"
-            )
-            _hallucination_msgs.append(_py_block_msg)
-        # (v4.9.6: Python 블록 처리 로직 완전 제거 — bash+curl 전용)
 
         # 모든 블록이 환각으로 차단됐을 경우 → 강제 수정 메시지 반환
         if _hallucination_msgs and not tasks:
@@ -6518,12 +6501,26 @@ class BingoTerminal:
             목적: 스크립트 자체가 자기 제한 시간 내 종료 → watchdog은 진짜 마지막 방어선.
             """
             import re as _re
+            import platform as _plt
 
             lines_out: list[str] = []
             _in_while_true = False
+            _is_macos = _plt.system() == "Darwin"
 
             for _ln in src.split("\n"):
                 _stripped = _ln.rstrip()
+
+                # ── (0) macOS: grep -P → grep -E (BSD grep는 -P 미지원) ──
+                if _is_macos and not _stripped.lstrip().startswith("#"):
+                    if "grep" in _stripped:
+                        # 단독 플래그: grep -P "..." → grep -E "..."
+                        _stripped = _re.sub(r'(\bgrep\s+)-P\b', r'\1-E', _stripped)
+                        # 복합 플래그: grep -nP / grep -Po / grep -Pn 등
+                        _stripped = _re.sub(
+                            r'(\bgrep\s+-[a-zA-Z]*)P([a-zA-Z]*)',
+                            lambda m: f'{m.group(1)}E{m.group(2)}',
+                            _stripped,
+                        )
 
                 # ── (1) curl 타임아웃 주입 ──────────────────────────
                 # 주석 줄 / echo 줄은 건드리지 않음
@@ -6641,6 +6638,37 @@ class BingoTerminal:
                 "preview": script[:120],
             })
 
+        # ── v6.2.0: Python 블록 파싱 및 tasks 추가 ──────────────────────────────
+        def _fix_indent(code: str) -> str:
+            """IndentationError 자동 교정 (terminal.py 인라인 버전)."""
+            import ast as _ast, textwrap as _tw
+            def _ok(c):
+                try: _ast.parse(c); return True
+                except: return False
+            if _ok(code): return code
+            d = _tw.dedent(code)
+            if _ok(d): return d
+            return code
+
+        python_raw_blocks = re.findall(r"```python\s*(.*?)```", response, re.DOTALL)
+        for _py_i, py_block in enumerate(python_raw_blocks):
+            py_script = _fix_indent(py_block.strip())   # v6.2.3: 자동 교정
+            if not py_script:
+                continue
+            _py_dedup_key = py_script[:60]
+            if f"PYTHON EXECUTION" in history_text and _py_dedup_key[:40] in history_text:
+                continue
+            _py_path = tmp_dir / f"agent_python_{len(tasks)}.py"
+            _py_path.write_text(py_script, encoding="utf-8")
+            first_py_line = next((l.strip() for l in py_script.splitlines() if l.strip() and not l.strip().startswith("#")), py_script[:80])
+            tasks.append({
+                "type": "python",
+                "path": str(_py_path),
+                "idx": _py_i,
+                "cmd": first_py_line[:80],
+                "preview": py_script[:120],
+            })
+
         if not tasks:
             return []
 
@@ -6650,13 +6678,29 @@ class BingoTerminal:
 
         def _run_task(task: dict, slot: int) -> None:
             try:
-                # v4.9.6: Python 타입 제거 — bash+curl 전용. python 타입은 실행 불가.
+                # v6.2.0: Python/bash 모두 실행
                 if task["type"] == "python":
-                    results_text[slot] = (
-                        "=== PYTHON_BLOCK_FORBIDDEN (v4.9.6) ===\n"
-                        "Python blocks are disabled. This should not reach here.\n"
-                        "=== EXIT: 1 ==="
+                    _py_cmd = ["python3", task["path"]]
+                    proc = subprocess.Popen(
+                        _py_cmd,
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                        start_new_session=True,
                     )
+                    stdout, stderr = proc.communicate()
+                    output = (stdout.decode("utf-8", "replace") + stderr.decode("utf-8", "replace"))
+                    if output.strip():
+                        preview_out = "\n".join(output.strip().splitlines()[:50])
+                        with _lock:
+                            self.console.print(f"[{THEME['dim']}]{_resc(preview_out)}[/]")
+                        results_text[slot] = (
+                            f"=== PYTHON EXECUTION: script_{task.get('idx', slot)} ===\n"
+                            f"{output.strip()}\n=== EXIT CODE: {proc.returncode} ==="
+                        )
+                    else:
+                        results_text[slot] = (
+                            f"=== PYTHON EXECUTION: script_{task.get('idx', slot)} ===\n"
+                            f"(no output, exit code {proc.returncode})"
+                        )
                     return
 
                 else:  # bash — v4.9.5~: .sh 파일로 실행 (multi-line curl+python3 지원)
@@ -6836,6 +6880,140 @@ class BingoTerminal:
                     "During handling of the above exception, another exception occurred:",
                 })
 
+                # ── v5.2.7: 스마트 터미널 출력 필터 (렉 방지) ──
+                # AI 컨텍스트(all_lines)에는 모든 내용 전달, 화면엔 핵심만 표시
+                import re as _re  # noqa: F811 — 로컬 임포트 (스코프 내 re 별칭)
+                _disp_html_run: int = 0        # 연속 HTML 태그 줄 수
+                _disp_hdr_run:  int = 0        # 연속 HTTP 헤더 줄 수
+                _disp_suppressed: int = 0      # 억제된 줄 수 (알림용)
+                _MAX_HTML_RUN   = 3            # HTML 줄 최대 3줄까지 표시
+                _MAX_HDR_RUN    = 7            # HTTP 헤더 최대 7줄까지 표시
+                _MAX_LINE_DISP  = 220          # 긴 줄은 220자로 잘라서 표시
+
+                # HTML 태그 감지
+                _HTML_TAG_PAT = _re.compile(r'<[a-zA-Z/!]')
+                # HTTP 헤더 줄 감지: "Key: value"
+                _HDR_LINE_PAT = _re.compile(r'^[A-Za-z][A-Za-z0-9\-]+\s*:\s*\S')
+                # 항상 표시할 중요 패턴
+                _IMP_PAT = _re.compile(
+                    r'(?:'
+                    r'HTTP/\d'
+                    r'|status[=:\s]+\d{3}'
+                    r'|\b(?:200|201|204|301|302|307|308|400|401|403|404|429|500|502|503)\b'
+                    r'|content-length\s*:\s*\d'
+                    r'|location\s*:\s*https?'
+                    r'|set-cookie\s*:'
+                    r'|server\s*:\s*\S'
+                    r'|x-powered-by'
+                    r'|waf|cloudflare|cf-ray'
+                    r'|error|exception|traceback'
+                    r'|found|vuln|inject|payload|xss|sqli|rce|lfi|ssrf'
+                    r'|\[\+\]|\[-\]|\[!\]|\[\*\]'
+                    r'|✅|❌|⚠|🔍|💥|🚨|⛔|🔴|🟢|🟡'
+                    r'|Parameter:|Endpoint:|Target:|WAF:|Tech:|결과:|발견:|탐지:'
+                    r')',
+                    _re.IGNORECASE,
+                )
+
+                def _smart_display(ln: str) -> None:
+                    """v5.2.7: 스마트 필터 — AI에는 모든 줄 전달, 화면엔 핵심만."""
+                    nonlocal _disp_html_run, _disp_hdr_run, _disp_suppressed
+                    s = ln.strip()
+                    if not s:
+                        return
+
+                    # ① 항상 표시: 중요 패턴 포함 줄
+                    if _IMP_PAT.search(s):
+                        _disp_html_run = 0
+                        _disp_hdr_run  = 0
+                        _do_print(ln)
+                        return
+
+                    # ② HTTP 헤더 블록 제어
+                    if _HDR_LINE_PAT.match(s):
+                        _disp_hdr_run += 1
+                        _disp_html_run = 0
+                        if _disp_hdr_run <= _MAX_HDR_RUN:
+                            _do_print(ln)
+                        elif _disp_hdr_run == _MAX_HDR_RUN + 1:
+                            _suppress_notice("hdr")
+                        else:
+                            _disp_suppressed += 1
+                        return
+                    else:
+                        if _disp_hdr_run > _MAX_HDR_RUN:
+                            # 헤더 블록 끝 — 억제 요약 출력 후 리셋
+                            _flush_suppress_notice()
+                        _disp_hdr_run = 0
+
+                    # ③ HTML 태그 밀집 줄 제어
+                    _htag_n = len(_HTML_TAG_PAT.findall(s))
+                    if _htag_n >= 2 or (s.startswith("<") and s.endswith(">")):
+                        _disp_html_run += 1
+                        _disp_hdr_run = 0
+                        if _disp_html_run <= _MAX_HTML_RUN:
+                            _do_print(ln)
+                        elif _disp_html_run == _MAX_HTML_RUN + 1:
+                            _suppress_notice("html")
+                        else:
+                            _disp_suppressed += 1
+                        return
+                    else:
+                        if _disp_html_run > _MAX_HTML_RUN:
+                            _flush_suppress_notice()
+                        _disp_html_run = 0
+
+                    # ④ 긴 줄 잘라서 표시 (JSON body, 긴 URL 등)
+                    if len(s) > _MAX_LINE_DISP:
+                        short = s[:_MAX_LINE_DISP] + f"  [dim]…+{len(s)-_MAX_LINE_DISP}c[/dim]"
+                        _do_print(short, raw=True)
+                        return
+
+                    # ⑤ 나머지 일반 줄 — 그대로 표시
+                    _do_print(ln)
+
+                def _do_print(txt: str, raw: bool = False) -> None:
+                    with _lock:
+                        try:
+                            if raw:
+                                self.console.print(f"[{THEME['dim']}]{txt}[/]")
+                            else:
+                                self.console.print(f"[{THEME['dim']}]{_resc(txt)}[/]")
+                        except Exception:
+                            self.console.out(txt)
+
+                _suppress_label: str = ""
+
+                def _suppress_notice(kind: str) -> None:
+                    nonlocal _suppress_label, _disp_suppressed
+                    _suppress_label = kind
+                    _disp_suppressed = 1
+                    _lbl = {"html": "HTML", "hdr": "headers"}.get(kind, kind)
+                    with _lock:
+                        try:
+                            self.console.print(
+                                f"[{THEME['dim']}]  ⋯ [{_lbl} output suppressed — full data sent to AI][/]"
+                            )
+                        except Exception:
+                            pass
+
+                def _flush_suppress_notice() -> None:
+                    nonlocal _disp_suppressed, _suppress_label
+                    if _disp_suppressed > 0:
+                        with _lock:
+                            try:
+                                _lbl = {"html": "HTML lines", "hdr": "header lines"}.get(
+                                    _suppress_label, "lines"
+                                )
+                                self.console.print(
+                                    f"[{THEME['dim']}]  ⋯ {_disp_suppressed} {_lbl} hidden[/]"
+                                )
+                            except Exception:
+                                pass
+                        _disp_suppressed = 0
+                        _suppress_label = ""
+                # ──────────────────────────────────────────────
+
                 for raw_line in p.stdout:
                     line = raw_line.decode("utf-8", "replace").rstrip()
                     if not line:
@@ -6865,12 +7043,10 @@ class BingoTerminal:
                             _flush_tb_compressed(len(_tb_buf))
                         continue
 
+                    # AI 컨텍스트에는 항상 전체 줄 보존
                     all_lines.append(line)
-                    with _lock:
-                        try:
-                            self.console.print(f"[{THEME['dim']}]{_resc(line)}[/]")
-                        except Exception:
-                            self.console.out(line)
+                    # 터미널에는 스마트 필터 적용 (v5.2.7)
+                    _smart_display(line)
 
                     # 전체 타임아웃 체크 [v5.1.6: p.terminate()→os.killpg() — 자식 curl 포함 종료]
                     if __import__("time").time() - _start_ts > _SCRIPT_TIMEOUT:
@@ -7518,70 +7694,6 @@ class BingoTerminal:
                         continue
                 except Exception:
                     pass  # 0day Hunter 오류는 실행 차단하지 않음
-
-            # ── v3.5.21: APT 모듈 자동 탐지 ─────────────────────────────────
-            # 채팅 모드 실행 결과에서 내부망/공급망/피싱 컨텍스트 자동 감지 → 모듈 힌트 출력
-            if _combined_out:
-                try:
-                    _apt_lang = getattr(self.config, "lang", "en")
-                    _apt_lower = _combined_out.lower()
-
-                    # 1) 내부망 / 횡방향 이동 컨텍스트 감지
-                    _lat_keywords = [
-                        "smb", "445", "impacket", "crackmapexec", "bloodhound",
-                        "pass-the-hash", "pth", "ntlm", "kerberos", "192.168.",
-                        "10.0.", "10.10.", "172.16.", "wmiexec", "psexec",
-                        "lateral", "pivot", "tunnel", "socks5",
-                    ]
-                    if sum(1 for kw in _lat_keywords if kw in _apt_lower) >= 2:
-                        _lat_hint = self.s.get(
-                            "apt_lateral_hint",
-                            "🔀 내부망 탐지 — /apt lateral <IP> 로 횡방향 이동 명령 자동 생성",
-                        )
-                        self.console.print(f"[bold cyan]{_lat_hint}[/bold cyan]")
-
-                    # 2) 공급망 컨텍스트 감지
-                    _sc_keywords = [
-                        "package.json", "requirements.txt", "npm install",
-                        "pip install", "setup.py", "pyproject.toml",
-                        "github actions", ".github/workflows", "postinstall",
-                        "dependency", "supply chain",
-                    ]
-                    if sum(1 for kw in _sc_keywords if kw in _apt_lower) >= 1:
-                        _sc_hint = self.s.get(
-                            "apt_supply_hint",
-                            "⛓️ 공급망 파일 탐지 — /apt supply <path> 로 의존성 취약점 스캔",
-                        )
-                        self.console.print(f"[bold yellow]{_sc_hint}[/bold yellow]")
-
-                    # 3) 피싱 컨텍스트 감지
-                    _ph_keywords = [
-                        "phish", "spear", "email", "smtp", "mail", "subject:",
-                        "from:", "to:", "credential harvest", "landing page",
-                        "피싱", "이메일", "스피어",
-                    ]
-                    if sum(1 for kw in _ph_keywords if kw in _apt_lower) >= 2:
-                        _ph_hint = self.s.get(
-                            "apt_phish_hint",
-                            "🎣 피싱 컨텍스트 감지 — /apt phish <email> 로 스피어피싱 이메일 생성",
-                        )
-                        self.console.print(f"[bold red]{_ph_hint}[/bold red]")
-
-                    # 4) C2 컨텍스트 감지
-                    _c2_keywords = [
-                        "beacon", "c2", "cobalt strike", "metasploit",
-                        "reverse shell", "dns tunnel", "exfiltrate",
-                        "command and control", "c&c", "callback",
-                        "비콘", "역쉘",
-                    ]
-                    if sum(1 for kw in _c2_keywords if kw in _apt_lower) >= 2:
-                        _c2_hint = self.s.get(
-                            "apt_c2_hint",
-                            "🕵️ C2 컨텍스트 감지 — /apt c2 <host> 로 은폐 C2 채널 생성",
-                        )
-                        self.console.print(f"[bold magenta]{_c2_hint}[/bold magenta]")
-                except Exception:
-                    pass  # APT 자동 탐지 오류는 실행 차단하지 않음
 
             # ── v3.5.22: Recon 모듈 자동 탐지 ───────────────────────────────
             # 채팅 모드 실행 결과에서 정보수집/자산수집 컨텍스트 자동 감지 → /recon 힌트 출력
@@ -8282,8 +8394,19 @@ class BingoTerminal:
             ))
 
             # 403 — "403 forbidden" 패턴 (단순 "403" 숫자는 제외)
-            _has_403 = bool(_bre.search(
+            # v5.2.6: CORS/인증 관련 403은 IP 차단 아님 → CORS 헤더 동반 시 제외
+            _has_403_raw = bool(_bre.search(
                 r'(?:403\s+forbidden|status[:\s]+403|http/\d[.\d]*\s+403)', _raw_lower))
+            # CORS 또는 인증 관련 403인지 판별 (API endpoint 접근 거부는 IP 차단 아님)
+            _has_cors_403 = _has_403_raw and bool(_bre.search(
+                r'access-control-allow-origin'
+                r'|access-control-allow-credentials'
+                r'|vary[:\s]+origin'
+                r'|www-authenticate[:\s]'  # 인증 요구 헤더 = auth 403
+                r'|401\s+unauthorized',    # 같은 출력에 401도 있으면 인증 문제
+                _raw_lower,
+            ))
+            _has_403 = _has_403_raw and not _has_cors_403
 
             # 503
             _has_503 = bool(_bre.search(
@@ -8348,7 +8471,30 @@ class BingoTerminal:
                 if _rl_confirmed:
                     _detected_blocks.append("Rate limit hit")
             if _has_403:
-                _detected_blocks.append("403 Forbidden — possible IP block")
+                # v5.2.6: 403도 IPBlockDetector 교차검증 — 메인 사이트 접근 가능하면 오탐
+                _403_target = self._agent_state.get("target", "") or getattr(self.config, "target", "")
+                _403_confirmed = True
+                if _403_target:
+                    try:
+                        from ..core.ip_block_detector import IPBlockDetector as _IPBD403
+                        _403_detector = _IPBD403(_403_target)
+                        _403_result = _403_detector.check()
+                        if not _403_result.blocked:
+                            # 메인 사이트 접근 가능 → API 엔드포인트 403은 인증/권한 문제
+                            _lang_403 = getattr(self.config, "lang", "en")
+                            _403_fp_msg = self.s.get("forbidden_403_not_ipblock", {
+                                "ko": "⚡ 403 감지됐지만 메인 사이트 접근 가능 — 인증/권한 거부 (IP 차단 아님)",
+                                "zh": "⚡ 检测到403但主站可访问 — 认证/权限拒绝（非IP封锁）",
+                                "en": "⚡ 403 detected but main site accessible — auth/permission denied, NOT IP block",
+                            })
+                            if isinstance(_403_fp_msg, dict):
+                                _403_fp_msg = _403_fp_msg.get(_lang_403, "⚡ 403 auth/permission denial (not IP block)")
+                            self.console.print(f"[dim]{_403_fp_msg}[/]")
+                            _403_confirmed = False
+                    except Exception:
+                        pass  # 교차검증 실패 → 안전하게 발동 유지
+                if _403_confirmed:
+                    _detected_blocks.append("403 Forbidden — possible IP block")
             if _has_503:
                 _detected_blocks.append("503 Service Unavailable")
             if _has_conn:
@@ -11627,228 +11773,6 @@ class BingoTerminal:
             "  /orch log\n"
             "  /orch report"
         )
-
-    # ── /reset-phantom ────────────────────────────────────────────
-    def _cmd_reset_phantom(self) -> None:
-        """/reset-phantom  — PhantomGuard 카운터 수동 초기화 (v3.5.3).
-
-        팬텀 모드 탐지 카운터, 자기수정 루프 카운터, 구캐시 히트 카운터,
-        HTTP 0건 차단 카운터, Hard Restart 카운터를 모두 0으로 초기화합니다.
-        팬텀 가드가 오탐하거나 정상 세션을 방해할 때 사용하세요.
-        """
-        if self._phantom_guard is None:
-            self._warn(self.s.get("phantom_guard_not_active",
-                "PhantomGuard가 비활성화 상태입니다. (초기화 실패)"))
-            return
-
-        self._phantom_guard.reset_counters()  # ZeroHttpClaimGuard + HardSessionRestarter 포함
-
-        # Liveness re-probe
-        _lr = self._phantom_guard.run_liveness_probe()
-        self._pg_liveness_ok = _lr.ok
-
-        # 상태 출력
-        _title = self.s.get("phantom_reset_title", "✅ PhantomGuard 카운터 초기화 완료")
-        _live_str = self.s.get("phantom_liveness_ok", "도구 Liveness: ✅ 정상") if _lr.ok else \
-                    self.s.get("phantom_liveness_fail", "도구 Liveness: ⚠️ 실패 — 네트워크 확인 필요")
-        _target = self._phantom_guard.session_target or "(타겟 미설정)"
-
-        self.console.print(
-            f"\n[bold green]{_title}[/bold green]\n"
-            f"  [cyan]{self.s.get('phantom_reset_target', '세션 타겟')}[/cyan]: {_target}\n"
-            f"  {_live_str}\n"
-            f"  [dim]{self.s.get('phantom_reset_note', '모든 팬텀 가드 카운터가 0으로 초기화되었습니다.')}[/dim]\n"
-        )
-
-        # Liveness 실패 시 경고
-        if not _lr.ok:
-            _liveness_banner = self._phantom_guard.liveness_banner()
-            if _liveness_banner:
-                self.console.print(f"[bold yellow]{_liveness_banner}[/bold yellow]")
-
-    # ── v3.5.21: /apt — APT 모듈 통합 진입점 ─────────────────────────
-    def _cmd_apt(self, arg: str = "") -> None:
-        """/apt — APT 공격 모듈 (스피어피싱 / 공급망 / 횡방향 이동 / 은폐 C2).
-
-        사용법:
-          /apt                         — 도움말 출력
-          /apt phish <email>           — 스피어피싱 이메일 생성
-          /apt phish <email> <lure>    — 특정 주제(security_alert|hr_policy|invoice|it_upgrade|ceo_fraud)
-          /apt supply <path>           — 의존성/공급망 취약점 스캔
-          /apt lateral <ip>            — 횡방향 이동 명령 생성
-          /apt lateral <ip> <user> <hash>  — NTLM hash 기반 명령
-          /apt c2 <host>               — 은폐 C2 채널 스크립트 생성
-          /apt c2 <host> dns <domain>  — DNS 터널링 C2
-          /apt c2 <host> https         — HTTPS Beacon C2
-        """
-        import shlex
-
-        try:
-            parts = shlex.split(arg.strip())
-        except ValueError:
-            parts = arg.strip().split()
-
-        _lang = getattr(self.config, "lang", "en")
-
-        if not parts:
-            # 도움말
-            help_lines = [
-                "━" * 60,
-                self.s.get("apt_help_title", "🕵️  APT Module Suite (v3.5.21)"),
-                "━" * 60,
-                self.s.get("apt_help_phish",
-                    "  /apt phish <email> [lure]      — 스피어피싱 이메일 생성"),
-                self.s.get("apt_help_supply",
-                    "  /apt supply <path>              — 공급망 취약점 스캔"),
-                self.s.get("apt_help_lateral",
-                    "  /apt lateral <ip> [user] [hash] — 횡방향 이동 명령 생성"),
-                self.s.get("apt_help_c2",
-                    "  /apt c2 <host> [dns|https]      — 은폐 C2 채널 생성"),
-                "━" * 60,
-            ]
-            self.console.print("\n".join(help_lines))
-            return
-
-        sub = parts[0].lower()
-
-        # ── /apt phish ──────────────────────────────────────────────────
-        if sub == "phish":
-            try:
-                from ..core.apt.phishing import SpearPhishingGenerator, PhishTarget
-                email = parts[1] if len(parts) > 1 else ""
-                lure  = parts[2] if len(parts) > 2 else "security_alert"
-                if not email:
-                    self._warn(self.s.get("apt_phish_need_email",
-                        "사용법: /apt phish <target-email> [lure]"))
-                    return
-                c2_host = getattr(self.config, "apt_c2_host", "your-c2.example.com")
-                gen = SpearPhishingGenerator(c2_host=c2_host)
-                name = email.split("@")[0]
-                org  = email.split("@")[-1] if "@" in email else ""
-                target = PhishTarget(name=name, email=email, organization=org)
-                result = gen.generate_email(target, lure=lure)
-                self.console.print(gen.summary(result, lang=_lang))
-                self.console.print("\n[bold]Subject:[/bold] " + result.subject)
-                self.console.print("[bold]Sender :[/bold] " + result.sender_spoof)
-                self.console.print("\n[bold]Body:[/bold]")
-                self.console.print(result.body_text)
-                self.console.print("\n[bold]Sendmail cmd:[/bold]")
-                self.console.print(gen.generate_sendmail_command(result))
-                # GoPhish JSON 출력
-                import json
-                self.console.print("\n[bold]GoPhish Config (JSON):[/bold]")
-                self.console.print(json.dumps(result.gophish_config, indent=2, ensure_ascii=False))
-            except ImportError as e:
-                self._warn(f"APT phish module import error: {e}")
-
-        # ── /apt supply ─────────────────────────────────────────────────
-        elif sub == "supply":
-            try:
-                from ..core.apt.supply_chain import SupplyChainScanner
-                path = parts[1] if len(parts) > 1 else "."
-                scanner = SupplyChainScanner()
-                all_findings = []
-                import os as _os
-                _p = _os.path.abspath(_os.path.expandvars(_os.path.expanduser(path)))
-                if _os.path.isdir(_p):
-                    # 하위 파일 자동 탐지
-                    for root, _, files in _os.walk(_p):
-                        for fname in files:
-                            fp = _os.path.join(root, fname)
-                            if fname == "package.json":
-                                all_findings += scanner.scan_package_json(fp)
-                            elif fname in ("requirements.txt", "requirements-dev.txt"):
-                                all_findings += scanner.scan_requirements_txt(fp)
-                    # GitHub Actions
-                    gha = _os.path.join(_p, ".github", "workflows")
-                    if _os.path.isdir(gha):
-                        all_findings += scanner.scan_github_actions(gha)
-                elif _os.path.isfile(_p):
-                    fname = _os.path.basename(_p)
-                    if fname == "package.json":
-                        all_findings += scanner.scan_package_json(_p)
-                    else:
-                        all_findings += scanner.scan_requirements_txt(_p)
-
-                report = scanner.format_report(all_findings, lang=_lang)
-                self.console.print(report)
-            except ImportError as e:
-                self._warn(f"APT supply module import error: {e}")
-
-        # ── /apt lateral ────────────────────────────────────────────────
-        elif sub == "lateral":
-            try:
-                from ..core.apt.lateral_movement import (
-                    LateralMovement, LateralTarget, Credential, quick_lateral_commands,
-                )
-                target_ip = parts[1] if len(parts) > 1 else ""
-                if not target_ip:
-                    self._warn(self.s.get("apt_lateral_need_ip",
-                        "사용법: /apt lateral <ip> [username] [nt_hash_or_password]"))
-                    return
-                username = parts[2] if len(parts) > 2 else "Administrator"
-                auth_val = parts[3] if len(parts) > 3 else ""
-                is_hash = bool(auth_val) and len(auth_val) == 32 and all(
-                    c in "0123456789abcdefABCDEF" for c in auth_val
-                )
-                report = quick_lateral_commands(
-                    target_ip=target_ip,
-                    username=username,
-                    password="" if is_hash else auth_val,
-                    nt_hash=auth_val if is_hash else "",
-                )
-                self.console.print(report)
-                # BloodHound 명령도 출력
-                lm = LateralMovement()
-                bh = lm.generate_bloodhound_commands()
-                self.console.print("\n[bold]BloodHound Collection:[/bold]")
-                for k, v in bh.items():
-                    self.console.print(f"  [{k}] {v}")
-            except ImportError as e:
-                self._warn(f"APT lateral module import error: {e}")
-
-        # ── /apt c2 ─────────────────────────────────────────────────────
-        elif sub == "c2":
-            try:
-                from ..core.apt.c2_channel import CovertC2, C2Config
-                c2_host = parts[1] if len(parts) > 1 else "your-c2.example.com"
-                mode    = parts[2].lower() if len(parts) > 2 else "both"
-                dns_domain = parts[3] if (len(parts) > 3 and mode == "dns") else ""
-                cfg = C2Config(c2_host=c2_host, dns_domain=dns_domain)
-                c2  = CovertC2(cfg)
-                import tempfile, os as _os
-                out_dir = tempfile.mkdtemp(prefix="bingo_c2_")
-
-                if mode in ("dns", "both"):
-                    client_path = c2.generate_dns_tunnel_client(
-                        _os.path.join(out_dir, "dns_c2_client.py"))
-                    server_path = c2.generate_dns_tunnel_server(
-                        _os.path.join(out_dir, "dns_c2_server.py"))
-                    self.console.print(
-                        f"[green]✅ DNS Tunnel client → {client_path}[/green]")
-                    self.console.print(
-                        f"[green]✅ DNS Tunnel server → {server_path}[/green]")
-
-                if mode in ("https", "both"):
-                    client_path = c2.generate_https_beacon_client(
-                        _os.path.join(out_dir, "https_c2_client.py"))
-                    server_path = c2.generate_https_c2_server(
-                        _os.path.join(out_dir, "https_c2_server.py"))
-                    self.console.print(
-                        f"[green]✅ HTTPS Beacon client → {client_path}[/green]")
-                    self.console.print(
-                        f"[green]✅ HTTPS Beacon server → {server_path}[/green]")
-
-                gen_map = {"dns_client": "", "dns_server": "",
-                           "https_client": "", "https_server": ""}
-                self.console.print(c2.summary(gen_map, lang=_lang))
-                self.console.print(c2.generate_domain_fronting_guide())
-            except ImportError as e:
-                self._warn(f"APT c2 module import error: {e}")
-
-        else:
-            self._warn(self.s.get("apt_unknown_sub",
-                f"알 수 없는 APT 서브 명령: '{sub}'. /apt 로 도움말 확인"))
 
     # ── v3.5.22: /recon — 정보수집/자산수집 통합 진입점 ─────────────────
     def _cmd_recon(self, arg: str = "") -> None:

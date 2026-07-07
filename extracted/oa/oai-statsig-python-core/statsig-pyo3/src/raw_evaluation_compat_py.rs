@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use pyo3::{
     pyclass,
-    types::{PyAnyMethods, PyDict, PyList, PyListMethods},
+    types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods},
     Bound, Py, PyAny, PyResult, Python,
 };
 use pyo3_stub_gen::derive::gen_stub_pyclass;
@@ -13,8 +13,11 @@ use statsig_rust::{
     statsig_types_raw::{
         DynamicConfigRaw, ExperimentRaw, FeatureGateRaw, LayerRaw, PartialLayerRaw, SuffixedRuleId,
     },
-    EvaluationDetails, SecondaryExposure,
+    DynamicReturnable, EvaluationDetails, SecondaryExposure,
 };
+
+const VALUE_CACHE_KEY_FIELD: &str = "__statsig_dynamic_returnable_cache_key";
+const VALUE_CACHE_HIT_FIELD: &str = "__statsig_dynamic_returnable_cache_hit";
 
 #[gen_stub_pyclass]
 #[pyclass(name = "LayerParamExposureData", module = "statsig_python_core")]
@@ -39,17 +42,15 @@ pub(crate) fn raw_gate_to_py_dict(py: Python, raw: &FeatureGateRaw) -> PyResult<
 pub(crate) fn raw_dynamic_config_to_py_dict(
     py: Python,
     raw: &DynamicConfigRaw,
+    cache_keys: Option<&Bound<PyAny>>,
+    pending_cache: Option<&Bound<PyDict>>,
 ) -> PyResult<Py<PyDict>> {
     let dict = PyDict::new(py);
 
     dict.set_item("name", raw.name)?;
 
     if let Some(value) = raw.value {
-        if let Some(value) = value.get_json_archived_ref() {
-            dict.set_item("value", rkvy_archived_object_to_py_dict(py, value)?)?;
-        } else if let Some(value) = value.get_json_pointer_ref() {
-            dict.set_item("value", rkyv_object_to_py_dict(py, value)?)?;
-        }
+        insert_dynamic_returnable(py, &dict, value, cache_keys, pending_cache)?;
     }
 
     py_dict_insert_rule_id(&dict, &raw.rule_id)?;
@@ -60,17 +61,82 @@ pub(crate) fn raw_dynamic_config_to_py_dict(
     Ok(dict.unbind())
 }
 
-pub(crate) fn raw_experiment_to_py_dict(py: Python, raw: &ExperimentRaw) -> PyResult<Py<PyDict>> {
+fn insert_dynamic_returnable(
+    py: Python,
+    dict: &Bound<PyDict>,
+    value: &DynamicReturnable,
+    cache_keys: Option<&Bound<PyAny>>,
+    pending_cache: Option<&Bound<PyDict>>,
+) -> PyResult<()> {
+    let cache_key = value.get_hash();
+    if has_cached_dynamic_returnable(cache_keys, cache_key)? {
+        dict.set_item(VALUE_CACHE_KEY_FIELD, cache_key)?;
+        dict.set_item(VALUE_CACHE_HIT_FIELD, true)?;
+        return Ok(());
+    }
+
+    if let Some(cached) = get_pending_dynamic_returnable(pending_cache, cache_key)? {
+        dict.set_item("value", cached)?;
+        dict.set_item(VALUE_CACHE_KEY_FIELD, cache_key)?;
+        dict.set_item(VALUE_CACHE_HIT_FIELD, true)?;
+        return Ok(());
+    }
+
+    let converted = if let Some(value) = value.get_json_archived_ref() {
+        rkvy_archived_object_to_py_dict(py, value)?
+    } else if let Some(value) = value.get_json_pointer_ref() {
+        rkyv_object_to_py_dict(py, value)?
+    } else {
+        return Ok(());
+    };
+
+    dict.set_item("value", &converted)?;
+    if cache_keys.is_some() {
+        dict.set_item(VALUE_CACHE_KEY_FIELD, cache_key)?;
+        dict.set_item(VALUE_CACHE_HIT_FIELD, false)?;
+        if let Some(pending_cache) = pending_cache {
+            pending_cache.set_item(cache_key, converted)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn has_cached_dynamic_returnable(
+    cache_keys: Option<&Bound<PyAny>>,
+    cache_key: u64,
+) -> PyResult<bool> {
+    let Some(cache_keys) = cache_keys else {
+        return Ok(false);
+    };
+    cache_keys.contains(cache_key)
+}
+
+fn get_pending_dynamic_returnable<'py>(
+    pending_cache: Option<&Bound<'py, PyDict>>,
+    cache_key: u64,
+) -> PyResult<Option<Bound<'py, PyDict>>> {
+    let Some(pending_cache) = pending_cache else {
+        return Ok(None);
+    };
+    let Some(cached) = pending_cache.get_item(cache_key)? else {
+        return Ok(None);
+    };
+    Ok(cached.cast_into::<PyDict>().ok())
+}
+
+pub(crate) fn raw_experiment_to_py_dict(
+    py: Python,
+    raw: &ExperimentRaw,
+    cache_keys: Option<&Bound<PyAny>>,
+    pending_cache: Option<&Bound<PyDict>>,
+) -> PyResult<Py<PyDict>> {
     let dict = PyDict::new(py);
 
     dict.set_item("name", raw.name)?;
 
     if let Some(value) = raw.value {
-        if let Some(value) = value.get_json_archived_ref() {
-            dict.set_item("value", rkvy_archived_object_to_py_dict(py, value)?)?;
-        } else if let Some(value) = value.get_json_pointer_ref() {
-            dict.set_item("value", rkyv_object_to_py_dict(py, value)?)?;
-        }
+        insert_dynamic_returnable(py, &dict, value, cache_keys, pending_cache)?;
     }
 
     py_dict_insert_rule_id(&dict, &raw.rule_id)?;
@@ -90,17 +156,18 @@ pub(crate) fn raw_experiment_to_py_dict(py: Python, raw: &ExperimentRaw) -> PyRe
     Ok(dict.unbind())
 }
 
-pub(crate) fn raw_layer_to_py_dict(py: Python, raw: &LayerRaw) -> PyResult<Py<PyDict>> {
+pub(crate) fn raw_layer_to_py_dict(
+    py: Python,
+    raw: &LayerRaw,
+    cache_keys: Option<&Bound<PyAny>>,
+    pending_cache: Option<&Bound<PyDict>>,
+) -> PyResult<Py<PyDict>> {
     let dict = PyDict::new(py);
 
     dict.set_item("name", raw.name)?;
 
     if let Some(value) = raw.value {
-        if let Some(value) = value.get_json_archived_ref() {
-            dict.set_item("value", rkvy_archived_object_to_py_dict(py, value)?)?;
-        } else if let Some(value) = value.get_json_pointer_ref() {
-            dict.set_item("value", rkyv_object_to_py_dict(py, value)?)?;
-        }
+        insert_dynamic_returnable(py, &dict, value, cache_keys, pending_cache)?;
     }
 
     py_dict_insert_rule_id(&dict, &raw.rule_id)?;
@@ -121,6 +188,7 @@ pub(crate) fn raw_layer_to_py_dict(py: Python, raw: &LayerRaw) -> PyResult<Py<Py
         )?;
     }
 
+    // Exposure state includes the evaluated user and must remain per-call.
     dict.set_item(
         "__exposure",
         Py::new(

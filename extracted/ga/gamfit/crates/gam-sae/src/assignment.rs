@@ -11,6 +11,141 @@ use gam_terms::analytic_penalties::{
 };
 use gam_terms::latent::{LatentCoordValues, LatentIdMode, LatentManifold};
 
+/// Shared per-atom row support measure.
+///
+/// The weights are the fitted assignment masses `w_i = a_{ik}` for one atom:
+/// non-negative, unnormalised, and on the same scale as the reconstruction gate.
+/// Diagnostics should read atom occupancy through this object instead of
+/// re-deriving hard owner sets or local soft-mass sums. Three sizes are exposed
+/// because they answer different questions:
+///
+/// * [`Self::mass`] is the soft occupancy `Σ_i w_i`.
+/// * [`Self::fisher_n`] is the reconstruction-information count `Σ_i w_i²`,
+///   matching the rank-charge Gram `Φᵀdiag(w²)Φ`.
+/// * [`Self::ess`] is the scale-invariant Kish effective support
+///   `(Σ_i w_i)² / Σ_i w_i²`, the number of equally weighted rows represented by
+///   the support distribution.
+#[derive(Clone, Debug)]
+pub struct SupportMeasure {
+    atom_idx: usize,
+    weights: Array1<f64>,
+    mass: f64,
+    fisher_n: f64,
+}
+
+impl SupportMeasure {
+    #[must_use = "support construction error must be handled"]
+    pub fn from_assignment(assignment: &SaeAssignment, atom_idx: usize) -> Result<Self, String> {
+        let assignments = assignment.assignments();
+        Self::from_assignment_matrix(assignments.view(), atom_idx)
+    }
+
+    #[must_use = "support construction error must be handled"]
+    pub fn from_assignment_matrix(
+        assignments: ArrayView2<'_, f64>,
+        atom_idx: usize,
+    ) -> Result<Self, String> {
+        let (_n, k) = assignments.dim();
+        if atom_idx >= k {
+            return Err(format!(
+                "SupportMeasure::from_assignment_matrix: atom {atom_idx} out of range K={k}"
+            ));
+        }
+        let weights = assignments.column(atom_idx).to_owned();
+        Self::from_weights(atom_idx, weights)
+    }
+
+    #[must_use = "support construction error must be handled"]
+    pub fn from_argmax_owners(
+        owners: &[usize],
+        atom_idx: usize,
+        k_atoms: usize,
+    ) -> Result<Self, String> {
+        if atom_idx >= k_atoms {
+            return Err(format!(
+                "SupportMeasure::from_argmax_owners: atom {atom_idx} out of range K={k_atoms}"
+            ));
+        }
+        let mut weights = Array1::<f64>::zeros(owners.len());
+        for (row, &owner) in owners.iter().enumerate() {
+            if owner >= k_atoms {
+                return Err(format!(
+                    "SupportMeasure::from_argmax_owners: row {row} owner {owner} out of range K={k_atoms}"
+                ));
+            }
+            if owner == atom_idx {
+                weights[row] = 1.0;
+            }
+        }
+        Self::from_weights(atom_idx, weights)
+    }
+
+    #[must_use = "support construction error must be handled"]
+    pub fn from_weights(atom_idx: usize, weights: Array1<f64>) -> Result<Self, String> {
+        let mut mass = 0.0_f64;
+        let mut fisher_n = 0.0_f64;
+        for (row, &w) in weights.iter().enumerate() {
+            if !(w.is_finite() && w >= 0.0) {
+                return Err(format!(
+                    "SupportMeasure::from_weights: row {row} has invalid support weight {w}"
+                ));
+            }
+            mass += w;
+            fisher_n += w * w;
+        }
+        Ok(Self {
+            atom_idx,
+            weights,
+            mass,
+            fisher_n,
+        })
+    }
+
+    pub fn atom_idx(&self) -> usize {
+        self.atom_idx
+    }
+
+    pub fn weights(&self) -> ArrayView1<'_, f64> {
+        self.weights.view()
+    }
+
+    pub fn len(&self) -> usize {
+        self.weights.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.weights.is_empty()
+    }
+
+    pub fn mass(&self) -> f64 {
+        self.mass
+    }
+
+    pub fn fisher_n(&self) -> f64 {
+        self.fisher_n
+    }
+
+    pub fn ess(&self) -> f64 {
+        if self.fisher_n > 0.0 {
+            (self.mass * self.mass) / self.fisher_n
+        } else {
+            0.0
+        }
+    }
+
+    pub fn weight(&self, row: usize) -> f64 {
+        self.weights[row]
+    }
+
+    pub fn positive_rows(&self) -> Vec<usize> {
+        self.weights
+            .iter()
+            .enumerate()
+            .filter_map(|(row, &w)| if w > 0.0 { Some(row) } else { None })
+            .collect()
+    }
+}
+
 /// #976 Layer-1 guard: cap on one accepted iteration's assignment-logit
 /// update, in units of the gate temperature τ (the gate's natural length
 /// scale — every assignment mode reads logits through `σ(·/τ)` /
@@ -121,6 +256,24 @@ pub enum AssignmentMode {
     /// spelling; [`Self::jumprelu`] is retained as a deprecated alias, and the FFI
     /// string parser accepts both `"threshold_gate"` and the legacy `"jumprelu"`.
     ThresholdGate { temperature: f64, threshold: f64 },
+}
+
+/// Caller intent for assignment-mode admission. `Default` is the production
+/// route: it never selects IBP-MAP implicitly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AssignmentModeRequest {
+    Default,
+    Softmax,
+    ThresholdGate,
+    IbpMap,
+}
+
+/// Scale-aware assignment admission result.
+#[derive(Debug, Clone, Copy)]
+pub struct AssignmentModeAdmission {
+    pub mode: AssignmentMode,
+    /// Train-time active-set cap to thread into `SaeManifoldTerm::set_softmax_active_cap`.
+    pub top_k: Option<usize>,
 }
 
 /// #1033 — the fixed-form predictor that produces the ρ-invariant FROZEN routing
@@ -278,6 +431,65 @@ impl AssignmentMode {
             _ => None,
         }
     }
+}
+
+/// Default large-K active cap derived from the data-per-atom ratio. When each
+/// atom has fewer rows-per-atom than there are atoms (`N/K < K`), the dense
+/// all-K routing model is the wrong scale; cap each row to the number of rows
+/// available per atom. Otherwise the dense softmax path is admitted.
+pub fn default_top_k_for_large_dictionary(n_obs: usize, k_atoms: usize) -> Option<usize> {
+    if n_obs == 0 || k_atoms <= 1 {
+        return None;
+    }
+    if n_obs >= k_atoms.saturating_mul(k_atoms) {
+        return None;
+    }
+    let cap = n_obs.div_ceil(k_atoms).clamp(1, k_atoms - 1);
+    Some(cap)
+}
+
+/// Admit the assignment mode for a fit size. The default route is softmax, with
+/// a top-k cap at large K. IBP-MAP is a research-mode opt-in and is refused once
+/// the large-K top-k admission engages.
+pub fn admit_assignment_mode_for_size(
+    request: AssignmentModeRequest,
+    n_obs: usize,
+    k_atoms: usize,
+    temperature: f64,
+    alpha: f64,
+    learnable_alpha: bool,
+    threshold: f64,
+) -> Result<AssignmentModeAdmission, String> {
+    if n_obs == 0 {
+        return Err("admit_assignment_mode_for_size: n_obs must be positive".to_string());
+    }
+    if k_atoms == 0 {
+        return Err("admit_assignment_mode_for_size: k_atoms must be positive".to_string());
+    }
+    let large_k_top = default_top_k_for_large_dictionary(n_obs, k_atoms);
+    let admission = match request {
+        AssignmentModeRequest::Default | AssignmentModeRequest::Softmax => AssignmentModeAdmission {
+            mode: AssignmentMode::softmax(temperature),
+            top_k: large_k_top,
+        },
+        AssignmentModeRequest::ThresholdGate => AssignmentModeAdmission {
+            mode: AssignmentMode::threshold_gate(temperature, threshold),
+            top_k: None,
+        },
+        AssignmentModeRequest::IbpMap => {
+            if let Some(top_k) = large_k_top {
+                return Err(format!(
+                    "admit_assignment_mode_for_size: IBP-MAP is admitted only for explicit small-N research fits; N={n_obs}, K={k_atoms} requires top_k={top_k}"
+                ));
+            }
+            AssignmentModeAdmission {
+                mode: AssignmentMode::ibp_map(temperature, alpha, learnable_alpha),
+                top_k: None,
+            }
+        }
+    };
+    admission.mode.validate()?;
+    Ok(admission)
 }
 
 // #1026 — process-global IBP-α override (NaN sentinel = "unset → use the
@@ -1728,6 +1940,7 @@ pub(crate) fn assignment_prior_grad_hdiag(
 pub(crate) fn ibp_assignment_third_channels(
     assignment: &SaeAssignment,
     rho: &SaeManifoldRho,
+    majorize: bool,
 ) -> Result<Option<IbpHessianDiagThirdChannels>, String> {
     let AssignmentMode::IBPMap {
         temperature,
@@ -1752,7 +1965,8 @@ pub(crate) fn ibp_assignment_third_channels(
         penalty.weight = rho.lambda_sparse();
         Array1::zeros(0)
     };
-    let mut channels = penalty.hessian_diag_logit_third_channels(target.view(), rho_view.view());
+    let mut channels =
+        penalty.hessian_diag_logit_third_channels(target.view(), rho_view.view(), majorize);
     // #1026/#1033 — zero the log-det third-derivative channels of FIXED-logit
     // atoms (ungated, or all atoms under frozen routing) so the #1006 θ-adjoint
     // differentiates the SAME (fixed-logit-zeroed) `htt` that
@@ -2101,6 +2315,43 @@ mod frozen_routing_1033_tests {
             a.freeze_routing_from_current_logits().is_err(),
             "frozen routing under Softmax must be rejected (simplex entropy-majorizer coupling)"
         );
+    }
+}
+
+#[cfg(test)]
+mod support_measure_tests {
+    use super::*;
+
+    #[test]
+    fn support_measure_matches_hard_and_diffuse_semantics() {
+        let hard_weights = Array1::from_vec(vec![1.0, 1.0, 0.0, 1.0, 0.0]);
+        let hard = SupportMeasure::from_weights(0, hard_weights).unwrap();
+        assert_eq!(hard.mass(), 3.0);
+        assert_eq!(hard.fisher_n(), 3.0);
+        assert_eq!(hard.ess(), 3.0);
+        assert_eq!(hard.positive_rows(), vec![0usize, 1, 3]);
+        let from_owners = SupportMeasure::from_argmax_owners(&[0, 0, 1, 0, 1], 0, 2).unwrap();
+        assert_eq!(from_owners.mass(), hard.mass());
+        assert_eq!(from_owners.fisher_n(), hard.fisher_n());
+        assert_eq!(from_owners.ess(), hard.ess());
+        assert_eq!(from_owners.positive_rows(), hard.positive_rows());
+
+        let diffuse_weights = Array1::from_vec(vec![0.5, 0.5, 0.5, 0.5]);
+        let diffuse = SupportMeasure::from_weights(1, diffuse_weights).unwrap();
+        assert_eq!(diffuse.mass(), 2.0);
+        assert_eq!(diffuse.fisher_n(), 1.0);
+        assert_eq!(diffuse.ess(), 4.0);
+    }
+
+    #[test]
+    fn support_measure_reads_assignment_column() {
+        let assignments =
+            Array2::from_shape_vec((3, 2), vec![0.8, 0.2, 0.4, 0.6, 0.0, 1.0]).unwrap();
+        let support = SupportMeasure::from_assignment_matrix(assignments.view(), 1).unwrap();
+        assert!((support.mass() - 1.8).abs() < 1e-12);
+        assert!((support.fisher_n() - 1.4).abs() < 1e-12);
+        assert!((support.ess() - (1.8_f64 * 1.8 / 1.4)).abs() < 1e-12);
+        assert_eq!(support.positive_rows(), vec![0usize, 1, 2]);
     }
 }
 

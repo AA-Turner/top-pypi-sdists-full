@@ -1,59 +1,75 @@
-import numpy as np
 from pgvector import HalfVector
 import pytest
 from struct import pack
+from .conftest import numpy as np
 
 
 class TestHalfVector:
-    def test_list(self):
-        assert HalfVector([1, 2, 3]).to_list() == [1, 2, 3]
+    def test_list(self) -> None:
+        arr = [1.0, 2.0, 3.0]
+        assert HalfVector(arr).to_list() == arr
+        assert HalfVector(arr).to_list() is not arr
 
-    def test_list_str(self):
-        with pytest.raises(ValueError, match='could not convert string to float'):
-            HalfVector([1, 'two', 3])
+    def test_list_empty(self) -> None:
+        assert HalfVector([]).to_list() == []
 
-    def test_tuple(self):
-        assert HalfVector((1, 2, 3)).to_list() == [1, 2, 3]
+    def test_list_str(self) -> None:
+        with pytest.raises(ValueError) as error:
+            HalfVector([1, 'two', 3])  # type: ignore
+        assert str(error.value) == 'expected list[float]'
 
-    def test_ndarray(self):
-        arr = np.array([1, 2, 3])
+    def test_list_list(self) -> None:
+        with pytest.raises(ValueError) as error:
+            HalfVector([[1, 2], [3, 4]])  # type: ignore
+        assert str(error.value) == 'expected list[float]'
+
+    def test_ndarray(self) -> None:
+        if np is None:
+            pytest.skip('NumPy required')
+
+        arr = np.array([1, 2, 3], dtype=np.float16)
         assert HalfVector(arr).to_list() == [1, 2, 3]
         assert HalfVector(arr).to_numpy() is not arr
+        assert HalfVector(arr).to_numpy().dtype == np.float16
+        # non-contiguous
+        assert HalfVector(np.flip(arr)).to_list() == [3, 2, 1]
+        assert HalfVector(np.flip(arr)).to_binary() == HalfVector([3, 2, 1]).to_binary()
+        # big endian
+        assert HalfVector(arr.astype('>f2')).to_list() == [1, 2, 3]
+        assert HalfVector(arr.astype('>f2')).to_binary() == HalfVector([1, 2, 3]).to_binary()
 
-    def test_ndarray_same_object(self):
-        arr = np.array([1, 2, 3], dtype='>f2')
-        assert HalfVector(arr).to_list() == [1, 2, 3]
-        assert HalfVector(arr).to_numpy() is arr
-
-    def test_ndim_two(self):
         with pytest.raises(ValueError) as error:
-            HalfVector([[1, 2], [3, 4]])
-        assert str(error.value) == 'expected ndim to be 1'
+            HalfVector(np.array(['one', 'two', 'three']))
+        assert 'could not convert string to float' in str(error.value)
 
-    def test_ndim_zero(self):
+    def test_int(self) -> None:
         with pytest.raises(ValueError) as error:
-            HalfVector(1)
-        assert str(error.value) == 'expected ndim to be 1'
+            HalfVector(1)  # type: ignore
+        assert str(error.value) == 'expected list or ndarray'
 
-    def test_repr(self):
+    def test_repr(self) -> None:
         assert repr(HalfVector([1, 2, 3])) == 'HalfVector([1.0, 2.0, 3.0])'
         assert str(HalfVector([1, 2, 3])) == 'HalfVector([1.0, 2.0, 3.0])'
 
-    def test_equality(self):
+    def test_equality(self) -> None:
         assert HalfVector([1, 2, 3]) == HalfVector([1, 2, 3])
         assert HalfVector([1, 2, 3]) != HalfVector([1, 2, 4])
+        assert HalfVector([1, 2, 3]) != 1
 
-    def test_dimensions(self):
+    def test_dimensions(self) -> None:
         assert HalfVector([1, 2, 3]).dimensions() == 3
 
-    def test_from_text(self):
+    def test_from_text(self) -> None:
         vec = HalfVector.from_text('[1.5,2,3]')
         assert vec.to_list() == [1.5, 2, 3]
-        assert np.array_equal(vec.to_numpy(), [1.5, 2, 3])
+        if np is not None:
+            assert np.array_equal(vec.to_numpy(), [1.5, 2, 3])
+        assert vec.to_text() == '[1.5,2.0,3.0]'
 
-    def test_from_binary(self):
+    def test_from_binary(self) -> None:
         data = pack('>HH3e', 3, 0, 1.5, 2, 3)
         vec = HalfVector.from_binary(data)
         assert vec.to_list() == [1.5, 2, 3]
-        assert np.array_equal(vec.to_numpy(), [1.5, 2, 3])
+        if np is not None:
+            assert np.array_equal(vec.to_numpy(), [1.5, 2, 3])
         assert vec.to_binary() == data

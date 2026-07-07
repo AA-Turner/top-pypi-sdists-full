@@ -1,14 +1,6 @@
 Metadata-Version: 2.4
 Name: dirsql
-Version: 0.3.67
-Requires-Dist: pytest>=8 ; extra == 'dev'
-Requires-Dist: pytest-describe>=2 ; extra == 'dev'
-Requires-Dist: pytest-asyncio>=0.23 ; extra == 'dev'
-Requires-Dist: pytest-cov>=5 ; extra == 'dev'
-Requires-Dist: ruff>=0.4 ; extra == 'dev'
-Requires-Dist: maturin>=1.0 ; extra == 'dev'
-Requires-Dist: ty==0.0.42 ; extra == 'dev'
-Provides-Extra: dev
+Version: 0.3.70
 Summary: Ephemeral SQL index over a local directory
 Keywords: sql,filesystem,directory,sqlite,index
 Author: Kevin Scott

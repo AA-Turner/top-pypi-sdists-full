@@ -3,6 +3,8 @@ pysqlsync: Synchronize schema and large volumes of data.
 
 This module helps convert between data-class, dictionary and tuple representation of result-sets.
 
+Copyright 2023-2026, Levente Hunyadi
+
 :see: https://github.com/hunyadi/pysqlsync
 """
 
@@ -41,7 +43,7 @@ def resultset_unwrap_object(signature: type[D], records: Iterable[Any]) -> list[
     if not is_dataclass_type(signature):
         raise TypeError(f"expected: data-class type as result-set signature; got: {signature}")
 
-    names = [name for name in signature.__dataclass_fields__.keys()]
+    names = [name for name in signature.__dataclass_fields__.keys()]  # pyright: ignore[reportUnknownMemberType]
     return [signature(**{name: record.__getattribute__(name) for name in names}) for record in records]
 
 
@@ -53,17 +55,26 @@ def resultset_unwrap_tuple(signature: type[T], records: Iterable[Sequence[Any]])
     :param records: The result-set whose rows to convert.
     """
 
-    if signature in [bool, int, float, str]:
+    if signature in (bool, int, float, str):
+        args_count = 1
+    else:
+        origin_args = typing.get_args(signature)
+        args_count = len(origin_args)
+
+    # check result shape
+    it = iter(records)
+    try:
+        item = next(it)
+    except StopIteration:
+        return []
+    if isinstance(item, (bool, int, float, str)):
+        raise TypeError(f"expected: record, list or tuple as result-set row; got: {type(item)}")
+    if len(item) != args_count:
+        raise ValueError(f"invalid number of columns, expected: {args_count}; got: {len(item)}")
+
+    if signature in (bool, int, float, str):
         scalar_results: list[T] = []
 
-        # check result shape
-        it = iter(records)
-        try:
-            item = next(it)
-        except StopIteration:
-            return []
-        if len(item) != 1:
-            raise ValueError(f"invalid number of columns, expected: 1; got: {len(item)}")
         scalar_results.append(item[0])
         while True:
             try:
@@ -74,17 +85,7 @@ def resultset_unwrap_tuple(signature: type[T], records: Iterable[Sequence[Any]])
 
     origin_type = typing.get_origin(signature)
     if origin_type is tuple:
-        origin_args = typing.get_args(signature)
         results: list[T] = []
-
-        # check result shape
-        it = iter(records)
-        try:
-            item = next(it)
-        except StopIteration:
-            return []
-        if len(item) != len(origin_args):
-            raise ValueError(f"invalid number of columns, expected: {len(origin_args)}; got: {len(item)}")
 
         if isinstance(item, tuple):
             results.append(item)  # type: ignore

@@ -85,6 +85,7 @@ from ._yaml_search_cache import YamlSearchCache
 from .helpers import (
     _build_address_cache_args,
     _validate_archive_configuration,
+    raise_device_not_found,
 )
 from .metadata import DeviceMetadataBase
 
@@ -758,7 +759,7 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
         try:
             return await self._read_yaml_async(self._db.settings.rel_path(configuration))
         except FileNotFoundError as err:
-            raise CommandError(ErrorCode.NOT_FOUND, f"Device {configuration!r} not found") from err
+            raise_device_not_found(configuration, from_exc=err)
 
     @api_command("devices/update_config")
     async def update_config(
@@ -1083,8 +1084,10 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
         """Read *path* as UTF-8 text off the executor."""
         return await run_in_executor(path.read_text, "utf-8")
 
-    def _on_scan_change(self, kind: ScanChange, device: Device) -> None:
-        scan_change.on_scan_change(self, kind, device)
+    def _on_scan_change(
+        self, kind: ScanChange, device: Device, previous: Device | None = None
+    ) -> None:
+        scan_change.on_scan_change(self, kind, device, previous)
 
     def _devices_by_name(self, name: str) -> list[Device]:
         """Every configured device whose ``name`` field matches ``name``.

@@ -6478,19 +6478,30 @@ fn rg_resolve_simplex_coord_label(kind: &str, coordinates: Option<&str>) -> Stri
 /// coordinate label. This owns the geometry-kind routing, coordinate
 /// resolution, and base-point selection that previously lived in the Python
 /// wrapper.
+///
+/// `weights` are the per-observation prior weights used ONLY to choose the
+/// intrinsic base point when `base` is `None`. A weighted response-geometry fit
+/// linearizes every response in the tangent space at the base point and runs a
+/// weighted tangent regression there; if the base point ignored the weights the
+/// chart would be expanded around where the *unweighted* data balances rather
+/// than where the weighted mass lives — a biased linearization whenever the
+/// weighted and unweighted intrinsic means differ (#2125). Threading the same
+/// weights the tangent regression uses into the Fréchet mean puts the chart
+/// origin at the weighted mean. `None` recovers the uniform intrinsic mean.
 fn rg_log_map_dispatch(
     values: ArrayView2<'_, f64>,
     geometry: &str,
     base: Option<ArrayView1<'_, f64>>,
     coordinates: Option<&str>,
     reference: isize,
+    weights: Option<ArrayView1<'_, f64>>,
 ) -> Result<(Array2<f64>, Array1<f64>, String), String> {
     let kind = geometry.to_ascii_lowercase();
     match kind.as_str() {
         "spherical" | "sphere" => {
             let base_point = match base {
                 None => Array1::from(gam::geometry::sphere::sphere_frechet_mean(
-                    values, None, 1.0e-12, 256,
+                    values, weights, 1.0e-12, 256,
                 )?),
                 Some(b) => rg_normalize_sphere_base(b)?,
             };
@@ -6502,7 +6513,7 @@ fn rg_log_map_dispatch(
             let coord_label = rg_resolve_simplex_coord_label(&kind, coordinates);
             let coord = gam::geometry::simplex::parse_simplex_coord(&coord_label)?;
             let base_point = match base {
-                None => Array1::from(simplex_frechet_mean(values, None)?),
+                None => Array1::from(simplex_frechet_mean(values, weights)?),
                 Some(b) => {
                     let b2 = Array2::from_shape_fn((1, b.len()), |(_, j)| b[j]);
                     simplex_closure(b2.view())?.row(0).to_owned()
@@ -6519,7 +6530,7 @@ fn rg_log_map_dispatch(
         // Curved matrix / hyperbolic response geometries (#1061): the math is in
         // `gam::geometry` and the label-parsing + intrinsic-mean + batched-map
         // routing lives in `response_geometry`. `reference` does not apply.
-        _ => gam::geometry::response_geometry::dispatch_log_map(values, &kind, base),
+        _ => gam::geometry::response_geometry::dispatch_log_map(values, &kind, base, weights),
     }
 }
 
@@ -6668,6 +6679,78 @@ mod latent_glm_family_validation_tests {
                 ResponseFamily::Tweedie { p } => assert_eq!(p, good),
                 other => panic!("expected Tweedie family, got {other:?}"),
             }
+        }
+    }
+}
+
+// #1388/#2138 — SAE joint-fit worker driver (used by `sae_manifold_fit_inner` in
+// the sibling `latent_basis_and_sae_ffi.rs` fragment; both are `include!`d into
+// the same crate module, so this item is visible there). 512 MiB stack: the
+// outer-ρ per-row jet loop's multi-megabyte `Tower4<16>` frames overflow Python's
+// calling-thread stack → SIGSEGV; mirror the native CLI (`CLI_WORKER_STACK_SIZE`
+// in `src/main.rs`).
+const SAE_FIT_WORKER_STACK_SIZE: usize = 512 << 20;
+
+/// Run an owned SAE fit closure on a 512 MiB worker thread with the GIL RELEASED
+/// (#2138), so a multi-minute Rust solve no longer holds the interpreter lock for
+/// its whole duration. The calling thread waits on the result slot in short
+/// GIL-dropped windows and, between them, reacquires the GIL to run any pending
+/// Python signal handler ([`Python::check_signals`]): a `KeyboardInterrupt` /
+/// `signal.alarm` RAISES here mid-solve instead of only after the fit returns. On
+/// interrupt `cancel` is set — the fit objective shares it and bails out of its
+/// next outer eval so the detached worker stops — then the worker is abandoned;
+/// it owns every input (`'static`) and drops on its own thread. `f` MUST NOT
+/// touch a Python object.
+fn run_sae_fit_interruptible<T, F>(
+    py: Python<'_>,
+    thread_name: &str,
+    cancel: &std::sync::Arc<std::sync::atomic::AtomicBool>,
+    f: F,
+) -> PyResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce() -> T + Send + 'static,
+{
+    // Sync result slot: an mpsc `Receiver` is `!Sync` (so `&Receiver` is `!Ungil`
+    // and cannot cross `detach`); `Arc<(Mutex, Condvar)>` is `Send + Sync`.
+    // Poison is recovered, never panicked.
+    let slot: std::sync::Arc<(std::sync::Mutex<Option<T>>, std::sync::Condvar)> =
+        std::sync::Arc::new((std::sync::Mutex::new(None), std::sync::Condvar::new()));
+    let worker_slot = std::sync::Arc::clone(&slot);
+    std::thread::Builder::new()
+        .name(thread_name.to_string())
+        .stack_size(SAE_FIT_WORKER_STACK_SIZE)
+        .spawn(move || {
+            let out = f();
+            let (lock, cvar) = &*worker_slot;
+            let mut guard = lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            *guard = Some(out);
+            cvar.notify_all();
+        })
+        .map_err(|err| {
+            py_value_error(format!("sae_manifold_fit: spawn fit worker thread: {err}"))
+        })?;
+    let (lock, cvar) = &*slot;
+    loop {
+        // Wait up to 50 ms with the GIL released, then reacquire it to service
+        // signals. The guard never escapes the closure, so the GIL is never
+        // reacquired while the mutex is held.
+        let taken = py.detach(|| {
+            let guard = lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            let mut guard = cvar
+                .wait_timeout(guard, std::time::Duration::from_millis(50))
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .0;
+            guard.take()
+        });
+        if let Some(value) = taken {
+            return Ok(value);
+        }
+        // On interrupt request cooperative cancellation so the abandoned worker's
+        // next outer eval bails, then propagate the Python error.
+        if let Err(err) = py.check_signals() {
+            cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+            return Err(err);
         }
     }
 }

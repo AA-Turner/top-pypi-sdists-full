@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+__lazy_modules__ = {"typing"}
+
 import importlib.metadata
 import sys
 import typing
 
-if typing.TYPE_CHECKING:
+TYPE_CHECKING = False
+
+if TYPE_CHECKING:
     if sys.version_info < (3, 10):
         from importlib.metadata import EntryPoint
 

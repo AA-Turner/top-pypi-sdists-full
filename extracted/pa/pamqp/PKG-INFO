@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pamqp
-Version: 4.0.0
+Version: 4.0.1
 Summary: RabbitMQ Focused AMQP low-level library
 Project-URL: Homepage, https://github.com/gmr/pamqp
-Project-URL: Documentation, https://pamqp.readthedocs.io
+Project-URL: Documentation, https://gmr.github.io/pamqp/
 Project-URL: Bug Tracker, https://github.com/gmr/pamqp/issues
 Author-email: "Gavin M. Roy" <gavinmroy@gmail.com>
 License-Expression: BSD-3-Clause
@@ -47,7 +47,7 @@ used by client libraries for marshaling and unmarshaling AMQP frames.
 
 ## Documentation
 
-[pamqp.readthedocs.io](https://pamqp.readthedocs.io)
+[gmr.github.io/pamqp](https://gmr.github.io/pamqp/)
 
 ## Features
 

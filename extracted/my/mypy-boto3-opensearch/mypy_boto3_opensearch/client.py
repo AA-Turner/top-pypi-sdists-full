@@ -133,6 +133,8 @@ from .type_defs import (
     GetDomainMaintenanceStatusResponseTypeDef,
     GetIndexRequestTypeDef,
     GetIndexResponseTypeDef,
+    GetMigrationRequestTypeDef,
+    GetMigrationResponseTypeDef,
     GetPackageVersionHistoryRequestTypeDef,
     GetPackageVersionHistoryResponseTypeDef,
     GetUpgradeHistoryRequestTypeDef,
@@ -159,6 +161,8 @@ from .type_defs import (
     ListInsightsResponseTypeDef,
     ListInstanceTypeDetailsRequestTypeDef,
     ListInstanceTypeDetailsResponseTypeDef,
+    ListMigrationsRequestTypeDef,
+    ListMigrationsResponseTypeDef,
     ListPackagesForDomainRequestTypeDef,
     ListPackagesForDomainResponseTypeDef,
     ListScheduledActionsRequestTypeDef,
@@ -187,6 +191,8 @@ from .type_defs import (
     RollbackServiceSoftwareUpdateResponseTypeDef,
     StartDomainMaintenanceRequestTypeDef,
     StartDomainMaintenanceResponseTypeDef,
+    StartMigrationRequestTypeDef,
+    StartMigrationResponseTypeDef,
     StartServiceSoftwareUpdateRequestTypeDef,
     StartServiceSoftwareUpdateResponseTypeDef,
     UpdateApplicationRequestTypeDef,
@@ -838,6 +844,18 @@ class OpenSearchServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#get_index)
         """
 
+    def get_migration(
+        self, **kwargs: Unpack[GetMigrationRequestTypeDef]
+    ) -> GetMigrationResponseTypeDef:
+        """
+        Retrieves the current status and progress of a migration job, including the
+        number of exported and imported objects and error details if the migration
+        failed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/get_migration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#get_migration)
+        """
+
     def get_package_version_history(
         self, **kwargs: Unpack[GetPackageVersionHistoryRequestTypeDef]
     ) -> GetPackageVersionHistoryResponseTypeDef:
@@ -976,6 +994,16 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/list_instance_type_details.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#list_instance_type_details)
+        """
+
+    def list_migrations(
+        self, **kwargs: Unpack[ListMigrationsRequestTypeDef]
+    ) -> ListMigrationsResponseTypeDef:
+        """
+        Lists migration jobs for an Amazon OpenSearch Service application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/list_migrations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#list_migrations)
         """
 
     def list_packages_for_domain(
@@ -1133,6 +1161,17 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/start_domain_maintenance.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#start_domain_maintenance)
+        """
+
+    def start_migration(
+        self, **kwargs: Unpack[StartMigrationRequestTypeDef]
+    ) -> StartMigrationResponseTypeDef:
+        """
+        Initiates a migration job to migrate saved objects from a data source to an
+        Amazon OpenSearch Service application workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/start_migration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#start_migration)
         """
 
     def start_service_software_update(

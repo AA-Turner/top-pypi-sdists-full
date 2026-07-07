@@ -1,17 +1,29 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "configparser",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
+    "packaging",
+    "packaging.tags",
+    "pathlib",
+    "sysconfig",
+    "typing",
+}
+
 import configparser
 import os
 import sys
 import sysconfig
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import packaging.tags
 
 from .._logging import logger, rich_print
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
+    import argparse
     from collections.abc import Mapping
 
 __all__ = [
@@ -44,7 +56,61 @@ def __dir__() -> list[str]:
     return __all__
 
 
-def get_python_library(env: Mapping[str, str], *, abi3: bool = False) -> Path | None:
+def _config_var_is_set(name: str) -> bool:
+    """
+    Read a sysconfig flag as a boolean. The value may be an ``int``, ``None``,
+    or a numeric string like ``"0"``/``"1"`` depending on platform, so plain
+    ``bool()`` is unsafe (``bool("0")`` is ``True``). Numeric strings are parsed
+    as integers; other non-empty strings keep their truthiness.
+    """
+    value = sysconfig.get_config_var(name)
+    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+        return int(value) != 0
+    return bool(value)
+
+
+def _is_debug_build() -> bool:
+    """Whether the interpreter is a debug build (``pythonXY_d.lib`` on Windows)."""
+    return _config_var_is_set("Py_DEBUG")
+
+
+def _is_free_threaded() -> bool:
+    """Whether the interpreter is free-threaded (the ``t`` ABI flag)."""
+    return _config_var_is_set("Py_GIL_DISABLED")
+
+
+def _windows_lib_names(*, abi3: bool, abi3t: bool) -> list[str]:
+    """
+    Construct the candidate Windows import-library names for the running
+    interpreter, mirroring CMake's ``_PYTHON_GET_NAMES`` (FindPython
+    ``Support.cmake``). Debug builds get a ``_d`` suffix (tried first), and
+    free-threaded builds get a ``t`` ABI flag.
+    """
+    free_threaded = _is_free_threaded()
+    if abi3 or abi3t:
+        # Stable ABI: python3.lib, or python3t.lib on free-threaded abi3t.
+        t = "t" if (abi3t and free_threaded) else ""
+        base = f"python3{t}"
+    else:
+        t = "t" if free_threaded else ""
+        base = f"python3{sys.version_info[1]}{t}"
+    names = [f"{base}.lib"]
+    if _is_debug_build():
+        names.insert(0, f"{base}_d.lib")
+    return names
+
+
+def _is_dir(path: Path) -> bool:
+    """``Path.is_dir()`` that treats a permission-denied probe as missing."""
+    try:
+        return path.is_dir()
+    except PermissionError:
+        return False
+
+
+def get_python_library(
+    env: Mapping[str, str], *, abi3: bool = False, abi3t: bool = False
+) -> Path | None:
     # When cross-compiling, check DIST_EXTRA_CONFIG first
     config_file = env.get("DIST_EXTRA_CONFIG", None)
     if config_file and Path(config_file).is_file():
@@ -53,21 +119,41 @@ def get_python_library(env: Mapping[str, str], *, abi3: bool = False) -> Path | 
         result = cp.get("build_ext", "library_dirs", fallback="")
         if result:
             logger.info("Reading DIST_EXTRA_CONFIG:build_ext.library_dirs={}", result)
-            minor = "" if abi3 else sys.version_info[1]
-            if env.get("SETUPTOOLS_EXT_SUFFIX", "").endswith("t.pyd"):
-                return Path(result) / f"python3{minor}t.lib"
-            return Path(result) / f"python3{minor}.lib"
+            minor = "" if (abi3 or abi3t) else sys.version_info[1]
+            # Stable-ABI abi3 has no free-threaded variant of its own; only
+            # abi3t (already handled) and non-SABI builds pick up the "t" flag.
+            suffix = "t" if abi3t or (not abi3 and _is_free_threaded()) else ""
+            return Path(result) / f"python3{minor}{suffix}.lib"
+
+    # Windows CPython has no LIBDIR/LDLIBRARY/LIBRARY config vars, so construct
+    # the import-library name and probe the base install's libs/ directory.
+    # base_exec_prefix is used (not the venv prefix) because venvs lack a libs/
+    # dir but the base install (and conda env roots) have it. MinGW/MSYS2 report
+    # "win32" but ship a POSIX-style libpython, so fall through to the config-var
+    # search below when nothing matches here.
+    if sys.platform.startswith("win"):
+        root = Path(sys.base_exec_prefix)
+        for libdir in (root / "libs", root / "lib"):
+            if _is_dir(libdir):
+                for name in _windows_lib_names(abi3=abi3, abi3t=abi3t):
+                    libpath = libdir / name
+                    if libpath.is_file():
+                        return libpath
 
     libdirstr = sysconfig.get_config_var("LIBDIR")
     ldlibrarystr = sysconfig.get_config_var("LDLIBRARY")
     librarystr = sysconfig.get_config_var("LIBRARY")
-    if abi3:
+    if abi3 or abi3t:
+        if abi3t and sysconfig.get_config_var("Py_GIL_DISABLED"):
+            replacement = f"python3{sys.version_info[1]}t"
+            target = "python3t"
+        else:
+            replacement = f"python3{sys.version_info[1]}"
+            target = "python3"
         if ldlibrarystr is not None:
-            ldlibrarystr = ldlibrarystr.replace(
-                f"python3{sys.version_info[1]}", "python3"
-            )
+            ldlibrarystr = ldlibrarystr.replace(replacement, target)
         if librarystr is not None:
-            librarystr = librarystr.replace(f"python3{sys.version_info[1]}", "python3")
+            librarystr = librarystr.replace(replacement, target)
 
     libdir: Path | None = libdirstr and Path(libdirstr)
     ldlibrary: Path | None = ldlibrarystr and Path(ldlibrarystr)
@@ -158,7 +244,11 @@ def get_cmake_platform(env: Mapping[str, str] | None) -> str:
     return PLAT_TO_CMAKE.get(plat, plat)
 
 
-def get_soabi(env: Mapping[str, str], *, abi3: bool = False) -> str:
+def get_soabi(
+    env: Mapping[str, str], *, abi3: bool = False, abi3t: bool = False
+) -> str:
+    if abi3t:
+        return "" if sysconfig.get_platform().startswith("win") else "abi3t"
     if abi3:
         return "" if sysconfig.get_platform().startswith("win") else "abi3"
 
@@ -227,6 +317,11 @@ def info_print(
         color=color,
     )
     rich_print(
+        "{bold}Detected ABI3T Python Library:",
+        get_python_library(os.environ, abi3t=True),
+        color=color,
+    )
+    rich_print(
         "{bold}Detected Python Include Directory:",
         get_python_include_dir(),
         color=color,
@@ -247,8 +342,13 @@ def info_print(
         color=color,
     )
     rich_print(
-        "{color}Detected ABI3 SOABI:",
+        "{bold}Detected ABI3 SOABI:",
         get_soabi(os.environ, abi3=True),
+        color=color,
+    )
+    rich_print(
+        "{bold}Detected ABI3T SOABI:",
+        get_soabi(os.environ, abi3t=True),
         color=color,
     )
     rich_print(
@@ -256,6 +356,15 @@ def info_print(
         get_abi_flags(),
         color=color,
     )
+
+
+def main_sysconfig(_args: argparse.Namespace, /) -> None:
+    info_print()
+
+
+def populate_parser(parser: argparse.ArgumentParser, /) -> None:
+    """Configure a parser to print sysconfig information."""
+    parser.set_defaults(func=main_sysconfig)
 
 
 if __name__ == "__main__":

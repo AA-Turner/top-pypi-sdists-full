@@ -10,7 +10,12 @@ from fsspec.callbacks import _DEFAULT_CALLBACK
 
 from pyathena.filesystem.s3 import S3File, S3FileSystem
 from pyathena.filesystem.s3_executor import S3AioExecutor
-from pyathena.filesystem.s3_object import S3Object
+from pyathena.filesystem.s3_object import (
+    S3Metadata,
+    S3MultipartUpload,
+    S3Object,
+    S3ObjectVersion,
+)
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -64,6 +69,9 @@ class AioS3FileSystem(AsyncFileSystem):
         default_cache_type: str | None = None,
         max_workers: int = (cpu_count() or 1) * 5,
         s3_additional_kwargs: dict[str, Any] | None = None,
+        allow_bucket_creation: bool = False,
+        allow_bucket_deletion: bool = False,
+        version_aware: bool = False,
         asynchronous: bool = False,
         loop: Any | None = None,
         batch_size: int | None = None,
@@ -81,6 +89,9 @@ class AioS3FileSystem(AsyncFileSystem):
             default_cache_type=default_cache_type,
             max_workers=max_workers,
             s3_additional_kwargs=s3_additional_kwargs,
+            allow_bucket_creation=allow_bucket_creation,
+            allow_bucket_deletion=allow_bucket_deletion,
+            version_aware=version_aware,
             **kwargs,
         )
         # Share dircache for cache coherence between async and sync instances
@@ -107,8 +118,10 @@ class AioS3FileSystem(AsyncFileSystem):
     async def _rm_file(self, path: str, **kwargs) -> None:
         await asyncio.to_thread(self._sync_fs.rm_file, path, **kwargs)
 
-    async def _pipe_file(self, path: str, value: bytes, **kwargs) -> None:
-        await asyncio.to_thread(self._sync_fs.pipe_file, path, value, **kwargs)
+    async def _pipe_file(
+        self, path: str, value: bytes | bytearray | memoryview, mode: str = "overwrite", **kwargs
+    ) -> None:
+        await asyncio.to_thread(self._sync_fs.pipe_file, path, value, mode=mode, **kwargs)
 
     async def _put_file(self, lpath: str, rpath: str, callback=_DEFAULT_CALLBACK, **kwargs) -> None:
         await asyncio.to_thread(self._sync_fs.put_file, lpath, rpath, callback=callback, **kwargs)
@@ -178,6 +191,8 @@ class AioS3FileSystem(AsyncFileSystem):
 
     async def _cp_file(self, path1: str, path2: str, **kwargs) -> None:
         """Copy an S3 object, using async parallel multipart upload for large files."""
+        # fsspec < 2026.6.0 leaks the typo'd "onerror" keyword from mv();
+        # see S3FileSystem.cp_file.
         kwargs.pop("onerror", None)
         bucket1, key1, version_id1 = self.parse_path(path1)
         bucket2, key2, version_id2 = self.parse_path(path2)
@@ -322,8 +337,43 @@ class AioS3FileSystem(AsyncFileSystem):
             **kwargs,
         )
 
+    async def _rmdir(self, path: str) -> None:
+        await asyncio.to_thread(self._sync_fs.rmdir, path)
+
+    def rmdir(self, path: str) -> None:
+        self._sync_fs.rmdir(path)
+
     def sign(self, path: str, expiration: int = 3600, **kwargs) -> str:
         return cast(str, self._sync_fs.sign(path, expiration=expiration, **kwargs))
+
+    def metadata(self, path: str, **kwargs) -> S3Metadata:
+        return self._sync_fs.metadata(path, **kwargs)
+
+    def getxattr(self, path: str, attr_name: str, **kwargs) -> str | None:
+        return self._sync_fs.getxattr(path, attr_name, **kwargs)
+
+    def setxattr(self, path: str, copy_kwargs: dict[str, Any] | None = None, **kwargs) -> None:
+        self._sync_fs.setxattr(path, copy_kwargs=copy_kwargs, **kwargs)
+
+    def get_tags(self, path: str) -> dict[str, str]:
+        return self._sync_fs.get_tags(path)
+
+    def put_tags(self, path: str, tags: dict[str, str], mode: str = "o") -> None:
+        self._sync_fs.put_tags(path, tags, mode=mode)
+
+    def chmod(self, path: str, acl: str, recursive: bool = False, **kwargs) -> None:
+        self._sync_fs.chmod(path, acl, recursive=recursive, **kwargs)
+
+    def object_version_info(
+        self, path: str, delete_markers: bool = False, **kwargs
+    ) -> list[S3ObjectVersion]:
+        return self._sync_fs.object_version_info(path, delete_markers=delete_markers, **kwargs)
+
+    def list_multipart_uploads(self, path: str) -> list[S3MultipartUpload]:
+        return self._sync_fs.list_multipart_uploads(path)
+
+    def clear_multipart_uploads(self, path: str) -> None:
+        self._sync_fs.clear_multipart_uploads(path)
 
     def checksum(self, path: str, **kwargs) -> int:
         return cast(int, self._sync_fs.checksum(path, **kwargs))

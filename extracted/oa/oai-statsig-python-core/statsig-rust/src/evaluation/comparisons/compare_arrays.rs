@@ -1,5 +1,6 @@
 use crate::{
-    evaluation::evaluator_value::MemoizedEvaluatorValue, unwrap_or_return,
+    evaluation::evaluator_value::MemoizedEvaluatorValue,
+    specs_response::spec_types::ConditionOperator, unwrap_or_return,
     user::user_value::UserValueRef,
 };
 use std::collections::HashSet;
@@ -7,7 +8,7 @@ use std::collections::HashSet;
 pub(crate) fn compare_arrays(
     value: UserValueRef<'_>,
     target_value: &MemoizedEvaluatorValue,
-    op: &str,
+    op: ConditionOperator,
 ) -> bool {
     let target_array = unwrap_or_return!(&target_value.array_value, false);
     let value_len = unwrap_or_return!(value.array_len(), false);
@@ -20,22 +21,22 @@ pub(crate) fn compare_arrays(
 
     for (_, item) in target_array.values() {
         match op {
-            "array_contains_all" => {
+            ConditionOperator::ArrayContainsAll => {
                 if !value_set.contains(item.as_str()) {
                     return false;
                 }
             }
-            "array_contains_any" => {
+            ConditionOperator::ArrayContainsAny => {
                 if value_set.contains(item.as_str()) {
                     return true;
                 }
             }
-            "array_contains_none" => {
+            ConditionOperator::ArrayContainsNone => {
                 if value_set.contains(item.as_str()) {
                     return false;
                 }
             }
-            "not_array_contains_all" => {
+            ConditionOperator::NotArrayContainsAll => {
                 if !value_set.contains(item.as_str()) {
                     return true;
                 }
@@ -46,5 +47,8 @@ pub(crate) fn compare_arrays(
             }
         }
     }
-    !(op == "array_contains_any" || op == "not_array_contains_all")
+    !matches!(
+        op,
+        ConditionOperator::ArrayContainsAny | ConditionOperator::NotArrayContainsAll
+    )
 }

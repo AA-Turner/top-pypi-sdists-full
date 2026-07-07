@@ -1,5 +1,6 @@
 use crate::event_logging_adapter_base_py::EventLoggingAdapterBasePy;
 use crate::output_logger_provider_base_py::OutputLoggerProviderBasePy;
+use crate::safe_gil::SafeGil;
 use crate::statsig_persistent_storage_override_adapter_py::{
     PersistentStorageBasePy, StatsigPersistentStorageOverrideAdapter,
 };
@@ -158,6 +159,10 @@ pub struct StatsigOptionsPy {
     #[pyo3(get, set)]
     pub sdk_instance_id: Option<String>,
     #[pyo3(get, set)]
+    pub sdk_runtime_thread_count: Option<usize>,
+    /// Configuring this uses the shared Statsig-owned Tokio runtime; see the core option docs.
+    pub runtime_thread_start_callback: Option<Py<PyAny>>,
+    #[pyo3(get, set)]
     pub output_log_level: Option<String>,
     #[pyo3(get, set)]
     pub global_custom_fields: Option<HashMap<String, ValidPrimitivesPy>>,
@@ -185,6 +190,7 @@ pub struct StatsigOptionsPy {
     pub disable_disk_access: Option<bool>,
     #[pyo3(get, set)]
     pub experimental_flags: Option<HashSet<String>>,
+    pub evaluation_cache: Option<Py<PyAny>>,
 }
 
 #[gen_stub_pymethods]
@@ -214,6 +220,8 @@ impl StatsigOptionsPy {
         environment=None,
         service_name=None,
         sdk_instance_id=None,
+        sdk_runtime_thread_count=None,
+        runtime_thread_start_callback=None,
         output_log_level=None,
         global_custom_fields=None,
         observability_client=None,
@@ -228,6 +236,7 @@ impl StatsigOptionsPy {
         disable_disk_access=None,
         experimental_flags=None,
         event_logging_adapter=None,
+        evaluation_cache=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -253,6 +262,12 @@ impl StatsigOptionsPy {
         environment: Option<String>,
         service_name: Option<String>,
         sdk_instance_id: Option<String>,
+        sdk_runtime_thread_count: Option<usize>,
+        #[gen_stub(override_type(
+            type_repr = "typing.Optional[typing.Callable[[], None]]",
+            imports = ("typing")
+        ))]
+        runtime_thread_start_callback: Option<Py<PyAny>>,
         output_log_level: Option<String>,
         global_custom_fields: Option<HashMap<String, ValidPrimitivesPy>>,
         observability_client: Option<Py<ObservabilityClientBasePy>>,
@@ -267,6 +282,11 @@ impl StatsigOptionsPy {
         disable_disk_access: Option<bool>,
         experimental_flags: Option<HashSet<String>>,
         event_logging_adapter: Option<Py<EventLoggingAdapterBasePy>>,
+        #[gen_stub(override_type(
+            type_repr = "typing.Optional[statsig_python_core.evaluation_cache.EvaluationCache]",
+            imports = ("typing", "statsig_python_core.evaluation_cache")
+        ))]
+        evaluation_cache: Option<Py<PyAny>>,
     ) -> Self {
         Self {
             specs_url,
@@ -290,6 +310,8 @@ impl StatsigOptionsPy {
             environment,
             service_name,
             sdk_instance_id,
+            sdk_runtime_thread_count,
+            runtime_thread_start_callback,
             output_log_level,
             global_custom_fields,
             observability_client,
@@ -305,7 +327,54 @@ impl StatsigOptionsPy {
             use_third_party_ua_parser,
             disable_disk_access,
             experimental_flags,
+            evaluation_cache,
         }
+    }
+
+    #[getter]
+    #[gen_stub(override_return_type(
+        type_repr = "typing.Optional[typing.Callable[[], None]]",
+        imports = ("typing")
+    ))]
+    fn runtime_thread_start_callback(&self, py: Python<'_>) -> Option<Py<PyAny>> {
+        self.runtime_thread_start_callback
+            .as_ref()
+            .map(|callback| callback.clone_ref(py))
+    }
+
+    #[setter]
+    fn set_runtime_thread_start_callback(
+        &mut self,
+        #[gen_stub(override_type(
+            type_repr = "typing.Optional[typing.Callable[[], None]]",
+            imports = ("typing")
+        ))]
+        runtime_thread_start_callback: Option<Py<PyAny>>,
+    ) {
+        self.runtime_thread_start_callback = runtime_thread_start_callback;
+    }
+
+    #[getter]
+    #[gen_stub(override_return_type(
+        type_repr = "typing.Optional[statsig_python_core.evaluation_cache.EvaluationCache]",
+        imports = ("typing", "statsig_python_core.evaluation_cache")
+    ))]
+    fn evaluation_cache(&self, py: Python<'_>) -> Option<Py<PyAny>> {
+        self.evaluation_cache
+            .as_ref()
+            .map(|cache| cache.clone_ref(py))
+    }
+
+    #[setter]
+    fn set_evaluation_cache(
+        &mut self,
+        #[gen_stub(override_type(
+            type_repr = "typing.Optional[statsig_python_core.evaluation_cache.EvaluationCache]",
+            imports = ("typing", "statsig_python_core.evaluation_cache")
+        ))]
+        evaluation_cache: Option<Py<PyAny>>,
+    ) {
+        self.evaluation_cache = evaluation_cache;
     }
 }
 
@@ -341,6 +410,19 @@ fn create_inner_statsig_options(
 
         global_custom_fields = Some(converted);
     }
+
+    let runtime_thread_start_callback = opts.runtime_thread_start_callback.map(|callback| {
+        Arc::new(move || {
+            SafeGil::run(|py| {
+                let Some(py) = py else {
+                    return;
+                };
+                if let Err(error) = callback.call0(py) {
+                    eprintln!("{TAG}: runtime thread start callback failed: {error}");
+                }
+            });
+        }) as statsig_rust::statsig_options::RuntimeThreadStartCallback
+    });
 
     StatsigOptions {
         specs_url: opts.specs_url.clone(),
@@ -387,6 +469,8 @@ fn create_inner_statsig_options(
         environment: opts.environment.clone(),
         service_name: opts.service_name.clone(),
         sdk_instance_id: opts.sdk_instance_id.clone(),
+        sdk_runtime_thread_count: opts.sdk_runtime_thread_count,
+        runtime_thread_start_callback,
         id_lists_adapter: None,
         override_adapter: None,
         output_log_level: opts

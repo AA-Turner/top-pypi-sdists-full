@@ -489,6 +489,26 @@ class LMCacheMPConnectorMetadata(KVConnectorMetadata):
         return self.__str__()
 
 
+def _ensure_zmq_scheme(server_url: str) -> str:
+    """Ensure a ZMQ server URL carries a transport scheme.
+
+    ZeroMQ requires an explicit transport (e.g. ``tcp://``) in the address;
+    a bare ``host:port`` such as ``127.0.0.1:5557`` is rejected with
+    ``ZMQError: Invalid argument``. Users naturally configure
+    ``lmcache.mp.host`` as a plain IP/hostname, so prepend ``tcp://`` when no
+    scheme is present.
+
+    Args:
+        server_url: A server URL, with or without a ``<scheme>://`` prefix.
+
+    Returns:
+        The URL with a transport scheme, defaulting to ``tcp://``.
+    """
+    if "://" in server_url:
+        return server_url
+    return f"tcp://{server_url}"
+
+
 class LMCacheMPConnector(KVConnectorBase_V1, SupportsHMA):
     """
     The connector for LMCache multi-process mode.
@@ -543,6 +563,10 @@ class LMCacheMPConnector(KVConnectorBase_V1, SupportsHMA):
                 "lmcache.mp.port", 5555
             )
             server_urls = [f"{server_host}:{server_port}"]
+
+        # Normalize so a bare host:port (no transport scheme) is accepted;
+        # ZMQ requires an explicit transport such as ``tcp://``.
+        server_urls = [_ensure_zmq_scheme(u) for u in server_urls]
 
         # The server count is derived from lmcache.mp.server_urls.
         n_servers = len(server_urls)
@@ -1015,6 +1039,7 @@ class LMCacheMPConnector(KVConnectorBase_V1, SupportsHMA):
                         start=0,
                         end=free_end,
                         request_id=request.request_id,
+                        cache_salt=tracker.cache_salt,
                     )
                     logger.debug(
                         "Free locks of tokens %d-%d since it is cached by vLLM.",
@@ -1100,7 +1125,7 @@ class LMCacheMPConnector(KVConnectorBase_V1, SupportsHMA):
         # Notify LMCache to end the session for this request
         self.scheduler_adapter.end_session(request.request_id)
 
-        return True, return_params
+        return True, (return_params or None)
 
     def request_finished_all_groups(
         self,

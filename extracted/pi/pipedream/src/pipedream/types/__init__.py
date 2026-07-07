@@ -12,14 +12,21 @@ if typing.TYPE_CHECKING:
     from .app import App
     from .app_auth_type import AppAuthType
     from .app_category import AppCategory
+    from .app_document import AppDocument
+    from .app_response import AppResponse
     from .app_scope_profiles_item import AppScopeProfilesItem
     from .app_scope_profiles_item_name import AppScopeProfilesItemName
     from .apps_page_info import AppsPageInfo
     from .backend_client_opts import BackendClientOpts
     from .client_opts import ClientOpts
     from .component import Component
+    from .component_document import ComponentDocument
+    from .component_response import ComponentResponse
     from .component_stash import ComponentStash
     from .component_type import ComponentType
+    from .components_facets_response import ComponentsFacetsResponse
+    from .components_list_response import ComponentsListResponse
+    from .components_page_info import ComponentsPageInfo
     from .configurable_prop import ConfigurableProp
     from .configurable_prop_airtable_base_id import ConfigurablePropAirtableBaseId
     from .configurable_prop_airtable_field_id import ConfigurablePropAirtableFieldId
@@ -89,6 +96,8 @@ if typing.TYPE_CHECKING:
     from .emitter_type import EmitterType
     from .error_response import ErrorResponse
     from .external_user import ExternalUser
+    from .facet_value import FacetValue
+    from .facets_response import FacetsResponse
     from .get_accounts_response import GetAccountsResponse
     from .get_app_category_response import GetAppCategoryResponse
     from .get_app_response import GetAppResponse
@@ -152,14 +161,21 @@ _dynamic_imports: typing.Dict[str, str] = {
     "App": ".app",
     "AppAuthType": ".app_auth_type",
     "AppCategory": ".app_category",
+    "AppDocument": ".app_document",
+    "AppResponse": ".app_response",
     "AppScopeProfilesItem": ".app_scope_profiles_item",
     "AppScopeProfilesItemName": ".app_scope_profiles_item_name",
     "AppsPageInfo": ".apps_page_info",
     "BackendClientOpts": ".backend_client_opts",
     "ClientOpts": ".client_opts",
     "Component": ".component",
+    "ComponentDocument": ".component_document",
+    "ComponentResponse": ".component_response",
     "ComponentStash": ".component_stash",
     "ComponentType": ".component_type",
+    "ComponentsFacetsResponse": ".components_facets_response",
+    "ComponentsListResponse": ".components_list_response",
+    "ComponentsPageInfo": ".components_page_info",
     "ConfigurableProp": ".configurable_prop",
     "ConfigurablePropAirtableBaseId": ".configurable_prop_airtable_base_id",
     "ConfigurablePropAirtableFieldId": ".configurable_prop_airtable_field_id",
@@ -229,6 +245,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "EmitterType": ".emitter_type",
     "ErrorResponse": ".error_response",
     "ExternalUser": ".external_user",
+    "FacetValue": ".facet_value",
+    "FacetsResponse": ".facets_response",
     "GetAccountsResponse": ".get_accounts_response",
     "GetAppCategoryResponse": ".get_app_category_response",
     "GetAppResponse": ".get_app_response",
@@ -316,14 +334,21 @@ __all__ = [
     "App",
     "AppAuthType",
     "AppCategory",
+    "AppDocument",
+    "AppResponse",
     "AppScopeProfilesItem",
     "AppScopeProfilesItemName",
     "AppsPageInfo",
     "BackendClientOpts",
     "ClientOpts",
     "Component",
+    "ComponentDocument",
+    "ComponentResponse",
     "ComponentStash",
     "ComponentType",
+    "ComponentsFacetsResponse",
+    "ComponentsListResponse",
+    "ComponentsPageInfo",
     "ConfigurableProp",
     "ConfigurablePropAirtableBaseId",
     "ConfigurablePropAirtableFieldId",
@@ -393,6 +418,8 @@ __all__ = [
     "EmitterType",
     "ErrorResponse",
     "ExternalUser",
+    "FacetValue",
+    "FacetsResponse",
     "GetAccountsResponse",
     "GetAppCategoryResponse",
     "GetAppResponse",

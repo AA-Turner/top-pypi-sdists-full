@@ -1,29 +1,66 @@
-# pylint: disable=duplicate-code
-
 from __future__ import annotations
+
+__lazy_modules__ = {
+    "copy",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._check_extra",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.build._editable",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.build._init",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.build._pathutil",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.build.common_wheel_helpers",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.builder.get_requires",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.cmake",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.settings.skbuild_model",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.settings.skbuild_read_settings",
+    "importlib",
+    "importlib.metadata",
+    "packaging",
+    "packaging.utils",
+    "packaging.version",
+    "pathlib",
+    "shutil",
+    "tempfile",
+    "typing",
+}
 
 import copy
 import importlib.metadata
 import os
 import shutil
-import sysconfig
 import tempfile
 import typing
 from pathlib import Path
 from typing import Any
 
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
+from packaging.utils import canonicalize_name
 from packaging.version import Version
 
-from scikit_build_core.settings.skbuild_model import ScikitBuildSettings
-
+from .._check_extra import warn_missing_extra
 from .._logging import logger, rich_print
+from ..build._editable import (
+    editable_inplace_files,
+    editable_redirect_files,
+    get_packages,
+    package_search_dirs,
+)
 from ..build._init import setup_logging
-from ..builder.builder import Builder, archs_to_tags, get_archs
+from ..build._pathutil import packages_to_file_mapping, scantree
+from ..build.common_wheel_helpers import (
+    build_install_extra_build_types,
+    build_wheel,
+    configure_wheel,
+    editable_rebuild_options,
+    get_build_dir,
+    get_install_dir,
+    get_targetlib,
+    get_wheel_tag,
+    install_wheel,
+    prepare_wheel_dirs,
+)
 from ..builder.get_requires import GetRequires
-from ..builder.wheel_tag import WheelTag
-from ..cmake import CMake, CMaker
-from ..format import pyproject_format
+from ..cmake import CMake
+from ..settings.skbuild_model import ScikitBuildSettings
 from ..settings.skbuild_read_settings import SettingsReader
 
 __all__ = ["ScikitBuildHook"]
@@ -40,15 +77,21 @@ class ScikitBuildHook(BuildHookInterface):  # type: ignore[type-arg]
         super().__init__(*args, **kwargs)
         self.__tmp_dir: Path | None = None
 
-    def _read_config(self) -> SettingsReader:
+    def _read_config(
+        self,
+        *,
+        state: typing.Literal["sdist", "wheel", "editable"] | None = None,
+    ) -> SettingsReader:
         config_dict = copy.deepcopy(self.config)
         config_dict.pop("dependencies", None)
         config_dict.pop("require-runtime-dependencies", None)
         config_dict.pop("require-runtime-features", None)
+        config_dict.pop("enable-by-default", None)
 
-        state = typing.cast(
-            "typing.Literal['sdist', 'wheel', 'editable']", self.target_name
-        )
+        if state is None:
+            state = typing.cast(
+                "typing.Literal['sdist', 'wheel', 'editable']", self.target_name
+            )
         return SettingsReader.from_file(
             "pyproject.toml", state=state, extra_settings=config_dict
         )
@@ -58,11 +101,7 @@ class ScikitBuildHook(BuildHookInterface):  # type: ignore[type-arg]
 
         settings_reader.validate_may_exit()
 
-        if not settings.experimental:
-            msg = "Hatch support is experimental, must enable the experimental flag"
-            raise ValueError(msg)
-
-        if not settings.wheel.cmake or settings.sdist.cmake:
+        if not settings.wheel.cmake:
             msg = "CMake is required for scikit-build"
             raise ValueError(msg)
 
@@ -98,6 +137,14 @@ class ScikitBuildHook(BuildHookInterface):  # type: ignore[type-arg]
             msg = "Metadata is not supported for hatch builds"
             raise ValueError(msg)
 
+        if settings.sdist.force_include or settings.wheel.force_include:
+            msg = "scikit-build.*.force-include is not supported, use hatch's force-include instead"
+            raise ValueError(msg)
+
+        if settings.wheel.exclude:
+            msg = "wheel.exclude is not supported for hatch builds, use hatch's exclude instead"
+            raise ValueError(msg)
+
     # Requires Hatchling 1.22.0 to have an effect
     def dependencies(self) -> list[str]:
         settings = self._read_config().settings
@@ -116,23 +163,28 @@ class ScikitBuildHook(BuildHookInterface):  # type: ignore[type-arg]
         return [*cmake_requires, *requires.dynamic_metadata()]
 
     def initialize(self, version: str, build_data: dict[str, Any]) -> None:
-        if version == "editable":
-            msg = "Editable installs are not yet supported"
-            raise ValueError(msg)
-
-        self.__tmp_dir = Path(tempfile.mkdtemp()).resolve()
         try:
-            self._initialize(build_data=build_data)
+            self._initialize(version=version, build_data=build_data)
         except Exception:
             self._cleanup()
             raise
 
-    def _initialize(self, *, build_data: dict[str, Any]) -> None:
-        settings_reader = self._read_config()
+    def _initialize(self, *, version: str, build_data: dict[str, Any]) -> None:
+        requested_state = (
+            "editable"
+            if version == "editable"
+            else typing.cast("typing.Literal['sdist', 'wheel']", self.target_name)
+        )
+        settings_reader = self._read_config(state=requested_state)
         settings = settings_reader.settings
-        state = settings_reader.state
+        state = typing.cast(
+            "typing.Literal['editable', 'sdist', 'wheel']", settings_reader.state
+        )
+        editable = state == "editable"
 
         self._validate(settings_reader)
+
+        warn_missing_extra("hatchling")
 
         if state == "sdist":
             build_data["artifacts"].append("CMakeLists.txt")  # Needs full list, etc.
@@ -152,101 +204,60 @@ class ScikitBuildHook(BuildHookInterface):  # type: ignore[type-arg]
         self.__tmp_dir = Path(tempfile.mkdtemp()).resolve()
         wheel_dir = self.__tmp_dir / "wheel"
 
-        tags = WheelTag.compute_best(
-            archs_to_tags(get_archs(os.environ)),
-            settings.wheel.py_api,
-            expand_macos=settings.wheel.expand_macos_universal_tags,
-            build_tag=settings.wheel.build_tag,
+        # _validate guarantees wheel.cmake is true and rejects a falsy
+        # wheel.platlib (purelib), so this is always a platlib build.
+        targetlib = get_targetlib(settings)
+        assert targetlib == "platlib"
+        tags = get_wheel_tag(settings, targetlib=targetlib)
+        # Normalized like the wheel/sdist filename, for the {name} build-dir placeholder
+        placeholder_name = canonicalize_name(
+            self.build_config.builder.metadata.name
+        ).replace("-", "_")
+        build_dir = get_build_dir(
+            settings,
+            tags=tags,
+            state=state,
+            editable=editable,
+            has_cmake=True,
+            fallback=self.__tmp_dir / "build",
+            name=placeholder_name,
         )
+        wheel_dirs = prepare_wheel_dirs(wheel_dir, targetlib=targetlib)
+        install_dir = get_install_dir(
+            settings, wheel_dirs=wheel_dirs, targetlib=targetlib
+        )
+
         build_data["tag"] = str(tags)
-        build_data["pure_python"] = not settings.wheel.platlib
+        build_data["pure_python"] = False
 
-        build_dir = (
-            Path(
-                settings.build_dir.format(
-                    **pyproject_format(
-                        settings=settings,
-                        tags=tags,
-                        state=state,
-                    )
-                )
-            )
-            if settings.build_dir
-            else self.__tmp_dir / "build"
-        )
-        logger.info("Build directory: {}", build_dir.resolve())
-
-        targetlib = "platlib"
-
-        wheel_dirs = {
-            targetlib: wheel_dir / targetlib,
-            "data": wheel_dir / "data",
-            "headers": wheel_dir / "headers",
-            "scripts": wheel_dir / "scripts",
-            "null": wheel_dir / "null",
-            "metadata": wheel_dir / "metadata",
+        extra_cache_entries = {
+            "SKBUILD_HATCHLING": importlib.metadata.version("hatchling")
         }
-
-        for d in wheel_dirs.values():
-            d.mkdir(parents=True)
-
-        if ".." in settings.wheel.install_dir:
-            msg = "wheel.install_dir must not contain '..'"
-            raise AssertionError(msg)
-        if settings.wheel.install_dir.startswith("/"):
-            if not settings.experimental:
-                msg = "Experimental features must be enabled to use absolute paths in wheel.install_dir"
-                raise AssertionError(msg)
-            if settings.wheel.install_dir[1:].split("/")[0] not in wheel_dirs:
-                msg = "Must target a valid wheel directory"
-                raise AssertionError(msg)
-            install_dir = wheel_dir / settings.wheel.install_dir[1:]
-        else:
-            install_dir = wheel_dirs[targetlib] / settings.wheel.install_dir
-
-        config = CMaker(
-            cmake,
-            source_dir=settings.cmake.source_dir,
-            build_dir=build_dir,
-            build_type=settings.cmake.build_type,
-        )
-
-        builder = Builder(
+        builder = configure_wheel(
+            cmake=cmake,
             settings=settings,
-            config=config,
-        )
-
-        rich_print("{green}***", "{bold}Configuring CMake...")
-        # Setting the install prefix because some libs hardcode CMAKE_INSTALL_PREFIX
-        # Otherwise `cmake --install --prefix` would work by itself
-        defines = {"CMAKE_INSTALL_PREFIX": install_dir}
-        cache_entries: dict[str, str | Path] = {
-            f"SKBUILD_{k.upper()}_DIR": v for k, v in wheel_dirs.items()
-        }
-        cache_entries["SKBUILD_STATE"] = state
-        cache_entries["SKBUILD_HATCHLING"] = importlib.metadata.version("hatchling")
-        builder.configure(
-            defines=defines,
-            cache_entries=cache_entries,
+            wheel_dirs=wheel_dirs,
+            install_dir=install_dir,
+            build_dir=build_dir,
+            state=state,
             name=self.build_config.builder.metadata.name,
             version=Version(self.build_config.builder.metadata.version),
+            extra_cache_entries=extra_cache_entries,
         )
-
-        default_gen = (
-            "MSVC"
-            if sysconfig.get_platform().startswith("win")
-            else "Default Generator"
+        build_wheel(builder)
+        install_wheel(builder, install_dir=install_dir, editable=editable)
+        build_options, install_options = editable_rebuild_options(builder)
+        build_install_extra_build_types(
+            builder,
+            settings=settings,
+            wheel_dirs=wheel_dirs,
+            install_dir=install_dir,
+            state=state,
+            name=self.build_config.builder.metadata.name,
+            version=Version(self.build_config.builder.metadata.version),
+            editable=editable,
+            extra_cache_entries=extra_cache_entries,
         )
-        generator = builder.get_generator() or default_gen
-        rich_print(
-            "{green}***",
-            f"{{bold}}Building project with {{blue}}{generator}{{default}}...",
-        )
-        build_args: list[str] = []
-        builder.build(build_args=build_args)
-
-        rich_print("{green}***", "{bold}Installing project into wheel...")
-        builder.install(install_dir)
 
         files = list(wheel_dirs["headers"].iterdir())
         if files:
@@ -256,11 +267,75 @@ class ScikitBuildHook(BuildHookInterface):  # type: ignore[type-arg]
             )
             raise ValueError(msg)
 
-        for raw_path in wheel_dirs[targetlib].iterdir():
-            path = raw_path.resolve()  # Windows mingw64 and UCRT now requires this
-            build_data["force_include"][f"{path}"] = str(
-                settings.wheel.install_dir / path.relative_to(wheel_dirs[targetlib])
+        if editable:
+            editable_force_include = build_data["force_include_editable"]
+            normalized_name = self.build_config.builder.metadata.name.replace(
+                "-", "_"
+            ).replace(".", "_")
+            packages = get_packages(
+                packages=settings.wheel.packages,
+                name=self.build_config.builder.metadata.name,
             )
+            package_paths = package_search_dirs(packages)
+            if package_paths:
+                self.build_config.target_config["dev-mode-dirs"] = package_paths
+
+            if settings.editable.mode == "redirect":
+                assert settings.sdist.inclusion_mode is not None
+                mapping = packages_to_file_mapping(
+                    packages=packages,
+                    platlib_dir=wheel_dirs[targetlib],
+                    include=settings.sdist.include,
+                    src_exclude=settings.sdist.exclude,
+                    target_exclude=settings.wheel.exclude,
+                    build_dir=settings.build_dir,
+                    mode=settings.sdist.inclusion_mode,
+                )
+                reload_dir = build_dir.resolve() if settings.build_dir else None
+                editable_files = editable_redirect_files(
+                    build_options=build_options,
+                    install_options=install_options,
+                    libdir=wheel_dirs[targetlib],
+                    mapping=mapping,
+                    name=normalized_name,
+                    packages=package_paths,
+                    reload_dir=reload_dir,
+                    settings=settings,
+                )
+                for editable_file in scantree(wheel_dirs[targetlib]):
+                    editable_force_include[str(editable_file.resolve())] = str(
+                        editable_file.relative_to(wheel_dirs[targetlib])
+                    )
+            else:
+                if not packages:
+                    msg = "Editable inplace mode requires at least one package"
+                    raise AssertionError(msg)
+                editable_files = editable_inplace_files(
+                    name=normalized_name,
+                    packages=packages,
+                    package_paths=package_paths,
+                    source_dir=build_dir.resolve(),
+                    build_options=build_options,
+                    settings=settings,
+                )
+
+            editable_dir = self.__tmp_dir / "editable"
+            editable_dir.mkdir(parents=True, exist_ok=True)
+            for filename, contents in editable_files.items():
+                path = editable_dir / filename
+                path.write_bytes(contents)
+                editable_force_include[str(path)] = filename
+        else:
+            # CMake already installed into
+            # wheel_dirs[targetlib] / settings.wheel.install_dir, so the files
+            # under wheel_dirs[targetlib] already carry the install_dir prefix;
+            # mapping them relative to wheel_dirs[targetlib] keeps that single
+            # prefix (matching the editable branch above).
+            for raw_path in wheel_dirs[targetlib].iterdir():
+                path = raw_path.resolve()  # Windows mingw64 and UCRT now requires this
+                build_data["force_include"][f"{path}"] = str(
+                    path.relative_to(wheel_dirs[targetlib])
+                )
 
         try:
             for raw_path in wheel_dirs["data"].iterdir():

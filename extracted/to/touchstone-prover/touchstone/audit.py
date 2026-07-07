@@ -2901,6 +2901,15 @@ def run_self_tests(fast=False):
     assert prove("def f(n):\n    return sum(range(-5, n))\n", "result >= 0", target="f").status != PROVED
     assert prove("def f(xs: list):\n    return sum(xs)\n", "result >= 0", target="f").status != PROVED
     assert check("import hashlib\ndef f(x: bytes):\n    return hashlib.sha3_256(x)\n", target="f").status == PROVED
+    # try/except with a single catch-all handler, no finally, whose handler reads no body-assigned name: the
+    # body's traps are CAUGHT, so the recovery is modeled -- the body returns on non-trapping inputs, the
+    # handler on trapping ones. `try: return 10 // x except: return 0` proves `result >= 0`; a handler that
+    # returns a negative (CPython x=0 -> -1) does not prove; a handler that re-traps still refutes trap freedom;
+    # a spec over the non-trapping region proves.
+    assert prove("def f(x):\n    try:\n        return 10 // x\n    except:\n        return 0\n", "result >= 0", requires="x >= 0", target="f").status == PROVED
+    assert prove("def f(x):\n    try:\n        return 10 // x\n    except:\n        return -1\n", "result >= 0", requires="x >= 0", target="f").status != PROVED
+    assert prove("def f(x):\n    try:\n        return 10 // x\n    except:\n        return 0\n", "result == 10 // x", requires="x >= 1", target="f").status == PROVED
+    assert check("def f(x):\n    try:\n        return 10 // x\n    except:\n        return 10 // x\n", target="f").status == REFUTED
     # a str / bytes-typed parameter is outside the integer CHC model, so the no-raise engine abstains rather
     # than proving a FALSE trap freedom: int(s) / float(s) of a string may ValueError and str + int / str // int
     # is a TypeError -- none of which an integer relation, binding every parameter to an int, can see. check()

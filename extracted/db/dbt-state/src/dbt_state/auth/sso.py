@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 import math
 import os
@@ -8,6 +9,7 @@ import threading
 import time
 import typing as t
 import webbrowser
+import requests
 from pathlib import Path
 from queue import Empty
 
@@ -45,6 +47,21 @@ THEME = Theme(
     }
 )
 """The Rich console theme to use in the CLI"""
+
+
+@dataclass
+class Org:
+    org_id: str
+    flags: t.List[str]
+    is_dbt: bool
+    dimensions: t.Optional[OrgDimensions]
+    account_host: t.Optional[str]
+
+
+@dataclass
+class OrgDimensions:
+    free_trial_end_date: t.Optional[str]
+    in_free_trial: bool
 
 
 def sso_auth(
@@ -226,6 +243,37 @@ class SsoAuth:
             except Exception:
                 return False
             return bool(claims.get("personal", False))
+
+    def get_org_info(self, org_id: str) -> t.Optional[Org]:
+        """Fetch organization metadata from the auth service for the given org."""
+        try:
+            token = self.id_token(login=False)
+            response = requests.get(
+                f"{self._auth_url}/api/orgs/{org_id}",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=5,
+            )
+            response.raise_for_status()
+            data = response.json()
+            org = data["org"]
+            dimensions = data.get("dimensions")
+
+            return Org(
+                org_id=org_id,
+                flags=org.get("flags", []),
+                is_dbt=org.get("is_dbt", False),
+                dimensions=OrgDimensions(
+                    in_free_trial=dimensions.get("in_free_trial", False),
+                    free_trial_end_date=dimensions.get("free_trial_end_date"),
+                )
+                if dimensions
+                else None,
+                account_host=org.get("account_host"),
+            )
+
+        except Exception as e:
+            events.fire_debug_event("Failed to fetch org info: {}", str(e))
+            return None
 
     def _get_or_refresh_token_info(self, login: bool) -> t.Dict:
         if self._token_info and self._token_scope:

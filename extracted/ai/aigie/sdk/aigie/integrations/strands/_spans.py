@@ -42,16 +42,30 @@ def tool_span_name(tool_use: dict[str, Any]) -> str:
 
 
 def result_output(result: Any, limit: int) -> Any:
+    if result is None:
+        return None
     message = getattr(result, "message", None)
     return truncate(message if message is not None else str(result), limit)
 
 
+# Resolve a model id across strands model providers/versions: get_config(), then
+# plain attributes. Module-level so the tuple isn't rebuilt on every model call.
+_MODEL_ID_GETTERS = (
+    lambda m: m.get_config().get("model_id"),
+    lambda m: getattr(m, "model_id", None),
+    lambda m: (getattr(m, "config", None) or {}).get("model_id"),
+)
+
+
 def _model_id(model: Any) -> str | None:
-    try:
-        cfg = model.get_config()
-    except Exception:  # noqa: BLE001 - never break tracing on a custom model
-        return None
-    return cfg.get("model_id") if isinstance(cfg, dict) else None
+    for getter in _MODEL_ID_GETTERS:
+        try:
+            value = getter(model)
+        except Exception:  # noqa: BLE001, S112 - try the next resolver, never break tracing
+            continue
+        if value:
+            return str(value)
+    return None
 
 
 def _base_url(model: Any) -> str:
@@ -88,15 +102,61 @@ def model_metadata(agent: Any) -> dict[str, Any]:
     return out
 
 
+def node_failure(source: Any, node_id: str) -> BaseException | None:
+    """Return the exception a graph/swarm node raised, if recorded."""
+    results = getattr(getattr(source, "state", None), "results", None)
+    node_result = results.get(node_id) if isinstance(results, dict) else None
+    if getattr(getattr(node_result, "status", None), "value", None) != "failed":
+        return None
+    result = getattr(node_result, "result", None)
+    if isinstance(result, BaseException):
+        return result
+    return RuntimeError(str(result) if result is not None else "node failed")
+
+
+def node_ids(source: Any) -> tuple[str, ...]:
+    """Return graph/swarm node ids when available."""
+    nodes = getattr(source, "nodes", None)
+    return tuple(nodes) if isinstance(nodes, dict) else ()
+
+
 def usage_metadata(result: Any) -> dict[str, Any]:
     metrics = getattr(result, "metrics", None)
     usage = getattr(metrics, "accumulated_usage", None)
+    return _usage_to_metadata(usage)
+
+
+def _call_usage(stop_response: Any) -> dict[str, Any] | None:
+    """The per-call usage dict Strands stashes on the assistant message metadata
+    (``message["metadata"]["usage"]``), or None."""
+    message = getattr(stop_response, "message", None)
+    meta = message.get("metadata") if isinstance(message, dict) else None
+    usage = meta.get("usage") if isinstance(meta, dict) else None
+    return usage if isinstance(usage, dict) else None
+
+
+def model_id(agent: Any) -> str | None:
+    """The model id of the agent's bound model, for an LLM-call span."""
+    return _model_id(getattr(agent, "model", None))
+
+
+def usage_mapping(stop_response: Any) -> dict[str, Any] | None:
+    """This model call's token usage as a snake-key mapping (or None) — Strands
+    stashes it on the assistant message metadata. Shaped onto the wire by the
+    shared ``aigie.tracing.usage.llm_span_payload``."""
+    raw = _call_usage(stop_response)
+    return _normalize_usage_keys(raw) if raw else None
+
+
+def _normalize_usage_keys(usage: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "input_tokens": usage.get("inputTokens"),
+        "output_tokens": usage.get("outputTokens"),
+        "total_tokens": usage.get("totalTokens"),
+    }
+
+
+def _usage_to_metadata(usage: Any) -> dict[str, Any]:
     if not usage or not isinstance(usage, dict):
         return {}
-    return Usage.from_mapping(
-        {
-            "input_tokens": usage.get("inputTokens"),
-            "output_tokens": usage.get("outputTokens"),
-            "total_tokens": usage.get("totalTokens"),
-        }
-    ).to_metadata()
+    return Usage.from_mapping(_normalize_usage_keys(usage)).to_metadata()

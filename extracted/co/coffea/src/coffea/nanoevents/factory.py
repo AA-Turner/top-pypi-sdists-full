@@ -7,7 +7,6 @@ from functools import partial
 from types import FunctionType
 
 import awkward
-import dask_awkward
 import fsspec
 import uproot
 
@@ -21,7 +20,7 @@ from coffea.nanoevents.mapping import (
 )
 from coffea.nanoevents.schemas import BaseSchema, NanoAODSchema
 from coffea.nanoevents.util import key_to_tuple, quote, tuple_to_key, unquote
-from coffea.util import _is_interpretable
+from coffea.util import _import_dask_awkward, _is_interpretable
 
 _offsets_label = quote(",!offsets")
 
@@ -131,6 +130,9 @@ class _map_schema_uproot(_map_schema_base):
             },
             "form_key": None,
         }
+        typenames = form.parameters.get("typenames")
+        if typenames is not None:
+            lform["typenames"] = typenames
 
         return (
             awkward.forms.form.from_dict(self.schemaclass(lform, self.version).form),
@@ -271,7 +273,7 @@ class NanoEventsFactory:
             file : a string or dict input to ``uproot.open()`` or ``uproot.dask()`` or a ``uproot.reading.ReadOnlyDirectory``
                 The filename or dict of filenames including the treepath (as it would be passed directly to ``uproot.open()``
                 or ``uproot.dask()``) already opened file using e.g. ``uproot.open()``.
-            mode:
+            mode : str
                 Nanoevents will use "eager", "virtual", or "dask" as a backend.
             treepath : str, optional
                 Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``
@@ -280,9 +282,9 @@ class NanoEventsFactory:
                 Start at this entry offset in the tree (default 0)
             entry_stop : int, optional (eager and virtual mode only)
                 Stop at this entry offset in the tree (default end of tree)
-            steps_per_file: int, optional
+            steps_per_file : int, optional
                 Partition files into this many steps (previously "chunks")
-            preload (None, Callable, or Iterable[str]):
+            preload : Callable or Iterable[str] or None
                 Specifies which branches/columns to preload in bulk. Only works in eager and virtual mode.
                 Can be a callable passed to ``tree.arrays`` as the ``filter_branch`` argument,
                 or an iterable of branch name strings to preload.
@@ -308,7 +310,7 @@ class NanoEventsFactory:
                 https://uproot.readthedocs.io/en/latest/uproot._dask.dask.html.
             interpretation_executor : Any, optional
                 Executor with a ``submit`` method used for interpretation tasks. See
-                https://github.com/scikit-hep/uproot5/blob/main/src/uproot/_dask.py#L113.
+                https://uproot.readthedocs.io/en/latest/uproot._dask.dask.html.
 
         Returns
         -------
@@ -523,6 +525,7 @@ class NanoEventsFactory:
             and not isinstance(schemaclass, FunctionType)
             and schemaclass.__dask_capable__
         ):
+            dask_awkward = _import_dask_awkward()
             map_schema = _map_schema_parquet(
                 schemaclass=schemaclass,
                 behavior=dict(schemaclass.behavior()),
@@ -709,7 +712,7 @@ class NanoEventsFactory:
                 A schema class deriving from `BaseSchema` and implementing the desired view of the file
             metadata : dict
                 Arbitrary metadata to add to the `base.NanoEvents` object
-            mode:
+            mode : str
                 Nanoevents will use "eager", "virtual", or "dask" as a backend.
 
         """
@@ -760,6 +763,7 @@ class NanoEventsFactory:
                 returned.
         """
         if self._mode == "dask":
+            dask_awkward = _import_dask_awkward()
             dask_awkward.lib.core.dak_cache.clear()
             events = self._mapping(form_mapping=self._schema)
             report = None

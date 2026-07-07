@@ -921,6 +921,7 @@ class Connection:
             SecurityMode.SMB2_NEGOTIATE_SIGNING_REQUIRED
         ):
             self.require_signing = True
+            self.client_security_mode = SecurityMode.SMB2_NEGOTIATE_SIGNING_REQUIRED
         log.info("Connection require signing: %s", self.require_signing)
 
         capabilities = smb_response["capabilities"]
@@ -1032,6 +1033,12 @@ class Connection:
         :param resolve_symlinks: Set to automatically resolve symlinks in the path when opening a file or directory.
         :return: SMB2HeaderResponse of the received message
         """
+        # Only the worker thread delivers responses, so calling receive() from it would wait
+        # on an event only it can set.
+        worker = self._t_worker
+        if worker is not None and threading.get_ident() == worker.ident:
+            raise SMBException("Connection.receive() called from the SMB worker thread, would self-deadlock")
+
         # Make sure the receiver is still active, if not this raises an exception.
         self._check_worker_running()
 
@@ -1431,7 +1438,9 @@ class Connection:
                         if request.message["reserved"].get_value() == 1:
                             self.outstanding_requests.pop(message_id, None)
         except Exception as exc:
-            # The exception is raised in _check_worker_running by the main thread when send/receive is called next.
+            log.exception("SMB receive worker died (outstanding=%d)", len(self.outstanding_requests))
+
+            # The exception is raised in _check_worker_running by the caller thread when send/receive is called next.
             self._t_exc = exc
 
             # While a caller of send/receive could theoretically catch this exception, we consider any failures

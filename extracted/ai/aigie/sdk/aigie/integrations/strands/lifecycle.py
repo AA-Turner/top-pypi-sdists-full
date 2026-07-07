@@ -119,8 +119,18 @@ def uninstall_strands_patches() -> None:
     _get_singleton().uninstall()
 
 
+def active_provider() -> Any | None:
+    """The installed hook provider, or None when patching isn't active.
+
+    Unlike ``_get_provider`` this never *constructs* a provider, so it doubles as
+    an "is instrumentation live?" check for callers like ``strands_session``.
+    """
+    return _get_singleton()._provider
+
+
 __all__ = [
     "StrandsLifecycle",
+    "active_provider",
     "install_strands_patches",
     "uninstall_strands_patches",
 ]

@@ -1080,7 +1080,10 @@ pub struct LinearTermSpec {
     /// Categorical-level gates for a factor-aware `:` interaction.
     ///
     /// Each `(col, level_bits)` multiplies the realized design column by the
-    /// indicator `1[data[row, col].to_bits() == level_bits]`. This is how a
+    /// indicator `1[canonical_level_bits(data[row, col]) == level_bits]` (the
+    /// canonical key collapses `-0.0`/`+0.0` and NaN payloads so numerically
+    /// equal codes name one level; see `gam_data::canonical_level_bits`). This
+    /// is how a
     /// `factor:x` (or `factor:factor`) interaction is expanded: `build_termspec`
     /// emits one `LinearTermSpec` per surviving cell of the categorical
     /// operand(s) (treatment-coded, first level dropped per factor), each
@@ -1126,7 +1129,8 @@ impl LinearTermSpec {
     /// The column is the elementwise product of every numeric feature column
     /// (`effective_feature_cols`) gated by the categorical-level indicators in
     /// `categorical_levels`: each `(col, level_bits)` multiplies the running
-    /// column by `1[data[row, col].to_bits() == level_bits]`. A plain numeric
+    /// column by `1[canonical_level_bits(data[row, col]) == level_bits]` (signed
+    /// zero / NaN canonicalized so numerically equal codes match). A plain numeric
     /// term (no `categorical_levels`) reduces to the bare product, matching the
     /// historical behaviour. A pure categorical interaction (empty
     /// `feature_cols`, non-empty `categorical_levels`) reduces to the cell
@@ -1171,9 +1175,13 @@ impl LinearTermSpec {
 
         for &(col, level_bits) in &self.categorical_levels {
             bounds(col)?;
+            // Canonicalize the stored key once (loop-invariant) so the gate is
+            // robust to level sets interned before signed-zero canonicalization
+            // landed, not just to canonical data rows (#2146).
+            let level_bits = gam_data::canonical_level_bits(f64::from_bits(level_bits));
             let gate = data.column(col);
             for (out, &v) in column.iter_mut().zip(gate.iter()) {
-                if v.to_bits() != level_bits {
+                if gam_data::canonical_level_bits(v) != level_bits {
                     *out = 0.0;
                 }
             }
@@ -1227,14 +1235,18 @@ pub struct RandomEffectTermSpec {
     /// time (encoded as an out-of-vocabulary code and shrunk toward the
     /// population mean) instead of raising a schema mismatch.
     ///
-    /// Only an EXPLICIT random effect — `group(g)`/`re(g)`/`factor(g)` /
-    /// `s(g, bs="re")` — is lenient: the held-out-group policy is a deliberate
-    /// contract. A BARE categorical main effect (`+ g`), although auto-promoted
-    /// to a penalized random block internally, is a FIXED parametric factor, and
-    /// an out-of-vocabulary level of it must raise `SchemaMismatchError` at
-    /// predict rather than being silently mapped to the factor's centering point
-    /// (#2102). The `true` default preserves the pre-#2102 (uniformly lenient)
-    /// behavior for models serialized before this field existed.
+    /// Only a genuine random effect — `group(g)`/`re(g)`/`s(g, bs="re")` — is
+    /// lenient: the held-out-group policy is a deliberate contract. A FIXED
+    /// categorical factor — a bare `+ g` OR an explicit `factor(g)` — although
+    /// materialized as a penalized one-hot block, must raise on an
+    /// out-of-vocabulary level at predict rather than being silently mapped to
+    /// the factor's centering point (#2102/#2137). `factor(g)` originally shared
+    /// the `group()`/`re()` parse arm and so wrongly inherited the lenient policy
+    /// (#2137). For a string factor the typed schema encode rejects the unseen
+    /// level upstream; for a numeric-coded `factor(year)` the reject is enforced
+    /// by `build_random_effect_block`, which owns the frozen vocabulary. The
+    /// `true` default preserves the pre-#2102 (uniformly lenient) behavior for
+    /// models serialized before this field existed.
     #[serde(default = "default_random_effect_lenient_unseen")]
     pub lenient_unseen: bool,
 }
@@ -5759,6 +5771,17 @@ pub fn tensor_product_design_from_marginals(
     Ok(design)
 }
 
+/// Render a numeric factor level for an error message: an integer-valued code
+/// (`1999.0`) prints as `1999`, so an unseen-level message names the level the
+/// user actually wrote rather than a spurious `.0`.
+fn fmt_level_value(v: f64) -> String {
+    if v.is_finite() && v.fract() == 0.0 && v.abs() < 1e15 {
+        format!("{}", v as i64)
+    } else {
+        format!("{v}")
+    }
+}
+
 pub fn build_random_effect_block(
     data: ArrayView2<'_, f64>,
     spec: &RandomEffectTermSpec,
@@ -5789,12 +5812,18 @@ pub fn build_random_effect_block(
                 spec.name
             );
         }
-        levels.clone()
+        // Canonicalize a possibly-legacy frozen set: a `-0.0` group interned
+        // before signed-zero canonicalization landed would otherwise never match
+        // a canonicalized data row. Idempotent on already-canonical sets (#2145).
+        levels
+            .iter()
+            .map(|&b| gam_data::canonical_level_bits(f64::from_bits(b)))
+            .collect()
     } else {
         let mut seen = BTreeSet::<u64>::new();
         let mut levels = Vec::<u64>::new();
         for &v in col {
-            let bits = v.to_bits();
+            let bits = gam_data::canonical_level_bits(v);
             if seen.insert(bits) {
                 levels.push(bits);
             }
@@ -5827,10 +5856,36 @@ pub fn build_random_effect_block(
             );
         }
     }
+    // A FIXED categorical factor (`factor(g)` or a bare `+ g`; `lenient_unseen
+    // == false`) must reject an out-of-vocabulary level rather than silently
+    // encode it as an all-zero dummy row that collapses onto the factor's
+    // centering point (#2137/#2102). For a *string* factor the typed schema
+    // encode rejects the unseen level before we get here; a *numeric-coded*
+    // `factor(year)` column, however, reaches Rust as a plain numeric column
+    // with no categorical schema, so the operator that owns the frozen level
+    // vocabulary is the enforcement point that closes the same gap. Only when
+    // the full one-hot block is kept (`!drop_first_level`) does an absent level
+    // unambiguously mean "unseen" — with treatment coding the dropped baseline
+    // is a legitimate absent column, so we do not gate that path. `frozen_levels`
+    // presence marks the predict/frozen context; at fit the vocabulary is
+    // derived from this very data, so no row is unseen.
+    let strict_unseen = !spec.lenient_unseen && !spec.drop_first_level && spec.frozen_levels.is_some();
     let mut group_ids = Vec::with_capacity(n);
-    for &v in col {
-        let bits = v.to_bits();
-        group_ids.push(level_to_col.get(&bits).copied());
+    for (row, &v) in col.iter().enumerate() {
+        let bits = gam_data::canonical_level_bits(v);
+        let group_id = level_to_col.get(&bits).copied();
+        if strict_unseen && group_id.is_none() {
+            crate::bail_invalid_basis!(
+                "unseen level '{}' in fixed factor column '{}' at row {}; the factor's levels \
+                 were fixed at fit time and an out-of-vocabulary level cannot be predicted \
+                 (use group({}) for a random effect that tolerates held-out levels)",
+                fmt_level_value(v),
+                spec.name,
+                row,
+                spec.name
+            );
+        }
+        group_ids.push(group_id);
     }
 
     Ok(RandomEffectBlock {
@@ -5839,6 +5894,128 @@ pub fn build_random_effect_block(
         num_groups: q,
         kept_levels,
     })
+}
+
+#[cfg(test)]
+mod random_effect_signed_zero_tests {
+    use super::{RandomEffectTermSpec, build_random_effect_block};
+    use ndarray::array;
+
+    fn spec() -> RandomEffectTermSpec {
+        RandomEffectTermSpec {
+            name: "g".to_string(),
+            feature_col: 0,
+            drop_first_level: false,
+            penalized: true,
+            frozen_levels: None,
+            lenient_unseen: true,
+        }
+    }
+
+    #[test]
+    fn signed_zero_rows_share_one_group() {
+        // A column mixing +0.0 and -0.0 for the physically same group must
+        // intern as ONE level, and every row (either spelling) must resolve to
+        // that single group column — the #2145 fit-side regression.
+        let data = array![[-0.0_f64], [0.0], [1.0], [-0.0], [1.0]];
+        let block = build_random_effect_block(data.view(), &spec()).unwrap();
+        assert_eq!(block.num_groups, 2, "0.0/-0.0 must not split into two groups");
+        // Rows 0,1,3 are the same group; rows 2,4 the other.
+        assert_eq!(block.group_ids[0], block.group_ids[1]);
+        assert_eq!(block.group_ids[0], block.group_ids[3]);
+        assert_eq!(block.group_ids[2], block.group_ids[4]);
+        assert_ne!(block.group_ids[0], block.group_ids[2]);
+    }
+
+    #[test]
+    fn frozen_positive_zero_matches_negative_zero_row() {
+        // A model frozen on +0.0 must resolve a -0.0 prediction row to the same
+        // column — the #2145 predict-side regression that dropped the effect.
+        let mut s = spec();
+        s.frozen_levels = Some(vec![0.0_f64.to_bits(), 1.0_f64.to_bits()]);
+        let data = array![[-0.0_f64], [1.0]];
+        let block = build_random_effect_block(data.view(), &s).unwrap();
+        assert_eq!(block.group_ids[0], Some(0), "-0.0 must match the +0.0 column");
+        assert_eq!(block.group_ids[1], Some(1));
+    }
+
+    #[test]
+    fn frozen_negative_zero_matches_positive_zero_row() {
+        // The symmetric direction: a legacy model interned on -0.0 (pre-fix)
+        // must still resolve a +0.0 prediction row after canonicalization.
+        let mut s = spec();
+        s.frozen_levels = Some(vec![(-0.0_f64).to_bits(), 1.0_f64.to_bits()]);
+        let data = array![[0.0_f64], [1.0]];
+        let block = build_random_effect_block(data.view(), &s).unwrap();
+        assert_eq!(block.group_ids[0], Some(0), "+0.0 must match the -0.0 column");
+    }
+
+    // ---- #2137: fixed factor (`factor(g)`) strict-unseen enforcement --------
+
+    fn fixed_factor_spec() -> RandomEffectTermSpec {
+        // A numeric-coded `factor(year)`: full one-hot (`drop_first_level=false`),
+        // FIXED (`lenient_unseen=false`), vocabulary pinned at fit.
+        let mut s = spec();
+        s.name = "year".to_string();
+        s.lenient_unseen = false;
+        s
+    }
+
+    #[test]
+    fn fixed_factor_rejects_unseen_numeric_level_at_predict() {
+        // The numeric-coded `factor(year)` gap (#2137): the column reaches the
+        // operator as plain numbers (no categorical schema to pre-filter it), so
+        // the operator that owns the frozen vocabulary must reject an unseen
+        // code rather than encode an all-zero (centering-point) row.
+        let mut s = fixed_factor_spec();
+        s.frozen_levels = Some(vec![2000.0_f64.to_bits(), 2001.0_f64.to_bits()]);
+        let data = array![[2000.0_f64], [1999.0]];
+        let err = build_random_effect_block(data.view(), &s)
+            .expect_err("an unseen fixed-factor level must be rejected");
+        let msg = format!("{err}");
+        assert!(msg.contains("unseen level"), "message must name the defect: {msg}");
+        assert!(msg.contains("1999"), "message must name the integer level (not 1999.0): {msg}");
+        assert!(msg.contains("year"), "message must name the column: {msg}");
+    }
+
+    #[test]
+    fn fixed_factor_accepts_seen_numeric_levels_at_predict() {
+        // Control: every seen level still resolves; strictness rejects only the
+        // genuinely out-of-vocabulary code.
+        let mut s = fixed_factor_spec();
+        s.frozen_levels = Some(vec![2000.0_f64.to_bits(), 2001.0_f64.to_bits()]);
+        let data = array![[2001.0_f64], [2000.0]];
+        let block = build_random_effect_block(data.view(), &s).unwrap();
+        assert_eq!(block.group_ids[0], Some(1));
+        assert_eq!(block.group_ids[1], Some(0));
+    }
+
+    #[test]
+    fn fixed_factor_at_fit_time_derives_vocabulary_and_never_false_rejects() {
+        // At FIT (`frozen_levels=None`) the vocabulary is derived from this very
+        // data, so no row is unseen — the strict guard must not fire even though
+        // the factor is strict.
+        let mut s = fixed_factor_spec();
+        s.frozen_levels = None;
+        let data = array![[2000.0_f64], [2001.0], [2002.0], [2000.0]];
+        let block = build_random_effect_block(data.view(), &s)
+            .expect("fit-time build must not reject its own levels");
+        assert_eq!(block.num_groups, 3);
+    }
+
+    #[test]
+    fn random_effect_still_tolerates_unseen_numeric_level() {
+        // Non-regression: a lenient random effect (`group`/`re`/`s(bs="re")`)
+        // encodes an unseen level as an all-zero (population-mean) row, NOT a
+        // rejection — the held-out-group contract (#2102) is unchanged.
+        let mut s = spec(); // lenient_unseen = true
+        s.frozen_levels = Some(vec![2000.0_f64.to_bits(), 2001.0_f64.to_bits()]);
+        let data = array![[2000.0_f64], [1999.0]];
+        let block = build_random_effect_block(data.view(), &s)
+            .expect("a random effect tolerates unseen levels");
+        assert_eq!(block.group_ids[0], Some(0));
+        assert_eq!(block.group_ids[1], None, "unseen level → population mean, not a reject");
+    }
 }
 
 impl SmoothDesign {
@@ -6406,13 +6583,16 @@ pub fn apply_by_variable_to_local_build(
     }
     let weights = match by {
         ByVariableSpec::Numeric => data.column(by_col).to_owned(),
-        ByVariableSpec::Level { value_bits, .. } => data.column(by_col).mapv(|value| {
-            if value.to_bits() == *value_bits {
-                1.0
-            } else {
-                0.0
-            }
-        }),
+        ByVariableSpec::Level { value_bits, .. } => {
+            let value_bits = gam_data::canonical_level_bits(f64::from_bits(*value_bits));
+            data.column(by_col).mapv(|value| {
+                if gam_data::canonical_level_bits(value) == value_bits {
+                    1.0
+                } else {
+                    0.0
+                }
+            })
+        }
     };
     if weights.iter().any(|value| !value.is_finite()) {
         crate::bail_invalid_basis!(
@@ -6483,13 +6663,15 @@ pub fn build_by_smooth_local(
             // Collect factor levels: prefer the frozen set (replay path), else
             // scan the data column (first-fit path).
             let level_bits: Vec<u64> = if let Some(fl) = frozen_levels {
-                fl.clone()
+                fl.iter()
+                    .map(|&b| gam_data::canonical_level_bits(f64::from_bits(b)))
+                    .collect()
             } else {
                 let col = data.column(*feature_col);
                 let mut seen = BTreeSet::<u64>::new();
                 for &v in col.iter() {
                     if v.is_finite() {
-                        seen.insert(v.to_bits());
+                        seen.insert(gam_data::canonical_level_bits(v));
                     }
                 }
                 seen.into_iter().collect()
@@ -6516,7 +6698,7 @@ pub fn build_by_smooth_local(
             for (lvl_idx, &bits) in level_bits.iter().enumerate() {
                 let col_start = lvl_idx * p;
                 for row in 0..n {
-                    if data[[row, *feature_col]].to_bits() == bits {
+                    if gam_data::canonical_level_bits(data[[row, *feature_col]]) == bits {
                         combined
                             .slice_mut(s![row, col_start..col_start + p])
                             .assign(&inner_dense.row(row));
@@ -6812,7 +6994,7 @@ pub fn build_factor_smooth(
     // the column block owned by its grouping level, zeros elsewhere.
     let mut dense = Array2::<f64>::zeros((n, q));
     for i in 0..n {
-        let bits = data[[i, group_col]].to_bits();
+        let bits = gam_data::canonical_level_bits(data[[i, group_col]]);
         let level_idx = levels.iter().position(|b| *b == bits).ok_or_else(|| {
             BasisError::InvalidInput(format!(
                 "factor smooth term '{term_name}' saw an unseen grouping level at row {}",
@@ -7045,9 +7227,16 @@ pub fn resolve_factor_smooth_levels(
                 term_name
             );
         }
-        return Ok(frozen.clone());
+        return Ok(frozen
+            .iter()
+            .map(|&b| gam_data::canonical_level_bits(f64::from_bits(b)))
+            .collect());
     }
-    let mut bits: Vec<u64> = data.column(group_col).iter().map(|v| v.to_bits()).collect();
+    let mut bits: Vec<u64> = data
+        .column(group_col)
+        .iter()
+        .map(|v| gam_data::canonical_level_bits(*v))
+        .collect();
     bits.sort_by(|a, b| {
         f64::from_bits(*a)
             .partial_cmp(&f64::from_bits(*b))
@@ -7162,10 +7351,16 @@ pub fn build_single_local_smooth_term(
             let n = base.nrows();
             let p = base.ncols();
             let l_minus_one = levels.len() - 1;
+            // Canonicalize the stored level keys once so signed-zero / NaN codes
+            // match regardless of how the level set was interned (#2145/#2146).
+            let canon_levels: Vec<u64> = levels
+                .iter()
+                .map(|&b| gam_data::canonical_level_bits(f64::from_bits(b)))
+                .collect();
             let mut dense = Array2::<f64>::zeros((n, p * l_minus_one));
             for i in 0..n {
-                let bits = data[[i, *by_col]].to_bits();
-                let level_idx = levels.iter().position(|b| *b == bits).ok_or_else(|| {
+                let bits = gam_data::canonical_level_bits(data[[i, *by_col]]);
+                let level_idx = canon_levels.iter().position(|b| *b == bits).ok_or_else(|| {
                     BasisError::InvalidInput(format!(
                         "sum-to-zero factor smooth term '{}' saw an unseen level at row {}",
                         term.name,

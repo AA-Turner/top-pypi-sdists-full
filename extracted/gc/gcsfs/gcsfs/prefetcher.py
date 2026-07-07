@@ -8,13 +8,11 @@ import fsspec.asyn
 
 logger = logging.getLogger(__name__)
 
-PyBytes_FromStringAndSize = ctypes.pythonapi.PyBytes_FromStringAndSize
-PyBytes_FromStringAndSize.restype = ctypes.py_object
-PyBytes_FromStringAndSize.argtypes = [ctypes.c_void_p, ctypes.c_ssize_t]
-
-PyBytes_AsString = ctypes.pythonapi.PyBytes_AsString
-PyBytes_AsString.restype = ctypes.c_void_p
-PyBytes_AsString.argtypes = [ctypes.py_object]
+from gcsfs.zb_hns_utils import (
+    HAS_CPYTHON_API,
+    PyBytes_AsString,
+    PyBytes_FromStringAndSize,
+)
 
 
 # Please refer to following discussion to understand why this is required at this point
@@ -24,13 +22,17 @@ def _fast_slice(src_bytes, offset, read_size):
         return b""
     if offset < 0 or offset + read_size > len(src_bytes):
         raise ValueError("Slice indices out of bounds")
-    dest_bytes = PyBytes_FromStringAndSize(None, read_size)
-    src_ptr = PyBytes_AsString(src_bytes)
-    dest_ptr = PyBytes_AsString(dest_bytes)
 
-    # Releases the GIL
-    ctypes.memmove(dest_ptr, src_ptr + offset, read_size)
-    return dest_bytes
+    if HAS_CPYTHON_API:
+        dest_bytes = PyBytes_FromStringAndSize(None, read_size)
+        src_ptr = PyBytes_AsString(src_bytes)
+        dest_ptr = PyBytes_AsString(dest_bytes)
+        # Releases the GIL
+        ctypes.memmove(dest_ptr, src_ptr + offset, read_size)
+        return dest_bytes
+    else:
+        # Standard fallback for PyPy/non-CPython
+        return src_bytes[offset : offset + read_size]
 
 
 class RunningAverageTracker:
@@ -764,6 +766,9 @@ class BackgroundPrefetcher:
                     self.user_offset = start
                     await self._restart_producer(start)
                 elif start != self.user_offset:
+                    block_offset = (
+                        self.consumer.offset - self.consumer._current_block_idx
+                    )
                     if self.user_offset < start <= self.producer.current_offset:
                         logger.debug(
                             "Soft seek detected. Skipping ahead from %d to %d.",
@@ -772,6 +777,19 @@ class BackgroundPrefetcher:
                         )
                         skip_amount = start - self.user_offset
                         await self.consumer.skip(skip_amount)
+                        self.user_offset = start
+                    elif block_offset <= start < self.consumer.offset:
+                        logger.debug(
+                            "Local seek performed. User offset moved from %d to %d. "
+                            "Adjusting buffer index from %d to %d.",
+                            self.user_offset,
+                            start,
+                            self.consumer._current_block_idx,
+                            start - block_offset,
+                        )
+                        self.consumer._current_block_idx = start - block_offset
+                        self.consumer.offset = start
+                        self.consumer.target_offset = start
                         self.user_offset = start
                     else:
                         logger.debug(

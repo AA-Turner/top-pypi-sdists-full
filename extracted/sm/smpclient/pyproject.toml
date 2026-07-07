@@ -63,7 +63,7 @@ dev = [
 "pytest-cov>=7.0.0",
 "pytest-asyncio>=0.23.2",
 "ruff>=0.12.0",
-"taskipy>=1",
+"camas[mcp,check]==0.1.14",
 ]
 doc = [
 "mkdocstrings[python]>=0.26.1",
@@ -73,22 +73,6 @@ doc = [
 "griffe>=1.3.1",
 "smp>=4.1.0",
 ]
-
-[tool.taskipy.tasks]
-format = "ruff format ."
-lint = "ruff check . && pydoclint src/smpclient"
-fix = "ruff check --fix . && ruff format ."
-typecheck = "mypy ."
-test = "pytest --maxfail=1"
-coverage = "pytest --cov --cov-report=xml --cov-report=term-missing"
-all = "task format && task lint && task typecheck && task test"
-matrix = """
-    UV_PROJECT_ENVIRONMENT=.venv-3.10 uv run --python 3.10 task all &&
-    UV_PROJECT_ENVIRONMENT=.venv-3.11 uv run --python 3.11 task all &&
-    UV_PROJECT_ENVIRONMENT=.venv-3.12 uv run --python 3.12 task all &&
-    UV_PROJECT_ENVIRONMENT=.venv-3.13 uv run --python 3.13 task all &&
-    UV_PROJECT_ENVIRONMENT=.venv-3.14 uv run --python 3.14 task all
-    """
 
 [tool.ruff]
 line-length = 100
@@ -118,10 +102,14 @@ check-yield-types = false
 [tool.pytest.ini_options]
 norecursedirs = ["dutfirmware/*", ".claude/*"]
 filterwarnings = ["ignore:The --rsyncdir:DeprecationWarning"]
+markers = [
+"integration: end-to-end tests against real SMP servers (Linux only); see tests/integration/",
+]
 
 [tool.coverage.run]
 source = ["smpclient", "tests"]
 branch = true
+omit = ["tests/integration/*"]
 
 [tool.coverage.report]
 fail_under = 91

@@ -12,7 +12,7 @@ CODE_ACTION_FILE = "CodeActionDemo.lean"
 EXPECTED_REPLACEMENTS = {
     "simp?": "simp only",
     "exact?": "exact ",
-    '/-- info: 2 -/ #guard_msgs': '/-- info: 3 -/',
+    "/-- info: 2 -/ #guard_msgs": "/-- info: 3 -/",
     '/-- info: "hello" -/ #guard_msgs': '/-- info: "world" -/',
 }
 
@@ -30,7 +30,7 @@ def test_apply_all_code_actions(clean_lsp_client, test_env_dir):
     src = os.path.join(test_env_dir, CODE_ACTION_FILE)
     assert os.path.exists(src), f"Missing test file: {src}"
 
-    before = clean_lsp_client.get_diagnostics(path)
+    clean_lsp_client.get_diagnostics(path)
     original = clean_lsp_client.get_file_content(path)
 
     # Collect and apply all code actions iteratively
@@ -61,7 +61,9 @@ def test_apply_all_code_actions(clean_lsp_client, test_env_dir):
     after = clean_lsp_client.get_file_content(path)
 
     # Verify code actions were applied
-    assert len(applied) >= 8, f"Expected >= 8 code actions, got {len(applied)}: {applied}"
+    assert len(applied) >= 8, (
+        f"Expected >= 8 code actions, got {len(applied)}: {applied}"
+    )
 
     # Verify specific replacements
     assert "simp?" not in after, "simp? should have been replaced"
@@ -69,7 +71,7 @@ def test_apply_all_code_actions(clean_lsp_client, test_env_dir):
     assert "simp only" in after, "simp only should be present"
 
     # Verify #guard_msgs fixes
-    assert '/-- info: 3 -/' in after, "#guard_msgs for 1+1+1 should show 3"
+    assert "/-- info: 3 -/" in after, "#guard_msgs for 1+1+1 should show 3"
     assert '/-- info: "world" -/' in after, '#guard_msgs for "world" should be fixed'
 
     # Verify file actually changed

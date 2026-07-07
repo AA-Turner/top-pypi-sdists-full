@@ -111,6 +111,10 @@ class CodecDecodeTests(unittest.TestCase):
     def test_decode_decimal_invalid_value(self):
         self.assertRaises(ValueError, decode.decimal, False)
 
+    def test_decode_decimal_negative_value(self):
+        value = b'\x01\xff\xff\xff\xf1'
+        self.assertEqual(decode.decimal(value)[1], decimal.Decimal('-1.5'))
+
     def test_decode_double_value(self):
         value = b'@\t!\xf9\xf0\x1b\x86n'
         self.assertEqual(round(decode.double(value)[1], 5), round(3.14159, 5))
@@ -315,6 +319,21 @@ class CodecDecodeTests(unittest.TestCase):
                 )
             else:
                 self.assertEqual(value[key], self.FIELD_TBL_VALUE[key])
+
+    def test_decode_field_array_length_exceeds_data(self):
+        # Declares 10 bytes of content but only supplies a 2-byte element
+        payload = struct.pack('>I', 10) + b'b\x01'
+        self.assertRaises(ValueError, decode.field_array, payload)
+
+    def test_decode_field_table_length_exceeds_data(self):
+        # Declares 10 bytes of content but supplies fewer
+        payload = struct.pack('>I', 10) + b'\x03key'
+        self.assertRaises(ValueError, decode.field_table, payload)
+
+    def test_decode_field_table_key_length_exceeds_data(self):
+        # Key claims 20 bytes but the table only holds a few
+        payload = struct.pack('>I', 4) + b'\x14key'
+        self.assertRaises(ValueError, decode.field_table, payload)
 
     def test_decode_by_type_bit_bytes_consumed(self):
         self.assertEqual(decode.by_type(b'\xff', 'bit', 4)[0], 0)
@@ -784,3 +803,24 @@ class CodecDecodeTests(unittest.TestCase):
         dt = datetime.datetime(2107, 1, 1, 0, 0, tzinfo=datetime.UTC)
         large_timestamp_bytes = struct.pack('>Q', int(dt.timestamp() * 1000))
         self.assertEqual(decode.timestamp(large_timestamp_bytes)[1], dt)
+
+    def test_decode_truncated_raises_value_error(self):
+        for name, decoder in (
+            ('bit', lambda v: decode.bit(v, 0)),
+            ('boolean', decode.boolean),
+            ('byte_array', decode.byte_array),
+            ('decimal', decode.decimal),
+            ('double', decode.double),
+            ('floating_point', decode.floating_point),
+            ('long_int', decode.long_int),
+            ('long_uint', decode.long_uint),
+            ('long_long_int', decode.long_long_int),
+            ('octet', decode.octet),
+            ('short_int', decode.short_int),
+            ('short_uint', decode.short_uint),
+            ('short_short_int', decode.short_short_int),
+            ('short_short_uint', decode.short_short_uint),
+            ('timestamp', decode.timestamp),
+        ):
+            with self.subTest(decoder=name):
+                self.assertRaises(ValueError, decoder, b'')

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semble
-Version: 0.4.1
+Version: 0.4.2
 Summary: Fast and Accurate Code Search for Agents
 Author-email: Thomas van Dongen <thomasvdongen@proton.me>, Stéphan Tulkens <stephantul@gmail.com>
 License: MIT License
@@ -127,6 +127,19 @@ For manual setup instructions (MCP config per agent, AGENTS.md snippet, sub-agen
 uv tool upgrade semble   # upgrade
 uv cache clean semble    # for MCP users (restart your MCP client after)
 ```
+
+</details>
+
+<details>
+<summary>Unattended install</summary>
+
+For sandboxed or scripted environments, skip the prompts with `--agent` and, optionally, `--type`:
+
+```bash
+semble install --agent claude --type mcp subagent --yes
+```
+
+`--agent` accepts one or more agent ids (e.g. `claude`, `codex`, `pi`); `--type` accepts `mcp`, `instructions`, `subagent`, or `all` (default: all); `--yes` skips the confirmation prompt (requires `--agent` for a fully non-interactive run).
 
 </details>
 

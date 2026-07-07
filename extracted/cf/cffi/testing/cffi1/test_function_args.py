@@ -117,16 +117,15 @@ else:
         if False:
             from testing.udir import udir
             import subprocess
-            f = open(str(udir.join('run1.py')), 'w')
-            f.write('import sys; sys.path = %r\n' % (sys.path,))
-            f.write('from _CFFI_test_function_args_%d import ffi, lib\n' %
-                    TEST_RUN_COUNTER)
-            for i in range(len(args)):
-                f.write('a%d = ffi.new("%s *")\n' % (i, args[i]))
-            aliststr = ', '.join(['a%d[0]' % i for i in range(len(args))])
-            f.write('lib.testfargs(%s)\n' % aliststr)
-            f.write('ffi.addressof(lib, "testfargs")(%s)\n' % aliststr)
-            f.close()
+            with (udir / 'run1.py').open('w') as f:
+                f.write('import sys; sys.path = %r\n' % (sys.path,))
+                f.write('from _CFFI_test_function_args_%d import ffi, lib\n' %
+                        TEST_RUN_COUNTER)
+                for i in range(len(args)):
+                    f.write('a%d = ffi.new("%s *")\n' % (i, args[i]))
+                aliststr = ', '.join(['a%d[0]' % i for i in range(len(args))])
+                f.write('lib.testfargs(%s)\n' % aliststr)
+                f.write('ffi.addressof(lib, "testfargs")(%s)\n' % aliststr)
             print("checking for segfault for direct call...")
             rc = subprocess.call([sys.executable, 'run1.py'], cwd=str(udir))
             assert rc == 0, rc
@@ -159,11 +158,10 @@ else:
             if type(v) is list:
                 for i, v1 in enumerate(v):
                     check(ffi.addressof(p, 'f%d' % i), v1)
+            elif ffi.typeof(p).item is _tp_long_double:
+                assert ffi.cast("double", p[0]) == v
             else:
-                if ffi.typeof(p).item is _tp_long_double:
-                    assert ffi.cast("double", p[0]) == v
-                else:
-                    assert p[0] == v
+                assert p[0] == v
 
         for i, arg in enumerate(passed_args):
             check(ffi.addressof(lib, 'testfargs_arg%d' % i), arg)
@@ -185,15 +183,15 @@ else:
         if False:
             from testing.udir import udir
             import subprocess
-            f = open(str(udir.join('run1.py')), 'w')
-            f.write('import sys; sys.path = %r\n' % (sys.path,))
-            f.write('from _CFFI_test_function_args_%d import ffi, lib\n' %
-                    TEST_RUN_COUNTER)
-            f.write('def callback(*args): return ffi.new("%s *")[0]\n' % result)
-            f.write('fptr = ffi.callback("%s(%s)", callback)\n' % (result,
-                                                                ','.join(args)))
-            f.write('print(lib.testfcallback(fptr))\n')
-            f.close()
+            with (udir / 'run1.py').open('w') as f:
+                f.write('import sys; sys.path = %r\n' % (sys.path,))
+                f.write('from _CFFI_test_function_args_%d import ffi, lib\n' %
+                        TEST_RUN_COUNTER)
+                f.write('def callback(*args): return ffi.new("%s *")[0]\n'
+                        % result)
+                f.write('fptr = ffi.callback("%s(%s)", callback)\n'
+                        % (result, ','.join(args)))
+                f.write('print(lib.testfcallback(fptr))\n')
             print("checking for segfault for callback...")
             rc = subprocess.call([sys.executable, 'run1.py'], cwd=str(udir))
             assert rc == 0, rc

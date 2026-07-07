@@ -2942,10 +2942,21 @@ impl TryFrom<LockWire> for Lock {
             &wire.requires_python,
             fork_markers_union(&fork_markers, &wire.requires_python),
         );
+        // Most dependency entries omit their marker, so reuse the result of intersecting the
+        // default marker with the lock's environment.
+        let default =
+            UniversalMarker::from_combined(environment.into_marker(&wire.requires_python));
         let packages = wire
             .packages
             .into_iter()
-            .map(|dist| dist.unwire(&wire.requires_python, environment, &unambiguous_package_ids))
+            .map(|dist| {
+                dist.unwire(
+                    &wire.requires_python,
+                    environment,
+                    default,
+                    &unambiguous_package_ids,
+                )
+            })
             .collect::<Result<Vec<_>, _>>()?;
         let supported_environments = wire
             .supported_environments
@@ -4035,6 +4046,7 @@ impl PackageWire {
         self,
         requires_python: &RequiresPython,
         environment: SimplifiedMarkerTree,
+        default: UniversalMarker,
         unambiguous_package_ids: &FxHashMap<PackageName, PackageId>,
     ) -> Result<Package, LockError> {
         // Consistency check
@@ -4056,9 +4068,25 @@ impl PackageWire {
             }
         }
 
+        // A registry-source package must carry a version; downstream conversions
+        // (e.g. `to_source_dist`, `satisfies`) rely on it.
+        if matches!(self.id.source, Source::Registry(_)) && self.id.version.is_none() {
+            return Err(LockErrorKind::MissingPackageVersion {
+                name: self.id.name.clone(),
+            }
+            .into());
+        }
+
         let unwire_deps = |deps: Vec<DependencyWire>| -> Result<Vec<Dependency>, LockError> {
             deps.into_iter()
-                .map(|dep| dep.unwire(requires_python, environment, unambiguous_package_ids))
+                .map(|dep| {
+                    dep.unwire(
+                        requires_python,
+                        environment,
+                        default,
+                        unambiguous_package_ids,
+                    )
+                })
                 .collect()
         };
 
@@ -5830,16 +5858,24 @@ impl DependencyWire {
         self,
         requires_python: &RequiresPython,
         environment: SimplifiedMarkerTree,
+        default: UniversalMarker,
         unambiguous_package_ids: &FxHashMap<PackageName, PackageId>,
     ) -> Result<Dependency, LockError> {
-        let mut simplified_marker = self.marker;
-        simplified_marker.and(environment);
-        let complexified_marker = simplified_marker.into_marker(requires_python);
+        let (simplified_marker, complexified_marker) =
+            if self.marker.as_simplified_marker_tree().is_true() {
+                (environment, default)
+            } else {
+                let mut simplified_marker = self.marker;
+                simplified_marker.and(environment);
+                let complexified_marker =
+                    UniversalMarker::from_combined(simplified_marker.into_marker(requires_python));
+                (simplified_marker, complexified_marker)
+            };
         Ok(Dependency {
             package_id: self.package_id.unwire(unambiguous_package_ids)?,
             extra: self.extra,
             simplified_marker,
-            complexified_marker: UniversalMarker::from_combined(complexified_marker),
+            complexified_marker,
         })
     }
 }
@@ -6805,6 +6841,13 @@ enum LockErrorKind {
         /// The name of the dependency that is missing a `version` field.
         name: PackageName,
     },
+    /// An error that occurs when a registry-source package is missing a
+    /// `version` field.
+    #[error("Package `{name}` from a registry source has a missing `version` field", name = name.cyan())]
+    MissingPackageVersion {
+        /// The name of the package that is missing a `version` field.
+        name: PackageName,
+    },
     /// An error that occurs when an ambiguous `package.dependency` is
     /// missing a `source` field.
     #[error("Dependency `{name}` has missing `source` field but has more than one matching package", name = name.cyan())]
@@ -7617,6 +7660,21 @@ source = { registry = "https://pypi.org/simple" }
 "#;
         let result = toml::from_str::<Lock>(data).unwrap_err();
         assert_stripped_snapshot!(result, @"Dependency `a` has missing `version` field but has more than one matching package");
+    }
+
+    #[test]
+    fn missing_package_version_registry() {
+        let data = r#"
+version = 1
+requires-python = ">=3.12"
+
+[[package]]
+name = "a"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://example.com", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 0 }
+"#;
+        let result = toml::from_str::<Lock>(data).unwrap_err();
+        assert_stripped_snapshot!(result, @"Package `a` from a registry source has a missing `version` field");
     }
 
     #[test]

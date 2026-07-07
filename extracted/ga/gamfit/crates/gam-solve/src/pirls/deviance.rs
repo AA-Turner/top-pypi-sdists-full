@@ -183,6 +183,15 @@ pub fn calculate_deviance(
         }
         ResponseFamily::Tweedie { p } => {
             let p = *p;
+            // Report the *unscaled* Tweedie deviance D = 2·Σ wᵢ·d(yᵢ, μᵢ),
+            // matching every other family here (Poisson/Binomial/NB/Beta and
+            // Gamma post-#2126 all accumulate the bare `priorweights·unit_deviance`
+            // with φ ≡ 1) and matching R/mgcv/statsmodels' reported deviance.
+            // Dividing the unit deviance by the fitted dispersion φ̂ would report
+            // the *scaled* deviance D/φ̂ instead — the #2126 defect. The
+            // dispersion is reported separately; the deviance itself must stay
+            // scale-free so `deviance_explained = 1 − D_resid/D_null` is a pure
+            // ratio of like-scaled deviances.
             let phi = fixed_glm_dispersion(likelihood);
             if !is_valid_tweedie_power(p) || !(phi.is_finite() && phi > 0.0) {
                 return f64::NAN;
@@ -196,7 +205,7 @@ pub fn calculate_deviance(
                 .map(|i| {
                     let yi = y[i];
                     let mui_c = mu[i].max(MU_FLOOR);
-                    priorweights[i] * tweedie_unit_deviance(yi, mui_c, p) / phi
+                    priorweights[i] * tweedie_unit_deviance(yi, mui_c, p)
                 })
                 .sum();
             2.0 * total
@@ -227,14 +236,21 @@ pub fn calculate_deviance(
             2.0 * total
         }
         ResponseFamily::Gamma => {
-            let shape = likelihood.gamma_shape().unwrap_or(1.0);
+            // Report the *unscaled* Gamma deviance D = 2·Σ wᵢ·d(yᵢ, μᵢ), matching
+            // every other family here (Poisson/Binomial/NB/Beta all accumulate the
+            // bare `priorweights·unit_deviance` with φ ≡ 1) and matching R/mgcv/
+            // statsmodels' `summary.deviance`. Multiplying the unit deviance by the
+            // fitted shape (≈ 1/φ̂) would report the *scaled* deviance D/φ̂ instead
+            // — the #2126 defect. The dispersion is reported separately; the
+            // deviance itself must stay scale-free so `deviance_explained =
+            // 1 − D_resid/D_null` is a pure ratio of like-scaled deviances.
             use rayon::iter::{IntoParallelIterator, ParallelIterator};
             let total: f64 = (0..y.len())
                 .into_par_iter()
                 .map(|i| {
                     let yi_c = y[i].max(EPS);
                     let mui_c = mu[i].max(MU_FLOOR);
-                    priorweights[i] * shape * gamma_unit_deviance(yi_c, mui_c)
+                    priorweights[i] * gamma_unit_deviance(yi_c, mui_c)
                 })
                 .sum();
             2.0 * total
@@ -471,11 +487,11 @@ pub(crate) fn calculate_loglikelihood_omitting_constants(
         }
         ResponseFamily::Gamma => {
             // REML/LAML outer objective: use the scaled-deviance form
-            //   ℓ = −½ D(y, μ) = −Σ wᵢ · shape · d(yᵢ, μᵢ)
-            // (with `shape = 1/φ` folded into the deviance), exactly as the
-            // Tweedie branch above. This is the mgcv convention: the outer
-            // objective only needs the β-dependent part of the log-likelihood
-            // plus the penalty/log-determinant terms; the saturated-likelihood
+            //   ℓ = −½ · shape · D(y, μ) = −Σ wᵢ · shape · d(yᵢ, μᵢ)
+            // (with `shape = 1/φ` folded in), exactly as the Tweedie branch
+            // above. This is the mgcv convention: the outer objective only needs
+            // the β-dependent part of the log-likelihood plus the
+            // penalty/log-determinant terms; the saturated-likelihood
             // normalizing constants `shape·ln(shape) − lnΓ(shape) − shape − ln y`
             // are independent of β (hence of the outer derivative under the
             // fixed-dispersion handling Gamma is routed through) and are
@@ -490,7 +506,27 @@ pub(crate) fn calculate_loglikelihood_omitting_constants(
             // bounded unit deviance keeps the product `shape · d(y, μ)` finite
             // even as the shape grows, so the seed screen no longer rejects
             // every ρ candidate. See issue #359.
-            -0.5 * calculate_deviance(y, mu, likelihood, priorweights)
+            //
+            // The `shape` factor MUST be applied explicitly here (#2128).
+            // `calculate_deviance` used to fold `shape` into the returned Gamma
+            // deviance, so this used to read `-0.5 * calculate_deviance(...)` and
+            // still yield the scaled form. Issue #2126 made `calculate_deviance`
+            // report the *unscaled* Gamma deviance `D = 2·Σ wᵢ·d` (matching every
+            // other family and R/mgcv `summary.deviance`), silently dropping the
+            // `shape` factor from this REML building block. That broke the
+            // envelope identity the outer LAML relies on: the inner P-IRLS
+            // minimizes the shape-weighted penalized deviance (working weight
+            // `wᵢ·shape`, so its stationarity is `½·shape·∇D + Sβ = 0`), but the
+            // unscaled `-0.5·D` term gave the outer cost a β-gradient
+            // `½·∇D + Sβ ≠ 0` at the inner optimum. The resulting large outer KKT
+            // residual failed the LAML minimum certificate / drove the objective
+            // to a non-finite cost for every seed at moderate/high dispersion
+            // (small shape) — the #2128 defect. Re-scaling by `shape` here
+            // realigns the outer objective with the inner solver and with the
+            // shape-weighted Hessian used in `log|H|`, matching the per-row
+            // `pointwise_loglikelihood_omitting_constants` Gamma arm exactly.
+            let shape = likelihood.gamma_shape().unwrap_or(1.0);
+            -0.5 * shape * calculate_deviance(y, mu, likelihood, priorweights)
         }
         ResponseFamily::RoystonParmar => f64::NAN,
     }

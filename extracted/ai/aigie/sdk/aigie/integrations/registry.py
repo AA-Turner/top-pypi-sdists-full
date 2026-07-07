@@ -52,6 +52,10 @@ class IntegrationInfo:
     status: IntegrationStatus = IntegrationStatus.AVAILABLE
     error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    # Broad class of integration. "agent_framework" entries emit agent traces and
+    # must satisfy the cross-framework span contract (single trace, root I/O,
+    # priceable llm spans) — enforced by tests/unit/integrations/test_framework_contract.py.
+    kind: str = "other"
 
 
 # Registry of all available integrations
@@ -63,6 +67,7 @@ _INTEGRATION_REGISTRY: dict[str, IntegrationInfo] = {
         description="Trace LangChain chains, agents, and tool calls",
         package_name="langchain-core",
         patch_function="aigie.integrations.langchain.lifecycle.install_langchain_patches",
+        kind="agent_framework",
         handler_class="aigie.integrations.langchain.native_callback.LangChainNativeCallback",
     ),
     "langgraph": IntegrationInfo(
@@ -71,6 +76,7 @@ _INTEGRATION_REGISTRY: dict[str, IntegrationInfo] = {
         description="Trace LangGraph stateful graph workflows",
         package_name="langgraph",
         patch_function="aigie.integrations.langgraph.lifecycle.install_langgraph_patches",
+        kind="agent_framework",
         handler_class="aigie.integrations.langgraph.native_callback.LangGraphNativeCallback",
     ),
     # Agent SDKs
@@ -80,6 +86,7 @@ _INTEGRATION_REGISTRY: dict[str, IntegrationInfo] = {
         description="Trace Anthropic Claude Agent SDK sessions",
         package_name="claude-agent-sdk",
         patch_function="aigie.integrations.claude_agent_sdk.lifecycle.install_claude_agent_sdk_patches",
+        kind="agent_framework",
         handler_class="aigie.integrations.claude_agent_sdk.native_callback.ClaudeAgentSDKNativeCallback",
     ),
     "strands": IntegrationInfo(
@@ -89,6 +96,7 @@ _INTEGRATION_REGISTRY: dict[str, IntegrationInfo] = {
         package_name="strands-agents",
         import_name="strands",
         patch_function="aigie.integrations.strands.lifecycle.install_strands_patches",
+        kind="agent_framework",
         handler_class="aigie.integrations.strands.native_callback.StrandsHookProvider",
     ),
     # LLM Providers (direct patching)

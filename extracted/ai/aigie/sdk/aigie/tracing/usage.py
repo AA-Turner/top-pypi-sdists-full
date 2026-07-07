@@ -153,3 +153,30 @@ class Usage:
         if self.reasoning_tokens:
             details["reasoning_tokens"] = self.reasoning_tokens
         return details
+
+
+def llm_span_payload(
+    usage: Mapping[str, object] | None,
+    *,
+    model_id: str | None = None,
+    cost: Mapping[str, float] | None = None,
+) -> tuple[dict[str, object], dict[str, object]]:
+    """``(extras, metadata_updates)`` for an LLM-call span — the one place that
+    shapes ``model`` + the prompt/completion/total split onto the wire from a
+    framework-normalized usage mapping.
+
+    ``extras`` are top-level wire fields the platform cost enricher prices from;
+    ``metadata_updates`` is the canonical :meth:`Usage.to_metadata`. Every
+    integration feeds its own usage extraction through here so no integration
+    hand-shapes token fields or forgets ``model``.
+    """
+    extras: dict[str, object] = {}
+    if model_id:
+        extras["model"] = model_id
+    if usage is None:
+        return extras, {}
+    parsed = Usage.from_mapping(usage, cost=cost)
+    extras["prompt_tokens"] = parsed.input_tokens
+    extras["completion_tokens"] = parsed.output_tokens
+    extras["total_tokens"] = parsed.resolved_total_tokens
+    return extras, parsed.to_metadata()

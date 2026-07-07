@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-import textwrap
-from typing import TYPE_CHECKING
+__lazy_modules__ = {"textwrap"}
 
+import textwrap
+
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     import subprocess
 
@@ -66,8 +68,12 @@ class FailedProcessError(Exception):
         for stream_name in ("stdout", "stderr"):
             stream = getattr(self.exception, stream_name)
             if stream:
+                # Subprocesses run with text=True (str streams), but decode bytes
+                # defensively in case a caller captured binary output.
+                if isinstance(stream, bytes):
+                    stream = stream.decode()
                 description += f"\n  {stream_name}:\n"
-                description += textwrap.indent(stream.decode(), "    ")
+                description += textwrap.indent(stream, "    ")
         return description
 
 

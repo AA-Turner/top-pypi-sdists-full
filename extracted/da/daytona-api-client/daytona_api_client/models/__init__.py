@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     # import models into model package
     from daytona_api_client.models.account_provider import AccountProvider
+    from daytona_api_client.models.admin_create_organization import AdminCreateOrganization
     from daytona_api_client.models.admin_create_runner import AdminCreateRunner
     from daytona_api_client.models.admin_get_webhook_status200_response import AdminGetWebhookStatus200Response
     from daytona_api_client.models.announcement import Announcement
@@ -89,6 +90,7 @@ if TYPE_CHECKING:
     from daytona_api_client.models.keyboard_type_request import KeyboardTypeRequest
     from daytona_api_client.models.list_branch_response import ListBranchResponse
     from daytona_api_client.models.list_sandboxes_response import ListSandboxesResponse
+    from daytona_api_client.models.list_secrets_response import ListSecretsResponse
     from daytona_api_client.models.log_entry import LogEntry
     from daytona_api_client.models.lsp_completion_params import LspCompletionParams
     from daytona_api_client.models.lsp_document_request import LspDocumentRequest
@@ -213,6 +215,7 @@ if TYPE_CHECKING:
 
 _DYNAMIC_IMPORTS: dict[str, str] = {
     "AccountProvider": "daytona_api_client.models.account_provider",
+    "AdminCreateOrganization": "daytona_api_client.models.admin_create_organization",
     "AdminCreateRunner": "daytona_api_client.models.admin_create_runner",
     "AdminGetWebhookStatus200Response": "daytona_api_client.models.admin_get_webhook_status200_response",
     "Announcement": "daytona_api_client.models.announcement",
@@ -281,6 +284,7 @@ _DYNAMIC_IMPORTS: dict[str, str] = {
     "KeyboardTypeRequest": "daytona_api_client.models.keyboard_type_request",
     "ListBranchResponse": "daytona_api_client.models.list_branch_response",
     "ListSandboxesResponse": "daytona_api_client.models.list_sandboxes_response",
+    "ListSecretsResponse": "daytona_api_client.models.list_secrets_response",
     "LogEntry": "daytona_api_client.models.log_entry",
     "LspCompletionParams": "daytona_api_client.models.lsp_completion_params",
     "LspDocumentRequest": "daytona_api_client.models.lsp_document_request",

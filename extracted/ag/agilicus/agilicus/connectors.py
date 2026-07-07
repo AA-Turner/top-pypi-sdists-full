@@ -1716,6 +1716,8 @@ def show_agent_connector_logs(
             if exc.status != 404:
                 raise
             time.sleep(watch_period_seconds)
+            if not watch:
+                break
             continue
 
         for log in _get_logs(stats):

@@ -25,6 +25,7 @@ from functools import lru_cache
 from typing import Self
 
 from kraken.base_api import FuturesClient, defined, ensure_string
+from kraken.utils.utils import deprecated
 
 
 class Market(FuturesClient):
@@ -83,7 +84,7 @@ class Market(FuturesClient):
         self: Market,
         tick_type: str,
         symbol: str,
-        resolution: int,
+        resolution: str,
         from_: int | None = None,
         to: int | None = None,
         *,
@@ -135,7 +136,7 @@ class Market(FuturesClient):
         resolutions: tuple = ("1m", "5m", "15m", "30m", "1h", "4h", "12h", "1d", "1w")
         if tick_type not in tick_types:
             raise ValueError(f"tick_type must be in {tick_types}")
-        if resolution is not None and resolution not in resolutions:
+        if resolution not in resolutions:
             raise ValueError(f"resolution must be in {resolutions}")
 
         params: dict = {}
@@ -262,6 +263,13 @@ class Market(FuturesClient):
             extra_params=extra_params,
         )
 
+    @deprecated(
+        "The 'get_fee_schedules' function is deprecated. As of the Kraken"
+        " changelog entry dated 22 June 2026, the Futures Fee Schedules"
+        " endpoints are deprecated since fee calculation moved to a centralized"
+        " Kraken fee service. Determine applicable fee rates via the Spot"
+        " 'GetTradeVolume' endpoint instead.",
+    )
     @ensure_string("extra_params")
     @lru_cache
     def get_fee_schedules(
@@ -271,6 +279,13 @@ class Market(FuturesClient):
     ) -> dict:
         """
         Retrieve information about the current fees
+
+        .. deprecated::
+            As of the Kraken changelog entry dated 22 June 2026, the Futures Fee
+            Schedules endpoints are deprecated since fee calculation moved to a
+            centralized Kraken fee service. Determine applicable fee rates via
+            the Spot :func:`kraken.spot.User.get_trade_volume`
+            (``GetTradeVolume``) endpoint instead.
 
         - https://docs.kraken.com/api/docs/futures-api/trading/get-fee-schedules-v-3
 
@@ -313,6 +328,13 @@ class Market(FuturesClient):
             extra_params=extra_params,
         )
 
+    @deprecated(
+        "The 'get_fee_schedules_vol' function is deprecated. As of the Kraken"
+        " changelog entry dated 22 June 2026, the Futures Fee Schedules"
+        " endpoints are deprecated since fee calculation moved to a centralized"
+        " Kraken fee service. Determine applicable fee rates via the Spot"
+        " 'GetTradeVolume' endpoint instead.",
+    )
     def get_fee_schedules_vol(
         self: Market,
         *,
@@ -320,6 +342,13 @@ class Market(FuturesClient):
     ) -> dict:
         """
         Get the personal volumes per fee schedule
+
+        .. deprecated::
+            As of the Kraken changelog entry dated 22 June 2026, the Futures Fee
+            Schedules endpoints are deprecated since fee calculation moved to a
+            centralized Kraken fee service. Determine applicable fee rates via
+            the Spot :func:`kraken.spot.User.get_trade_volume`
+            (``GetTradeVolume``) endpoint instead.
 
         Requires the ``General API - Full Access`` permission in the API key
         settings.

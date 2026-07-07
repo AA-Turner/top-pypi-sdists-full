@@ -21,7 +21,16 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
-from .literals import BillingViewStatusReasonType, BillingViewStatusType, BillingViewTypeType
+from .literals import (
+    ApplicationTypeType,
+    BillingFeatureType,
+    BillingViewStatusReasonType,
+    BillingViewStatusType,
+    BillingViewTypeType,
+    CreditSharingTypeType,
+    CreditStatusType,
+    PreferenceValueType,
+)
 
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
@@ -31,8 +40,13 @@ else:
 
 __all__ = (
     "ActiveTimeRangeTypeDef",
+    "AmountTypeDef",
     "AssociateSourceViewsRequestTypeDef",
     "AssociateSourceViewsResponseTypeDef",
+    "BillingFeatureFilterTypeDef",
+    "BillingPeriodTypeDef",
+    "BillingPreferenceForKeyTypeDef",
+    "BillingPreferenceSummaryTypeDef",
     "BillingViewElementTypeDef",
     "BillingViewHealthStatusTypeDef",
     "BillingViewListElementTypeDef",
@@ -40,6 +54,8 @@ __all__ = (
     "CostCategoryValuesTypeDef",
     "CreateBillingViewRequestTypeDef",
     "CreateBillingViewResponseTypeDef",
+    "CreditAllocationHistoryEntryTypeDef",
+    "CreditDataTypeDef",
     "DeleteBillingViewRequestTypeDef",
     "DeleteBillingViewResponseTypeDef",
     "DimensionValuesOutputTypeDef",
@@ -49,8 +65,15 @@ __all__ = (
     "ExpressionOutputTypeDef",
     "ExpressionTypeDef",
     "ExpressionUnionTypeDef",
+    "GetBillingPreferencesRequestTypeDef",
+    "GetBillingPreferencesResponseTypeDef",
     "GetBillingViewRequestTypeDef",
     "GetBillingViewResponseTypeDef",
+    "GetCreditAllocationHistoryRequestPaginateTypeDef",
+    "GetCreditAllocationHistoryRequestTypeDef",
+    "GetCreditAllocationHistoryResponseTypeDef",
+    "GetCreditsRequestTypeDef",
+    "GetCreditsResponseTypeDef",
     "GetResourcePolicyRequestTypeDef",
     "GetResourcePolicyResponseTypeDef",
     "ListBillingViewsRequestPaginateTypeDef",
@@ -62,6 +85,7 @@ __all__ = (
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "PaginatorConfigTypeDef",
+    "RedeemCreditsRequestTypeDef",
     "ResourceTagTypeDef",
     "ResponseMetadataTypeDef",
     "StringSearchTypeDef",
@@ -72,11 +96,17 @@ __all__ = (
     "TimeRangeTypeDef",
     "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateBillingPreferencesRequestTypeDef",
     "UpdateBillingViewRequestTypeDef",
     "UpdateBillingViewResponseTypeDef",
 )
 
 TimestampTypeDef = Union[datetime, str]
+
+
+class AmountTypeDef(TypedDict):
+    currencyCode: str
+    currencyAmount: str
 
 
 class AssociateSourceViewsRequestTypeDef(TypedDict):
@@ -90,6 +120,21 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+
+class BillingFeatureFilterTypeDef(TypedDict):
+    name: NotRequired[Literal["PREFERENCE_KEY"]]
+    value: NotRequired[Sequence[str]]
+
+
+class BillingPeriodTypeDef(TypedDict):
+    year: int
+    month: int
+
+
+class BillingPreferenceForKeyTypeDef(TypedDict):
+    key: str
+    value: PreferenceValueType
 
 
 class BillingViewHealthStatusTypeDef(TypedDict):
@@ -151,14 +196,14 @@ class GetBillingViewRequestTypeDef(TypedDict):
     arn: str
 
 
-class GetResourcePolicyRequestTypeDef(TypedDict):
-    resourceArn: str
-
-
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+
+class GetResourcePolicyRequestTypeDef(TypedDict):
+    resourceArn: str
 
 
 class StringSearchTypeDef(TypedDict):
@@ -176,6 +221,10 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
 
+class RedeemCreditsRequestTypeDef(TypedDict):
+    promoCode: str
+
+
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     resourceTagKeys: Sequence[str]
@@ -186,9 +235,58 @@ class ActiveTimeRangeTypeDef(TypedDict):
     activeBeforeInclusive: TimestampTypeDef
 
 
+class GetCreditAllocationHistoryRequestTypeDef(TypedDict):
+    accountId: str
+    startDate: TimestampTypeDef
+    endDate: TimestampTypeDef
+    creditId: NotRequired[int]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
+class GetCreditsRequestTypeDef(TypedDict):
+    accountId: str
+    startDate: TimestampTypeDef
+    endDate: NotRequired[TimestampTypeDef]
+    payerAccountFlag: NotRequired[bool]
+
+
 class TimeRangeTypeDef(TypedDict):
     beginDateInclusive: NotRequired[TimestampTypeDef]
     endDateInclusive: NotRequired[TimestampTypeDef]
+
+
+class CreditAllocationHistoryEntryTypeDef(TypedDict):
+    creditId: str
+    creditAmount: AmountTypeDef
+    accountId: str
+    appliedServiceName: str
+    billingMonth: str
+    isEstimatedBill: bool
+    description: NotRequired[str]
+
+
+class CreditDataTypeDef(TypedDict):
+    creditId: str
+    accountId: str
+    creditType: str
+    initialAmount: AmountTypeDef
+    remainingAmount: AmountTypeDef
+    description: str
+    startDate: datetime
+    estimatedAmount: NotRequired[AmountTypeDef]
+    applicableProductNames: NotRequired[list[str]]
+    endDate: NotRequired[datetime]
+    exhaustDate: NotRequired[datetime]
+    applicationType: NotRequired[ApplicationTypeType]
+    shareableAccounts: NotRequired[list[str]]
+    accountHasCreditSharingEnabled: NotRequired[bool]
+    creditConsoleVisibility: NotRequired[str]
+    creditSharingType: NotRequired[CreditSharingTypeType]
+    costCategoryArn: NotRequired[str]
+    ruleName: NotRequired[str]
+    creditStatus: NotRequired[CreditStatusType]
+    purchaseTypeApplications: NotRequired[list[str]]
 
 
 class AssociateSourceViewsResponseTypeDef(TypedDict):
@@ -230,6 +328,27 @@ class UpdateBillingViewResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetBillingPreferencesRequestTypeDef(TypedDict):
+    features: Sequence[BillingFeatureType]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+    filters: NotRequired[Sequence[BillingFeatureFilterTypeDef]]
+
+
+class BillingPreferenceSummaryTypeDef(TypedDict):
+    feature: BillingFeatureType
+    key: str
+    value: PreferenceValueType
+    accountName: NotRequired[str]
+    accountId: NotRequired[str]
+    billingPeriod: NotRequired[BillingPeriodTypeDef]
+
+
+class UpdateBillingPreferencesRequestTypeDef(TypedDict):
+    feature: BillingFeatureType
+    billingPreferencesPerKey: Sequence[BillingPreferenceForKeyTypeDef]
+
+
 class BillingViewListElementTypeDef(TypedDict):
     arn: NotRequired[str]
     name: NotRequired[str]
@@ -255,6 +374,14 @@ class ExpressionOutputTypeDef(TypedDict):
     tags: NotRequired[TagValuesOutputTypeDef]
     costCategories: NotRequired[CostCategoryValuesOutputTypeDef]
     timeRange: NotRequired[TimeRangeOutputTypeDef]
+
+
+class GetCreditAllocationHistoryRequestPaginateTypeDef(TypedDict):
+    accountId: str
+    startDate: TimestampTypeDef
+    endDate: TimestampTypeDef
+    creditId: NotRequired[int]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListSourceViewsForBillingViewRequestPaginateTypeDef(TypedDict):
@@ -288,6 +415,29 @@ class ExpressionTypeDef(TypedDict):
     tags: NotRequired[TagValuesTypeDef]
     costCategories: NotRequired[CostCategoryValuesTypeDef]
     timeRange: NotRequired[TimeRangeTypeDef]
+
+
+class GetCreditAllocationHistoryResponseTypeDef(TypedDict):
+    creditAllocationHistoryList: list[CreditAllocationHistoryEntryTypeDef]
+    partialResults: bool
+    failedMonths: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+GetCreditsResponseTypeDef = TypedDict(
+    "GetCreditsResponseTypeDef",
+    {
+        "credits": list[CreditDataTypeDef],
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+
+class GetBillingPreferencesResponseTypeDef(TypedDict):
+    billingPreferences: list[BillingPreferenceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class ListBillingViewsResponseTypeDef(TypedDict):

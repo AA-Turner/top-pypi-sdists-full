@@ -11,7 +11,7 @@ than re-derived per integration.
 from __future__ import annotations
 
 from aigie.cost_tracking import UsageMetadata, calculate_cost
-from aigie.tracing.usage import Usage
+from aigie.tracing.usage import llm_span_payload
 
 
 def _normalize_usage(raw: object) -> dict[str, int] | None:
@@ -118,10 +118,5 @@ def usage_payload(
     if usage is None:
         return {}, {}
     cost = _calculate_cost(usage, model_id)
-    parsed = Usage.from_mapping(usage, cost=cost)
-    extras: dict[str, object] = {
-        "prompt_tokens": parsed.input_tokens,
-        "completion_tokens": parsed.output_tokens,
-        "total_tokens": parsed.resolved_total_tokens,
-    }
-    return extras, parsed.to_metadata()
+    # model rides extras via the caller (lc_callback_base), so it's not passed here.
+    return llm_span_payload(usage, cost=cost)

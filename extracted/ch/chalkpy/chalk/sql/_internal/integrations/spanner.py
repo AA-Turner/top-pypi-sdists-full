@@ -42,6 +42,7 @@ class SpannerSourceImpl(BaseSQLSource):
         emulator_host: str | None = None,
         engine_args: Dict[str, Any] | None = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
+        permission_tags: list[str] | None = None,
     ):
         try:
             from google.cloud import sqlalchemy_spanner
@@ -91,7 +92,9 @@ class SpannerSourceImpl(BaseSQLSource):
         # Spanner defaults to ReadWrite, but Chalk only reads data from spanner.
         eargs.setdefault("read_only", True)
 
-        BaseSQLSource.__init__(self, name=name, engine_args=eargs, async_engine_args={})
+        BaseSQLSource.__init__(
+            self, name=name, engine_args=eargs, async_engine_args={}, permission_tags=permission_tags
+        )
 
     # Spanner does not support using URL, so we need to create the engine directly (rather than using URL)
     def get_engine(self) -> "Engine":

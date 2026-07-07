@@ -245,6 +245,7 @@ class BigQuerySourceImpl(BaseSQLSource):
         temp_dataset: Optional[str] = None,
         engine_args: Optional[Dict[str, Any]] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
+        permission_tags: list[str] | None = None,
     ):
         try:
             import sqlalchemy_bigquery
@@ -277,7 +278,9 @@ class BigQuerySourceImpl(BaseSQLSource):
         self.temp_dataset = temp_dataset or load_integration_variable(
             integration_name=name, name=_BQ_TEMP_DATASET_NAME, override=integration_variable_override
         )
-        BaseSQLSource.__init__(self, name=name, engine_args=engine_args, async_engine_args={})
+        BaseSQLSource.__init__(
+            self, name=name, engine_args=engine_args, async_engine_args={}, permission_tags=permission_tags
+        )
 
     @functools.cached_property
     def bigquery_read_client(self):

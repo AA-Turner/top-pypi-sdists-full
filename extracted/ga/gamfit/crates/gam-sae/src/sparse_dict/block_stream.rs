@@ -16,7 +16,7 @@
 //! ```
 //!
 //! All heavy state lives here, native-side: the warm-started block frames, the
-//! epoch's accumulated per-block MOD cross-moments (`M_g`, `P×b`), the streaming γ
+//! epoch's accumulated atom-level sparse MOD normal equations, the streaming γ
 //! numerator/denominator, per-block usage + within-block code second moments (for
 //! the utilisation / stable-rank report), the streaming TSS/RSS moments, and the
 //! worst-reconstructed-row reservoir feeding AuxK dead-block revival. A shard
@@ -26,11 +26,10 @@
 //!
 //! **Equivalence to one-shot.** During an epoch the block frames and the shared
 //! scalar γ are FROZEN at their epoch-start values; every shard is routed against
-//! them and its cross-moment / γ / moment contributions are summed (all additive),
-//! so the assembled `M_g` and (num, den) — and therefore the refreshed frames and
-//! γ — are exactly those of a full-batch refresh over the concatenation, up to f32
-//! rounding. The polar frame step is the same orthogonal-Procrustes update as the
-//! one-shot [`super`] refresh. As with the atom lane, revival residuals are
+//! them and its sparse normal-equation / γ / moment contributions are summed (all
+//! additive), so the assembled MOD system and (num, den) are exactly those of a
+//! full-batch refresh over the concatenation, up to f32 rounding. As with the atom
+//! lane, revival residuals are
 //! measured under the decoder in force during the pass (the pre-refresh frames),
 //! the only deliberate difference from one-shot; the two coincide once the
 //! dictionary is populated and revival goes quiescent. Streaming even removes the
@@ -40,7 +39,10 @@
 
 use super::BlockSparseConfig;
 use super::block::{gram_schmidt_rows, route_and_code_all, seed_frames, stable_rank_symmetric};
-use crate::frames::GrassmannFrame;
+use super::codes::SparseCode;
+use super::update::{
+    DecoderNormalEq, DecoderSolveStats, solve_decoder_with_routability_gate,
+};
 use ndarray::{Array2, ArrayView2};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
@@ -78,6 +80,9 @@ pub struct BlockEpochStats {
     pub converged: bool,
     /// Epochs completed so far (this one inclusive).
     pub epoch: usize,
+    /// Matrix-free MOD refresh certificate from the block coefficients lifted to
+    /// atom-level sparse normal equations.
+    pub decoder_solve_stats: DecoderSolveStats,
 }
 
 /// One candidate row for dead-block revival: its residual vector (under the
@@ -166,6 +171,25 @@ impl ResidualReservoir {
     }
 }
 
+fn block_code_as_atom_sparse_code(code: &super::block::RowBlockCode, b: usize) -> SparseCode {
+    let mut indices = Vec::with_capacity(code.blocks.len() * b);
+    let mut values = Vec::with_capacity(code.blocks.len() * b);
+    for (slot, &block) in code.blocks.iter().enumerate() {
+        if code.gates[slot] == 0.0 {
+            continue;
+        }
+        let base = block * b as u32;
+        for rr in 0..b {
+            indices.push(base + rr as u32);
+            values.push(code.codes[slot * b + rr]);
+        }
+    }
+    SparseCode {
+        indices,
+        codes: values,
+    }
+}
+
 /// Resumable state for a streaming block-sparse fit. Construct with [`Self::new`]
 /// (fit_begin), feed shards with [`Self::partial_fit`], close each epoch with
 /// [`Self::end_epoch`], and read the frames out with [`Self::finalize`]. The block
@@ -180,10 +204,9 @@ pub struct BlockSparseStreamState {
     gamma: f32,
 
     // ---- accumulators reset at each end_epoch (frozen frames/γ used to fill) ----
-    cross: Vec<Array2<f64>>,  // per-block MOD cross-moment M_g (P×b)
     second: Vec<Array2<f64>>, // per-block within-block code 2nd moment (b×b)
+    atom_eq: DecoderNormalEq,
     usage: Vec<usize>,
-    touched: Vec<bool>,
     alive_count: usize,
     gamma_num: f64,
     gamma_den: f64,
@@ -201,6 +224,7 @@ pub struct BlockSparseStreamState {
     converged: bool,
     last_util: Vec<f32>,
     last_stable: Vec<f32>,
+    last_decoder_solve_stats: DecoderSolveStats,
     // Last CLOSED epoch's accumulators, stashed by `end_epoch` before
     // `reset_epoch` zeroes the live ones — the certification read surface
     // (`block_rank_charges`) prices blocks from a COMPLETE epoch, never a
@@ -276,10 +300,9 @@ impl BlockSparseStreamState {
             p,
             decoder,
             gamma: 1.0,
-            cross: (0..g).map(|_| Array2::<f64>::zeros((p, b))).collect(),
             second: (0..g).map(|_| Array2::<f64>::zeros((b, b))).collect(),
+            atom_eq: DecoderNormalEq::zeros(g * b, p),
             usage: vec![0; g],
-            touched: vec![false; g],
             alive_count: 0,
             gamma_num: 0.0,
             gamma_den: 0.0,
@@ -295,6 +318,76 @@ impl BlockSparseStreamState {
             converged: false,
             last_util: vec![0.0; g],
             last_stable: vec![0.0; g],
+            last_decoder_solve_stats: DecoderSolveStats::default(),
+            last_second: (0..g).map(|_| Array2::<f64>::zeros((b, b))).collect(),
+            last_usage: vec![0; g],
+            last_rss: 0.0,
+            last_rows: 0,
+        })
+    }
+
+    /// fit_begin with caller-supplied block frames. This is the large-`K` front
+    /// door for experiments that cannot afford farthest-point seeding over
+    /// `K*N*P`; the supplied decoder is still required to be a `KxP` block
+    /// dictionary with `K = n_blocks*block_size`, and every row must be finite.
+    pub fn new_with_decoder(
+        decoder: Array2<f32>,
+        config: &BlockSparseConfig,
+    ) -> Result<Self, String> {
+        validate_config(config)?;
+        if decoder.nrows() != config.n_blocks * config.block_size {
+            return Err(format!(
+                "BlockSparseStream decoder rows must equal n_blocks*block_size = {}, got {}",
+                config.n_blocks * config.block_size,
+                decoder.nrows()
+            ));
+        }
+        if decoder.ncols() == 0 {
+            return Err("BlockSparseStream decoder must have at least one column".to_string());
+        }
+        if !decoder.iter().all(|v| v.is_finite()) {
+            return Err("BlockSparseStream decoder must be finite".to_string());
+        }
+        if config.block_size > decoder.ncols() {
+            return Err(format!(
+                "BlockSparseStream block_size b={} cannot exceed P={}",
+                config.block_size,
+                decoder.ncols()
+            ));
+        }
+
+        let p = decoder.ncols();
+        let g = config.n_blocks;
+        let b = config.block_size;
+        let k = config.block_topk.min(g).max(1);
+        let cap = config.aux_k.saturating_mul(b).max(1);
+        Ok(Self {
+            config: *config,
+            g,
+            b,
+            k,
+            p,
+            decoder,
+            gamma: 1.0,
+            second: (0..g).map(|_| Array2::<f64>::zeros((b, b))).collect(),
+            atom_eq: DecoderNormalEq::zeros(g * b, p),
+            usage: vec![0; g],
+            alive_count: 0,
+            gamma_num: 0.0,
+            gamma_den: 0.0,
+            col_sum: vec![0.0; p],
+            col_sumsq: vec![0.0; p],
+            rss: 0.0,
+            row_count: 0,
+            reservoir: ResidualReservoir::new(cap),
+            prev_ev: f64::NEG_INFINITY,
+            last_ev: f64::NEG_INFINITY,
+            epochs_run: 0,
+            last_revived: 0,
+            converged: false,
+            last_util: vec![0.0; g],
+            last_stable: vec![0.0; g],
+            last_decoder_solve_stats: DecoderSolveStats::default(),
             last_second: (0..g).map(|_| Array2::<f64>::zeros((b, b))).collect(),
             last_usage: vec![0; g],
             last_rss: 0.0,
@@ -305,7 +398,7 @@ impl BlockSparseStreamState {
     /// partial_fit: route + tied-code one shard against the FROZEN epoch frames/γ
     /// and fold its contributions into this epoch's accumulators. Reuses the exact
     /// block-tiled router/coder of the one-shot lane ([`route_and_code_all`]), so
-    /// streaming the shards yields the same accumulated cross-moments / γ system as
+    /// streaming the shards yields the same accumulated sparse MOD / γ system as
     /// one full-batch pass over the concatenation.
     pub fn partial_fit(&mut self, shard: ArrayView2<'_, f32>) -> Result<BlockShardStats, String> {
         if shard.nrows() == 0 {
@@ -341,6 +434,11 @@ impl BlockSparseStreamState {
             self.config.minibatch,
             self.config.block_tile,
         );
+        let atom_codes: Vec<SparseCode> = codes
+            .iter()
+            .map(|code| block_code_as_atom_sparse_code(code, b))
+            .collect();
+        self.atom_eq.accumulate(shard, &atom_codes);
 
         let base_index = self.row_count as u64;
         let mut shard_rss = 0.0f64;
@@ -355,7 +453,7 @@ impl BlockSparseStreamState {
             // Per selected block: its within-block code z (b) and its γ-free
             // subspace contribution proj = Σ_r w_r D_g[r] (P). Accumulate x̂ = γ·Σ proj
             // and the γ-free projection sum p_i = Σ proj (for the γ least-squares).
-            let mut sel: Vec<(usize, Vec<f32>, Vec<f32>)> = Vec::with_capacity(self.k);
+            let mut sel: Vec<(usize, Vec<f32>)> = Vec::with_capacity(self.k);
             let mut xhat = vec![0.0f32; p];
             let mut proj_sum = vec![0.0f32; p];
             for j in 0..code.blocks.len() {
@@ -387,7 +485,7 @@ impl BlockSparseStreamState {
                     proj_sum[c] += proj[c];
                 }
                 let z: Vec<f32> = w.iter().map(|v| gamma * v).collect();
-                sel.push((gg, z, proj));
+                sel.push((gg, z));
             }
 
             // Full residual under the frozen model + streaming RSS/reservoir.
@@ -409,23 +507,16 @@ impl BlockSparseStreamState {
                 self.gamma_den += proj_sum[c] as f64 * proj_sum[c] as f64;
             }
 
-            // Per-block MOD cross-moment M_g += r_ig ⊗ z, with the leave-one-block-
-            // out residual r_ig = x − x̂ + decode_g = residual + γ·proj_g; plus the
-            // within-block code 2nd moment for the stable-rank report.
-            for (gg, z, proj) in sel.iter() {
+            // Per-block within-block code 2nd moment for the stable-rank report.
+            // The MOD refresh itself is handled by the atom-level sparse normal
+            // equations accumulated above, so large percolated systems use the
+            // shared matrix-free CG path.
+            for (gg, z) in sel.iter() {
                 let gg = *gg;
-                if !self.touched[gg] {
-                    self.touched[gg] = true;
+                if self.usage[gg] == 0 {
                     self.alive_count += 1;
                 }
                 self.usage[gg] += 1;
-                let mg = &mut self.cross[gg];
-                for c in 0..p {
-                    let r_ig_c = residual[c] as f64 + (gamma * proj[c]) as f64;
-                    for (rr, &zr) in z.iter().enumerate() {
-                        mg[[c, rr]] += r_ig_c * zr as f64;
-                    }
-                }
                 let sg = &mut self.second[gg];
                 for r1 in 0..b {
                     for r2 in 0..b {
@@ -444,10 +535,10 @@ impl BlockSparseStreamState {
         })
     }
 
-    /// end_epoch: refresh γ from the accumulated least-squares, refresh every
-    /// touched block frame by a polar step over its accumulated cross-moment,
-    /// revive dead blocks onto worst-reconstructed residual rows, capture the
-    /// utilisation / stable-rank report, then reset the epoch accumulators.
+    /// end_epoch: refresh γ from the accumulated least-squares, refresh frames
+    /// with the matrix-free sparse MOD solver, revive dead blocks onto
+    /// worst-reconstructed residual rows, capture the utilisation / stable-rank
+    /// report, then reset the epoch accumulators.
     pub fn end_epoch(&mut self) -> Result<BlockEpochStats, String> {
         if self.row_count == 0 {
             return Err(
@@ -478,29 +569,39 @@ impl BlockSparseStreamState {
             (self.gamma_num / self.gamma_den) as f32
         };
 
-        // (frames) polar refresh of every touched block over its cross-moment.
-        let ridge = self.config.frame_ridge;
+        // (frames) MOD refresh from the accumulated atom-level sparse normal
+        // equations. Each selected block contributes its `b` signed coefficients
+        // as ordinary atom codes, so the same percolation-aware matrix-free CG
+        // solver handles the large coupled system. The routability gate refreshes
+        // atom `k` only after n_k >= (z_alpha*sigma/(a_bar_k*margin_k))^2; atoms
+        // below that evidence threshold remain accumulated across epochs.
+        let residual_denom = (self.row_count.max(1) * p).max(1) as f64;
+        let residual_scale = (self.rss / residual_denom).sqrt();
+        let (decoder_solve_stats, gate) = solve_decoder_with_routability_gate(
+            &mut self.decoder,
+            &self.atom_eq,
+            self.config.frame_ridge,
+            residual_scale,
+        );
+        let mut refreshed_blocks = vec![false; self.g];
+        for decision in gate.iter() {
+            if decision.refresh {
+                refreshed_blocks[decision.atom / b] = true;
+            }
+        }
+        self.atom_eq.clear_refreshed_atoms(&gate);
         for gg in 0..self.g {
-            if !self.touched[gg] {
+            if !refreshed_blocks[gg] {
                 continue;
             }
-            if ridge > 0.0 {
-                for rr in 0..b {
-                    for c in 0..p {
-                        self.cross[gg][[c, rr]] += ridge * self.decoder[[gg * b + rr, c]] as f64;
-                    }
-                }
-            }
-            if let Ok(frame) = GrassmannFrame::polar_update(self.cross[gg].view()) {
-                let u = frame.frame(); // P×b column-orthonormal
-                let sv = frame.gauge_singular_values();
-                let full_rank = sv.len() == b && sv.iter().all(|&s| s > 1.0e-9);
-                if full_rank && u.ncols() == b {
-                    for rr in 0..b {
-                        for c in 0..p {
-                            self.decoder[[gg * b + rr, c]] = u[[c, rr]] as f32;
-                        }
-                    }
+            let mut block = self
+                .decoder
+                .slice(ndarray::s![gg * b..gg * b + b, ..])
+                .to_owned();
+            gram_schmidt_rows(&mut block);
+            for rr in 0..b {
+                for c in 0..p {
+                    self.decoder[[gg * b + rr, c]] = block[[rr, c]];
                 }
             }
         }
@@ -524,6 +625,7 @@ impl BlockSparseStreamState {
         self.last_ev = ev;
         self.last_revived = revived;
         self.converged = converged;
+        self.last_decoder_solve_stats = decoder_solve_stats;
         self.epochs_run += 1;
         let epoch = self.epochs_run;
 
@@ -543,6 +645,7 @@ impl BlockSparseStreamState {
             gamma: self.gamma,
             converged,
             epoch,
+            decoder_solve_stats,
         })
     }
 
@@ -594,17 +697,11 @@ impl BlockSparseStreamState {
     }
 
     fn reset_epoch(&mut self) {
-        for mg in self.cross.iter_mut() {
-            mg.fill(0.0);
-        }
         for sg in self.second.iter_mut() {
             sg.fill(0.0);
         }
         for u in self.usage.iter_mut() {
             *u = 0;
-        }
-        for t in self.touched.iter_mut() {
-            *t = false;
         }
         self.alive_count = 0;
         self.gamma_num = 0.0;
@@ -633,6 +730,7 @@ impl BlockSparseStreamState {
             epochs: self.epochs_run,
             explained_variance: self.last_ev,
             converged: self.converged,
+            decoder_solve_stats: self.last_decoder_solve_stats,
         }
     }
 
@@ -650,8 +748,7 @@ impl BlockSparseStreamState {
     pub fn block_rank_charges(&self, n_obs: usize) -> Result<BlockRankCharges, String> {
         if self.last_rows == 0 {
             return Err(
-                "block_rank_charges: no closed epoch to certify; call end_epoch first"
-                    .to_string(),
+                "block_rank_charges: no closed epoch to certify; call end_epoch first".to_string(),
             );
         }
         let phi_raw = self.last_rss / (self.last_rows as f64 * self.p as f64);
@@ -752,6 +849,8 @@ pub struct BlockSparseStreamArtifact {
     pub explained_variance: f64,
     /// Whether the streaming loop met the convergence rule.
     pub converged: bool,
+    /// Decoder refresh percolation/CG certificate from the final closed epoch.
+    pub decoder_solve_stats: DecoderSolveStats,
 }
 
 fn validate_config(config: &BlockSparseConfig) -> Result<(), String> {
@@ -774,6 +873,25 @@ fn validate_config(config: &BlockSparseConfig) -> Result<(), String> {
         return Err("BlockSparseStream tolerance must be finite".to_string());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod test_support {
+    use super::BlockSparseStreamState;
+
+    pub(super) trait ZeroBlockForTest {
+        fn zero_block_for_test(&mut self, block: usize);
+    }
+
+    impl ZeroBlockForTest for BlockSparseStreamState {
+        fn zero_block_for_test(&mut self, block: usize) {
+            for r in 0..self.b {
+                for c in 0..self.p {
+                    self.decoder[[block * self.b + r, c]] = 0.0;
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]

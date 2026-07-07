@@ -6,6 +6,7 @@ import mlx.nn as nn
 from ..base import (
     LanguageModelOutput,
     create_attention_mask,
+    kv_sequence_length,
     scaled_dot_product_attention,
 )
 from ..cache import KVCache
@@ -87,7 +88,7 @@ class Attention(nn.Module):
             keys, values = cache.update_and_fetch(keys, values)
 
         if mask is not None and isinstance(mask, mx.array):
-            mask = mask[..., : keys.shape[-2]]
+            mask = mask[..., : kv_sequence_length(keys)]
 
         output = scaled_dot_product_attention(
             queries, keys, values, cache, scale=self.scale, mask=mask
@@ -329,6 +330,10 @@ class LanguageModel(nn.Module):
 
                     llm_pos_ids_list.append(t_index + st_idx)
 
+                if not llm_pos_ids_list:
+                    mrope_position_deltas.append(0)
+                    continue
+
                 llm_positions = mx.concatenate(llm_pos_ids_list, axis=1).reshape(3, -1)
                 compact_max_position = llm_positions.max()
                 padded_positions = [[1] * total_input_ids.shape[1] for _ in range(3)]
@@ -425,7 +430,11 @@ class LanguageModel(nn.Module):
         if position_ids is None and (rope_mask is None or rope_mask.ndim == 2):
             # Calculate RoPE index once per generation in the pre-fill stage only
             if (
-                (cache is not None and cache[0] is not None and (cache_offset == 0))
+                (
+                    cache is not None
+                    and cache[0] is not None
+                    and (cache_offsets is None and cache_offset == 0)
+                )
                 or self._rope_deltas is None
                 or cache is None
             ):

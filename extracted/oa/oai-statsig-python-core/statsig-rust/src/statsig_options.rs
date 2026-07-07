@@ -19,8 +19,13 @@ use std::fmt;
 use std::sync::{Arc, Weak};
 
 pub const DEFAULT_INIT_TIMEOUT_MS: u64 = 3000;
+pub const DEFAULT_SDK_RUNTIME_THREAD_COUNT: usize = 5;
+pub const SDK_RUNTIME_THREAD_COUNT_ENV_VAR: &str = "STATSIG_SDK_RUNTIME_THREAD_COUNT";
 const MIN_SYNC_INTERVAL: u32 = 1000;
 const TEST_ENV_FLAG: &str = "STATSIG_RUNNING_TESTS";
+
+/// A callback invoked once on each worker thread created by the Statsig-owned Tokio runtime.
+pub type RuntimeThreadStartCallback = Arc<dyn Fn() + Send + Sync>;
 
 #[derive(Clone, Default)]
 pub struct StatsigOptions {
@@ -61,6 +66,12 @@ pub struct StatsigOptions {
     pub persistent_storage: Option<Arc<dyn PersistentStorage>>,
     pub service_name: Option<String>,
     pub sdk_instance_id: Option<String>,
+    pub sdk_runtime_thread_count: Option<usize>,
+    /// Configuring this callback opts out of reusing a caller's current Tokio runtime because
+    /// Tokio thread-start hooks can only be installed while building a runtime. The callback must
+    /// be configured on the instance that first creates the process-global Statsig runtime; an
+    /// existing runtime cannot be retrofitted with it.
+    pub runtime_thread_start_callback: Option<RuntimeThreadStartCallback>,
 
     pub spec_adapters_config: Option<Vec<SpecAdapterConfig>>, // Specs to customized spec adapter, order matters, reflecting priority of trying
     pub specs_adapter: Option<Arc<dyn SpecsAdapter>>,
@@ -307,6 +318,24 @@ impl StatsigOptionsBuilder {
     }
 
     #[must_use]
+    pub fn sdk_runtime_thread_count(mut self, sdk_runtime_thread_count: Option<usize>) -> Self {
+        self.inner.sdk_runtime_thread_count = sdk_runtime_thread_count;
+        self
+    }
+
+    #[must_use]
+    /// Sets a callback that runs once on each Statsig-owned Tokio worker thread.
+    ///
+    /// See [`StatsigOptions::runtime_thread_start_callback`] for the runtime-ownership implications.
+    pub fn runtime_thread_start_callback(
+        mut self,
+        runtime_thread_start_callback: Option<RuntimeThreadStartCallback>,
+    ) -> Self {
+        self.inner.runtime_thread_start_callback = runtime_thread_start_callback;
+        self
+    }
+
+    #[must_use]
     pub fn fallback_to_statsig_api(mut self, fallback_to_statsig_api: Option<bool>) -> Self {
         self.inner.fallback_to_statsig_api = fallback_to_statsig_api;
         self
@@ -384,7 +413,7 @@ impl Serialize for StatsigOptions {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("StatsigOptions", 23)?;
+        let mut state = serializer.serialize_struct("StatsigOptions", 24)?;
         serialize_if_not_none!(state, "spec_url", &self.specs_url);
         serialize_if_not_none!(
             state,
@@ -446,6 +475,16 @@ impl Serialize for StatsigOptions {
         );
         serialize_if_not_none!(state, "service_name", &self.service_name);
         serialize_if_not_none!(state, "sdk_instance_id", &get_if_set(&self.sdk_instance_id));
+        serialize_if_not_none!(
+            state,
+            "sdk_runtime_thread_count",
+            &self.sdk_runtime_thread_count
+        );
+        serialize_if_not_none!(
+            state,
+            "runtime_thread_start_callback",
+            &get_if_set(&self.runtime_thread_start_callback)
+        );
         serialize_if_not_none!(state, "global_custom_fields", &self.global_custom_fields);
         serialize_if_not_none!(state, "experimental_flags", &self.experimental_flags);
 

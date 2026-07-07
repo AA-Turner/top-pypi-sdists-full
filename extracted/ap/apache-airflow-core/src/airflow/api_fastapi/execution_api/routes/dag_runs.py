@@ -26,7 +26,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import NoResultFound
 
 from airflow.api.common.trigger_dag import trigger_dag
-from airflow.api_fastapi.common.dagbag import DagBagDep, get_dag_for_run
+from airflow.api_fastapi.common.dagbag import DagBagDep, get_dag_for_run, resolve_run_on_latest_version
 from airflow.api_fastapi.common.db.common import SessionDep
 from airflow.api_fastapi.common.types import UtcDateTime
 from airflow.api_fastapi.compat import HTTP_422_UNPROCESSABLE_CONTENT
@@ -34,7 +34,7 @@ from airflow.api_fastapi.execution_api.datamodels.dagrun import DagRunStateRespo
 from airflow.api_fastapi.execution_api.datamodels.taskinstance import DagRun
 from airflow.api_fastapi.execution_api.datamodels.token import TIToken
 from airflow.api_fastapi.execution_api.security import CurrentTIToken
-from airflow.exceptions import DagRunAlreadyExists
+from airflow.exceptions import DagNotPartitionedError, DagRunAlreadyExists, InvalidPartitionKeyError
 from airflow.models.dag import DagModel
 from airflow.models.dagrun import DagRun as DagRunModel
 from airflow.models.taskinstance import TaskInstance
@@ -116,14 +116,12 @@ def trigger_dag_run(
             },
         )
 
-    # TODO: TriggerDagRunOperator also calls this route but creates MANUAL runs.
-    #  Consider a dedicated run type for operator-triggered runs.
-    if dm.allowed_run_types is not None and DagRunType.MANUAL not in dm.allowed_run_types:
+    if dm.allowed_run_types is not None and DagRunType.OPERATOR_TRIGGERED not in dm.allowed_run_types:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             detail={
                 "reason": "denied_run_type",
-                "message": f"Dag with dag_id '{dag_id}' does not allow manual runs",
+                "message": f"Dag with dag_id '{dag_id}' does not allow operator-triggered runs",
             },
         )
 
@@ -136,8 +134,10 @@ def trigger_dag_run(
         trigger_dag(
             dag_id=dag_id,
             run_id=run_id,
+            run_type=DagRunType.OPERATOR_TRIGGERED,
             conf=payload.conf,
             logical_date=payload.logical_date,
+            run_after=payload.run_after,
             triggered_by=DagRunTriggeredByType.OPERATOR,
             triggering_user_name=triggering_user_name,
             replace_microseconds=False,
@@ -153,6 +153,16 @@ def trigger_dag_run(
                 "message": f"A run already exists for Dag '{dag_id}' with run_id '{run_id}'",
             },
         )
+    except DagNotPartitionedError as e:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail={"reason": "not_partitioned", "message": str(e)},
+        )
+    except InvalidPartitionKeyError as e:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail={"reason": "invalid_partition_key", "message": str(e)},
+        ) from e
 
 
 @router.post(
@@ -197,7 +207,8 @@ def clear_dag_run(
         )
     dag = get_dag_for_run(dag_bag, dag_run=dag_run, session=session)
 
-    dag.clear(run_id=run_id)
+    resolved_run_on_latest = resolve_run_on_latest_version(None, dag_id, session)
+    dag.clear(run_id=run_id, run_on_latest_version=resolved_run_on_latest)
 
 
 @router.get(

@@ -1,3 +1,11 @@
+"""
+pysqlsync: Synchronize schema and large volumes of data.
+
+Copyright 2023-2026, Levente Hunyadi
+
+:see: https://github.com/hunyadi/pysqlsync
+"""
+
 import abc
 import copy
 from dataclasses import dataclass
@@ -21,7 +29,7 @@ class StatementList(list[str]):
     def append(self, __object: Optional[str]) -> None:
         if __object is None:
             return
-        if isinstance(__object, str) and not __object.strip():
+        if isinstance(__object, str) and not __object.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
             raise ValueError("empty statement")
         return super().append(__object)
 
@@ -476,6 +484,11 @@ class Table(DatabaseObject, QualifiedObject):
             return True
 
         return False
+
+    def get_unique_columns(self) -> list[Column]:
+        "Returns a list of columns with a UNIQUE constraint."
+
+        return [column for column in self.columns.values() if self.is_unique_column(column)]
 
     def is_lookup_column(self, column: Column) -> bool:
         "True if the column may be used to look up a record by its value."

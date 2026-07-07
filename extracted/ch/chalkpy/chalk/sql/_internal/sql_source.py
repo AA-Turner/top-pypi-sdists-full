@@ -185,11 +185,14 @@ class BaseSQLSource(BaseSQLSourceProtocol):
 
     kind: SQLSourceKind
 
+    permission_tags: List[str]
+
     def __init__(
         self,
         name: Optional[str],
         engine_args: Optional[Dict[str, Any]],
         async_engine_args: Optional[Dict[str, Any]],
+        permission_tags: Optional[List[str]],
     ):
         super().__init__()
         try:
@@ -203,6 +206,7 @@ class BaseSQLSource(BaseSQLSourceProtocol):
         if _ENABLE_ADD_TO_SQL_SOURCE_REGISTRIES.get():
             self.registry.append(self)
         self.name = name
+        self.permission_tags = list(permission_tags) if permission_tags is not None else []
         if engine_args is None:
             engine_args = {}
         if async_engine_args is None:

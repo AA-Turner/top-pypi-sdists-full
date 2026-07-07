@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+__lazy_modules__ = {"dataclasses", "string"}
+
 __all__ = ["generate_file_contents"]
 
 import dataclasses
 import string
-from typing import TYPE_CHECKING
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from .._vendor.pyproject_metadata import StandardMetadata
     from ..settings.skbuild_model import GenerateSettings

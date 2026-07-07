@@ -1,45 +1,43 @@
+from psycopg import BaseConnection
+from psycopg.abc import Buffer
 from psycopg.adapt import Loader, Dumper
 from psycopg.pq import Format
+from psycopg.types import TypeInfo
+from typing import Any
 from .. import SparseVector
 
 
 class SparseVectorDumper(Dumper):
-
     format = Format.TEXT
 
-    def dump(self, obj):
-        return SparseVector._to_db(obj).encode('utf8')
+    def dump(self, obj: SparseVector) -> Buffer | None:
+        return obj.to_text().encode('utf8')
 
 
 class SparseVectorBinaryDumper(SparseVectorDumper):
-
     format = Format.BINARY
 
-    def dump(self, obj):
-        return SparseVector._to_db_binary(obj)
+    def dump(self, obj: SparseVector) -> Buffer | None:
+        return obj.to_binary()
 
 
 class SparseVectorLoader(Loader):
-
     format = Format.TEXT
 
-    def load(self, data):
+    def load(self, data: Buffer) -> SparseVector | None:
         if isinstance(data, memoryview):
-            data = bytes(data)
-        return SparseVector._from_db(data.decode('utf8'))
+            data = data.tobytes()
+        return SparseVector.from_text(data.decode('utf8'))
 
 
 class SparseVectorBinaryLoader(SparseVectorLoader):
-
     format = Format.BINARY
 
-    def load(self, data):
-        if isinstance(data, memoryview):
-            data = bytes(data)
-        return SparseVector._from_db_binary(data)
+    def load(self, data: Buffer) -> SparseVector | None:
+        return SparseVector.from_binary(data)
 
 
-def register_sparsevec_info(context, info):
+def register_sparsevec_info(context: BaseConnection[Any], info: TypeInfo, /) -> None:
     info.register(context)
 
     # add oid to anonymous class for set_types

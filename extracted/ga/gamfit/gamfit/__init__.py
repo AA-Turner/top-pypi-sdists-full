@@ -110,6 +110,26 @@ from ._sparse_dictionary import (
     sparse_dictionary_fit,
     sparse_dictionary_fit_begin,
 )
+from ._sae_spectral import (
+    BlockCoordinateReport,
+    ComposedContract,
+    DualCertificateReport,
+    HolonomyReport,
+    RoutabilityAudit,
+    RoutabilityFloor,
+    SpectrometerReport,
+    SpikeRecovery,
+    audit_sae,
+    block_firing_coordinates,
+    compose_contracts,
+    dimension_spectrometer,
+    loop_holonomy,
+    recover_spikes,
+    routability_audit,
+    routability_floor,
+    separation_limit,
+    sparse_dict_dual_certificate,
+)
 from ._penalties import (
     ARDPenalty,
     AnalyticPenaltyKind,
@@ -345,6 +365,7 @@ from .layer_transport import (
     layer_transport_ladder,
 )
 from .checkpoint_dynamics import sae_checkpoint_dynamics
+from ._sae_spectral import audit_sae
 from .geometry import (
     CircleManifold,
     EuclideanManifold,

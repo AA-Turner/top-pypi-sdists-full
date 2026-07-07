@@ -209,6 +209,48 @@ async def test_stop_cancels_and_unsubscribes() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error",
+    [
+        Fault("camera gone"),
+        asyncio.TimeoutError(),
+        aiohttp.ClientError(),
+    ],
+)
+async def test_stop_swallows_unsubscribe_errors(error: Exception) -> None:
+    # Teardown is best-effort: an offline camera (the common reason a consumer
+    # is tearing the manager down) must not make stop()/shutdown() raise. The
+    # remote Unsubscribe is courtesy -- the subscription times out on the camera
+    # side regardless.
+    mgr = await _make_base_manager()
+    handle = Mock()
+    mgr._cancel_subscription_renew = handle
+    subscription = _make_subscription()
+    subscription.Unsubscribe = AsyncMock(side_effect=error)
+    mgr._subscription = subscription
+
+    await mgr.stop()  # must not raise
+
+    handle.cancel.assert_called_once()
+    subscription.Unsubscribe.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_shutdown_completes_when_unsubscribe_fails() -> None:
+    mgr = await _make_base_manager()
+    task = Mock()
+    mgr._restart_or_renew_task = task
+    subscription = _make_subscription()
+    subscription.Unsubscribe = AsyncMock(side_effect=aiohttp.ClientError())
+    mgr._subscription = subscription
+
+    await mgr.shutdown()  # must not raise even though the camera is unreachable
+
+    assert mgr._shutdown is True
+    task.cancel.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_stop_without_subscription_raises() -> None:
     mgr = await _make_base_manager()
     # start() was never called, so there is no subscription to unsubscribe.
@@ -451,6 +493,55 @@ async def test_renew_or_restart_returns_early_when_shutdown() -> None:
 
 
 @pytest.mark.asyncio
+async def test_renew_or_restart_returns_early_when_session_closed() -> None:
+    """A closed session must end the renewal loop, not restart it.
+
+    The consumer owns the aiohttp session; once it is closed (e.g. Home
+    Assistant unloading the config entry) no renew or restart can ever
+    succeed, so the task must bail out without re-arming the timer.
+    """
+    mgr = await _make_base_manager()
+    mgr._subscription = _make_subscription(closed=True)
+    mgr._renew_subscription = AsyncMock()
+    mgr._restart_subscription = AsyncMock()
+    mgr._schedule_subscription_renew = Mock()
+
+    await mgr._renew_or_restart_subscription()
+
+    mgr._renew_subscription.assert_not_awaited()
+    mgr._restart_subscription.assert_not_awaited()
+    mgr._schedule_subscription_renew.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_renew_or_restart_stops_when_session_closes_mid_flight() -> None:
+    """A session closed while a renewal is in flight must not re-arm the timer.
+
+    Mirrors the consumer closing the session between the entry guard and the
+    renew/restart round trips: the restart fails with a ClientError and the
+    ``finally`` block must see the closed session and end the loop instead of
+    rescheduling the error retry.
+    """
+    mgr = await _make_base_manager()
+    subscription = _make_subscription(closed=False)
+    mgr._subscription = subscription
+    mgr._schedule_subscription_renew = Mock()
+
+    async def _renew_with_session_closing() -> float | None:
+        subscription.transport.session.closed = True
+        return None
+
+    mgr._renew_subscription = _renew_with_session_closing
+    mgr._restart_subscription = AsyncMock(
+        side_effect=aiohttp.ClientConnectionError("Session is closed")
+    )
+
+    await mgr._renew_or_restart_subscription()  # must not raise
+
+    mgr._schedule_subscription_renew.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_renew_or_restart_schedules_on_successful_renew() -> None:
     mgr = await _make_base_manager()
     mgr._renew_subscription = AsyncMock(return_value=123.0)
@@ -509,6 +600,66 @@ async def test_renew_or_restart_uses_error_interval_on_total_failure() -> None:
 
     expected = 1000.0 + SUBSCRIPTION_RESTART_INTERVAL_ON_ERROR.total_seconds()
     mgr._schedule_subscription_renew.assert_called_once_with(expected)
+
+
+@pytest.mark.asyncio
+async def test_renew_or_restart_does_not_reschedule_when_shutdown_mid_flight() -> None:
+    """A shutdown mid-renewal must not re-arm the renewal timer.
+
+    shutdown() sets ``_shutdown`` and then cancels this fire-and-forget task.
+    The resulting CancelledError still runs the ``finally`` block, so without a
+    guard the renewal timer is rescheduled *after* teardown -- contradicting the
+    "irreversible" shutdown contract and leaking a live TimerHandle.
+    """
+    mgr = await _make_base_manager()
+    mgr._schedule_subscription_renew = Mock()
+
+    async def _renew_then_cancelled() -> float | None:
+        # Mirror shutdown() cancelling the task while the renew await is in
+        # flight: _shutdown is already set, then CancelledError propagates.
+        mgr._shutdown = True
+        raise asyncio.CancelledError
+
+    mgr._renew_subscription = _renew_then_cancelled
+
+    with pytest.raises(asyncio.CancelledError):
+        await mgr._renew_or_restart_subscription()
+
+    mgr._schedule_subscription_renew.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_shutdown_leaves_no_renewal_armed_with_task_in_flight() -> None:
+    """End-to-end: shutdown() with an in-flight renewal leaves no live timer.
+
+    Runs against the real event loop so the cancelled task's ``finally`` block
+    actually executes during shutdown's teardown.
+    """
+    mgr = await _make_base_manager()
+    mgr._subscription = _make_subscription()
+
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def _slow_renew() -> float | None:
+        started.set()
+        await release.wait()  # block until the task is cancelled
+        return None
+
+    mgr._renew_subscription = _slow_renew
+
+    # Launch the fire-and-forget task the way the renewal timer would.
+    mgr._run_restart_or_renew()
+    await started.wait()
+    assert mgr._restart_or_renew_task is not None
+
+    await mgr.shutdown()
+    # Let the cancelled task settle and run its finally block.
+    await asyncio.sleep(0)
+
+    assert mgr._restart_or_renew_task.cancelled()
+    # No renewal timer must survive an irreversible shutdown.
+    assert mgr._cancel_subscription_renew is None
 
 
 # --------------------------------------------------------------------------

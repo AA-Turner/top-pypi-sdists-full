@@ -18,6 +18,7 @@ pub struct ClientInitResponseOptions {
     pub remove_default_value_gates: Option<bool>,
     pub previous_response_hash: Option<String>,
     pub remove_experiments_in_layers: Option<bool>,
+    pub experiments_in_layers_allowlist: Option<HashSet<String>>,
 }
 
 impl ClientInitResponseOptions {
@@ -42,6 +43,7 @@ impl Default for ClientInitResponseOptions {
             remove_default_value_gates: Some(false),
             previous_response_hash: None,
             remove_experiments_in_layers: Some(false),
+            experiments_in_layers_allowlist: None,
         }
     }
 }

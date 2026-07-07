@@ -253,7 +253,7 @@ name = "daft"
 [package]
 name = "daft"
 publish = false
-version = "0.7.16"
+version = "0.7.17"
 exclude = ["examples/dvector", "tests/", "benchmarking/", "tutorials/", "k8s/", "ci/", "docs/", "assets/", "tools/", "*.md", "codecov.yml", "mkdocs.yml"]
 
 [package.edition]
@@ -529,10 +529,6 @@ features = ["serde_json"]
 version = "0.28"
 features = ["half"]
 
-[workspace.dependencies.opendal]
-version = "0.57"
-default-features = false
-
 [workspace.dependencies.opentelemetry]
 version = "0.31"
 features = ["trace", "metrics", "logs"]
@@ -709,4 +705,4 @@ priority = 1
 
 [workspace.package]
 edition = "2024"
-version = "0.7.16"
+version = "0.7.17"

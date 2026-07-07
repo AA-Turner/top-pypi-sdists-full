@@ -41,6 +41,20 @@ pub use user::user_data::{
 pub use user::user_value::UserValue as StatsigUserValue;
 pub use user::{StatsigUser, StatsigUserBuilder};
 
+#[cfg(feature = "gcir-bench-timings")]
+macro_rules! gcir_time {
+    ($label:expr, $body:expr) => {
+        crate::gcir::timing::time($label, || $body)
+    };
+}
+
+#[cfg(not(feature = "gcir-bench-timings"))]
+macro_rules! gcir_time {
+    ($label:expr, $body:expr) => {
+        $body
+    };
+}
+
 pub mod compression;
 pub mod console_capture;
 pub mod data_store_interface;

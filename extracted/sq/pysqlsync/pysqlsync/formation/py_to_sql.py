@@ -1,3 +1,11 @@
+"""
+pysqlsync: Synchronize schema and large volumes of data.
+
+Copyright 2023-2026, Levente Hunyadi
+
+:see: https://github.com/hunyadi/pysqlsync
+"""
+
 import copy
 import dataclasses
 import datetime
@@ -285,7 +293,7 @@ class DataclassConverterOptions:
     foreign_constraints: bool = True
     check_constraints: bool = True
     initialize_tables: bool = False
-    substitutions: dict[TypeLike, SqlDataType] = dataclasses.field(default_factory=dict)
+    substitutions: dict[TypeLike, SqlDataType] = dataclasses.field(default_factory=dict[TypeLike, SqlDataType])
     factory: ObjectFactory = dataclasses.field(default_factory=ObjectFactory)
     skip_annotations: tuple[type, ...] = ()
     auto_default: bool = False
@@ -667,7 +675,7 @@ class DataclassConverter:
             raise TypeError(f"error processing data-class: {cls}") from e
 
         # foreign/primary key constraints
-        constraints = []
+        constraints: list[Constraint] = []
         if self.options.foreign_constraints:
             constraints.extend(self.dataclass_to_constraints(cls))
 

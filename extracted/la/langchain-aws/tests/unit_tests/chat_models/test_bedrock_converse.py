@@ -238,6 +238,37 @@ def test_anthropic_adaptive_thinking_bind_tools_tool_choice(
         )
 
 
+@pytest.mark.parametrize(
+    "model_id",
+    [
+        "global.anthropic.claude-opus-4-8",
+        "us.anthropic.claude-sonnet-5",
+        "global.anthropic.claude-fable-5",
+    ],
+)
+def test_claude_5_adaptive_thinking_forced_tool_choice_allowed(
+    model_id: str,
+) -> None:
+    chat_model = ChatBedrockConverse(
+        model=model_id,
+        region_name="us-west-2",
+        additional_model_request_fields={
+            "thinking": {"type": "adaptive"},
+        },
+    )
+    assert chat_model.supports_tool_choice_values == ("auto", "any", "tool")
+    chat_model_with_tools = chat_model.bind_tools([GetWeather], tool_choice="any")
+    assert cast(RunnableBinding, chat_model_with_tools).kwargs["tool_choice"] == {
+        "any": {}
+    }
+    chat_model_with_tools = chat_model.bind_tools(
+        [GetWeather], tool_choice="GetWeather"
+    )
+    assert cast(RunnableBinding, chat_model_with_tools).kwargs["tool_choice"] == {
+        "tool": {"name": "GetWeather"}
+    }
+
+
 def test_amazon_bind_tools_tool_choice() -> None:
     chat_model = ChatBedrockConverse(
         model="us.amazon.nova-lite-v1:0", region_name="us-east-1"
@@ -765,6 +796,8 @@ def test_standard_tracing_params() -> None:
         ("us.anthropic.claude-sonnet-4-20250514-v1:0", False),
         ("us.anthropic.claude-opus-4-20250514-v1:0", False),
         ("us.anthropic.claude-sonnet-4-5-20250929-v1:0", False),
+        ("us.anthropic.claude-sonnet-5", False),
+        ("us.anthropic.claude-fable-5", False),
         ("us.anthropic.claude-3-haiku-20240307-v1:0", False),
         ("cohere.command-r-v1:0", False),
         ("meta.llama3-1-405b-instruct-v1:0", "tool_calling"),
@@ -2326,6 +2359,18 @@ def test__get_base_model() -> None:
         (
             "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0",
             "anthropic.claude-3-sonnet-20240229-v1:0",
+            "anthropic",
+            False,
+        ),
+        (
+            "arn:aws:bedrock:us-west-2:123456789012:application-inference-profile/my-profile",
+            "anthropic.claude-sonnet-5",
+            "anthropic",
+            False,
+        ),
+        (
+            "arn:aws:bedrock:us-west-2:123456789012:application-inference-profile/my-profile",
+            "anthropic.claude-fable-5",
             "anthropic",
             False,
         ),

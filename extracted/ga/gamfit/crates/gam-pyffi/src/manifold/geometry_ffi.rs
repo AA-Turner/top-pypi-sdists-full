@@ -30,6 +30,29 @@ fn sae_set_ibp_alpha(alpha: f64) {
     gam::terms::sae::assignment::set_ibp_alpha_override(alpha);
 }
 
+#[pyfunction]
+fn sae_fit_admission<'py>(
+    py: Python<'py>,
+    n_obs: usize,
+    output_dim: usize,
+    n_atoms: usize,
+) -> PyResult<Py<PyDict>> {
+    let admission = gam::terms::sae::front_door::admit_sae_fit(n_obs, output_dim, n_atoms)
+        .map_err(py_value_error)?;
+    let lane = match admission.lane {
+        gam::terms::sae::front_door::SaeFitLane::DenseCertification => "dense_certification",
+        gam::terms::sae::front_door::SaeFitLane::SparseCodes => "sparse_codes",
+    };
+    let out = PyDict::new(py);
+    out.set_item("lane", lane)?;
+    out.set_item("n_obs", admission.n_obs)?;
+    out.set_item("output_dim", admission.output_dim)?;
+    out.set_item("n_atoms", admission.n_atoms)?;
+    out.set_item("dense_assignment_cells", admission.dense_assignment_cells)?;
+    out.set_item("response_cells", admission.response_cells)?;
+    Ok(out.unbind())
+}
+
 #[pyfunction(signature = (points, mode = "kneedle", knee_slope_fraction = 0.10, complexity_penalty = 0.05, flat_span_tol = 1.0e-6))]
 fn sae_select_k(
     py: Python<'_>,
@@ -45,6 +68,9 @@ fn sae_select_k(
         knee_slope_fraction,
         complexity_penalty,
         flat_span_tol,
+        // This scalar-curve FFI carries no fit-measured coding ingredients; a
+        // `MeasuredMdl` mode string falls back to Kneedle when this is `None`.
+        measured_coding: None,
     };
     let selected = gam::terms::sae::k_selection::select_k(&curve, &config);
     let out = PyDict::new(py);
@@ -75,6 +101,9 @@ fn sae_auto_k_recommendation(
         knee_slope_fraction,
         complexity_penalty,
         flat_span_tol,
+        // This scalar-curve FFI carries no fit-measured coding ingredients; a
+        // `MeasuredMdl` mode string falls back to Kneedle when this is `None`.
+        measured_coding: None,
     };
     let rec = gam::terms::sae::k_selection::recommend_auto_k(&manifold, &linear, &config);
     let out = PyDict::new(py);
@@ -421,7 +450,7 @@ fn response_geometry_sphere_normalize_base<'py>(
 /// coordinate resolution, and base-point selection (intrinsic Fréchet mean when
 /// `base` is `None`) so the Python wrapper marshals arrays only. Returns
 /// `(tangent, base_point, resolved_coordinate_label)`.
-#[pyfunction(signature = (values, geometry, base=None, coordinates=None, reference=-1))]
+#[pyfunction(signature = (values, geometry, base=None, coordinates=None, reference=-1, weights=None))]
 fn response_geometry_log_map<'py>(
     py: Python<'py>,
     values: PyReadonlyArray2<'py, f64>,
@@ -429,9 +458,11 @@ fn response_geometry_log_map<'py>(
     base: Option<PyReadonlyArray1<'py, f64>>,
     coordinates: Option<String>,
     reference: isize,
+    weights: Option<PyReadonlyArray1<'py, f64>>,
 ) -> PyResult<(Py<PyArray2<f64>>, Py<PyArray1<f64>>, String)> {
     let arr = values.as_array().to_owned();
     let base_owned = base.as_ref().map(|b| b.as_array().to_owned());
+    let weights_owned = weights.as_ref().map(|w| w.as_array().to_owned());
     let (tangent, base_point, coord_label) =
         detach_py_result(py, "response_geometry_log_map", move || {
             rg_log_map_dispatch(
@@ -440,6 +471,7 @@ fn response_geometry_log_map<'py>(
                 base_owned.as_ref().map(|b| b.view()),
                 coordinates.as_deref(),
                 reference,
+                weights_owned.as_ref().map(|w| w.view()),
             )
         })?;
     Ok((
@@ -4223,6 +4255,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(sae_manifold_predict_oos, module)?)?;
     module.add_function(wrap_pyfunction!(build_sae_encode_atlas, module)?)?;
     module.add_class::<PySaeEncodeAtlas>()?;
+    module.add_class::<PySaeAmortizedEncoder>()?;
     module.add_function(wrap_pyfunction!(sae_steer_delta, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_reconstruction_r2, module)?)?;
     module.add_function(wrap_pyfunction!(sae_streaming_plan, module)?)?;
@@ -4355,6 +4388,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(thin_svd_scores, module)?)?;
     module.add_function(wrap_pyfunction!(linear_dictionary_fit, module)?)?;
     module.add_function(wrap_pyfunction!(linear_dictionary_transform_ffi, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_fit_admission, module)?)?;
     module.add_function(wrap_pyfunction!(sparse_dictionary_fit, module)?)?;
     module.add_function(wrap_pyfunction!(sparse_dictionary_transform_ffi, module)?)?;
     module.add_function(wrap_pyfunction!(sparse_dictionary_reconstruct_ffi, module)?)?;
@@ -4416,6 +4450,16 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<TotalVariationPenalty>()?;
     module.add_class::<NuclearNormPenalty>()?;
     module.add_class::<MechanismSparsityPenalty>()?;
+    module.add_function(wrap_pyfunction!(dimension_spectrometer, module)?)?;
+    module.add_function(wrap_pyfunction!(block_firing_coordinates, module)?)?;
+    module.add_function(wrap_pyfunction!(routability_floor, module)?)?;
+    module.add_function(wrap_pyfunction!(routability_audit, module)?)?;
+    module.add_function(wrap_pyfunction!(sparse_dict_dual_certificate, module)?)?;
+    module.add_function(wrap_pyfunction!(audit_sae, module)?)?;
+    module.add_function(wrap_pyfunction!(separation_limit, module)?)?;
+    module.add_function(wrap_pyfunction!(recover_spikes, module)?)?;
+    module.add_function(wrap_pyfunction!(compose_contracts, module)?)?;
+    module.add_function(wrap_pyfunction!(loop_holonomy, module)?)?;
     Ok(())
 }
 
@@ -4850,6 +4894,18 @@ fn parse_sparse_dict_score_mode(score_mode: &str) -> PyResult<gam::gpu::GpuMode>
     }
 }
 
+/// Cap on the number of top strictly-improving birth candidates a sparse-dict
+/// fit's dual certificate reports. A safety bound on the report size, not a
+/// tuned selection knob (the birth threshold itself is the derived `1`).
+const SPARSE_DICT_DUAL_CERT_MAX_BIRTHS: usize = 16;
+
+// The `DualCertificateReport` → PyDict builder shared by this lane's fits and the
+// SAE-spectral diagnostics lane lives once, as `dual_certificate_report_dict` in
+// `latent/sae_spectral_ffi.rs`. Both files are `include!`d into the crate root
+// (lib.rs) and share one namespace, so the entrypoints below reach it by bare
+// name. Keeping a single definition avoids the duplicate crate-root free function
+// that would otherwise make the crate (and the gamfit wheel) fail to compile.
+
 #[pyfunction(signature = (
     x,
     k,
@@ -4877,6 +4933,9 @@ fn sparse_dictionary_fit<'py>(
 ) -> PyResult<Py<PyDict>> {
     let score_mode = parse_sparse_dict_score_mode(score_mode)?;
     let x_values = x.as_array().to_owned();
+    let admission =
+        gam::terms::sae::front_door::admit_sae_fit(x_values.nrows(), x_values.ncols(), k)
+            .map_err(py_value_error)?;
     let config = SparseDictConfig {
         n_atoms: k,
         active,
@@ -4888,15 +4947,26 @@ fn sparse_dictionary_fit<'py>(
         tolerance,
         score_mode,
     };
-    let fit = detach_py_result(py, "sparse_dictionary_fit", move || {
-        fit_sparse_dictionary(x_values.view(), &config)
+    let (fit, dual_cert) = detach_py_result(py, "sparse_dictionary_fit", move || {
+        let fit = fit_sparse_dictionary(x_values.view(), &config)?;
+        // Global-optimality dual certificate, computed inside the same detached
+        // block from the fitted routing so every lane fit emits it.
+        let dual_cert = gam::terms::sae::dual_certificate::sparse_dict_dual_certificate(
+            x_values.view(),
+            &fit,
+            SPARSE_DICT_DUAL_CERT_MAX_BIRTHS,
+        )?;
+        Ok::<_, String>((fit, dual_cert))
     })?;
-    let fitted = fit.reconstruct();
     let out = PyDict::new(py);
+    let lane = match admission.lane {
+        gam::terms::sae::front_door::SaeFitLane::DenseCertification => "dense_certification",
+        gam::terms::sae::front_door::SaeFitLane::SparseCodes => "sparse_codes",
+    };
+    out.set_item("front_door_lane", lane)?;
     out.set_item("decoder", fit.decoder.into_pyarray(py))?;
     out.set_item("indices", fit.indices.into_pyarray(py))?;
     out.set_item("codes", fit.codes.into_pyarray(py))?;
-    out.set_item("fitted", fitted.into_pyarray(py))?;
     out.set_item("explained_variance", fit.explained_variance)?;
     out.set_item("epochs", fit.epochs)?;
     out.set_item("converged", fit.converged)?;
@@ -4905,6 +4975,7 @@ fn sparse_dictionary_fit<'py>(
         "score_route_stats",
         score_route_stats_dict(py, fit.score_route_stats)?,
     )?;
+    out.set_item("dual_certificate", dual_certificate_report_dict(py, &dual_cert)?)?;
     Ok(out.unbind())
 }
 
@@ -4989,6 +5060,7 @@ fn sparse_dictionary_reconstruct_ffi<'py>(
     block_tile = 1024,
     frame_ridge = 1.0e-9,
     aux_k = 0,
+    matryoshka_prefix = false,
     tolerance = 1.0e-6
 ))]
 fn block_sparse_dictionary_fit<'py>(
@@ -5002,6 +5074,7 @@ fn block_sparse_dictionary_fit<'py>(
     block_tile: usize,
     frame_ridge: f64,
     aux_k: usize,
+    matryoshka_prefix: bool,
     tolerance: f64,
 ) -> PyResult<Py<PyDict>> {
     let x_values = x.as_array().to_owned();
@@ -5014,10 +5087,19 @@ fn block_sparse_dictionary_fit<'py>(
         block_tile,
         frame_ridge,
         aux_k,
+        matryoshka_prefix,
         tolerance,
     };
-    let fit = detach_py_result(py, "block_sparse_dictionary_fit", move || {
-        fit_block_sparse_dictionary(x_values.view(), &config)
+    let (fit, dual_cert) = detach_py_result(py, "block_sparse_dictionary_fit", move || {
+        let fit = fit_block_sparse_dictionary(x_values.view(), &config)?;
+        // Block-lane global-optimality dual certificate (gate of the residual),
+        // computed in the same detached block so every block fit emits it.
+        let dual_cert = gam::terms::sae::dual_certificate::block_dual_certificate(
+            x_values.view(),
+            &fit,
+            SPARSE_DICT_DUAL_CERT_MAX_BIRTHS,
+        )?;
+        Ok::<_, String>((fit, dual_cert))
     })?;
     let fitted = fit.reconstruct();
     let out = PyDict::new(py);
@@ -5029,11 +5111,13 @@ fn block_sparse_dictionary_fit<'py>(
     out.set_item("gamma", fit.gamma)?;
     out.set_item("block_utilization", fit.block_utilization)?;
     out.set_item("block_stable_rank", fit.block_stable_rank)?;
+    out.set_item("matryoshka_prefix_losses", fit.matryoshka_prefix_losses)?;
     out.set_item("explained_variance", fit.explained_variance)?;
     out.set_item("epochs", fit.epochs)?;
     out.set_item("converged", fit.converged)?;
     out.set_item("block_topk", fit.block_topk)?;
     out.set_item("block_size", fit.block_size)?;
+    out.set_item("dual_certificate", dual_certificate_report_dict(py, &dual_cert)?)?;
     Ok(out.unbind())
 }
 
@@ -5604,6 +5688,7 @@ impl BlockSparseDictStream {
             block_tile,
             frame_ridge,
             aux_k,
+            matryoshka_prefix: false,
             tolerance,
         };
         let inner = py

@@ -5,6 +5,15 @@ import os
 from pathlib import Path
 import sys
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _reset_py37_fallback_module_after_stub_core():
+    """Drop cached ``_py37_fallback`` so xdist workers do not keep py37 bindings."""
+    yield
+    sys.modules.pop("dcc_mcp_core._py37_fallback", None)
+
 
 def _import_without_core(monkeypatch, *module_names: str):
     monkeypatch.setitem(sys.modules, "dcc_mcp_core._core", None)
@@ -29,19 +38,19 @@ def test_host_namespace_falls_back_without_core(monkeypatch) -> None:
     host = modules["dcc_mcp_core.host"]
     fallback = modules["dcc_mcp_core.host._fallback"]
 
-    assert host.BlockingDispatcher is None
-    assert host.QueueDispatcher is None
-    assert host.PostHandle is None
-    assert host.TickOutcome is None
-    assert host.DispatchError is None
+    assert host.BlockingDispatcher is fallback.BlockingDispatcher
+    assert host.QueueDispatcher is fallback.QueueDispatcher
+    assert host.PostHandle is fallback.PostHandle
+    assert host.TickOutcome is fallback.TickOutcome
+    assert host.DispatchError is fallback.DispatchError
 
-    dispatcher = fallback.QueueDispatcher()
+    dispatcher = host.QueueDispatcher()
     assert dispatcher.tick().jobs_executed == 0
 
     with host.StandaloneHost(dispatcher):
         assert dispatcher.post(lambda: 42).wait(timeout=2.0) == 42
 
-    blocking = fallback.BlockingDispatcher()
+    blocking = host.BlockingDispatcher()
     with host.StandaloneHost(blocking):
         assert blocking.post(lambda: "ok").wait(timeout=2.0) == "ok"
 
@@ -243,6 +252,57 @@ def test_fallback_imports_from_top_level(monkeypatch) -> None:
     # GUI executable helpers should come from _py37_fallback
     assert callable(dcc_mcp_core.is_gui_executable)
     assert callable(dcc_mcp_core.correct_python_executable)
+
+    # ReadinessProbe should come from _py37_fallback
+    probe = dcc_mcp_core.ReadinessProbe()
+    assert probe.report()["process"] is True
+    assert probe.is_ready() is False
+
+
+def test_readiness_probe_fallback_without_core(monkeypatch) -> None:
+    """ReadinessProbe and AdapterReadinessBinder work without _core (py37-lite)."""
+    modules = _import_without_core(
+        monkeypatch,
+        "dcc_mcp_core._py37_fallback",
+        "dcc_mcp_core.readiness",
+    )
+    fallback = modules["dcc_mcp_core._py37_fallback"]
+    readiness = modules["dcc_mcp_core.readiness"]
+
+    probe = fallback.ReadinessProbe()
+    report = probe.report()
+    assert report["process"] is True
+    assert report["dcc"] is False
+    assert report["skill_catalog"] is True
+    assert report["dispatcher"] is False
+    assert report["host_execution_bridge"] is False
+    assert report["main_thread_executor"] is False
+    assert probe.is_ready() is False
+
+    probe.set_dispatcher_ready(True)
+    probe.set_dcc_ready(True)
+    assert probe.is_ready() is True
+
+    probe.set_host_execution_bridge_ready(True)
+    probe.set_main_thread_executor_ready(True)
+    report = probe.report()
+    assert report["host_execution_bridge"] is True
+    assert report["main_thread_executor"] is True
+
+    full = fallback.ReadinessProbe.fully_ready()
+    assert all(full.report().values())
+
+    class _FakeServer:
+        def __init__(self) -> None:
+            self.probe = None
+
+        def set_readiness_probe(self, probe_obj: object) -> None:
+            self.probe = probe_obj
+
+    server = _FakeServer()
+    binder = readiness.AdapterReadinessBinder.bind_inline(server)
+    assert binder.probe.is_ready() is True
+    assert server.probe is binder.probe
 
 
 def test_gui_executable_fallback(monkeypatch, tmp_path) -> None:

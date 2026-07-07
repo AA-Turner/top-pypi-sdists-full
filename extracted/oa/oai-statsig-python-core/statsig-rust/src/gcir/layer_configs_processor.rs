@@ -11,6 +11,7 @@ use crate::{
         evaluator_context::EvaluatorContext,
         evaluator_result::{
             result_to_layer_eval, result_to_layer_eval_init_v2, result_to_layer_eval_v2,
+            result_to_layer_eval_with_name,
         },
         secondary_exposure_key::SecondaryExposureKey,
     },
@@ -21,7 +22,9 @@ use crate::{
 };
 
 use super::{
-    gcir_process_iter::gcir_process_iter, stringify_sec_exposures::stringify_sec_exposures,
+    evaluation_plan::GcirEvaluationPlan,
+    gcir_process_iter::{gcir_process_iter, gcir_process_plan},
+    stringify_sec_exposures::stringify_sec_exposures,
 };
 
 pub(crate) fn get_layer_evaluations(
@@ -51,6 +54,38 @@ pub(crate) fn get_layer_evaluations(
         sec_expo_hash_memo,
         &context.specs_data.layer_configs,
         get_layer_spec_type,
+        factory,
+    )
+}
+
+pub(crate) fn get_layer_evaluations_with_plan(
+    context: &mut EvaluatorContext,
+    options: &ClientInitResponseOptions,
+    sec_expo_hash_memo: &mut HashMap<InternedString, InternedString>,
+    plan: &GcirEvaluationPlan,
+) -> Result<HashMap<InternedString, LayerEvaluation>, StatsigErr> {
+    let factory = |_: &str, hashed_name: &InternedString, ctx: &mut EvaluatorContext| {
+        let mut eval = result_to_layer_eval_with_name(hashed_name.clone(), &mut ctx.result);
+
+        try_hash_allocated_experiment_name(
+            ctx.hashing,
+            options,
+            &mut eval.allocated_experiment_name,
+        );
+
+        if options.remove_id_type.unwrap_or(false) {
+            eval.id_type = None
+        }
+
+        eval
+    };
+
+    gcir_process_plan(
+        context,
+        options,
+        sec_expo_hash_memo,
+        &context.specs_data.layer_configs,
+        &plan.layer_configs,
         factory,
     )
 }

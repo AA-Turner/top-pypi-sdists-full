@@ -19,7 +19,7 @@ use crate::evaluation::get_unit_id::get_unit_id;
 use crate::evaluation::user_agent_parsing::UserAgentParser;
 use crate::interned_string::InternedString;
 use crate::specs_response::explicit_params::ExplicitParameters;
-use crate::specs_response::spec_types::{Condition, Rule, Spec};
+use crate::specs_response::spec_types::{Condition, ConditionOperator, ConditionType, Rule, Spec};
 use crate::user::user_value::UserValueRef;
 use crate::{dyn_value, log_w, unwrap_or_return, ExperimentEvaluationOptions, StatsigErr};
 
@@ -428,16 +428,20 @@ fn evaluate_condition<'a>(
         .unwrap_or(EvaluatorValue::empty().as_ref());
     let condition_type = condition.condition_type.as_str();
 
-    let value: UserValueRef<'_> = match condition_type {
-        "public" => {
+    let value: UserValueRef<'_> = match condition.compiled_condition_type {
+        ConditionType::Public => {
             ctx.result.bool_value = true;
             return Ok(());
         }
-        "fail_gate" | "pass_gate" => {
-            evaluate_nested_gate(ctx, target_value, condition_type)?;
+        ConditionType::FailGate => {
+            evaluate_nested_gate(ctx, target_value, true)?;
             return Ok(());
         }
-        "experiment_group" => {
+        ConditionType::PassGate => {
+            evaluate_nested_gate(ctx, target_value, false)?;
+            return Ok(());
+        }
+        ConditionType::ExperimentGroup => {
             let group_name = evaluate_experiment_group(ctx, &condition.field);
             match group_name {
                 Some(name) => {
@@ -447,7 +451,7 @@ fn evaluate_condition<'a>(
                 None => None,
             }
         }
-        "ua_based" => match ctx.user.get_user_value(&condition.field) {
+        ConditionType::UaBased => match ctx.user.get_user_value(&condition.field) {
             Some(value) => Some(value),
             None => {
                 temp_value = UserAgentParser::get_value_from_user_agent(
@@ -459,31 +463,31 @@ fn evaluate_condition<'a>(
                 temp_value.as_ref().map(UserValueRef::Dynamic)
             }
         },
-        "ip_based" => match ctx.user.get_user_value(&condition.field) {
+        ConditionType::IpBased => match ctx.user.get_user_value(&condition.field) {
             Some(value) => Some(value),
             None => {
                 temp_value = CountryLookup::get_value_from_ip(ctx.user, &condition.field, ctx);
                 temp_value.as_ref().map(UserValueRef::Dynamic)
             }
         },
-        "user_field" => ctx.user.get_user_value(&condition.field),
-        "environment_field" => {
+        ConditionType::UserField => ctx.user.get_user_value(&condition.field),
+        ConditionType::EnvironmentField => {
             temp_value = ctx.user.get_value_from_environment(&condition.field);
             temp_value.as_ref().map(UserValueRef::Dynamic)
         }
-        "current_time" => {
+        ConditionType::CurrentTime => {
             temp_value = Some(DynamicValue::for_timestamp_evaluation(
                 Utc::now().timestamp_millis(),
             ));
             temp_value.as_ref().map(UserValueRef::Dynamic)
         }
-        "user_bucket" => {
+        ConditionType::UserBucket => {
             temp_value = Some(get_hash_for_user_bucket(ctx, condition));
             temp_value.as_ref().map(UserValueRef::Dynamic)
         }
-        "target_app" => ctx.app_id.map(UserValueRef::Dynamic),
-        "unit_id" => ctx.user.get_unit_id(&condition.id_type),
-        _ => {
+        ConditionType::TargetApp => ctx.app_id.map(UserValueRef::Dynamic),
+        ConditionType::UnitId => ctx.user.get_unit_id(&condition.id_type),
+        ConditionType::Unknown => {
             log_w!(
                 TAG,
                 "Unsupported - Unknown condition type: {}",
@@ -497,54 +501,65 @@ fn evaluate_condition<'a>(
 
     // println!("Eval Condition {}, {:?}", condition_type, value);
 
-    let operator = match &condition.operator {
-        Some(operator) => operator.as_str(),
-        None => {
+    ctx.result.bool_value = match condition.compiled_operator {
+        ConditionOperator::Missing => {
             log_w!(TAG, "Unsupported - Operator is None",);
             ctx.result.unsupported = true;
             return Ok(());
         }
-    };
 
-    ctx.result.bool_value = match operator {
         // numerical comparisons
-        "gt" | "gte" | "lt" | "lte" => compare_numbers(value, target_value, operator),
+        op @ (ConditionOperator::Gt
+        | ConditionOperator::Gte
+        | ConditionOperator::Lt
+        | ConditionOperator::Lte) => compare_numbers(value, target_value, op),
 
         // version comparisons
-        "version_gt" | "version_gte" | "version_lt" | "version_lte" | "version_eq"
-        | "version_neq" => compare_versions(value, target_value, operator),
+        op @ (ConditionOperator::VersionGt
+        | ConditionOperator::VersionGte
+        | ConditionOperator::VersionLt
+        | ConditionOperator::VersionLte
+        | ConditionOperator::VersionEq
+        | ConditionOperator::VersionNeq) => compare_versions(value, target_value, op),
 
         // string/array comparisons
-        "any"
-        | "none"
-        | "str_starts_with_any"
-        | "str_ends_with_any"
-        | "str_contains_any"
-        | "str_contains_none" => compare_strings_in_array(value, target_value, operator, true),
-        "any_case_sensitive" | "none_case_sensitive" => {
-            compare_strings_in_array(value, target_value, operator, false)
+        op @ (ConditionOperator::Any
+        | ConditionOperator::NoneOf
+        | ConditionOperator::StrStartsWithAny
+        | ConditionOperator::StrEndsWithAny
+        | ConditionOperator::StrContainsAny
+        | ConditionOperator::StrContainsNone
+        | ConditionOperator::AnyCaseSensitive
+        | ConditionOperator::NoneCaseSensitive) => {
+            compare_strings_in_array(value, target_value, op)
         }
-        "str_matches" => compare_str_with_regex(value, target_value),
+        ConditionOperator::StrMatches => compare_str_with_regex(value, target_value),
 
         // time comparisons
-        "before" | "after" | "on" => compare_time(value, target_value, operator),
-
-        // strict equals
-        "eq" => target_value.is_equal_to_user_value(value),
-        "neq" => !target_value.is_equal_to_user_value(value),
-
-        // id_lists
-        "in_segment_list" | "not_in_segment_list" => {
-            evaluate_id_list(ctx, operator, target_value, value)
+        op @ (ConditionOperator::Before | ConditionOperator::After | ConditionOperator::On) => {
+            compare_time(value, target_value, op)
         }
 
-        "array_contains_any"
-        | "array_contains_none"
-        | "array_contains_all"
-        | "not_array_contains_all" => compare_arrays(value, target_value, operator),
+        // strict equals
+        ConditionOperator::Eq => target_value.is_equal_to_user_value(value),
+        ConditionOperator::Neq => !target_value.is_equal_to_user_value(value),
 
-        _ => {
-            log_w!(TAG, "Unsupported - Unknown operator: {}", operator);
+        // id_lists
+        op @ (ConditionOperator::InSegmentList | ConditionOperator::NotInSegmentList) => {
+            evaluate_id_list(ctx, op, target_value, value)
+        }
+
+        op @ (ConditionOperator::ArrayContainsAny
+        | ConditionOperator::ArrayContainsNone
+        | ConditionOperator::ArrayContainsAll
+        | ConditionOperator::NotArrayContainsAll) => compare_arrays(value, target_value, op),
+
+        ConditionOperator::Unknown => {
+            log_w!(
+                TAG,
+                "Unsupported - Unknown operator: {}",
+                condition.operator.as_deref().unwrap_or_default()
+            );
             ctx.result.unsupported = true;
             return Ok(());
         }
@@ -555,13 +570,13 @@ fn evaluate_condition<'a>(
 
 fn evaluate_id_list(
     ctx: &mut EvaluatorContext<'_>,
-    op: &str,
+    op: ConditionOperator,
     target_value: &MemoizedEvaluatorValue,
     value: UserValueRef<'_>,
 ) -> bool {
     let is_in_list = is_in_id_list(ctx, target_value, value);
 
-    if op == "not_in_segment_list" {
+    if matches!(op, ConditionOperator::NotInSegmentList) {
         return !is_in_list;
     }
 
@@ -623,7 +638,7 @@ fn evaluate_experiment_group<'a>(
 fn evaluate_nested_gate<'a>(
     ctx: &mut EvaluatorContext<'a>,
     target_value: &'a MemoizedEvaluatorValue,
-    condition_type: &'a str,
+    is_fail_gate: bool,
 ) -> Result<(), StatsigErr> {
     let gate_name = target_value
         .string_value
@@ -688,7 +703,7 @@ fn evaluate_nested_gate<'a>(
         ctx.result.secondary_exposures.push(expo);
     }
 
-    if condition_type == "fail_gate" {
+    if is_fail_gate {
         ctx.result.bool_value = !ctx.result.bool_value;
     }
     Ok(())

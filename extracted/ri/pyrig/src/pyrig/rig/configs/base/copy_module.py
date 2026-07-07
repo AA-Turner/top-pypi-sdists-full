@@ -97,13 +97,14 @@ class CopyModuleConfigFile(PythonPackageConfigFile):
         Returns:
             Target directory path for the copied module file.
         """
-        copy_module = self.copy_module()
-        new_module_name = replace_root_module_name(
-            copy_module, PackageManager.I.package_name()
-        )
+        return self.module_path().parent
 
-        new_module_path = module_name_as_root_path(new_module_name)
-        return new_module_path.parent
+    def module_path(self) -> Path:
+        return module_name_as_root_path(
+            replace_root_module_name(
+                self.copy_module(), PackageManager.I.package_name()
+            )
+        )
 
     def lines(self) -> list[str]:
         """Read the source module's file content as a list of lines.

@@ -1262,22 +1262,24 @@ class Statistics(System.Object):
         ...
 
     @staticmethod
-    def observed_sharpe_ratio(list_performance: typing.List[float]) -> float:
+    def observed_sharpe_ratio(list_performance: typing.List[float], risk_free_rate: float = 0) -> float:
         """
         Calculates the observed sharpe ratio
         
         :param list_performance: The performance samples to use
+        :param risk_free_rate: The risk free rate for each performance sample
         :returns: The observed sharpe ratio.
         """
         ...
 
     @staticmethod
-    def probabilistic_sharpe_ratio(list_performance: typing.List[float], benchmark_sharpe_ratio: float) -> float:
+    def probabilistic_sharpe_ratio(list_performance: typing.List[float], benchmark_sharpe_ratio: float, risk_free_rate: float = 0) -> float:
         """
         Helper method to calculate the probabilistic sharpe ratio
         
         :param list_performance: The list of algorithm performance values
         :param benchmark_sharpe_ratio: The benchmark sharpe ratio to use
+        :param risk_free_rate: The risk free rate for each performance sample
         :returns: Probabilistic Sharpe Ratio.
         """
         ...

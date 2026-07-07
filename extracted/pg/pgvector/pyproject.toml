@@ -4,21 +4,84 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pgvector"
-version = "0.4.2"
+version = "0.5.0"
 description = "pgvector support for Python"
 readme = "README.md"
 authors = [
     {name = "Andrew Kane", email = "andrew@ankane.org"}
 ]
 license = "MIT"
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
 dependencies = [
-    "numpy"
 ]
 
 [project.urls]
 Homepage = "https://github.com/pgvector/pgvector-python"
 
+[dependency-groups]
+dev = [
+    "asyncpg",
+    "Django",
+    "peewee",
+    "pg8000",
+    "psycopg[binary,pool]",
+    "psycopg2-binary",
+    "pytest",
+    "pytest-asyncio",
+    "SQLAlchemy[asyncio]>=2",
+    "sqlmodel"
+]
+numpy = ["numpy"]
+scipy = ["scipy"]
+typing = [
+    "mypy",
+    "ty",
+    "numpy",
+    "scipy"
+]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+[tool.mypy]
+files = [
+    "pgvector",
+    "tests"
+]
+strict = true
+disable_error_code = ["unused-ignore", "untyped-decorator"]
+ignore_missing_imports = true
+disallow_subclassing_any = false
+
+[tool.ty.src]
+include = [
+    "pgvector",
+    "tests"
+]
+
+[tool.ty.rules]
+unused-type-ignore-comment = "ignore"
+
+[tool.pyright]
+include = [
+    "pgvector",
+    "tests"
+]
+typeCheckingMode = "strict"
+reportMissingTypeStubs = "none"
+reportPrivateUsage = "none"
+reportUnknownArgumentType = "none"
+reportUnknownLambdaType = "none"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+
+[tool.pyrefly]
+project-includes = [
+    "pgvector/**/*.py",
+    "tests/**/*.py"
+]
+preset = "strict"
+
+[tool.pyrefly.errors]
+missing-override-decorator = false

@@ -17,6 +17,81 @@ QuantConnect_Lean_Engine_TransactionHandlers__EventContainer_Callable = typing.T
 QuantConnect_Lean_Engine_TransactionHandlers__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Lean_Engine_TransactionHandlers__EventContainer_ReturnType")
 
 
+class OrderRequestProcessingPool(System.Object, System.IDisposable):
+    """
+    Runs order requests on background worker threads that pull from a single shared queue. The pool grows on
+    demand when the workers get saturated and keeps every request of an order processed in order.
+    """
+
+    @property
+    def is_active(self) -> bool:
+        """True while the pool is processing order requests, false once it has been shut down."""
+        ...
+
+    @property
+    def thread_count(self) -> int:
+        """The number of worker threads currently running."""
+        ...
+
+    def __init__(self, concurrency_enabled: bool, minimum_threads: int, maximum_threads: int, process_request: typing.Callable[[QuantConnect.Orders.OrderRequest], typing.Any], on_error: typing.Callable[[System.Exception], typing.Any]) -> None:
+        """
+        Creates a threaded pool and starts its initial worker threads. When concurrency is enabled the pool
+        starts at minimum_threads and grows on demand up to maximum_threads,
+        otherwise it runs a single fixed worker thread.
+        
+        :param concurrency_enabled: True to grow the pool on demand, false to run a single worker thread
+        :param minimum_threads: The number of worker threads the pool starts with when growing
+        :param maximum_threads: The maximum number of worker threads the pool can grow to on demand
+        :param process_request: Handles a single order request
+        :param on_error: Invoked when processing fails unexpectedly
+        """
+        ...
+
+    def dispatch(self, request: QuantConnect.Orders.OrderRequest, order: QuantConnect.Orders.Order) -> None:
+        """
+        Dispatches an order request to be processed. If the order already has a request in flight, the new one
+        waits parked so its worker runs it next and the order stays in arrival order. Otherwise it is queued for
+        any worker to pick up, growing the pool first when every worker is already busy.
+        
+        :param request: The order request to process
+        :param order: The order the request belongs to, used to keep its requests ordered
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Stops every worker thread and waits for them to terminate, then releases the pool resources."""
+        ...
+
+    def process_pending(self) -> None:
+        """
+        Drains the pending order requests on the calling thread. Only used in synchronous mode, where there
+        are no worker threads and the caller pumps the single queue itself.
+        """
+        ...
+
+    @staticmethod
+    def synchronous(process_request: typing.Callable[[QuantConnect.Orders.OrderRequest], typing.Any], on_error: typing.Callable[[System.Exception], typing.Any]) -> QuantConnect.Lean.Engine.TransactionHandlers.OrderRequestProcessingPool:
+        """
+        Creates a synchronous pool with no worker threads. Its single queue is drained on the caller thread
+        via process_pending.
+        
+        :param process_request: Handles a single order request
+        :param on_error: Invoked when processing fails unexpectedly
+        """
+        ...
+
+    def wait_for_processing(self, timeout: datetime.timedelta) -> bool:
+        """
+        Waits until no order has requests in flight, up to the given timeout. In practice only the synchronous
+        early return runs. The threaded branch below is defensive, since its callers only reach it in backtesting
+        where the pool is synchronous, so it never runs in a live deployment.
+        
+        :param timeout: The maximum time to wait
+        :returns: True if the pool was still processing when the timeout elapsed.
+        """
+        ...
+
+
 class ITransactionHandler(QuantConnect.Securities.IOrderProcessor, QuantConnect.Securities.IOrderEventProvider, metaclass=abc.ABCMeta):
     """
     Transaction handlers define how the transactions are processed and set the order fill information.
@@ -109,21 +184,6 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
     """The tag used for order events of liquidations triggered by a delisting"""
 
     @property
-    def _order_request_queues(self) -> typing.List[QuantConnect.Interfaces.IBusyCollection[QuantConnect.Orders.OrderRequest]]:
-        """
-        OrderQueue holds the newly updated orders from the user algorithm waiting to be processed. Once
-        orders are processed they are moved into the Orders queue awaiting the brokerage response.
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @_order_request_queues.setter
-    def _order_request_queues(self, value: typing.List[QuantConnect.Interfaces.IBusyCollection[QuantConnect.Orders.OrderRequest]]) -> None:
-        ...
-
-    @property
     def _cancel_pending_orders(self) -> QuantConnect.Lean.Engine.TransactionHandlers.CancelPendingOrders:
         """
         The _cancelPendingOrders instance will help to keep track of CancelPending orders and their Status
@@ -163,10 +223,62 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         ...
 
     @property
+    def concurrency_enabled(self) -> bool:
+        """
+        Whether the transaction thread pool can grow on demand to process order requests concurrently.
+        When false a single worker thread is used.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def synchronous_processing(self) -> bool:
+        """
+        Whether order requests are drained synchronously by the algorithm thread instead of by background
+        worker threads. Used by backtesting deployments.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def maximum_transaction_threads(self) -> int:
+        """
+        The maximum number of transaction threads the pool can grow to
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def minimum_transaction_threads(self) -> int:
+        """
+        The number of transaction threads the pool starts with
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def processing_threads_count(self) -> int:
+        """
+        The number of transaction threads currently running
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
     def is_active(self) -> bool:
         """
-        Boolean flag indicating the Run thread method is busy.
-        False indicates it is completely finished processing and ready to be terminated.
+        Boolean flag indicating the transaction threads are busy.
+        False indicates they are completely finished processing and ready to be terminated.
         """
         ...
 
@@ -330,6 +442,16 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """Processes asynchronous events on the transaction handler's thread"""
         ...
 
+    def process_pending_requests(self) -> None:
+        """
+        Drains the pending order requests on the calling thread. Used by synchronous (non concurrent)
+        deployments, where the algorithm thread pumps the request queue itself.
+        
+        
+        This Class is protected.
+        """
+        ...
+
     def process_synchronous_events(self) -> None:
         """Processes all synchronous events that must take place before the next time loop for the algorithm"""
         ...
@@ -362,15 +484,6 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """
         ...
 
-    def run(self, thread_id: int) -> None:
-        """
-        Primary thread entry point to launch the transaction thread.
-        
-        
-        This Class is protected.
-        """
-        ...
-
     def update_order(self, request: QuantConnect.Orders.UpdateOrderRequest) -> QuantConnect.Orders.OrderTicket:
         """
         Update an order yet to be filled such as stop or limit orders.
@@ -381,7 +494,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
 
     def wait_for_order_submission(self, ticket: QuantConnect.Orders.OrderTicket) -> None:
         """
-        Wait for the order to be handled by the _processingThreads
+        Wait for the order to be handled by the _threadPool
         
         This Class is protected.
         
@@ -403,6 +516,17 @@ class BacktestingTransactionHandler(QuantConnect.Lean.Engine.TransactionHandlers
         """
         ...
 
+    @property
+    def synchronous_processing(self) -> bool:
+        """
+        For backtesting order requests are processed synchronously by the algorithm thread, only live
+        deployments with a concurrency enabled brokerage use background transaction threads
+        
+        
+        This Property is protected.
+        """
+        ...
+
     def initialize(self, algorithm: QuantConnect.Interfaces.IAlgorithm, brokerage: QuantConnect.Interfaces.IBrokerage, result_handler: QuantConnect.Lean.Engine.Results.IResultHandler) -> None:
         """
         Creates a new BacktestingTransactionHandler using the BacktestingBrokerage
@@ -410,15 +534,6 @@ class BacktestingTransactionHandler(QuantConnect.Lean.Engine.TransactionHandlers
         :param algorithm: The algorithm instance
         :param brokerage: The BacktestingBrokerage
         :param result_handler: 
-        """
-        ...
-
-    def initialize_transaction_thread(self) -> None:
-        """
-        For backtesting order requests will be processed by the algorithm thread
-        sequentially at wait_for_order_submission and process_synchronous_events
-        
-        This Class is protected.
         """
         ...
 

@@ -6,6 +6,7 @@ Functions for decoding data of various types including field tables and arrays
 import collections.abc
 import datetime
 import decimal as _decimal
+import struct
 
 from pamqp import common
 
@@ -39,10 +40,10 @@ def bit(value: bytes, position: int) -> tuple[int, bool]:
     :raises ValueError: when the binary data can not be unpacked
 
     """
-    bit_buffer = common.Struct.byte.unpack_from(value)[0]
     try:
+        bit_buffer = common.Struct.byte.unpack_from(value)[0]
         return 0, (bit_buffer & (1 << position)) != 0
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack bit value') from err
 
 
@@ -56,7 +57,7 @@ def boolean(value: bytes) -> tuple[int, bool]:
     """
     try:
         return 1, bool(common.Struct.byte.unpack_from(value[0:1])[0])
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack boolean value') from err
 
 
@@ -71,7 +72,7 @@ def byte_array(value: bytes) -> tuple[int, bytearray]:
     try:
         length = common.Struct.integer.unpack(value[0:4])[0]
         return length + 4, bytearray(value[4 : length + 4])
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack byte array value') from err
 
 
@@ -85,9 +86,9 @@ def decimal(value: bytes) -> tuple[int, _decimal.Decimal]:
     """
     try:
         decimals = common.Struct.byte.unpack(value[0:1])[0]
-        raw = common.Struct.integer.unpack(value[1:5])[0]
+        raw = common.Struct.uint.unpack(value[1:5])[0]
         return 5, _decimal.Decimal(raw) * (_decimal.Decimal(10) ** -decimals)
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack decimal value') from err
 
 
@@ -101,7 +102,7 @@ def double(value: bytes) -> tuple[int, float]:
     """
     try:
         return 8, common.Struct.double.unpack_from(value)[0]
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack double value') from err
 
 
@@ -115,7 +116,7 @@ def floating_point(value: bytes) -> tuple[int, float]:
     """
     try:
         return 4, common.Struct.float.unpack_from(value)[0]
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack floating point value') from err
 
 
@@ -129,7 +130,7 @@ def long_int(value: bytes) -> tuple[int, int]:
     """
     try:
         return 4, common.Struct.long.unpack(value[0:4])[0]
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack long integer value') from err
 
 
@@ -144,7 +145,7 @@ def long_uint(value: bytes) -> tuple[int, int]:
     """
     try:
         return 4, common.Struct.ulong.unpack(value[0:4])[0]
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError(
             'Could not unpack unsigned long integer value'
         ) from err
@@ -161,7 +162,7 @@ def long_long_int(value: bytes) -> tuple[int, int]:
     """
     try:
         return 8, common.Struct.long_long_int.unpack(value[0:8])[0]
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack long-long integer value') from err
 
 
@@ -175,7 +176,7 @@ def long_str(value: bytes) -> tuple[int, str | bytes]:
     """
     try:
         length = common.Struct.integer.unpack(value[0:4])[0]
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack long string value') from err
     try:
         return length + 4, value[4 : length + 4].decode('utf-8')
@@ -193,7 +194,7 @@ def octet(value: bytes) -> tuple[int, int]:
     """
     try:
         return 1, common.Struct.byte.unpack(value[0:1])[0]
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack octet value') from err
 
 
@@ -207,7 +208,7 @@ def short_int(value: bytes) -> tuple[int, int]:
     """
     try:
         return 2, common.Struct.short.unpack_from(value[0:2])[0]
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack short integer value') from err
 
 
@@ -222,7 +223,7 @@ def short_uint(value: bytes) -> tuple[int, int]:
     """
     try:
         return 2, common.Struct.ushort.unpack_from(value[0:2])[0]
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError(
             'Could not unpack unsigned short integer value'
         ) from err
@@ -239,7 +240,7 @@ def short_short_int(value: bytes) -> tuple[int, int]:
     """
     try:
         return 1, common.Struct.short_short_int.unpack_from(value[0:1])[0]
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack short-short integer value') from err
 
 
@@ -254,7 +255,7 @@ def short_short_uint(value: bytes) -> tuple[int, int]:
     """
     try:
         return 1, common.Struct.short_short_uint.unpack_from(value[0:1])[0]
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError(
             'Could not unpack unsigned short-short integer value'
         ) from err
@@ -271,7 +272,7 @@ def short_str(value: bytes) -> tuple[int, str]:
     try:
         length = common.Struct.byte.unpack(value[0:1])[0]
         return length + 1, value[1 : length + 1].decode('utf-8')
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack short string value') from err
 
 
@@ -292,7 +293,7 @@ def timestamp(value: bytes) -> tuple[int, datetime.datetime]:
             ts_value /= 1000.0
 
         return 8, datetime.datetime.fromtimestamp(ts_value, tz=datetime.UTC)
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack timestamp value') from err
 
 
@@ -326,12 +327,14 @@ def field_array(value: bytes) -> tuple[int, common.FieldArray]:
         offset = 4
         data = []
         field_array_end = offset + length
+        if field_array_end > len(value):
+            raise ValueError('Field array length exceeds available data')
         while offset < field_array_end:
             consumed, result = embedded_value(value[offset:])
             offset += consumed
             data.append(result)
         return offset, data
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack data') from err
 
 
@@ -348,16 +351,20 @@ def field_table(value: bytes) -> tuple[int, common.FieldTable]:
         offset = 4
         data = {}
         field_table_end = offset + length
+        if field_table_end > len(value):
+            raise ValueError('Field table length exceeds available data')
         while offset < field_table_end:
             key_length = common.Struct.byte.unpack_from(value, offset)[0]
             offset += 1
+            if offset + key_length > field_table_end:
+                raise ValueError('Field table key length exceeds data')
             key = value[offset : offset + key_length].decode('utf-8')
             offset += key_length
             consumed, result = embedded_value(value[offset:])
             offset += consumed
             data[key] = result
         return field_table_end, data
-    except TypeError as err:
+    except (struct.error, TypeError) as err:
         raise ValueError('Could not unpack data') from err
 
 

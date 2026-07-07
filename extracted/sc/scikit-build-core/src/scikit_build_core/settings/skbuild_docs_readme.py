@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__ = {f"{__spec__.parent}.skbuild_model", "textwrap", "typing"}
+
 import dataclasses
 import textwrap
 import typing
@@ -7,7 +9,9 @@ import typing
 from .documentation import mk_docs
 from .skbuild_model import ScikitBuildSettings
 
-if typing.TYPE_CHECKING:
+TYPE_CHECKING = False
+
+if TYPE_CHECKING:
     from .documentation import DCDoc
 
 __all__ = ["mk_skbuild_docs"]

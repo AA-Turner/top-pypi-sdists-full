@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: touchstone-prover
-Version: 1.53.0
+Version: 1.54.0
 Summary: An SMT-based verifier for Python with a machine-checked trust base.
 Author: CharlesCNorton
 License: MIT

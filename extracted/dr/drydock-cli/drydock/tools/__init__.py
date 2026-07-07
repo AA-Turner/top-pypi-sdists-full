@@ -21,6 +21,53 @@ from pathlib import Path
 # to gigabytes within the timeout. We stream with a byte cap and kill the command
 # once it's hit — bounding RAM regardless of how much it tries to produce.
 _MAX_BASH_OUTPUT_BYTES = 256 * 1024  # 256 KB — plenty of context, safe for RAM
+_PARTIAL_TAIL = 4000  # chars of pre-timeout output to keep (tail) in the timeout msg
+_DEFAULT_TIMEOUT = 120
+_MAX_TIMEOUT = 1800  # 30 min hard ceiling — a single command shouldn't hang longer
+
+
+def _as_text(v, default: str = "") -> str:
+    """Coerce a text-body arg (file content, replacement text) to a string. Local
+    models sometimes send it as a JSON array of lines → newline-join; None →
+    default; other scalars → str()."""
+    if isinstance(v, (list, tuple)):
+        return "\n".join(str(x) for x in v)
+    if v is None:
+        return default
+    return v if isinstance(v, str) else str(v)
+
+
+def _as_str_arg(v, default: str = "") -> str:
+    """Coerce a scalar string arg (a path, a pattern) to a string. A single-value
+    list is unwrapped (models sometimes wrap a lone path/pattern in an array)."""
+    if isinstance(v, (list, tuple)):
+        return str(v[0]) if v else default
+    if v is None:
+        return default
+    return v if isinstance(v, str) else str(v)
+
+
+def _coerce_int(value, default: int):
+    """Coerce a model-supplied int arg (offset/limit) that may arrive as a string
+    ("5") or junk. Falls back to default on anything non-numeric."""
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _coerce_timeout(value) -> int:
+    """Make the model-supplied timeout robust: local models often send it as a
+    string ("10"), and a 0/negative/absurd value would make EVERY command time
+    out instantly (or hang for hours). Coerce to int, fall back to the default on
+    junk, and clamp to (0, _MAX_TIMEOUT]."""
+    try:
+        t = int(float(value))
+    except (TypeError, ValueError):
+        return _DEFAULT_TIMEOUT
+    if t <= 0:
+        return _DEFAULT_TIMEOUT
+    return min(t, _MAX_TIMEOUT)
 
 
 def _detect_bash() -> str | None:
@@ -44,6 +91,20 @@ def _detect_bash() -> str | None:
 # Resolved once at import (in whatever environment drydock runs — host or the
 # task container). None → bash unavailable, fall back to the default shell.
 _BASH_SHELL = _detect_bash()
+
+
+# ANSI escape sequences (CSI colour/cursor, OSC title, and lone two-char escapes).
+# Some tools emit these even to a pipe (--color=always, forced-colour test runners),
+# and they're pure display control — noise that wastes the model's tokens.
+_ANSI_RE = re.compile(r"\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-Z\\-_])")
+
+
+def _sanitize_bash_output(text: str) -> str:
+    """Strip ANSI escape sequences and drop NUL bytes from command output. NUL is
+    valid UTF-8 (so the errors='replace' decode keeps it) but raw NUL in a JSON
+    tool-result trips some LLM servers' tokenizers; ANSI codes are display noise.
+    Neither carries information the model needs. Newlines/tabs/Unicode are kept."""
+    return _ANSI_RE.sub("", text).replace("\x00", "")
 
 
 def _collapse_repeated_lines(text: str, run: int = 20) -> str:
@@ -131,13 +192,16 @@ SCHEMAS = [
     },
     {
         "name": "Edit",
-        "description": "Replace exact text in a file. old_string must match exactly.",
+        "description": "Replace exact text in a file. old_string must match exactly. "
+                       "By default old_string must be unique; pass replace_all:true "
+                       "to replace every occurrence.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "file_path": {"type": "string"},
                 "old_string": {"type": "string", "description": "Exact text to find"},
                 "new_string": {"type": "string", "description": "Replacement text"},
+                "replace_all": {"type": "boolean", "description": "Replace ALL occurrences (default false)"},
             },
             "required": ["file_path", "old_string", "new_string"],
         },
@@ -554,13 +618,13 @@ def tool_viewimage(params: dict, config: dict) -> str:
 
 
 def tool_read(params: dict, config: dict) -> str:
-    fp = _resolve_path(params["file_path"], config)
+    fp = _resolve_path(_as_str_arg(params.get("file_path")), config)
     # Reading an image as text yields binary garbage — point at the vision tool.
     if os.path.splitext(fp)[1].lower() in _IMAGE_EXTS and os.path.isfile(fp):
         return (f"{params['file_path']} is an image — Read would return binary "
                 "garbage. Use the ViewImage tool to actually SEE it.")
-    limit = params.get("limit")  # None = caller didn't specify a window
-    offset = params.get("offset", 0)
+    limit = None if params.get("limit") is None else _coerce_int(params.get("limit"), 2000)
+    offset = _coerce_int(params.get("offset", 0), 0)
     try:
         with open(fp, "r", encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
@@ -570,7 +634,10 @@ def tool_read(params: dict, config: dict) -> str:
         eff_limit = 2000 if limit is None else limit
         selected = lines[offset:offset + eff_limit]
         numbered = [f"{i + offset + 1}\t{line.rstrip()}" for i, line in enumerate(selected)]
-        result = "\n".join(numbered)
+        # Drop NUL bytes (valid UTF-8, so errors='replace' keeps them) — raw NUL in
+        # a JSON tool result trips some LLM servers. ANSI is left as-is: unlike
+        # command output, a file's bytes are content the model may need verbatim.
+        result = "\n".join(numbered).replace("\x00", "")
         if len(lines) > offset + eff_limit:
             result += f"\n[... {len(lines) - offset - eff_limit} more lines]"
         return result or "(empty file)"
@@ -636,7 +703,10 @@ def tool_write(params: dict, config: dict) -> str:
     fp = _resolve_path(str(fp).strip(), config)
     if Path(fp).is_dir():
         return f"Error: {fp} is a directory, not a file. Pass a file path."
-    content = params.get("content", "")
+    # Local models sometimes send content as a JSON array of lines (or a number),
+    # which f.write() can't take — coerce instead of crashing (tools must return
+    # errors, never raise). A list → newline-joined lines.
+    content = _as_text(params.get("content", ""))
     if has_conflict_markers(content):
         return conflict_marker_refusal(fp)
     prev = _snapshot(fp)
@@ -759,8 +829,15 @@ def tool_edit(params: dict, config: dict) -> str:
     if not fp or not str(fp).strip():
         return "Error: Edit needs a real file_path (the path was empty or blank)."
     fp = _resolve_path(str(fp).strip(), config)
-    old = params.get("old_string", "")
-    new = params.get("new_string", "")
+    # Coerce non-string old/new (a JSON array of lines, a number) instead of
+    # crashing with a TypeError in the substring search / replace.
+    old = _as_text(params.get("old_string", ""))
+    new = _as_text(params.get("new_string", ""))
+    if old == "":
+        # An empty old_string matches between every char (count = len+1) → the
+        # generic "found N times" is baffling. Say what's actually wrong.
+        return ("Error: old_string is empty. Edit replaces existing text — give the "
+                "exact text to find. To create a file or add to the end, use Write.")
     if has_conflict_markers(new):
         return conflict_marker_refusal(fp)
     # If a directory was passed, try to infer the intended file (avoids a
@@ -806,9 +883,15 @@ def tool_edit(params: dict, config: dict) -> str:
                     f"to copy the exact text (including indentation)."
                 )
         count = content.count(old)
-        if count > 1:
-            return f"Error: old_string found {count} times in {fp}. Add more context to make it unique."
-        updated = content.replace(old, new, 1)
+        # replace_all (models expect it, like the standard Edit tool): replace
+        # EVERY occurrence. Without it, multiple matches are ambiguous → error.
+        replace_all = bool(params.get("replace_all", False))
+        if count > 1 and not replace_all:
+            return (
+                f"Error: old_string found {count} times in {fp}. Add more context "
+                f"to make it unique, or pass replace_all: true to replace all."
+            )
+        updated = content.replace(old, new) if replace_all else content.replace(old, new, 1)
         if updated == content:
             # No-op edit (old_string == new_string, or the replacement changes
             # nothing). Reporting "Edited" here is a false success that invites
@@ -824,6 +907,8 @@ def tool_edit(params: dict, config: dict) -> str:
         Path(fp).write_text(updated, encoding="utf-8")
         _record_undo(config, fp, content)
         result = f"Edited {fp}: replaced {len(old)} chars with {len(new)} chars"
+        if replace_all and count > 1:
+            result += f" ({count} occurrences)"
         # Advisory post-edit syntax check.
         warn = python_syntax_warning(fp, updated)
         if warn:
@@ -901,7 +986,7 @@ def tool_bash(params: dict, config: dict) -> str:
     # and crack hashes — a 30s wall killed legitimate long work before it could
     # finish (terminal-bench: 16 tasks died at 30s on builds/training). Bounded,
     # and the model can pass a larger `timeout` for genuinely heavy commands.
-    timeout = params.get("timeout", 120)
+    timeout = _coerce_timeout(params.get("timeout", 120))
     reason = bash_safety.dangerous_command(cmd)
     if reason is not None:
         return bash_safety.refusal_message(cmd, reason)
@@ -942,7 +1027,13 @@ def tool_bash(params: dict, config: dict) -> str:
             # explicitly via a pipe/redirect (echo x | cmd, cmd < file), which
             # overrides this.
             stdin=subprocess.DEVNULL,
-            text=True, cwd=config.get("cwd"), start_new_session=True,
+            # errors="replace" so BINARY / non-UTF8 output (cat a binary, a tool
+            # emitting raw bytes, gzip to stdout) decodes to replacement chars
+            # instead of raising UnicodeDecodeError inside the reader thread —
+            # which killed the thread and handed the agent "(no output)", losing
+            # even the text parts of mixed output.
+            text=True, encoding="utf-8", errors="replace",
+            cwd=config.get("cwd"), start_new_session=True,
         )
         config.setdefault("_abort", {})["proc"] = proc
         # Read output in a daemon thread with a HARD byte cap, so memory can't
@@ -976,6 +1067,19 @@ def tool_bash(params: dict, config: dict) -> str:
             if cancel is not None and cancel.is_set():
                 kill_process_group(proc)
                 proc.wait()
+                # The drain thread blocks in read(8192) until the buffer fills or
+                # EOF; killing the process delivers EOF, so join lets it append the
+                # last buffered output BEFORE we read chunks (else partial races
+                # the drain and comes back empty for small-output commands).
+                reader.join(1.0)
+                partial = _sanitize_bash_output(
+                    _collapse_repeated_lines("".join(list(chunks)))
+                ).rstrip()
+                if partial:
+                    tail = partial[-_PARTIAL_TAIL:]
+                    if len(partial) > _PARTIAL_TAIL:
+                        tail = "[... earlier output truncated ...]\n" + tail
+                    return f"[stopped by user]\n\n--- output before stop ---\n{tail}"
                 return "[stopped by user]"
             # The SHELL has exited but the pipe is still open → the command
             # backgrounded a child (`cmd &`, a server the task wants to keep
@@ -991,6 +1095,7 @@ def tool_bash(params: dict, config: dict) -> str:
             if time.monotonic() - start > timeout:
                 kill_process_group(proc)
                 proc.wait()
+                reader.join(1.0)  # flush buffered output before building partial
                 bigger = min(timeout * 4, 1800)
                 msg = (
                     f"Error: command timed out after {timeout}s. If it is "
@@ -1000,6 +1105,18 @@ def tool_bash(params: dict, config: dict) -> str:
                 )
                 if _is_network_command(cmd):
                     msg += _OFFLINE_HINT
+                # Preserve any output produced BEFORE the hang — a test run or
+                # build that prints results/diagnostics then stalls would
+                # otherwise lose exactly what the agent needs. Tail-bounded so a
+                # big partial can't bloat context.
+                partial = _sanitize_bash_output(
+                    _collapse_repeated_lines("".join(list(chunks)))
+                ).rstrip()
+                if partial:
+                    tail = partial[-_PARTIAL_TAIL:]
+                    if len(partial) > _PARTIAL_TAIL:
+                        tail = "[... earlier output truncated ...]\n" + tail
+                    msg += f"\n\n--- output before timeout ---\n{tail}"
                 return msg
         if not backgrounded:
             proc.wait()
@@ -1007,7 +1124,7 @@ def tool_bash(params: dict, config: dict) -> str:
         # then note if we hit the byte cap. Bounds both RAM (the cap) and context
         # tokens (the collapse). Snapshot chunks (list()) in case the reader
         # daemon is still appending for a backgrounded child.
-        output = _collapse_repeated_lines("".join(list(chunks)))
+        output = _sanitize_bash_output(_collapse_repeated_lines("".join(list(chunks))))
         if backgrounded:
             return (output.rstrip() + "\n[a process was left running in the background; "
                     "the command returned. Check it with a follow-up command.]").lstrip("\n")
@@ -1032,8 +1149,10 @@ def tool_bash(params: dict, config: dict) -> str:
 
 
 def tool_glob(params: dict, config: dict) -> str:
-    pattern = params["pattern"]
-    base = params.get("path") or config.get("cwd") or "."
+    pattern = _as_str_arg(params.get("pattern"))
+    if not pattern:
+        return "Error: Glob needs a 'pattern' (e.g. '**/*.py')."
+    base = _as_str_arg(params.get("path")) or config.get("cwd") or "."
     try:
         matches = sorted(_glob.glob(os.path.join(base, pattern), recursive=True))
         if not matches:
@@ -1046,18 +1165,25 @@ def tool_glob(params: dict, config: dict) -> str:
 
 
 def tool_grep(params: dict, config: dict) -> str:
-    pattern = params["pattern"]
-    path = params.get("path") or config.get("cwd") or "."
-    include = params.get("include", "")
+    pattern = _as_str_arg(params.get("pattern"))
+    path = _as_str_arg(params.get("path")) or config.get("cwd") or "."
+    include = _as_str_arg(params.get("include", ""))
     try:
         cmd = ["grep", "-rn", "--color=never"]
         if include:
             cmd.extend(["--include", include])
         cmd.extend([pattern, path])
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=30,
+            cmd, capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=30,
         )
-        output = result.stdout.strip()
+        # grep exit codes: 0 = matched, 1 = no match, >=2 = ERROR (invalid regex,
+        # unreadable path). Don't report an error as "(no matches)" — the model
+        # would wrongly conclude the pattern is absent instead of fixing it.
+        if result.returncode >= 2:
+            err = (result.stderr or "").strip() or "grep failed"
+            return f"Error: {err.splitlines()[0]}"
+        output = _sanitize_bash_output(result.stdout).strip()
         if not output:
             return "(no matches)"
         lines = output.split("\n")
@@ -1136,7 +1262,7 @@ def tool_consult(params: dict, config: dict) -> str:
     """Ask the configured second/advisor model (e.g. Gemini) for a second opinion."""
     from drydock import advisor
 
-    question = (params.get("question") or params.get("prompt") or "").strip()
+    question = _as_str_arg(params.get("question") or params.get("prompt")).strip()
     if not question:
         return "Error: Consult needs a `question`."
     return advisor.consult(question, config, context=params.get("context", "") or "")
@@ -1278,7 +1404,7 @@ def tool_gitcommit(params: dict, config: dict) -> str:
     try:
         return gittools.commit(
             _git_cwd(config),
-            params.get("message") or "",
+            _as_text(params.get("message")),
             add_all=params.get("add_all", True) is not False,
         )
     except gittools.GitError as e:
@@ -1458,7 +1584,7 @@ def tool_websearch(params: dict, config: dict) -> str:
     """Search the internet (DuckDuckGo). Read-only; clean message when offline."""
     from drydock import web
 
-    query = (params.get("query") or "").strip()
+    query = _as_str_arg(params.get("query")).strip()
     if not query:
         return "Error: `WebSearch` needs a `query`."
     try:
@@ -1476,7 +1602,7 @@ def tool_webfetch(params: dict, config: dict) -> str:
     """Fetch a URL and return readable text. Read-only; clean message offline."""
     from drydock import web
 
-    url = (params.get("url") or "").strip()
+    url = _as_str_arg(params.get("url")).strip()
     if not url:
         return "Error: `WebFetch` needs a `url`."
     try:
@@ -1496,7 +1622,7 @@ def tool_knowledge(params: dict, config: dict) -> str:
     If no index exists, says so cleanly rather than erroring."""
     from drydock import graphrag
 
-    query = (params.get("query") or "").strip()
+    query = _as_str_arg(params.get("query")).strip()
     if not query:
         return "Error: `Knowledge` needs a `query` describing what to look up."
     cwd = config.get("cwd") or os.getcwd()

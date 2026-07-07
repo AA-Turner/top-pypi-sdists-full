@@ -1,16 +1,45 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat.typing",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._variants",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.cmake",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.errors",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.settings.skbuild_read_settings",
+    f"{__spec__.parent}._editable",
+    f"{__spec__.parent}._init",
+    f"{__spec__.parent}._pathutil",
+    f"{__spec__.parent}._scripts",
+    f"{__spec__.parent}._wheelfile",
+    f"{__spec__.parent}.common_wheel_helpers",
+    f"{__spec__.parent}.generate",
+    f"{__spec__.parent}.metadata",
+    "functools",
+    "packaging",
+    "packaging.requirements",
+    "packaging.tags",
+    "packaging.utils",
+    "pathlib",
+    "pathspec",
+    "platform",
+    "shutil",
+    "tempfile",
+    "typing",
+}
+
 import dataclasses
+import functools
 import os
 import platform
 import shutil
 import sys
-import sysconfig
 import tempfile
-from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
+import pathspec
 from packaging.requirements import Requirement
 from packaging.tags import Tag
 from packaging.utils import canonicalize_name
@@ -18,22 +47,45 @@ from packaging.utils import canonicalize_name
 from .._compat import tomllib
 from .._compat.typing import assert_never
 from .._logging import LEVEL_VALUE, logger, rich_error, rich_print
-from ..builder.builder import Builder, archs_to_tags, get_archs
-from ..builder.wheel_tag import WheelTag
-from ..cmake import CMake, CMaker
+from .._variants import get_wheel_variant
+from ..cmake import CMake
 from ..errors import FailedLiveProcessError
-from ..format import pyproject_format
 from ..settings.skbuild_read_settings import SettingsReader
-from ._editable import editable_redirect, libdir_to_installed, mapping_to_modules
+from ._editable import (
+    editable_inplace_files,
+    editable_redirect_files,
+    get_packages,
+    package_search_dirs,
+)
 from ._init import setup_logging
 from ._pathutil import (
+    NON_PLATLIB_REBUILD_MSG,
+    editable_redirectable,
+    iter_force_include,
     packages_to_file_mapping,
+    resolve_from_sdist_force_include,
+    resolve_wheel_tree,
 )
 from ._scripts import process_script_dir
 from ._wheelfile import WheelMetadata, WheelWriter
+from .common_wheel_helpers import (
+    build_install_extra_build_types,
+    build_wheel,
+    configure_wheel,
+    editable_rebuild_options,
+    get_build_dir,
+    get_editable_rebuild_dir,
+    get_install_dir,
+    get_targetlib,
+    get_wheel_tag,
+    install_wheel,
+    prepare_editable_rebuild_dir,
+    prepare_wheel_dirs,
+)
 from .generate import generate_file_contents
 from .metadata import get_standard_metadata
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
@@ -57,62 +109,100 @@ def _make_editable(
     settings: ScikitBuildSettings,
     wheel: WheelWriter,
     packages: Iterable[str],
+    install_prefix: str | None = None,
 ) -> None:
-    modules = mapping_to_modules(mapping, libdir)
-    installed = libdir_to_installed(libdir)
-    if settings.wheel.install_dir.startswith("/"):
-        msg = "Editable installs cannot rebuild an absolute wheel.install-dir. Use an override to change if needed."
-        raise AssertionError(msg)
-    editable_txt = editable_redirect(
-        modules=modules,
-        installed=installed,
-        reload_dir=reload_dir,
-        rebuild=settings.editable.rebuild,
-        verbose=settings.editable.verbose,
+    for filename, contents in editable_redirect_files(
         build_options=build_options,
         install_options=install_options,
-        install_dir=settings.wheel.install_dir,
-    )
-
-    wheel.writestr(
-        f"_{name}_editable.py",
-        editable_txt.encode(),
-    )
-    # Support Cython by adding the source directory directly to the path.
-    # This is necessary because Cython does not support sys.meta_path for
-    # cimports (as of 3.0.5).
-    import_strings = [f"import _{name}_editable", *packages, ""]
-    pth_import_paths = "\n".join(import_strings)
-    wheel.writestr(
-        f"_{name}_editable.pth",
-        pth_import_paths.encode(),
-    )
+        libdir=libdir,
+        mapping=mapping,
+        name=name,
+        packages=packages,
+        reload_dir=reload_dir,
+        settings=settings,
+        install_prefix=install_prefix,
+    ).items():
+        wheel.writestr(filename, contents)
 
 
-def _get_packages(
+def _force_include_into_wheel(
+    settings: ScikitBuildSettings,
     *,
-    packages: Sequence[str] | Mapping[str, str] | None,
-    name: str,
-) -> dict[str, str]:
-    if packages is not None:
-        if isinstance(packages, Mapping):
-            return dict(packages)
-        return {str(Path(p).name): p for p in packages}
+    wheel_dirs: dict[str, Path],
+    targetlib: str,
+    only_metadata: bool = False,
+    redirect_mapping: dict[str, str] | None = None,
+    redirect_libdir: Path | None = None,
+) -> set[Path]:
+    """
+    Copy ``wheel.force-include`` entries into the staged wheel trees.
 
-    # Auto package discovery
-    packages = {}
-    for base_path in (Path("src"), Path("python"), Path()):
-        path = base_path / name
-        if path.is_dir() and (
-            (path / "__init__.py").is_file() or (path / "__init__.pyi").is_file()
-        ):
-            logger.info("Discovered Python package at {}", path)
-            packages[name] = str(path)
-            break
-    else:
-        logger.debug("Didn't find a Python package for {}", name)
+    Run after the package copy and CMake install so force-included files override
+    files at the same destination. ``only_metadata`` restricts the copy to the
+    metadata tree; the prepare-metadata path uses it so the prepared
+    ``.dist-info`` matches the final wheel.
 
-    return packages
+    With ``redirect_mapping``/``redirect_libdir`` (a redirect-mode editable
+    build), platlib entries the redirect can serve live (see
+    :func:`editable_redirectable`) are added to the mapping instead of copied,
+    displacing a package file or CMake output at the same destination so the
+    force-include still wins. Everything else falls back to a baked copy.
+
+    Returns the resolved target paths of force-included *files*, so the caller
+    can exempt them from ``wheel.exclude`` (naming an exact file forces it past
+    an exclude pattern). Files copied from a force-included *directory* are not
+    returned, so a bulk directory copy stays subject to ``wheel.exclude``.
+    """
+    written: set[Path] = set()
+    exclude_spec = (
+        pathspec.GitIgnoreSpec.from_lines(settings.wheel.exclude)
+        if redirect_mapping is not None
+        else None
+    )
+    for source, dest in settings.wheel.force_include.items():
+        base, rest = resolve_wheel_tree(
+            dest,
+            wheel_dirs=wheel_dirs,
+            targetlib=targetlib,
+            experimental=settings.experimental,
+        )
+        if only_metadata and base != wheel_dirs["metadata"]:
+            continue
+        # A source that names an sdist output exists only in an unpacked-sdist
+        # build; from a source tree or editable build, fall back through the
+        # sdist.force-include map to the original source.
+        resolved = resolve_from_sdist_force_include(
+            source, settings.sdist.force_include
+        )
+        source_is_file = Path(resolved).expanduser().is_file()
+        for src_file, target in iter_force_include(resolved, rest, base):
+            if redirect_mapping is not None and base == wheel_dirs[targetlib]:
+                assert exclude_spec is not None
+                assert redirect_libdir is not None
+                rel = target.relative_to(base)
+                # Directory members stay subject to wheel.exclude; with no
+                # baked copy the zip-time filter never sees them, so filter
+                # here. (A file force-include overrides the exclude.)
+                if not source_is_file and exclude_spec.match_file(rel):
+                    continue
+                if editable_redirectable(src_file, rel):
+                    live_target = str(redirect_libdir / rel)
+                    # The force-include wins at its destination: drop a package
+                    # mapping entry and staged/installed file at the same spot,
+                    # since the finder checks installed files before sources.
+                    for key in [
+                        k for k, v in redirect_mapping.items() if v == live_target
+                    ]:
+                        del redirect_mapping[key]
+                    target.unlink(missing_ok=True)
+                    (redirect_libdir / rel).unlink(missing_ok=True)
+                    redirect_mapping[str(src_file)] = live_target
+                    continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_file, target)
+            if source_is_file:
+                written.add(target.resolve())
+    return written
 
 
 @dataclasses.dataclass
@@ -213,7 +303,7 @@ def _build_wheel_impl(
                 pyproject=pyproject,
             )
         except FailedLiveProcessError as err2:
-            err2.msg = settings_reader.settings.messages.after_failure.format()
+            err2.msg = settings_reader.settings.messages.after_failure
             raise
 
 
@@ -231,7 +321,7 @@ def _build_wheel_impl_impl(
     Build a wheel or just prepare metadata (if wheel dir is None). Can be editable.
     """
 
-    metadata = get_standard_metadata(pyproject, settings)
+    metadata = get_standard_metadata(pyproject, settings, build_state=state)
 
     if metadata.version is None:
         msg = "project.version is not specified, must be statically present or tool.scikit-build metadata.version.provider configured when dynamic"
@@ -244,6 +334,8 @@ def _build_wheel_impl_impl(
 
     # Get the closest (normally) importable name
     normalized_name = metadata.name.replace("-", "_").replace(".", "_")
+    # Normalized like the wheel/sdist filename, for the {name} build-dir placeholder
+    placeholder_name = metadata.canonical_name.replace("-", "_")
 
     if settings.wheel.cmake:
         cmake = CMake.default_search(version=settings.cmake.version, env=os.environ)
@@ -251,11 +343,6 @@ def _build_wheel_impl_impl(
     else:
         cmake = None
         cmake_msg = []
-
-    if settings.wheel.platlib is None:
-        targetlib = "platlib" if settings.wheel.cmake else "purelib"
-    else:
-        targetlib = "platlib" if settings.wheel.platlib else "purelib"
 
     rich_print(
         "{green}*** {bold}scikit-build-core {__version__}",
@@ -276,70 +363,101 @@ def _build_wheel_impl_impl(
     with tempfile.TemporaryDirectory() as tmpdir:
         build_tmp_folder = Path(tmpdir)
         wheel_dir = build_tmp_folder / "wheel"
+        wheel_variant = get_wheel_variant(settings, pyproject, metadata)
 
-        tags = WheelTag.compute_best(
-            archs_to_tags(get_archs(os.environ)),
-            settings.wheel.py_api,
-            expand_macos=settings.wheel.expand_macos_universal_tags,
-            root_is_purelib=targetlib == "purelib",
-            build_tag=settings.wheel.build_tag,
+        targetlib = get_targetlib(settings)
+        tags = get_wheel_tag(settings, targetlib=targetlib)
+        build_dir = get_build_dir(
+            settings,
+            tags=tags,
+            state=state,
+            editable=editable,
+            has_cmake=cmake is not None,
+            fallback=build_tmp_folder / "build",
+            name=placeholder_name,
+        )
+        wheel_dirs = prepare_wheel_dirs(wheel_dir, targetlib=targetlib)
+        install_dir = get_install_dir(
+            settings, wheel_dirs=wheel_dirs, targetlib=targetlib
         )
 
-        # A build dir can be specified, otherwise use a temporary directory
-        if cmake is not None and editable and settings.editable.mode == "inplace":
-            build_dir = settings.cmake.source_dir
-        else:
-            build_dir = (
-                Path(
-                    settings.build_dir.format(
-                        **pyproject_format(
-                            settings=settings,
-                            tags=tags,
-                            state=state,
-                        )
-                    )
-                )
-                if settings.build_dir
-                else build_tmp_folder / "build"
+        # A rebuildable redirect editable (one with a persistent build-dir)
+        # installs the platlib into a persistent tree instead of the temporary
+        # wheel-staging dir, and the redirect references the compiled artifacts
+        # there by absolute path. This bakes SKBUILD_<targetlib>_DIR /
+        # CMAKE_INSTALL_PREFIX at the final location at configure time, so
+        # import-triggered rebuilds need no reconfigure (#1135).
+        #
+        # Two triggers: the classic editable.rebuild installs into a tree inside
+        # build-dir; setting editable.rebuild-dir installs into a user-chosen tree
+        # (see EditableSettings.rebuild_enabled). Both still require build-dir.
+        editable_rebuild = (
+            editable
+            and settings.editable.mode == "redirect"
+            and settings.editable.rebuild_enabled
+            and bool(settings.build_dir)
+        )
+        if editable_rebuild:
+            targetlib_dir = get_editable_rebuild_dir(
+                settings,
+                build_dir=build_dir,
+                targetlib=targetlib,
+                tags=tags,
+                state=state,
+                name=placeholder_name,
             )
-            logger.info("Build directory: {}", build_dir.resolve())
-
-        wheel_dirs = {
-            targetlib: wheel_dir / targetlib,
-            "data": wheel_dir / "data",
-            "headers": wheel_dir / "headers",
-            "scripts": wheel_dir / "scripts",
-            "null": wheel_dir / "null",
-            "metadata": wheel_dir / "metadata",
-        }
-
-        for d in wheel_dirs.values():
-            d.mkdir(parents=True)
-
-        if ".." in settings.wheel.install_dir:
-            msg = "wheel.install_dir must not contain '..'"
-            raise AssertionError(msg)
-        if settings.wheel.install_dir.startswith("/"):
-            if not settings.experimental:
-                msg = "Experimental features must be enabled to use absolute paths in wheel.install_dir"
-                raise AssertionError(msg)
-            if settings.wheel.install_dir[1:].split("/")[0] not in wheel_dirs:
-                msg = "Must target a valid wheel directory"
-                raise AssertionError(msg)
-            install_dir = wheel_dir / settings.wheel.install_dir[1:]
+            prepare_editable_rebuild_dir(
+                targetlib_dir, guard=bool(settings.editable.rebuild_dir)
+            )
         else:
-            install_dir = wheel_dirs[targetlib] / settings.wheel.install_dir
+            targetlib_dir = wheel_dirs[targetlib]
+
+        # The metadata-only and full-wheel paths build identical WheelWriters
+        # except for the output folder; share a single constructor.
+        make_wheel = functools.partial(
+            WheelWriter,
+            metadata,
+            tags=override_wheel_tags or tags.as_tags_set(),
+            wheel_metadata=WheelMetadata(
+                root_is_purelib=targetlib == "purelib",
+                build_tag=settings.wheel.build_tag,
+            ),
+            metadata_dir=wheel_dirs["metadata"],
+            variant_label=wheel_variant.label if wheel_variant else "",
+            variant_dist_info_contents=(
+                wheel_variant.dist_info_contents if wheel_variant else None
+            ),
+            reproducible=settings.wheel.reproducible,
+        )
+
+        # A rebuildable editable re-points install_dir into the persistent
+        # install tree and bakes the same SKBUILD_<targetlib>_DIR so an absolute
+        # ${SKBUILD_*_DIR}/... destination lands there too. The install tree only
+        # covers the target lib, so wheel.install-dir must resolve under it; a
+        # non-platlib (or absolute) tree cannot be rebuilt and raises the clear
+        # guard here rather than a raw relative_to() ValueError.
+        editable_rebuild_cache: dict[str, str | Path] | None = None
+        if editable_rebuild:
+            try:
+                install_relative = install_dir.relative_to(wheel_dirs[targetlib])
+            except ValueError:
+                raise AssertionError(NON_PLATLIB_REBUILD_MSG) from None
+            install_dir = targetlib_dir / install_relative
+            editable_rebuild_cache = {f"SKBUILD_{targetlib.upper()}_DIR": targetlib_dir}
 
         # Include the metadata license.file entry if provided
-        if metadata.license_files:
+        if metadata.license_files is not None:
             license_paths = metadata.license_files
         else:
-            license_file_globs = settings.wheel.license_files or [
-                "LICEN[CS]E*",
-                "COPYING*",
-                "NOTICE*",
-                "AUTHORS*",
-            ]
+            if settings.wheel.license_files is None:
+                license_file_globs = [
+                    "LICEN[CS]E*",
+                    "COPYING*",
+                    "NOTICE*",
+                    "AUTHORS*",
+                ]
+            else:
+                license_file_globs = list(settings.wheel.license_files)
             if (
                 metadata.license
                 and not isinstance(metadata.license, str)
@@ -367,23 +485,22 @@ def _build_wheel_impl_impl(
         for gen in settings.generate:
             if gen.location == "source":
                 contents = generate_file_contents(gen, metadata)
-                gen.path.write_text(contents)
-                settings.sdist.include.append(str(gen.path))
+                gen.path.write_text(contents, encoding="utf-8")
+                settings.sdist.include.append(gen.path.as_posix())
 
         if wheel_directory is None and not exit_after_config:
             if metadata_directory is None:
                 msg = "metadata_directory must be specified if wheel_directory is None"
                 raise AssertionError(msg)
-            wheel = WheelWriter(
-                metadata,
-                Path(metadata_directory),
-                override_wheel_tags or tags.as_tags_set(),
-                WheelMetadata(
-                    root_is_purelib=targetlib == "purelib",
-                    build_tag=settings.wheel.build_tag,
-                ),
-                wheel_dirs["metadata"],
+            # Metadata-tree force-includes must land here too, so the prepared
+            # .dist-info matches the final wheel (it is compared on build).
+            _force_include_into_wheel(
+                settings,
+                wheel_dirs=wheel_dirs,
+                targetlib=targetlib,
+                only_metadata=True,
             )
+            wheel = make_wheel(folder=Path(metadata_directory))
             dist_info_contents = wheel.dist_info_contents()
             dist_info = Path(metadata_directory) / f"{wheel.name_ver}.dist-info"
             dist_info.mkdir(parents=True)
@@ -401,83 +518,55 @@ def _build_wheel_impl_impl(
             if gen.location == "build":
                 path = build_dir / gen.path
             elif gen.location == "install":
-                path = wheel_dirs[targetlib] / gen.path
+                path = targetlib_dir / gen.path
             else:
                 assert_never(gen.location)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(contents, encoding="utf-8")
 
-        build_options = []
-        install_options = []
+        build_options: list[str] = []
+        install_options: list[str] = []
 
         if cmake is not None:
-            config = CMaker(
-                cmake,
-                source_dir=settings.cmake.source_dir,
-                build_dir=build_dir,
-                build_type=settings.cmake.build_type,
-            )
-
-            builder = Builder(
+            builder = configure_wheel(
+                cmake=cmake,
                 settings=settings,
-                config=config,
-            )
-
-            rich_print("{green}***", "{bold}Configuring CMake...")
-            # Setting the install prefix because some libs hardcode CMAKE_INSTALL_PREFIX
-            # Otherwise `cmake --install --prefix` would work by itself
-            defines = {"CMAKE_INSTALL_PREFIX": install_dir}
-            cache_entries: dict[str, str | Path] = {
-                f"SKBUILD_{k.upper()}_DIR": v for k, v in wheel_dirs.items()
-            }
-            cache_entries["SKBUILD_STATE"] = state
-            builder.configure(
-                defines=defines,
-                cache_entries=cache_entries,
+                wheel_dirs=wheel_dirs,
+                install_dir=install_dir,
+                build_dir=build_dir,
+                state=state,
+                extra_cache_entries=editable_rebuild_cache,
                 name=metadata.name,
                 version=metadata.version,
             )
-
             if exit_after_config:
                 return WheelImplReturn("", settings=settings)
-
-            default_gen = (
-                "MSVC"
-                if sysconfig.get_platform().startswith("win")
-                else "Default Generator"
+            build_wheel(builder)
+            install_wheel(builder, install_dir=install_dir, editable=editable)
+            build_options, install_options = editable_rebuild_options(builder)
+            build_install_extra_build_types(
+                builder,
+                settings=settings,
+                wheel_dirs=wheel_dirs,
+                install_dir=install_dir,
+                state=state,
+                name=metadata.name,
+                version=metadata.version,
+                editable=editable,
+                extra_cache_entries=editable_rebuild_cache,
             )
-            generator = builder.get_generator() or default_gen
-            rich_print(
-                "{green}***",
-                f"{{bold}}Building project with {{blue}}{generator}{{default}}...",
-            )
-            build_args: list[str] = []
-            builder.build(build_args=build_args)
-
-            if not (editable and settings.editable.mode == "inplace"):
-                rich_print(
-                    "{green}***",
-                    "{bold}Installing project into wheel...",
-                )
-                builder.install(install_dir)
-
-            if not builder.config.single_config and builder.config.build_type:
-                build_options += ["--config", builder.config.build_type]
-                install_options += ["--config", builder.config.build_type]
-            if builder.settings.cmake.verbose:
-                build_options.append("-v")
 
         assert wheel_directory is not None
 
         rich_print("{green}***", f"{{bold}}Making {state}...")
-        packages = _get_packages(
+        packages = get_packages(
             packages=settings.wheel.packages,
-            name=normalized_name,
+            name=metadata.name,
         )
         assert settings.sdist.inclusion_mode is not None
         mapping = packages_to_file_mapping(
             packages=packages,
-            platlib_dir=wheel_dirs[targetlib],
+            platlib_dir=targetlib_dir,
             include=settings.sdist.include,
             src_exclude=settings.sdist.exclude,
             target_exclude=settings.wheel.exclude,
@@ -490,46 +579,67 @@ def _build_wheel_impl_impl(
                 Path(package_dir).parent.mkdir(exist_ok=True, parents=True)
                 shutil.copy2(filepath, package_dir)
 
-            process_script_dir(wheel_dirs["scripts"])
+        # Force-include into the wheel, after the package copy so entries
+        # override package files and CMake output at the same destination. In a
+        # redirect-mode editable, platlib entries the redirect can serve live
+        # join the mapping instead of being baked in as stale copies.
+        redirecting = editable and settings.editable.mode == "redirect"
+        force_included = _force_include_into_wheel(
+            settings,
+            wheel_dirs=wheel_dirs,
+            targetlib=targetlib,
+            redirect_mapping=mapping if redirecting else None,
+            redirect_libdir=targetlib_dir if redirecting else None,
+        )
 
-        with WheelWriter(
-            metadata,
-            Path(wheel_directory),
-            override_wheel_tags or tags.as_tags_set(),
-            WheelMetadata(
-                root_is_purelib=targetlib == "purelib",
-                build_tag=settings.wheel.build_tag,
-            ),
-            wheel_dirs["metadata"],
-        ) as wheel:
-            wheel.build(wheel_dirs, exclude=settings.wheel.exclude)
+        # Normalize script shebangs after force-includes, so force-included
+        # scripts (e.g. wheel = "/scripts/...") are processed too. Editable
+        # installs still ship scripts (CMake-installed or force-included), so
+        # normalize them as well.
+        process_script_dir(wheel_dirs["scripts"])
 
-            str_pkgs = (
-                str(Path.cwd().joinpath(p).parent.resolve()) for p in packages.values()
+        with make_wheel(folder=Path(wheel_directory)) as wheel:
+            wheel.build(
+                wheel_dirs,
+                exclude=settings.wheel.exclude,
+                exclude_exempt=force_included,
             )
+
+            str_pkgs = package_search_dirs(packages)
             if editable and settings.editable.mode == "redirect":
                 reload_dir = build_dir.resolve() if settings.build_dir else None
 
                 _make_editable(
                     build_options=build_options,
                     install_options=install_options,
-                    libdir=wheel_dirs[targetlib],
+                    libdir=targetlib_dir,
                     mapping=mapping,
                     reload_dir=reload_dir,
                     settings=settings,
                     wheel=wheel,
                     name=normalized_name,
                     packages=str_pkgs,
+                    install_prefix=os.fspath(install_dir) if editable_rebuild else None,
                 )
             elif editable and settings.editable.mode == "inplace":
                 if not packages:
                     msg = "Editable inplace mode requires at least one package"
                     raise AssertionError(msg)
 
-                wheel.writestr(
-                    f"_{normalized_name}_editable.pth",
-                    "\n".join(str_pkgs).encode(),
-                )
+                # Only an inplace CMake build has a persistent build dir to
+                # rebuild in (get_build_dir returns the source dir). Without
+                # CMake, build_dir is a temp dir that is deleted after the build,
+                # so bake None and let rebuild() raise the friendly error instead
+                # of recreating an empty temp dir and failing in CMake.
+                for filename, editable_contents in editable_inplace_files(
+                    name=normalized_name,
+                    packages=packages,
+                    package_paths=list(str_pkgs),
+                    source_dir=build_dir.resolve() if cmake is not None else None,
+                    build_options=build_options,
+                    settings=settings,
+                ).items():
+                    wheel.writestr(filename, editable_contents)
 
     if metadata_directory is not None:
         dist_info_contents = wheel.dist_info_contents()

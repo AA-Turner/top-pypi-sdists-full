@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openlineage_sql
-Version: 1.50.0
+Version: 1.51.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11

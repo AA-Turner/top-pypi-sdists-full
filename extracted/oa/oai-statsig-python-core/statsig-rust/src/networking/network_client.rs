@@ -92,10 +92,10 @@ impl NetworkClient {
                     opts.disable_network.unwrap_or(false),
                     opts.proxy_config.clone(),
                     ca_cert_pem,
-                    opts.log_event_connection_reuse.unwrap_or(false),
+                    opts.log_event_connection_reuse.unwrap_or(true),
                 )
             })
-            .unwrap_or((false, None, None, false));
+            .unwrap_or((false, None, None, true));
 
         let sdk_instance_id = options
             .map(|opts| opts.get_sdk_instance_id(sdk_key))
@@ -549,10 +549,28 @@ fn get_error_message_for_status(
 mod tests {
     use super::{
         get_network_error_extra_tags, get_network_request_latency_tags, get_request_path,
-        get_source_service_and_request_path, should_log_network_request_latency, DELTAS_USED_TAG,
-        ID_LIST_FILE_ID_TAG, REQUEST_PATH_TAG, STATUS_CODE_TAG,
+        get_source_service_and_request_path, should_log_network_request_latency, NetworkClient,
+        DELTAS_USED_TAG, ID_LIST_FILE_ID_TAG, REQUEST_PATH_TAG, STATUS_CODE_TAG,
     };
     use crate::networking::{NetworkError, RequestArgs};
+    use crate::StatsigOptions;
+
+    #[test]
+    fn test_log_event_connection_reuse_defaults_to_true() {
+        assert!(NetworkClient::new("secret-test", None, None).log_event_connection_reuse);
+        assert!(
+            NetworkClient::new("secret-test", None, Some(&StatsigOptions::default()))
+                .log_event_connection_reuse
+        );
+
+        let options = StatsigOptions {
+            log_event_connection_reuse: Some(false),
+            ..StatsigOptions::default()
+        };
+        assert!(
+            !NetworkClient::new("secret-test", None, Some(&options)).log_event_connection_reuse
+        );
+    }
 
     #[test]
     fn test_get_request_path_with_sample_urls() {

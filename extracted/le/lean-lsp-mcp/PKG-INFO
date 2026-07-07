@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lean-lsp-mcp
-Version: 0.27.0
+Version: 0.28.0
 Summary: Lean Theorem Prover MCP
 Author-email: Oliver Dressler <hey@oli.show>
 License-Expression: MIT
@@ -8,22 +8,22 @@ Project-URL: Repository, https://github.com/oOo0oOo/lean-lsp-mcp
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: leanclient==0.11.0
-Requires-Dist: mcp[cli]==1.27.2
-Requires-Dist: orjson>=3.11.1
-Requires-Dist: certifi>=2024.0.0
+Requires-Dist: leanclient>=0.12.0
+Requires-Dist: mcp[cli]==1.28.1
+Requires-Dist: orjson>=3.11.9
+Requires-Dist: certifi>=2026.6.17
 Provides-Extra: yaml
-Requires-Dist: PyYAML>=6.0; extra == "yaml"
+Requires-Dist: PyYAML>=6.0.3; extra == "yaml"
 Provides-Extra: lint
-Requires-Dist: ruff>=0.2.0; extra == "lint"
-Requires-Dist: ty>=0.0.46; extra == "lint"
+Requires-Dist: ruff>=0.15.20; extra == "lint"
+Requires-Dist: ty>=0.0.56; extra == "lint"
 Provides-Extra: dev
-Requires-Dist: ruff>=0.2.0; extra == "dev"
-Requires-Dist: ty>=0.0.46; extra == "dev"
-Requires-Dist: pytest>=8.3; extra == "dev"
-Requires-Dist: anyio>=4.12.1; extra == "dev"
-Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
-Requires-Dist: pytest-timeout>=2.3; extra == "dev"
+Requires-Dist: ruff>=0.15.20; extra == "dev"
+Requires-Dist: ty>=0.0.56; extra == "dev"
+Requires-Dist: pytest>=9.1.1; extra == "dev"
+Requires-Dist: anyio>=4.14.1; extra == "dev"
+Requires-Dist: pytest-asyncio>=1.4.0; extra == "dev"
+Requires-Dist: pytest-timeout>=2.4.0; extra == "dev"
 Dynamic: license-file
 
 <h1 align="center">

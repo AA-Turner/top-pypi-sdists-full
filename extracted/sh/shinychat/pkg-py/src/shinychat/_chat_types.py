@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from typing import AsyncIterable, Literal, Union
+import warnings
+from typing import Any, AsyncIterable, Literal, Union
 
 from htmltools import HTML, HTMLDependency, Tag, TagChild, TagList
 from pydantic import BaseModel
 
+from ._attachments import Attachment
 from ._html_islands import split_html_islands
 from ._typing_extensions import NotRequired, TypedDict
+from ._utils_types import DEPRECATED, DEPRECATED_TYPE, MISSING, MISSING_TYPE
 
 Role = Literal["assistant", "user", "system"]
 
@@ -27,6 +30,7 @@ class MessagePayloadSegment(TypedDict):
 class MessagePayload(TypedDict):
     role: Literal["user", "assistant"]
     segments: list[MessagePayloadSegment]
+    attachments: NotRequired[list[dict[str, Any]]]
     id: NotRequired[str]
     icon: NotRequired[str]
 
@@ -63,6 +67,8 @@ class UpdateInputAction(TypedDict):
     placeholder: NotRequired[str]
     submit: NotRequired[bool]
     focus: NotRequired[bool]
+    attachments: NotRequired[list[dict[str, Any]]]
+    attachment_mode: NotRequired[Literal["append", "set"]]
 
 
 class RemoveLoadingAction(TypedDict):
@@ -74,13 +80,18 @@ class UpdateCancelAction(TypedDict):
     enable_cancel: bool
 
 
+class UpdateUploadAction(TypedDict):
+    type: Literal["update_upload"]
+    enable_upload: bool
+
+
 class HideToolRequestAction(TypedDict):
     type: Literal["hide_tool_request"]
     requestId: str
 
 
 class GreetingOptions(TypedDict):
-    dismissible: NotRequired[bool]
+    persistent: NotRequired[bool]
 
 
 class GreetingAction(TypedDict):
@@ -123,6 +134,20 @@ class UpdateSlashCommandsAction(TypedDict):
     commands: list[SlashCommandDef]
 
 
+class HistoryUpdateAction(TypedDict):
+    type: Literal["history_update"]
+    enabled: bool
+    conversations: list[dict[str, Any]]  # ConversationMeta dumps
+    active_id: str | None
+
+
+class HistoryNavigateAction(TypedDict):
+    type: Literal["history_navigate"]
+    url: str | None
+    active_id: str | None
+    reload: NotRequired[bool]
+
+
 ChatAction = Union[
     MessageAction,
     ChunkStartAction,
@@ -132,6 +157,7 @@ ChatAction = Union[
     UpdateInputAction,
     RemoveLoadingAction,
     UpdateCancelAction,
+    UpdateUploadAction,
     HideToolRequestAction,
     GreetingAction,
     GreetingStartAction,
@@ -139,6 +165,8 @@ ChatAction = Union[
     GreetingEndAction,
     GreetingClearAction,
     UpdateSlashCommandsAction,
+    HistoryUpdateAction,
+    HistoryNavigateAction,
 ]
 
 
@@ -159,6 +187,7 @@ class ChatMessageDict(TypedDict):
     content: str
     role: Role
     html_deps: NotRequired[list[SerializedDep]]
+    attachments: NotRequired[list[Attachment]]
 
 
 class ChatMessage:
@@ -167,8 +196,13 @@ class ChatMessage:
         content: TagChild,
         role: Role = "assistant",
         content_type: "ContentType | None" = None,
+        attachments: "list[Attachment] | None" = None,
     ):
         self.role: Role = role
+        self.attachments: list[Attachment] = [
+            Attachment.model_validate(a) if isinstance(a, dict) else a
+            for a in (attachments or [])
+        ]
         self.content_type: ContentType = (
             content_type if content_type is not None else "markdown"
         )
@@ -196,9 +230,23 @@ class ChatGreeting:
         self,
         content: Union[str, HTML, Tag, TagList, "AsyncIterable[str]"],
         *,
-        dismissible: bool = True,
+        persistent: "bool | MISSING_TYPE" = MISSING,
+        dismissible: DEPRECATED_TYPE = DEPRECATED,
     ):
-        self.dismissible = dismissible
+        if isinstance(persistent, MISSING_TYPE):
+            if not isinstance(dismissible, DEPRECATED_TYPE):
+                warnings.warn(
+                    "The `dismissible` parameter is deprecated. "
+                    "Use `persistent` (with inverted value) instead. "
+                    "`dismissible=False` is equivalent to `persistent=True`.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                persistent = not dismissible
+            else:
+                persistent = False
+
+        self.persistent = persistent
 
         if isinstance(content, AsyncIterable):
             self.content: Union[str, AsyncIterable[str]] = content
@@ -224,7 +272,8 @@ class ChatGreeting:
 def chat_greeting(
     content: Union[str, HTML, Tag, TagList, "AsyncIterable[str]"],
     *,
-    dismissible: bool = True,
+    persistent: "bool | MISSING_TYPE" = MISSING,
+    dismissible: DEPRECATED_TYPE = DEPRECATED,
 ) -> ChatGreeting:
     """
     Create a greeting for a chat UI.
@@ -240,10 +289,10 @@ def chat_greeting(
         :class:`~htmltools.Tag`, :class:`~htmltools.TagList`, or an
         :class:`~typing.AsyncIterable` of strings (streaming, only valid via
         :meth:`~shinychat.Chat.set_greeting`).
-    dismissible
-        Whether the greeting can be dismissed when the user sends a message. When
-        ``True`` (the default), the greeting is hidden once the user sends their first
-        message. Set to ``False`` to keep the greeting visible throughout the
+    persistent
+        Whether the greeting stays visible after the user sends a message. When
+        ``False`` (the default), the greeting is hidden once the user sends their first
+        message. Set to ``True`` to keep the greeting visible throughout the
         conversation, which is useful for persistent instructions or navigation.
 
     Examples
@@ -256,10 +305,10 @@ def chat_greeting(
     chat_greeting("## Welcome!\\n\\nHow can I help you today?")
     ```
 
-    Non-dismissible greeting that stays visible:
+    Persistent greeting that stays visible:
 
     ```python
-    chat_greeting("Please select a topic to get started.", dismissible=False)
+    chat_greeting("Please select a topic to get started.", persistent=True)
     ```
 
     Greeting with suggestion cards (uses ``<span class="suggestion">``):
@@ -277,9 +326,22 @@ def chat_greeting(
     :func:`~shinychat.chat_ui` : Set a static greeting in the UI definition.
     :meth:`~shinychat.Chat.set_greeting` : Set or stream a greeting from the server.
     """
+    if isinstance(persistent, MISSING_TYPE):
+        if not isinstance(dismissible, DEPRECATED_TYPE):
+            warnings.warn(
+                "The `dismissible` parameter is deprecated. "
+                "Use `persistent` (with inverted value) instead. "
+                "`dismissible=False` is equivalent to `persistent=True`.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            persistent = not dismissible
+        else:
+            persistent = False
+
     return ChatGreeting(
         content,
-        dismissible=dismissible,
+        persistent=persistent,
     )
 
 
@@ -310,6 +372,7 @@ class StoredSegment(_SegmentBase):
 class StoredMessage(BaseModel):
     role: Role
     segments: list[StoredSegment]
+    attachments: list[Attachment] = []
 
     @property
     def content(self) -> str:
@@ -347,4 +410,5 @@ class StoredMessage(BaseModel):
                     html_deps=html_deps,
                 )
             ],
+            attachments=message.attachments,
         )

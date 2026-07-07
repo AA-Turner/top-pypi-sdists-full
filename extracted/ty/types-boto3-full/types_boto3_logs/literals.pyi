@@ -84,6 +84,7 @@ __all__ = (
     "ServiceName",
     "StandardUnitType",
     "StateType",
+    "StorageTierType",
     "SuppressionStateType",
     "SuppressionTypeType",
     "SuppressionUnitType",
@@ -204,6 +205,7 @@ StandardUnitType = Literal[
     "Terabytes/Second",
 ]
 StateType = Literal["Active", "Baseline", "Suppressed"]
+StorageTierType = Literal["INTELLIGENT_TIERING", "STANDARD"]
 SuppressionStateType = Literal["SUPPRESSED", "UNSUPPRESSED"]
 SuppressionTypeType = Literal["INFINITE", "LIMITED"]
 SuppressionUnitType = Literal["HOURS", "MINUTES", "SECONDS"]

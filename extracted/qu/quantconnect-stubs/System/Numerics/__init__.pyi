@@ -14,12 +14,15 @@ T = typing.Any
 System_Numerics_Vector4 = typing.Any
 System_Numerics_TotalOrderIeee754Comparer = typing.Any
 System_Numerics_Vector3 = typing.Any
+System_Numerics_Decimal64 = typing.Any
 System_Numerics_Matrix3x2 = typing.Any
 System_Numerics_Quaternion = typing.Any
 System_Numerics_Vector2 = typing.Any
 System_Numerics_Matrix4x4 = typing.Any
+System_Numerics_Decimal32 = typing.Any
 System_Numerics_BFloat16 = typing.Any
 System_Numerics_Plane = typing.Any
+System_Numerics_Decimal128 = typing.Any
 
 System_Numerics_Vector_T = typing.TypeVar("System_Numerics_Vector_T")
 System_Numerics_IShiftOperators_TSelf = typing.TypeVar("System_Numerics_IShiftOperators_TSelf")
@@ -3340,6 +3343,153 @@ class TotalOrderIeee754Comparer(typing.Generic[System_Numerics_TotalOrderIeee754
         ...
 
 
+class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable[System_Numerics_Decimal64], System.ISpanParsable[System_Numerics_Decimal64], System.Numerics.IMinMaxValue[System_Numerics_Decimal64], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal64, int]):
+    """This class has no documentation."""
+
+    POSITIVE_INFINITY: System.Numerics.Decimal64
+
+    NEGATIVE_INFINITY: System.Numerics.Decimal64
+
+    NA_N: System.Numerics.Decimal64
+
+    NEGATIVE_ZERO: System.Numerics.Decimal64
+
+    ZERO: System.Numerics.Decimal64
+
+    MIN_VALUE: System.Numerics.Decimal64
+
+    MAX_VALUE: System.Numerics.Decimal64
+
+    EPSILON: System.Numerics.Decimal64
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, other: System.Numerics.Decimal64) -> int:
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> System.Numerics.Decimal64:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[System.Numerics.Decimal64]) -> typing.Tuple[bool, System.Numerics.Decimal64]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Numerics.Decimal64]) -> typing.Tuple[bool, System.Numerics.Decimal64]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal64]) -> typing.Tuple[bool, System.Numerics.Decimal64]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal64]) -> typing.Tuple[bool, System.Numerics.Decimal64]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal64]) -> typing.Tuple[bool, System.Numerics.Decimal64]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal64]) -> typing.Tuple[bool, System.Numerics.Decimal64]:
+        ...
+
+
 class IIncrementOperators(typing.Generic[System_Numerics_IIncrementOperators_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -3655,6 +3805,153 @@ class IFloatingPointConstants(typing.Generic[System_Numerics_IFloatingPointConst
 
 class ISignedNumber(typing.Generic[System_Numerics_ISignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_ISignedNumber_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
+
+
+class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable[System_Numerics_Decimal32], System.ISpanParsable[System_Numerics_Decimal32], System.Numerics.IMinMaxValue[System_Numerics_Decimal32], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal32, int]):
+    """This class has no documentation."""
+
+    POSITIVE_INFINITY: System.Numerics.Decimal32
+
+    NEGATIVE_INFINITY: System.Numerics.Decimal32
+
+    NA_N: System.Numerics.Decimal32
+
+    NEGATIVE_ZERO: System.Numerics.Decimal32
+
+    ZERO: System.Numerics.Decimal32
+
+    MIN_VALUE: System.Numerics.Decimal32
+
+    MAX_VALUE: System.Numerics.Decimal32
+
+    EPSILON: System.Numerics.Decimal32
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, other: System.Numerics.Decimal32) -> int:
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> System.Numerics.Decimal32:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[System.Numerics.Decimal32]) -> typing.Tuple[bool, System.Numerics.Decimal32]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Numerics.Decimal32]) -> typing.Tuple[bool, System.Numerics.Decimal32]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal32]) -> typing.Tuple[bool, System.Numerics.Decimal32]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal32]) -> typing.Tuple[bool, System.Numerics.Decimal32]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal32]) -> typing.Tuple[bool, System.Numerics.Decimal32]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal32]) -> typing.Tuple[bool, System.Numerics.Decimal32]:
+        ...
 
 
 class ISubtractionOperators(typing.Generic[System_Numerics_ISubtractionOperators_TSelf, System_Numerics_ISubtractionOperators_TOther, System_Numerics_ISubtractionOperators_TResult], metaclass=abc.ABCMeta):
@@ -4708,5 +5005,152 @@ class IUnsignedNumber(typing.Generic[System_Numerics_IUnsignedNumber_TSelf], Sys
 
 class INumber(typing.Generic[System_Numerics_INumber_TSelf], System.IComparable[System_Numerics_INumber_TSelf], System.Numerics.IComparisonOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, bool], System.Numerics.IModulusOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf], System.Numerics.INumberBase[System_Numerics_INumber_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
+
+
+class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatable[System_Numerics_Decimal128], System.ISpanParsable[System_Numerics_Decimal128], System.Numerics.IMinMaxValue[System_Numerics_Decimal128], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal128, System.UInt128]):
+    """This class has no documentation."""
+
+    POSITIVE_INFINITY: System.Numerics.Decimal128
+
+    NEGATIVE_INFINITY: System.Numerics.Decimal128
+
+    NA_N: System.Numerics.Decimal128
+
+    NEGATIVE_ZERO: System.Numerics.Decimal128
+
+    ZERO: System.Numerics.Decimal128
+
+    MIN_VALUE: System.Numerics.Decimal128
+
+    MAX_VALUE: System.Numerics.Decimal128
+
+    EPSILON: System.Numerics.Decimal128
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, other: System.Numerics.Decimal128) -> int:
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> System.Numerics.Decimal128:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[System.Numerics.Decimal128]) -> typing.Tuple[bool, System.Numerics.Decimal128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Numerics.Decimal128]) -> typing.Tuple[bool, System.Numerics.Decimal128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal128]) -> typing.Tuple[bool, System.Numerics.Decimal128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal128]) -> typing.Tuple[bool, System.Numerics.Decimal128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal128]) -> typing.Tuple[bool, System.Numerics.Decimal128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal128]) -> typing.Tuple[bool, System.Numerics.Decimal128]:
+        ...
 
 

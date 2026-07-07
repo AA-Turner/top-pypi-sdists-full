@@ -20,6 +20,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from rapidata.api_client.models.i_faucet_output import IFaucetOutput
+from rapidata.api_client.models.participant_status import ParticipantStatus
 from pydantic import ValidationError
 from rapidata.api_client.lazy_model import LazyValidatedModel
 from typing import Optional, Set
@@ -32,8 +33,12 @@ class GetParticipantByIdEndpointOutput(LazyValidatedModel):
     id: StrictStr = Field(description="The unique identifier of the participant.")
     name: StrictStr = Field(description="The name of the participant.")
     benchmark_id: StrictStr = Field(description="The id of the benchmark the participant belongs to.", alias="benchmarkId")
+    status: ParticipantStatus = Field(description="The status of the participant.")
+    family: Optional[StrictStr] = Field(default=None, description="The family the underlying model belongs to (e.g. \"Flux\", \"GPT\"), or null if unset.")
+    proprietary_name: Optional[StrictStr] = Field(default=None, description="The vendor-facing display name of the model, or null if unset.", alias="proprietaryName")
+    logo: Optional[StrictStr] = Field(default=None, description="The logo of the model, or null if unset.")
     faucet: Optional[IFaucetOutput] = Field(default=None, description="The faucet configured to auto-generate samples, or null if none is set.")
-    __properties: ClassVar[List[str]] = ["id", "name", "benchmarkId", "faucet"]
+    __properties: ClassVar[List[str]] = ["id", "name", "benchmarkId", "status", "family", "proprietaryName", "logo", "faucet"]
 
     # model_config is inherited from LazyValidatedModel
 
@@ -73,6 +78,21 @@ class GetParticipantByIdEndpointOutput(LazyValidatedModel):
         # override the default output from pydantic by calling `to_dict()` of faucet
         if self.faucet:
             _dict['faucet'] = self.faucet.to_dict()
+        # set to None if family (nullable) is None
+        # and model_fields_set contains the field
+        if self.family is None and "family" in self.model_fields_set:
+            _dict['family'] = None
+
+        # set to None if proprietary_name (nullable) is None
+        # and model_fields_set contains the field
+        if self.proprietary_name is None and "proprietary_name" in self.model_fields_set:
+            _dict['proprietaryName'] = None
+
+        # set to None if logo (nullable) is None
+        # and model_fields_set contains the field
+        if self.logo is None and "logo" in self.model_fields_set:
+            _dict['logo'] = None
+
         return _dict
 
     @classmethod
@@ -88,6 +108,10 @@ class GetParticipantByIdEndpointOutput(LazyValidatedModel):
             "id": obj.get("id"),
             "name": obj.get("name"),
             "benchmarkId": obj.get("benchmarkId"),
+            "status": obj.get("status"),
+            "family": obj.get("family"),
+            "proprietaryName": obj.get("proprietaryName"),
+            "logo": obj.get("logo"),
             "faucet": IFaucetOutput.from_dict(obj["faucet"]) if obj.get("faucet") is not None else None
         }
         try:

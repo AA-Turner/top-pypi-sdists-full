@@ -85,6 +85,7 @@ __all__ = (
     "ServiceName",
     "StandardUnitType",
     "StateType",
+    "StorageTierType",
     "SuppressionStateType",
     "SuppressionTypeType",
     "SuppressionUnitType",
@@ -206,6 +207,7 @@ StandardUnitType = Literal[
     "Terabytes/Second",
 ]
 StateType = Literal["Active", "Baseline", "Suppressed"]
+StorageTierType = Literal["INTELLIGENT_TIERING", "STANDARD"]
 SuppressionStateType = Literal["SUPPRESSED", "UNSUPPRESSED"]
 SuppressionTypeType = Literal["INFINITE", "LIMITED"]
 SuppressionUnitType = Literal["HOURS", "MINUTES", "SECONDS"]
@@ -405,8 +407,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -502,7 +502,6 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
@@ -588,7 +587,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -609,6 +607,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

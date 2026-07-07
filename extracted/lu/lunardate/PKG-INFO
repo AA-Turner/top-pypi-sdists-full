@@ -1,36 +1,55 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: lunardate
-Version: 0.2.2
+Version: 0.3.0
 Summary: A Chinese Calendar Library in Pure Python
 Home-page: https://github.com/lidaobing/python-lunardate
 Author: LI Daobing
 Author-email: lidaobing@gmail.com
-License: GPLv3
+License: GPL-3.0-or-later
 Classifier: Development Status :: 4 - Beta
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
-Classifier: License :: OSI Approved :: GNU General Public License (GPL)
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
 
+# A Chinese Calendar Library in Pure Python
 
-A Chinese Calendar Library in Pure Python
-=========================================
+[![Python package](https://github.com/lidaobing/python-lunardate/actions/workflows/python-package.yml/badge.svg?branch=master)](https://github.com/lidaobing/python-lunardate/actions/workflows/python-package.yml)
+[![PyPI - Version](https://img.shields.io/pypi/v/lunardate)](https://pypi.org/project/lunardate/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/lunardate)](https://pypistats.org/packages/lunardate)
 
-Chinese Calendar: http://en.wikipedia.org/wiki/Chinese_calendar
+Chinese Calendar: <http://en.wikipedia.org/wiki/Chinese_calendar>
 
-Usage
------
-        >>> LunarDate.fromSolarDate(1976, 10, 1)
+## Install
+
+```
+pip install lunardate
+```
+
+## Usage
+
+```
+        >>> from lunardate import LunarDate
+        >>> LunarDate.from_solar_date(1976, 10, 1)
         LunarDate(1976, 8, 8, 1)
-        >>> LunarDate(1976, 8, 8, 1).toSolarDate()
+        >>> LunarDate(1976, 8, 8, 1).to_solar_date()
         datetime.date(1976, 10, 1)
         >>> LunarDate(1976, 8, 8, 1).year
         1976
@@ -38,7 +57,7 @@ Usage
         8
         >>> LunarDate(1976, 8, 8, 1).day
         8
-        >>> LunarDate(1976, 8, 8, 1).isLeapMonth
+        >>> LunarDate(1976, 8, 8, 1).is_leap_month
         True
 
         >>> today = LunarDate.today()
@@ -51,12 +70,12 @@ Usage
         >>> td = datetime.timedelta(days=10)
         >>> ld-ld
         datetime.timedelta(0)
-        >>> (ld-sd).days
-        -11444
+        >>> ld-sd
+        datetime.timedelta(-11444)
         >>> ld-td
         LunarDate(1976, 7, 27, 0)
-        >>> (sd-ld).days
-        11444
+        >>> sd-ld
+        datetime.timedelta(11444)
         >>> ld+td
         LunarDate(1976, 8, 18, 0)
         >>> td+ld
@@ -78,48 +97,30 @@ Usage
         True
         >>> LunarDate.today() == LunarDate.today()
         True
-        >>> before_leap_month = LunarDate.fromSolarDate(2088, 5, 17)
-        >>> before_leap_month.year
-        2088
-        >>> before_leap_month.month
-        4
-        >>> before_leap_month.day
-        27
-        >>> before_leap_month.isLeapMonth
-        False
-        >>> leap_month = LunarDate.fromSolarDate(2088, 6, 17)
-        >>> leap_month.year
-        2088
-        >>> leap_month.month
-        4
-        >>> leap_month.day
-        28
-        >>> leap_month.isLeapMonth
-        True
-        >>> after_leap_month = LunarDate.fromSolarDate(2088, 7, 17)
-        >>> after_leap_month.year
-        2088
-        >>> after_leap_month.month
-        5
-        >>> after_leap_month.day
-        29
-        >>> after_leap_month.isLeapMonth
-        False
 
-        >>> LunarDate.leapMonthForYear(2023)
+        >>> LunarDate.leap_month_for_year(2023)
         2
-        >>> LunarDate.leapMonthForYear(2022)
-        None        
+        >>> LunarDate.leap_month_for_year(2022)
+        None
+```
 
-Limits
-------
+## News
+
+* 0.3.0: drop python 2, add typing hints, rename identifiers to follow PEP 8
+* 0.2.2: add LunarDate.leapMonthForYear; fix bug in year 1899
+* 0.2.1: fix bug in year 1956
+* 0.2.0: extend year to 2099, thanks to @FuGangqiang
+* 0.1.5: fix bug in `==`
+* 0.1.4: support '+', '-' and compare, fix bug in year 2050
+* 0.1.3: support python 3.0
+
+## Limits
 
 this library can only deal with year from 1900 to 2099 (in chinese calendar).
 
-See also
---------
+## See also
 
-* lunar: http://packages.qa.debian.org/l/lunar.html,
+* lunar: <http://packages.qa.debian.org/l/lunar.html>,
   A converter written in C, this program is derived from it.
-* python-lunar: http://code.google.com/p/liblunar/
+* python-lunar: <http://code.google.com/p/liblunar/>
   Another library written in C, including a python binding.

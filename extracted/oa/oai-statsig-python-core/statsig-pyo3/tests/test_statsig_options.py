@@ -1,4 +1,4 @@
-from statsig_python_core import StatsigOptions
+from statsig_python_core import EvaluationCache, StatsigOptions
 from test_observability_client import MockObservabilityClient
 
 
@@ -6,6 +6,8 @@ def test_default_statsig_options():
     options = StatsigOptions()
     assert options.specs_url is None
     assert options.service_name is None
+    assert options.runtime_thread_start_callback is None
+    assert options.evaluation_cache is None
 
 
 def test_initialize_partial_statsig_options():
@@ -14,6 +16,32 @@ def test_initialize_partial_statsig_options():
     )
     assert options.specs_url == "https://statsigcdn.openai.com/v1"
     assert options.log_event_url is None
+
+
+def test_evaluation_cache_option():
+    cache = EvaluationCache(max_bytes=1024, max_entry_bytes=512)
+    options = StatsigOptions(evaluation_cache=cache)
+    assert options.evaluation_cache is cache
+
+    replacement = EvaluationCache(max_bytes=2048, max_entry_bytes=1024)
+    options.evaluation_cache = replacement
+    assert options.evaluation_cache is replacement
+
+    options.evaluation_cache = None
+    assert options.evaluation_cache is None
+
+
+def test_runtime_thread_start_callback_option():
+    callback = lambda: None
+    options = StatsigOptions(runtime_thread_start_callback=callback)
+    assert options.runtime_thread_start_callback is callback
+
+    replacement = lambda: None
+    options.runtime_thread_start_callback = replacement
+    assert options.runtime_thread_start_callback is replacement
+
+    options.runtime_thread_start_callback = None
+    assert options.runtime_thread_start_callback is None
 
 
 # Mostly testing that there are no errors

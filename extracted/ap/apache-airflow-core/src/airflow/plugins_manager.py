@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from airflow.listeners.listener import ListenerManager
     from airflow.models.deadline import DeadlineReferenceType
     from airflow.partition_mappers.base import PartitionMapper
+    from airflow.partition_mappers.window import Window
     from airflow.task.priority_strategy import PriorityWeightStrategy
     from airflow.timetables.base import Timetable
 
@@ -86,7 +87,7 @@ def _get_plugins() -> tuple[list[AirflowPlugin], dict[str, str]]:
 
     Plugins are only loaded if they have not been previously loaded.
     """
-    from airflow._shared.observability.metrics.stats import Stats
+    from airflow._shared.observability.metrics import stats
 
     if not settings.PLUGINS_FOLDER:
         raise ValueError("Plugins folder is not set")
@@ -100,7 +101,10 @@ def _get_plugins() -> tuple[list[AirflowPlugin], dict[str, str]]:
     def __register_plugins(plugin_instances: list[AirflowPlugin], errors: dict[str, str]) -> None:
         for plugin_instance in plugin_instances:
             if plugin_instance.name in loaded_plugins:
-                log.warning("Plugin %r already registered, skipping", plugin_instance.name)
+                message = f"Plugin {plugin_instance.name!r} already registered, skipping"
+                log.warning(message)
+                name = str(plugin_instance.source) if plugin_instance.source else plugin_instance.name or ""
+                import_errors[name] = message
                 continue
 
             loaded_plugins.add(plugin_instance.name)
@@ -113,7 +117,7 @@ def _get_plugins() -> tuple[list[AirflowPlugin], dict[str, str]]:
                 import_errors[name] = str(e)
         import_errors.update(errors)
 
-    with Stats.timer() as timer:
+    with stats.timer() as timer:
         load_examples = conf.getboolean("core", "LOAD_EXAMPLES")
         ignore_file_syntax = conf.get_mandatory_value("core", "DAG_IGNORE_FILE_SYNTAX", fallback="glob")
         __register_plugins(
@@ -282,6 +286,14 @@ def get_partition_mapper_plugins() -> dict[str, type[PartitionMapper]]:
         for plugin in _get_plugins()[0]
         for partition_mapper_cls in plugin.partition_mappers
     }
+
+
+@cache
+def get_windows_plugins() -> dict[str, type[Window]]:
+    """Collect and get window classes registered by plugins."""
+    log.debug("Initialize extra window plugins")
+
+    return {qualname(window_cls): window_cls for plugin in _get_plugins()[0] for window_cls in plugin.windows}
 
 
 @cache

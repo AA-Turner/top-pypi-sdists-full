@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vector-quantize-pytorch
-Version: 1.29.1
+Version: 1.30.1
 Summary: Vector Quantization - Pytorch
 Project-URL: Homepage, https://pypi.org/project/vector-quantize-pytorch/
 Project-URL: Repository, https://github.com/lucidrains/vector-quantizer-pytorch
@@ -99,6 +99,20 @@ print(quantized.shape, indices.shape, commit_loss.shape)
 quantized, indices, commit_loss, all_codes = residual_vq(x, return_all_codes = True)
 
 # (8, 1, 1024, 256)
+```
+
+Alternatively, instead of exponential moving averages, you can update the codebooks using the <a href="https://openreview.net/forum?id=KRVnpTbx7R">DiVeQ technique</a>, which updates the codebooks by gradients without requiring any auxiliary losses. You can enable this feature by passing ```diveq = True``` in the ```ResidualVQ``` class.
+
+```python
+import torch
+from vector_quantize_pytorch import ResidualVQ
+
+residual_vq = ResidualVQ(
+    dim = 256,
+    num_quantizers = 8,      # specify number of quantizers
+    codebook_size = 1024,    # codebook size
+    diveq = True             # use DiVeQ technique to update the codebooks
+)
 ```
 
 Furthermore, <a href="https://arxiv.org/abs/2203.01941">this paper</a> uses Residual-VQ to construct the RQ-VAE, for generating high resolution images with more compressed codes.

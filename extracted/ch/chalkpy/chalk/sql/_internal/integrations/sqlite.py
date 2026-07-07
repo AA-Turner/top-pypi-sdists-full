@@ -28,6 +28,7 @@ class SQLiteSourceImpl(TableIngestMixIn, BaseSQLSource, SQLSourceWithTableIngest
         filename: Optional[Union[PathLike, str]] = None,
         engine_args: Optional[Dict[str, Any]] = None,
         async_engine_args: Optional[Dict[str, Any]] = None,
+        permission_tags: list[str] | None = None,
     ):
         self.ingested_tables: Dict[str, Any] = {}
         self.filename = filename
@@ -42,7 +43,13 @@ class SQLiteSourceImpl(TableIngestMixIn, BaseSQLSource, SQLSourceWithTableIngest
         # connection to the pool
         engine_args.setdefault("isolation_level", os.environ.get("CHALK_SQL_ISOLATION_LEVEL", "AUTOCOMMIT"))
         async_engine_args.setdefault("isolation_level", os.environ.get("CHALK_SQL_ISOLATION_LEVEL", "AUTOCOMMIT"))
-        BaseSQLSource.__init__(self, name=name, engine_args=engine_args, async_engine_args=async_engine_args)
+        BaseSQLSource.__init__(
+            self,
+            name=name,
+            engine_args=engine_args,
+            async_engine_args=async_engine_args,
+            permission_tags=permission_tags,
+        )
 
     def local_engine_url(self) -> URL:
         try:

@@ -1,17 +1,26 @@
 use crate::{
-    evaluation::evaluator_value::MemoizedEvaluatorValue, unwrap_or_return,
+    evaluation::evaluator_value::MemoizedEvaluatorValue,
+    specs_response::spec_types::ConditionOperator, unwrap_or_return,
     user::user_value::UserValueRef,
 };
 
 pub(crate) fn compare_strings_in_array(
     value: UserValueRef<'_>,
     target_value: &MemoizedEvaluatorValue,
-    op: &str,
-    ignore_case: bool,
+    op: ConditionOperator,
 ) -> bool {
+    let ignore_case = !matches!(
+        op,
+        ConditionOperator::AnyCaseSensitive | ConditionOperator::NoneCaseSensitive
+    );
     let result = compare_strings_in_array_impl(value, target_value, op, ignore_case);
 
-    if op == "none" || op == "none_case_sensitive" || op == "str_contains_none" {
+    if matches!(
+        op,
+        ConditionOperator::NoneOf
+            | ConditionOperator::NoneCaseSensitive
+            | ConditionOperator::StrContainsNone
+    ) {
         return !result;
     }
     result
@@ -20,11 +29,11 @@ pub(crate) fn compare_strings_in_array(
 fn compare_strings_in_array_impl(
     value: UserValueRef<'_>,
     target_value: &MemoizedEvaluatorValue,
-    op: &str,
+    op: ConditionOperator,
     ignore_case: bool,
 ) -> bool {
     if let Some(keyed_lookup) = &target_value.object_value {
-        if ignore_case && (op == "any" || op == "none") {
+        if matches!(op, ConditionOperator::Any | ConditionOperator::NoneOf) {
             let contains = match value.lowercased_lookup_key() {
                 Some(key) => keyed_lookup.contains_key(key),
                 None => value
@@ -40,7 +49,7 @@ fn compare_strings_in_array_impl(
     }
 
     let array_value = unwrap_or_return!(&target_value.array_value, false);
-    if ignore_case && (op == "any" || op == "none") {
+    if matches!(op, ConditionOperator::Any | ConditionOperator::NoneOf) {
         let contains = match value.lowercased_lookup_key() {
             Some(key) => array_value.contains_key(key),
             None => value
@@ -72,10 +81,15 @@ fn compare_strings_in_array_impl(
         };
 
         comparison_result = match op {
-            "any" | "none" | "any_case_sensitive" | "none_case_sensitive" => left == right.as_str(),
-            "str_starts_with_any" => left.starts_with(right.as_str()),
-            "str_ends_with_any" => left.ends_with(right.as_str()),
-            "str_contains_any" | "str_contains_none" => left.contains(right.as_str()),
+            ConditionOperator::Any
+            | ConditionOperator::NoneOf
+            | ConditionOperator::AnyCaseSensitive
+            | ConditionOperator::NoneCaseSensitive => left == right.as_str(),
+            ConditionOperator::StrStartsWithAny => left.starts_with(right.as_str()),
+            ConditionOperator::StrEndsWithAny => left.ends_with(right.as_str()),
+            ConditionOperator::StrContainsAny | ConditionOperator::StrContainsNone => {
+                left.contains(right.as_str())
+            }
             _ => false, // todo: unsupported?
         };
 
@@ -92,6 +106,7 @@ mod tests {
     use serde_json::json;
 
     use crate::evaluation::comparisons::compare_strings_in_array;
+    use crate::specs_response::spec_types::ConditionOperator;
     use crate::{dyn_value, test_only_make_eval_value};
 
     #[test]
@@ -102,14 +117,12 @@ mod tests {
         assert!(compare_strings_in_array(
             (&needle).into(),
             &haystack,
-            "any",
-            true
+            ConditionOperator::Any
         ));
         assert!(!compare_strings_in_array(
             (&needle).into(),
             &haystack,
-            "any",
-            false
+            ConditionOperator::AnyCaseSensitive
         ));
     }
 
@@ -121,15 +134,13 @@ mod tests {
         assert!(!compare_strings_in_array(
             (&needle).into(),
             &haystack,
-            "any",
-            true
+            ConditionOperator::Any
         ));
 
         assert!(!compare_strings_in_array(
             (&needle).into(),
             &haystack,
-            "any",
-            false
+            ConditionOperator::AnyCaseSensitive
         ));
     }
 
@@ -141,8 +152,7 @@ mod tests {
         assert!(compare_strings_in_array(
             (&needle).into(),
             &haystack,
-            "str_starts_with_any",
-            true
+            ConditionOperator::StrStartsWithAny
         ));
     }
 
@@ -154,8 +164,7 @@ mod tests {
         assert!(compare_strings_in_array(
             (&needle).into(),
             &haystack,
-            "str_ends_with_any",
-            true
+            ConditionOperator::StrEndsWithAny
         ));
     }
 
@@ -167,8 +176,7 @@ mod tests {
         assert!(compare_strings_in_array(
             (&needle).into(),
             &haystack,
-            "str_contains_any",
-            true
+            ConditionOperator::StrContainsAny
         ));
     }
 
@@ -180,16 +188,14 @@ mod tests {
         assert!(!compare_strings_in_array(
             (&upper_needle).into(),
             &haystack,
-            "none_case_sensitive",
-            false
+            ConditionOperator::NoneCaseSensitive
         ));
 
         let lower_needle = dyn_value!("hello");
         assert!(compare_strings_in_array(
             (&lower_needle).into(),
             &haystack,
-            "none_case_sensitive",
-            false
+            ConditionOperator::NoneCaseSensitive
         ));
     }
 
@@ -201,16 +207,14 @@ mod tests {
         assert!(compare_strings_in_array(
             (&upper_needle).into(),
             &haystack,
-            "any_case_sensitive",
-            false
+            ConditionOperator::AnyCaseSensitive
         ));
 
         let lower_needle = dyn_value!("hello");
         assert!(!compare_strings_in_array(
             (&lower_needle).into(),
             &haystack,
-            "any_case_sensitive",
-            false
+            ConditionOperator::AnyCaseSensitive
         ));
     }
 
@@ -223,15 +227,13 @@ mod tests {
         assert!(compare_strings_in_array(
             (&needle).into(),
             &haystack_positive,
-            "str_contains_any",
-            true
+            ConditionOperator::StrContainsAny
         ));
 
         assert!(!compare_strings_in_array(
             (&needle).into(),
             &haystack_negative,
-            "str_contains_any",
-            true
+            ConditionOperator::StrContainsAny
         ));
     }
 }

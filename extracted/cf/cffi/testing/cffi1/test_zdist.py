@@ -20,14 +20,14 @@ def from_outside(f):
     return f
 
 
-class TestDist(object):
+class TestDist:
 
     def setup_method(self, meth):
         self.executable = os.path.abspath(sys.executable)
         self.rootdir = os.path.abspath(os.path.dirname(os.path.dirname(
             cffi.__file__)))
-        self.udir = udir.join(meth.__name__)
-        os.mkdir(str(self.udir))
+        self.udir = udir / meth.__name__
+        self.udir.mkdir()
         if meth.chdir_to_tmp:
             self.saved_cwd = os.getcwd()
             os.chdir(str(self.udir))
@@ -43,7 +43,7 @@ class TestDist(object):
         # NOTE: pointing $HOME to a nonexistent directory can break certain things
         # that look there for configuration (like ccache).
         tmp_home = mkdtemp()
-        assert tmp_home != None, "cannot create temporary homedir"
+        assert tmp_home is not None, "cannot create temporary homedir"
         env['HOME'] = tmp_home
         pathlist = sys.path[:]
         if cwd is None:
@@ -70,8 +70,7 @@ class TestDist(object):
             curdir = str(self.udir)
         found_so = None
         for name in os.listdir(curdir):
-            if (name.endswith('.so') or name.endswith('.pyd') or
-                name.endswith('.dylib') or name.endswith('.dll')):
+            if (name.endswith(('.so', '.pyd', '.dylib', '.dll'))):
                 found_so = os.path.join(curdir, name)
                 # foo.so => foo
                 parts = name.split('.')
@@ -125,7 +124,7 @@ class TestDist(object):
     def test_abi_emit_python_code_3(self):
         ffi = cffi.FFI()
         ffi.set_source("package_name_1.mymod", None)
-        ffi.emit_python_code(str(self.udir.join('xyt.py')))
+        ffi.emit_python_code(str(self.udir / 'xyt.py'))
         self.check_produced_files({'xyt.py': None})
 
     @chdir_to_tmp
@@ -149,7 +148,7 @@ class TestDist(object):
     def test_abi_compile_3(self):
         ffi = cffi.FFI()
         ffi.set_source("mod_name_in_package.mymod", None)
-        tmpdir = str(self.udir.join('build3'))
+        tmpdir = str(self.udir / 'build3')
         x = ffi.compile(tmpdir)
         self.check_produced_files({'build3': {
             'mod_name_in_package': {'mymod.py': None}}})
@@ -172,7 +171,7 @@ class TestDist(object):
     def test_api_emit_c_code_3(self):
         ffi = cffi.FFI()
         ffi.set_source("package_name_1.mymod", "/*code would be here*/")
-        ffi.emit_c_code(str(self.udir.join('xyu.c')))
+        ffi.emit_c_code(str(self.udir / 'xyu.c'))
         self.check_produced_files({'xyu.c': None})
 
     @chdir_to_tmp
@@ -213,7 +212,7 @@ class TestDist(object):
     def test_api_compile_3(self):
         ffi = cffi.FFI()
         ffi.set_source("mod_name_in_package.mymod", "/*code would be here*/")
-        x = ffi.compile(str(self.udir.join('foo')))
+        x = ffi.compile(str(self.udir / 'foo'))
         if sys.platform != 'win32':
             sofile = self.check_produced_files({
                 'foo': {'mod_name_in_package': {'mymod.SO': None,
@@ -253,8 +252,7 @@ class TestDist(object):
                 'mod_name_in_package': {'foo.bar.baz': None,
                                         'mymod.c': None,
                                         'mymod.o': None}})
-            sofile = os.path.join(str(self.udir),
-                                  'mod_name_in_package', 'foo.bar.baz')
+            sofile = self.udir / 'mod_name_in_package' / 'foo.bar.baz'
             assert os.path.isabs(x) and os.path.samefile(x, sofile)
         else:
             self.check_produced_files({
@@ -277,12 +275,12 @@ class TestDist(object):
     def test_api_distutils_extension_2(self):
         ffi = cffi.FFI()
         ffi.set_source("mod_name_in_package.mymod", "/*code would be here*/")
-        ext = ffi.distutils_extension(str(self.udir.join('foo')))
+        ext = ffi.distutils_extension(str(self.udir / 'foo'))
         self.check_produced_files({'foo': {
             'mod_name_in_package': {'mymod.c': None}}})
         if hasattr(os.path, 'samefile'):
             assert os.path.samefile(ext.sources[0],
-                str(self.udir.join('foo/mod_name_in_package/mymod.c')))
+                str(self.udir / 'foo' / 'mod_name_in_package' / 'mymod.c'))
 
 
     def _make_distutils_api(self):

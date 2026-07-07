@@ -4,6 +4,59 @@ use super::*;
 /// Hessian unfactorable.
 const SAE_MANIFOLD_ROW_RIDGE_MAX_ATTEMPTS: usize = 12;
 
+/// Per-fit-CONSTANT centered statistics of the reconstruction target, shared by
+/// the #976 decoder-norm co-collapse guard's EV and output-energy signals.
+///
+/// The target does not change across the outer loop of
+/// [`SaeManifoldTerm::run_joint_fit_arrow_schur`], so its per-column means and
+/// total centered sum-of-squares are invariants of the whole joint fit. The
+/// guard formerly re-derived them from the full `n × p` target on EVERY accepted
+/// outer iteration ([`SaeManifoldTerm::dictionary_reconstruction_ev`] +
+/// [`SaeManifoldTerm::dictionary_reconstruction_output_energy_ratio_maybe`] each ran an
+/// `O(n·p)` column-major reduction), which the single-threaded inner-loop profile
+/// showed dominating the fit. Computing them ONCE per joint fit and handing them
+/// to each iteration's guard call removes that per-iteration cost.
+///
+/// The values are BIT-IDENTICAL to the historical per-call computation:
+/// [`Self::compute`] reuses the exact Welford per-column mean and the exact
+/// single-accumulator column-major total, so every EV / output-energy value a
+/// guard derives from a cached instance equals the value the un-cached path
+/// (`compute` re-run inline) would have produced.
+pub(crate) struct TargetCenteredColStats {
+    /// Per-column Welford running mean, in column order (`col_means[col]`).
+    col_means: Vec<f64>,
+    /// `Σ_col Σ_row (target[row, col] − mean_col)²`, accumulated with a single
+    /// running total in column-major order — the exact historical reduction.
+    ss_tot: f64,
+}
+
+impl TargetCenteredColStats {
+    /// Reduce the centered column statistics with the historical loop order, so
+    /// every EV / output-energy value derived from the result is bit-for-bit the
+    /// value the former inline per-call reduction produced. Column means use
+    /// Welford's running update so a huge-but-finite target column cannot overflow
+    /// the total sum of squares.
+    pub(crate) fn compute(target: ArrayView2<'_, f64>) -> Self {
+        let n = target.nrows();
+        let p = target.ncols();
+        let mut col_means = vec![0.0_f64; p];
+        let mut ss_tot = 0.0_f64;
+        for col in 0..p {
+            let mut mean = 0.0_f64;
+            for (count, row) in (0..n).enumerate() {
+                let x = target[[row, col]];
+                mean += (x - mean) / (count as f64 + 1.0);
+            }
+            for row in 0..n {
+                let dev = target[[row, col]] - mean;
+                ss_tot += dev * dev;
+            }
+            col_means[col] = mean;
+        }
+        Self { col_means, ss_tot }
+    }
+}
+
 impl SaeManifoldTerm {
     pub fn solve_newton_step(
         &mut self,
@@ -1297,6 +1350,45 @@ impl SaeManifoldTerm {
         })
     }
 
+    pub(crate) fn quotient_gradient_norm_from_system(
+        &self,
+        sys: &ArrowSchurSystem,
+        raw_grad_norm_sq: f64,
+        penalized_gram_scale: &[f64],
+    ) -> f64 {
+        let n = self.n_obs();
+        let q = self.assignment.row_block_dim();
+        let dense_len = n.saturating_mul(q);
+        let mut grad_ext_coord = Array1::<f64>::zeros(dense_len);
+        let mut dense_layout_ok = sys.rows.len() == n && sys.row_offsets.len() == n + 1;
+        if dense_layout_ok {
+            for (row_idx, row) in sys.rows.iter().enumerate() {
+                let base = sys.row_offsets[row_idx];
+                let di = sys.row_dims[row_idx];
+                if base + di > dense_len || row.gt.len() < di {
+                    dense_layout_ok = false;
+                    break;
+                }
+                for axis in 0..di {
+                    grad_ext_coord[base + axis] = row.gt[axis];
+                }
+            }
+        }
+        let raw_grad_norm = raw_grad_norm_sq.sqrt();
+        if dense_layout_ok {
+            self.quotient_gradient_norm_sq(
+                grad_ext_coord.view(),
+                sys.gb.view(),
+                raw_grad_norm_sq,
+                penalized_gram_scale,
+            )
+            .map(|v| v.sqrt())
+            .unwrap_or(raw_grad_norm)
+        } else {
+            raw_grad_norm
+        }
+    }
+
     pub(crate) fn dense_step_gauge_vectors(&self) -> Result<Vec<Array1<f64>>, String> {
         let n = self.n_obs();
         let q = self.assignment.row_block_dim();
@@ -2184,6 +2276,7 @@ impl SaeManifoldTerm {
         target: ArrayView2<'_, f64>,
         iteration: usize,
         rho: &SaeManifoldRho,
+        target_col_stats: Option<&TargetCenteredColStats>,
     ) -> Result<(), String> {
         // SAC — the stagewise lane disarms the guard stack (see
         // `enforce_active_mass_guard`); a disarmed term never reseeds.
@@ -2287,9 +2380,9 @@ impl SaeManifoldTerm {
             if iteration == 0 {
                 return Ok(());
             }
-            let ev = self.dictionary_reconstruction_ev(target, rho)?;
-            let out_energy_ratio =
-                self.dictionary_reconstruction_output_energy_ratio(target, rho)?;
+            let ev = self.dictionary_reconstruction_ev_maybe(target, rho, target_col_stats)?;
+            let out_energy_ratio = self
+                .dictionary_reconstruction_output_energy_ratio_maybe(target, rho, target_col_stats)?;
             let n = self.n_obs();
             let p = target.ncols();
             // Reachable rank `q = rank([Φ_1 … Φ_K])`, the CONCATENATED chart-design
@@ -2494,6 +2587,59 @@ impl SaeManifoldTerm {
             // descent starts from, without breaking the reseed-improves-EV contract.
             self.anchor_logits_to_residual_ownership(target)?;
             self.refit_decoder_sequential_deflation(target, rho)?;
+            // #2089 — enforce the #1026 keep-best contract on the STATE between
+            // reseeds, not only at budget exhaustion. A reseed refit at the
+            // near-singular co-collapsed Gram can return a huge-norm decoder
+            // least-squares solution whose reconstruction EV plunges catastrophically
+            // below the incumbent (observed −0.0004 → −2.33 → −625 across successive
+            // reseeds on a tiny circle fit over featureless input). If that blown-up
+            // state is allowed to PERSIST it becomes the base the NEXT multi-start
+            // reseed computes its residual from, so `residual = target − (huge fit)`
+            // grows geometrically and the "residual ≈ target" invariant every reseed
+            // relies on (see the reseed rationale above) is violated — the bounded
+            // multi-start degenerates into a runaway whose blown-up decoders also
+            // corrupt the outer REML evidence, and the host process is SIGKILLed
+            // (OOM / watchdog, exit 137) before any model or error is returned.
+            //
+            // A reseed is therefore RETAINED only when it is the new best basin under
+            // the SAME EV-then-uniformity ordering used to bank the incumbent
+            // ([`prefer_candidate_basin`]); otherwise restore the incumbent so the
+            // next distinct-subspace retry (a fresh `pc_pair_offset`) reads the clean
+            // degenerate residual rather than a spiralling one. This never blocks a
+            // genuine basin break — an improving reseed clears the guard and is kept,
+            // exactly as the #2027 disjoint-signal fixtures require — and it is inert
+            // on any fit that never co-collapses (this whole arm is gated on
+            // `ev_degenerate`). The reseed budget is still consumed on every attempt,
+            // so the multi-start terminates as designed; the numerics simply can no
+            // longer spiral into a non-finite / catastrophic-negative EV.
+            let revert_to_incumbent = if let Some((incumbent_ev, incumbent_uniformity, _)) =
+                self.best_cocollapse_incumbent.as_ref()
+            {
+                let incumbent_ev = *incumbent_ev;
+                let incumbent_uniformity = *incumbent_uniformity;
+                let reseeded_ev =
+                    self.dictionary_reconstruction_ev_maybe(target, rho, target_col_stats)?;
+                let reseeded_uniformity = self.coordinate_uniformity_aggregate();
+                !prefer_candidate_basin(
+                    reseeded_ev,
+                    reseeded_uniformity,
+                    incumbent_ev,
+                    incumbent_uniformity,
+                    SAE_FINAL_EV_DEGRADATION_TOL,
+                )
+            } else {
+                false
+            };
+            if revert_to_incumbent {
+                // `take` releases the shared borrow of `best_cocollapse_incumbent` so
+                // the mutable restore can run, then the incumbent is banked again for
+                // the budget-exhaustion arm and any later reseed.
+                let incumbent = self.best_cocollapse_incumbent.take();
+                if let Some((_, _, ref state)) = incumbent {
+                    self.restore_mutable_state(state);
+                }
+                self.best_cocollapse_incumbent = incumbent;
+            }
             return Ok(());
         }
         // Decide which breached atoms still have reseed budget (recording a
@@ -2564,24 +2710,34 @@ impl SaeManifoldTerm {
         target: ArrayView2<'_, f64>,
         rho: &SaeManifoldRho,
     ) -> Result<f64, String> {
+        self.dictionary_reconstruction_ev_maybe(target, rho, None)
+    }
+
+    /// [`Self::dictionary_reconstruction_ev`] with an optional PRECOMPUTED target
+    /// variance. `precomputed = Some(stats)` reuses the once-per-fit centered
+    /// total-sum-of-squares instead of re-reducing the full `n × p` target
+    /// (`None` reproduces the historical inline reduction bit-for-bit). Only the
+    /// residual sum-of-squares — which depends on the CURRENT dictionary state —
+    /// is recomputed per call; the target variance is a fit invariant.
+    pub(crate) fn dictionary_reconstruction_ev_maybe(
+        &self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+        precomputed: Option<&TargetCenteredColStats>,
+    ) -> Result<f64, String> {
         let residual = self.reconstruction_residual(target, rho)?;
         let mut ss_res = 0.0_f64;
         for &value in residual.iter() {
             ss_res += value * value;
         }
-        let n = target.nrows();
-        let mut ss_tot = 0.0_f64;
-        for col in 0..target.ncols() {
-            let mut mean = 0.0_f64;
-            for (count, row) in (0..n).enumerate() {
-                let x = target[[row, col]];
-                mean += (x - mean) / (count as f64 + 1.0);
+        let owned;
+        let ss_tot = match precomputed {
+            Some(stats) => stats.ss_tot,
+            None => {
+                owned = TargetCenteredColStats::compute(target);
+                owned.ss_tot
             }
-            for row in 0..n {
-                let dev = target[[row, col]] - mean;
-                ss_tot += dev * dev;
-            }
-        }
+        };
         if !(ss_tot > 0.0) {
             // A constant target has zero variance to explain; treat a zero
             // residual as fully explained and anything else as collapsed.
@@ -2602,10 +2758,23 @@ impl SaeManifoldTerm {
     /// a present-decoder fit that simply reconstructs poorly (the optimizer's job).
     /// Returns `0.0` for a constant (zero-variance) target, where the notion is
     /// vacuous. Column means use the same running update as `dictionary_reconstruction_ev`.
-    pub(crate) fn dictionary_reconstruction_output_energy_ratio(
+    ///
+    /// Pass `precomputed = None` for the standalone reduction (the historical
+    /// inline form the S1 guard tests exercise) or `Some(stats)` inside the fit
+    /// loop to reuse the once-per-fit target statistics.
+    ///
+    /// `precomputed = Some(stats)` reuses the
+    /// once-per-fit per-column means and centered total-sum-of-squares (`None`
+    /// reproduces the historical inline reduction bit-for-bit). Only the OUTPUT
+    /// energy `Σ (fitted − mean)²` — which depends on the CURRENT dictionary — is
+    /// recomputed per call; the column means and target variance are fit
+    /// invariants. The output-energy accumulation keeps the historical
+    /// single-accumulator column-major order.
+    pub(crate) fn dictionary_reconstruction_output_energy_ratio_maybe(
         &self,
         target: ArrayView2<'_, f64>,
         rho: &SaeManifoldRho,
+        precomputed: Option<&TargetCenteredColStats>,
     ) -> Result<f64, String> {
         let fitted = self.try_fitted_for_rho(rho)?;
         if fitted.dim() != target.dim() {
@@ -2617,25 +2786,26 @@ impl SaeManifoldTerm {
             ));
         }
         let n = target.nrows();
-        let mut ss_out = 0.0_f64;
-        let mut ss_tot = 0.0_f64;
-        for col in 0..target.ncols() {
-            let mut mean = 0.0_f64;
-            for (count, row) in (0..n).enumerate() {
-                let x = target[[row, col]];
-                mean += (x - mean) / (count as f64 + 1.0);
+        let owned;
+        let stats = match precomputed {
+            Some(stats) => stats,
+            None => {
+                owned = TargetCenteredColStats::compute(target);
+                &owned
             }
+        };
+        let mut ss_out = 0.0_f64;
+        for col in 0..target.ncols() {
+            let mean = stats.col_means[col];
             for row in 0..n {
-                let dev = target[[row, col]] - mean;
-                ss_tot += dev * dev;
                 let out = fitted[[row, col]] - mean;
                 ss_out += out * out;
             }
         }
-        if !(ss_tot > 0.0) {
+        if !(stats.ss_tot > 0.0) {
             return Ok(0.0);
         }
-        Ok(ss_out / ss_tot)
+        Ok(ss_out / stats.ss_tot)
     }
 
     /// Reseed a set of collapsed atoms onto DISTINCT principal directions of the
@@ -3788,7 +3958,7 @@ impl SaeManifoldTerm {
         // reseed it before the audit. An all-zero cold seed has a zero median
         // decoder norm, so the guard returns early and the cold-start path is
         // untouched.
-        self.enforce_decoder_norm_guard(target, 0, rho)?;
+        self.enforce_decoder_norm_guard(target, 0, rho, None)?;
         // ── Pre-fit decoder identifiability audit ──────────────────────────
         //
         // Each decoder atom `k` contributes `η_i += a_ik · Φ_k(t_ik) · B_k`,
@@ -3902,6 +4072,15 @@ impl SaeManifoldTerm {
         // relative decrease falls below 1e-8, so this never truncates real descent.
         let mut previous_full_iterate_objective = f64::INFINITY;
         let mut consecutive_objective_stalls = 0usize;
+        // #976 hot-path: the decoder-norm co-collapse guard centers its EV and
+        // output-energy signals on the TARGET, an invariant of the whole joint
+        // fit. Reduce its per-column means and total centered sum-of-squares ONCE
+        // here and hand them to every iteration's guard call, rather than
+        // re-reducing the full n×p target on each accepted step (the O(n·p)
+        // column pass that dominated the single-threaded inner-loop profile).
+        // Bit-identical to the historical per-call reduction (see
+        // `TargetCenteredColStats`).
+        let target_col_stats = TargetCenteredColStats::compute(target);
         for outer_iteration in 0..max_iter {
             self.advance_temperature_schedule()?;
             // ρ (including the ARD precisions) is owned by the outer engine
@@ -3935,14 +4114,9 @@ impl SaeManifoldTerm {
             // factor-failure error variants so legitimate, non-recoverable
             // errors (PCG divergence with no factor failure, adaptive-step
             // exhaustion, …) still surface immediately.
-            let (delta_ext_coord, delta_beta, _diag) =
+            let (mut delta_ext_coord, mut delta_beta, _diag) =
                 solve_with_lm_escalation_inner(&sys, ridge_ext_coord, ridge_beta, &solve_options)
                     .map_err(|err| format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}"))?;
-            let directional_decrease = sae_manifold_newton_directional_decrease(
-                &sys,
-                delta_ext_coord.view(),
-                delta_beta.view(),
-            );
             // Relative-scale floor on the directional decrease. When the
             // gradient is nearly orthogonal to the Newton step (ill-conditioned
             // near-convergence), `directional_decrease` collapses to O(machine
@@ -3967,19 +4141,16 @@ impl SaeManifoldTerm {
             let iterate_scale = self.inner_iterate_scale();
             let grad_tolerance = SAE_MANIFOLD_INNER_GRAD_REL_TOL * iterate_scale;
             let step_tolerance = SAE_MANIFOLD_INNER_STEP_REL_TOL * iterate_scale;
-            // Harmonize convergence gate with reml_criterion (see
-            // converge_inner_for_undamped_logdet): accept on raw/quotient grad
-            // OR quotient step. Unconditional grad check ensures a point that
-            // makes run_joint_fit return "converged" will also pass the first
-            // undamped stationarity gate in the REML evidence path (fixes cases
-            // where plain joint succeeds but reml_criterion refuses inside
-            // cotrained probes). Good warm-starts make this faster/tighter.
-            if grad_norm <= grad_tolerance {
+            let lambda_smooth = rho.lambda_smooth_vec();
+            let quotient_grad_norm =
+                self.quotient_gradient_norm_from_system(&sys, grad_norm_sq, &lambda_smooth);
+            // Stop only on stationarity in the raw chart or on the identified
+            // quotient. A tiny quotient Newton step is a globalization diagnostic,
+            // not a KKT certificate: on K=1 near-isotropic clouds it can be tiny
+            // along the chart gauge while the outer residual remains large.
+            if grad_norm <= grad_tolerance || quotient_grad_norm <= grad_tolerance {
                 break;
             }
-            // (Quotient-grad uses dense gt layout from sys; here we conservatively
-            // keep raw grad for the fast pre-step gate. The step gate below uses
-            // the computed delta's quotient; reml will recheck with undamped.)
             let mut step_norm_sq = 0.0;
             for &v in delta_ext_coord.iter() {
                 step_norm_sq += v * v;
@@ -3987,7 +4158,7 @@ impl SaeManifoldTerm {
             for &v in delta_beta.iter() {
                 step_norm_sq += v * v;
             }
-            // #1051 — gauge/null-aware stationarity. ...
+            let mut quotient_step_norm = step_norm_sq.sqrt();
             if delta_ext_coord.len() == self.n_obs() * self.assignment.row_block_dim()
                 && delta_beta.len() == self.beta_dim()
             {
@@ -3995,12 +4166,36 @@ impl SaeManifoldTerm {
                     delta_ext_coord.view(),
                     delta_beta.view(),
                     step_norm_sq,
-                    &rho.lambda_smooth_vec(),
+                    &lambda_smooth,
                 )?;
-                if quotient_step_norm_sq.sqrt() <= step_tolerance {
-                    break;
+                quotient_step_norm = quotient_step_norm_sq.sqrt();
+                let trust_radius = solve_options.trust_region.radius;
+                if quotient_step_norm > trust_radius
+                    && trust_radius.is_finite()
+                    && trust_radius > 0.0
+                {
+                    let scale = trust_radius / quotient_step_norm;
+                    delta_ext_coord.mapv_inplace(|v| v * scale);
+                    delta_beta.mapv_inplace(|v| v * scale);
+                    step_norm_sq *= scale * scale;
+                    quotient_step_norm = trust_radius;
                 }
             }
+            if quotient_step_norm <= step_tolerance {
+                log::debug!(
+                    "SAE inner quotient step {:.3e} <= tol {:.3e} with non-stationary gradient \
+                     raw={:.3e}, quotient={:.3e}; continuing after quotient trust-region gate",
+                    quotient_step_norm,
+                    step_tolerance,
+                    grad_norm,
+                    quotient_grad_norm
+                );
+            }
+            let directional_decrease = sae_manifold_newton_directional_decrease(
+                &sys,
+                delta_ext_coord.view(),
+                delta_beta.view(),
+            );
             let directional_decrease_floor = SAE_MANIFOLD_DIRECTIONAL_DECREASE_REL_FLOOR
                 * grad_norm_sq.sqrt()
                 * step_norm_sq.sqrt();
@@ -4193,7 +4388,12 @@ impl SaeManifoldTerm {
             // EV→0 and the `0 → K·n` evidence-deflation abort). Catch a decoder
             // that has fallen far behind its peers and reseed it onto the
             // residual; a strict no-op for K=1.
-            self.enforce_decoder_norm_guard(target, outer_iteration, rho)?;
+            self.enforce_decoder_norm_guard(
+                target,
+                outer_iteration,
+                rho,
+                Some(&target_col_stats),
+            )?;
             // #2089 defense-in-depth: never grind a hopeless fit (and never let a
             // CPU watchdog SIGKILL the host while it does). When the co-collapse
             // multi-start budget is fully spent yet the dictionary is STILL at or
@@ -4867,6 +5067,17 @@ impl SaeManifoldTerm {
         // assembled at the schedule's current temperature, which the caller
         // already baked into `self.assignment.mode` before materializing.
         term.temperature_schedule = self.temperature_schedule.clone();
+        // #1801 — when a streaming fit has frozen the collapse-prevention gates
+        // GLOBALLY (from the full resident routing), carry them onto the chunk and
+        // mark it so its assembly SKIPS the per-chunk gate refresh. This is the
+        // gate analogue of the decoder-frame carry above: the gates' per-pair
+        // strength `μ_jk` inverts near-singular small-minibatch design Grams, so a
+        // per-chunk refresh would make the fit `chunk_size`-dependent.
+        if self.streaming_gates_frozen {
+            term.decoder_repulsion_gate = self.decoder_repulsion_gate.clone();
+            term.barrier_coactivation_gate = self.barrier_coactivation_gate.clone();
+            term.streaming_gates_frozen = true;
+        }
         Ok(term)
     }
 
@@ -4979,6 +5190,18 @@ impl SaeManifoldTerm {
         };
         for _ in 0..max_iter {
             self.advance_temperature_schedule()?;
+            // #1801 — FREEZE the collapse-prevention gates ONCE per outer iteration
+            // from the FULL resident routing + current decoder, then arm the carry
+            // flag so every chunk materialized this iteration (assembly pass, line
+            // search, loss) inherits the SAME global gate instead of recomputing it
+            // from its own minibatch. A per-chunk refresh inverts the near-singular
+            // small-chunk coactivation-weighted design Grams, blowing up the barrier
+            // strength `μ_jk = γ/(1−γ)` and making the fit `chunk_size`-dependent.
+            // Frozen at the same (post-temperature) point the dense assembly would,
+            // so the streaming gate matches the full-batch gate. Reset after the loop.
+            self.refresh_decoder_repulsion_gate();
+            self.refresh_barrier_coactivation_gate();
+            self.streaming_gates_frozen = true;
             // ── Pass 1: accumulate the global reduced Schur over β online. ──
             let options = ArrowSolveOptions::automatic(border_dim)
                 .with_schur_pd_floor(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR);
@@ -5132,6 +5355,9 @@ impl SaeManifoldTerm {
                 }
             }
         }
+        // #1801 — disarm the streaming gate-freeze so any later assembly of `self`
+        // (e.g. a post-fit dense pass) refreshes its gates normally.
+        self.streaming_gates_frozen = false;
         Ok(last_loss)
     }
 

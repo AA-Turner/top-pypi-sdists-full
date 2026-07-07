@@ -60,6 +60,14 @@ class DiagnosticMessage(BaseModel):
     message: str = Field(description="Diagnostic message text")
     line: int = Field(description="Line (1-indexed)")
     column: int = Field(description="Column (1-indexed)")
+    lean_tags: Optional[List[str]] = Field(
+        None,
+        description=(
+            "Lean-specific tags: 'unsolvedGoals' (proof incomplete here) or "
+            "'goalsAccomplished' (proof finished). Machine-readable proof "
+            "status - prefer over string-matching the message."
+        ),
+    )
 
 
 class GoalContextEntry(BaseModel):
@@ -89,6 +97,14 @@ class GoalState(BaseModel):
     )
     goals_after: Optional[List[GoalOutput]] = Field(
         None, description="Goals at line end (when column omitted)"
+    )
+    status: Optional[str] = Field(
+        None,
+        description=(
+            "Goal status: 'goals' (open goals), 'complete' (no goals left - "
+            "proof finished here), 'no_goal_at_position' (position carries no "
+            "proof state), or 'still_elaborating' (timeout_s hit - poll again)"
+        ),
     )
 
 
@@ -150,6 +166,10 @@ class AttemptResult(BaseModel):
         False,
         description="True if elaboration timed out (results are partial)",
     )
+    proof_status: Optional[str] = Field(
+        None,
+        description="REPL proof status when available (e.g. 'Completed', 'Incomplete: contains sorry')",
+    )
 
 
 class BuildResult(BaseModel):
@@ -171,7 +191,18 @@ class RunResult(BaseModel):
 
 class DeclarationInfo(BaseModel):
     file_path: str = Field(description="Path to declaration file")
-    content: str = Field(description="File content")
+    content: str = Field(
+        description="Declaration source (sliced unless full_file=True)"
+    )
+    start_line: Optional[int] = Field(
+        None, description="First line of the returned slice (1-indexed)"
+    )
+    end_line: Optional[int] = Field(
+        None, description="Last line of the returned slice (1-indexed)"
+    )
+    total_lines: Optional[int] = Field(
+        None, description="Total lines in the declaration file"
+    )
 
 
 # Wrapper models for list-returning tools
@@ -181,6 +212,19 @@ class DeclarationInfo(BaseModel):
 
 class DiagnosticsResult(BaseModel):
     """Wrapper for diagnostic messages list with build status."""
+
+    partial: bool = Field(
+        False,
+        description=(
+            "True when elaboration was still running at timeout: items may be "
+            "incomplete and still_elaborating_lines shows the pending region. "
+            "Poll again instead of treating this as failure."
+        ),
+    )
+    still_elaborating_lines: Optional[List[List[int]]] = Field(
+        None,
+        description="Line ranges [start, end] (1-indexed) still being elaborated",
+    )
 
     success: bool = Field(
         True, description="True if the queried file/range has no errors"
@@ -300,6 +344,9 @@ class ReferencesResult(BaseModel):
 
     items: List[ReferenceLocation] = Field(
         default_factory=list, description="List of reference locations"
+    )
+    total: Optional[int] = Field(
+        None, description="Total matches (> len(items) when truncated by max_results)"
     )
 
 

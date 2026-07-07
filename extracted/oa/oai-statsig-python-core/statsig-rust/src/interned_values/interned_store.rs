@@ -8,14 +8,19 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
 use ahash::AHashMap;
 use lazy_static::lazy_static;
 use memmap2::Mmap;
 use ouroboros::self_referencing;
 use parking_lot::Mutex;
 use rkyv::{
-    collections::swiss_table::ArchivedHashMap, string::ArchivedString, Archive,
-    Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
+    collections::swiss_table::ArchivedHashMap,
+    string::ArchivedString,
+    with::{Identity, MapKV, Unshare},
+    Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
 };
 use serde_json::value::RawValue;
 
@@ -52,8 +57,10 @@ lazy_static! {
 #[derive(Archive, RkyvDeserialize, RkyvSerialize)]
 pub(crate) struct MmapDataV1 {
     format_version: u32,
-    strings: std::collections::HashMap<u64, String>,
-    returnables: std::collections::HashMap<u64, HashMap<String, RkyvValue>>,
+    #[rkyv(with = MapKV<Identity, Unshare>)]
+    strings: HashMap<u64, Arc<String>, ahash::RandomState>,
+    #[rkyv(with = MapKV<Identity, Unshare>)]
+    returnables: HashMap<u64, Arc<HashMap<String, RkyvValue>>, ahash::RandomState>,
 }
 
 impl MmapDataV1 {
@@ -65,8 +72,8 @@ impl MmapDataV1 {
     pub(crate) fn empty_with_format_version(format_version: u32) -> Self {
         Self {
             format_version,
-            strings: HashMap::new(),
-            returnables: HashMap::new(),
+            strings: AHashMap::new().into(),
+            returnables: AHashMap::new().into(),
         }
     }
 }
@@ -87,14 +94,21 @@ impl ArchivedMmapDataV1 {
         let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
         self.returnables.get(&archived_hash)?.get(key)
     }
+
+    #[cfg(test)]
+    pub(crate) fn find_returnable_value_for_test(&self, key: &str) -> Option<&ArchivedRkyvValue> {
+        self.returnables
+            .iter()
+            .find_map(|(_, returnable)| returnable.get(key))
+    }
 }
 
 impl Default for MmapDataV1 {
     fn default() -> Self {
         Self {
             format_version: Self::FORMAT_VERSION,
-            strings: HashMap::new(),
-            returnables: HashMap::new(),
+            strings: AHashMap::new().into(),
+            returnables: AHashMap::new().into(),
         }
     }
 }
@@ -176,6 +190,10 @@ impl InternedStore {
         Ok(())
     }
 
+    /// Publishes an mmap artifact selected by `sdk_key`.
+    ///
+    /// On Unix, the finalized artifact is atomically published with mode `0644`
+    /// so readers with unrelated UIDs can consume a read-only shared mount.
     pub async fn fetch_and_write_mmap(sdk_key: &str) -> Result<(), StatsigErr> {
         Self::fetch_and_write_mmap_with_options(sdk_key, None).await
     }
@@ -230,6 +248,10 @@ fn write_mmap_specs(
         .map_err(|e| StatsigErr::SerializationError(e.to_string()))?;
 
     file.write_all(&archived)
+        .map_err(|e| StatsigErr::FileError(e.to_string()))?;
+    #[cfg(unix)]
+    file.as_file()
+        .set_permissions(std::fs::Permissions::from_mode(0o644))
         .map_err(|e| StatsigErr::FileError(e.to_string()))?;
     file.as_file()
         .sync_all()
@@ -691,31 +713,40 @@ fn mutable_to_mmap_data(specs_responses: Vec<SpecsResponseFull>) -> Result<MmapD
         let mut mutable_data_lock = MUTABLE_DATA.lock();
         std::mem::take(&mut *mutable_data_lock)
     };
-    let mut mmap_data = MmapDataV1::default();
 
-    for (hash, arc) in mutable_data.strings.into_iter() {
-        let taken = arc.to_string();
-        mmap_data.strings.insert(hash, taken);
-    }
+    Ok(detached_mutable_to_mmap_data(mutable_data, specs_responses))
+}
 
-    for (hash, returnable) in mutable_data.returnables.into_iter() {
-        let taken: HashMap<String, RkyvValue> = returnable.as_ref().clone();
-        mmap_data.returnables.insert(hash, taken);
-    }
+fn detached_mutable_to_mmap_data(
+    mutable_data: MutableData,
+    specs_responses: Vec<SpecsResponseFull>,
+) -> MmapDataV1 {
+    let MutableData {
+        strings,
+        returnables,
+        evaluator_values,
+    } = mutable_data;
+
+    // Specs and evaluator values can retain interned strings and returnables.
+    // Drop them only after detaching MUTABLE_DATA so their destructors cannot
+    // remove entries that still need to be archived.
+    drop(specs_responses);
+    drop(evaluator_values);
 
     // TODO: Add evaluator values to mmap data
-    // for (hash, evaluator_value) in mutable_data.evaluator_values.into_iter() {
+    // for (hash, evaluator_value) in evaluator_values.into_iter() {
     //     let raw_evaluator_value = Arc::into_raw(evaluator_value);
     //     let leaked = unsafe { &*raw_evaluator_value };
     //     mmap_data.evaluator_values.insert(hash, leaked);
     // }
 
-    // held until after the mmap data is written to the file
-    for response in specs_responses {
-        drop(response);
+    MmapDataV1 {
+        format_version: MmapDataV1::FORMAT_VERSION,
+        // AHashMap wraps this exact std HashMap type, so these conversions move
+        // the existing tables without allocating, iterating, or rehashing.
+        strings: strings.into(),
+        returnables: returnables.into(),
     }
-
-    Ok(mmap_data)
 }
 
 fn try_insert_specs(source: SpecsHashMap, destination: &mut AHashMap<u64, &'static Spec>) {
@@ -793,5 +824,127 @@ impl InternedString {
             hash,
             value: InternedStringValue::Pointer(pointer),
         }
+    }
+}
+
+#[cfg(test)]
+mod mmap_arc_archive_tests {
+    use super::*;
+    use crate::evaluation::evaluator_value::EvaluatorValueType;
+
+    // Freeze the exact source shape used before the Arc-backed archive input.
+    // This models the previous V1 reader and must not be refactored alongside
+    // MmapDataV1: new writer bytes have to remain readable through this type.
+    #[derive(Archive, RkyvSerialize)]
+    #[rkyv(archived = PreviousArchivedMmapDataV1)]
+    struct PreviousOwnedMmapDataV1 {
+        format_version: u32,
+        strings: HashMap<u64, String>,
+        returnables: HashMap<u64, HashMap<String, RkyvValue>>,
+    }
+
+    impl PreviousArchivedMmapDataV1 {
+        fn format_version(&self) -> u32 {
+            self.format_version.to_native()
+        }
+
+        fn string(&self, hash: u64) -> Option<&str> {
+            let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
+            self.strings.get(&archived_hash).map(|value| value.as_str())
+        }
+
+        fn returnable(&self, hash: u64, key: &str) -> Option<&ArchivedRkyvValue> {
+            let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
+            self.returnables.get(&archived_hash)?.get(key)
+        }
+    }
+
+    fn arc_backed_v1_source() -> MmapDataV1 {
+        let returnable = HashMap::from([("enabled".to_string(), RkyvValue::Bool(true))]);
+        MmapDataV1 {
+            format_version: MmapDataV1::FORMAT_VERSION,
+            strings: AHashMap::from_iter([(7, Arc::new("v1-string".to_string()))]).into(),
+            returnables: AHashMap::from_iter([(11, Arc::new(returnable))]).into(),
+        }
+    }
+
+    fn previous_owned_v1_source() -> PreviousOwnedMmapDataV1 {
+        PreviousOwnedMmapDataV1 {
+            format_version: MmapDataV1::FORMAT_VERSION,
+            strings: HashMap::from([(7, "v1-string".to_string())]),
+            returnables: HashMap::from([(
+                11,
+                HashMap::from([("enabled".to_string(), RkyvValue::Bool(true))]),
+            )]),
+        }
+    }
+
+    #[test]
+    fn previous_owned_v1_reader_reads_arc_backed_writer_bytes() {
+        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&arc_backed_v1_source()).unwrap();
+        let previous =
+            rkyv::access::<PreviousArchivedMmapDataV1, rkyv::rancor::Error>(&bytes).unwrap();
+
+        assert_eq!(previous.format_version(), MmapDataV1::FORMAT_VERSION);
+        assert_eq!(previous.string(7), Some("v1-string"));
+        assert!(matches!(
+            previous.returnable(11, "enabled"),
+            Some(ArchivedRkyvValue::Bool(true))
+        ));
+    }
+
+    #[test]
+    fn current_v1_reader_reads_previous_owned_writer_bytes() {
+        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&previous_owned_v1_source()).unwrap();
+        let current = rkyv::access::<ArchivedMmapDataV1, rkyv::rancor::Error>(&bytes).unwrap();
+
+        assert_eq!(current.format_version(), MmapDataV1::FORMAT_VERSION);
+        assert_eq!(current.string_for_test(7), Some("v1-string"));
+        assert!(matches!(
+            current.returnable_for_test(11, "enabled"),
+            Some(ArchivedRkyvValue::Bool(true))
+        ));
+    }
+
+    #[test]
+    fn conversion_keeps_shared_arc_allocations() {
+        let string = Arc::new("shared string".to_string());
+        let other_string_owner = Arc::clone(&string);
+        let returnable = Arc::new(HashMap::from([(
+            "enabled".to_string(),
+            RkyvValue::Bool(true),
+        )]));
+        let other_returnable_owner = Arc::clone(&returnable);
+        let mutable_data = MutableData {
+            strings: AHashMap::from_iter([(7, string)]),
+            returnables: AHashMap::from_iter([(11, returnable)]),
+            evaluator_values: AHashMap::new(),
+        };
+
+        let mmap_data = detached_mutable_to_mmap_data(mutable_data, Vec::new());
+
+        assert!(Arc::ptr_eq(
+            mmap_data.strings.get(&7).unwrap(),
+            &other_string_owner
+        ));
+        assert!(Arc::ptr_eq(
+            mmap_data.returnables.get(&11).unwrap(),
+            &other_returnable_owner
+        ));
+    }
+
+    #[test]
+    fn conversion_releases_evaluator_cache_before_returning_archive_input() {
+        let evaluator = Arc::new(MemoizedEvaluatorValue::new(EvaluatorValueType::Null));
+        let evaluator_weak = Arc::downgrade(&evaluator);
+        let mutable_data = MutableData {
+            strings: AHashMap::new(),
+            returnables: AHashMap::new(),
+            evaluator_values: AHashMap::from_iter([(13, evaluator)]),
+        };
+
+        let _mmap_data = detached_mutable_to_mmap_data(mutable_data, Vec::new());
+
+        assert!(evaluator_weak.upgrade().is_none());
     }
 }

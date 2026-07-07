@@ -4169,6 +4169,204 @@ pub(crate) fn joint_newton_budget_exhaustion_refuses_coupled_exact_inner() {
     );
 }
 
+/// gam#1794 regression. The original report described a fit-level *wall-clock*
+/// deadline that bounded a non-converging marginal-slope inner solve, claiming
+/// it was armed only on the survival marginal-slope entry point and not on the
+/// bernoulli/flex (BMS) marginal-slope path, so a stalled BMS/flex inner
+/// joint-Newton spun unbounded until the harness killed it (TIMEOUT).
+///
+/// Since then, gam#2055 removed EVERY wall-clock time budget from the solver
+/// (a wall clock is non-deterministic and machine-dependent, so it violates
+/// the reproducibility SPEC). Both marginal-slope families now route their
+/// coupled exact-joint inner solve through the SAME `inner_blockwise_fit`
+/// loop, which is bounded DETERMINISTICALLY by the inner cycle budget
+/// (`inner_loop_hard_ceiling = inner_max_cycles.max(200)`) plus the
+/// deterministic stall early-exit guards (gam#979 / #1040 / #1088). There is
+/// no per-family wall-clock arming site left to be asymmetric about
+/// (`grep -rn "OUTER_WALL_CLOCK_DEADLINE\|budget_secs\|unwrap_or(300"
+/// crates/` returns no hits; `outer_wall_clock_deadline_exceeded()` is an
+/// inert `false` shim).
+///
+/// This test pins the invariant that actually protects against #1794's
+/// unbounded-spin symptom on the BMS/flex-shaped path: a coupled exact-joint
+/// inner solve whose gradient never reaches KKT — the never-converging
+/// marginal-slope stall — is bounded by the FULL PRODUCTION cycle ceiling
+/// (`DEFAULT_CUSTOM_FAMILY_INNER_MAX_CYCLES`, the scale of the reported
+/// overrun) and RETURNS a finite, catchable, non-converged mode for outer-ρ
+/// rejection instead of spinning to a harness kill. The large budget proves
+/// the bound does not depend on a small `inner_max_cycles`; if the deterministic
+/// ceiling were removed this test would hang instead of returning.
+#[test]
+pub(crate) fn bms_flex_marginal_slope_coupled_exact_inner_stall_is_deterministically_bounded_gam1794()
+{
+    let spec0 = ParameterBlockSpec {
+        name: "block0".to_string(),
+        design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(array![[1.0]])),
+        offset: array![0.0],
+        penalties: vec![],
+        nullspace_dims: vec![],
+        initial_log_lambdas: Array1::zeros(0),
+        initial_beta: Some(array![0.0]),
+        gauge_priority: 100,
+        jacobian_callback: None,
+        stacked_design: None,
+        stacked_offset: None,
+    };
+    let spec1 = ParameterBlockSpec {
+        name: "block1".to_string(),
+        design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(array![[1.0]])),
+        offset: array![0.0],
+        penalties: vec![],
+        nullspace_dims: vec![],
+        initial_log_lambdas: Array1::zeros(0),
+        initial_beta: Some(array![0.0]),
+        gauge_priority: 100,
+        jacobian_callback: None,
+        stacked_design: None,
+        stacked_offset: None,
+    };
+    // The PRODUCTION ceiling — the scale of the reported #1794 overrun. The
+    // deterministic bound must hold here regardless of how large the budget is;
+    // a wall-clock arming asymmetry (the stale premise) or a removed ceiling
+    // would let this stall spin without returning.
+    let options = BlockwiseFitOptions {
+        inner_max_cycles: DEFAULT_CUSTOM_FAMILY_INNER_MAX_CYCLES,
+        inner_tol: 1e-12,
+        ridge_floor: CUSTOM_FAMILY_RIDGE_FLOOR,
+        ..BlockwiseFitOptions::default()
+    };
+    let per_block = vec![Array1::zeros(0), Array1::zeros(0)];
+
+    // The same coupled exact-joint stall as the neighbouring one-cycle test,
+    // but driven at the production ceiling. It MUST return (not hang) with a
+    // bounded, non-converged mode so the outer optimizer can reject this ρ.
+    let result = inner_blockwise_fit(
+        &TwoBlockPersistentGradientFamily,
+        &[spec0, spec1],
+        &per_block,
+        &options,
+        None,
+    )
+    .expect(
+        "a stalled coupled-exact marginal-slope inner solve must return a non-converged \
+         mode, not spin to a harness kill",
+    );
+    assert!(
+        !result.converged,
+        "a never-KKT coupled-exact inner stall must be reported non-converged so the \
+         outer optimizer rejects this ρ"
+    );
+    assert!(
+        result.cycles >= 1 && result.cycles <= DEFAULT_CUSTOM_FAMILY_INNER_MAX_CYCLES,
+        "the inner solve must be bounded by the deterministic cycle ceiling \
+         (gam#1794/#2055): observed cycles={} must lie in 1..={}",
+        result.cycles,
+        DEFAULT_CUSTOM_FAMILY_INNER_MAX_CYCLES,
+    );
+    assert!(
+        result.kkt_residual.is_none(),
+        "a non-converged inner mode carries no KKT certificate for the outer IFT correction"
+    );
+}
+
+/// gam#979 regression: the merit-descent veto on the flat-residual / slow-
+/// geometric stall exit is BOUNDED, so a persistently-drifting Φ-merit can no
+/// longer suppress the honest non-converged exit for the whole cycle budget.
+///
+/// `TwoBlockPersistentGradientFamily` has a constant unit gradient on both
+/// blocks and a linear (unbounded) log-likelihood: the KKT residual is flat at
+/// `‖[1,1]‖ = √2 > tol` every cycle (never a ≥10% drop), while the penalized
+/// objective Φ = −loglik drifts DOWN by O(1) each cycle as the trust-region step
+/// walks β along the gradient. That is exactly the survival marginal-slope
+/// free-warp/gauge signature the #979 bound targets: `merit_still_descending_
+/// over_window()` is TRUE forever, so before the bound it vetoed the flat-
+/// residual and slow-geometric stall exits for the ENTIRE budget and the loop
+/// ground to `inner_loop_hard_ceiling` (1200) on every outer ρ-eval — the ~900s
+/// hang. With the bound the veto expires once the residual has been flat for
+/// `RESIDUAL_STALL_MERIT_VETO_MAX_CYCLES = 4·RESIDUAL_STALL_NO_IMPROVE_CYCLES =
+/// 120` cycles and the solve exits non-converged there.
+///
+/// This pins the PERF backstop the neighbouring `bms_flex_..._gam1794` test does
+/// NOT: that test only bounds `cycles ≤ 1200` (the hard ceiling), so a revert of
+/// the #979 veto bound — which would let this stall grind all the way to 1200 —
+/// still passes it. Here the budget is the full production ceiling, but the exit
+/// must land near the 120-cycle veto cap, an order of magnitude below it. A
+/// revert grinds to 1200 and fails `cycles < 300`; a fixture that stopped
+/// exercising the descending-merit veto (exiting at the ~40-cycle min-cycle
+/// window instead) fails `cycles > RESIDUAL_STALL_MIN_CYCLES`.
+#[test]
+pub(crate) fn persistent_merit_descent_stall_exits_at_veto_bound_not_hard_ceiling_gam979() {
+    // Mirror the #1794 fixture: two scalar blocks, no penalty, so the residual
+    // is the bare constant gradient and Φ = −loglik drifts down each cycle.
+    let make_spec = |name: &str| ParameterBlockSpec {
+        name: name.to_string(),
+        design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(array![[1.0]])),
+        offset: array![0.0],
+        penalties: vec![],
+        nullspace_dims: vec![],
+        initial_log_lambdas: Array1::zeros(0),
+        initial_beta: Some(array![0.0]),
+        gauge_priority: 100,
+        jacobian_callback: None,
+        stacked_design: None,
+        stacked_offset: None,
+    };
+    // The full PRODUCTION ceiling — the scale of the reported #979 hang. The
+    // merit-veto bound must cut the stall off an order of magnitude sooner
+    // REGARDLESS of how large this budget is.
+    let options = BlockwiseFitOptions {
+        inner_max_cycles: DEFAULT_CUSTOM_FAMILY_INNER_MAX_CYCLES,
+        inner_tol: 1e-12,
+        ridge_floor: CUSTOM_FAMILY_RIDGE_FLOOR,
+        ..BlockwiseFitOptions::default()
+    };
+    let per_block = vec![Array1::zeros(0), Array1::zeros(0)];
+
+    let result = inner_blockwise_fit(
+        &TwoBlockPersistentGradientFamily,
+        &[make_spec("block0"), make_spec("block1")],
+        &per_block,
+        &options,
+        None,
+    )
+    .expect("a merit-vetoed flat-residual stall must return a non-converged mode, not error");
+
+    // The residual never reaches KKT, so the solve is honestly non-converged.
+    assert!(
+        !result.converged,
+        "a never-KKT flat-residual stall must be reported non-converged so the outer \
+         optimizer rejects this ρ"
+    );
+    // `RESIDUAL_STALL_MERIT_VETO_MAX_CYCLES = 4 * RESIDUAL_STALL_NO_IMPROVE_CYCLES = 120`
+    // (kept in sync with `inner_blockwise_fit`). The exit must land near that cap.
+    const MERIT_VETO_MAX_CYCLES: usize = 120;
+    // (a) The core #979 guard: the drifting merit does NOT hold the veto for the
+    // whole budget. A revert grinds to the 1200 hard ceiling and fails this.
+    assert!(
+        result.cycles < MERIT_VETO_MAX_CYCLES + 60,
+        "the merit-descent veto must expire near the {MERIT_VETO_MAX_CYCLES}-cycle bound; \
+         observed cycles={} (a revert of the #979 bound grinds to the {}-cycle ceiling)",
+        result.cycles,
+        DEFAULT_CUSTOM_FAMILY_INNER_MAX_CYCLES,
+    );
+    // (b) The exit is the merit-VETOED one, not an earlier unvetoed stall exit:
+    // a still-descending merit vetoes every flat-residual / slow-geometric exit
+    // until the bound, so the solve must run well past the 40-cycle min window.
+    // If the fixture stopped producing a descending merit this trips, flagging
+    // that the veto path is no longer exercised.
+    assert!(
+        result.cycles > 40,
+        "expected the descending-merit veto to hold the exit past the min-cycle window \
+         until the {MERIT_VETO_MAX_CYCLES}-cycle bound; observed cycles={} — the fixture may \
+         no longer exercise the merit-veto path",
+        result.cycles,
+    );
+    assert!(
+        result.kkt_residual.is_none(),
+        "a non-converged inner mode carries no KKT certificate for the outer IFT correction"
+    );
+}
+
 /// gam#1088 regression. A `NaN` in the joint Hessian curvature makes
 /// `H_pen = H + S(λ)` and its spectrum degenerate, so the KKT certificate
 /// can never be issued. Without the non-finite-curvature guard the coupled

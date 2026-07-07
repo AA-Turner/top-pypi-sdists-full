@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-vertica
-Version: 1.8.5
+Version: 1.8.6
 Summary: Official vertica adapter plugin for dbt (data build tool)
 Home-page: https://github.com/ajay.abrol2/dbt-vertica/
 Author: Vertica (Former authors: Matthew Carter, Andy Regan, Andrew Hedengren)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-kraken-sdk
-Version: 3.2.8
+Version: 3.3.0
 Summary: Command-line tool and collection of REST and websocket clients to interact with the Kraken Crypto Asset Exchange.
 Author-email: Benjamin Thomas Schwertfeger <contact@b-schwertfeger.de>
 Maintainer-email: Benjamin Thomas Schwertfeger <contact@b-schwertfeger.de>
@@ -9,7 +9,7 @@ Project-URL: Homepage, https://github.com/btschwertfeger/python-kraken-sdk
 Project-URL: Documentation, https://python-kraken-sdk.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/btschwertfeger/python-kraken-sdk/releases
 Project-URL: Bug Tracker, https://github.com/btschwertfeger/python-kraken-sdk/issues
-Keywords: crypto,trading,kraken,exchange,api,sdk,kraken crypto asset exchange,automation
+Keywords: crypto,trading,kraken,exchange,api,sdk,automation
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers

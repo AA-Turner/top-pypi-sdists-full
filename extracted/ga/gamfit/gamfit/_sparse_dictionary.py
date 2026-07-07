@@ -101,7 +101,7 @@ class SparseDictionaryTransform:
     score_route_stats: dict[str, Any]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SparseDictionaryFit:
     """Result of a collapsed-linear-lane fit.
 
@@ -114,7 +114,9 @@ class SparseDictionaryFit:
     codes:
         ``N x active`` sparse codes aligned with ``indices`` (FP32).
     fitted:
-        ``N x P`` dense reconstruction of the training rows (FP32).
+        Lazy ``N x P`` dense reconstruction of the training rows (FP32).
+        Accessing it allocates the reconstruction; the fit artifact does not
+        retain a second dense copy of the training matrix.
     explained_variance:
         Held-in EV (``1 - RSS/TSS``) of the fitted reconstruction.
     epochs, converged, active:
@@ -124,12 +126,27 @@ class SparseDictionaryFit:
     decoder: np.ndarray
     indices: np.ndarray
     codes: np.ndarray
-    fitted: np.ndarray
     explained_variance: float
     epochs: int
     converged: bool
     active: int
     score_route_stats: dict[str, Any]
+
+    @property
+    def fitted(self) -> np.ndarray:
+        """Materialize the training reconstruction from sparse codes."""
+        return self.reconstruct()
+
+    @property
+    def retained_training_payload_cells(self) -> int:
+        """Cells retained per training row, excluding the ``K x P`` decoder.
+
+        This is the public size invariant for the front-door sparse lane: the
+        result carries ``indices[N, active]`` and ``codes[N, active]`` only. It
+        therefore cannot hide an ``N x K`` assignment matrix or a second
+        ``N x P`` reconstruction.
+        """
+        return int(self.indices.size + self.codes.size)
 
     def reconstruct(self, indices: Any | None = None, codes: Any | None = None) -> np.ndarray:
         """Dense reconstruct from a sparse ``(indices, codes)`` routing.
@@ -393,6 +410,9 @@ class BlockSparseDictionaryFit:
         Length-``G`` stable rank ``trace(C_g)/λ_max(C_g)`` of each block's
         within-block code second moment — the effective dimensionality each block
         uses (for the MDL lane).
+    matryoshka_prefix_losses:
+        Optional log-spaced nested-prefix ladder ``(K, L(K))``. Empty unless
+        ``matryoshka_prefix=True`` was passed to :func:`block_sparse_dictionary_fit`.
     fitted:
         ``N x P`` dense reconstruction of the training rows (FP32).
     explained_variance, epochs, converged, block_topk, block_size:
@@ -406,6 +426,7 @@ class BlockSparseDictionaryFit:
     gamma: float
     block_utilization: np.ndarray
     block_stable_rank: np.ndarray
+    matryoshka_prefix_losses: tuple[tuple[int, float], ...]
     fitted: np.ndarray
     explained_variance: float
     epochs: int
@@ -417,6 +438,15 @@ class BlockSparseDictionaryFit:
     def n_blocks(self) -> int:
         """Number of blocks ``G = K / b``."""
         return self.decoder.shape[0] // self.block_size
+
+    def read_loss_at_prefix(self, K: int) -> float:
+        """Return the stored MATRYOSHKA-PREFIX loss at atom prefix ``K``."""
+        k = int(K)
+        for prefix_k, loss in self.matryoshka_prefix_losses:
+            if prefix_k == k:
+                return float(loss)
+        logged = [pair[0] for pair in self.matryoshka_prefix_losses]
+        raise KeyError(f"no MATRYOSHKA-PREFIX loss at K={k}; logged prefixes: {logged}")
 
     def reconstruct(self) -> np.ndarray:
         """Dense ``N x P`` reconstruction from the stored block routing
@@ -678,6 +708,7 @@ def block_sparse_dictionary_fit(
     block_tile: int = 1024,
     frame_ridge: float = 1.0e-9,
     aux_k: int = 0,
+    matryoshka_prefix: bool = False,
     tolerance: float = 1.0e-6,
 ) -> BlockSparseDictionaryFit:
     """Fit a **block-sparse** dictionary to ``X`` (``N x P``): ``G = n_blocks``
@@ -702,9 +733,9 @@ def block_sparse_dictionary_fit(
     max_epochs, minibatch, block_tile:
         Streaming / tiling controls (peak routing working set is
         ``minibatch x (block_tile*b)``, never ``N x K``).
-    frame_ridge, aux_k, tolerance:
-        Frame-refresh ridge, AuxK dead-block revival budget, and the EV stopping
-        tolerance.
+    frame_ridge, aux_k, matryoshka_prefix, tolerance:
+        Frame-refresh ridge, AuxK dead-block revival budget, optional nested
+        prefix loss ladder, and the EV stopping tolerance.
     """
     if not grassmann:
         raise ValueError(
@@ -728,6 +759,7 @@ def block_sparse_dictionary_fit(
         block_tile=int(block_tile),
         frame_ridge=float(frame_ridge),
         aux_k=int(aux_k),
+        matryoshka_prefix=bool(matryoshka_prefix),
         tolerance=float(tolerance),
     )
     data = dict(payload)
@@ -739,6 +771,9 @@ def block_sparse_dictionary_fit(
         gamma=float(data["gamma"]),
         block_utilization=np.ascontiguousarray(data["block_utilization"], dtype=np.float32),
         block_stable_rank=np.ascontiguousarray(data["block_stable_rank"], dtype=np.float32),
+        matryoshka_prefix_losses=tuple(
+            (int(prefix_k), float(loss)) for prefix_k, loss in data["matryoshka_prefix_losses"]
+        ),
         fitted=np.ascontiguousarray(data["fitted"], dtype=np.float32),
         explained_variance=float(data["explained_variance"]),
         epochs=int(data["epochs"]),
@@ -1083,7 +1118,6 @@ def sparse_dictionary_fit(
         decoder=np.ascontiguousarray(data["decoder"], dtype=np.float32),
         indices=np.ascontiguousarray(data["indices"], dtype=np.uint32),
         codes=np.ascontiguousarray(data["codes"], dtype=np.float32),
-        fitted=np.ascontiguousarray(data["fitted"], dtype=np.float32),
         explained_variance=float(data["explained_variance"]),
         epochs=int(data["epochs"]),
         converged=bool(data["converged"]),

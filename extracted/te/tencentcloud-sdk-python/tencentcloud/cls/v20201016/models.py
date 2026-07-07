@@ -3748,20 +3748,24 @@ class CloudProductLogTaskInfo(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClsRegion: 日志服务地域
+        :param _ClsRegion: <p>日志服务地域</p>
         :type ClsRegion: str
-        :param _InstanceId: 实例ID
+        :param _InstanceId: <p>实例ID</p>
         :type InstanceId: str
-        :param _LogsetId: 日志集ID
+        :param _LogsetId: <p>日志集ID</p>
         :type LogsetId: str
-        :param _TopicId: 日志主题ID
+        :param _TopicId: <p>日志主题ID</p>
         :type TopicId: str
-        :param _Extend: 日志配置拓展信息， 一般用于存储额外的日志投递配置
+        :param _Extend: <p>日志配置拓展信息， 一般用于存储额外的日志投递配置</p>
         :type Extend: str
-        :param _LogType: 日志类型，支持枚举：CDS-AUDIT、CDS-RISK、CDB-AUDIT、TDSQL-C-AUDIT、MongoDB-AUDIT、MongoDB-SlowLog、MongoDB-ErrorLog、TDMYSQL-SLOW、DCDB-AUDIT、DCDB-SLOW、DCDB-ERROR、MariaDB-AUDIT、MariaDB-SLOW、MariaDB-ERROR、PostgreSQL-SLOW、PostgreSQL-ERROR、PostgreSQL-AUDIT、BH-FILELOG、BH-COMMANDLOG、APIS-ACCESS
+        :param _LogType: <p>日志类型，支持枚举：CDS-AUDIT、CDS-RISK、CDB-AUDIT、TDSQL-C-AUDIT、MongoDB-AUDIT、MongoDB-SlowLog、MongoDB-ErrorLog、TDMYSQL-SLOW、DCDB-AUDIT、DCDB-SLOW、DCDB-ERROR、MariaDB-AUDIT、MariaDB-SLOW、MariaDB-ERROR、PostgreSQL-SLOW、PostgreSQL-ERROR、PostgreSQL-AUDIT、BH-FILELOG、BH-COMMANDLOG、APIS-ACCESS</p>
         :type LogType: str
-        :param _Status: 任务状态， 0创建中 1创建完成 2 删除中 
+        :param _Status: <p>任务状态， 0创建中 1创建完成 2 删除中</p>
         :type Status: int
+        :param _TopicTags: <p>投递任务关联topic的标签信息</p>
+        :type TopicTags: list of Tag
+        :param _LogsetTags: <p>投递任务关联logset的标签信息</p>
+        :type LogsetTags: list of Tag
         """
         self._ClsRegion = None
         self._InstanceId = None
@@ -3770,10 +3774,12 @@ class CloudProductLogTaskInfo(AbstractModel):
         self._Extend = None
         self._LogType = None
         self._Status = None
+        self._TopicTags = None
+        self._LogsetTags = None
 
     @property
     def ClsRegion(self):
-        r"""日志服务地域
+        r"""<p>日志服务地域</p>
         :rtype: str
         """
         return self._ClsRegion
@@ -3784,7 +3790,7 @@ class CloudProductLogTaskInfo(AbstractModel):
 
     @property
     def InstanceId(self):
-        r"""实例ID
+        r"""<p>实例ID</p>
         :rtype: str
         """
         return self._InstanceId
@@ -3795,7 +3801,7 @@ class CloudProductLogTaskInfo(AbstractModel):
 
     @property
     def LogsetId(self):
-        r"""日志集ID
+        r"""<p>日志集ID</p>
         :rtype: str
         """
         return self._LogsetId
@@ -3806,7 +3812,7 @@ class CloudProductLogTaskInfo(AbstractModel):
 
     @property
     def TopicId(self):
-        r"""日志主题ID
+        r"""<p>日志主题ID</p>
         :rtype: str
         """
         return self._TopicId
@@ -3817,7 +3823,7 @@ class CloudProductLogTaskInfo(AbstractModel):
 
     @property
     def Extend(self):
-        r"""日志配置拓展信息， 一般用于存储额外的日志投递配置
+        r"""<p>日志配置拓展信息， 一般用于存储额外的日志投递配置</p>
         :rtype: str
         """
         return self._Extend
@@ -3828,7 +3834,7 @@ class CloudProductLogTaskInfo(AbstractModel):
 
     @property
     def LogType(self):
-        r"""日志类型，支持枚举：CDS-AUDIT、CDS-RISK、CDB-AUDIT、TDSQL-C-AUDIT、MongoDB-AUDIT、MongoDB-SlowLog、MongoDB-ErrorLog、TDMYSQL-SLOW、DCDB-AUDIT、DCDB-SLOW、DCDB-ERROR、MariaDB-AUDIT、MariaDB-SLOW、MariaDB-ERROR、PostgreSQL-SLOW、PostgreSQL-ERROR、PostgreSQL-AUDIT、BH-FILELOG、BH-COMMANDLOG、APIS-ACCESS
+        r"""<p>日志类型，支持枚举：CDS-AUDIT、CDS-RISK、CDB-AUDIT、TDSQL-C-AUDIT、MongoDB-AUDIT、MongoDB-SlowLog、MongoDB-ErrorLog、TDMYSQL-SLOW、DCDB-AUDIT、DCDB-SLOW、DCDB-ERROR、MariaDB-AUDIT、MariaDB-SLOW、MariaDB-ERROR、PostgreSQL-SLOW、PostgreSQL-ERROR、PostgreSQL-AUDIT、BH-FILELOG、BH-COMMANDLOG、APIS-ACCESS</p>
         :rtype: str
         """
         return self._LogType
@@ -3839,7 +3845,7 @@ class CloudProductLogTaskInfo(AbstractModel):
 
     @property
     def Status(self):
-        r"""任务状态， 0创建中 1创建完成 2 删除中 
+        r"""<p>任务状态， 0创建中 1创建完成 2 删除中</p>
         :rtype: int
         """
         return self._Status
@@ -3847,6 +3853,28 @@ class CloudProductLogTaskInfo(AbstractModel):
     @Status.setter
     def Status(self, Status):
         self._Status = Status
+
+    @property
+    def TopicTags(self):
+        r"""<p>投递任务关联topic的标签信息</p>
+        :rtype: list of Tag
+        """
+        return self._TopicTags
+
+    @TopicTags.setter
+    def TopicTags(self, TopicTags):
+        self._TopicTags = TopicTags
+
+    @property
+    def LogsetTags(self):
+        r"""<p>投递任务关联logset的标签信息</p>
+        :rtype: list of Tag
+        """
+        return self._LogsetTags
+
+    @LogsetTags.setter
+    def LogsetTags(self, LogsetTags):
+        self._LogsetTags = LogsetTags
 
 
     def _deserialize(self, params):
@@ -3857,6 +3885,18 @@ class CloudProductLogTaskInfo(AbstractModel):
         self._Extend = params.get("Extend")
         self._LogType = params.get("LogType")
         self._Status = params.get("Status")
+        if params.get("TopicTags") is not None:
+            self._TopicTags = []
+            for item in params.get("TopicTags"):
+                obj = Tag()
+                obj._deserialize(item)
+                self._TopicTags.append(obj)
+        if params.get("LogsetTags") is not None:
+            self._LogsetTags = []
+            for item in params.get("LogsetTags"):
+                obj = Tag()
+                obj._deserialize(item)
+                self._LogsetTags.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13416,32 +13456,36 @@ class CreateScheduledSqlRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SrcTopicId: 源日志主题ID- 通过[获取日志主题列表](https://cloud.tencent.com/document/product/614/56454)获取日志主题Id。
+        :param _SrcTopicId: <p>源日志主题ID- 通过<a href="https://cloud.tencent.com/document/product/614/56454">获取日志主题列表</a>获取日志主题Id。</p>
         :type SrcTopicId: str
-        :param _Name: 任务名称，0~255字符
+        :param _Name: <p>任务名称，0~255字符</p>
         :type Name: str
-        :param _EnableFlag: 任务启动状态.  1开启,  2关闭
+        :param _EnableFlag: <p>任务启动状态.  1开启,  2关闭</p>
         :type EnableFlag: int
-        :param _DstResource: 定时SQL分析目标日志主题
+        :param _DstResource: <p>定时SQL分析目标日志主题</p>
         :type DstResource: :class:`tencentcloud.cls.v20201016.models.ScheduledSqlResouceInfo`
-        :param _ScheduledSqlContent: 查询语句
+        :param _ScheduledSqlContent: <p>查询语句</p>
         :type ScheduledSqlContent: str
-        :param _ProcessStartTime: 调度开始时间,Unix时间戳，单位ms
+        :param _ProcessStartTime: <p>调度开始时间,Unix时间戳，单位ms</p>
         :type ProcessStartTime: int
-        :param _ProcessType: 调度类型，1:持续运行 2:指定时间范围
+        :param _ProcessType: <p>调度类型，1:持续运行 2:指定时间范围</p>
         :type ProcessType: int
-        :param _ProcessPeriod: 调度周期(分钟)，1~1440分钟
+        :param _ProcessPeriod: <p>调度周期(分钟)，1~1440分钟</p>
         :type ProcessPeriod: int
-        :param _ProcessTimeWindow: 单次查询的时间窗口,如果您的目标主题为指标主题，建议该参数的大小不超过30分钟，否则可能转指标失败。 
+        :param _ProcessTimeWindow: <p>单次查询的时间窗口,如果您的目标主题为指标主题，建议该参数的大小不超过30分钟，否则可能转指标失败。</p>
         :type ProcessTimeWindow: str
-        :param _ProcessDelay: 执行延迟(秒)，0~120秒，默认60秒
+        :param _ProcessDelay: <p>执行延迟(秒)，0~120秒，默认60秒</p>
         :type ProcessDelay: int
-        :param _SrcTopicRegion: 源topicId的地域信息,支持地域见 [地域列表](https://cloud.tencent.com/document/api/614/56474#.E5.9C.B0.E5.9F.9F.E5.88.97.E8.A1.A8) 文档
+        :param _SrcTopicRegion: <p>源topicId的地域信息,支持地域见 <a href="https://cloud.tencent.com/document/api/614/56474#.E5.9C.B0.E5.9F.9F.E5.88.97.E8.A1.A8">地域列表</a> 文档</p>
         :type SrcTopicRegion: str
-        :param _ProcessEndTime: 调度结束时间，当ProcessType=2时为必传字段, Unix时间戳，单位ms
+        :param _ProcessEndTime: <p>调度结束时间，当ProcessType=2时为必传字段, Unix时间戳，单位ms</p>
         :type ProcessEndTime: int
-        :param _SyntaxRule: 查询语法规则。 默认值为0。0：Lucene语法，1：CQL语法  
+        :param _SyntaxRule: <p>查询语法规则。 默认值为0。0：Lucene语法，1：CQL语法</p>
         :type SyntaxRule: int
+        :param _HasServicesLog: <p>是否开启投递服务日志。1：关闭，2：开启。</p>
+        :type HasServicesLog: int
+        :param _FullQuery: <p>全文检索标记。1：关闭，2：打开。默认：1</p>
+        :type FullQuery: int
         """
         self._SrcTopicId = None
         self._Name = None
@@ -13456,10 +13500,12 @@ class CreateScheduledSqlRequest(AbstractModel):
         self._SrcTopicRegion = None
         self._ProcessEndTime = None
         self._SyntaxRule = None
+        self._HasServicesLog = None
+        self._FullQuery = None
 
     @property
     def SrcTopicId(self):
-        r"""源日志主题ID- 通过[获取日志主题列表](https://cloud.tencent.com/document/product/614/56454)获取日志主题Id。
+        r"""<p>源日志主题ID- 通过<a href="https://cloud.tencent.com/document/product/614/56454">获取日志主题列表</a>获取日志主题Id。</p>
         :rtype: str
         """
         return self._SrcTopicId
@@ -13470,7 +13516,7 @@ class CreateScheduledSqlRequest(AbstractModel):
 
     @property
     def Name(self):
-        r"""任务名称，0~255字符
+        r"""<p>任务名称，0~255字符</p>
         :rtype: str
         """
         return self._Name
@@ -13481,7 +13527,7 @@ class CreateScheduledSqlRequest(AbstractModel):
 
     @property
     def EnableFlag(self):
-        r"""任务启动状态.  1开启,  2关闭
+        r"""<p>任务启动状态.  1开启,  2关闭</p>
         :rtype: int
         """
         return self._EnableFlag
@@ -13492,7 +13538,7 @@ class CreateScheduledSqlRequest(AbstractModel):
 
     @property
     def DstResource(self):
-        r"""定时SQL分析目标日志主题
+        r"""<p>定时SQL分析目标日志主题</p>
         :rtype: :class:`tencentcloud.cls.v20201016.models.ScheduledSqlResouceInfo`
         """
         return self._DstResource
@@ -13503,7 +13549,7 @@ class CreateScheduledSqlRequest(AbstractModel):
 
     @property
     def ScheduledSqlContent(self):
-        r"""查询语句
+        r"""<p>查询语句</p>
         :rtype: str
         """
         return self._ScheduledSqlContent
@@ -13514,7 +13560,7 @@ class CreateScheduledSqlRequest(AbstractModel):
 
     @property
     def ProcessStartTime(self):
-        r"""调度开始时间,Unix时间戳，单位ms
+        r"""<p>调度开始时间,Unix时间戳，单位ms</p>
         :rtype: int
         """
         return self._ProcessStartTime
@@ -13525,7 +13571,7 @@ class CreateScheduledSqlRequest(AbstractModel):
 
     @property
     def ProcessType(self):
-        r"""调度类型，1:持续运行 2:指定时间范围
+        r"""<p>调度类型，1:持续运行 2:指定时间范围</p>
         :rtype: int
         """
         return self._ProcessType
@@ -13536,7 +13582,7 @@ class CreateScheduledSqlRequest(AbstractModel):
 
     @property
     def ProcessPeriod(self):
-        r"""调度周期(分钟)，1~1440分钟
+        r"""<p>调度周期(分钟)，1~1440分钟</p>
         :rtype: int
         """
         return self._ProcessPeriod
@@ -13547,7 +13593,7 @@ class CreateScheduledSqlRequest(AbstractModel):
 
     @property
     def ProcessTimeWindow(self):
-        r"""单次查询的时间窗口,如果您的目标主题为指标主题，建议该参数的大小不超过30分钟，否则可能转指标失败。 
+        r"""<p>单次查询的时间窗口,如果您的目标主题为指标主题，建议该参数的大小不超过30分钟，否则可能转指标失败。</p>
         :rtype: str
         """
         return self._ProcessTimeWindow
@@ -13558,7 +13604,7 @@ class CreateScheduledSqlRequest(AbstractModel):
 
     @property
     def ProcessDelay(self):
-        r"""执行延迟(秒)，0~120秒，默认60秒
+        r"""<p>执行延迟(秒)，0~120秒，默认60秒</p>
         :rtype: int
         """
         return self._ProcessDelay
@@ -13569,7 +13615,7 @@ class CreateScheduledSqlRequest(AbstractModel):
 
     @property
     def SrcTopicRegion(self):
-        r"""源topicId的地域信息,支持地域见 [地域列表](https://cloud.tencent.com/document/api/614/56474#.E5.9C.B0.E5.9F.9F.E5.88.97.E8.A1.A8) 文档
+        r"""<p>源topicId的地域信息,支持地域见 <a href="https://cloud.tencent.com/document/api/614/56474#.E5.9C.B0.E5.9F.9F.E5.88.97.E8.A1.A8">地域列表</a> 文档</p>
         :rtype: str
         """
         return self._SrcTopicRegion
@@ -13580,7 +13626,7 @@ class CreateScheduledSqlRequest(AbstractModel):
 
     @property
     def ProcessEndTime(self):
-        r"""调度结束时间，当ProcessType=2时为必传字段, Unix时间戳，单位ms
+        r"""<p>调度结束时间，当ProcessType=2时为必传字段, Unix时间戳，单位ms</p>
         :rtype: int
         """
         return self._ProcessEndTime
@@ -13591,7 +13637,7 @@ class CreateScheduledSqlRequest(AbstractModel):
 
     @property
     def SyntaxRule(self):
-        r"""查询语法规则。 默认值为0。0：Lucene语法，1：CQL语法  
+        r"""<p>查询语法规则。 默认值为0。0：Lucene语法，1：CQL语法</p>
         :rtype: int
         """
         return self._SyntaxRule
@@ -13599,6 +13645,28 @@ class CreateScheduledSqlRequest(AbstractModel):
     @SyntaxRule.setter
     def SyntaxRule(self, SyntaxRule):
         self._SyntaxRule = SyntaxRule
+
+    @property
+    def HasServicesLog(self):
+        r"""<p>是否开启投递服务日志。1：关闭，2：开启。</p>
+        :rtype: int
+        """
+        return self._HasServicesLog
+
+    @HasServicesLog.setter
+    def HasServicesLog(self, HasServicesLog):
+        self._HasServicesLog = HasServicesLog
+
+    @property
+    def FullQuery(self):
+        r"""<p>全文检索标记。1：关闭，2：打开。默认：1</p>
+        :rtype: int
+        """
+        return self._FullQuery
+
+    @FullQuery.setter
+    def FullQuery(self, FullQuery):
+        self._FullQuery = FullQuery
 
 
     def _deserialize(self, params):
@@ -13617,6 +13685,8 @@ class CreateScheduledSqlRequest(AbstractModel):
         self._SrcTopicRegion = params.get("SrcTopicRegion")
         self._ProcessEndTime = params.get("ProcessEndTime")
         self._SyntaxRule = params.get("SyntaxRule")
+        self._HasServicesLog = params.get("HasServicesLog")
+        self._FullQuery = params.get("FullQuery")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13634,7 +13704,7 @@ class CreateScheduledSqlResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TaskId: 任务id
+        :param _TaskId: <p>任务id</p>
         :type TaskId: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -13644,7 +13714,7 @@ class CreateScheduledSqlResponse(AbstractModel):
 
     @property
     def TaskId(self):
-        r"""任务id
+        r"""<p>任务id</p>
         :rtype: str
         """
         return self._TaskId
@@ -20203,10 +20273,13 @@ class DescribeCloudProductLogTasksRequest(AbstractModel):
         :type Limit: int
         :param _Filters: <ul><li>assumerName<ul><li>按照【云产品标识】进行过滤。</li><li>类型：String</li><li>必选：否</li><li>枚举：CDS、CWP、CDB、TDSQL-C、MongoDB、TDStore、DCDB、MariaDB、PostgreSQL、BH、APIS</li></ul></li><li>logType<ul><li>按照【日志类型】进行过滤。</li><li>类型：String</li><li>必选：否</li><li>枚举：CDS-AUDIT、CDS-RISK、CDB-AUDIT、TDSQL-C-AUDIT、MongoDB-AUDIT、MongoDB-SlowLog、MongoDB-ErrorLog、TDMYSQL-SLOW、DCDB-AUDIT、DCDB-SLOW、DCDB-ERROR、MariaDB-AUDIT、MariaDB-SLOW、MariaDB-ERROR、PostgreSQL-SLOW、PostgreSQL-ERROR、PostgreSQL-AUDIT、BH-FILELOG、BH-COMMANDLOG、APIS-ACCESS</li></ul></li><li>instanceId<ul><li>按照【实例ID】进行过滤。</li><li>类型：String</li><li>必选：否</li></ul></li></ul>
         :type Filters: list of Filter
+        :param _WithTags: <p>是否携带topic和logset的标签信息</p>
+        :type WithTags: bool
         """
         self._Offset = None
         self._Limit = None
         self._Filters = None
+        self._WithTags = None
 
     @property
     def Offset(self):
@@ -20241,6 +20314,17 @@ class DescribeCloudProductLogTasksRequest(AbstractModel):
     def Filters(self, Filters):
         self._Filters = Filters
 
+    @property
+    def WithTags(self):
+        r"""<p>是否携带topic和logset的标签信息</p>
+        :rtype: bool
+        """
+        return self._WithTags
+
+    @WithTags.setter
+    def WithTags(self, WithTags):
+        self._WithTags = WithTags
+
 
     def _deserialize(self, params):
         self._Offset = params.get("Offset")
@@ -20251,6 +20335,7 @@ class DescribeCloudProductLogTasksRequest(AbstractModel):
                 obj = Filter()
                 obj._deserialize(item)
                 self._Filters.append(obj)
+        self._WithTags = params.get("WithTags")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -20272,11 +20357,14 @@ class DescribeCloudProductLogTasksResponse(AbstractModel):
         :type Tasks: list of CloudProductLogTaskInfo
         :param _TotalCount: <p>日志配置总数</p>
         :type TotalCount: int
+        :param _Message: <p>额外信息。如查询topic、logset标签信息错误</p>
+        :type Message: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._Tasks = None
         self._TotalCount = None
+        self._Message = None
         self._RequestId = None
 
     @property
@@ -20302,6 +20390,17 @@ class DescribeCloudProductLogTasksResponse(AbstractModel):
         self._TotalCount = TotalCount
 
     @property
+    def Message(self):
+        r"""<p>额外信息。如查询topic、logset标签信息错误</p>
+        :rtype: str
+        """
+        return self._Message
+
+    @Message.setter
+    def Message(self, Message):
+        self._Message = Message
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -20321,6 +20420,7 @@ class DescribeCloudProductLogTasksResponse(AbstractModel):
                 obj._deserialize(item)
                 self._Tasks.append(obj)
         self._TotalCount = params.get("TotalCount")
+        self._Message = params.get("Message")
         self._RequestId = params.get("RequestId")
 
 
@@ -28439,38 +28539,44 @@ class DlcDeliverInfo(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TaskId: 任务id。
+        :param _TaskId: <p>任务id。</p>
         :type TaskId: str
-        :param _Uin: 账号id。
+        :param _Uin: <p>账号id。</p>
         :type Uin: int
-        :param _TopicId: 日志主题id。
+        :param _TopicId: <p>日志主题id。</p>
         :type TopicId: str
-        :param _Name: 任务名称。
+        :param _Name: <p>任务名称。</p>
         :type Name: str
-        :param _DeliverType: 投递类型，0：实时投递，1：历史投递
+        :param _DeliverType: <p>投递类型，0：实时投递，1：历史投递</p>
         :type DeliverType: int
-        :param _MaxSize: 投递文件大小，单位MB
+        :param _MaxSize: <p>投递文件大小，单位MB</p>
         :type MaxSize: int
-        :param _Interval: 投递间隔 单位秒
+        :param _Interval: <p>投递间隔 单位秒</p>
         :type Interval: int
-        :param _StartTime: 投递时间范围的开始时间
+        :param _StartTime: <p>投递时间范围的开始时间</p>
         :type StartTime: int
-        :param _EndTime: 投递时间范围的结束时间
+        :param _EndTime: <p>投递时间范围的结束时间</p>
         :type EndTime: int
-        :param _DlcInfo: dlc配置信息
+        :param _DlcInfo: <p>dlc配置信息</p>
         :type DlcInfo: :class:`tencentcloud.cls.v20201016.models.DlcInfo`
-        :param _HasServicesLog: 是否开启投递服务日志。1关闭，2开启
+        :param _HasServicesLog: <p>是否开启投递服务日志。1关闭，2开启</p>
         :type HasServicesLog: int
-        :param _Status: 任务状态。
+        :param _Status: <p>任务状态。</p>
         :type Status: int
-        :param _Progress: 任务进度。历史投递任务生效。
+        :param _Progress: <p>任务进度。历史投递任务生效。</p>
         :type Progress: int
-        :param _BizType: 日志主题类型。0:标准主题，1:指标主题
+        :param _BizType: <p>日志主题类型。0:标准主题，1:指标主题</p>
         :type BizType: int
-        :param _CreateTime: 任务创建时间。
+        :param _CreateTime: <p>任务创建时间。</p>
         :type CreateTime: int
-        :param _UpdateTime: 任务修改时间。
+        :param _UpdateTime: <p>任务修改时间。</p>
         :type UpdateTime: int
+        :param _AutoCreateField: <p>自动创建dlc字段</p><p>默认值：false</p><p>当您的日志中有新增字段时，系统自动将其投递至DLC</p>
+        :type AutoCreateField: bool
+        :param _DlcFailHandle: <p>将投递失败的日志存储至DLC表</p>
+        :type DlcFailHandle: :class:`tencentcloud.cls.v20201016.models.DlcFailHandle`
+        :param _DSLFilter: <p>日志预过滤-数据写入 Splunk 的原始数据进行预过滤处理</p>
+        :type DSLFilter: str
         """
         self._TaskId = None
         self._Uin = None
@@ -28488,10 +28594,13 @@ class DlcDeliverInfo(AbstractModel):
         self._BizType = None
         self._CreateTime = None
         self._UpdateTime = None
+        self._AutoCreateField = None
+        self._DlcFailHandle = None
+        self._DSLFilter = None
 
     @property
     def TaskId(self):
-        r"""任务id。
+        r"""<p>任务id。</p>
         :rtype: str
         """
         return self._TaskId
@@ -28502,7 +28611,7 @@ class DlcDeliverInfo(AbstractModel):
 
     @property
     def Uin(self):
-        r"""账号id。
+        r"""<p>账号id。</p>
         :rtype: int
         """
         return self._Uin
@@ -28513,7 +28622,7 @@ class DlcDeliverInfo(AbstractModel):
 
     @property
     def TopicId(self):
-        r"""日志主题id。
+        r"""<p>日志主题id。</p>
         :rtype: str
         """
         return self._TopicId
@@ -28524,7 +28633,7 @@ class DlcDeliverInfo(AbstractModel):
 
     @property
     def Name(self):
-        r"""任务名称。
+        r"""<p>任务名称。</p>
         :rtype: str
         """
         return self._Name
@@ -28535,7 +28644,7 @@ class DlcDeliverInfo(AbstractModel):
 
     @property
     def DeliverType(self):
-        r"""投递类型，0：实时投递，1：历史投递
+        r"""<p>投递类型，0：实时投递，1：历史投递</p>
         :rtype: int
         """
         return self._DeliverType
@@ -28546,7 +28655,7 @@ class DlcDeliverInfo(AbstractModel):
 
     @property
     def MaxSize(self):
-        r"""投递文件大小，单位MB
+        r"""<p>投递文件大小，单位MB</p>
         :rtype: int
         """
         return self._MaxSize
@@ -28557,7 +28666,7 @@ class DlcDeliverInfo(AbstractModel):
 
     @property
     def Interval(self):
-        r"""投递间隔 单位秒
+        r"""<p>投递间隔 单位秒</p>
         :rtype: int
         """
         return self._Interval
@@ -28568,7 +28677,7 @@ class DlcDeliverInfo(AbstractModel):
 
     @property
     def StartTime(self):
-        r"""投递时间范围的开始时间
+        r"""<p>投递时间范围的开始时间</p>
         :rtype: int
         """
         return self._StartTime
@@ -28579,7 +28688,7 @@ class DlcDeliverInfo(AbstractModel):
 
     @property
     def EndTime(self):
-        r"""投递时间范围的结束时间
+        r"""<p>投递时间范围的结束时间</p>
         :rtype: int
         """
         return self._EndTime
@@ -28590,7 +28699,7 @@ class DlcDeliverInfo(AbstractModel):
 
     @property
     def DlcInfo(self):
-        r"""dlc配置信息
+        r"""<p>dlc配置信息</p>
         :rtype: :class:`tencentcloud.cls.v20201016.models.DlcInfo`
         """
         return self._DlcInfo
@@ -28601,7 +28710,7 @@ class DlcDeliverInfo(AbstractModel):
 
     @property
     def HasServicesLog(self):
-        r"""是否开启投递服务日志。1关闭，2开启
+        r"""<p>是否开启投递服务日志。1关闭，2开启</p>
         :rtype: int
         """
         return self._HasServicesLog
@@ -28612,7 +28721,7 @@ class DlcDeliverInfo(AbstractModel):
 
     @property
     def Status(self):
-        r"""任务状态。
+        r"""<p>任务状态。</p>
         :rtype: int
         """
         return self._Status
@@ -28623,7 +28732,7 @@ class DlcDeliverInfo(AbstractModel):
 
     @property
     def Progress(self):
-        r"""任务进度。历史投递任务生效。
+        r"""<p>任务进度。历史投递任务生效。</p>
         :rtype: int
         """
         return self._Progress
@@ -28634,7 +28743,7 @@ class DlcDeliverInfo(AbstractModel):
 
     @property
     def BizType(self):
-        r"""日志主题类型。0:标准主题，1:指标主题
+        r"""<p>日志主题类型。0:标准主题，1:指标主题</p>
         :rtype: int
         """
         return self._BizType
@@ -28645,7 +28754,7 @@ class DlcDeliverInfo(AbstractModel):
 
     @property
     def CreateTime(self):
-        r"""任务创建时间。
+        r"""<p>任务创建时间。</p>
         :rtype: int
         """
         return self._CreateTime
@@ -28656,7 +28765,7 @@ class DlcDeliverInfo(AbstractModel):
 
     @property
     def UpdateTime(self):
-        r"""任务修改时间。
+        r"""<p>任务修改时间。</p>
         :rtype: int
         """
         return self._UpdateTime
@@ -28664,6 +28773,39 @@ class DlcDeliverInfo(AbstractModel):
     @UpdateTime.setter
     def UpdateTime(self, UpdateTime):
         self._UpdateTime = UpdateTime
+
+    @property
+    def AutoCreateField(self):
+        r"""<p>自动创建dlc字段</p><p>默认值：false</p><p>当您的日志中有新增字段时，系统自动将其投递至DLC</p>
+        :rtype: bool
+        """
+        return self._AutoCreateField
+
+    @AutoCreateField.setter
+    def AutoCreateField(self, AutoCreateField):
+        self._AutoCreateField = AutoCreateField
+
+    @property
+    def DlcFailHandle(self):
+        r"""<p>将投递失败的日志存储至DLC表</p>
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DlcFailHandle`
+        """
+        return self._DlcFailHandle
+
+    @DlcFailHandle.setter
+    def DlcFailHandle(self, DlcFailHandle):
+        self._DlcFailHandle = DlcFailHandle
+
+    @property
+    def DSLFilter(self):
+        r"""<p>日志预过滤-数据写入 Splunk 的原始数据进行预过滤处理</p>
+        :rtype: str
+        """
+        return self._DSLFilter
+
+    @DSLFilter.setter
+    def DSLFilter(self, DSLFilter):
+        self._DSLFilter = DSLFilter
 
 
     def _deserialize(self, params):
@@ -28685,6 +28827,115 @@ class DlcDeliverInfo(AbstractModel):
         self._BizType = params.get("BizType")
         self._CreateTime = params.get("CreateTime")
         self._UpdateTime = params.get("UpdateTime")
+        self._AutoCreateField = params.get("AutoCreateField")
+        if params.get("DlcFailHandle") is not None:
+            self._DlcFailHandle = DlcFailHandle()
+            self._DlcFailHandle._deserialize(params.get("DlcFailHandle"))
+        self._DSLFilter = params.get("DSLFilter")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DlcFailHandle(AbstractModel):
+    r"""dlc投递失败处理信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StoreToDlc: <p>是否存储到DLC</p><p>默认值：false</p><p>用于控制是否开启投递失败的日志存储至DLC表</p>
+        :type StoreToDlc: bool
+        :param _DlcFailTableInfo: <p>DLC表信息</p>
+        :type DlcFailTableInfo: :class:`tencentcloud.cls.v20201016.models.DlcFailTableInfo`
+        """
+        self._StoreToDlc = None
+        self._DlcFailTableInfo = None
+
+    @property
+    def StoreToDlc(self):
+        r"""<p>是否存储到DLC</p><p>默认值：false</p><p>用于控制是否开启投递失败的日志存储至DLC表</p>
+        :rtype: bool
+        """
+        return self._StoreToDlc
+
+    @StoreToDlc.setter
+    def StoreToDlc(self, StoreToDlc):
+        self._StoreToDlc = StoreToDlc
+
+    @property
+    def DlcFailTableInfo(self):
+        r"""<p>DLC表信息</p>
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DlcFailTableInfo`
+        """
+        return self._DlcFailTableInfo
+
+    @DlcFailTableInfo.setter
+    def DlcFailTableInfo(self, DlcFailTableInfo):
+        self._DlcFailTableInfo = DlcFailTableInfo
+
+
+    def _deserialize(self, params):
+        self._StoreToDlc = params.get("StoreToDlc")
+        if params.get("DlcFailTableInfo") is not None:
+            self._DlcFailTableInfo = DlcFailTableInfo()
+            self._DlcFailTableInfo._deserialize(params.get("DlcFailTableInfo"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DlcFailTableInfo(AbstractModel):
+    r"""dlc失败日志存储表信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TableName: <p>DLC的表名称</p>
+        :type TableName: str
+        :param _FieldName: <p>表中的字段名称</p><p>字段类型必须是String类型</p>
+        :type FieldName: str
+        """
+        self._TableName = None
+        self._FieldName = None
+
+    @property
+    def TableName(self):
+        r"""<p>DLC的表名称</p>
+        :rtype: str
+        """
+        return self._TableName
+
+    @TableName.setter
+    def TableName(self, TableName):
+        self._TableName = TableName
+
+    @property
+    def FieldName(self):
+        r"""<p>表中的字段名称</p><p>字段类型必须是String类型</p>
+        :rtype: str
+        """
+        return self._FieldName
+
+    @FieldName.setter
+    def FieldName(self, FieldName):
+        self._FieldName = FieldName
+
+
+    def _deserialize(self, params):
+        self._TableName = params.get("TableName")
+        self._FieldName = params.get("FieldName")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -36821,38 +37072,29 @@ class ModifyCloudProductLogCollectionRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceId: 实例ID
+        :param _InstanceId: <p>实例ID</p>
         :type InstanceId: str
-        :param _AssumerName: 云产品标识，支持枚举：CDS、CWP、CDB、TDSQL-C、MongoDB、TDStore、DCDB、MariaDB、PostgreSQL、BH、APIS
+        :param _AssumerName: <p>云产品标识，支持枚举：CDS、CWP、CDB、TDSQL-C、MongoDB、TDStore、DCDB、MariaDB、PostgreSQL、BH、APIS</p>
         :type AssumerName: str
-        :param _LogType: 日志类型，支持枚举：CDS-AUDIT、CDS-RISK、CDB-AUDIT、TDSQL-C-AUDIT、MongoDB-AUDIT、MongoDB-SlowLog、MongoDB-ErrorLog、TDMYSQL-SLOW、DCDB-AUDIT、DCDB-SLOW、DCDB-ERROR、MariaDB-AUDIT、MariaDB-SLOW、MariaDB-ERROR、PostgreSQL-SLOW、PostgreSQL-ERROR、PostgreSQL-AUDIT、BH-FILELOG、BH-COMMANDLOG、APIS-ACCESS
+        :param _LogType: <p>日志类型，支持枚举：CDS-AUDIT、CDS-RISK、CDB-AUDIT、TDSQL-C-AUDIT、MongoDB-AUDIT、MongoDB-SlowLog、MongoDB-ErrorLog、TDMYSQL-SLOW、DCDB-AUDIT、DCDB-SLOW、DCDB-ERROR、MariaDB-AUDIT、MariaDB-SLOW、MariaDB-ERROR、PostgreSQL-SLOW、PostgreSQL-ERROR、PostgreSQL-AUDIT、BH-FILELOG、BH-COMMANDLOG、APIS-ACCESS</p>
         :type LogType: str
-        :param _CloudProductRegion: 云产品地域。 不同日志类型(LogType)地域入參格式存在差异， 请参考如下示例：
-- CDS所有日志类型：ap-guangzhou
-- CDB-AUDIT: gz
-- TDSQL-C-AUDIT: gz
-- MongoDB-AUDIT: gz
-- MongoDB-SlowLog：ap-guangzhou
-- MongoDB-ErrorLog：ap-guangzhou
-- TDMYSQL-SLOW：gz
-- DCDB所有日志类型：gz
-- MariaDB所有日志类型：gz
-- PostgreSQL所有日志类型：gz
-- BH所有日志类型：overseas-polaris(中国香港地区和其他)/fsi-polaris(金融区)/general-polaris(普通区)/intl-sg-prod(国际站)
-- APIS所有日志类型：gz
+        :param _CloudProductRegion: <p>云产品地域。 不同日志类型(LogType)地域入參格式存在差异， 请参考如下示例：</p><ul><li>CDS所有日志类型：ap-guangzhou</li><li>CDB-AUDIT: gz</li><li>TDSQL-C-AUDIT: gz</li><li>MongoDB-AUDIT: gz</li><li>MongoDB-SlowLog：ap-guangzhou</li><li>MongoDB-ErrorLog：ap-guangzhou</li><li>TDMYSQL-SLOW：gz</li><li>DCDB所有日志类型：gz</li><li>MariaDB所有日志类型：gz</li><li>PostgreSQL所有日志类型：gz</li><li>BH所有日志类型：overseas-polaris(中国香港地区和其他)/fsi-polaris(金融区)/general-polaris(普通区)/intl-sg-prod(国际站)</li><li>APIS所有日志类型：gz</li></ul>
         :type CloudProductRegion: str
-        :param _Extend: 日志配置拓展信息， 一般用于存储额外的日志投递配置
+        :param _Extend: <p>日志配置拓展信息， 一般用于存储额外的日志投递配置</p>
         :type Extend: str
+        :param _Tags: <p>标签描述列表，通过指定该参数可以同时绑定标签到相应的logset和topic。最大支持10个标签键值对，同一个资源只能绑定到同一个标签键下。</p>
+        :type Tags: list of Tag
         """
         self._InstanceId = None
         self._AssumerName = None
         self._LogType = None
         self._CloudProductRegion = None
         self._Extend = None
+        self._Tags = None
 
     @property
     def InstanceId(self):
-        r"""实例ID
+        r"""<p>实例ID</p>
         :rtype: str
         """
         return self._InstanceId
@@ -36863,7 +37105,7 @@ class ModifyCloudProductLogCollectionRequest(AbstractModel):
 
     @property
     def AssumerName(self):
-        r"""云产品标识，支持枚举：CDS、CWP、CDB、TDSQL-C、MongoDB、TDStore、DCDB、MariaDB、PostgreSQL、BH、APIS
+        r"""<p>云产品标识，支持枚举：CDS、CWP、CDB、TDSQL-C、MongoDB、TDStore、DCDB、MariaDB、PostgreSQL、BH、APIS</p>
         :rtype: str
         """
         return self._AssumerName
@@ -36874,7 +37116,7 @@ class ModifyCloudProductLogCollectionRequest(AbstractModel):
 
     @property
     def LogType(self):
-        r"""日志类型，支持枚举：CDS-AUDIT、CDS-RISK、CDB-AUDIT、TDSQL-C-AUDIT、MongoDB-AUDIT、MongoDB-SlowLog、MongoDB-ErrorLog、TDMYSQL-SLOW、DCDB-AUDIT、DCDB-SLOW、DCDB-ERROR、MariaDB-AUDIT、MariaDB-SLOW、MariaDB-ERROR、PostgreSQL-SLOW、PostgreSQL-ERROR、PostgreSQL-AUDIT、BH-FILELOG、BH-COMMANDLOG、APIS-ACCESS
+        r"""<p>日志类型，支持枚举：CDS-AUDIT、CDS-RISK、CDB-AUDIT、TDSQL-C-AUDIT、MongoDB-AUDIT、MongoDB-SlowLog、MongoDB-ErrorLog、TDMYSQL-SLOW、DCDB-AUDIT、DCDB-SLOW、DCDB-ERROR、MariaDB-AUDIT、MariaDB-SLOW、MariaDB-ERROR、PostgreSQL-SLOW、PostgreSQL-ERROR、PostgreSQL-AUDIT、BH-FILELOG、BH-COMMANDLOG、APIS-ACCESS</p>
         :rtype: str
         """
         return self._LogType
@@ -36885,19 +37127,7 @@ class ModifyCloudProductLogCollectionRequest(AbstractModel):
 
     @property
     def CloudProductRegion(self):
-        r"""云产品地域。 不同日志类型(LogType)地域入參格式存在差异， 请参考如下示例：
-- CDS所有日志类型：ap-guangzhou
-- CDB-AUDIT: gz
-- TDSQL-C-AUDIT: gz
-- MongoDB-AUDIT: gz
-- MongoDB-SlowLog：ap-guangzhou
-- MongoDB-ErrorLog：ap-guangzhou
-- TDMYSQL-SLOW：gz
-- DCDB所有日志类型：gz
-- MariaDB所有日志类型：gz
-- PostgreSQL所有日志类型：gz
-- BH所有日志类型：overseas-polaris(中国香港地区和其他)/fsi-polaris(金融区)/general-polaris(普通区)/intl-sg-prod(国际站)
-- APIS所有日志类型：gz
+        r"""<p>云产品地域。 不同日志类型(LogType)地域入參格式存在差异， 请参考如下示例：</p><ul><li>CDS所有日志类型：ap-guangzhou</li><li>CDB-AUDIT: gz</li><li>TDSQL-C-AUDIT: gz</li><li>MongoDB-AUDIT: gz</li><li>MongoDB-SlowLog：ap-guangzhou</li><li>MongoDB-ErrorLog：ap-guangzhou</li><li>TDMYSQL-SLOW：gz</li><li>DCDB所有日志类型：gz</li><li>MariaDB所有日志类型：gz</li><li>PostgreSQL所有日志类型：gz</li><li>BH所有日志类型：overseas-polaris(中国香港地区和其他)/fsi-polaris(金融区)/general-polaris(普通区)/intl-sg-prod(国际站)</li><li>APIS所有日志类型：gz</li></ul>
         :rtype: str
         """
         return self._CloudProductRegion
@@ -36908,7 +37138,7 @@ class ModifyCloudProductLogCollectionRequest(AbstractModel):
 
     @property
     def Extend(self):
-        r"""日志配置拓展信息， 一般用于存储额外的日志投递配置
+        r"""<p>日志配置拓展信息， 一般用于存储额外的日志投递配置</p>
         :rtype: str
         """
         return self._Extend
@@ -36917,6 +37147,17 @@ class ModifyCloudProductLogCollectionRequest(AbstractModel):
     def Extend(self, Extend):
         self._Extend = Extend
 
+    @property
+    def Tags(self):
+        r"""<p>标签描述列表，通过指定该参数可以同时绑定标签到相应的logset和topic。最大支持10个标签键值对，同一个资源只能绑定到同一个标签键下。</p>
+        :rtype: list of Tag
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -36924,6 +37165,12 @@ class ModifyCloudProductLogCollectionRequest(AbstractModel):
         self._LogType = params.get("LogType")
         self._CloudProductRegion = params.get("CloudProductRegion")
         self._Extend = params.get("Extend")
+        if params.get("Tags") is not None:
+            self._Tags = []
+            for item in params.get("Tags"):
+                obj = Tag()
+                obj._deserialize(item)
+                self._Tags.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -36941,10 +37188,24 @@ class ModifyCloudProductLogCollectionResponse(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _Message: <p>额外信息。如修改topic、logset标签失败。</p>
+        :type Message: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
+        self._Message = None
         self._RequestId = None
+
+    @property
+    def Message(self):
+        r"""<p>额外信息。如修改topic、logset标签失败。</p>
+        :rtype: str
+        """
+        return self._Message
+
+    @Message.setter
+    def Message(self, Message):
+        self._Message = Message
 
     @property
     def RequestId(self):
@@ -36959,6 +37220,7 @@ class ModifyCloudProductLogCollectionResponse(AbstractModel):
 
 
     def _deserialize(self, params):
+        self._Message = params.get("Message")
         self._RequestId = params.get("RequestId")
 
 
@@ -41645,28 +41907,32 @@ class ModifyScheduledSqlRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TaskId: 任务ID，通过[获取定时SQL分析任务列表](https://cloud.tencent.com/document/product/614/95519)获取
+        :param _TaskId: <p>任务ID，通过<a href="https://cloud.tencent.com/document/product/614/95519">获取定时SQL分析任务列表</a>获取</p>
         :type TaskId: str
-        :param _SrcTopicId: 源日志主题，通过[获取定时SQL分析任务列表](https://cloud.tencent.com/document/product/614/95519)获取
+        :param _SrcTopicId: <p>源日志主题，通过<a href="https://cloud.tencent.com/document/product/614/95519">获取定时SQL分析任务列表</a>获取</p>
         :type SrcTopicId: str
-        :param _EnableFlag: 任务启动状态.   1开启,  2关闭
+        :param _EnableFlag: <p>任务启动状态.   1开启,  2关闭</p>
         :type EnableFlag: int
-        :param _DstResource: 定时SQL分析的目标日志主题
+        :param _DstResource: <p>定时SQL分析的目标日志主题</p>
         :type DstResource: :class:`tencentcloud.cls.v20201016.models.ScheduledSqlResouceInfo`
-        :param _ScheduledSqlContent: 查询语句
+        :param _ScheduledSqlContent: <p>查询语句</p>
         :type ScheduledSqlContent: str
-        :param _ProcessPeriod: 调度周期(分钟)，1~1440分钟
+        :param _ProcessPeriod: <p>调度周期(分钟)，1~1440分钟</p>
         :type ProcessPeriod: int
-        :param _ProcessTimeWindow: 单次查询的时间窗口. 例子中为近15分钟
+        :param _ProcessTimeWindow: <p>单次查询的时间窗口. 例子中为近15分钟</p>
         :type ProcessTimeWindow: str
-        :param _ProcessDelay: 执行延迟(秒)，0~120秒，默认60秒
+        :param _ProcessDelay: <p>执行延迟(秒)，0~120秒，默认60秒</p>
         :type ProcessDelay: int
-        :param _SrcTopicRegion: 源topicId的地域信息,支持地域见 [地域列表](https://cloud.tencent.com/document/api/614/56474#.E5.9C.B0.E5.9F.9F.E5.88.97.E8.A1.A8) 文档
+        :param _SrcTopicRegion: <p>源topicId的地域信息,支持地域见 <a href="https://cloud.tencent.com/document/api/614/56474#.E5.9C.B0.E5.9F.9F.E5.88.97.E8.A1.A8">地域列表</a> 文档</p>
         :type SrcTopicRegion: str
-        :param _Name: 任务名称，0~255字符
+        :param _Name: <p>任务名称，0~255字符</p>
         :type Name: str
-        :param _SyntaxRule: 语法规则。 默认值为0。 0：Lucene语法，1：CQL语法
+        :param _SyntaxRule: <p>语法规则。 默认值为0。 0：Lucene语法，1：CQL语法</p>
         :type SyntaxRule: int
+        :param _HasServicesLog: <p>是否开启投递服务日志。1：关闭，2：开启。</p>
+        :type HasServicesLog: int
+        :param _FullQuery: <p>全文检索查询标记。1：关闭，2：打开。</p>
+        :type FullQuery: int
         """
         self._TaskId = None
         self._SrcTopicId = None
@@ -41679,10 +41945,12 @@ class ModifyScheduledSqlRequest(AbstractModel):
         self._SrcTopicRegion = None
         self._Name = None
         self._SyntaxRule = None
+        self._HasServicesLog = None
+        self._FullQuery = None
 
     @property
     def TaskId(self):
-        r"""任务ID，通过[获取定时SQL分析任务列表](https://cloud.tencent.com/document/product/614/95519)获取
+        r"""<p>任务ID，通过<a href="https://cloud.tencent.com/document/product/614/95519">获取定时SQL分析任务列表</a>获取</p>
         :rtype: str
         """
         return self._TaskId
@@ -41693,7 +41961,7 @@ class ModifyScheduledSqlRequest(AbstractModel):
 
     @property
     def SrcTopicId(self):
-        r"""源日志主题，通过[获取定时SQL分析任务列表](https://cloud.tencent.com/document/product/614/95519)获取
+        r"""<p>源日志主题，通过<a href="https://cloud.tencent.com/document/product/614/95519">获取定时SQL分析任务列表</a>获取</p>
         :rtype: str
         """
         return self._SrcTopicId
@@ -41704,7 +41972,7 @@ class ModifyScheduledSqlRequest(AbstractModel):
 
     @property
     def EnableFlag(self):
-        r"""任务启动状态.   1开启,  2关闭
+        r"""<p>任务启动状态.   1开启,  2关闭</p>
         :rtype: int
         """
         return self._EnableFlag
@@ -41715,7 +41983,7 @@ class ModifyScheduledSqlRequest(AbstractModel):
 
     @property
     def DstResource(self):
-        r"""定时SQL分析的目标日志主题
+        r"""<p>定时SQL分析的目标日志主题</p>
         :rtype: :class:`tencentcloud.cls.v20201016.models.ScheduledSqlResouceInfo`
         """
         return self._DstResource
@@ -41726,7 +41994,7 @@ class ModifyScheduledSqlRequest(AbstractModel):
 
     @property
     def ScheduledSqlContent(self):
-        r"""查询语句
+        r"""<p>查询语句</p>
         :rtype: str
         """
         return self._ScheduledSqlContent
@@ -41737,7 +42005,7 @@ class ModifyScheduledSqlRequest(AbstractModel):
 
     @property
     def ProcessPeriod(self):
-        r"""调度周期(分钟)，1~1440分钟
+        r"""<p>调度周期(分钟)，1~1440分钟</p>
         :rtype: int
         """
         return self._ProcessPeriod
@@ -41748,7 +42016,7 @@ class ModifyScheduledSqlRequest(AbstractModel):
 
     @property
     def ProcessTimeWindow(self):
-        r"""单次查询的时间窗口. 例子中为近15分钟
+        r"""<p>单次查询的时间窗口. 例子中为近15分钟</p>
         :rtype: str
         """
         return self._ProcessTimeWindow
@@ -41759,7 +42027,7 @@ class ModifyScheduledSqlRequest(AbstractModel):
 
     @property
     def ProcessDelay(self):
-        r"""执行延迟(秒)，0~120秒，默认60秒
+        r"""<p>执行延迟(秒)，0~120秒，默认60秒</p>
         :rtype: int
         """
         return self._ProcessDelay
@@ -41770,7 +42038,7 @@ class ModifyScheduledSqlRequest(AbstractModel):
 
     @property
     def SrcTopicRegion(self):
-        r"""源topicId的地域信息,支持地域见 [地域列表](https://cloud.tencent.com/document/api/614/56474#.E5.9C.B0.E5.9F.9F.E5.88.97.E8.A1.A8) 文档
+        r"""<p>源topicId的地域信息,支持地域见 <a href="https://cloud.tencent.com/document/api/614/56474#.E5.9C.B0.E5.9F.9F.E5.88.97.E8.A1.A8">地域列表</a> 文档</p>
         :rtype: str
         """
         return self._SrcTopicRegion
@@ -41781,7 +42049,7 @@ class ModifyScheduledSqlRequest(AbstractModel):
 
     @property
     def Name(self):
-        r"""任务名称，0~255字符
+        r"""<p>任务名称，0~255字符</p>
         :rtype: str
         """
         return self._Name
@@ -41792,7 +42060,7 @@ class ModifyScheduledSqlRequest(AbstractModel):
 
     @property
     def SyntaxRule(self):
-        r"""语法规则。 默认值为0。 0：Lucene语法，1：CQL语法
+        r"""<p>语法规则。 默认值为0。 0：Lucene语法，1：CQL语法</p>
         :rtype: int
         """
         return self._SyntaxRule
@@ -41800,6 +42068,28 @@ class ModifyScheduledSqlRequest(AbstractModel):
     @SyntaxRule.setter
     def SyntaxRule(self, SyntaxRule):
         self._SyntaxRule = SyntaxRule
+
+    @property
+    def HasServicesLog(self):
+        r"""<p>是否开启投递服务日志。1：关闭，2：开启。</p>
+        :rtype: int
+        """
+        return self._HasServicesLog
+
+    @HasServicesLog.setter
+    def HasServicesLog(self, HasServicesLog):
+        self._HasServicesLog = HasServicesLog
+
+    @property
+    def FullQuery(self):
+        r"""<p>全文检索查询标记。1：关闭，2：打开。</p>
+        :rtype: int
+        """
+        return self._FullQuery
+
+    @FullQuery.setter
+    def FullQuery(self, FullQuery):
+        self._FullQuery = FullQuery
 
 
     def _deserialize(self, params):
@@ -41816,6 +42106,8 @@ class ModifyScheduledSqlRequest(AbstractModel):
         self._SrcTopicRegion = params.get("SrcTopicRegion")
         self._Name = params.get("Name")
         self._SyntaxRule = params.get("SyntaxRule")
+        self._HasServicesLog = params.get("HasServicesLog")
+        self._FullQuery = params.get("FullQuery")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

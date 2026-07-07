@@ -122,8 +122,12 @@ def scalar_in_place_fn_IntDiv(op, idx, res, arr):
 
 @scalar_in_place_fn.register(Maximum)
 def scalar_in_place_fn_Maximum(op, idx, res, arr):
+    # `arr != arr` catches NaN, which the comparison alone would drop; once the
+    # accumulator is NaN neither clause fires again, so NaN sticks (numpy
+    # semantics, matching the C backend). For integer dtypes LLVM folds the
+    # always-false clause away.
     return [
-        f"if {res}[{idx}] < {arr}:",
+        f"if {res}[{idx}] < {arr} or {arr} != {arr}:",
         CODE_TOKEN.INDENT,
         f"{res}[{idx}] = {arr}",
         CODE_TOKEN.DEDENT,
@@ -132,8 +136,9 @@ def scalar_in_place_fn_Maximum(op, idx, res, arr):
 
 @scalar_in_place_fn.register(Minimum)
 def scalar_in_place_fn_Minimum(op, idx, res, arr):
+    # See NaN comment in scalar_in_place_fn_Maximum
     return [
-        f"if {res}[{idx}] > {arr}:",
+        f"if {res}[{idx}] > {arr} or {arr} != {arr}:",
         CODE_TOKEN.INDENT,
         f"{res}[{idx}] = {arr}",
         CODE_TOKEN.DEDENT,
@@ -369,8 +374,11 @@ def create_multiaxis_reducer(
         else:
             identity = np.iinfo(acc_dtype).min
 
-    # Make sure it has the correct dtype
-    identity = getattr(np, acc_dtype.name)(identity)
+    # Make sure it has the correct dtype. Cast through ``astype`` rather than the
+    # scalar constructor so a negative identity (``-1`` for bitwise AND) wraps
+    # into an unsigned acc_dtype like C does instead of raising: ``np.uint64(-1)``
+    # is out of range, but ``-1`` cast to uint64 is all-ones -- the AND identity.
+    identity = np.asarray(identity).astype(acc_dtype)[()]
 
     kept_axes = [i for i in range(ndim) if i not in axes]
     n_kept = len(kept_axes)
@@ -840,7 +848,7 @@ def numba_funcify_CAReduce(op, node, **kwargs):
     )
     careduce_fn = numba_basic.numba_njit(careduce_py_fn, boundscheck=False)
 
-    cache_version = 3
+    cache_version = 4
     careduce_key = sha256(
         str(
             (

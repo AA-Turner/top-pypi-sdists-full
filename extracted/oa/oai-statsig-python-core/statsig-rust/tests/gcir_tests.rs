@@ -49,6 +49,7 @@ async fn setup(hash_algorithm: HashAlgorithm) -> Value {
             remove_default_value_gates: Some(false),
             previous_response_hash: None,
             remove_experiments_in_layers: Some(false),
+            experiments_in_layers_allowlist: None,
         },
     );
     let json = serde_json::to_string(&response).unwrap();
@@ -79,6 +80,7 @@ async fn setup_with_specs_data(specs_data: String, hash_algorithm: HashAlgorithm
             remove_default_value_gates: Some(false),
             previous_response_hash: None,
             remove_experiments_in_layers: Some(false),
+            experiments_in_layers_allowlist: None,
         },
     );
     let json = serde_json::to_string(&response).unwrap();
@@ -115,6 +117,88 @@ fn eval_proj_dcs_with_nullable_versions() -> String {
         .as_object_mut()
         .unwrap()
         .remove("version");
+
+    serde_json::to_string(&json).expect("Unable to serialize fixture")
+}
+
+fn eval_proj_dcs_with_launched_group_marked_experiment_group() -> String {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("tests/data/eval_proj_dcs.json");
+
+    let data = fs::read_to_string(path).expect("Unable to read fixture");
+    let mut json: Value = serde_json::from_str(&data).expect("Unable to parse fixture");
+
+    json.get_mut("dynamic_configs")
+        .unwrap()
+        .get_mut("test_decision_made")
+        .unwrap()
+        .get_mut("rules")
+        .unwrap()
+        .as_array_mut()
+        .unwrap()[0]
+        .as_object_mut()
+        .unwrap()
+        .insert("isExperimentGroup".to_string(), json!(true));
+
+    serde_json::to_string(&json).expect("Unable to serialize fixture")
+}
+
+fn eval_proj_dcs_with_pipeline_override() -> String {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("tests/data/eval_proj_dcs.json");
+
+    let data = fs::read_to_string(path).expect("Unable to read fixture");
+    let mut json: Value = serde_json::from_str(&data).expect("Unable to parse fixture");
+
+    let synthetic_name = "test_custom_config::pipeline_trigger";
+    let mut synthetic_config = json
+        .get("dynamic_configs")
+        .unwrap()
+        .get("test_custom_config")
+        .unwrap()
+        .clone();
+    synthetic_config["defaultValue"] = json!({
+        "header_text": "pipeline override"
+    });
+    synthetic_config["rules"] = json!([]);
+    synthetic_config["version"] = json!(999);
+
+    json.get_mut("dynamic_configs")
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .insert(synthetic_name.to_string(), synthetic_config);
+
+    json.as_object_mut().unwrap().insert(
+        "override_rules".to_string(),
+        json!({
+            "statsig::everyone": {
+                "name": "statsig::everyone",
+                "passPercentage": 100,
+                "conditions": ["1828919350"],
+                "returnValue": true,
+                "id": "statsig::everyone",
+                "salt": "statsig::everyone",
+                "idType": "userID"
+            }
+        }),
+    );
+    json.as_object_mut().unwrap().insert(
+        "overrides".to_string(),
+        json!({
+            "test_custom_config": [
+                {
+                    "new_config_name": synthetic_name,
+                    "rules": [
+                        {
+                            "rule_name": "statsig::everyone",
+                            "start_time": 0
+                        }
+                    ]
+                }
+            ]
+        }),
+    );
 
     serde_json::to_string(&json).expect("Unable to serialize fixture")
 }
@@ -169,6 +253,48 @@ async fn test_nullable_config_versions() {
     assert!(gate.get("version").unwrap().is_null());
     assert!(config.get("version").unwrap().is_null());
     assert!(layer.get("version").unwrap().is_null());
+}
+
+#[tokio::test]
+async fn test_launched_group_is_not_user_in_experiment() {
+    let json_obj = setup_with_specs_data(
+        eval_proj_dcs_with_launched_group_marked_experiment_group(),
+        HashAlgorithm::None,
+    )
+    .await;
+
+    let experiment = json_obj
+        .get("dynamic_configs")
+        .unwrap()
+        .get("test_decision_made")
+        .unwrap();
+
+    assert_eq!(experiment.get("rule_id").unwrap(), "launchedGroup");
+    assert_eq!(experiment.get("is_user_in_experiment").unwrap(), false);
+}
+
+#[tokio::test]
+async fn test_pipeline_override_specs_are_not_returned_in_initialize() {
+    let json_obj =
+        setup_with_specs_data(eval_proj_dcs_with_pipeline_override(), HashAlgorithm::None).await;
+
+    let configs = json_obj
+        .get("dynamic_configs")
+        .unwrap()
+        .as_object()
+        .unwrap();
+    assert!(configs.contains_key("test_custom_config"));
+    assert!(!configs.contains_key("test_custom_config::pipeline_trigger"));
+    assert_json_eq!(
+        configs
+            .get("test_custom_config")
+            .unwrap()
+            .get("value")
+            .unwrap(),
+        &json!({
+            "header_text": "pipeline override"
+        })
+    );
 }
 
 #[tokio::test]

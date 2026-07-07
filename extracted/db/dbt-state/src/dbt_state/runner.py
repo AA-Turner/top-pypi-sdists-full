@@ -18,7 +18,8 @@ from dbt.contracts.graph.nodes import (
     SingularTestNode,
     SnapshotNode,
 )
-from dbt.events.types import EndOfRunSummary, LogTestResult as DbtLogTestResult, green, red, yellow
+from dbt.events.types import LogTestResult as DbtLogTestResult, green, red, yellow
+from dbt_state.auth.sso import Org
 from dbt_state.errors import (
     AuthenticationError,
     RecoverableAuthenticationError,
@@ -76,19 +77,19 @@ class RunnerOverride:
         original_generate_runtime_model_context: t.Callable[
             [ManifestNode, RuntimeConfig, Manifest], t.Dict[str, t.Any]
         ],
-        original_end_of_run_summary_message: t.Callable[[EndOfRunSummary], str],
         telemetry_dispatcher: TelemetryDispatcher | None = None,
         query_cache_client: QueryCacheGrpcClient | None = None,
     ) -> None:
         self._original_execute = original_execute
         self._original_generate_runtime_model_context = original_generate_runtime_model_context
-        self._original_end_of_run_summary_message = original_end_of_run_summary_message
         self._query_cache_client = query_cache_client
         self._run_cache: RunCache | None = None
         self._run_cache_lock = threading.Lock()
         self._disabled = False
         self._telemetry_dispatcher = telemetry_dispatcher
         self._session: t.Optional[SessionManager] = None
+        self._org_info: t.Optional[Org] = None
+        events.register_callback("runner-override-end-of-run-message", self._on_event)
 
     def defer_to_manifest_override(self, task: GraphRunnableTask) -> None:
         """Sets defer_relation on unselected manifest nodes to enable dbt's native deferral."""
@@ -250,22 +251,16 @@ class RunnerOverride:
         finally:
             self.flush_logger(result.node.name)
 
-    def end_of_run_summary_message_override(self, summary: EndOfRunSummary) -> str:
-        message = self._original_end_of_run_summary_message(summary)
-        if (
-            self._run_cache
-            and self._run_cache.total_cache_hits
-            and "Completed successfully" in message
-        ):
-            tolerance = format_time_saved(
-                self._run_cache.run_cache_config.freshness_tolerance * 1000
-            )
-            message += green(
-                f". Total cache hits: {self._run_cache.total_cache_hits}."
-                f" Estimated time saved: {format_time_saved(self._run_cache.total_time_saved_ms)}."
-                f" Freshness tolerance: {tolerance}."
-            )
-        return message
+    def _on_event(self, msg: events.EventMsg) -> None:
+        if msg.info.name == "CommandCompleted":
+            savings = self._savings_summary_message()
+            free_trial = self._free_trial_message()
+            if savings or free_trial:
+                events.fire_formatting()
+            if savings:
+                events.fire_info_event(savings)
+            if free_trial:
+                events.fire_info_event(free_trial)
 
     def generate_runtime_model_context_override(
         self, node: ManifestNode, config: RuntimeConfig, manifest: Manifest
@@ -338,6 +333,7 @@ class RunnerOverride:
                         self._disabled = True
                         return None
 
+                    sso = None
                     run_cache_config = RunCacheConfig.from_runtime_config(config)
                     if is_ci_environment() or is_non_interactive_environment():
                         sso = sso_auth(org_id=run_cache_config.org_id)
@@ -392,6 +388,13 @@ class RunnerOverride:
                         self._telemetry_dispatcher,
                         self._session,
                     )
+
+                    try:
+                        if sso is None:
+                            sso = sso_auth(org_id=run_cache_config.org_id)
+                        self._org_info = sso.get_org_info(sso.org_id(login=False))
+                    except Exception:
+                        self._org_info = None
         return self._run_cache
 
     def _should_defer(self, node: ManifestNode, config: RuntimeConfig, adapter: SQLAdapter) -> bool:
@@ -402,6 +405,40 @@ class RunnerOverride:
 
     def _favor_state(self, config: RuntimeConfig) -> bool:
         return getattr(config.args, "favor_state", False)
+
+    def _savings_summary_message(self) -> t.Optional[str]:
+        if self._run_cache and self._run_cache.total_cache_hits:
+            return (
+                f"dbt State saved you {format_time_saved(self._run_cache.total_time_saved_ms)}"
+                f" on {self._run_cache.total_cache_hits}"
+                f" {'nodes' if self._run_cache.total_cache_hits != 1 else 'node'} in this job."
+            )
+        return None
+
+    def _free_trial_message(self) -> t.Optional[str]:
+        org = self._org_info
+        if org is None or org.dimensions is None:
+            return None
+        if "free" in org.flags or "internal" in org.flags:
+            return None
+        if not org.dimensions.free_trial_end_date:
+            return None
+
+        message = ""
+        if org.dimensions.in_free_trial:
+            message += f"Your free trial ends on {org.dimensions.free_trial_end_date}."
+        else:
+            message += (
+                "Your dbt State trial has ended and is no longer reducing your compute usage."
+            )
+
+        if org.is_dbt and org.account_host is not None:
+            account_link = (
+                f"https://{org.account_host}/settings/accounts/{org.org_id}/pages/dbt-state"
+            )
+            message += f" Go to {account_link} to set up billing and continue using dbt State."
+
+        return yellow(message)
 
 
 class LogTestResult(DbtLogTestResult):

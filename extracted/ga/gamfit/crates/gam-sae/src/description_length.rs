@@ -28,6 +28,8 @@
 
 use std::f64::consts::LN_2;
 
+use crate::atom_codes::SparseAtomCodes;
+
 /// Bits to code one Gaussian scalar of variance `signal_var` to per-sample MSE
 /// `delta2`: the numerically-kind rate `½log₂(1 + σ²/δ²)` (≥ 0, finite at low SNR;
 /// agrees with the high-rate `½log₂(σ²/δ²)` to O(1) bit once `σ² ≫ δ²`).
@@ -100,6 +102,16 @@ pub struct Featurizer {
     pub n_firings: i64,
     pub g_dict: i64,
     pub k_active: i64,
+    /// Empirical per-token support-entropy selection currency `H(S)` in bits
+    /// (the Chow–Liu tree estimate from
+    /// [`SparseAtomCodes::support_entropy`](crate::atom_codes::SparseAtomCodes::support_entropy)),
+    /// when the binary support matrix is available. When `Some`, this is the
+    /// DEFAULT selection price the featurizer is scored at — the reviewer-required
+    /// correction so a tiling dictionary's predictable co-firing is not overpaid
+    /// at the combinatorial worst case `log₂ C(G, k)`. When `None`, the scoring
+    /// surface falls back to that combinatorial bound. The combinatorial line is
+    /// reported ALONGSIDE the currency in either case (never dropped).
+    pub support_entropy_bits: Option<f64>,
 }
 
 impl Featurizer {
@@ -108,6 +120,29 @@ impl Featurizer {
     }
     pub fn residual(&self) -> f64 {
         (1.0 - self.ev) * self.total_var
+    }
+
+    /// The combinatorial (uniform-support) per-token selection price
+    /// `log₂ C(G, k)` — the worst case, always reported.
+    pub fn selection_bits_combinatorial(&self) -> f64 {
+        selection_bits(self.g_dict, self.k_active)
+    }
+
+    /// The selection price this featurizer is CHARGED per token: the empirical
+    /// support entropy `H(S)` when available (the default currency), else the
+    /// combinatorial worst case.
+    pub fn selection_bits_charged(&self) -> f64 {
+        self.support_entropy_bits
+            .unwrap_or_else(|| self.selection_bits_combinatorial())
+    }
+
+    /// Attach the empirical support-entropy selection currency estimated from the
+    /// binary support matrix `codes`, making `H(S)` (the Chow–Liu tree bits) the
+    /// default selection price this featurizer is scored with. The combinatorial
+    /// `log₂ C(G, k)` remains reported as the worst-case line.
+    pub fn with_support_entropy(mut self, codes: &SparseAtomCodes) -> Self {
+        self.support_entropy_bits = Some(codes.support_entropy().tree_bits);
+        self
     }
 }
 
@@ -119,7 +154,15 @@ pub struct ScoreRow {
     pub coded_dim_m: usize,
     pub code_bits_per_firing: f64,
     pub code_coeff_bits_per_firing: f64,
+    /// The selection bits per firing actually CHARGED — the empirical support
+    /// entropy `H(S)` when `feat.support_entropy_bits` is set (the default
+    /// currency), else the combinatorial `log₂ C(G, k)`.
     pub selection_bits_per_firing: f64,
+    /// The combinatorial worst-case selection price `log₂ C(G, k)`, reported
+    /// alongside the charged currency in every row (the reviewer's worst-case
+    /// line). Equals `selection_bits_per_firing` when no support entropy was
+    /// supplied.
+    pub selection_bits_combinatorial_per_firing: f64,
     pub n_params: i64,
     pub l_param_bits: f64,
     pub dict_bits: f64,
@@ -143,7 +186,8 @@ pub fn score(feat: &Featurizer, delta2: f64, l_param_bits: Option<f64>) -> Score
         .iter()
         .map(|&v| scalar_rate_bits(v, delta2))
         .sum();
-    let sel = selection_bits(feat.g_dict, feat.k_active);
+    let sel_comb = feat.selection_bits_combinatorial();
+    let sel = feat.selection_bits_charged();
     let code_per_firing = code_coeff + sel;
     let m = feat.m();
     let l_param = l_param_bits.unwrap_or_else(|| {
@@ -164,6 +208,7 @@ pub fn score(feat: &Featurizer, delta2: f64, l_param_bits: Option<f64>) -> Score
         code_bits_per_firing: code_per_firing,
         code_coeff_bits_per_firing: code_coeff,
         selection_bits_per_firing: sel,
+        selection_bits_combinatorial_per_firing: sel_comb,
         n_params: feat.n_params,
         l_param_bits: l_param,
         dict_bits,
@@ -187,7 +232,15 @@ pub struct Crossover {
     pub chart: String,
     pub delta_code_bits_per_firing: f64,
     pub delta_coeff_bits_per_firing: f64,
+    /// Selection-bits delta `sel_block − sel_chart` in the CHARGED currency
+    /// (support entropy `H(S)` when supplied, else combinatorial). This is what
+    /// feeds `f*`.
     pub selection_bits_delta: f64,
+    /// The same delta in the combinatorial worst-case currency `log₂ C(G, k)`,
+    /// reported alongside so the entropy correction to the reported gap is
+    /// visible. Equals `selection_bits_delta` when neither side supplied a
+    /// support entropy.
+    pub selection_bits_delta_combinatorial: f64,
     pub selection_asymmetric: bool,
     pub phi_extra_params: i64,
     pub r_per_freed_coord_bits: f64,
@@ -224,10 +277,17 @@ pub fn crossover_firings(
         .iter()
         .map(|&v| scalar_rate_bits(v, delta2))
         .sum();
-    let sel_b = selection_bits(block.g_dict, block.k_active);
-    let sel_c = selection_bits(chart.g_dict, chart.k_active);
+    // Selection currency: charge BOTH sides the empirical support entropy `H(S)`
+    // when supplied (the default), else the combinatorial worst case. The
+    // combinatorial delta is computed unconditionally and reported alongside, so
+    // the entropy correction to the reported gap is always visible.
+    let sel_b_comb = block.selection_bits_combinatorial();
+    let sel_c_comb = chart.selection_bits_combinatorial();
+    let sel_b = block.selection_bits_charged();
+    let sel_c = chart.selection_bits_charged();
     let dcode_coeff = code_b - code_c;
     let dsel = sel_b - sel_c;
+    let dsel_comb = sel_b_comb - sel_c_comb;
     let dcode = dcode_coeff + dsel;
     let phi = chart.n_params - block.n_params;
     let mb = block.m();
@@ -250,6 +310,7 @@ pub fn crossover_firings(
         delta_code_bits_per_firing: dcode,
         delta_coeff_bits_per_firing: dcode_coeff,
         selection_bits_delta: dsel,
+        selection_bits_delta_combinatorial: dsel_comb,
         selection_asymmetric: (block.g_dict, block.k_active) != (chart.g_dict, chart.k_active),
         phi_extra_params: phi,
         r_per_freed_coord_bits: r_per_coord,
@@ -307,6 +368,130 @@ impl DescriptionLength {
     pub fn reconciles_with_criterion(&self, v_nats: f64, tol_bits: f64) -> bool {
         (self.total_bits - v_nats / LN_2).abs() <= tol_bits
     }
+}
+
+// ===========================================================================
+// Rate–distortion currency: the curved-coding gain and the persistence↔evidence
+// exchange rate (Theorem 3 + Corollary E of the "Superposed Geometry" memo).
+// ===========================================================================
+//
+// The knee only means something in a currency. The [`score`] / [`Featurizer`]
+// surface above already measures code / selection / dictionary bits; the pieces
+// below add the two rate–distortion facts that price CURVATURE against that
+// ledger:
+//
+//   1. Curved coding pays a closed-form gain (Theorem 3): coding a firing
+//      against a `d`-dim curved chart in `D`-dim ambient, at tolerance `δ`, beats
+//      the flat `D`-dim Gaussian by `Δ = ((D−d)/2)·log₂(1/δ²) + C` bits — every
+//      pinned-down ambient direction saves `½ log₂(1/δ²)` bits.
+//   2. The persistence ↔ evidence exchange rate (Corollary E): a bar `[b,d)`
+//      supports birthing iff its LOG-length clears an occupancy-driven bar,
+//      bootstrap-free.
+//
+// The κ = 2 Gaussian is the ZERO-GAIN anchor: curved coding pays iff the radial
+// law departs from Gaussian (sub-Gaussian concentration κ<2 dense circle, or
+// super-Gaussian gating κ=1/q>2), so the ISA `(κ−2)²` contrast is EXACTLY a
+// coding-gain detector — see [`kappa_coding_gain_detector`].
+//
+// HONEST RECONCILIATION WITH PREMISE: this gain is ACTIVATION-space compression,
+// measured in bits of reconstruction code. It is ORTHOGONAL to the behavioral
+// nats of the Rung-1/Rung-2 fits — curvature can pay HERE (positive `Δ`) and be
+// behaviorally inert (buy zero next-token evidence). That is by design: two
+// ledgers, kept separate. This section speaks only the bits ledger.
+
+/// The general Theorem-3 per-firing curved coding gain, in bits:
+/// `Δ = ((D − d)/2) · log₂(1/δ²) + C`.
+///
+/// `ambient_d = D`, `intrinsic_d = d`, `delta = δ` the reconstruction tolerance,
+/// `shape_const = C` the shape-dependent constant (`0` for the bare codimension
+/// dividend). Returns `0.0` when the codimension is non-positive (a flat chart
+/// pins nothing down) or `δ ≤ 0`.
+pub fn curved_coding_gain_bits(
+    ambient_d: f64,
+    intrinsic_d: f64,
+    delta: f64,
+    shape_const: f64,
+) -> f64 {
+    let codim = ambient_d - intrinsic_d;
+    if !(codim > 0.0) || !(delta > 0.0) {
+        return 0.0;
+    }
+    // log₂(1/δ²) = −2·log₂(δ); positive when δ < 1 (a real tolerance).
+    (codim / 2.0) * (1.0 / (delta * delta)).log2() + shape_const
+}
+
+/// The EXACT circle coding gain (Theorem 3, circle case), in bits:
+/// `Δ_circle = ½ · log₂( 3 a² / (π² δ²) )`.
+///
+/// `a` is the circle radius, `delta = δ` the tolerance. This is the general
+/// formula at `D − d = 1` with the circle's shape constant folded in.
+pub fn circle_coding_gain_bits(a: f64, delta: f64) -> f64 {
+    if !(a > 0.0) || !(delta > 0.0) {
+        return 0.0;
+    }
+    use std::f64::consts::PI;
+    0.5 * (3.0 * a * a / (PI * PI * delta * delta)).log2()
+}
+
+/// The circle's shape constant `C = ½ log₂(3 a² / π²)`: the additive term that
+/// makes [`curved_coding_gain_bits`] with `D − d = 1` equal
+/// [`circle_coding_gain_bits`]. Exposed so callers can cross-check the two forms.
+pub fn circle_shape_const_bits(a: f64) -> f64 {
+    if !(a > 0.0) {
+        return 0.0;
+    }
+    use std::f64::consts::PI;
+    0.5 * (3.0 * a * a / (PI * PI)).log2()
+}
+
+/// The Corollary-E a-priori bar-significance threshold, in nats of log-persistence:
+/// `( ½ · Δd_eff · log n_eff ) / ( n_eff · (D − d) )`.
+///
+/// A persistence bar must have `log(death/birth)` exceeding this to support
+/// birthing — bootstrap-free. Every input is measured: `delta_d_eff = Δd_eff` the
+/// candidate atom's dof increment, `n_eff` the occupancy-corrected effective
+/// sample size (`Σ_row a²`, NOT the global row count), `codim = D − d` the
+/// codimension the atom pins down. Returns `+∞` (nothing clears it) on a
+/// degenerate codimension or `n_eff`.
+pub fn bar_birth_threshold_nats(delta_d_eff: f64, n_eff: f64, codim: f64) -> f64 {
+    if !(codim > 0.0) || !(n_eff > 0.0) {
+        return f64::INFINITY;
+    }
+    0.5 * delta_d_eff * n_eff.max(1.0).ln() / (n_eff * codim)
+}
+
+/// Whether a persistence bar `[birth, death)` clears the Corollary-E threshold and
+/// so supports birthing an atom — bootstrap-free. Compares the bar's LOG-length
+/// `log(death/birth)` against [`bar_birth_threshold_nats`].
+///
+/// The LOG-length is load-bearing (Theorem D): persistence is additive with the
+/// likelihood only under `log(d/b)`, which is why a bar twice as long in log buys
+/// twice the evidence — `death − birth` would NOT be the right currency.
+pub fn bar_supports_birth(birth: f64, death: f64, delta_d_eff: f64, n_eff: f64, codim: f64) -> bool {
+    if !(birth > 0.0) || !(death > birth) {
+        return false;
+    }
+    (death / birth).ln() > bar_birth_threshold_nats(delta_d_eff, n_eff, codim)
+}
+
+/// The persistence ↔ evidence exchange rate (Theorem D / Corollary E): nats of
+/// model evidence bought per nat of log-persistence, `= n_eff · (D − d)`.
+///
+/// This is the scale that inverts [`bar_birth_threshold_nats`] (up to the
+/// `½·Δd_eff·log n_eff` storage the bar must repay): one nat of log-persistence
+/// per active row buys one nat of evidence per unit codimension.
+pub fn evidence_per_log_persistence(n_eff: f64, codim: f64) -> f64 {
+    n_eff.max(0.0) * codim.max(0.0)
+}
+
+/// The ISA coding-gain detector `(κ − 2)²`. Zero EXACTLY at the Gaussian anchor
+/// `κ = 2` (no curved-coding bits to give); positive as the radial law departs
+/// from Gaussian in EITHER direction — sub-Gaussian concentration (`κ < 2`, dense
+/// circle) or super-Gaussian gating (`κ = 1/q > 2`). The manifold SAE's ISA
+/// contrast term IS this detector: it fires precisely where
+/// [`curved_coding_gain_bits`] has a positive gain to collect.
+pub fn kappa_coding_gain_detector(kappa: f64) -> f64 {
+    (kappa - 2.0).powi(2)
 }
 
 #[cfg(test)]

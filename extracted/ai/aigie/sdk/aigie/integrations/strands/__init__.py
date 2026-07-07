@@ -10,11 +10,12 @@ from __future__ import annotations
 from aigie.integrations.strands.adapter import StrandsAdapter
 from aigie.integrations.strands.config import StrandsConfig
 from aigie.integrations.strands.lifecycle import StrandsLifecycle
-from aigie.integrations.strands.native_callback import StrandsHookProvider
+from aigie.integrations.strands.native_callback import StrandsHookProvider, strands_session
 
 __all__ = [
     "StrandsAdapter",
     "StrandsConfig",
     "StrandsHookProvider",
     "StrandsLifecycle",
+    "strands_session",
 ]

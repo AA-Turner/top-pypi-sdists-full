@@ -28,8 +28,10 @@
 
 mod block;
 mod block_chart;
+mod block_scoring_gpu;
 mod block_stream;
 mod codes;
+mod coordinate;
 mod scoring;
 #[cfg(target_os = "linux")]
 mod scoring_gpu;
@@ -52,16 +54,29 @@ pub use block_chart::{
     block_sparse_dictionary_firings, block_sparse_dictionary_seed_manifest,
     compose_block_coordinate_charts,
 };
+pub use block_scoring_gpu::{
+    BlockRoutePath, block_gate_block_cpu, block_gate_row_cpu, route_blocks_cpu,
+};
+#[cfg(target_os = "linux")]
+pub use block_scoring_gpu::{DEVICE_BLOCK_GATE_MIN_ELEMS, route_blocks_required};
 pub use block_stream::{
     BlockEpochStats, BlockShardStats, BlockSparseStreamArtifact, BlockSparseStreamState,
 };
 pub use codes::SparseCode;
+pub use coordinate::{
+    BlockCoordinateReport, BlockMeasureCoordinateReport, FiringCoordinate, MeasureSpikeCoordinate,
+    MeasureValuedCode, block_firing_coordinates, block_measure_valued_codes,
+    explained_variance_from_reconstruction, harmonic_firing_coordinates,
+    harmonic_measure_coordinates, reconstruct_measure_valued_rows,
+    reconstruct_single_coordinate_rows,
+};
 pub use scoring::{ScoreRoutePath, ScoreRouteResult, ScoreRouteStats, TileScorer, top_s_online};
 #[cfg(target_os = "linux")]
 pub use scoring_gpu::{
     DEVICE_SCORE_BLOCK_MIN_ELEMS, ScoreBlockPath, score_block_cpu, score_block_required,
 };
 pub use stream::{EpochStats, ShardStats, SparseDictArtifact, SparseDictStreamState};
+pub use update::DecoderSolveStats;
 
 use ndarray::{Array2, ArrayView2};
 
@@ -153,6 +168,8 @@ pub struct SparseDictFit {
     pub active: usize,
     /// Aggregate CPU/GPU scoring counters over every route pass in the fit.
     pub score_route_stats: ScoreRouteStats,
+    /// Decoder refresh percolation/CG certificate from the final MOD update.
+    pub decoder_solve_stats: DecoderSolveStats,
 }
 
 impl SparseDictFit {

@@ -576,13 +576,18 @@ def read_zlib_chunks(
     decomp_chunks = unpacked.decomp_chunks
     decomp_len = 0
     crc32 = unpacked.crc32
+    max_decomp = unpacked.decomp_len
 
     while True:
         add = read_some(buffer_size)
         if not add:
             raise zlib.error("EOF before end of zlib stream")
         comp_chunks.append(add)
-        decomp = decomp_obj.decompress(add)
+        # +1 so overrun surfaces as unconsumed_tail rather than being truncated.
+        remaining = max_decomp - decomp_len + 1
+        decomp = decomp_obj.decompress(add, remaining)
+        if decomp_obj.unconsumed_tail:
+            raise zlib.error("decompressed data exceeds expected size")
         decomp_len += len(decomp)
         decomp_chunks.append(decomp)
         unused = decomp_obj.unused_data
@@ -1485,6 +1490,11 @@ def unpack_object(
             delta_base_offset += 1
             delta_base_offset <<= 7
             delta_base_offset += byte & 0x7F
+        if delta_base_offset == 0:
+            # A zero offset makes the delta reference itself, which would
+            # loop forever in resolve_object. git's C client rejects this
+            # with "delta offset == 0 is invalid".
+            raise ApplyDeltaError("OFS_DELTA has delta_base_offset of 0")
         delta_base = delta_base_offset
     elif type_num == REF_DELTA:
         # Determine hash size from hash_func

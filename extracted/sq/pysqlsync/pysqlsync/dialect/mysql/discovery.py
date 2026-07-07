@@ -1,3 +1,11 @@
+"""
+pysqlsync: Synchronize schema and large volumes of data.
+
+Copyright 2023-2026, Levente Hunyadi
+
+:see: https://github.com/hunyadi/pysqlsync
+"""
+
 from dataclasses import dataclass
 from typing import Optional
 
@@ -90,7 +98,7 @@ class MySQLExplorer(AnsiExplorer):
                         datetime_precision=col.datetime_precision,
                     ),
                     bool(col.nullable),
-                    default=col.column_default,
+                    default=col.column_default if col.column_default != "NULL" else None,
                     identity="auto_increment" in col.extra,
                     description=col.column_comment or None,
                 )

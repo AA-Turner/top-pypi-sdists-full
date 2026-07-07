@@ -7,6 +7,11 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class MetronomeIntegrationConfig(UniversalBaseModel):
+    external_customer_id_key: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Schematic company key used to store the Metronome customer's ingest alias; when unset, imported customers carry only metronome_customer_id
+    """
+
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
     else:

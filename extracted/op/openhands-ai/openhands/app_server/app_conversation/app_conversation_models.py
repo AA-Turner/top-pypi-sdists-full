@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field, SecretStr, computed_field
 
 from openhands.agent_server.models import (
     ImageContent,
@@ -25,6 +25,18 @@ from openhands.sdk.llm import MetricsSnapshot
 from openhands.sdk.plugin import PluginSource
 
 __all__ = ['SandboxGroupingStrategy']
+
+# Canonical conversation-tag key under which the active ACP provider key
+# ('claude-code', 'codex', 'gemini-cli') is stored. Synced with agent-canvas.
+# Constrained to ^[a-z0-9]+$ by the SDK validator — no underscores allowed.
+# The typed ``AppConversationInfo.acp_server`` field is a projection of this tag.
+ACP_SERVER_TAG_KEY = 'acpserver'
+
+# Conversation-tag key pinning the resolved (grouped) workspace path at creation
+# so the delete-time archive captures the right directory without re-deriving it
+# from settings that may have changed. Must satisfy the SDK ^[a-z0-9]+$ tag-key
+# rule — no underscores.
+ARCHIVE_WORKSPACE_PATH_TAG_KEY = 'archiveworkspacepath'
 
 
 class ConversationTrigger(Enum):
@@ -116,6 +128,22 @@ class AppConversationInfo(BaseModel):
 
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def acp_server(self) -> str | None:
+        """Active ACP provider key ('claude-code', 'codex', 'gemini-cli'), else None.
+
+        A typed projection of the ``acpserver`` tag (same as agent-canvas) so
+        the conversation UI can resolve a provider brand label without a dedicated
+        column. Riding the tag keeps a single source of truth that
+        round-trips through the DB ``tags`` column for free. Gated on
+        ``agent_kind`` so a stray tag never reports a provider for an OpenHands
+        conversation.
+        """
+        if self.agent_kind != 'acp':
+            return None
+        return self.tags.get(ACP_SERVER_TAG_KEY)
 
 
 class AppConversationSortOrder(Enum):
@@ -337,6 +365,16 @@ class SwitchProfileRequest(BaseModel):
     profile_name: str = Field(
         ...,
         description='Name of a profile previously saved via /api/v1/settings/profiles.',
+        min_length=1,
+    )
+
+
+class SwitchAcpModelRequest(BaseModel):
+    """Request to switch a running ACP conversation's model in place."""
+
+    model: str = Field(
+        ...,
+        description='Model identifier to switch to (must be supported by the provider).',
         min_length=1,
     )
 

@@ -25,7 +25,7 @@ license-files = ["LICENSE"]
 name = "mdformat_mkdocs"
 readme = "README.md"
 requires-python = ">=3.10.0"
-version = "5.2.0"
+version = "5.2.1"
 
 [project.entry-points."mdformat.parser_extension"]
 mkdocs = "mdformat_mkdocs"
@@ -70,7 +70,7 @@ homepage = "https://github.com/kyleking/mdformat-mkdocs"
 
 [tool.commitizen]
 tag_format = "v${version}"
-version = "5.2.0"
+version = "5.2.1"
 version_files = ["mdformat_mkdocs/__init__.py", "pyproject.toml:^version"]
 
 [tool.mypy]
@@ -188,12 +188,13 @@ skip_missing_interpreters = false
 basepython = ["py314"]
 changedir = "{tox_root}"
 commands = [["python", "scripts/canary.py", {default = [], extend = true, replace = "posargs"}]]
-description = "Run mdformat --check against real downstream repos. Optionally specify: '-- ruff uv' to test a subset."
+description = "Run mdformat idempotency checks against real downstream repos. Optionally specify: '-- ruff uv' to test a subset."
 skip_install = false
 
 [tool.tox.env.cz]
 basepython = ["py314"]
 commands = [["cz", "bump", {default = [], extend = true, replace = "posargs"}]]
+commands_pre = [["tox", "-e", "canary"]]
 deps = "commitizen>=4.10.0"
 description = "Bump version using commitizen. Optionally specify: '-- --increment MAJOR|MINOR|PATCH' or '-- --dry-run'"
 skip_install = true

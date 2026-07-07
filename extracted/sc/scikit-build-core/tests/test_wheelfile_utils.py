@@ -1,10 +1,132 @@
 import stat
+import sys
+import time
 import zipfile
+from pathlib import Path
 
+import pytest
 from packaging.tags import Tag
 
 import scikit_build_core.build._wheelfile
+from scikit_build_core._reproducible import MAX_TIMESTAMP, get_reproducible_epoch
 from scikit_build_core._vendor.pyproject_metadata import StandardMetadata
+from scikit_build_core.build._wheelfile import WheelWriter
+
+
+def _make_writer(tmp_path: Path, *, reproducible: bool = True) -> WheelWriter:
+    metadata = StandardMetadata.from_pyproject(
+        {"project": {"name": "something", "version": "1.2.3"}},
+        metadata_version="2.3",
+    )
+    return scikit_build_core.build._wheelfile.WheelWriter(
+        metadata,
+        tmp_path / "out",
+        {Tag("py3", "none", "any")},
+        scikit_build_core.build._wheelfile.WheelMetadata(),
+        None,
+        reproducible=reproducible,
+    )
+
+
+def test_wheel_timestamp_reproducible_fixed_epoch(tmp_path, monkeypatch):
+    monkeypatch.delenv("SOURCE_DATE_EPOCH", raising=False)
+    wheel = _make_writer(tmp_path)
+    expected = time.gmtime(get_reproducible_epoch())[0:6]
+    # A per-file mtime is ignored in reproducible mode.
+    assert wheel.timestamp(0) == expected
+    assert wheel.timestamp() == expected
+
+
+def test_wheel_timestamp_non_reproducible_uses_mtime(tmp_path, monkeypatch):
+    monkeypatch.delenv("SOURCE_DATE_EPOCH", raising=False)
+    wheel = _make_writer(tmp_path, reproducible=False)
+    mtime = 1234567890
+    assert wheel.timestamp(mtime) == time.gmtime(mtime)[0:6]
+
+
+@pytest.mark.parametrize("reproducible", [True, False])
+def test_wheel_timestamp_clamps_epoch_beyond_zip_range(
+    tmp_path, monkeypatch, reproducible
+):
+    # A SOURCE_DATE_EPOCH beyond 2107-12-31 23:59:59 UTC (e.g. a milliseconds-epoch
+    # mistake) cannot be represented in the ZIP date format and must be clamped
+    # rather than crash deep inside zipfile with a struct.error.
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", str(MAX_TIMESTAMP + 1))
+    wheel = _make_writer(tmp_path, reproducible=reproducible)
+    assert wheel.timestamp() == time.gmtime(MAX_TIMESTAMP)[0:6]
+
+    # The resulting date must actually be writable to a real ZIP archive (the DOS
+    # date format only stores even seconds, so the last field may round down).
+    with wheel:
+        wheel.writestr("data.txt", b"hello")
+    with zipfile.ZipFile(wheel.wheelpath) as zf:
+        assert zf.getinfo("data.txt").date_time[:5] == time.gmtime(MAX_TIMESTAMP)[0:5]
+
+
+def test_reproducible_epoch_non_integer_errors(monkeypatch, capsys):
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "1.7e9")
+    with pytest.raises(SystemExit):
+        get_reproducible_epoch()
+    assert "SOURCE_DATE_EPOCH" in capsys.readouterr().err
+
+
+def test_wheel_timestamp_non_reproducible_non_integer_epoch_errors(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "")
+    wheel = _make_writer(tmp_path, reproducible=False)
+    with pytest.raises(SystemExit):
+        wheel.timestamp()
+    assert "SOURCE_DATE_EPOCH" in capsys.readouterr().err
+
+
+def test_wheel_write_normalizes_permissions(tmp_path, monkeypatch):
+    monkeypatch.delenv("SOURCE_DATE_EPOCH", raising=False)
+    src = tmp_path / "src.txt"
+    src.write_text("data")
+    src.chmod(0o600)
+
+    wheel = _make_writer(tmp_path)
+    with wheel:
+        wheel.write(str(src), "src.txt")
+    with zipfile.ZipFile(wheel.wheelpath) as zf:
+        info = zf.getinfo("src.txt")
+        # A non-executable file normalizes to 0o644 on every platform.
+        assert stat.S_IMODE(info.external_attr >> 16) == 0o644
+
+
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="POSIX permissions")
+def test_wheel_write_permissions_posix(tmp_path, monkeypatch):
+    monkeypatch.delenv("SOURCE_DATE_EPOCH", raising=False)
+    src = tmp_path / "exe"
+    src.write_text("data")
+    src.chmod(0o777)
+
+    out_dir = tmp_path / "out"
+    # Reproducible mode normalizes an executable to 0o755; otherwise the raw mode
+    # is preserved.
+    for reproducible, expected in [(True, 0o755), (False, 0o777)]:
+        wheel = _make_writer(tmp_path, reproducible=reproducible)
+        wheel.folder = out_dir / str(reproducible)
+        with wheel:
+            wheel.write(str(src), "exe")
+        with zipfile.ZipFile(wheel.wheelpath) as zf:
+            info = zf.getinfo("exe")
+            assert stat.S_IMODE(info.external_attr >> 16) == expected
+
+
+def test_wheel_reproducible_normalizes_generated_metadata(tmp_path, monkeypatch):
+    monkeypatch.delenv("SOURCE_DATE_EPOCH", raising=False)
+    wheel = _make_writer(tmp_path)
+    platlib = tmp_path / "platlib"
+    platlib.mkdir()
+    with wheel:
+        wheel.build({"platlib": platlib})
+    with zipfile.ZipFile(wheel.wheelpath) as zf:
+        # Generated .dist-info entries are written via writestr, not write; they
+        # must be normalized too in reproducible mode.
+        for info in zf.infolist():
+            assert stat.S_IMODE(info.external_attr >> 16) == 0o644
 
 
 def test_wheel_metadata() -> None:
@@ -71,3 +193,57 @@ def test_wheel_writer_simple(tmp_path, monkeypatch):
         for info in zf.infolist():
             assert info.external_attr == (0o664 | stat.S_IFREG) << 16
             assert info.compress_type == zipfile.ZIP_DEFLATED
+
+
+def test_wheel_writer_variant(tmp_path):
+    metadata = StandardMetadata.from_pyproject(
+        {
+            "project": {
+                "name": "something",
+                "version": "1.2.3",
+            },
+        },
+        metadata_version="2.3",
+    )
+    out_dir = tmp_path / "out"
+
+    wheel = scikit_build_core.build._wheelfile.WheelWriter(
+        metadata,
+        out_dir,
+        {Tag("py3", "none", "any")},
+        scikit_build_core.build._wheelfile.WheelMetadata(),
+        None,
+        variant_label="cpu",
+        variant_dist_info_contents=b'{"variant":"cpu"}',
+    )
+
+    assert wheel.wheelpath.name == "something-1.2.3-py3-none-any-cpu.whl"
+    assert wheel.dist_info_contents()["variant.json"] == b'{"variant":"cpu"}'
+
+
+def test_wheel_writer_variant_metadata_dir_conflict(tmp_path):
+    metadata = StandardMetadata.from_pyproject(
+        {
+            "project": {
+                "name": "something",
+                "version": "1.2.3",
+            },
+        },
+        metadata_version="2.3",
+    )
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    (metadata_dir / "variant.json").write_bytes(b'{"variant":"override"}')
+
+    wheel = scikit_build_core.build._wheelfile.WheelWriter(
+        metadata,
+        tmp_path / "out",
+        {Tag("py3", "none", "any")},
+        scikit_build_core.build._wheelfile.WheelMetadata(),
+        metadata_dir,
+        variant_label="cpu",
+        variant_dist_info_contents=b'{"variant":"cpu"}',
+    )
+
+    with pytest.raises(ValueError, match=r"variant\.json"):
+        wheel.dist_info_contents()

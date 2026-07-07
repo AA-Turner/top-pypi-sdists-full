@@ -1292,6 +1292,52 @@ def test_scandir_with_pattern(smb_share):
     assert names == ["file-test1.txt"]
 
 
+def test_scandir_empty_directory(smb_share):
+    # Some servers return STATUS_NO_SUCH_FILE here instead of STATUS_NO_MORE_FILES.
+    empty_dir = rf"{smb_share}\empty"
+    smbclient.mkdir(empty_dir)
+
+    assert list(smbclient.scandir(empty_dir)) == []
+
+
+def test_scandir_with_non_matching_pattern(smb_share):
+    # Samba returns STATUS_NO_SUCH_FILE here instead of STATUS_NO_MORE_FILES.
+    with smbclient.open_file(rf"{smb_share}\file.txt", mode="w") as fd:
+        fd.write("x")
+
+    assert list(smbclient.scandir(smb_share, search_pattern="nomatch_*")) == []
+
+
+def test_scandir_as_context_manager(smb_share):
+    for filename in ["file1.txt", "file2.txt"]:
+        with smbclient.open_file(rf"{smb_share}\{filename}", mode="w") as fd:
+            fd.write("content")
+
+    # Full iteration inside the context manager yields every entry.
+    with smbclient.scandir(smb_share) as scandir_gen:
+        assert isinstance(scandir_gen, smbclient.SMBScandirIterator)
+        assert sorted(entry.name for entry in scandir_gen) == ["file1.txt", "file2.txt"]
+
+    # Abandoning iteration early still releases the handle on block exit: the
+    # iterator is finalised, so resuming it stops instead of yielding the rest.
+    it = smbclient.scandir(smb_share)
+    with it:
+        assert next(it).name in ("file1.txt", "file2.txt")
+    with pytest.raises(StopIteration):
+        next(it)
+
+
+def test_scandir_iterator_contract():
+    it = smbclient.SMBScandirIterator(x for x in ["a", "b"])
+    with it as entered:
+        assert entered is it
+        assert next(it) == "a"
+
+    # __exit__ closed the underlying generator, so iteration is exhausted.
+    with pytest.raises(StopIteration):
+        next(it)
+
+
 @pytest.mark.skipif(
     os.name != "nt" and not os.environ.get("SMB_FORCE", False), reason="cannot create symlinks on Samba"
 )
@@ -1981,6 +2027,19 @@ def test_walk_with_symlink_dont_follow(smb_share):
     assert scanned_roots[src_dirname]["files"] == ["file.txt"]
 
 
+def test_walk_closes_scandir_iterator_on_unhandled_exception(monkeypatch, stub_scandir_gen):
+    closes = []
+    monkeypatch.setattr(
+        "smbclient._os._scandir",
+        lambda *a, **kw: stub_scandir_gen(closes, RuntimeError("simulated mid-iter failure")),
+    )
+
+    with pytest.raises(RuntimeError, match="simulated mid-iter failure"):
+        list(smbclient.walk(r"\\server\share\dir"))
+
+    assert closes == [True]
+
+
 def test_xattr_file(smb_share):
     filename = "%s\\file.txt" % smb_share
 
@@ -2170,3 +2229,14 @@ def test_dfs_nonexisting_path(smb_dfs_share):
 
     with pytest.raises(SMBOSError):
         smbclient.lstat(fake_file)
+
+
+def test_open_file_missing_share_raises_os_error(smb_real):
+    # A missing share fails tree connect with STATUS_BAD_NETWORK_NAME, a non-OSError
+    # that must surface as SMBOSError so except OSError / ignore_errors callers catch it.
+    bad_path = rf"\\{smb_real[2]}\does_not_exist\file.txt"
+
+    with pytest.raises(SMBOSError) as exc_info:
+        smbclient.open_file(bad_path, username=smb_real[0], password=smb_real[1], port=smb_real[3])
+
+    assert exc_info.value.filename == bad_path

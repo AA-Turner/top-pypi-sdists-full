@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gcsfs
-Version: 2026.6.0
+Version: 2026.7.0
 Summary: Convenient Filesystem interface over GCS
 Project-URL: Homepage, https://github.com/fsspec/gcsfs
 Project-URL: Documentation, https://gcsfs.readthedocs.io
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Requires-Dist: aiohttp!=4.0.0a0,!=4.0.0a1,>=3.9.0
 Requires-Dist: decorator>4.1.2
-Requires-Dist: fsspec>=2026.3.0
+Requires-Dist: fsspec>=2026.6.0
 Requires-Dist: google-auth-oauthlib
 Requires-Dist: google-auth>=1.2
 Requires-Dist: google-cloud-storage-control

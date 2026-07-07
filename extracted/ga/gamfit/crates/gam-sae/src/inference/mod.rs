@@ -9,10 +9,14 @@
 
 pub mod atom_geometry;
 pub mod atom_lens;
+pub mod atlas_nerve;
 pub mod checkpoint_dynamics;
+pub mod contracts;
+pub mod cross_model_transport;
 pub mod harvest;
 pub mod intervention_shard;
 pub mod layer_transport;
 pub mod probe_runner;
 pub mod riesz;
 pub mod steering;
+pub mod transport_class;

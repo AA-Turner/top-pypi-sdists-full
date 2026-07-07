@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: atlan-application-sdk
-Version: 3.20.3
+Version: 3.21.0
 Summary: Atlan Application SDK is a Python library for developing applications on the Atlan Platform
 Project-URL: Repository, https://github.com/atlanhq/application-sdk
 Project-URL: Documentation, https://github.com/atlanhq/application-sdk/README.md
@@ -60,7 +60,7 @@ Provides-Extra: pandas
 Requires-Dist: pandas<3.0.0,>=2.2.3; extra == 'pandas'
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == 'pandas'
 Provides-Extra: scale-data-generator
-Requires-Dist: faker<40.28.0,>=40.27.0; extra == 'scale-data-generator'
+Requires-Dist: faker<40.29.0,>=40.28.1; extra == 'scale-data-generator'
 Requires-Dist: numpy<3.0.0,>=1.23.5; extra == 'scale-data-generator'
 Provides-Extra: sql
 Requires-Dist: duckdb-engine<0.18.0,>=0.17.0; extra == 'sql'

@@ -117,9 +117,6 @@ def static_resolver_to_operator(
         ]
         static_operator = fn(*placeholder_inputs)
     except Exception as e:
-        # Weird hacky way to return a placeholder even if the resolver fails.
-        if len(inputs) > 0:
-            return DfPlaceholder(schema_dict={})
         raise _GetStaticOperatorError(
             resolver_fqn=fqn, message="Resolver failed with an exception", underlying_exception=e
         )

@@ -18,7 +18,10 @@ use crate::{
         explicit_params::ExplicitParameters,
         param_store_types::ParameterStore,
         proto_stream_reader::ProtoStreamReader,
-        spec_types::{Condition, Rule, Spec, SpecsResponseFull, SpecsResponsePartial},
+        spec_types::{
+            Condition, ConditionOperator, ConditionType, Rule, Spec, SpecsResponseFull,
+            SpecsResponsePartial,
+        },
         specs_hash_map::{SpecPointer, SpecsHashMap},
         statsig_config_specs::{self as pb, any_value},
     },
@@ -27,13 +30,64 @@ use crate::{
 
 const TAG: &str = "ProtoSpecs";
 
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum ProtobufUpdate {
+    Materialized { is_delta: bool },
+    CursorOnly { lcut: u64, checksum: String },
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ParseState {
+    Initial,
+    Full,
+    DeltaAwaitingTopLevel,
+    DeltaDeferred,
+    DeltaMaterialized,
+    DeltaDeferredValidated,
+    DeltaMaterializedValidated,
+}
+
+impl ParseState {
+    fn is_delta(self) -> bool {
+        !matches!(self, Self::Initial | Self::Full)
+    }
+
+    fn materialize(
+        &mut self,
+        current_specs: &SpecsResponseFull,
+        next_specs: &mut SpecsResponseFull,
+    ) {
+        if *self == Self::DeltaDeferred {
+            next_specs.copy_previous_values_from(current_specs);
+            *self = Self::DeltaMaterialized;
+        }
+    }
+}
+
 pub fn deserialize_protobuf(
     ops_stats: &OpsStatsForInstance,
     current_specs: &SpecsResponseFull, /* Intentionally immutable so we can continue using it if parsing fails */
     next_specs: &mut SpecsResponseFull,
     data: &mut ResponseData,
 ) -> Result<(), StatsigErr> {
+    if matches!(
+        deserialize_protobuf_for_store(ops_stats, current_specs, next_specs, data)?,
+        ProtobufUpdate::CursorOnly { .. }
+    ) {
+        next_specs.copy_previous_values_from(current_specs);
+    }
+
+    Ok(())
+}
+
+pub(crate) fn deserialize_protobuf_for_store(
+    ops_stats: &OpsStatsForInstance,
+    current_specs: &SpecsResponseFull, /* Intentionally immutable so we can continue using it if parsing fails */
+    next_specs: &mut SpecsResponseFull,
+    data: &mut ResponseData,
+) -> Result<ProtobufUpdate, StatsigErr> {
     let mut parsed_envelopes_count = 0;
+    let mut state = ParseState::Initial;
 
     let mut reader = ProtoStreamReader::new(data);
 
@@ -68,6 +122,9 @@ pub fn deserialize_protobuf(
                 Err(e) => {
                     let err: StatsigErr = map_decode_err("SpecsEnvelope", e);
                     log_error_to_statsig_and_console!(ops_stats, TAG, err);
+                    if state.is_delta() {
+                        return Err(err);
+                    }
                     continue;
                 }
             };
@@ -77,58 +134,152 @@ pub fn deserialize_protobuf(
             Err(e) => {
                 let err: StatsigErr = map_unknown_enum_value("SpecsEnvelopeKind", e);
                 log_error_to_statsig_and_console!(ops_stats, TAG, err);
+                if state.is_delta() {
+                    return Err(err);
+                }
                 continue;
             }
         };
 
         match envelope_kind {
-            pb::SpecsEnvelopeKind::Done => return Ok(()),
-            pb::SpecsEnvelopeKind::TopLevel => {
-                consume_errors(ops_stats, || next_specs.handle_top_level_update(env));
-            }
-            pb::SpecsEnvelopeKind::FeatureGate => {
-                consume_errors(ops_stats, || {
-                    next_specs.handle_feature_gate_update(env, current_specs)
-                });
-            }
-            pb::SpecsEnvelopeKind::DynamicConfig => {
-                consume_errors(ops_stats, || {
-                    next_specs.handle_dynamic_config_update(env, current_specs)
-                });
-            }
-            pb::SpecsEnvelopeKind::LayerConfig => {
-                consume_errors(ops_stats, || {
-                    next_specs.handle_layer_config_update(env, current_specs)
-                });
-            }
-            pb::SpecsEnvelopeKind::ParamStore => {
-                consume_errors(ops_stats, || {
-                    next_specs.handle_param_store_update(env, current_specs)
-                });
-            }
-            pb::SpecsEnvelopeKind::Condition => {
-                consume_errors(ops_stats, || {
-                    next_specs.handle_condition_update(env, current_specs)
-                });
-            }
-            pb::SpecsEnvelopeKind::Deletions => {
-                consume_errors(ops_stats, || next_specs.handle_deletions_update(env));
-            }
-            pb::SpecsEnvelopeKind::Checksums => match next_specs.handle_checksums_update(env) {
-                Ok(()) => {
-                    ops_stats.log_checksum_validation_result(true);
+            pb::SpecsEnvelopeKind::Done => match state {
+                ParseState::Full => return Ok(ProtobufUpdate::Materialized { is_delta: false }),
+                ParseState::DeltaMaterializedValidated => {
+                    return Ok(ProtobufUpdate::Materialized { is_delta: true })
                 }
-                Err(e) => {
-                    ops_stats.log_checksum_validation_result(false);
-                    return Err(StatsigErr::ChecksumFailure(format!(
-                        "Failed to apply protobuf checksums update: {e}"
-                    )));
+                ParseState::DeltaDeferredValidated => {
+                    if next_specs.has_same_semantic_values_as(current_specs) && next_specs.time > 0
+                    {
+                        if let Some(checksum) = next_specs
+                            .checksum
+                            .as_ref()
+                            .filter(|checksum| !checksum.is_empty())
+                        {
+                            return Ok(ProtobufUpdate::CursorOnly {
+                                lcut: next_specs.time,
+                                checksum: checksum.clone(),
+                            });
+                        }
+                    }
+
+                    next_specs.copy_previous_values_from(current_specs);
+                    return Ok(ProtobufUpdate::Materialized { is_delta: true });
+                }
+                ParseState::Initial | ParseState::DeltaAwaitingTopLevel => {
+                    return make_proto_parse_error("SpecsEnvelope", "Missing top-level envelope")
+                }
+                ParseState::DeltaDeferred | ParseState::DeltaMaterialized => {
+                    return make_proto_parse_error(
+                        "SpecsEnvelope",
+                        "Missing checksums envelope for delta response",
+                    )
                 }
             },
+            pb::SpecsEnvelopeKind::TopLevel => match state {
+                ParseState::Initial | ParseState::Full => {
+                    if log_parse_result(ops_stats, next_specs.handle_top_level_update(env)).is_ok()
+                    {
+                        state = ParseState::Full;
+                    }
+                }
+                ParseState::DeltaAwaitingTopLevel => {
+                    log_parse_result(ops_stats, next_specs.handle_top_level_update(env))?;
+                    state = ParseState::DeltaDeferred;
+                }
+                _ => {
+                    return make_proto_parse_error(
+                        "SpecsEnvelope",
+                        "Unexpected top-level envelope in delta response",
+                    )
+                }
+            },
+            kind @ (pb::SpecsEnvelopeKind::FeatureGate
+            | pb::SpecsEnvelopeKind::DynamicConfig
+            | pb::SpecsEnvelopeKind::LayerConfig
+            | pb::SpecsEnvelopeKind::ParamStore
+            | pb::SpecsEnvelopeKind::Condition) => match state {
+                ParseState::Full => {
+                    let _ = log_parse_result(
+                        ops_stats,
+                        apply_entity_update(kind, env, current_specs, next_specs),
+                    );
+                }
+                ParseState::DeltaDeferred | ParseState::DeltaMaterialized => {
+                    state.materialize(current_specs, next_specs);
+                    log_parse_result(
+                        ops_stats,
+                        apply_entity_update(kind, env, current_specs, next_specs),
+                    )?;
+                }
+                ParseState::Initial | ParseState::DeltaAwaitingTopLevel => {
+                    return make_proto_parse_error(
+                        "SpecsEnvelope",
+                        "Entity envelope before top-level envelope",
+                    )
+                }
+                ParseState::DeltaDeferredValidated | ParseState::DeltaMaterializedValidated => {
+                    return make_proto_parse_error(
+                        "SpecsEnvelope",
+                        "Unexpected entity envelope after delta checksums",
+                    )
+                }
+            },
+            pb::SpecsEnvelopeKind::Deletions => match state {
+                ParseState::Full => {
+                    if let Ok(deletions) = log_parse_result(ops_stats, decode_deletions_update(env))
+                    {
+                        next_specs.apply_deletions(deletions);
+                    }
+                }
+                ParseState::DeltaDeferred | ParseState::DeltaMaterialized => {
+                    let deletions = log_parse_result(ops_stats, decode_deletions_update(env))?;
+                    if !deletions_are_empty(&deletions) {
+                        state.materialize(current_specs, next_specs);
+                        next_specs.apply_deletions(deletions);
+                    }
+                }
+                _ => {
+                    return make_proto_parse_error("SpecsEnvelope", "Unexpected deletions envelope")
+                }
+            },
+            pb::SpecsEnvelopeKind::Checksums => {
+                let (target, next_state): (&SpecsResponseFull, ParseState) = match state {
+                    ParseState::Full => (next_specs, ParseState::Full),
+                    ParseState::DeltaDeferred => {
+                        (current_specs, ParseState::DeltaDeferredValidated)
+                    }
+                    ParseState::DeltaMaterialized => {
+                        (next_specs, ParseState::DeltaMaterializedValidated)
+                    }
+                    _ => {
+                        return make_proto_parse_error(
+                            "SpecsEnvelope",
+                            "Unexpected checksums envelope",
+                        )
+                    }
+                };
+
+                match target.handle_checksums_update(env) {
+                    Ok(()) => {
+                        state = next_state;
+                        ops_stats.log_checksum_validation_result(true);
+                    }
+                    Err(e) => {
+                        ops_stats.log_checksum_validation_result(false);
+                        return Err(StatsigErr::ChecksumFailure(format!(
+                            "Failed to apply protobuf checksums update: {e}"
+                        )));
+                    }
+                }
+            }
             pb::SpecsEnvelopeKind::CopyPrev => {
-                consume_errors(ops_stats, || {
-                    next_specs.handle_copy_prev_update(current_specs)
-                });
+                if state != ParseState::Initial || parsed_envelopes_count != 1 {
+                    return make_proto_parse_error(
+                        "SpecsEnvelope",
+                        "Duplicate or misplaced copy-prev envelope",
+                    );
+                }
+                state = ParseState::DeltaAwaitingTopLevel;
             }
             pb::SpecsEnvelopeKind::Unknown => {
                 return make_proto_parse_error("SpecsEnvelope", "Unknown envelope kind");
@@ -137,13 +288,41 @@ pub fn deserialize_protobuf(
     }
 }
 
-fn consume_errors<F>(ops_stats: &OpsStatsForInstance, f: F)
-where
-    F: FnOnce() -> Result<(), StatsigErr>,
-{
-    if let Err(e) = f() {
-        log_error_to_statsig_and_console!(ops_stats, TAG, e);
+fn apply_entity_update(
+    kind: pb::SpecsEnvelopeKind,
+    envelope: pb::SpecsEnvelope,
+    current_specs: &SpecsResponseFull,
+    next_specs: &mut SpecsResponseFull,
+) -> Result<(), StatsigErr> {
+    match kind {
+        pb::SpecsEnvelopeKind::FeatureGate => {
+            next_specs.handle_feature_gate_update(envelope, current_specs)
+        }
+        pb::SpecsEnvelopeKind::DynamicConfig => {
+            next_specs.handle_dynamic_config_update(envelope, current_specs)
+        }
+        pb::SpecsEnvelopeKind::LayerConfig => {
+            next_specs.handle_layer_config_update(envelope, current_specs)
+        }
+        pb::SpecsEnvelopeKind::ParamStore => {
+            next_specs.handle_param_store_update(envelope, current_specs)
+        }
+        pb::SpecsEnvelopeKind::Condition => {
+            next_specs.handle_condition_update(envelope, current_specs)
+        }
+        _ => unreachable!(),
     }
+}
+
+fn log_parse_result<T>(
+    ops_stats: &OpsStatsForInstance,
+    result: Result<T, StatsigErr>,
+) -> Result<T, StatsigErr> {
+    if let Err(error) = &result {
+        log_error_to_statsig_and_console!(ops_stats, TAG, error);
+    }
+
+    result
 }
 
 impl SpecsResponseFull {
@@ -306,15 +485,7 @@ impl SpecsResponseFull {
         Ok(())
     }
 
-    fn handle_deletions_update(&mut self, envelope: pb::SpecsEnvelope) -> Result<(), StatsigErr> {
-        let envelope_data = validate_envelope_data("Deletions", envelope.data)?;
-        let deletions = pb::RulesetsResponseDeletions::decode(envelope_data)
-            .map_err(|e| map_decode_err("RulesetsResponseDeletions", e))?;
-        self.apply_deletions(deletions);
-        Ok(())
-    }
-
-    fn handle_checksums_update(&mut self, envelope: pb::SpecsEnvelope) -> Result<(), StatsigErr> {
+    fn handle_checksums_update(&self, envelope: pb::SpecsEnvelope) -> Result<(), StatsigErr> {
         let envelope_data = validate_envelope_data("Checksums", envelope.data)?;
         let checksums = pb::RulesetsChecksums::decode(envelope_data)
             .map_err(|e| map_decode_err("RulesetsChecksums", e))?;
@@ -341,25 +512,18 @@ impl SpecsResponseFull {
         Ok(())
     }
 
-    fn handle_copy_prev_update(&mut self, existing: &SpecsResponseFull) -> Result<(), StatsigErr> {
-        let partial_value = serde_json::to_value(existing)
-            .map_err(|e| map_serde_json_err("SpecsResponsePartial", e))?;
-        let partial = serde_json::from_value::<SpecsResponsePartial>(partial_value)
-            .map_err(|e| map_serde_json_err("SpecsResponsePartial", e))?;
-        self.merge_from_partial(partial);
+    fn has_same_semantic_values_as(&self, existing: &SpecsResponseFull) -> bool {
+        self.common_fields_match(existing)
+            && self.company_id == existing.company_id
+            && self.response_format == existing.response_format
+    }
 
-        self.checksum = existing.checksum.clone();
-        self.company_id = existing.company_id.clone();
-        self.time = existing.time;
-        self.has_updates = existing.has_updates;
-        self.response_format = existing.response_format.clone();
-
+    fn copy_previous_values_from(&mut self, existing: &SpecsResponseFull) {
         self.dynamic_configs = SpecsHashMap(existing.dynamic_configs.0.clone());
         self.feature_gates = SpecsHashMap(existing.feature_gates.0.clone());
         self.layer_configs = SpecsHashMap(existing.layer_configs.0.clone());
         self.condition_map = existing.condition_map.clone();
         self.param_stores = existing.param_stores.clone();
-        Ok(())
     }
 
     fn apply_deletions(&mut self, deletions: pb::RulesetsResponseDeletions) {
@@ -387,6 +551,27 @@ impl SpecsResponseFull {
         remove_string_from_opt_map(&mut self.override_rules, override_rules);
         remove_string_from_opt_map(&mut self.overrides, overrides);
     }
+}
+
+fn decode_deletions_update(
+    envelope: pb::SpecsEnvelope,
+) -> Result<pb::RulesetsResponseDeletions, StatsigErr> {
+    let envelope_data = validate_envelope_data("Deletions", envelope.data)?;
+    pb::RulesetsResponseDeletions::decode(envelope_data)
+        .map_err(|e| map_decode_err("RulesetsResponseDeletions", e))
+}
+
+fn deletions_are_empty(deletions: &pb::RulesetsResponseDeletions) -> bool {
+    deletions.dynamic_configs.is_empty()
+        && deletions.feature_gates.is_empty()
+        && deletions.layer_configs.is_empty()
+        && deletions.experiment_to_layer.is_empty()
+        && deletions.condition_map.is_empty()
+        && deletions.sdk_configs.is_empty()
+        && deletions.param_stores.is_empty()
+        && deletions.cmab_configs.is_empty()
+        && deletions.override_rules.is_empty()
+        && deletions.overrides.is_empty()
 }
 
 fn remove_interned_from_specs_map(map: &mut SpecsHashMap, names: Vec<String>) {
@@ -487,19 +672,22 @@ fn validate_envelope_data(
 }
 
 fn condition_from_pb(v: pb::Condition) -> Result<Condition, StatsigErr> {
+    let condition_type = condition_type_from_pb(
+        pb::ConditionType::try_from(v.condition_type)
+            .map_err(|e| map_unknown_enum_value("ConditionType", e))?,
+    )?;
+    let operator = match v.operator {
+        Some(operator) => Some(operator_from_pb(
+            pb::Operator::try_from(operator).map_err(|e| map_unknown_enum_value("Operator", e))?,
+        )?),
+        None => None,
+    };
     let mut condition = Condition {
-        condition_type: condition_type_from_pb(
-            pb::ConditionType::try_from(v.condition_type)
-                .map_err(|e| map_unknown_enum_value("ConditionType", e))?,
-        )?,
+        compiled_condition_type: ConditionType::from_str(condition_type.as_str()),
+        condition_type,
         target_value: target_value_from_pb(v.target_value)?,
-        operator: match v.operator {
-            Some(operator) => Some(operator_from_pb(
-                pb::Operator::try_from(operator)
-                    .map_err(|e| map_unknown_enum_value("Operator", e))?,
-            )?),
-            None => None,
-        },
+        compiled_operator: ConditionOperator::from_str(operator.as_deref()),
+        operator,
         field: v.field.map(DynamicString::from),
         additional_values: additional_values_from_pb(v.additional_values)?,
         id_type: id_type_from_pb_to_dynamic_string(v.id_type)?,
@@ -883,7 +1071,7 @@ fn map_serde_json_err(tag: &str, e: serde_json::Error) -> StatsigErr {
     StatsigErr::ProtobufParseError(format!("proto::{}", tag), e.to_string())
 }
 
-fn make_proto_parse_error(tag: &str, message: &str) -> Result<(), StatsigErr> {
+fn make_proto_parse_error<T>(tag: &str, message: &str) -> Result<T, StatsigErr> {
     Err(StatsigErr::ProtobufParseError(
         format!("proto::{}", tag),
         message.to_string(),
@@ -892,7 +1080,166 @@ fn make_proto_parse_error(tag: &str, message: &str) -> Result<(), StatsigErr> {
 
 #[cfg(test)]
 mod tests {
-    use super::{pb, rules_from_pb};
+    use std::{collections::HashMap, io::Write};
+
+    use brotli::enc::BrotliEncoderParams;
+    use prost::Message;
+
+    use super::{
+        checksum_for_condition, checksum_for_param_store, checksum_for_spec, condition_from_pb,
+        deserialize_protobuf, deserialize_protobuf_for_store, pb, rules_from_pb, sum_checksums,
+        ProtobufUpdate, SpecsResponseFull,
+    };
+    use crate::{
+        networking::ResponseData,
+        observability::ops_stats::OpsStatsForInstance,
+        specs_response::{
+            proto_stream_reader::BUFFER_SIZE,
+            spec_types::{ConditionOperator, ConditionType},
+        },
+    };
+
+    fn checksum_only_delta(current: &SpecsResponseFull, lcut: u64, checksum: &str) -> ResponseData {
+        let mut common_fields = serde_json::to_value(current).unwrap();
+        let fields = common_fields.as_object_mut().unwrap();
+        for field in [
+            "checksum",
+            "company_id",
+            "condition_map",
+            "dynamic_configs",
+            "feature_gates",
+            "has_updates",
+            "layer_configs",
+            "param_stores",
+            "response_format",
+            "time",
+        ] {
+            fields.remove(field);
+        }
+
+        let field_checksums = HashMap::from([
+            (
+                "condition_map".to_string(),
+                sum_checksums(current.condition_map.values().map(checksum_for_condition)),
+            ),
+            (
+                "dynamic_configs".to_string(),
+                sum_checksums(current.dynamic_configs.0.values().map(checksum_for_spec)),
+            ),
+            (
+                "feature_gates".to_string(),
+                sum_checksums(current.feature_gates.0.values().map(checksum_for_spec)),
+            ),
+            (
+                "layer_configs".to_string(),
+                sum_checksums(current.layer_configs.0.values().map(checksum_for_spec)),
+            ),
+            (
+                "param_stores".to_string(),
+                sum_checksums(
+                    current
+                        .param_stores
+                        .as_ref()
+                        .map(|stores| stores.values().map(checksum_for_param_store))
+                        .into_iter()
+                        .flatten(),
+                ),
+            ),
+        ]);
+        let envelopes = [
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::CopyPrev as i32,
+                ..pb::SpecsEnvelope::default()
+            },
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::TopLevel as i32,
+                data: Some(
+                    pb::SpecsTopLevel {
+                        has_updates: true,
+                        time: lcut,
+                        company_id: current.company_id.clone().unwrap_or_default(),
+                        response_format: current.response_format.clone().unwrap_or_default(),
+                        checksum: checksum.to_string(),
+                        rest: serde_json::to_vec(&common_fields).unwrap(),
+                    }
+                    .encode_to_vec(),
+                ),
+                ..pb::SpecsEnvelope::default()
+            },
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::Checksums as i32,
+                data: Some(pb::RulesetsChecksums { field_checksums }.encode_to_vec()),
+                ..pb::SpecsEnvelope::default()
+            },
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::Done as i32,
+                ..pb::SpecsEnvelope::default()
+            },
+        ];
+
+        let mut encoded = Vec::new();
+        for envelope in envelopes {
+            envelope.encode_length_delimited(&mut encoded).unwrap();
+        }
+
+        let mut compressed = Vec::new();
+        {
+            let mut writer = brotli::CompressorWriter::with_params(
+                &mut compressed,
+                BUFFER_SIZE,
+                &BrotliEncoderParams::default(),
+            );
+            writer.write_all(&encoded).unwrap();
+            writer.flush().unwrap();
+        }
+        ResponseData::from_bytes(compressed)
+    }
+
+    #[test]
+    fn checksum_only_delta_defers_copy_prev_for_the_store() {
+        let current: SpecsResponseFull =
+            serde_json::from_slice(include_bytes!("../../tests/data/eval_proj_dcs.json")).unwrap();
+        let next_lcut = current.time + 1;
+        let mut data = checksum_only_delta(&current, next_lcut, "next-checksum");
+        let mut next = SpecsResponseFull::default();
+
+        let update = deserialize_protobuf_for_store(
+            &OpsStatsForInstance::new(),
+            &current,
+            &mut next,
+            &mut data,
+        )
+        .unwrap();
+
+        assert_eq!(
+            update,
+            ProtobufUpdate::CursorOnly {
+                lcut: next_lcut,
+                checksum: "next-checksum".to_string(),
+            }
+        );
+        assert!(next.feature_gates.is_empty());
+        assert!(next.dynamic_configs.is_empty());
+        assert!(next.condition_map.is_empty());
+    }
+
+    #[test]
+    fn public_decoder_still_materializes_checksum_only_deltas() {
+        let current: SpecsResponseFull =
+            serde_json::from_slice(include_bytes!("../../tests/data/eval_proj_dcs.json")).unwrap();
+        let next_lcut = current.time + 1;
+        let mut data = checksum_only_delta(&current, next_lcut, "next-checksum");
+        let mut next = SpecsResponseFull::default();
+
+        deserialize_protobuf(&OpsStatsForInstance::new(), &current, &mut next, &mut data).unwrap();
+
+        assert!(next.has_same_semantic_values_as(&current));
+        assert_eq!(next.time, next_lcut);
+        assert_eq!(next.checksum.as_deref(), Some("next-checksum"));
+        assert_eq!(next.feature_gates, current.feature_gates);
+        assert_eq!(next.dynamic_configs, current.dynamic_configs);
+        assert_eq!(next.condition_map, current.condition_map);
+    }
 
     #[test]
     fn rules_from_pb_preserves_sampling_rate() {
@@ -914,6 +1261,20 @@ mod tests {
         .expect("protobuf rule should parse");
 
         assert_eq!(rules[0].sampling_rate, Some(201));
+    }
+
+    #[test]
+    fn condition_from_pb_compiles_dispatch_tags() {
+        let condition = condition_from_pb(pb::Condition {
+            condition_type: pb::ConditionType::UserField as i32,
+            operator: Some(pb::Operator::Any as i32),
+            field: Some("email".to_string()),
+            ..pb::Condition::default()
+        })
+        .expect("protobuf condition should parse");
+
+        assert_eq!(condition.compiled_condition_type, ConditionType::UserField);
+        assert_eq!(condition.compiled_operator, ConditionOperator::Any);
     }
 
     #[test]

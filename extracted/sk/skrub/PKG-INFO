@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skrub
-Version: 0.9.0
+Version: 0.10.0
 Summary: Machine learning with dataframes
 Author: Riccardo Cappuzzo, Jerome Dockes, Guillaume Lemaitre, Vincent Maladiere, Gael Varoquaux
 License-Expression: BSD-3-Clause
@@ -26,9 +26,38 @@ Requires-Dist: pandas>=1.5.3
 Requires-Dist: scikit-learn>=1.4.2
 Requires-Dist: scipy>=1.9.3
 Requires-Dist: jinja2>=3.1.2
-Requires-Dist: matplotlib>=3.4.3
+Requires-Dist: matplotlib>=3.6.1
 Requires-Dist: requests>=2.27.1
 Requires-Dist: pydot
+Provides-Extra: dev
+Requires-Dist: ipykernel; extra == "dev"
+Requires-Dist: ipython; extra == "dev"
+Requires-Dist: jupyterlab; extra == "dev"
+Requires-Dist: jupyterlite-sphinx; extra == "dev"
+Requires-Dist: jupyterlite-pyodide-kernel; extra == "dev"
+Requires-Dist: numpydoc; extra == "dev"
+Requires-Dist: pydata-sphinx-theme; extra == "dev"
+Requires-Dist: sphinx-design>=0.6.0; extra == "dev"
+Requires-Dist: seaborn; extra == "dev"
+Requires-Dist: sphinx<9; extra == "dev"
+Requires-Dist: sphinx-copybutton; extra == "dev"
+Requires-Dist: sphinx-gallery; extra == "dev"
+Requires-Dist: sphinxext-opengraph; extra == "dev"
+Requires-Dist: sphinx-llms-txt; extra == "dev"
+Requires-Dist: sphinx-markdown-builder; extra == "dev"
+Requires-Dist: sphinx-autosummary-accessors; extra == "dev"
+Requires-Dist: statsmodels; extra == "dev"
+Requires-Dist: ruff==0.15.0; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: pyarrow; extra == "dev"
+Requires-Dist: polars; extra == "dev"
+Requires-Dist: plotly; extra == "dev"
+Requires-Dist: optuna; extra == "dev"
+Provides-Extra: transformers
+Requires-Dist: sentence-transformers; extra == "transformers"
 Dynamic: license-file
 
 skrub
@@ -50,7 +79,7 @@ skrub
 .. |black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
 
 
-**skrub** (formerly *dirty_cat*) is a Python
+**skrub** is a Python
 library that facilitates machine learning with dataframes.
 
 If you like the package, spread the word and ⭐ this repository!

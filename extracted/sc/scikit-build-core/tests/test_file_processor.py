@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import os
 import sys
+import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import pytest
 
 from scikit_build_core.build._file_processor import each_unignored_file
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Generator
 
@@ -137,6 +140,65 @@ def test_on_each_with_symlink(
     assert set(each_unignored_file(Path(), mode=mode)) == files
 
 
+@pytest.mark.skipif(
+    sys.implementation.name == "pypy" and sys.platform.startswith("win"),
+    reason="PyPy on Windows does not support symlinks",
+)
+def test_circular_symlink_terminates(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: Literal["default", "classic", "manual"],
+) -> None:
+    """
+    A circular directory symlink (pkg/sub/pkg -> ../../pkg) must not make the
+    walk loop forever or emit duplicated, ever-deeper copies of the same files
+    (#1101).
+    """
+    monkeypatch.chdir(tmp_path)
+
+    pkg = Path("pkg")
+    sub = pkg / "sub"
+    sub.mkdir(parents=True)
+    (pkg / "__init__.py").write_text("content")
+
+    loop = sub / "pkg"
+    try:
+        loop.symlink_to(Path("..") / ".." / "pkg")
+    except (OSError, NotImplementedError):
+        pytest.skip("Symlinks not supported on this platform")
+    if not loop.is_dir():
+        pytest.skip("Symlink support not available")
+
+    # Guard against an infinite loop (the pre-fix behavior on Linux) so the
+    # test fails fast instead of hanging the suite.
+    result: list[Path] = []
+    error: list[BaseException] = []
+
+    def _collect() -> None:
+        try:
+            result.extend(each_unignored_file(Path(), mode=mode))
+        except BaseException as exc:  # noqa: BLE001
+            error.append(exc)
+
+    thread = threading.Thread(target=_collect, daemon=True)
+    thread.start()
+    thread.join(timeout=30)
+    assert not thread.is_alive(), "each_unignored_file did not terminate (symlink loop)"
+    if error:
+        raise error[0]
+
+    # The real __init__.py must appear exactly once and there must be no
+    # ever-deeper duplicates re-entering through the symlink.
+    assert result.count(pkg / "__init__.py") == 1
+    assert not any("sub/pkg/sub/pkg" in p.as_posix() for p in result)
+
+    # By default the loop symlink itself is not yielded: the wheel package
+    # copy can't represent a directory symlink. The sdist walk opts in.
+    assert loop not in result
+    with_loops = set(each_unignored_file(Path(), mode=mode, yield_loop_symlinks=True))
+    assert loop in with_loops
+
+
 def test_dot_git_is_a_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -223,6 +285,59 @@ def test_include_pattern_with_nested_path_and_broad_exclude(
         )
     )
     assert result == {nested_file}
+
+
+def test_glob_include_with_broad_exclude_keeps_subpackages(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Regression for #1248: ``exclude=["**/*"]`` plus glob includes like
+    ``pkg/**/*.py`` must still descend into nested subdirectories. Previously
+    the default mode only kept a directory if an include's literal text started
+    with it, so glob-only subpackages were pruned and dropped.
+    """
+    monkeypatch.chdir(tmp_path)
+    files = set(
+        _mk_files(
+            tmp_path,
+            """
+        pkg/__init__.py
+        pkg/main.py
+        pkg/ase/__init__.py
+        pkg/ase/calc.py
+        pkg/common/__init__.py
+        pkg/common/grammar_types/__init__.py
+        pkg/common/grammar_types/base.py
+        pkg/data/values.csv
+        pkg/data/info.py
+        README.md
+    """,
+        )
+    )
+
+    py_files = {f for f in files if f.suffix == ".py"}
+
+    result = set(
+        each_unignored_file(
+            Path(),
+            include=["pkg/**/*.py"],
+            exclude=["**/*"],
+            mode="default",
+        )
+    )
+    assert result == py_files
+
+    # The same result must hold in classic mode (the pre-0.12 behavior).
+    classic = set(
+        each_unignored_file(
+            Path(),
+            include=["pkg/**/*.py"],
+            exclude=["**/*"],
+            mode="classic",
+        )
+    )
+    assert classic == py_files
 
 
 def test_exclude_patterns(
@@ -547,6 +662,148 @@ def test_empty_directory(
 
     result = list(each_unignored_file(Path(), exclude=["*.py"], mode=mode))
     assert result == []
+
+
+def test_consecutive_excluded_dirs_not_descended(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Two consecutive excluded sibling directories must both be pruned from the
+    os.walk traversal (mutating the dirs list while iterating it used to skip
+    the second one, descending into the excluded tree).
+    """
+    monkeypatch.chdir(tmp_path)
+
+    Path("keep.txt").write_text("content")
+    for name in ("excluded_a", "excluded_b"):
+        deep = Path(name) / "deep"
+        deep.mkdir(parents=True)
+        (deep / "inner.txt").write_text("content")
+
+    # Track which directories the main (followlinks) traversal descends into.
+    # The unrelated nested-.gitignore discovery walk is not followlinks, so it
+    # is ignored here.
+    descended: list[str] = []
+    real_walk = os.walk
+
+    def tracking_walk(
+        top: str, *args: object, **kwargs: object
+    ) -> Generator[tuple[str, list[str], list[str]], None, None]:
+        track = bool(kwargs.get("followlinks"))
+        for dirstr, dirs, filenames in real_walk(top, *args, **kwargs):  # type: ignore[arg-type]
+            if track:
+                descended.append(dirstr)
+            yield dirstr, dirs, filenames
+
+    monkeypatch.setattr(os, "walk", tracking_walk)
+
+    result = set(
+        each_unignored_file(
+            Path(),
+            exclude=["excluded_a", "excluded_b"],
+            mode="default",
+        )
+    )
+
+    assert result == {Path("keep.txt")}
+
+    # Neither excluded directory should have been descended into. With the
+    # mutate-while-iterating bug, the second sibling (excluded_b) was skipped
+    # by the removal loop and therefore still walked.
+    descended_paths = {Path(d) for d in descended}
+    assert Path("excluded_a") not in descended_paths
+    assert Path("excluded_b") not in descended_paths
+
+
+def test_explicit_is_opt_in(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    In "explicit" mode nothing is packaged unless it matches an include pattern.
+    """
+    monkeypatch.chdir(tmp_path)
+    _setup_test_filesystem(tmp_path)
+
+    # No include -> nothing, even though many files exist.
+    assert set(each_unignored_file(Path(), mode="explicit")) == set()
+
+    # Only included files appear; siblings are dropped (the opposite of the other
+    # modes, which include everything by default).
+    result = set(each_unignored_file(Path(), include=["*.py"], mode="explicit"))
+    assert result == {
+        Path(s)
+        for s in [
+            "setup.py",
+            "src/__init__.py",
+            "src/main.py",
+            "src/utils.py",
+            "tests/test_main.py",
+            "tests/test_utils.py",
+            "tests/tmp.py",
+        ]
+    }
+
+
+def test_explicit_exclude_wins_over_include(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    In "explicit" mode exclude is applied after the opt-in, so it trims included
+    files back out (in every other mode, include would win).
+    """
+    monkeypatch.chdir(tmp_path)
+    _setup_test_filesystem(tmp_path)
+
+    result = set(
+        each_unignored_file(
+            Path(),
+            include=["src/**"],
+            exclude=["src/utils.py"],
+            mode="explicit",
+        )
+    )
+    assert result == {Path("src/__init__.py"), Path("src/main.py")}
+
+    # Sanity check: in "manual" mode the same include/exclude keeps utils.py,
+    # because there include overrides exclude.
+    manual = set(
+        each_unignored_file(
+            Path(),
+            include=["src/**"],
+            exclude=["src/utils.py"],
+            mode="manual",
+        )
+    )
+    assert Path("src/utils.py") in manual
+
+
+def test_explicit_ignores_gitignore(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    "explicit" mode does not read git ignore files (like "manual").
+    """
+    monkeypatch.chdir(tmp_path)
+    _setup_test_filesystem(tmp_path)
+
+    # src/.gitignore would hide utils.py in default/classic mode; explicit ignores
+    # it, so an include still picks utils.py (and the nested .gitignore itself).
+    (tmp_path / "src" / ".gitignore").write_text("utils.py\n")
+
+    result = set(each_unignored_file(Path(), include=["src/**"], mode="explicit"))
+    assert result == {
+        Path(s)
+        for s in [
+            "src/.gitignore",
+            "src/__init__.py",
+            "src/main.py",
+            "src/utils.py",
+        ]
+    }
 
 
 def test_nonexistent_patterns(

@@ -6,6 +6,45 @@
 //! Z_i ~= sum_k a_ik g_k(t_ik),     g_k(t) = Phi_k(t) B_k
 //! ```
 //!
+//! # Superposed Geometry (what this machinery is)
+//!
+//! Thesis: **superposition ambiguity is a flatness disease, and curvature is the
+//! cure.** A dictionary of flat co-firing directions is generically
+//! non-identifiable — any `GL(d)` recombination of a co-active linear subspace
+//! reconstructs identically — whereas curved atoms are generically rigid (jet
+//! transversality: second-order osculation of two generic embeddings is
+//! infinite-codimension), so their gauge groupoid collapses to
+//! `Diff(M) x Sym(F)`. Circles are the optimizer's equilibrium response to
+//! superposition, not curiosities. Four faces of the same moduli-geometric object:
+//!
+//! * **Curvature is identifiability.** Realized-rank / Marchenko-Pastur per atom
+//!   is an *empirical Terracini certificate* (border-block Jacobian rank =
+//!   `sum_k (d_k+1)`); the `rank_eff==0` veto is the degenerate-tangent exclusion
+//!   (and the null atom's RLCT `1/2`). A *centered* circle's cone is the plane, so
+//!   it is measure-level identifiable only through its radial law — the `(kappa-2)^2`
+//!   ISA producer (support vs measure are complementary halves). Grounding in
+//!   [`crate::identifiability`], [`isa_seed`], [`crate::structure_harvest`].
+//! * **Persistence is bits.** Log-persistence is an evidence exchange rate — one
+//!   nat of log-barcode-length per active row buys one nat per unit codimension;
+//!   the RD gain is *activation-space* bits, orthogonal to behavioral nats.
+//!   Grounding in [`crate::description_length`], [`persistence`].
+//! * **Binding is transport.** Layers act through a transport groupoid; linear
+//!   transport of an elliptical atom is forced to be a phase shift `+-theta+phi`;
+//!   the residual gauge obstruction is the atom's linear stabilizer.
+//!   Grounding in [`chart_canonicalization`], [`certificate`].
+//! * **Symmetry is charge.** The rank charge is a running complexity
+//!   `lambda(n) = d(-log Z)/d(log n)`; hard rank, the WBIC soft count, and the
+//!   RLCT are three regimes of one object, scaled by the atom's occupancy
+//!   `n_eff`. Grounding in [`construction`], [`wbic_audit`].
+//!
+//! Learnability trichotomy: structure resolves in the strict order existence ->
+//! dimension -> topology, and *fidelity cannot buy topology, only occupancy can*
+//! (why topology labels are the weakest, last-to-converge signal). The identifiability
+//! theorem (uniqueness at `sum_k (d_k+1) <= p-1`) is proven for the complex secant
+//! calculus and empirically holds for real d=1/d=2 atoms; the completeness of the
+//! frame for trained networks is a conjecture. Each mechanism below carries the
+//! matching one-line grounding comment at its definition.
+//!
 //! Tier assignment:
 //!
 //! * beta: [`SaeManifoldAtom::decoder_coefficients`] (`B_k`, one block per atom).
@@ -144,24 +183,44 @@ mod construction_cache_refresh;
 mod construction_padded_blocks;
 mod construction_reconstruction;
 mod coordinate_fidelity;
+mod cross_fit;
+mod curl;
+mod derivative_oracle;
 mod fit_drivers;
 mod gauge;
+mod graph_atom;
+mod inframe_curved;
 mod isa_seed;
 mod kronecker;
 mod loss;
 mod outer_objective;
+mod pair_kappa;
 mod pca_seed;
 mod penalties;
+mod persistence;
 mod rho;
 mod row_layout;
+mod sandwich;
 mod schedule;
 mod shape_uncertainty;
 mod stagewise;
 mod streaming_plan;
 mod term;
+mod terracini;
+mod weight_frame_catalog;
+mod wbic_audit;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod tests_chart_evaluator_jets;
+
+#[cfg(test)]
+mod tests_collapse_prevention;
+
+#[cfg(test)]
+mod tests_factored_htbeta;
 
 #[cfg(test)]
 mod tests_bessel_normaliser_1113;
@@ -185,6 +244,9 @@ mod tests_schur_seed_refusal_1782;
 mod tests_streaming_materialize_chunk_1801;
 
 #[cfg(test)]
+mod tests_recovery_split_780;
+
+#[cfg(test)]
 mod tests_unit_speed_inloop_2022;
 
 #[cfg(test)]
@@ -198,6 +260,9 @@ mod tests_coatom_sigma_coherence_2021;
 
 #[cfg(test)]
 mod tests_2101_birth_locus_probe;
+
+#[cfg(test)]
+mod tests_2111_dense_torus_acceptance;
 
 #[cfg(test)]
 mod tests_rank_charge_2101;
@@ -248,7 +313,13 @@ mod tests_device_engage_1783;
 mod tests_frame_refresh_alpha_grad;
 
 #[cfg(test)]
+mod tests_graph_atom;
+
+#[cfg(test)]
 mod tests_cocollapse_disjoint_2027;
+
+#[cfg(test)]
+mod tests_cocollapse_reseed_2089;
 
 #[cfg(test)]
 mod tests_outer_reml_probe_budget_2080;
@@ -258,6 +329,21 @@ mod lambda_smooth_1556_tests;
 
 #[cfg(test)]
 mod tests_behavior_twoblock_rung2;
+
+#[cfg(test)]
+mod tests_ln_sphere_ambient_f4;
+
+#[cfg(test)]
+mod tests_inframe_curved_2130;
+
+#[cfg(test)]
+mod tests_topology_persistence_f3;
+
+#[cfg(test)]
+mod tests_chart_angle_fidelity_2081;
+
+#[cfg(test)]
+mod tests_joint_vs_cascade_2131;
 
 pub use arrow_solver::*;
 pub use atom::*;
@@ -293,17 +379,29 @@ pub fn rank_charge_dof(
 }
 
 pub use coordinate_fidelity::*;
+pub use crate::inference::atlas_nerve::AtlasCoveringSide;
+pub use cross_fit::*;
+pub use curl::*;
+pub use derivative_oracle::*;
 pub use gauge::*;
+pub use graph_atom::*;
+pub use inframe_curved::*;
 pub use isa_seed::*;
 pub(crate) use kronecker::*;
 pub use loss::*;
 pub use outer_objective::*;
+pub use pair_kappa::*;
 pub use pca_seed::*;
 pub use penalties::*;
+pub use persistence::*;
 pub use rho::*;
 pub use row_layout::*;
+pub use sandwich::*;
 pub use schedule::*;
 pub use shape_uncertainty::*;
 pub use stagewise::*;
 pub use streaming_plan::*;
 pub use term::*;
+pub use terracini::*;
+pub use weight_frame_catalog::*;
+pub use wbic_audit::*;

@@ -1,12 +1,13 @@
 use crate::{
-    evaluation::evaluator_value::MemoizedEvaluatorValue, unwrap_or_return,
+    evaluation::evaluator_value::MemoizedEvaluatorValue,
+    specs_response::spec_types::ConditionOperator, unwrap_or_return,
     user::user_value::UserValueRef,
 };
 
 pub(crate) fn compare_versions(
     left: UserValueRef<'_>,
     right: &MemoizedEvaluatorValue,
-    op: &str,
+    op: ConditionOperator,
 ) -> bool {
     let left_str = unwrap_or_return!(left.string_value(), false);
     let right_dyn_str = unwrap_or_return!(&right.string_value, false);
@@ -19,12 +20,12 @@ pub(crate) fn compare_versions(
     };
 
     match op {
-        "version_gt" => result > 0,
-        "version_gte" => result >= 0,
-        "version_lt" => result < 0,
-        "version_lte" => result <= 0,
-        "version_eq" => result == 0,
-        "version_neq" => result != 0,
+        ConditionOperator::VersionGt => result > 0,
+        ConditionOperator::VersionGte => result >= 0,
+        ConditionOperator::VersionLt => result < 0,
+        ConditionOperator::VersionLte => result <= 0,
+        ConditionOperator::VersionEq => result == 0,
+        ConditionOperator::VersionNeq => result != 0,
         _ => false,
     }
 }
@@ -78,6 +79,7 @@ fn next_num(part: Option<&str>) -> Result<Option<i128>, std::num::ParseIntError>
 #[cfg(test)]
 mod tests {
     use crate::evaluation::comparisons::compare_versions;
+    use crate::specs_response::spec_types::ConditionOperator;
     use crate::{dyn_value, test_only_make_eval_value};
 
     #[test]
@@ -85,7 +87,7 @@ mod tests {
         let left = dyn_value!("1.2.3");
         let right = test_only_make_eval_value!("1.2.3");
 
-        let result = compare_versions((&left).into(), &right, "version_eq");
+        let result = compare_versions((&left).into(), &right, ConditionOperator::VersionEq);
         assert!(result);
     }
 
@@ -94,7 +96,7 @@ mod tests {
         let left = dyn_value!("1.2.4");
         let right = test_only_make_eval_value!("1.2.3");
 
-        let result = compare_versions((&left).into(), &right, "version_gt");
+        let result = compare_versions((&left).into(), &right, ConditionOperator::VersionGt);
         assert!(result);
     }
 
@@ -103,7 +105,7 @@ mod tests {
         let left = dyn_value!("1.2.3");
         let right = test_only_make_eval_value!("1.2.4");
 
-        let result = compare_versions((&left).into(), &right, "version_lt");
+        let result = compare_versions((&left).into(), &right, ConditionOperator::VersionLt);
         assert!(result);
     }
 }

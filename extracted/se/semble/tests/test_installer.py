@@ -10,13 +10,16 @@ from semble.installer.agents import (
     AGENTS,
     SEMBLE_END,
     SEMBLE_START,
+    IntegrationType,
     _opencode_mcp_path,
     _vscode_mcp_path,
     is_detected,
 )
 from semble.installer.config import (
     _CODEX_MCP_HEADER,
+    merge_json_member,
     merge_toml_block,
+    remove_json_member,
     remove_marked,
     remove_toml_block,
     replace_or_append_marked,
@@ -123,6 +126,22 @@ def test_merge_mcp_errors(claude_agent, content):
     assert merge_mcp(claude_agent).action == "error"
 
 
+def test_merge_and_remove_json_member_nested_section_key(tmp_path):
+    """A dotted section_key (e.g. ZCode's "mcp.servers") creates missing intermediate levels on demand."""
+    f = tmp_path / "config.json"
+
+    f.write_text('{\n  "mcp": {\n    "other": true\n  }\n}\n')  # only the outer level exists
+    assert merge_json_member(f, "mcp.servers", "semble", _STDIO_SERVER_CONFIG) == "updated"
+    data = json.loads(f.read_text())
+    assert data["mcp"]["other"] is True
+    assert data["mcp"]["servers"]["semble"] == _STDIO_SERVER_CONFIG
+
+    assert remove_json_member(f, "mcp.servers", "semble") == "removed"
+    data = json.loads(f.read_text())
+    assert "semble" not in data["mcp"]["servers"]
+    assert data["mcp"]["other"] is True
+
+
 @pytest.mark.parametrize(
     ("agent_id", "key"),
     [
@@ -133,14 +152,18 @@ def test_merge_mcp_errors(claude_agent, content):
         ("pi", "mcpServers"),
         ("commandcode", "mcpServers"),
         ("antigravity", "mcpServers"),
+        ("zcode", "mcp.servers"),  # dotted key: nested two levels deep
     ],
 )
 def test_merge_mcp_writes_under_agent_key(tmp_path, agent_id, key):
-    """merge_mcp writes the semble entry under each agent's own top-level MCP key."""
+    """merge_mcp writes the semble entry under each agent's own (possibly nested) MCP key."""
     src = next(a for a in AGENTS if a.id == agent_id)
     agent = replace(src, mcp=replace(src.mcp, path=tmp_path / "cfg.json"))
     merge_mcp(agent)
-    assert "semble" in json.loads((tmp_path / "cfg.json").read_text())[key]
+    section = json.loads((tmp_path / "cfg.json").read_text())
+    for part in key.split("."):
+        section = section[part]
+    assert "semble" in section
 
 
 def test_mcp_skipped_when_grammar_unavailable(claude_agent, monkeypatch):
@@ -470,7 +493,55 @@ def test_cli_dispatches_to_installer_run(monkeypatch, command):
     import semble.cli as cli
 
     calls = []
-    monkeypatch.setattr("semble.installer.run", lambda mode: calls.append(mode))
+    monkeypatch.setattr("semble.installer.run", lambda mode, **kwargs: calls.append((mode, kwargs)))
     monkeypatch.setattr(sys, "argv", ["semble", command])
     cli.main()
-    assert calls == [command]
+    assert calls == [(command, {"agent_ids": None, "integration_ids": None, "yes": False})]
+
+
+@pytest.mark.parametrize("command", ["install", "uninstall"])
+def test_cli_unattended_flags(monkeypatch, command):
+    """--agent/--type/--yes flags run non-interactively without prompting."""
+    import semble.cli as cli
+
+    calls = []
+    monkeypatch.setattr("semble.installer.run", lambda mode, **kwargs: calls.append((mode, kwargs)))
+    monkeypatch.setattr(sys, "argv", ["semble", command, "--agent", "pi", "--type", "subagent", "--yes"])
+    cli.main()
+    assert calls == [(command, {"agent_ids": ["pi"], "integration_ids": [IntegrationType.SUBAGENT], "yes": True})]
+    assert isinstance(calls[0][1]["integration_ids"][0], IntegrationType)
+
+
+def test_cli_type_without_agent_errors(monkeypatch, capsys):
+    """--type without --agent is rejected with a usage error."""
+    import semble.cli as cli
+
+    monkeypatch.setattr(sys, "argv", ["semble", "install", "--type", "mcp"])
+    with pytest.raises(SystemExit):
+        cli.main()
+    assert "--type requires --agent" in capsys.readouterr().err
+
+
+def test_run_unattended_skips_prompts(run_setup, monkeypatch):
+    """run() with agent_ids skips both checkboxes and the confirmation prompt."""
+    from semble.installer import run
+
+    def _boom(*_: object, **__: object) -> None:
+        raise AssertionError("should not prompt in unattended mode")
+
+    monkeypatch.setattr("semble.installer.installer._checkbox", _boom)
+    monkeypatch.setattr("semble.installer.installer.questionary.confirm", _boom)
+    run("install", agent_ids=["claude"], yes=True)
+
+
+@pytest.mark.parametrize(
+    ("agent_ids", "integration_ids"),
+    [([], None), (["nonexistent"], None), (["claude"], [])],
+)
+def test_run_unattended_empty_selection_exits(run_setup, agent_ids, integration_ids):
+    """run() exits with a non-zero code instead of silently no-opping when nothing matches."""
+    from semble.installer import run
+
+    with pytest.raises(SystemExit) as exc_info:
+        run("install", agent_ids=agent_ids, integration_ids=integration_ids, yes=True)
+    assert exc_info.value.code == 1

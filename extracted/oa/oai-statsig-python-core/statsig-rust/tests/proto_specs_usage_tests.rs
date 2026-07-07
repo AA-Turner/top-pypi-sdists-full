@@ -1,6 +1,9 @@
 mod utils;
 use serde_json::json;
-use statsig_rust::{output_logger, Statsig, StatsigOptions, StatsigUser};
+use statsig_rust::{
+    networking::ResponseData, output_logger, SpecsSource, SpecsUpdate, Statsig, StatsigOptions,
+    StatsigUser,
+};
 use std::{collections::HashMap, sync::Arc};
 use utils::mock_scrapi::{Endpoint, EndpointStub, Method, MockScrapi, StubData};
 
@@ -272,13 +275,19 @@ fn load_dcs_json_with_time(time: i64) -> String {
 
 fn reset_and_get_checksum(statsig: &Statsig) -> String {
     let ctx = statsig.get_context();
-    let mut data = ctx.spec_store.data.write();
+    let mut curr_values = ctx.spec_store.get_current_values().unwrap_or_default();
+    let curr_checksum = curr_values.checksum.clone().unwrap_or_default();
 
-    let curr_checksum = data.values.checksum.clone().unwrap_or_default();
-
-    Arc::get_mut(&mut data.values)
-        .expect("spec store should be the only owner outside update callbacks")
-        .checksum = Some("__test_curr_values".to_string());
+    curr_values.checksum = Some("__test_curr_values".to_string());
+    ctx.spec_store
+        .set_values(SpecsUpdate {
+            data: ResponseData::from_bytes(serde_json::to_vec(&curr_values).unwrap()),
+            source: SpecsSource::Network,
+            received_at: 2000,
+            source_api: None,
+            has_updates: None,
+        })
+        .unwrap();
 
     curr_checksum
 }

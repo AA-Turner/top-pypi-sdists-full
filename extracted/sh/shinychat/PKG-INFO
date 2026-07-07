@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shinychat
-Version: 0.5.1
+Version: 0.6.0
 Summary: An AI Chat interface for Shiny apps.
 Project-URL: Homepage, https://posit-dev.github.io/shinychat/
 Project-URL: Documentation, https://posit-dev.github.io/shinychat/py/

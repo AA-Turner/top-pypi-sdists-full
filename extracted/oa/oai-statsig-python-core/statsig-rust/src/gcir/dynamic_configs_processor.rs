@@ -11,8 +11,9 @@ use crate::{
         evaluator_context::EvaluatorContext,
         evaluator_result::{
             result_to_dynamic_config_eval, result_to_dynamic_config_eval_init_v2,
-            result_to_dynamic_config_eval_v2, result_to_experiment_eval,
-            result_to_experiment_eval_init_v2, result_to_experiment_eval_v2,
+            result_to_dynamic_config_eval_v2, result_to_dynamic_config_eval_with_name,
+            result_to_experiment_eval, result_to_experiment_eval_init_v2,
+            result_to_experiment_eval_v2, result_to_experiment_eval_with_name,
         },
         secondary_exposure_key::SecondaryExposureKey,
     },
@@ -26,7 +27,9 @@ use crate::{
 };
 
 use super::{
-    gcir_process_iter::gcir_process_iter, stringify_sec_exposures::stringify_sec_exposures,
+    evaluation_plan::GcirEvaluationPlan,
+    gcir_process_iter::{gcir_process_iter, gcir_process_plan},
+    stringify_sec_exposures::stringify_sec_exposures,
 };
 
 pub(crate) fn get_dynamic_config_evaluations(
@@ -96,6 +99,93 @@ pub(crate) fn get_dynamic_config_evaluations(
         );
         let eval = factory("autotune", &hashed_name, context);
         result.insert(hashed_name, eval);
+    }
+
+    Ok(result)
+}
+
+pub(crate) fn get_dynamic_config_evaluations_with_plan(
+    context: &mut EvaluatorContext,
+    options: &ClientInitResponseOptions,
+    sec_expo_hash_memo: &mut HashMap<InternedString, InternedString>,
+    plan: &GcirEvaluationPlan,
+) -> Result<HashMap<InternedString, AnyConfigEvaluation>, StatsigErr> {
+    let factory = |spec_entity: &str, hashed_name: &InternedString, ctx: &mut EvaluatorContext| {
+        if spec_entity == "dynamic_config" {
+            let mut res =
+                result_to_dynamic_config_eval_with_name(hashed_name.clone(), &mut ctx.result);
+            if options.remove_id_type.unwrap_or(false) {
+                res.id_type = None
+            }
+            return AnyConfigEvaluation::DynamicConfig(res);
+        }
+
+        let mut evaluation = result_to_experiment_eval_with_name(
+            hashed_name.clone(),
+            Some(spec_entity),
+            &mut ctx.result,
+        );
+        if options.remove_id_type.unwrap_or(false) {
+            evaluation.id_type = None
+        }
+        evaluation.undelegated_secondary_exposures = None;
+        AnyConfigEvaluation::Experiment(evaluation)
+    };
+
+    let mut result = gcir_process_plan(
+        context,
+        options,
+        sec_expo_hash_memo,
+        &context.specs_data.dynamic_configs,
+        &plan.dynamic_configs,
+        factory,
+    )?;
+
+    let cmab_configs = match &context.specs_data.cmab_configs {
+        Some(cmab_configs) => cmab_configs,
+        None => return Ok(result),
+    };
+
+    for planned in &plan.cmab_configs {
+        if gcir_time!("cmab.filtering", {
+            let is_filtered_by_experiment = options
+                .experiment_filter
+                .as_ref()
+                .is_some_and(|f| !f.contains(planned.name.as_str()));
+
+            is_filtered_by_experiment || {
+                let target_app_ids = cmab_configs
+                    .get(planned.name.as_str())
+                    .and_then(|c| c.target_app_ids.as_ref());
+                should_filter_config_for_app(
+                    target_app_ids,
+                    &context.app_id,
+                    &options.client_sdk_key,
+                )
+            }
+        }) {
+            continue;
+        }
+
+        context.reset_result();
+        gcir_time!("cmab.evaluate", {
+            let _ = Evaluator::evaluate(context, planned.name.as_str(), &SpecType::Experiment);
+        });
+        gcir_time!("cmab.hash_secondary_exposures", {
+            hash_secondary_exposures(
+                &mut context.result,
+                context.hashing,
+                options.get_hash_algorithm(),
+                sec_expo_hash_memo,
+            )
+        });
+        let hashed_name = planned.hashed_name(options.get_hash_algorithm());
+        let eval = gcir_time!("cmab.result_factory", {
+            factory("autotune", hashed_name, context)
+        });
+        gcir_time!("cmab.result_insert", {
+            result.insert(hashed_name.clone(), eval)
+        });
     }
 
     Ok(result)

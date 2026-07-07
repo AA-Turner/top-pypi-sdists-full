@@ -3,11 +3,13 @@
 
 import io
 import logging
+import warnings
 
 from smbclient._pool import ClientConfig, dfs_request, get_smb_tree
 from smbprotocol import MAX_PAYLOAD_SIZE
 from smbprotocol.exceptions import (
     NoMoreFiles,
+    NoSuchFile,
     ObjectNameNotFound,
     ObjectPathNotFound,
     PathNotCovered,
@@ -159,6 +161,40 @@ def _resolve_dfs(raw_io):
         yield Open(tree, fd_path)
 
 
+def _next_dfs_referral(raw_io, attempted_paths):
+    """
+    Walk DFS referrals for ``raw_io`` and return the next candidate ``Open`` whose
+    (share_name, file_name) hasn't been attempted yet. Returns ``None`` if all
+    referrals are exhausted, letting the caller re-raise the original DFS error.
+
+    Used by both :class:`SMBFileTransaction` (open/CreateRequest path) and
+    :meth:`SMBDirectoryIO.query_directory` (already-open enumeration path) so
+    they share a single source of truth for DFS retry selection. Each caller
+    is still responsible for swapping the underlying fd after a candidate is
+    returned because that step differs (transaction mutates ``_actions`` while
+    the directory IO closes/reopens the fd).
+
+    :param raw_io: The SMBRawIO whose path returned STATUS_PATH_NOT_COVERED or
+        a generic name/path-not-found that's actually DFS.
+    :param attempted_paths: Mutable set used to dedupe referral targets across
+        multiple retries within a single operation. See
+        https://github.com/jborean93/smbprotocol/issues/228.
+    :return: A new ``Open`` instance for the caller to use, or ``None``.
+    """
+    for smb_open in _resolve_dfs(raw_io):
+        if smb_open.tree_connect.share_name == raw_io.fd.tree_connect.share_name:
+            continue
+
+        tested_path = f"{smb_open.tree_connect.share_name}{smb_open.file_name}".lower()
+        if tested_path in attempted_paths:
+            continue
+
+        attempted_paths.add(tested_path)
+        return smb_open
+
+    return None
+
+
 def ioctl_request(transaction, ctl_code, output_size=0, flags=IOCTLFlags.SMB2_0_IOCTL_IS_IOCTL, input_buffer=b""):
     """
     Sends an IOCTL request to the server.
@@ -303,31 +339,17 @@ class SMBFileTransaction:
                     if not (idx == 0 and isinstance(send_msgs[0], SMB2CreateRequest)):
                         raise
 
-                    for smb_open in _resolve_dfs(self.raw):
-                        if smb_open.tree_connect.share_name == self.raw.fd.tree_connect.share_name:
-                            continue
-
-                        # Ensure we don't continuously try the same DFS referral targets if it's already been attempted.
-                        # https://github.com/jborean93/smbprotocol/issues/228
-                        tested_path = f"{smb_open.tree_connect.share_name}{smb_open.file_name}".lower()
-                        if tested_path in self._attempted_dfs_paths:
-                            continue
-
-                        self._attempted_dfs_paths.add(tested_path)
-
-                        self.raw.fd = smb_open
-
-                        # In case this is a transaction with an explicit open we want to reopen it with the new params
-                        # before trying it again.
-                        self.raw.open(transaction=self)
-                        self._actions[0] = self._actions.pop(-1)
-
-                        try_again = True
-                        break
-
-                    else:
-                        # Either there wasn't any DFS referrals or none of them worked, just reraise the error.
+                    smb_open = _next_dfs_referral(self.raw, self._attempted_dfs_paths)
+                    if smb_open is None:
+                        # No DFS referrals or all of them already attempted; propagate the error.
                         raise
+
+                    self.raw.fd = smb_open
+                    # In case this is a transaction with an explicit open we want to reopen it with the new params
+                    # before trying it again.
+                    self.raw.open(transaction=self)
+                    self._actions[0] = self._actions.pop(-1)
+                    try_again = True
 
             except SMBResponseException as exc:
                 failures.append(SMBOSError(exc.status, self.raw.name))
@@ -359,7 +381,11 @@ class SMBRawIO(io.RawIOBase):
     def __init__(
         self, path, mode="r", share_access=None, desired_access=None, file_attributes=None, create_options=0, **kwargs
     ):
-        tree, fd_path = get_smb_tree(path, **kwargs)
+        # get_smb_tree runs outside the SMBFileTransaction layer that normally translates these.
+        try:
+            tree, fd_path = get_smb_tree(path, **kwargs)
+        except SMBResponseException as exc:
+            raise SMBOSError(exc.status, path) from exc
 
         self.share_access = share_access
         self.fd = Open(tree, fd_path)
@@ -403,6 +429,17 @@ class SMBRawIO(io.RawIOBase):
         }.get(self.FILE_TYPE, 0)
 
         super().__init__()
+
+    def __del__(self):
+        # io.IOBase.__del__ would call self.close(), which self-deadlocks if GC
+        # runs it on the SMB worker thread.
+        try:
+            closed = self.closed
+        except AttributeError:
+            return
+        if closed:
+            return
+        warnings.warn(f"unclosed SMB handle {self._name!r}", ResourceWarning, source=self)
 
     def __enter__(self):
         self.open()
@@ -615,11 +652,31 @@ class SMBDirectoryIO(SMBRawIO):
 
     def query_directory(self, pattern, info_class):
         query_flags = QueryDirectoryFlags.SMB2_RESTART_SCANS
+        attempted_dfs_paths = set()
         while True:
             try:
                 entries = self.fd.query_directory(pattern, info_class, flags=query_flags)
-            except NoMoreFiles:
+            except (NoMoreFiles, NoSuchFile):
+                # MS-SMB2 3.3.5.18 lists both as QUERY_DIRECTORY end codes. A server
+                # returns STATUS_NO_SUCH_FILE when the search pattern matches no files.
+                # Treat either as end of enumeration.
                 break
+            except (PathNotCovered, ObjectNameNotFound, ObjectPathNotFound):
+                # The MS-DFSC docs state that STATUS_PATH_NOT_COVERED is used when encountering a DFS link to a
+                # different server during directory enumeration. Samba may return the generic name or path not found.
+                smb_open = _next_dfs_referral(self, attempted_dfs_paths)
+                if smb_open is None:
+                    # No DFS referral resolved; propagate the error.
+                    raise
+
+                try:
+                    self.fd.close()
+                except SMBResponseException:
+                    pass
+                self.fd = smb_open
+                self.open()
+                query_flags = QueryDirectoryFlags.SMB2_RESTART_SCANS
+                continue
 
             query_flags = 0  # Only the first request should have set SMB2_RESTART_SCANS
             yield from entries

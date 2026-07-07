@@ -64,7 +64,15 @@ class BaseManager:
     @property
     def closed(self) -> bool:
         """Return True if the manager is closed."""
-        return not self._subscription or self._subscription.transport.session.closed
+        return not self._subscription or self._session_closed
+
+    @property
+    def _session_closed(self) -> bool:
+        """Return True if the consumer closed the aiohttp session."""
+        return (
+            self._subscription is not None
+            and self._subscription.transport.session.closed
+        )
 
     async def start(self) -> ONVIFService | None:
         """Setup the manager and return the subscription service."""
@@ -85,7 +93,20 @@ class BaseManager:
         logger.debug("%s: Stop the notification manager", self._device.host)
         self._cancel_renewals()
         assert self._subscription, "Call start first"  # noqa: S101
-        await self._subscription.Unsubscribe()
+        try:
+            await self._subscription.Unsubscribe()
+        except SUBSCRIPTION_ERRORS as err:
+            # Teardown is best-effort: the camera being unreachable is the most
+            # common reason a consumer is stopping the manager, and the remote
+            # Unsubscribe is only a courtesy (the subscription expires on the
+            # camera once its termination time passes). Letting this raise would
+            # abort the caller's shutdown sequence -- shutdown() is documented
+            # irreversible and has already cancelled the renewal task by now.
+            logger.debug(
+                "%s: Failed to unsubscribe notify subscription %s",
+                self._device.host,
+                stringify_onvif_error(err),
+            )
 
     async def shutdown(self) -> None:
         """
@@ -185,7 +206,11 @@ class BaseManager:
 
     async def _renew_or_restart_subscription(self) -> None:
         """Renew or start notify subscription."""
-        if self._shutdown:
+        if self._shutdown or self._session_closed:
+            # The manager does not own the aiohttp session, so once the
+            # consumer closes it renewing or restarting can never succeed
+            # again; end the renewal loop instead of retrying a doomed
+            # request forever.
             return
         renewal_call_at = None
         try:
@@ -203,11 +228,20 @@ class BaseManager:
                         stringify_onvif_error(err),
                     )
         finally:
-            self._schedule_subscription_renew(
-                renewal_call_at
-                or self._loop.time()
-                + SUBSCRIPTION_RESTART_INTERVAL_ON_ERROR.total_seconds()
-            )
+            # Don't re-arm the renewal timer while the manager is being torn
+            # down. shutdown() sets _shutdown then cancels this task; the
+            # resulting CancelledError still runs this finally, so without the
+            # guard the timer is rescheduled *after* _cancel_renewals() ran,
+            # leaving a live TimerHandle behind an "irreversible" shutdown.
+            # The _session_closed check covers the session being closed while
+            # a renew or restart was in flight -- same reasoning as the entry
+            # guard.
+            if not self._shutdown and not self._session_closed:
+                self._schedule_subscription_renew(
+                    renewal_call_at
+                    or self._loop.time()
+                    + SUBSCRIPTION_RESTART_INTERVAL_ON_ERROR.total_seconds()
+                )
 
 
 class NotificationManager(BaseManager):

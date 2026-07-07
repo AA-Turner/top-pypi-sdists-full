@@ -67,6 +67,7 @@ API_REFERENCE = {
                     "ApplyToCols",
                     "SelectCols",
                     "DropCols",
+                    "Drop",
                 ],
             }
         ],
@@ -89,6 +90,7 @@ API_REFERENCE = {
                     "SimilarityEncoder",
                     "ToCategorical",
                     "DatetimeEncoder",
+                    "SessionEncoder",
                     "ToDatetime",
                     "ToFloat",
                 ],
@@ -120,28 +122,12 @@ API_REFERENCE = {
                 "description": None,
                 "autosummary": [
                     "SquashingScaler",
-                    "deduplicate",
                     "Cleaner",
                     "DropUninformative",
+                    "DropSimilar",
+                    "DurationToFloat",
                     "to_datetime",
-                ],
-            },
-        ],
-    },
-    "joining": {
-        "title": "Joining dataframes",
-        "short_summary": None,
-        "description": None,
-        "sections": [
-            {
-                "description": None,
-                "autosummary": [
-                    "Joiner",
-                    "AggJoiner",
-                    "MultiAggJoiner",
-                    "AggTarget",
-                    "InterpolationJoiner",
-                    "fuzzy_join",
+                    "deduplicate",
                 ],
             },
         ],
@@ -175,6 +161,7 @@ API_REFERENCE = {
                     "selectors.inv",
                     "selectors.make_selector",
                     "selectors.numeric",
+                    "selectors.object",
                     "selectors.regex",
                     "selectors.select",
                     "selectors.string",
@@ -220,6 +207,7 @@ API_REFERENCE = {
                 "description": (
                     "The ``skb`` accessor exposes all DataOps methods and attributes."
                 ),
+                "sort": True,
                 "autosummary": [
                     "DataOp.skb.apply",
                     "DataOp.skb.apply_func",
@@ -235,6 +223,7 @@ API_REFERENCE = {
                     "DataOp.skb.freeze_after_fit",
                     "DataOp.skb.full_report",
                     "DataOp.skb.get_data",
+                    "DataOp.skb.set_data",
                     "DataOp.skb.get_vars",
                     "DataOp.skb.make_learner",
                     "DataOp.skb.make_grid_search",
@@ -260,11 +249,13 @@ API_REFERENCE = {
             },
             {
                 "description": "Accessor attributes.",
+                "sort": True,
                 "autosummary": [
                     "DataOp.skb.description",
                     "DataOp.skb.is_X",
                     "DataOp.skb.is_y",
                     "DataOp.skb.name",
+                    "DataOp.skb.id",
                     "DataOp.skb.applied_estimator",
                 ],
                 "template": "autosummary/accessor_attribute.rst",
@@ -309,6 +300,24 @@ API_REFERENCE = {
             }
         ],
     },
+    "joining": {
+        "title": "Joining dataframes",
+        "short_summary": None,
+        "description": None,
+        "sections": [
+            {
+                "description": None,
+                "autosummary": [
+                    "Joiner",
+                    "AggJoiner",
+                    "MultiAggJoiner",
+                    "AggTarget",
+                    "InterpolationJoiner",
+                    "fuzzy_join",
+                ],
+            },
+        ],
+    },
     "datasets": {
         "title": "Datasets",
         "short_summary": None,
@@ -322,6 +331,7 @@ API_REFERENCE = {
                     "datasets.fetch_country_happiness",
                     "datasets.fetch_credit_fraud",
                     "datasets.fetch_drug_directory",
+                    "datasets.fetch_electricity_forecasting",
                     "datasets.fetch_employee_salaries",
                     "datasets.fetch_flight_delays",
                     "datasets.fetch_medical_charge",
@@ -334,8 +344,17 @@ API_REFERENCE = {
                     "datasets.get_data_dir",
                     "datasets.make_deduplication_data",
                     "datasets.toy_orders",
+                    "datasets.toy_products",
+                    "datasets.toy_cities",
+                    "datasets.make_retail_events",
                 ],
             }
         ],
     },
 }
+# Some autosummary lists are long; for those alphabetical order is the most
+# useful for browsing. Sections flagged with "sort": True are reordered here.
+for module in API_REFERENCE.values():
+    for section in module["sections"]:
+        if section.pop("sort", False):
+            section["autosummary"].sort()

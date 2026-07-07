@@ -59,13 +59,131 @@ pub struct Rule {
     pub sampling_rate: Option<u64>,
 }
 
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ConditionType {
+    Public,
+    FailGate,
+    PassGate,
+    ExperimentGroup,
+    UaBased,
+    IpBased,
+    UserField,
+    EnvironmentField,
+    CurrentTime,
+    UserBucket,
+    TargetApp,
+    UnitId,
+    Unknown,
+}
+
+impl ConditionType {
+    pub(crate) fn from_str(value: &str) -> Self {
+        match value {
+            "public" => Self::Public,
+            "fail_gate" => Self::FailGate,
+            "pass_gate" => Self::PassGate,
+            "experiment_group" => Self::ExperimentGroup,
+            "ua_based" => Self::UaBased,
+            "ip_based" => Self::IpBased,
+            "user_field" => Self::UserField,
+            "environment_field" => Self::EnvironmentField,
+            "current_time" => Self::CurrentTime,
+            "user_bucket" => Self::UserBucket,
+            "target_app" => Self::TargetApp,
+            "unit_id" => Self::UnitId,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ConditionOperator {
+    Missing,
+    Gt,
+    Gte,
+    Lt,
+    Lte,
+    VersionGt,
+    VersionGte,
+    VersionLt,
+    VersionLte,
+    VersionEq,
+    VersionNeq,
+    Any,
+    NoneOf,
+    StrStartsWithAny,
+    StrEndsWithAny,
+    StrContainsAny,
+    StrContainsNone,
+    AnyCaseSensitive,
+    NoneCaseSensitive,
+    StrMatches,
+    Before,
+    After,
+    On,
+    Eq,
+    Neq,
+    InSegmentList,
+    NotInSegmentList,
+    ArrayContainsAny,
+    ArrayContainsNone,
+    ArrayContainsAll,
+    NotArrayContainsAll,
+    Unknown,
+}
+
+impl ConditionOperator {
+    pub(crate) fn from_str(value: Option<&str>) -> Self {
+        match value {
+            None => Self::Missing,
+            Some("gt") => Self::Gt,
+            Some("gte") => Self::Gte,
+            Some("lt") => Self::Lt,
+            Some("lte") => Self::Lte,
+            Some("version_gt") => Self::VersionGt,
+            Some("version_gte") => Self::VersionGte,
+            Some("version_lt") => Self::VersionLt,
+            Some("version_lte") => Self::VersionLte,
+            Some("version_eq") => Self::VersionEq,
+            Some("version_neq") => Self::VersionNeq,
+            Some("any") => Self::Any,
+            Some("none") => Self::NoneOf,
+            Some("str_starts_with_any") => Self::StrStartsWithAny,
+            Some("str_ends_with_any") => Self::StrEndsWithAny,
+            Some("str_contains_any") => Self::StrContainsAny,
+            Some("str_contains_none") => Self::StrContainsNone,
+            Some("any_case_sensitive") => Self::AnyCaseSensitive,
+            Some("none_case_sensitive") => Self::NoneCaseSensitive,
+            Some("str_matches") => Self::StrMatches,
+            Some("before") => Self::Before,
+            Some("after") => Self::After,
+            Some("on") => Self::On,
+            Some("eq") => Self::Eq,
+            Some("neq") => Self::Neq,
+            Some("in_segment_list") => Self::InSegmentList,
+            Some("not_in_segment_list") => Self::NotInSegmentList,
+            Some("array_contains_any") => Self::ArrayContainsAny,
+            Some("array_contains_none") => Self::ArrayContainsNone,
+            Some("array_contains_all") => Self::ArrayContainsAll,
+            Some("not_array_contains_all") => Self::NotArrayContainsAll,
+            Some(_) => Self::Unknown,
+        }
+    }
+}
+
 #[derive(Serialize, PartialEq, Debug, Clone /* TEMP: Make this an Arc */)] /* DO_NOT_CLONE */
 #[serde(rename_all = "camelCase")]
 pub struct Condition {
     #[serde(rename = "type")]
     pub condition_type: InternedString,
+    #[serde(skip)]
+    pub(crate) compiled_condition_type: ConditionType,
     pub target_value: Option<EvaluatorValue>,
     pub operator: Option<InternedString>,
+    #[serde(skip)]
+    pub(crate) compiled_operator: ConditionOperator,
     pub field: Option<DynamicString>,
     pub additional_values: Option<HashMap<InternedString, InternedString>>,
     pub id_type: DynamicString,
@@ -158,6 +276,11 @@ macro_rules! flatten_struct {
         impl $name {
             pub fn merge_from_partial(&mut self, partial: SpecsResponsePartial) {
                 $( self.$common_field = partial.$common_field; )*
+            }
+
+            #[allow(dead_code)]
+            pub(crate) fn common_fields_match(&self, other: &SpecsResponseFull) -> bool {
+                true $( && self.$common_field == other.$common_field )*
             }
         }
     };
@@ -260,14 +383,92 @@ impl<'de> Deserialize<'de> for Condition {
             }
         }
 
+        let compiled_condition_type = ConditionType::from_str(internal.condition_type.as_str());
+        let compiled_operator = ConditionOperator::from_str(internal.operator.as_deref());
+
         Ok(Condition {
             condition_type: internal.condition_type,
+            compiled_condition_type,
             target_value: internal.target_value,
             operator: internal.operator,
+            compiled_operator,
             field: internal.field,
             additional_values: internal.additional_values,
             id_type: internal.id_type,
             checksum: internal.checksum,
         })
+    }
+}
+
+#[cfg(test)]
+mod condition_dispatch_tests {
+    use serde_json::json;
+
+    use super::{Condition, ConditionOperator, ConditionType};
+
+    #[test]
+    fn dispatch_tags_are_one_byte() {
+        assert_eq!(std::mem::size_of::<ConditionType>(), 1);
+        assert_eq!(std::mem::size_of::<ConditionOperator>(), 1);
+    }
+
+    #[test]
+    fn classifies_known_and_unknown_condition_types() {
+        assert_eq!(
+            ConditionType::from_str("user_field"),
+            ConditionType::UserField
+        );
+        assert_eq!(
+            ConditionType::from_str("future_condition_type"),
+            ConditionType::Unknown
+        );
+    }
+
+    #[test]
+    fn distinguishes_missing_none_and_unknown_operators() {
+        assert_eq!(
+            ConditionOperator::from_str(None),
+            ConditionOperator::Missing
+        );
+        assert_eq!(
+            ConditionOperator::from_str(Some("none")),
+            ConditionOperator::NoneOf
+        );
+        assert_eq!(
+            ConditionOperator::from_str(Some("gte")),
+            ConditionOperator::Gte
+        );
+        assert_eq!(
+            ConditionOperator::from_str(Some("future_operator")),
+            ConditionOperator::Unknown
+        );
+    }
+
+    fn decode_condition() -> Condition {
+        serde_json::from_value(json!({
+            "type": "user_field",
+            "targetValue": ["match@example.com"],
+            "operator": "any",
+            "field": "email",
+            "idType": "userID"
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn json_decode_populates_compiled_tags() {
+        let condition = decode_condition();
+        assert_eq!(condition.compiled_condition_type, ConditionType::UserField);
+        assert_eq!(condition.compiled_operator, ConditionOperator::Any);
+    }
+
+    #[test]
+    fn serialization_omits_compiled_tags() {
+        let condition = decode_condition();
+        let serialized = serde_json::to_value(condition).unwrap();
+        assert_eq!(serialized["type"], "user_field");
+        assert_eq!(serialized["operator"], "any");
+        assert!(serialized.get("compiledConditionType").is_none());
+        assert!(serialized.get("compiledOperator").is_none());
     }
 }

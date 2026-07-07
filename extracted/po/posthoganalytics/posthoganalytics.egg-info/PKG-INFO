@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: posthoganalytics
-Version: 7.21.3
+Version: 7.22.0
 Summary: Integrate PostHog into any python application.
 Home-page: https://github.com/posthog/posthog-python
 Author: Posthog
@@ -29,6 +29,8 @@ Requires-Dist: distro>=1.5.0
 Requires-Dist: typing-extensions>=4.2.0
 Provides-Extra: langchain
 Requires-Dist: langchain>=0.2.0; extra == "langchain"
+Provides-Extra: zstd
+Requires-Dist: zstandard>=0.23.0; extra == "zstd"
 Provides-Extra: otel
 Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "otel"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.20.0; extra == "otel"
@@ -76,6 +78,7 @@ Requires-Dist: fastmcp>=2.0; extra == "test"
 Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "test"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.20.0; extra == "test"
 Requires-Dist: pytest-bdd>=8.1.0; extra == "test"
+Requires-Dist: zstandard>=0.23.0; extra == "test"
 Dynamic: author
 Dynamic: home-page
 Dynamic: license-file

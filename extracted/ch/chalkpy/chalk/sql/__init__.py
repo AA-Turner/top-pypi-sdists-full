@@ -31,7 +31,7 @@ from chalk.sql.protocols import (
 
 
 @overload
-def SnowflakeSource() -> BaseSQLSourceProtocol:
+def SnowflakeSource(*, permission_tags: list[str] | None = ...) -> BaseSQLSourceProtocol:
     """Connect to the only configured Snowflake database.
 
     If you have only one Snowflake connection that you'd like
@@ -50,7 +50,9 @@ def SnowflakeSource() -> BaseSQLSourceProtocol:
 
 
 @overload
-def SnowflakeSource(*, name: str, engine_args: Optional[Dict[str, Any]] = ...) -> BaseSQLSourceProtocol:
+def SnowflakeSource(
+    *, name: str, engine_args: Optional[Dict[str, Any]] = ..., permission_tags: list[str] | None = ...
+) -> BaseSQLSourceProtocol:
     """Chalk's injects environment variables to support data integrations.
 
     But what happens when you have two data sources of the same kind?
@@ -94,6 +96,7 @@ def SnowflakeSource(
     unload_storage_integration: str | None = ...,
     unload_external_location: str | None = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """You can also configure the integration directly using environment
     variables on your local machine or from those added through the
@@ -164,6 +167,7 @@ def SnowflakeSource(
     unload_storage_integration: Optional[str] = None,
     unload_external_location: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
+    permission_tags: list[str] | None = None,
 ) -> BaseSQLSourceProtocol:
     """Create a Snowflake data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -188,11 +192,12 @@ def SnowflakeSource(
         unload_storage_integration=unload_storage_integration,
         unload_external_location=unload_external_location,
         engine_args=engine_args,
+        permission_tags=permission_tags,
     )
 
 
 @overload
-def PostgreSQLSource() -> SQLSourceWithTableIngestProtocol:
+def PostgreSQLSource(*, permission_tags: list[str] | None = ...) -> SQLSourceWithTableIngestProtocol:
     """Connect to the only configured PostgreSQL database.
 
     If you have only one PostgreSQL connection that you'd like
@@ -217,6 +222,7 @@ def PostgreSQLSource(
     name: str,
     engine_args: Optional[Dict[str, Any]] = ...,
     async_engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> SQLSourceWithTableIngestProtocol:
     """If you have only one PostgreSQL integration, there's no need to provide
     a distinguishing name.
@@ -259,6 +265,7 @@ def PostgreSQLSource(
     password: str | None = ...,
     engine_args: dict[str, Any] | None = ...,
     async_engine_args: dict[str, Any] | None = ...,
+    permission_tags: list[str] | None = ...,
 ) -> SQLSourceWithTableIngestProtocol:
     """You can also configure the integration directly using environment
     variables on your local machine or from those added through the
@@ -316,6 +323,7 @@ def PostgreSQLSource(
     name: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
     async_engine_args: Optional[Dict[str, Any]] = None,
+    permission_tags: list[str] | None = None,
 ) -> TableIngestProtocol:
     """Create a PostgreSQL data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -335,11 +343,12 @@ def PostgreSQLSource(
         name,
         engine_args=engine_args,
         async_engine_args=async_engine_args,
+        permission_tags=permission_tags,
     )
 
 
 @overload
-def MySQLSource() -> SQLSourceWithTableIngestProtocol:
+def MySQLSource(*, permission_tags: list[str] | None = ...) -> SQLSourceWithTableIngestProtocol:
     """If you have only one MySQL connection that you'd like
     to add to Chalk, you do not need to specify any arguments
     to construct the source in your code.
@@ -362,6 +371,7 @@ def MySQLSource(
     name: str,
     engine_args: Optional[Dict[str, Any]] = ...,
     async_engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> SQLSourceWithTableIngestProtocol:
     """If you have only one MySQL integration, there's no need to provide
     a distinguishing name.
@@ -402,6 +412,7 @@ def MySQLSource(
     password: str = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
     async_engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> SQLSourceWithTableIngestProtocol:
     """
     You can also configure the integration directly using environment
@@ -460,6 +471,7 @@ def MySQLSource(
     name: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
     async_engine_args: Optional[Dict[str, Any]] = None,
+    permission_tags: list[str] | None = None,
 ) -> SQLSourceWithTableIngestProtocol:
     """Create a MySQL data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -479,11 +491,12 @@ def MySQLSource(
         name,
         engine_args=engine_args,
         async_engine_args=async_engine_args,
+        permission_tags=permission_tags,
     )
 
 
 @overload
-def MSSQLSource() -> SQLSourceWithTableIngestProtocol:
+def MSSQLSource(*, permission_tags: list[str] | None = ...) -> SQLSourceWithTableIngestProtocol:
     """If you have only one MSSQL connection that you'd like
     to add to Chalk, you do not need to specify any arguments
     to construct the source in your code.
@@ -506,6 +519,7 @@ def MSSQLSource(
     name: str,
     engine_args: Optional[Dict[str, Any]] = ...,
     async_engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> SQLSourceWithTableIngestProtocol:
     """If you have only one MSSQL integration, there's no need to provide
     a distinguishing name.
@@ -551,6 +565,7 @@ def MSSQLSource(
     tenant_id: str = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
     async_engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> SQLSourceWithTableIngestProtocol:
     """
     You can also configure the integration directly using environment
@@ -642,6 +657,7 @@ def MSSQLSource(
     name: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
     async_engine_args: Optional[Dict[str, Any]] = None,
+    permission_tags: list[str] | None = None,
 ) -> SQLSourceWithTableIngestProtocol:
     """Create a MSSQL data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -669,6 +685,7 @@ def MSSQLSource(
         name=name,
         engine_args=engine_args,
         async_engine_args=async_engine_args,
+        permission_tags=permission_tags,
     )
 
 
@@ -676,6 +693,7 @@ def SQLiteInMemorySource(
     name: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
     async_engine_args: Optional[Dict[str, Any]] = None,
+    permission_tags: list[str] | None = None,
 ) -> SQLSourceWithTableIngestProtocol:
     """Testing SQL source.
 
@@ -700,7 +718,9 @@ def SQLiteInMemorySource(
     --------
     >>> source = SQLiteInMemorySource(name="RISK")
     """
-    return SQLiteSourceImpl(name=name, engine_args=engine_args, async_engine_args=async_engine_args)
+    return SQLiteSourceImpl(
+        name=name, engine_args=engine_args, async_engine_args=async_engine_args, permission_tags=permission_tags
+    )
 
 
 def SQLiteFileSource(
@@ -708,6 +728,7 @@ def SQLiteFileSource(
     name: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
     async_engine_args: Optional[Dict[str, Any]] = None,
+    permission_tags: list[str] | None = None,
 ) -> SQLSourceWithTableIngestProtocol:
     """Create a SQLite source for a file.
 
@@ -732,11 +753,12 @@ def SQLiteFileSource(
         name=name,
         engine_args=engine_args,
         async_engine_args=async_engine_args,
+        permission_tags=permission_tags,
     )
 
 
 @overload
-def RedshiftSource() -> BaseSQLSourceProtocol:
+def RedshiftSource(*, permission_tags: list[str] | None = ...) -> BaseSQLSourceProtocol:
     """If you have only one Redshift connection that you'd like
     to add to Chalk, you do not need to specify any arguments
     to construct the source in your code.
@@ -758,6 +780,7 @@ def RedshiftSource(
     *,
     name: str,
     engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """If you have only one Redshift integration, there's no need to provide
     a distinguishing name.
@@ -797,6 +820,7 @@ def RedshiftSource(
     password: str = ...,
     port: str = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """You can also configure the integration directly using environment
     variables on your local machine or from those added through the
@@ -850,6 +874,7 @@ def RedshiftSource(
     name: Optional[str] = None,
     port: Optional[Union[str, int]] = None,
     engine_args: Optional[Dict[str, Any]] = None,
+    permission_tags: list[str] | None = None,
 ) -> BaseSQLSourceProtocol:
     """Create a Redshift data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -860,11 +885,13 @@ def RedshiftSource(
     the data source. See the overloaded signatures for more
     details.
     """
-    return RedshiftSourceImpl(host, db, user, password, name, port, engine_args=engine_args)
+    return RedshiftSourceImpl(
+        host, db, user, password, name, port, engine_args=engine_args, permission_tags=permission_tags
+    )
 
 
 @overload
-def SpannerSource() -> BaseSQLSourceProtocol:
+def SpannerSource(*, permission_tags: list[str] | None = ...) -> BaseSQLSourceProtocol:
     """If you have only one Spanner connection that you'd like
     to add to Chalk, you do not need to specify any arguments
     to construct the source in your code.
@@ -886,6 +913,7 @@ def SpannerSource(
     *,
     name: str,
     engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """If you have only one Spanner integration, there's no need to provide
     a distinguishing name.
@@ -925,6 +953,7 @@ def SpannerSource(
     credentials_base64: str | None = None,
     emulator_host: str | None = None,
     engine_args: Dict[str, Any] | None = None,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """You can also configure the integration directly using environment
     variables on your local machine or from those added through the
@@ -973,6 +1002,7 @@ def SpannerSource(
     credentials_base64: str | None = None,
     emulator_host: str | None = None,
     engine_args: Dict[str, Any] | None = None,
+    permission_tags: list[str] | None = None,
 ) -> BaseSQLSourceProtocol:
     """Create a Spanner data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -991,11 +1021,12 @@ def SpannerSource(
         credentials_base64=credentials_base64,
         emulator_host=emulator_host,
         engine_args=engine_args,
+        permission_tags=permission_tags,
     )
 
 
 @overload
-def BigQuerySource() -> BaseSQLSourceProtocol:
+def BigQuerySource(*, permission_tags: list[str] | None = ...) -> BaseSQLSourceProtocol:
     """If you have only one BigQuery connection that you'd like
     to add to Chalk, you do not need to specify any arguments
     to construct the source in your code.
@@ -1017,6 +1048,7 @@ def BigQuerySource(
     *,
     name: str,
     engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """If you have only one BigQuery integration, there's no need to provide
     a distinguishing name.
@@ -1058,6 +1090,7 @@ def BigQuerySource(
     engine_args: Optional[Dict[str, Any]] = ...,
     temp_project: Optional[str] = ...,
     temp_dataset: Optional[str] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """You can also configure the integration directly using environment
     variables on your local machine or from those added through the
@@ -1113,6 +1146,7 @@ def BigQuerySource(
     engine_args: Optional[Dict[str, Any]] = None,
     temp_project: Optional[str] = None,
     temp_dataset: Optional[str] = None,
+    permission_tags: list[str] | None = None,
 ) -> BaseSQLSourceProtocol:
     """Create a BigQuery data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -1133,11 +1167,12 @@ def BigQuerySource(
         temp_project=temp_project,
         temp_dataset=temp_dataset,
         engine_args=engine_args,
+        permission_tags=permission_tags,
     )
 
 
 @overload
-def CloudSQLSource() -> BaseSQLSourceProtocol:
+def CloudSQLSource(*, permission_tags: list[str] | None = ...) -> BaseSQLSourceProtocol:
     """If you have only one CloudSQL connection that you'd like
     to add to Chalk, you do not need to specify any arguments
     to construct the source in your code.
@@ -1160,6 +1195,7 @@ def CloudSQLSource(
     name: str,
     engine_args: Optional[Dict[str, Any]] = ...,
     async_engine_args: Optional[Dict[str, Any]] = None,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """If you have only one CloudSQL integration, there's no need to provide
     a distinguishing name.
@@ -1201,6 +1237,7 @@ def CloudSQLSource(
     password: Optional[str] = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
     async_engine_args: Optional[Dict[str, Any]] = None,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """You can also configure the integration directly using environment
     variables on your local machine or from those added through the
@@ -1249,6 +1286,7 @@ def CloudSQLSource(
     password: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
     async_engine_args: Optional[Dict[str, Any]] = None,
+    permission_tags: list[str] | None = None,
 ) -> BaseSQLSourceProtocol:
     """Create a CloudSQL data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -1267,11 +1305,12 @@ def CloudSQLSource(
         password=password,
         engine_args=engine_args,
         async_engine_args=async_engine_args,
+        permission_tags=permission_tags,
     )
 
 
 @overload
-def TrinoSource() -> BaseSQLSourceProtocol:
+def TrinoSource(*, permission_tags: list[str] | None = ...) -> BaseSQLSourceProtocol:
     """Connect to the only configured Trino database.
 
     If you have only one Trino connection that you'd like
@@ -1291,7 +1330,9 @@ def TrinoSource() -> BaseSQLSourceProtocol:
 
 
 @overload
-def TrinoSource(*, name: str, engine_args: Optional[Dict[str, Any]] = ...) -> BaseSQLSourceProtocol:
+def TrinoSource(
+    *, name: str, engine_args: Optional[Dict[str, Any]] = ..., permission_tags: list[str] | None = ...
+) -> BaseSQLSourceProtocol:
     """Chalk's injects environment variables to support data integrations.
 
     But what happens when you have two data sources of the same kind?
@@ -1330,6 +1371,7 @@ def TrinoSource(
     user: Optional[str] = None,
     password: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """You can also configure the integration directly using environment
     variables on your local machine or from those added through the
@@ -1384,6 +1426,7 @@ def TrinoSource(
     user: Optional[str] = None,
     password: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
+    permission_tags: list[str] | None = None,
 ) -> BaseSQLSourceProtocol:
     """Create a Trino data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -1394,11 +1437,13 @@ def TrinoSource(
     the data source. See the overloaded signatures for more
     details.
     """
-    return TrinoSourceImpl(host, port, catalog, schema, user, password, name, engine_args=engine_args)
+    return TrinoSourceImpl(
+        host, port, catalog, schema, user, password, name, engine_args=engine_args, permission_tags=permission_tags
+    )
 
 
 @overload
-def DatabricksSource() -> BaseSQLSourceProtocol:
+def DatabricksSource(*, permission_tags: list[str] | None = ...) -> BaseSQLSourceProtocol:
     """Connect to the only configured Databricks database.
 
     If you have only one Databricks connection that you'd like
@@ -1417,7 +1462,9 @@ def DatabricksSource() -> BaseSQLSourceProtocol:
 
 
 @overload
-def DatabricksSource(*, name: str, engine_args: Optional[Dict[str, Any]] = ...) -> BaseSQLSourceProtocol:
+def DatabricksSource(
+    *, name: str, engine_args: Optional[Dict[str, Any]] = ..., permission_tags: list[str] | None = ...
+) -> BaseSQLSourceProtocol:
     """Chalk's injects environment variables to support data integrations.
 
     But what happens when you have two data sources of the same kind?
@@ -1457,6 +1504,7 @@ def DatabricksSource(
     client_id: str = ...,
     client_secret: str = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """You can also configure the integration directly using environment
     variables on your local machine or from those added through the
@@ -1521,6 +1569,7 @@ def DatabricksSource(
     client_id: Optional[str] = None,
     client_secret: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
+    permission_tags: list[str] | None = None,
 ) -> BaseSQLSourceProtocol:
     """Create a Databricks data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -1541,11 +1590,12 @@ def DatabricksSource(
         client_id=client_id,
         client_secret=client_secret,
         engine_args=engine_args,
+        permission_tags=permission_tags,
     )
 
 
 @overload
-def DynamoDBSource() -> BaseSQLSourceProtocol:
+def DynamoDBSource(*, permission_tags: list[str] | None = ...) -> BaseSQLSourceProtocol:
     """If you have only one DynamoDB connection that you'd like
     to add to Chalk, you do not need to specify any arguments
     to construct the source in your code.
@@ -1565,6 +1615,7 @@ def DynamoDBSource(
     *,
     name: str,
     engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """If you have only one DynamoDB integration, there's no need to provide
     a distinguishing name.
@@ -1603,6 +1654,7 @@ def DynamoDBSource(
     aws_region_override: str | None = None,
     endpoint_override: str | None = None,
     engine_args: Dict[str, Any] | None = None,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """You can also configure the integration directly using environment
     variables on your local machine or from those added through the
@@ -1648,6 +1700,7 @@ def DynamoDBSource(
     aws_region_override: str | None = None,
     endpoint_override: str | None = None,
     engine_args: Dict[str, Any] | None = None,
+    permission_tags: list[str] | None = None,
 ) -> BaseSQLSourceProtocol:
     """Create a DynamoDB data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -1670,11 +1723,12 @@ def DynamoDBSource(
         aws_region_override=aws_region_override,
         endpoint_override=endpoint_override,
         engine_args=engine_args,
+        permission_tags=permission_tags,
     )
 
 
 @overload
-def AthenaSource() -> BaseSQLSourceProtocol:
+def AthenaSource(*, permission_tags: list[str] | None = ...) -> BaseSQLSourceProtocol:
     """If you have only one Athena connection that you'd like
     to add to Chalk, you do not need to specify any arguments
     to construct the source in your code.
@@ -1694,6 +1748,7 @@ def AthenaSource(
     *,
     name: str,
     engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """If you have only one Athena integration, there's no need to provide
     a distinguishing name.
@@ -1735,6 +1790,7 @@ def AthenaSource(
     role_arn: str | None = None,
     work_group: str | None = None,
     engine_args: Dict[str, Any] | None = None,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """You can also configure the integration directly using environment
     variables on your local machine or from those added through the
@@ -1789,6 +1845,7 @@ def AthenaSource(
     role_arn: str | None = None,
     work_group: str | None = None,
     engine_args: Dict[str, Any] | None = None,
+    permission_tags: list[str] | None = None,
 ) -> BaseSQLSourceProtocol:
     """Create an Amazon Athena data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -1814,6 +1871,7 @@ def AthenaSource(
         work_group=work_group,
         role_arn=role_arn,
         engine_args=engine_args,
+        permission_tags=permission_tags,
     )
 
 
@@ -1822,6 +1880,7 @@ def ClickhouseSource(
     *,
     name: str,
     engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """If you have only one Clickhouse connection that you'd like
     to add to Chalk, you do not need to specify any arguments
@@ -1845,6 +1904,7 @@ def ClickhouseSource(
     name: str,
     engine_args: Optional[Dict[str, Any]] = ...,
     async_engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """If you have only one Clickhouse integration, there's no need to provide
     a distinguishing name.
@@ -1886,6 +1946,7 @@ def ClickhouseSource(
     use_tls: Union[bool, str] = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
     async_engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """
     You can also configure the integration directly using environment
@@ -1949,6 +2010,7 @@ def ClickhouseSource(
     use_tls: Optional[Union[bool, str]] = None,
     engine_args: Optional[Dict[str, Any]] = None,
     async_engine_args: Optional[Dict[str, Any]] = None,
+    permission_tags: list[str] | None = None,
 ) -> BaseSQLSourceProtocol:
     """Create a Clickhouse data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -1969,6 +2031,7 @@ def ClickhouseSource(
         use_tls=use_tls,
         engine_args=engine_args,
         async_engine_args=async_engine_args,
+        permission_tags=permission_tags,
     )
 
 

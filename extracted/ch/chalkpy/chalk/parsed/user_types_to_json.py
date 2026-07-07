@@ -279,6 +279,7 @@ def get_registered_types(scope_to: Path, failed: List[FailedImport]) -> UpsertGr
             UpsertSQLSourceGQL(
                 name=source.name,
                 kind=source.kind,
+                permissionTags=list(source.permission_tags),
             )
             for source in BaseSQLSource.registry
         ],

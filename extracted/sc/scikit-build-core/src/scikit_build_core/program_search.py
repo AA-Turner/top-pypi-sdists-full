@@ -1,5 +1,18 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "contextlib",
+    f"{__spec__.parent}._logging",
+    f"{__spec__.parent}._shutil",
+    "json",
+    "packaging",
+    "packaging.version",
+    "pathlib",
+    "platform",
+    "shutil",
+    "subprocess",
+}
+
 import contextlib
 import functools
 import json
@@ -9,13 +22,14 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, NamedTuple
+from typing import Literal, NamedTuple
 
 from packaging.version import InvalidVersion, Version
 
 from ._logging import logger, rich_print
 from ._shutil import Run
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
 
@@ -27,6 +41,7 @@ __all__ = [
     "best_program",
     "get_cmake_program",
     "get_cmake_programs",
+    "get_make_programs",
     "get_ninja_programs",
 ]
 
@@ -38,6 +53,7 @@ def __dir__() -> list[str]:
 BASE_TIMEOUT = 5
 
 
+@functools.lru_cache(None)
 def _macos_binary_is_x86(path: Path) -> bool:
     """
     Returns True if the binary is x86. Only run on macOS.
@@ -132,19 +148,24 @@ def get_cmake_program(cmake_path: Path) -> Program:
     None if it cannot be determined.
     """
     try:
-        result = Run(timeout=compute_timeout(cmake_path)).capture(
-            cmake_path, "-E", "capabilities"
-        )
         try:
-            version = Version(
-                json.loads(result.stdout)["version"]["string"].split("-")[0]
+            result = Run(timeout=compute_timeout(cmake_path)).capture(
+                cmake_path, "-E", "capabilities"
             )
-            logger.info("CMake version: {}", version)
-            return Program(cmake_path, version)
-        except (json.decoder.JSONDecodeError, KeyError, InvalidVersion):
-            logger.warning("Could not determine CMake version, got {!r}", result.stdout)
-    except subprocess.CalledProcessError:
-        try:
+            try:
+                version = Version(
+                    json.loads(result.stdout)["version"]["string"].split("-")[0]
+                )
+                logger.info("CMake version: {}", version)
+                return Program(cmake_path, version)
+            except (json.decoder.JSONDecodeError, KeyError, InvalidVersion):
+                logger.warning(
+                    "Could not determine CMake version, got {!r}", result.stdout
+                )
+        except subprocess.CalledProcessError:
+            # `cmake -E capabilities` is not available on very old CMakes, fall
+            # back to `--version`. This nested try ensures Permission/Timeout
+            # errors raised here are still handled by the outer handlers below.
             result = Run(timeout=compute_timeout(cmake_path)).capture(
                 cmake_path, "--version"
             )
@@ -159,12 +180,12 @@ def get_cmake_program(cmake_path: Path) -> Program:
                     "Could not determine CMake version via --version, got {!r}",
                     result.stdout,
                 )
-        except subprocess.CalledProcessError as err:
-            logger.warning(
-                "Could not determine CMake version via --version, got {!r} {!r}",
-                err.stdout,
-                err.stderr,
-            )
+    except subprocess.CalledProcessError as err:
+        logger.warning(
+            "Could not determine CMake version via --version, got {!r} {!r}",
+            err.stdout,
+            err.stderr,
+        )
     except PermissionError:
         logger.warning("Permissions Error getting CMake's version")
     except subprocess.TimeoutExpired:

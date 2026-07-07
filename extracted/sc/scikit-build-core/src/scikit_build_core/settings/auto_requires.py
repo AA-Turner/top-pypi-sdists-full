@@ -1,11 +1,17 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+__lazy_modules__ = {
+    "packaging",
+    "packaging.requirements",
+    "packaging.utils",
+    "packaging.version",
+}
 
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 from packaging.version import Version
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Iterable
 

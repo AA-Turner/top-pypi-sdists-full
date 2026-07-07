@@ -44,6 +44,31 @@ except ModuleNotFoundError:
 release = version.split("+")[0]
 
 
+# -- Generate the getting-started examples from the init templates -----------
+# The init command's templates (resources/templates) are the single source of
+# truth for example projects. Render each backend here so literalinclude and
+# command-output pull from real, build-tested projects rather than duplicates.
+EXAMPLE_BACKENDS = [
+    "pybind11",
+    "nanobind",
+    "swig",
+    "cython",
+    "c",
+    "abi3",
+    "abi3t",
+    "fortran",
+]
+GENERATED_EXAMPLES = ROOT / "docs/examples/generated"
+if scikit_build_core is not None:
+    import shutil
+
+    from scikit_build_core.init.__main__ import generate_project
+
+    shutil.rmtree(GENERATED_EXAMPLES, ignore_errors=True)
+    for _backend in EXAMPLE_BACKENDS:
+        generate_project(GENERATED_EXAMPLES / _backend, _backend, "example")
+
+
 # -- Project information -----------------------------------------------------
 
 project = "scikit-build-core"
@@ -74,7 +99,7 @@ extensions = [
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = []
+templates_path = ["_templates"]
 
 source_suffix = [".rst", ".md"]
 
@@ -89,6 +114,7 @@ exclude_patterns = [
     ".env",
     "**.venv",
     "examples/downstream",
+    "examples/generated",
 ]
 
 
@@ -103,6 +129,8 @@ tippy_rtd_urls = [
     "https://packaging.readthedocs.io/en/stable",
     "https://setuptools.readthedocs.io/en/latest",
 ]
+# Recolored to furo's theme variables in _static/tippy.css.
+tippy_props = {"theme": "light-border"}
 
 nitpick_ignore = [
     ("py:class", "setuptools.dist.Distribution"),
@@ -120,6 +148,8 @@ linkcheck_anchors_ignore = [
 linkcheck_ignore = [
     # Rate limited
     r"https://github.com/?.*",
+    # Fails sometimes
+    "https://learn.scientific-python.org/development",
 ]
 # -- Options for HTML output -------------------------------------------------
 
@@ -147,10 +177,20 @@ html_theme_options = {
 }
 html_copy_source = False
 html_show_sourcelink = False
+html_static_path = ["_static"]
+# The light-border theme gives the tooltip arrow an outline; tippy.css recolors
+# it (and the box) from furo's theme variables. tippy.css must come last so its
+# overrides win. sphinx-tippy already loads tippy.js itself from this CDN.
+html_css_files = [
+    "custom.css",
+    "https://unpkg.com/tippy.js@6/themes/light-border.css",
+    "tippy.css",
+]
 
 
 # -- Extension configuration -------------------------------------------------
 myst_enable_extensions = [
+    "alert",  # GitHub-style > [!NOTE] blockquote admonitions
     "colon_fence",
     "substitution",
     "deflist",

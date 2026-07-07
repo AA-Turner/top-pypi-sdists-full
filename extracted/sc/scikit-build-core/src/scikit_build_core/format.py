@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = {f"{__spec__.parent}.settings.skbuild_model", "pathlib"}
+
 import dataclasses
 import sys
 import typing
 from pathlib import Path
-from typing import TYPE_CHECKING, TypedDict
+from typing import TypedDict
 
+from .settings.skbuild_model import normalize_build_types
+
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from typing import Literal
 
@@ -34,6 +39,8 @@ class PyprojectFormatter(TypedDict, total=False):
 
     cache_tag: str
     """Tag used by the import machinery in the filenames of cached modules, i.e. ``sys.implementation.cache_tag``."""
+    name: str
+    """The normalized project name (canonicalized per :pep:`503`, then ``-`` replaced by ``_``), matching the wheel/sdist filename. Handy to disambiguate a shared ``build-dir`` across a workspace, e.g. ``build-dir = "build/{name}/{wheel_tag}"``. Not available while resolving ``build.requires``, since metadata is not read yet at that point."""
     wheel_tag: str
     """The tags as computed for the wheel."""
     build_type: str
@@ -44,6 +51,24 @@ class PyprojectFormatter(TypedDict, total=False):
     """Root path of the current project."""
 
 
+class _AnySpecDummy:
+    """A dummy value whose ``__format__`` accepts any spec and returns ``"*"``.
+
+    Used for dummy-mode formatting of keys that take a format spec (e.g.
+    ``{root:uri}``), so that ``"{root:uri}".format(...)`` does not raise.
+    """
+
+    def __format__(self, fmt: str) -> str:
+        return "*"
+
+    def __str__(self) -> str:
+        return "*"
+
+
+# Keys in PyprojectFormatter whose values accept a format spec (e.g. ``root``).
+_SPEC_TAKING_KEYS = ("root",)
+
+
 @typing.overload
 def pyproject_format(
     *,
@@ -51,6 +76,7 @@ def pyproject_format(
     state: Literal["sdist", "wheel", "editable", "metadata_wheel", "metadata_editable"]
     | None = ...,
     tags: WheelTag | None = ...,
+    name: str | None = ...,
 ) -> PyprojectFormatter: ...
 
 
@@ -66,12 +92,21 @@ def pyproject_format(
         | None
     ) = None,
     tags: WheelTag | None = None,
+    name: str | None = None,
     dummy: bool = False,
 ) -> PyprojectFormatter | dict[str, str]:
     """Generate :py:class:`PyprojectFormatter` dictionary to use in f-string format."""
     if dummy:
         # Return a dict with all the known keys but with values replaced with dummy values
-        return dict.fromkeys(PyprojectFormatter.__annotations__, "*")
+        res_dummy: dict[str, object] = dict.fromkeys(
+            PyprojectFormatter.__annotations__, "*"
+        )
+        # Keys that accept a format spec (e.g. ``{root:uri}``) must use a value
+        # whose ``__format__`` accepts any spec, otherwise dummy formatting of a
+        # build-dir like ``{root:uri}`` raises ValueError.
+        for key in _SPEC_TAKING_KEYS:
+            res_dummy[key] = _AnySpecDummy()
+        return typing.cast("dict[str, str]", res_dummy)
 
     assert settings is not None
     # First set all known values
@@ -80,13 +115,15 @@ def pyproject_format(
         # We are assuming the Path.cwd always evaluates to the folder containing pyproject.toml
         # as part of PEP517 standard.
         root=RootPathResolver(),
-        build_type=settings.cmake.build_type,
+        build_type=normalize_build_types(settings.cmake.build_type)[0],
     )
     # Then compute all optional keys depending on the function input
     if tags is not None:
         res["wheel_tag"] = str(tags)
     if state is not None:
         res["state"] = state
+    if name is not None:
+        res["name"] = name
     # Construct the final dict including the always known keys
     return res
 
@@ -99,6 +136,9 @@ class RootPathResolver:
 
     def __post_init__(self) -> None:
         self.path = self.path.resolve()
+
+    def __str__(self) -> str:
+        return str(self.path)
 
     def __format__(self, fmt: str) -> str:
         command, _, rest = fmt.partition(":")

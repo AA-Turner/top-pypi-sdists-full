@@ -7,15 +7,13 @@ use crate::{
         BaseEvaluation, ExperimentEvaluation, ExtraExposureInfo, LayerEvaluation,
     },
     interned_string::InternedString,
-    log_d, log_error_to_statsig_and_console, make_sticky_value_from_experiment,
-    make_sticky_value_from_layer,
-    observability::{ops_stats::OpsStatsForInstance, sdk_errors_observer::ErrorBoundaryEvent},
-    read_lock_or_else,
+    log_d, make_sticky_value_from_experiment, make_sticky_value_from_layer,
+    observability::ops_stats::OpsStatsForInstance,
     spec_store::SpecStoreData,
     statsig_types::{Experiment, Layer},
     user::StatsigUserInternal,
     DynamicReturnable, EvaluationDetails, ExperimentEvaluationOptions, LayerEvaluationOptions,
-    PersistentStorage, SpecStore, StatsigErr, StickyValues,
+    PersistentStorage, SpecStore, StickyValues,
 };
 
 #[cfg(feature = "ffi-support")]
@@ -34,7 +32,7 @@ impl PersistentValuesManager {
         user: &'a StatsigUserInternal,
         options: &'a LayerEvaluationOptions,
         spec_store: &Arc<SpecStore>,
-        ops_stats: &Arc<OpsStatsForInstance>,
+        _ops_stats: &Arc<OpsStatsForInstance>,
         details: EvaluationDetails,
         result: Option<EvaluatorResult>,
     ) -> (Option<EvaluatorResult>, EvaluationDetails) {
@@ -52,16 +50,7 @@ impl PersistentValuesManager {
             }
         };
 
-        let spec_store_data = read_lock_or_else!(spec_store.data, {
-            log_error_to_statsig_and_console!(
-                &ops_stats,
-                TAG,
-                StatsigErr::LockFailure(
-                    "Failed to acquire read lock for spec store data".to_string()
-                )
-            );
-            return (Some(result), details);
-        });
+        let spec_store_data = spec_store.load_data();
 
         let (result, details) = manager.try_apply_sticky_value_to_raw_layer_impl(
             user,
@@ -369,7 +358,7 @@ impl PersistentValuesManager {
         user: &'a StatsigUserInternal,
         options: &'a LayerEvaluationOptions,
         spec_store: &Arc<SpecStore>,
-        ops_stats: &Arc<OpsStatsForInstance>,
+        _ops_stats: &Arc<OpsStatsForInstance>,
         curr_layer: Layer,
     ) -> Layer {
         let manager = match manager {
@@ -377,16 +366,7 @@ impl PersistentValuesManager {
             None => return curr_layer,
         };
 
-        let data = read_lock_or_else!(spec_store.data, {
-            log_error_to_statsig_and_console!(
-                &ops_stats,
-                TAG,
-                StatsigErr::LockFailure(
-                    "Failed to acquire read lock for spec store data".to_string()
-                )
-            );
-            return curr_layer;
-        });
+        let data = spec_store.load_data();
 
         manager.try_apply_sticky_value_to_layer_impl(user, options, &data, curr_layer)
     }
@@ -470,7 +450,10 @@ impl PersistentValuesManager {
             None => return fallback,
         };
 
-        let delegate = spec_store_data.values.dynamic_configs.get(&config_delegate);
+        let delegate = spec_store_data
+            .snapshot
+            .dynamic_configs
+            .get(&config_delegate);
         match delegate {
             Some(delegate) => delegate.as_spec_ref().is_active.unwrap_or(fallback),
             None => fallback,

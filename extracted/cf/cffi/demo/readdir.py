@@ -1,4 +1,3 @@
-from __future__ import print_function
 # A Linux-only demo
 #
 import sys
@@ -27,7 +26,7 @@ def walk(basefd, path):
             break
         name = ffi.string(dirent.d_name)
         print('%3d %s' % (dirent.d_type, name))
-        if dirent.d_type == 4 and name != '.' and name != '..':
+        if dirent.d_type == 4 and name not in {'.', '..'}:
             walk(dirfd, name)
     lib.closedir(dir)
     print('}')

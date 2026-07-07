@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+__lazy_modules__ = {"typing"}
 
+from typing import Any
+
+from . import _process_dynamic_metadata, _require_field
+
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-from . import _process_dynamic_metadata
-
-__all__ = ["dynamic_metadata"]
+__all__ = ["Provider", "dynamic_metadata"]
 
 
 def __dir__() -> list[str]:
@@ -22,7 +25,7 @@ def dynamic_metadata(
     settings: Mapping[str, str | list[str] | dict[str, str] | dict[str, list[str]]],
     project: Mapping[str, Any],
 ) -> str | list[str] | dict[str, str] | dict[str, list[str]]:
-    if settings.keys() > KEYS:
+    if settings.keys() - KEYS:
         msg = f"Only {KEYS} settings allowed by this plugin"
         raise RuntimeError(msg)
 
@@ -37,3 +40,19 @@ def dynamic_metadata(
         lambda r: r.format(project=project),
         result,
     )
+
+
+class Provider:
+    """New-style (dynamic-metadata 0.3) wrapper around :func:`dynamic_metadata`.
+
+    Registered as the ``scikit_build_core.metadata.template`` entry point; the
+    target field comes from a ``field`` setting instead of the legacy table key.
+    """
+
+    @staticmethod
+    def dynamic_metadata(
+        settings: Mapping[str, Any],
+        project: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        field, rest = _require_field(settings)
+        return {field: dynamic_metadata(field, rest, project)}

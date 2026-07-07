@@ -10,7 +10,6 @@ import types
 from aenum import extend_enum
 
 
-from dbt.events.types import EndOfRunSummary
 from dbt.flags import get_flags
 from dbt.graph.selector_methods import MethodName, MethodManager
 from dbt.plugins import dbtPlugin
@@ -39,7 +38,6 @@ ORIGINALS: t.Dict[str, t.Callable] = {
     "SeedRunner.compile": SeedRunner.compile,
     "SeedRunner.execute": SeedRunner.execute,
     "TestRunner.print_result_line": TestRunner.print_result_line,
-    "EndOfRunSummary.message": EndOfRunSummary.message,
     "dbt_test.generate_runtime_model_context": dbt_test.generate_runtime_model_context,
     "GraphRunnableTask.defer_to_manifest": GraphRunnableTask.defer_to_manifest,
     "CompileTask.defer_to_manifest": CompileTask.defer_to_manifest,
@@ -72,7 +70,6 @@ def set_runner_overrides() -> None:
     runner_override = RunnerOverride(
         ORIGINALS["ModelRunner.execute"],
         ORIGINALS["dbt_test.generate_runtime_model_context"],
-        ORIGINALS["EndOfRunSummary.message"],
     )
 
     def compile_override(self: CompileRunner, manifest: Manifest) -> t.Any:
@@ -91,9 +88,6 @@ def set_runner_overrides() -> None:
     ) -> t.Dict[str, t.Any]:
         return runner_override.generate_runtime_model_context_override(model, config, manifest)
 
-    def end_of_run_summary_message(self: EndOfRunSummary) -> str:
-        return runner_override.end_of_run_summary_message_override(self)
-
     def defer_to_manifest_override(self: GraphRunnableTask, *args: t.Any) -> None:
         runner_override.defer_to_manifest_override(self)
         if self.previous_defer_state or self.previous_state:
@@ -109,7 +103,6 @@ def set_runner_overrides() -> None:
     SeedRunner.compile = compile_override  # ty: ignore[invalid-assignment]
     SeedRunner.execute = execute_override  # ty: ignore[invalid-assignment]
     TestRunner.print_result_line = print_result_line  # ty: ignore[invalid-assignment]
-    EndOfRunSummary.message = end_of_run_summary_message  # ty: ignore[invalid-assignment]
     dbt_test.generate_runtime_model_context = generate_runtime_model_context_override  # ty: ignore[invalid-assignment]
     GraphRunnableTask.defer_to_manifest = defer_to_manifest_override  # ty: ignore[invalid-assignment]
     CompileTask.defer_to_manifest = defer_to_manifest_override  # ty: ignore[invalid-assignment]
@@ -160,7 +153,6 @@ def remove_runner_overrides() -> None:
     SeedRunner.compile = ORIGINALS["SeedRunner.compile"]  # ty: ignore[invalid-assignment]
     SeedRunner.execute = ORIGINALS["SeedRunner.execute"]  # ty: ignore[invalid-assignment]
     TestRunner.print_result_line = ORIGINALS["TestRunner.print_result_line"]  # ty: ignore[invalid-assignment]
-    EndOfRunSummary.message = ORIGINALS["EndOfRunSummary.message"]  # ty: ignore[invalid-assignment]
     dbt_test.generate_runtime_model_context = ORIGINALS["dbt_test.generate_runtime_model_context"]  # ty: ignore[invalid-assignment]
     GraphRunnableTask.defer_to_manifest = ORIGINALS["GraphRunnableTask.defer_to_manifest"]  # ty: ignore[invalid-assignment]
     CompileTask.defer_to_manifest = ORIGINALS["CompileTask.defer_to_manifest"]  # ty: ignore[invalid-assignment]

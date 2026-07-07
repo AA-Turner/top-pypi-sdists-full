@@ -346,6 +346,11 @@ pub struct SaeManifoldOuterObjective {
     /// #2080 — outer probe telemetry (criterion/FD/infeasible counts). Read via
     /// [`Self::probe_telemetry`] after the fit for the wide-`p` acceptance test.
     pub(crate) probe_telemetry: OuterProbeTelemetry,
+    /// #2138 — cooperative cancellation. When the pyffi fit driver sets this after
+    /// a Python interrupt, the next `eval`/`eval_cost` returns a recoverable
+    /// `RemlOptimizationFailed` so an abandoned worker thread unwinds and stops
+    /// rather than running a hung fit to completion. `None` ⇒ historical path.
+    pub(crate) cancel_flag: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl SaeManifoldOuterObjective {
@@ -382,7 +387,29 @@ impl SaeManifoldOuterObjective {
             warm_start_telemetry: AmortizedWarmStartTelemetry::default(),
             routing_frozen: false,
             probe_telemetry: OuterProbeTelemetry::default(),
+            cancel_flag: None,
         }
+    }
+
+    /// #2138 — install a cooperative cancellation flag shared with the pyffi fit
+    /// driver's calling thread. On a Python interrupt the caller sets it, and the
+    /// next outer `eval`/`eval_cost` bails with a recoverable error so the
+    /// detached worker thread terminates instead of finishing a hung fit.
+    pub fn set_cancel_flag(&mut self, flag: std::sync::Arc<std::sync::atomic::AtomicBool>) {
+        self.cancel_flag = Some(flag);
+    }
+
+    /// `Err` if a host cancellation was requested (see [`Self::set_cancel_flag`]);
+    /// a cheap relaxed load, no-op when no flag is installed.
+    fn check_cancelled(&self) -> Result<(), EstimationError> {
+        if let Some(flag) = &self.cancel_flag {
+            if flag.load(std::sync::atomic::Ordering::Relaxed) {
+                return Err(EstimationError::RemlOptimizationFailed(
+                    "SAE fit cancelled by host (Python interrupt)".to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
 
     /// #2080 — the accumulated outer probe telemetry (criterion/FD/infeasible
@@ -1656,6 +1683,24 @@ impl SaeManifoldOuterObjective {
             // turns atoms on (or ships best-so-far) rather than aborting the whole fit
             // with "no candidate seeds passed outer startup validation".
             || err.contains("gated off at every row (all-zero gated design)")
+            // #2089 — a ρ whose smoothing / sparsity penalty is strong enough to
+            // crush the WHOLE dictionary to the signal-free null floor (every
+            // decoder co-vanishes and the bounded co-collapse reseed multi-start
+            // cannot re-anchor `K` distinct charts) is a GENUINE INFEASIBILITY OF
+            // THAT ρ — the same class as the non-PD Hessian / all-zero gated-design
+            // probes above. A neighbouring, weaker-penalty ρ admits a non-degenerate
+            // fit, so the outer optimizer must read this as the finite collapse wall
+            // (+∞) and steer ρ back toward the feasible region — or ship best-so-far —
+            // NOT abort the entire alpha="auto" search the first time a line search
+            // overshoots into a co-collapsing ρ. Aborting there fails fits that have a
+            // perfectly good feasible ρ the search had not yet reached; and letting
+            // the reseed multi-start GRIND at every such probe (the pre-guard
+            // behaviour) is exactly what thrashed the host to an OOM / watchdog
+            // SIGKILL (exit 137). `run_joint_fit_arrow_schur` emits this DISTINCT
+            // "did not escape total co-collapse" marker only after the reseed budget
+            // is spent AND the fit is still at/below the null floor, so a healthy or
+            // merely-uncompetitive fit never trips it.
+            || err.contains("did not escape total co-collapse")
     }
 
     /// Shared cost path: evaluate the REML criterion at `rho_flat`, updating
@@ -2065,6 +2110,7 @@ impl OuterObjective for SaeManifoldOuterObjective {
     }
 
     fn eval_cost(&mut self, rho: &Array1<f64>) -> Result<f64, EstimationError> {
+        self.check_cancelled()?;
         // Value-only comparison path (EFS backtracking, seed validation, FD
         // certificate probes): no gradient/Hessian is ever
         // consumed at this iterate, so it takes the cheap probe refine budget
@@ -2097,6 +2143,7 @@ impl OuterObjective for SaeManifoldOuterObjective {
     }
 
     fn eval(&mut self, rho: &Array1<f64>) -> Result<OuterEval, EstimationError> {
+        self.check_cancelled()?;
         self.probe_telemetry.criterion_calls += 1;
         let rho_state = self.baseline_rho.from_flat(rho.view());
         // #1026 — matrix-free (streaming) regime: the dense joint-Hessian evidence
@@ -2346,6 +2393,12 @@ impl OuterObjective for SaeManifoldOuterObjective {
         rho: &Array1<f64>,
         order: OuterEvalOrder,
     ) -> Result<OuterEval, EstimationError> {
+        // #2138 — cover the line-search cost-probe lane too: the `Value` order is
+        // called directly by the outer bridge (bypassing `eval`/`eval_cost`), so
+        // without this a cancelled worker parked in a long probe sequence would
+        // keep grinding. Idempotent for the gradient orders (they also delegate to
+        // `eval`, which checks again); no-op when no cancel flag is installed.
+        self.check_cancelled()?;
         match order {
             OuterEvalOrder::Value => {
                 // #1224 — the `Value` order is the BFGS / ARC LINE-SEARCH cost
@@ -2359,17 +2412,37 @@ impl OuterObjective for SaeManifoldOuterObjective {
                 let (cost, _beta_hat) =
                     match self.evaluate_value_probe_with_refine_policy(rho.view(), false) {
                         Ok(evaluated) => evaluated,
-                        // #2080 — the `Value` order is the BFGS / ARC line-search
-                        // probe lane, where the bridge can distinguish an
-                        // infeasible trial and count it in the recoverable-probe
-                        // guard. Do not hide this behind the finite #1782 wall:
-                        // a non-PD Laplace probe is not an ordinary Wolfe value.
-                        // The finite wall remains on `eval_cost` / EFS / startup
-                        // lanes, where it is deliberately used for seed survival.
+                        // #2080 — a recoverable infeasible-ρ refusal (non-PD Laplace
+                        // log-det) presents to the line search as the SAME finite
+                        // collapse wall the gradient lane (`eval`) and the value /
+                        // EFS / startup lanes (`eval_cost`, `efs_step`) already
+                        // return for this class (#1782). Returning `+∞` here instead
+                        // (an infeasible Wolfe value) desynced this lane from the
+                        // gradient lane: the anchor `(cost, ∇f)` from `eval` carried
+                        // the finite wall, but every line-search probe overshooting
+                        // the seed's PD basin returned `+∞`, which `finite_cost_or_error`
+                        // in the outer bridge converts into a `Recoverable` probe
+                        // refusal. On a seed whose PD basin the first BFGS direction
+                        // immediately exits (the K=2 wide-`p` two-circle fit, whose
+                        // seed sits on the non-PD boundary), EVERY probe refused, the
+                        // consecutive-refusal counter never reset, and the
+                        // non-termination guard escalated the whole fit to a fatal
+                        // "globally infeasible neighbourhood at seed" abort — never
+                        // shipping the perfectly feasible seed dictionary. The finite
+                        // wall is astronomically larger than any real REML value, so
+                        // the Armijo/Wolfe search still rejects a step INTO it (the
+                        // same steering), but the bridge reads a finite cost, resets
+                        // its refusal streak, and BFGS halts at the feasible seed and
+                        // ships best-so-far instead of aborting.
                         Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
                             self.probe_telemetry.record_refusal_kind(&err);
                             self.probe_telemetry.wall_cost_value_probes += 1;
-                            return Ok(OuterEval::infeasible(rho.len()));
+                            return Ok(OuterEval {
+                                cost: Self::recoverable_refusal_wall_cost(),
+                                gradient: Array1::zeros(rho.len()),
+                                hessian: HessianResult::Unavailable,
+                                inner_beta_hint: None,
+                            });
                         }
                         Err(err) => return Err(EstimationError::RemlOptimizationFailed(err)),
                     };
@@ -2387,6 +2460,9 @@ impl OuterObjective for SaeManifoldOuterObjective {
     }
 
     fn eval_efs(&mut self, rho: &Array1<f64>) -> Result<EfsEval, EstimationError> {
+        // #2138 — the Fellner–Schall route is a primary outer descent path with its
+        // own inner solve (bypassing `eval`/`eval_cost`), so cover it too.
+        self.check_cancelled()?;
         self.efs_step(rho.view())
             .map_err(EstimationError::RemlOptimizationFailed)
     }

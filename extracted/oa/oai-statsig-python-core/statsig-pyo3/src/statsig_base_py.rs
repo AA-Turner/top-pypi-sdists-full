@@ -54,9 +54,11 @@ impl StatsigBasePy {
     #[pyo3(signature = (sdk_key, options=None))]
     pub fn new(sdk_key: &str, options: Option<StatsigOptionsPy>, py: Python) -> Self {
         let (opts, ob_client) = safe_convert_to_statsig_options(py, options);
+        let sdk_key = sdk_key.to_owned();
+        let inner = py.detach(move || Statsig::new(&sdk_key, opts.map(Arc::new)));
 
         Self {
-            inner: Arc::new(Statsig::new(sdk_key, opts.map(Arc::new))),
+            inner: Arc::new(inner),
             observability_client: Mutex::new(ob_client),
         }
     }
@@ -360,13 +362,18 @@ impl StatsigBasePy {
         Ok(())
     }
 
-    #[pyo3(name="_INTERNAL_get_dynamic_config", signature = (user, name, options=None))]
+    #[pyo3(name="_INTERNAL_get_dynamic_config", signature = (user, name, options=None, evaluation_cache_keys=None))]
     pub fn _internal_get_dynamic_config(
         &self,
         py: Python,
         user: &StatsigUserPy,
         name: &str,
         options: Option<DynamicConfigEvaluationOptionsPy>,
+        #[gen_stub(override_type(
+            type_repr = "typing.Optional[collections.abc.KeysView[builtins.int]]",
+            imports = ("typing", "collections.abc", "builtins")
+        ))]
+        evaluation_cache_keys: Option<Bound<PyAny>>,
     ) -> PyResult<Py<PyDict>> {
         let user_internal = StatsigUserInternal::from_fast_user(&user.inner, Some(&self.inner));
         self.inner
@@ -374,7 +381,7 @@ impl StatsigBasePy {
                 &user_internal,
                 name,
                 options.map_or(DynamicConfigEvaluationOptions::default(), |o| o.into()),
-                |raw| raw_dynamic_config_to_py_dict(py, raw),
+                |raw| raw_dynamic_config_to_py_dict(py, raw, evaluation_cache_keys.as_ref(), None),
             )
     }
 
@@ -391,13 +398,18 @@ impl StatsigBasePy {
         Ok(())
     }
 
-    #[pyo3(name="_INTERNAL_get_experiment", signature = (user, name, options=None, exposure_metadata=None))]
+    #[pyo3(name="_INTERNAL_get_experiment", signature = (user, name, options=None, exposure_metadata=None, evaluation_cache_keys=None))]
     pub fn _internal_get_experiment(
         &self,
         user: &StatsigUserPy,
         name: &str,
         options: Option<ExperimentEvaluationOptionsPy>,
         exposure_metadata: Option<Bound<PyDict>>,
+        #[gen_stub(override_type(
+            type_repr = "typing.Optional[collections.abc.KeysView[builtins.int]]",
+            imports = ("typing", "collections.abc", "builtins")
+        ))]
+        evaluation_cache_keys: Option<Bound<PyAny>>,
         py: Python,
     ) -> PyResult<Py<PyDict>> {
         let mut options_actual = options
@@ -415,7 +427,7 @@ impl StatsigBasePy {
                 name,
                 options_actual,
                 extract_event_metadata(exposure_metadata),
-                |raw| raw_experiment_to_py_dict(py, raw),
+                |raw| raw_experiment_to_py_dict(py, raw, evaluation_cache_keys.as_ref(), None),
             )
     }
 
@@ -450,12 +462,17 @@ impl StatsigBasePy {
         Ok(())
     }
 
-    #[pyo3(name="_INTERNAL_get_layer", signature = (user, name, options=None))]
+    #[pyo3(name="_INTERNAL_get_layer", signature = (user, name, options=None, evaluation_cache_keys=None))]
     pub fn _internal_get_layer(
         &self,
         user: &StatsigUserPy,
         name: &str,
         options: Option<LayerEvaluationOptionsPy>,
+        #[gen_stub(override_type(
+            type_repr = "typing.Optional[collections.abc.KeysView[builtins.int]]",
+            imports = ("typing", "collections.abc", "builtins")
+        ))]
+        evaluation_cache_keys: Option<Bound<PyAny>>,
         py: Python,
     ) -> PyResult<Py<PyDict>> {
         let mut options_actual = options
@@ -471,7 +488,7 @@ impl StatsigBasePy {
             &user_internal,
             name,
             options_actual,
-            |raw| raw_layer_to_py_dict(py, raw),
+            |raw| raw_layer_to_py_dict(py, raw, evaluation_cache_keys.as_ref(), None),
         )
     }
 
@@ -579,16 +596,28 @@ impl StatsigBasePy {
         user: &StatsigUserPy,
         options: Option<BulkEvaluationOptionsPy>,
     ) -> PyResult<Py<PyDict>> {
-        let options = options.map_or_else(
-            || BulkEvaluationOptions {
-                include_local_override: true,
-                ..BulkEvaluationOptions::default()
-            },
-            Into::into,
-        );
-        let resolved = self.inner.resolve_bulk_evaluation_options(options);
-        let user_internal = StatsigUserInternal::from_fast_user(&user.inner, Some(&self.inner));
-        bulk_evaluate_to_py_dict(py, &self.inner, &user_internal, resolved)
+        bulk_evaluate_for_python(py, &self.inner, user, options, None)
+    }
+
+    #[pyo3(name="_INTERNAL_bulk_evaluate", signature = (user, options=None, evaluation_cache_keys=None))]
+    pub fn _internal_bulk_evaluate(
+        &self,
+        py: Python,
+        user: &StatsigUserPy,
+        options: Option<BulkEvaluationOptionsPy>,
+        #[gen_stub(override_type(
+            type_repr = "typing.Optional[collections.abc.KeysView[builtins.int]]",
+            imports = ("typing", "collections.abc", "builtins")
+        ))]
+        evaluation_cache_keys: Option<Bound<PyAny>>,
+    ) -> PyResult<Py<PyDict>> {
+        bulk_evaluate_for_python(
+            py,
+            &self.inner,
+            user,
+            options,
+            evaluation_cache_keys.as_ref(),
+        )
     }
 
     #[pyo3(signature = (token))]
@@ -800,14 +829,35 @@ fn check_gate_for_python(
     statsig.check_gate_with_options_for_internal_user(&user_internal, name, options)
 }
 
+fn bulk_evaluate_for_python(
+    py: Python,
+    statsig: &Statsig,
+    user: &StatsigUserPy,
+    options: Option<BulkEvaluationOptionsPy>,
+    evaluation_cache_keys: Option<&Bound<PyAny>>,
+) -> PyResult<Py<PyDict>> {
+    let options = options.map_or_else(
+        || BulkEvaluationOptions {
+            include_local_override: true,
+            ..BulkEvaluationOptions::default()
+        },
+        Into::into,
+    );
+    let resolved = statsig.resolve_bulk_evaluation_options(options);
+    let user_internal = StatsigUserInternal::from_fast_user(&user.inner, Some(statsig));
+    bulk_evaluate_to_py_dict(py, statsig, &user_internal, resolved, evaluation_cache_keys)
+}
+
 fn bulk_evaluate_to_py_dict(
     py: Python,
     statsig: &Statsig,
     user_internal: &StatsigUserInternal<'_, '_>,
     resolved: statsig_rust::ResolvedBulkEvaluationOptions,
+    evaluation_cache_keys: Option<&Bound<PyAny>>,
 ) -> PyResult<Py<PyDict>> {
     let result = PyDict::new(py);
     let include_local_override = resolved.include_local_override;
+    let pending_cache = evaluation_cache_keys.map(|_| PyDict::new(py));
 
     let gates = PyDict::new(py);
     for name in resolved.feature_gates {
@@ -831,7 +881,14 @@ fn bulk_evaluate_to_py_dict(
                 user_internal,
                 &name,
                 include_local_override,
-                |raw| raw_dynamic_config_to_py_dict(py, raw),
+                |raw| {
+                    raw_dynamic_config_to_py_dict(
+                        py,
+                        raw,
+                        evaluation_cache_keys,
+                        pending_cache.as_ref(),
+                    )
+                },
             );
         let dict = dict?;
         set_exposure_token(py, &dict, exposure_token.as_deref())?;
@@ -848,7 +905,14 @@ fn bulk_evaluate_to_py_dict(
                 &name,
                 options,
                 include_local_override,
-                |raw| raw_experiment_to_py_dict(py, raw),
+                |raw| {
+                    raw_experiment_to_py_dict(
+                        py,
+                        raw,
+                        evaluation_cache_keys,
+                        pending_cache.as_ref(),
+                    )
+                },
             );
         let dict = dict?;
         set_exposure_token(py, &dict, exposure_token.as_deref())?;
@@ -865,7 +929,7 @@ fn bulk_evaluate_to_py_dict(
                 &name,
                 options,
                 include_local_override,
-                |raw| raw_layer_to_py_dict(py, raw),
+                |raw| raw_layer_to_py_dict(py, raw, evaluation_cache_keys, pending_cache.as_ref()),
             );
         let dict = dict?;
         set_exposure_token(py, &dict, exposure_token.as_deref())?;

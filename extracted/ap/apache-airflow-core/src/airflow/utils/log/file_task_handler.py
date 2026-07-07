@@ -521,7 +521,7 @@ class FileTaskHandler(logging.Handler):
 
     @provide_session
     def _render_filename(
-        self, ti: TaskInstance | TaskInstanceHistory, try_number: int, session=NEW_SESSION
+        self, ti: TaskInstance | TaskInstanceHistory, try_number: int, *, session=NEW_SESSION
     ) -> str:
         """Return the worker log filename."""
         dag_run = ti.get_dagrun(session=session)
@@ -696,7 +696,6 @@ class FileTaskHandler(logging.Handler):
             }
 
     @staticmethod
-    @staticmethod
     def _get_pod_namespace(ti: TaskInstance | TaskInstanceHistory):
         pod_override = getattr(ti.executor_config, "pod_override", None)
         metadata = getattr(pod_override, "metadata", None)
@@ -715,7 +714,18 @@ class FileTaskHandler(logging.Handler):
         if log_type == LogType.TRIGGER:
             if not ti.triggerer_job:
                 raise RuntimeError("Could not build triggerer log URL; no triggerer job.")
-            config_key = "triggerer_log_server_port"
+            config_key = "trigger_log_server_port"
+            deprecated_config_key = "triggerer_log_server_port"
+            if (
+                conf.get("logging", config_key, fallback=None) is None
+                and conf.get("logging", deprecated_config_key, fallback=None) is not None
+            ):
+                logger.warning(
+                    "The [logging] %s option is deprecated. Please use [logging] %s instead.",
+                    deprecated_config_key,
+                    config_key,
+                )
+                config_key = deprecated_config_key
             config_default = 8794
             hostname = ti.triggerer_job.hostname
             log_relative_path = self.add_triggerer_suffix(log_relative_path, job_id=ti.triggerer_job.id)
@@ -856,7 +866,7 @@ class FileTaskHandler(logging.Handler):
             try:
                 os.chmod(full_path, new_file_permissions)
             except OSError as e:
-                logger.warning("OSError while changing ownership of the log file. ", e)
+                logger.warning("OSError while changing ownership of the log file. %s", e)
 
         return full_path
 

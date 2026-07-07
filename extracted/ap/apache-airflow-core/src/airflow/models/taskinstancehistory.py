@@ -118,6 +118,12 @@ class TaskInstanceHistory(Base):
     task_display_name: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     dag_version_id: Mapped[UUID | None] = mapped_column(Uuid(), nullable=True)
 
+    # Retry policy snapshot: copied from TaskInstance on record_ti() so the
+    # audit trail of "why did the policy decide N seconds, reason X" is
+    # preserved per try (TI columns are cleared on the next ti_run).
+    retry_delay_override: Mapped[float | None] = mapped_column(Float, nullable=True)
+    retry_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     dag_version = relationship(
         "DagVersion",
         primaryjoin="TaskInstanceHistory.dag_version_id == DagVersion.id",
@@ -132,7 +138,7 @@ class TaskInstanceHistory(Base):
         foreign_keys=[run_id, dag_id],
     )
 
-    hitl_detail = relationship("HITLDetailHistory", lazy="noload", uselist=False)
+    hitl_detail = relationship("HITLDetailHistory", lazy="raise", uselist=False)
 
     def __init__(
         self,
@@ -189,7 +195,7 @@ class TaskInstanceHistory(Base):
 
     @staticmethod
     @provide_session
-    def record_ti(ti: TaskInstance, session: Session = NEW_SESSION) -> None:
+    def record_ti(ti: TaskInstance, *, session: Session = NEW_SESSION) -> None:
         """Record a TaskInstance to TaskInstanceHistory."""
         exists_q = session.scalar(
             select(func.count(TaskInstanceHistory.task_id)).where(
@@ -215,6 +221,6 @@ class TaskInstanceHistory(Base):
             session.add(HITLDetailHistory(ti_hitl_detail))
 
     @provide_session
-    def get_dagrun(self, session: Session = NEW_SESSION) -> DagRun:
+    def get_dagrun(self, *, session: Session = NEW_SESSION) -> DagRun:
         """Return the DagRun for this TaskInstanceHistory, matching TaskInstance."""
         return self.dag_run

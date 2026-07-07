@@ -9,14 +9,17 @@ eliminating materialised intermediate arrays.
 from pytensor.compile import optdb
 from pytensor.compile.builders import OpFromGraph
 from pytensor.graph import node_rewriter
+from pytensor.graph.basic import Constant
 from pytensor.graph.rewriting.basic import GraphRewriter, dfs_rewriter
 from pytensor.graph.rewriting.db import SequenceDB
 from pytensor.graph.rewriting.unify import OpPattern
 from pytensor.graph.utils import InconsistencyError
 from pytensor.printing import op_debug_information
 from pytensor.scalar.basic import Composite
+from pytensor.tensor.basic import MakeVector
 from pytensor.tensor.elemwise import DimShuffle, Elemwise
 from pytensor.tensor.rewriting.elemwise import InplaceElemwiseOptimizer
+from pytensor.tensor.rewriting.subtensor import _is_shape_of_x_at
 from pytensor.tensor.shape import Reshape, shape_padright
 from pytensor.tensor.subtensor import (
     AdvancedIncSubtensor,
@@ -95,6 +98,51 @@ def _unwrap_axis_swapped_subtensor1(fgraph, var):
     return source, idx_var, axis
 
 
+def _unwrap_reshaped_take(fgraph, reshape_node):
+    """Unwrap ``Reshape(AdvancedSubtensor1(x, idx), S)`` into an ND take.
+
+    Matches any reshape that regroups only the taken axis: the leading and
+    trailing entries of ``S`` must provably pass through ``source``'s dims
+    (``transform_take``'s flatten+reshape form is the common instance). The
+    regrouped block becomes the ND index, so ``x[idx].reshape(S)`` turns into
+    ``x[idx.reshape(S[axis:...])]`` — the index reshape raises on exactly the
+    sizes the original reshape would have raised on. Returns
+    ``(source, nd_idx, axis)``, or ``None`` if the node doesn't match.
+    """
+    result = _unwrap_axis_swapped_subtensor1(fgraph, reshape_node.inputs[0])
+    if result is None:
+        return None
+    source, idx, axis = result
+
+    shape_input = reshape_node.inputs[1]
+    if isinstance(shape_input, Constant):
+        entries = [int(v) for v in shape_input.data]
+    elif shape_input.owner is not None and isinstance(shape_input.owner.op, MakeVector):
+        entries = list(shape_input.owner.inputs)
+    else:
+        return None
+
+    n_trail = source.type.ndim - axis - 1
+    k = len(entries) - axis - n_trail
+    if k < 2:
+        return None
+
+    def passes_through(entry, dim):
+        if isinstance(entry, int):
+            return source.type.shape[dim] == entry
+        return _is_shape_of_x_at(entry, source, dim)
+
+    if not all(passes_through(entries[d], d) for d in range(axis)):
+        return None
+    if not all(
+        passes_through(entries[axis + k + t], axis + 1 + t) for t in range(n_trail)
+    ):
+        return None
+
+    nd_idx = idx.reshape(entries[axis : axis + k])
+    return source, nd_idx, axis
+
+
 @node_rewriter([OpPattern(DimShuffle, is_transpose=True)])
 def undo_take_dimshuffle_for_fusion(fgraph, node):
     """Undo ``DimShuffle(AdvancedSubtensor1(DimShuffle(x), idx))`` -> ``AdvancedSubtensor(x, :, ..., idx, :, ...)``.
@@ -106,7 +154,7 @@ def undo_take_dimshuffle_for_fusion(fgraph, node):
     on the correct axis.
 
     See also ``undo_take_reshape_for_fusion`` which handles the analogous
-    Reshape+flatten pattern for ND indices.
+    Reshape pattern for ND indices.
     """
     # Outer DimShuffle must be consumed only by a single Elemwise
     clients = fgraph.clients[node.outputs[0]]
@@ -130,12 +178,14 @@ def undo_take_dimshuffle_for_fusion(fgraph, node):
 
 @node_rewriter([Reshape])
 def undo_take_reshape_for_fusion(fgraph, node):
-    """Undo ``Reshape(AdvancedSubtensor1(x, flatten(idx)), shape)`` for ND indices.
+    """Rewrite ``Reshape(AdvancedSubtensor1(x, idx), S)`` into an ND take.
 
-    ``transform_take`` rewrites ``x[mat_idx]`` (ND integer index) into
-    ``AdvancedSubtensor1(x, mat_idx.ravel()).reshape(mat_idx.shape + ...)``,
-    possibly with DimShuffle axis-swaps for non-zero axes.  This rewrite
-    undoes that so ``FuseIndexedElemwise`` can absorb the ND index directly.
+    Turns a take whose result is reshaped only along the taken axis into a
+    single ``AdvancedSubtensor`` with an ND index, so ``FuseIndexedElemwise``
+    can absorb the indexing directly.  Covers the ``transform_take`` normal
+    form for ND indices (``x[mat_idx]`` becomes ``x[mat_idx.ravel()].reshape(
+    mat_idx.shape + ...)``) but also any equivalent regrouping; see
+    ``_unwrap_reshaped_take`` for the exact conditions.
     """
     [reshape_out] = node.outputs
 
@@ -147,25 +197,16 @@ def undo_take_reshape_for_fusion(fgraph, node):
     if not isinstance(client_node.op, Elemwise):
         return None
 
-    result = _unwrap_axis_swapped_subtensor1(fgraph, node.inputs[0])
+    result = _unwrap_reshaped_take(fgraph, node)
     if result is None:
         return None
-    source, flat_idx, axis = result
+    source, nd_idx, axis = result
 
-    # The index input to AdvancedSubtensor1 must be Reshape{1}(mat_idx, [-1]) (flatten)
-    if flat_idx.owner is None or not isinstance(flat_idx.owner.op, Reshape):
-        return None
-    if flat_idx.owner.op.ndim != 1:
-        return None
-    mat_idx = flat_idx.owner.inputs[0]
-    if mat_idx.ndim < 2:
-        return None
-
-    # Build AdvancedSubtensor: source[:, ..., mat_idx, :, ...]
+    # Build AdvancedSubtensor: source[:, ..., nd_idx, :, ...]
     src_ndim = source.type.ndim
     idx_list = [slice(None)] * src_ndim
     idx_list[axis] = 0  # pointer to the single index variable
-    new_out = AdvancedSubtensor(idx_list=idx_list)(source, mat_idx)
+    new_out = AdvancedSubtensor(idx_list=idx_list)(source, nd_idx)
     return [new_out]
 
 
@@ -368,6 +409,12 @@ class FuseIndexedElemwise(GraphRewriter):
         pairs = []
         for axis, entry in enumerate(op.idx_list):
             if isinstance(entry, slice):
+                # The fused loop substitutes the full source array and iterates
+                # non-indexed axes wholesale, so it can only carry a full slice.
+                # A bounded/stepped basic slice would change the axis extent or
+                # offset, which it can't represent -- don't fuse.
+                if entry != slice(None):
+                    return None
                 continue
             idx = idx_vars[entry]
             if not isinstance(idx, TensorVariable) or idx.type.dtype == "bool":
@@ -399,7 +446,11 @@ class FuseIndexedElemwise(GraphRewriter):
             s_outputs.append(s_outputs[out_idx])
 
         new_scalar_op = Composite(s_inputs, s_outputs)
-        new_node = Elemwise(new_scalar_op).make_node(*node.inputs)
+        # Duplicates are appended after the original outputs, so the node's
+        # inplace pattern carries over unchanged (duplicates get no entries).
+        new_node = Elemwise(new_scalar_op, dict(node.op.inplace_pattern)).make_node(
+            *node.inputs
+        )
         return new_node, dup_map
 
     @staticmethod
@@ -589,35 +640,13 @@ class FuseIndexedElemwise(GraphRewriter):
                 worklist.append(node)
                 continue
 
-            indexed_reads = {i for reads, _ in idx_groups.values() for i in reads}
-
-            # If any inplace targets an indexed-read input,
-            # strip and re-run inplace with those inputs protected
-            if any(
-                inp_idx in indexed_reads for inp_idx in node.op.inplace_pattern.values()
-            ):
-                stripped_node = Elemwise(node.op.scalar_op).make_node(*node.inputs)
-                fgraph.replace_all(
-                    zip(node.outputs, stripped_node.outputs),
-                    reason="fuse_indexed_elemwise_strip_inplace",
-                )
-                protected = frozenset(stripped_node.inputs[i] for i in indexed_reads)
-                # try_inplace_on_node does its own fgraph.replace_all internally,
-                # so the returned node is already in the fgraph
-                new_inplace_node = InplaceElemwiseOptimizer().try_inplace_on_node(
-                    fgraph,
-                    stripped_node,
-                    reason="fuse_indexed_elemwise_inplace_read_buffers",
-                    extra_protected_inputs=protected,
-                )
-                worklist.append(new_inplace_node)
-                continue
-
             # If any indexed-write output also has other consumers,
             # duplicate it via Composite so the write replaces the duplicate
             # while the original stays available for non-write consumers.
             # We still avoid one extra write loop,
-            # even if we can't skip the output materialization altogether
+            # even if we can't skip the output materialization altogether.
+            # This runs before the strip-inplace pass below, so an inplace on the
+            # materialized original survives the fusion.
             def _has_non_write_clients(out_idx):
                 update = write_targets[out_idx]
                 for c, _ in fgraph.clients[node.outputs[out_idx]]:
@@ -658,12 +687,55 @@ class FuseIndexedElemwise(GraphRewriter):
                 worklist.append(new_node)
                 continue
 
+            indexed_reads = {i for reads, _ in idx_groups.values() for i in reads}
+
+            # If any inplace targets an indexed-read input, or claims an indexed-write
+            # output (the loop writes the result to the write buffer instead, so the
+            # input destruction would happen only in the Python-mode fallback,
+            # undeclared by the outer destroy map), strip and re-run inplace with
+            # those inputs protected and outputs excluded. The duplication above ran
+            # first, so write-target outputs here are sole-client.
+            if any(
+                inp_idx in indexed_reads for inp_idx in node.op.inplace_pattern.values()
+            ) or any(out_idx in write_targets for out_idx in node.op.inplace_pattern):
+                stripped_node = Elemwise(node.op.scalar_op).make_node(*node.inputs)
+                fgraph.replace_all(
+                    zip(node.outputs, stripped_node.outputs),
+                    reason="fuse_indexed_elemwise_strip_inplace",
+                )
+                optimizer = InplaceElemwiseOptimizer()
+                protected = optimizer._get_protected_inputs(fgraph)
+                protected.update(stripped_node.inputs[i] for i in indexed_reads)
+                # Candidates are plain-Elemwise (output, input) pairs; exclude
+                # outputs the fusion is about to consume as indexed writes
+                candidate_pairs = [
+                    pair
+                    for pair in optimizer.filter_candidate_pairs(
+                        fgraph, stripped_node, protected
+                    )
+                    if pair[0][0] not in write_targets
+                ]
+                # try_inplace_on_node does its own fgraph.replace_all internally,
+                # so the returned node is already in the fgraph
+                new_inplace_node = optimizer.try_inplace_on_node(
+                    fgraph,
+                    stripped_node,
+                    candidate_pairs=candidate_pairs,
+                    reason="fuse_indexed_elemwise_inplace_read_buffers",
+                )
+                worklist.append(new_inplace_node)
+                continue
+
             idx_vars = [idx for idx, _axis in idx_groups]
 
+            # The strip-inplace pass above guarantees that indexed-write outputs
+            # carry no inplace
+            assert not any(
+                out_idx in write_targets for out_idx in node.op.inplace_pattern
+            )
             fgraph_destroy_map = {
                 out_idx: [inp_idx]
                 for out_idx, inp_idx in node.op.inplace_pattern.items()
-                if out_idx not in write_targets
             }
 
             # Fgraph inputs: substitute indexed sources back to their

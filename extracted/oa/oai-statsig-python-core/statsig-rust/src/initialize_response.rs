@@ -1,6 +1,7 @@
 use crate::{
     evaluation::evaluation_types::{AnyConfigEvaluation, GateEvaluation, LayerEvaluation},
     gcir::gcir_formatter::EvaluatedKeys,
+    interned_string::InternedString,
     specs_response::{
         param_store_types::Parameter,
         spec_types::{SessionReplayPrivacySetting, SessionReplayTrigger},
@@ -15,9 +16,9 @@ use std::collections::HashMap;
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize)]
 pub struct InitializeResponse {
-    pub feature_gates: HashMap<String, GateEvaluation>,
-    pub dynamic_configs: HashMap<String, AnyConfigEvaluation>,
-    pub layer_configs: HashMap<String, LayerEvaluation>,
+    pub feature_gates: HashMap<InternedString, GateEvaluation>,
+    pub dynamic_configs: HashMap<InternedString, AnyConfigEvaluation>,
+    pub layer_configs: HashMap<InternedString, LayerEvaluation>,
     pub time: u64,
     pub has_updates: bool,
     pub hash_used: String,

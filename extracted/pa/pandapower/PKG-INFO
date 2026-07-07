@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pandapower
-Version: 3.4.0
+Version: 3.5.2
 Summary: An easy to use open source tool for power system modeling, analysis and optimization with a high degree of automation.
 Author-email: Leon Thurner <leon.thurner@retoflow.de>, Alexander Scheidler <alexander.scheidler@iee.fraunhofer.de>, Mike Vogt <mike.vogt@iee.fraunhofer.de>
 Maintainer-email: pandapower Developers <info@pandapower.org>
@@ -57,13 +57,13 @@ Requires-Dist: igraph; extra == "plotting"
 Requires-Dist: geopandas~=1.1; extra == "plotting"
 Provides-Extra: test
 Requires-Dist: pytest~=9.0; extra == "test"
-Requires-Dist: pytest-xdist~=3.8; extra == "test"
 Requires-Dist: nbmake~=1.5; extra == "test"
 Requires-Dist: pytest-timeout; extra == "test"
+Requires-Dist: pytest-split; extra == "test"
 Provides-Extra: performance
 Requires-Dist: ortools~=9.14; extra == "performance"
 Requires-Dist: numba~=0.61; extra == "performance"
-Requires-Dist: lightsim2grid~=0.12.2; extra == "performance"
+Requires-Dist: lightsim2grid~=0.13.0; extra == "performance"
 Provides-Extra: fileio
 Requires-Dist: xlsxwriter~=3.2; extra == "fileio"
 Requires-Dist: openpyxl~=3.1; extra == "fileio"
@@ -79,9 +79,12 @@ Requires-Dist: power-grid-model-io~=1.2; extra == "pgm"
 Provides-Extra: control
 Requires-Dist: shapely~=2.1; extra == "control"
 Provides-Extra: pandamodels
-Requires-Dist: juliacall~=0.9; extra == "pandamodels"
+Requires-Dist: juliacall<=0.9.32; extra == "pandamodels"
+Provides-Extra: opendss
+Requires-Dist: OpenDSSDirect.py~=0.9; extra == "opendss"
 Provides-Extra: tutorials
-Requires-Dist: juliacall~=0.9; extra == "tutorials"
+Requires-Dist: julia; extra == "tutorials"
+Requires-Dist: juliacall<=0.9.32; extra == "tutorials"
 Requires-Dist: seaborn; extra == "tutorials"
 Requires-Dist: jupyter; extra == "tutorials"
 Requires-Dist: notebook; extra == "tutorials"
@@ -89,20 +92,19 @@ Provides-Extra: typing
 Requires-Dist: mypy~=1.18; extra == "typing"
 Requires-Dist: pandas-stubs~=2.3; extra == "typing"
 Requires-Dist: types-shapely~=2.1; extra == "typing"
-Requires-Dist: types-psycopg2~=2.9; extra == "typing"
 Requires-Dist: types-openpyxl~=3.1; extra == "typing"
 Requires-Dist: types-networkx~=3.4; extra == "typing"
 Requires-Dist: types-tqdm~=4.67; extra == "typing"
-Requires-Dist: scipy-stubs~=1.15; extra == "typing"
+Requires-Dist: scipy-stubs<1.18,>=1.15; extra == "typing"
 Requires-Dist: pandera[mypy]~=0.26.1; extra == "typing"
+Requires-Dist: psycopg~=3.2; extra == "typing"
 Provides-Extra: all
-Requires-Dist: pandapower[control,converter,fileio,performance,pgm,plotting]; extra == "all"
+Requires-Dist: pandapower[control,converter,fileio,opendss,performance,pgm,plotting]; extra == "all"
 Provides-Extra: dev
 Requires-Dist: pandapower[all,docs,pandamodels,test,tutorials,typing]; extra == "dev"
 Dynamic: license-file
 
-
-.. image:: https://www.pandapower.org/images/pp.svg
+.. image:: https://www.pandapower.org/images/pandapower_color.svg
    :target: https://www.pandapower.org
    :alt: logo
 
@@ -117,7 +119,7 @@ Dynamic: license-file
    :alt: versions
 
 .. image:: https://readthedocs.org/projects/pandapower/badge/
-   :target: http://pandapower.readthedocs.io/
+   :target: https://pandapower.readthedocs.io/
    :alt: docs
 
 .. image:: https://codecov.io/github/e2nIEE/pandapower/coverage.svg?branch=master
@@ -145,10 +147,12 @@ Dynamic: license-file
 
 
 pandapower is an easy to use network calculation program aimed to automate the analysis and optimization of power
-systems. It uses the data analysis library `pandas <http://pandas.pydata.org>`_ and is compatible with the commonly
+systems. It uses the data analysis library `pandas <https://pandas.pydata.org>`_ and is compatible with the commonly
 used MATPOWER / PYPOWER case format. pandapower allows using different solvers including an improved Newton-Raphson
-power flow implementation, all `PYPOWER <https://pypi.python.org/pypi/PYPOWER>`_ solvers, the C++ library solvers for fast steady-state distribution power system analysis of `PowerGridModel <https://github.com/PowerGridModel/power-grid-model>`_, the Newton-Raphson power flow solvers in the C++ library `lightsim2grid <https://github.com/BDonnot/lightsim2grid/>`_, and the
-`PowerModels.jl <https://github.com/lanl-ansi/PowerModels.jl/>`_ library.
+power flow implementation, all `PYPOWER <https://pypi.python.org/pypi/PYPOWER>`_ solvers, the C++ library solvers for
+fast steady-state distribution power system analysis of `PowerGridModel <https://github.com/PowerGridModel/power-grid-model>`_,
+the Newton-Raphson power flow solvers in the C++ library `lightsim2grid <https://github.com/BDonnot/lightsim2grid/>`_,
+and the `PowerModels.jl <https://github.com/lanl-ansi/PowerModels.jl/>`_ library.
 
 More information about pandapower can be found on `www.pandapower.org <https://www.pandapower.org/>`_:
 
@@ -175,20 +179,21 @@ To get realistic load profile data and grid models across all voltage levels tha
 be used in pandapower, have a look at the *SimBench* `project website <https://www.simbench.net>`_ or
 `on GitHub <https://github.com/e2nIEE/simbench>`_.
 
-.. image:: https://www.pandapipes.org/images/pp.svg
+.. image:: https://www.pandapipes.org/images/pandapipes_color.svg
    :target: https://www.pandapipes.org
    :width: 270pt
    :alt: pandapipes_logo
 
 If you want to model pipe networks (heat, gas or water) as well, we recommend
-pandapower's sibling project *pandapipes* (`website <https://www.pandapipes.org>`_, `GitHub repository <https://github.com/e2nIEE/pandapipes>`_).
+pandapower's sibling project *pandapipes*. `pandapipes.org <https://www.pandapipes.org>`__,
+`GitHub repository <https://github.com/e2nIEE/pandapipes>`__.
 
 |
 
 pandapower is a joint development of the research group of the Department for Sustainable Electrical Energy Systems (e2n), University of Kassel and the Department for Distribution System
 Operation at the Fraunhofer Institute for Energy Economics and Energy System Technology (IEE), Kassel.
 
-.. image:: http://www.pandapower.org/images/contact/Logo_e2n.png
+.. image:: https://www.pandapower.org/images/contact/Logo_e2n.png
     :target: https://www.uni-kassel.de/eecs/en/sections/energiemanagement-und-betrieb-elektrischer-netze/home
     :width: 500
 
@@ -200,4 +205,5 @@ Operation at the Fraunhofer Institute for Energy Economics and Energy System Tec
 
 |
 
-We welcome contributions to pandapower of any kind - if you want to contribute, please check out the `pandapower contribution guidelines <https://github.com/e2nIEE/pandapower/blob/develop/CONTRIBUTING.rst>`_.
+We welcome contributions to pandapower of any kind - if you want to contribute, please check out the
+`contribution guidelines <https://github.com/e2nIEE/pandapower/blob/develop/CONTRIBUTING.rst>`__.

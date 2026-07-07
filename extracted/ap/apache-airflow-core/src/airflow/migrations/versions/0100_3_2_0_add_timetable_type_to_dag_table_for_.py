@@ -30,8 +30,6 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-from airflow.migrations.utils import disable_sqlite_fkeys
-
 # revision identifiers, used by Alembic.
 revision = "e79fc784f145"
 down_revision = "0b112f49112d"
@@ -42,6 +40,8 @@ airflow_version = "3.2.0"
 
 def upgrade():
     """Apply add timetable_type to dag table for filtering."""
+    from airflow.migrations.utils import disable_sqlite_fkeys
+
     with disable_sqlite_fkeys(op):
         with op.batch_alter_table("dag", schema=None) as batch_op:
             batch_op.add_column(sa.Column("timetable_type", sa.String(length=255)))
@@ -54,6 +54,8 @@ def upgrade():
 
 def downgrade():
     """Unapply add timetable_type to dag table for filtering."""
+    from airflow.migrations.utils import disable_sqlite_fkeys
+
     with disable_sqlite_fkeys(op):
         with op.batch_alter_table("dag", schema=None) as batch_op:
             batch_op.drop_column("timetable_type")

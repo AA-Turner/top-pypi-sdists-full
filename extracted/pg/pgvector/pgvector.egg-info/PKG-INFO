@@ -1,21 +1,20 @@
 Metadata-Version: 2.4
 Name: pgvector
-Version: 0.4.2
+Version: 0.5.0
 Summary: pgvector support for Python
 Author-email: Andrew Kane <andrew@ankane.org>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/pgvector/pgvector-python
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: numpy
 Dynamic: license-file
 
 # pgvector-python
 
 [pgvector](https://github.com/pgvector/pgvector) support for Python
 
-Supports [Django](https://github.com/django/django), [SQLAlchemy](https://github.com/sqlalchemy/sqlalchemy), [SQLModel](https://github.com/tiangolo/sqlmodel), [Psycopg 3](https://github.com/psycopg/psycopg), [Psycopg 2](https://github.com/psycopg/psycopg2), [asyncpg](https://github.com/MagicStack/asyncpg), [pg8000](https://github.com/tlocke/pg8000), and [Peewee](https://github.com/coleifer/peewee)
+Supports [Django](https://github.com/django/django), [SQLAlchemy](https://github.com/sqlalchemy/sqlalchemy), [SQLModel](https://github.com/tiangolo/sqlmodel), [Psycopg 3](https://github.com/psycopg/psycopg), [Psycopg 2](https://github.com/psycopg/psycopg2), [asyncpg](https://github.com/MagicStack/asyncpg), [pg8000](https://codeberg.org/tlocke/pg8000), and [Peewee](https://github.com/coleifer/peewee)
 
 [![Build Status](https://github.com/pgvector/pgvector-python/actions/workflows/build.yml/badge.svg)](https://github.com/pgvector/pgvector-python/actions)
 
@@ -190,10 +189,10 @@ session.execute(text('CREATE EXTENSION IF NOT EXISTS vector'))
 Add a vector column
 
 ```python
-from pgvector.sqlalchemy import Vector
+from pgvector.sqlalchemy import VECTOR
 
 class Item(Base):
-    embedding = mapped_column(Vector(3))
+    embedding: Mapped[list[float]] = mapped_column(VECTOR(3))
 ```
 
 Also supports `HALFVEC`, `BIT`, and `SPARSEVEC`
@@ -319,11 +318,11 @@ session.scalars(select(subquery).order_by(subquery.c.embedding.cosine_distance([
 Add an array column
 
 ```python
-from pgvector.sqlalchemy import Vector
+from pgvector.sqlalchemy import VECTOR
 from sqlalchemy import ARRAY
 
 class Item(Base):
-    embeddings = mapped_column(ARRAY(Vector(3)))
+    embeddings: Mapped[list[list[float]]] = mapped_column(ARRAY(VECTOR(3), dimensions=1))
 ```
 
 And register the types with the underlying driver
@@ -358,7 +357,7 @@ from sqlalchemy import event
 
 @event.listens_for(engine, "connect")
 def connect(dbapi_connection, connection_record):
-    register_vector(dbapi_connection, arrays=True)
+    register_vector(dbapi_connection)
 ```
 
 ## SQLModel
@@ -372,10 +371,10 @@ session.exec(text('CREATE EXTENSION IF NOT EXISTS vector'))
 Add a vector column
 
 ```python
-from pgvector.sqlalchemy import Vector
+from pgvector.sqlalchemy import VECTOR
 
 class Item(SQLModel, table=True):
-    embedding: Any = Field(sa_type=Vector(3))
+    embedding: list[float] = Field(sa_type=VECTOR(3))
 ```
 
 Also supports `HALFVEC`, `BIT`, and `SPARSEVEC`
@@ -486,7 +485,9 @@ conn.execute('CREATE TABLE items (id bigserial PRIMARY KEY, embedding vector(3))
 Insert a vector
 
 ```python
-embedding = np.array([1, 2, 3])
+from pgvector import Vector
+
+embedding = Vector([1, 2, 3])
 conn.execute('INSERT INTO items (embedding) VALUES (%s)', (embedding,))
 ```
 
@@ -532,7 +533,9 @@ cur.execute('CREATE TABLE items (id bigserial PRIMARY KEY, embedding vector(3))'
 Insert a vector
 
 ```python
-embedding = np.array([1, 2, 3])
+from pgvector import Vector
+
+embedding = Vector([1, 2, 3])
 cur.execute('INSERT INTO items (embedding) VALUES (%s)', (embedding,))
 ```
 
@@ -587,7 +590,9 @@ await conn.execute('CREATE TABLE items (id bigserial PRIMARY KEY, embedding vect
 Insert a vector
 
 ```python
-embedding = np.array([1, 2, 3])
+from pgvector import Vector
+
+embedding = Vector([1, 2, 3])
 await conn.execute('INSERT INTO items (embedding) VALUES ($1)', embedding)
 ```
 
@@ -632,7 +637,9 @@ conn.run('CREATE TABLE items (id bigserial PRIMARY KEY, embedding vector(3))')
 Insert a vector
 
 ```python
-embedding = np.array([1, 2, 3])
+from pgvector import Vector
+
+embedding = Vector([1, 2, 3])
 conn.run('INSERT INTO items (embedding) VALUES (:embedding)', embedding=embedding)
 ```
 
@@ -710,6 +717,32 @@ Item.add_index('embedding vector_l2_ops', using='hnsw')
 Use `vector_ip_ops` for inner product and `vector_cosine_ops` for cosine distance
 
 ## Reference
+
+### Vectors
+
+Create a vector from a list
+
+```python
+vec = Vector([1, 2, 3])
+```
+
+Or a NumPy array
+
+```python
+vec = Vector(np.array([1, 2, 3]))
+```
+
+Get a list
+
+```python
+lst = vec.to_list()
+```
+
+Get a NumPy array
+
+```python
+arr = vec.to_numpy()
+```
 
 ### Half Vectors
 
@@ -820,7 +853,7 @@ To get started with development:
 ```sh
 git clone https://github.com/pgvector/pgvector-python.git
 cd pgvector-python
-pip install -r requirements.txt
+pip install --group dev
 createdb pgvector_python_test
 pytest
 ```
@@ -829,7 +862,7 @@ To run an example:
 
 ```sh
 cd examples/loading
-pip install -r requirements.txt
+pip install --group dev
 createdb pgvector_example
 python3 example.py
 ```

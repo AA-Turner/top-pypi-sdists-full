@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from contextlib import suppress
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any
@@ -10,6 +11,7 @@ from typing import Any
 from aigie.auto_instrument.trace import get_or_create_trace_sync
 from aigie.context_manager import merge_metadata
 from aigie.integrations.strands import _spans
+from aigie.tracing.session import current_workflow_root, trace_session
 from aigie.tracing.span_event_handler import SpanEventHandler
 from aigie.tracing.trace_state import (
     close_ambient,
@@ -17,6 +19,7 @@ from aigie.tracing.trace_state import (
     is_inside_traced_run,
     open_ambient,
 )
+from aigie.tracing.usage import llm_span_payload
 
 
 @dataclass
@@ -31,6 +34,10 @@ _model_stack: ContextVar[tuple[str, ...]] = ContextVar("_aigie_strands_model_sta
 
 _BASE_META = {"framework": "strands", "type": "strands"}
 _NODE_META = {**_BASE_META, "kind": "node"}
+
+# A root_inv_key inside a strands_session that no real invocation key equals, so
+# every invocation is a child of the session's workflow root and none finalizes.
+_SESSION_SENTINEL = "__aigie_strands_session__"
 
 
 class StrandsHookProvider:
@@ -118,17 +125,22 @@ class StrandsHookProvider:
             boundary.root_inv_key = key
         is_root = key == boundary.root_inv_key
         messages = getattr(event, "messages", None)
+        input_value = (
+            _spans.messages_to_input(messages, self._limit())
+            if self._flag("capture_inputs")
+            else None
+        )
         self.spans.open_span(
             run_id=key,
             parent_run_id=None,
             name=name,
             span_type="workflow" if is_root else "agent",
-            input=_spans.messages_to_input(messages, self._limit())
-            if self._flag("capture_inputs")
-            else None,
+            input=input_value,
             metadata=merge_metadata(_BASE_META),
             span_id=boundary.trace_id if is_root else None,
         )
+        if (root := current_workflow_root()) is not None:
+            root.note_input(input_value)
 
     def _on_after_invocation(self, event: Any) -> None:
         if not self._flag("trace_agents"):
@@ -139,13 +151,16 @@ class StrandsHookProvider:
         key = f"inv:{id(event.agent)}"
         self._reassert_ambient()
         result = getattr(event, "result", None)
+        output_value = (
+            _spans.result_output(result, self._limit()) if self._flag("capture_outputs") else None
+        )
         self.spans.close_span(
             run_id=key,
-            output=_spans.result_output(result, self._limit())
-            if self._flag("capture_outputs")
-            else None,
+            output=output_value,
             metadata_updates=_spans.usage_metadata(result),
         )
+        if (root := current_workflow_root()) is not None:
+            root.note_output(output_value)
         if key == boundary.root_inv_key:
             self._finalize_trace()
 
@@ -188,7 +203,14 @@ class StrandsHookProvider:
         output = None
         if stop is not None and self._flag("capture_outputs"):
             output = _spans.truncate(getattr(stop, "message", None), self._limit())
-        self.spans.close_span(run_id=run_id, output=output)
+        agent = getattr(event, "agent", None)
+        extras, usage_md = llm_span_payload(
+            _spans.usage_mapping(stop) if stop is not None else None,
+            model_id=_spans.model_id(agent),
+        )
+        self.spans.close_span(
+            run_id=run_id, output=output, extras=extras or None, metadata_updates=usage_md or None
+        )
 
     # -- Tool call -------------------------------------------------------------
 
@@ -255,6 +277,7 @@ class StrandsHookProvider:
             return
         key = f"ma:{id(event.source)}"
         self._reassert_ambient()
+        self._sweep_open_nodes(event.source)
         self.spans.close_span(run_id=key, output=None)
         if key == boundary.root_inv_key:
             self._finalize_trace()
@@ -281,9 +304,23 @@ class StrandsHookProvider:
     def _on_after_node(self, event: Any) -> None:
         if not self._flag("trace_multi_agent") or _boundary.get() is None:
             return
-        node_id = event.node_id
         self._reassert_ambient()
-        self.spans.close_span(run_id=f"node:{node_id}", output=None)
+        self._finish_node(event.source, event.node_id)
+
+    def _finish_node(self, source: Any, node_id: str) -> None:
+        """Close a node span with the status Strands recorded."""
+        run_id = f"node:{node_id}"
+        error = _spans.node_failure(source, node_id)
+        if error is not None:
+            self.spans.fail_span(run_id=run_id, error=error)
+        else:
+            self.spans.close_span(run_id=run_id, output=None)
+
+    def _sweep_open_nodes(self, source: Any) -> None:
+        """Close node spans that missed an after-node event."""
+        for node_id in _spans.node_ids(source):
+            if self.spans.is_open(f"node:{node_id}"):
+                self._finish_node(source, node_id)
 
     # -- helpers ---------------------------------------------------------------
 
@@ -300,3 +337,35 @@ class StrandsHookProvider:
 
     def _zero_retention(self) -> bool:
         return bool(getattr(self._config, "zero_retention", False))
+
+
+# -- Session grouping ---------------------------------------------------------
+
+
+def _active_provider() -> StrandsHookProvider | None:
+    """The installed hook provider (holds the shared emitter), if patching is on."""
+    from aigie.integrations.strands.lifecycle import active_provider
+
+    return active_provider()
+
+
+@contextmanager
+def strands_session(name: str = "Strands Session") -> Iterator[str | None]:
+    """Group sequential top-level Strands calls (e.g. ``agent()`` +
+    ``structured_output()``) into one trace, via the shared ``trace_session``.
+
+    The sentinel boundary makes every invocation a child of the session's
+    workflow root and suppresses per-invocation finalize (no invocation key
+    matches ``_SESSION_SENTINEL``).
+    """
+    provider = _active_provider()
+    spans = provider.spans if provider is not None else None
+    with trace_session(spans, name=name, framework="strands") as trace_id:
+        if trace_id is None or _boundary.get() is not None:
+            yield trace_id
+            return
+        token = _boundary.set(_Boundary(trace_id=trace_id, root_inv_key=_SESSION_SENTINEL))
+        try:
+            yield trace_id
+        finally:
+            _boundary.reset(token)

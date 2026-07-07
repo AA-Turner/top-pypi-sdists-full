@@ -1,21 +1,29 @@
-import numpy as np
-from psycopg2.extensions import adapt, new_array_type, new_type, register_adapter, register_type
+from __future__ import annotations
+from psycopg2.extensions import adapt, connection, cursor, new_array_type, new_type, register_adapter, register_type
+from typing import Any
 from .. import Vector
+from .._utils import ndarray
 
 
 class VectorAdapter:
-    def __init__(self, value):
+    def __init__(self, value: Vector | ndarray) -> None:
+        if not isinstance(value, Vector):
+            value = Vector(value)
         self._value = value
 
-    def getquoted(self):
-        return adapt(Vector._to_db(self._value)).getquoted()
+    def getquoted(self) -> Any:
+        return adapt(self._value.to_text()).getquoted()
 
 
-def cast_vector(value, cur):
-    return Vector._from_db(value)
+def cast_vector(value: str | bytes | None, cur: cursor) -> Vector | None:
+    if value is None:
+        return None
+    if isinstance(value, bytes):
+        raise ValueError('expected str')
+    return Vector.from_text(value)
 
 
-def register_vector_info(oid, array_oid, scope):
+def register_vector_info(oid: int, array_oid: int | None, scope: connection | cursor | None, /) -> None:
     vector = new_type((oid,), 'VECTOR', cast_vector)
     register_type(vector, scope)
 
@@ -23,5 +31,10 @@ def register_vector_info(oid, array_oid, scope):
         vectorarray = new_array_type((array_oid,), 'VECTORARRAY', vector)
         register_type(vectorarray, scope)
 
-    register_adapter(np.ndarray, VectorAdapter)
     register_adapter(Vector, VectorAdapter)
+
+    try:
+        import numpy as np
+        register_adapter(np.ndarray, VectorAdapter)
+    except ImportError:
+        pass

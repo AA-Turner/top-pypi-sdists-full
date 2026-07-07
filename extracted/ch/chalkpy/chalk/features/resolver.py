@@ -3048,7 +3048,6 @@ def sink(
     name: str | None = None,
 ) -> Union[Callable[[Callable[P, T]], ResolverProtocol[P, T]], ResolverProtocol[P, T]]:
     """Decorator to create a sink.
-    Read more at https://docs.chalk.ai/docs/sinks
 
     Parameters
     ----------

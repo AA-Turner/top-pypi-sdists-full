@@ -182,7 +182,7 @@ def test_passing_cxx_flags(monkeypatch, env_var, setting, tmp_path: Path):
     # Note: This is sensitive to the types of quotes for SKBUILD_CMAKE_ARGS
     monkeypatch.setenv(env_var, setting)
     dist = tmp_path / "dist"
-    build_wheel(str(dist), {"cmake.targets": ["cmake_example"]})  # Could leave empty
+    build_wheel(str(dist), {"build.targets": ["cmake_example"]})  # Could leave empty
     (wheel,) = dist.glob("cmake_example-0.0.1-py3-none-*.whl")
     wheel = wheel.resolve()  # Windows mingw64 and UCRT now requires this
     wheel = wheel.resolve()  # Windows mingw64 and UCRT now requires this
@@ -206,7 +206,7 @@ def test_passing_cxx_flags(monkeypatch, env_var, setting, tmp_path: Path):
 def test_pep517_wheel(virtualenv, tmp_path: Path):
     dist = tmp_path / "dist"
     out = build_wheel(
-        str(dist), {"cmake.targets": ["cmake_example"]}
+        str(dist), {"build.targets": ["cmake_example"]}
     )  # Could leave empty
     (wheel,) = dist.glob("cmake_example-0.0.1-*.whl")
     wheel = wheel.resolve()  # Windows mingw64 and UCRT now requires this
@@ -256,7 +256,7 @@ def test_pep517_wheel(virtualenv, tmp_path: Path):
 @pytest.mark.compile
 @pytest.mark.configure
 @pytest.mark.parametrize("package", ["simple_pyproject_source_dir"], indirect=True)
-@pytest.mark.usefixtures("package", "pybind11")
+@pytest.mark.usefixtures("package")
 def test_pep517_wheel_source_dir(virtualenv, tmp_path: Path):
     dist = tmp_path / "dist"
     out = build_wheel(str(dist), config_settings={"skbuild.wheel.build-tag": "1foo"})
@@ -371,7 +371,7 @@ def test_prepare_metadata_for_build_wheel_by_hand(tmp_path):
     }
 
     for k, b in answer.items():
-        assert metadata.get(k, None) == b
+        assert metadata[k] == b
 
     assert len(metadata) == len(answer)
 
@@ -458,3 +458,45 @@ def test_pep639_license_files_wheel(tmp_path: Path):
 
     assert "LICENSE1.txt" in metadata
     assert "nested/more/LICENSE2.txt" in metadata
+
+
+def test_pep639_license_files_optout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """
+    An explicit ``license-files = []`` opts out of shipping license files, even
+    if a default-glob-matching file (LICENSE) is present in the source tree.
+    """
+    src = tmp_path / "src"
+    src.mkdir()
+    src.joinpath("pyproject.toml").write_text(
+        inspect.cleandoc(
+            """
+            [build-system]
+            requires = ["scikit-build-core"]
+            build-backend = "scikit_build_core.build"
+
+            [project]
+            name = "license_optout"
+            version = "0.1.0"
+            license = "MIT"
+            license-files = []
+
+            [tool.scikit-build]
+            wheel.cmake = false
+            """
+        )
+    )
+    # A file that would otherwise be picked up by the default license globs.
+    src.joinpath("LICENSE").write_text("Not actually shipped\n")
+    monkeypatch.chdir(src)
+
+    dist = tmp_path / "dist"
+    build_wheel(str(dist), {})
+    (wheel,) = dist.glob("license_optout-0.1.0-*.whl")
+
+    with zipfile.ZipFile(wheel) as zf:
+        names = zf.namelist()
+        with zf.open("license_optout-0.1.0.dist-info/METADATA") as f:
+            metadata = f.read().decode("utf-8")
+
+    assert not any("dist-info/licenses/" in n for n in names)
+    assert "License-File:" not in metadata

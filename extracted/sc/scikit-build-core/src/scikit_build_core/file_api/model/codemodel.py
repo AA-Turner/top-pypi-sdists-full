@@ -1,3 +1,5 @@
+__lazy_modules__ = {f"{__spec__.parent}.common", "pathlib", "typing"}
+
 import dataclasses
 from pathlib import Path
 from typing import List, Optional
@@ -94,7 +96,9 @@ class Sysroot:
 @dataclasses.dataclass(frozen=True)
 class Link:
     language: str
-    commandFragments: Optional[List[CommandFragment]]
+    commandFragments: Optional[List[CommandFragment]] = dataclasses.field(
+        default_factory=list
+    )
     lto: Optional[bool] = None
     sysroot: Optional[Sysroot] = None
 
@@ -128,7 +132,7 @@ class Target:
     id: str
     type: str
     paths: Paths
-    sources = List[Source]
+    sources: List[Source] = dataclasses.field(default_factory=list)
     nameOnDisk: Optional[Path] = None
     artifacts: List[Artifact] = dataclasses.field(default_factory=list)
     isGeneratorProvided: Optional[bool] = None

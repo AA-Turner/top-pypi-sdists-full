@@ -1,19 +1,45 @@
 """
-This is the configuration tooling for scikit-build-core. This is build around
-the :class:`Source` Protocol. Sources are created with some input (like a toml
-file for the :class:`TOMLSource`). Sources also usually have some prefix (like
-``tool.scikit-build``) as well. The :class:`SourceChain` holds a collection of
-Sources, and is the primary way to use them.
+This module implements the configuration sources used by scikit-build-core.
+Each concrete :class:`Source` adapts one input representation, such as
+environment variables, PEP 517 ``config-settings``, or nested TOML tables, into
+the same nested dataclass model. :class:`SourceChain` combines those sources and
+applies them in precedence order when building the final settings object.
 
-An end user interacts with :class:`SourceChain` via ``.convert_target``, which
-takes a Dataclass class and returns an instance with fields populated.
+An end user usually interacts with :class:`SourceChain`, which takes a
+dataclass type and returns an instance with fields populated.
 
-Example of usage::
+Example::
 
-    sources = SourceChain(TOMLSource("tool", "mypackage", settings=pyproject_dict), ...)
-    settings = sources.convert_target(SomeSettingsModel)
+    @dataclasses.dataclass
+    class ExampleSettings:
+        generator: str = "Unix Makefiles"
+        tags: list[str] = dataclasses.field(default_factory=list)
+        defines: dict[str, str] = dataclasses.field(default_factory=dict)
 
-    unrecognized_options = list(source.unrecognized_options(SomeSettingsModel)
+
+    pyproject = {
+        "tool": {
+            "example": {
+                "generator": "Unix Makefiles",
+                "defines": {"A": "1"},
+            }
+        }
+    }
+    env = {"EXAMPLE_TAGS": "fast;docs", "EXAMPLE_DEFINES": "B=2"}
+    config_settings = {"generator": "Ninja"}
+
+    sources = SourceChain(
+        EnvSource("EXAMPLE", env=env),
+        ConfSource(settings=config_settings),
+        TOMLSource("tool", "example", settings=pyproject),
+    )
+    settings = sources.convert_target(ExampleSettings)
+
+    assert settings.generator == "Ninja"
+    assert settings.tags == ["fast", "docs"]
+    assert settings.defines == {"B": "2", "A": "1"}
+
+    unrecognized_options = list(sources.unrecognized_options(ExampleSettings))
 
 
 Naming conventions:
@@ -27,6 +53,17 @@ Naming conventions:
 - ``fields`` are the tuple of strings describing a nested field in the
   ``model``.
 
+Source representations:
+
+- :class:`EnvSource`: reads values in environment variables. Lists are encoded
+  as ``"a;b"`` and dicts as ``"key=value;other=value"``.
+- :class:`ConfSource`: reads values in a flat mapping keyed by dotted option
+  names from the command line, like ``-Ca.b=c``.
+- :class:`TOMLSource`: reads values in a nested TOML mapping, like in
+  ``pyproject.toml``.
+- :class:`SourceChain`: queries sources in order and asks the first matching
+  source to convert its native value into the requested dataclass field type.
+
 When setting up your dataclasses, these types are handled:
 
 - ``str``: A string type, nothing special.
@@ -34,6 +71,7 @@ When setting up your dataclasses, these types are handled:
 - Any callable (`Path`, `Version`): Passed the string input.
 - ``Optional[T]``: Treated like T. Default should be None, since no input format supports None's.
 - ``Union[str, ...]``: Supports other input types in TOML form (bool currently). Otherwise a string.
+- ``Union[str, List[str]]``: A single string, or a list (a repeated option in config form, ``;`` separated in EnvVar/config forms, or native in TOML).
 - ``List[T]``: A list of items. `;` separated supported in EnvVar/config forms. T can be a dataclass (TOML only).
 - ``Dict[str, T]``: A table of items. TOML supports a layer of nesting. Any is supported as an item type.
 - ``Union[list[T], Dict[str, T]]`` (TOML only): A list or dict of items.
@@ -47,28 +85,31 @@ Integers/floats would be easy to add, but haven't been needed yet.
 
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "dataclasses",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat.builtins",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat.typing",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.utils.typing",
+}
+
 import dataclasses
 import os
-import sys
-import typing
-from typing import Any, Literal, Protocol, TypeVar, Union
+from typing import Any, Literal, Protocol, TypeVar
 
 from .._compat.builtins import ExceptionGroup
-from .._compat.typing import Annotated, get_args, get_origin
+from .._compat.typing import get_args
+from ..utils.typing import (
+    get_inner_type,
+    get_target_raw_type,
+    is_union_type,
+    process_annotated,
+    process_union,
+)
 
-if typing.TYPE_CHECKING:
+TYPE_CHECKING = False
+
+if TYPE_CHECKING:
     from collections.abc import Generator, Iterator, Mapping, Sequence
-
-# Runtime check for PEP 604 union syntax (A | B) support
-# types.UnionType only exists in Python 3.10+
-if sys.version_info >= (3, 10):
-    from types import NoneType
-    from types import UnionType as _UnionType
-else:
-    NoneType = type(None)
-
-    class _UnionType:
-        pass
 
 
 T = TypeVar("T")
@@ -81,22 +122,73 @@ def __dir__() -> list[str]:
 
 
 def _dig_strict(_dict: Mapping[str, Any], /, *names: str) -> Any:
+    """
+    Walk a nested mapping and return the value at ``names``.
+
+    Each input ``name`` is one nesting level.
+
+    Example::
+
+        my_dict = {"tool": {"scikit-build": {"generator": "Ninja"}}}
+        value = _dig_strict(my_dict, "tool", "scikit-build", "generator")
+        assert value == "Ninja"
+
+    :raises KeyError: when ``names`` is missing
+    """
     for name in names:
         _dict = _dict[name]
     return _dict
 
 
 def _process_bool(value: str) -> bool:
+    """
+    Convert a string value into the truthy/falsey rules used by string sources.
+
+    Example::
+
+        assert _process_bool("yes") is True
+        assert _process_bool("off") is False
+    """
     return value.strip().lower() not in {"0", "false", "off", "no", ""}
 
 
 def _dig_not_strict(_dict: Mapping[str, Any], /, *names: str) -> Any:
+    """
+    Walk a nested mapping like :func:`_dig_strict`, but return an empty dict
+    ``{}`` if any name in ``names`` is missing.
+
+    Example::
+
+        my_dict = {"tool": {"scikit-build": {}}}
+        value = _dig_not_strict(my_dict, "tool", "scikit-build", "missing")
+        assert value == {}
+    """
     for name in names:
         _dict = _dict.get(name, {})
     return _dict
 
 
 def _dig_fields(opt: Any, /, *names: str) -> Any:
+    """
+    Walk dataclass field annotations and return the annotation at ``names``.
+
+    ``opt`` is a dataclass type, and each entry in ``names`` is a nested field
+    name to follow.
+
+    Example::
+
+        @dataclasses.dataclass
+        class Inner:
+            generator: str
+
+
+        @dataclasses.dataclass
+        class Outer:
+            cmake: Inner
+
+
+        assert _dig_fields(Outer, "cmake", "generator") is str
+    """
     for name in names:
         fields = dataclasses.fields(opt)
         types = [x.type for x in fields if x.name == name]
@@ -107,76 +199,53 @@ def _dig_fields(opt: Any, /, *names: str) -> Any:
     return opt
 
 
-def _process_union(target: Any, /) -> Any:
+def _under_dict_field(opt: Any, names: Sequence[str], /) -> bool:
     """
-    Filters None out of Unions. If a Union only has one item, return that item.
+    Return True if walking ``names`` from dataclass ``opt`` passes through a
+    dict-typed field before exhausting ``names``.
+
+    Such a path is free-form (e.g. ``metadata.version.*``), so deeper keys
+    cannot be validated against dataclass fields and must be accepted.
     """
-
-    origin = get_origin(target)
-
-    if _is_union_type(origin):
-        non_none_args = [a for a in get_args(target) if a is not NoneType]
-        if len(non_none_args) == 1:
-            return non_none_args[0]
-        return Union[tuple(non_none_args)]
-
-    return target
-
-
-def _process_annotated(target: type[Any], /) -> tuple[Any, tuple[Any, ...]]:
-    """
-    Splits annotated into raw type and annotations. If not annotated, the annotations will be empty.
-    """
-
-    origin = get_origin(target)
-    if origin is Annotated:
-        return get_args(target)[0], get_args(target)[1:]
-
-    return target, ()
-
-
-def _get_target_raw_type(target: type[Any] | Any, /) -> Any:
-    """
-    Takes a type like ``Optional[str]`` and returns str, or ``Optional[Dict[str,
-    int]]`` and returns dict. Returns Union for a Union with more than one
-    non-none type. Literal is also a valid return. Works through Annotated.
-    """
-
-    target, _ = _process_annotated(target)
-    target = _process_union(target)
-    origin = get_origin(target)
-    return origin or target
-
-
-def _is_union_type(raw_target: Any) -> bool:
-    """
-    Check if raw_target is a Union type (either ``typing.Union`` or ``types.UnionType``).
-    Handles both ``typing.Union[A, B]`` and PEP 604 syntax (``A | B``).
-    """
-    return raw_target is Union or raw_target is _UnionType
-
-
-def _get_inner_type(_target: type[Any], /) -> type[Any]:
-    """
-    Takes a types like ``List[str]`` and returns str,
-    or ``Dict[str, int]`` and returns int.
-    """
-
-    raw_target = _get_target_raw_type(_target)
-    target = _process_union(_target)
-    if raw_target is list:
-        return get_args(target)[0]  # type: ignore[no-any-return]
-    if raw_target is dict:
-        return get_args(target)[1]  # type: ignore[no-any-return]
-    msg = f"Expected a list or dict, got {target!r}"
-    raise AssertionError(msg)
+    for name in names:
+        if not dataclasses.is_dataclass(opt):
+            return False
+        fields = dataclasses.fields(opt)
+        types = [x.type for x in fields if x.name == name]
+        if len(types) != 1:
+            return False
+        (opt,) = types
+        if get_target_raw_type(opt) is dict:
+            # Everything below a dict-typed field is free-form.
+            return True
+    return False
 
 
 def _nested_dataclass_to_names(
     target: type[Any] | Any, /, *inner: str
 ) -> Iterator[list[str]]:
     """
-    Yields each entry, like ``("a", "b", "c")`` for ``a.b.c``.
+    Yield field-name paths for every leaf in a nested dataclass model.
+
+    For example, a nested field ``a.b.c`` is yielded as ``["a", "b", "c"]``.
+
+    Example::
+
+        @dataclasses.dataclass
+        class Inner:
+            generator: str
+
+
+        @dataclasses.dataclass
+        class Outer:
+            cmake: Inner
+            editable: bool
+
+
+        assert list(_nested_dataclass_to_names(Outer)) == [
+            ["cmake", "generator"],
+            ["editable"],
+        ]
     """
 
     if dataclasses.is_dataclass(target) and isinstance(target, type):
@@ -188,7 +257,19 @@ def _nested_dataclass_to_names(
 
 def _dict_with_envvar(target: Any, /) -> Any:
     """
-    This produces values. Supports "env" and "default" keys.
+    Resolve ``{"env": ..., "default": ...}`` dict entries into a final value.
+
+    The input is either a literal value or a small config dict used by the
+    ``Annotated[..., "EnvVar"]`` TOML form. The return value is the resolved
+    envvar/default value, with bool defaults preserving bool conversion.
+
+    Example::
+
+        os.environ["EXAMPLE_GENERATOR"] = "Ninja"
+        value = _dict_with_envvar(
+            {"env": "EXAMPLE_GENERATOR", "default": "Unix Makefiles"}
+        )
+        assert value == "Ninja"
     """
     if not isinstance(target, dict):
         return target
@@ -203,24 +284,32 @@ def _dict_with_envvar(target: Any, /) -> Any:
 class Source(Protocol):
     def has_item(self, *fields: str, is_dict: bool) -> bool:
         """
-        Check if the source contains a chain of fields. For example, ``fields =
-        [Field(name="a"), Field(name="b")]`` will check if the source contains the
-        key "a.b". ``is_dict`` should be set if it can be nested.
+        Check whether the source contains a field path.
+
+        For example, ``fields=("a", "b")`` asks whether the source has a value
+        for the nested model field ``a.b``. ``is_dict`` is set for dict-typed
+        targets, because some sources represent dict entries as nested keys.
         """
         ...
 
     def get_item(self, *fields: str, is_dict: bool) -> Any:
         """
-        Select an item from a chain of fields. Raises KeyError if
-        the there is no item. ``is_dict`` should be set if it can be nested.
+        Return the source-native value for a field path.
+
+        The return type depends on the source: env returns a raw string,
+        config-settings returns a string/list/bool or reconstructed dict, and
+        TOML returns the native TOML object. Raises ``KeyError`` if the value is
+        missing. ``is_dict`` is set for dict-typed targets, because some
+        sources represent dict entries as nested keys.
         """
         ...
 
     @classmethod
     def convert(cls, item: Any, target: type[Any] | Any) -> object:
         """
-        Convert an ``item`` from the base representation of the source's source
-        into a ``target`` type. Raises TypeError if the conversion fails.
+        Convert a source-native ``item`` into the requested ``target`` type.
+
+        Raises ``TypeError`` if the conversion fails.
         """
         ...
 
@@ -240,9 +329,28 @@ class Source(Protocol):
         ...
 
 
-class EnvSource:
+class EnvSource(Source):
     """
-    This is a source using environment variables.
+    Source backed by environment variables.
+
+    Nested field paths are represented by uppercased underscore-separated names
+    such as ``PREFIX_A_B``. Values remain raw strings in the environment until
+    they are converted into the requested field type.
+
+    Example::
+
+        env = {
+            "SKBUILD_CMAKE_ARGS": "-GNinja;-DCMAKE_BUILD_TYPE=Debug",
+            "SKBUILD_CMAKE_DEFINE": "CMAKE_CXX_STANDARD=20;BUILD_TESTING=OFF",
+        }
+        source = EnvSource("SKBUILD", env=env)
+
+        assert source.get_item("cmake", "args", is_dict=False) == (
+            "-GNinja;-DCMAKE_BUILD_TYPE=Debug"
+        )
+        assert source.get_item("cmake", "define", is_dict=False) == (
+            "CMAKE_CXX_STANDARD=20;BUILD_TESTING=OFF"
+        )
     """
 
     def __init__(self, prefix: str, *, env: Mapping[str, str] | None = None) -> None:
@@ -273,45 +381,49 @@ class EnvSource:
         """
         Convert an item from the environment (always a string) into a target type.
         """
-        target, _ = _process_annotated(target)
-        raw_target = _get_target_raw_type(target)
+        target, _ = process_annotated(target)
+        raw_target = get_target_raw_type(target)
         if dataclasses.is_dataclass(raw_target):
             msg = f"Array of dataclasses are not supported in configuration settings ({raw_target})"
             raise TypeError(msg)
         if raw_target is list:
             return [
-                cls.convert(i.strip(), _get_inner_type(target)) for i in item.split(";")
+                cls.convert(i.strip(), get_inner_type(target)) for i in item.split(";")
             ]
         if raw_target is dict:
-            items = (i.strip().split("=") for i in item.split(";"))
-            return {k: cls.convert(v, _get_inner_type(target)) for k, v in items}
+            items = (i.strip().split("=", 1) for i in item.split(";"))
+            return {k: cls.convert(v, get_inner_type(target)) for k, v in items}
 
         if raw_target is bool:
             return _process_bool(item)
 
-        if _is_union_type(raw_target) and str in get_args(target):
-            return item
-
-        if _is_union_type(raw_target):
-            args = {_get_target_raw_type(t): t for t in get_args(target)}
+        if is_union_type(raw_target):
+            args = {get_target_raw_type(t): t for t in get_args(target)}
+            # A str+list union (e.g. cmake.build-type) takes a single string or
+            # a ``;``-separated list, like a plain List[str] field.
+            if str in args and list in args:
+                if ";" in item:
+                    return [
+                        cls.convert(i.strip(), get_inner_type(args[list]))
+                        for i in item.split(";")
+                    ]
+                return item
             if str in args:
                 return item
             if dict in args and "=" in item:
-                items = (i.strip().split("=") for i in item.split(";"))
-                return {
-                    k: cls.convert(v, _get_inner_type(args[dict])) for k, v in items
-                }
+                items = (i.strip().split("=", 1) for i in item.split(";"))
+                return {k: cls.convert(v, get_inner_type(args[dict])) for k, v in items}
             if list in args:
                 return [
-                    cls.convert(i.strip(), _get_inner_type(args[list]))
+                    cls.convert(i.strip(), get_inner_type(args[list]))
                     for i in item.split(";")
                 ]
             msg = f"Can't convert into {target}"
             raise TypeError(msg)
 
         if raw_target is Literal:
-            if item not in get_args(_process_union(target)):
-                msg = f"{item!r} not in {get_args(_process_union(target))!r}"
+            if item not in get_args(process_union(target)):
+                msg = f"{item!r} not in {get_args(process_union(target))!r}"
                 raise TypeError(msg)
             return item
 
@@ -321,7 +433,7 @@ class EnvSource:
         raise TypeError(msg)
 
     @staticmethod
-    def unrecognized_options(
+    def unrecognized_options(  # pylint: disable=arguments-differ
         options: object,  # noqa: ARG004
     ) -> Generator[str, None, None]:
         yield from ()
@@ -335,6 +447,13 @@ class EnvSource:
 def _unrecognized_dict(
     settings: Mapping[str, Any], options: Any, above: Sequence[str]
 ) -> Generator[str, None, None]:
+    """
+    Compare a nested TOML-style mapping against a dataclass model.
+
+    ``settings`` is the current nested dict to inspect, ``options`` is the
+    dataclass type for that level, and ``above`` is the already-traversed key
+    path used when yielding fully qualified option names.
+    """
     for keystr in settings:
         # We don't have DataclassInstance exposed in typing yet
         matches = [
@@ -351,16 +470,46 @@ def _unrecognized_dict(
             )
 
 
-class ConfSource:
+class ConfSource(Source):
     """
-    This is a source for the PEP 517 configuration settings.
-    You should initialize it with a dict from PEP 517. a.b will be treated as
-    nested dicts. "verify" is a boolean that determines whether unrecognized
-    options should be checked for. Only set this to false if this might be sharing
-    config options at the same level.
+    Source for PEP 517 ``config-settings``.
 
     While most mechanisms (pip, uv, build) only support text, gpep517 allows an
     arbitrary json input, so this currently also handles bools.
+
+    Example::
+
+        source = ConfSource(
+            "skbuild",
+            settings={
+                "skbuild.logging.level": "DEBUG",
+                "skbuild.cmake.define.CMAKE_CXX_STANDARD": "20",
+            },
+        )
+
+        assert source.get_item("logging", "level", is_dict=False) == "DEBUG"
+        assert source.get_item("cmake", "define", is_dict=True) == {
+            "CMAKE_CXX_STANDARD": "20"
+        }
+    """
+
+    prefixes: tuple[str, ...]
+    """Dotted option-name segments prepended to every lookup."""
+
+    settings: Mapping[str, str | list[str] | bool]
+    """
+    Flat backend ``config-settings`` mapping keyed by dotted option names.
+
+    Scalar values are stored directly. Dict-typed target fields are represented
+    by multiple flat entries such as ``"sdist.include.foo" = "bar"``.
+    """
+
+    verify: bool
+    """
+    Whether to report unrecognized dotted keys from this source.
+
+    Only disable this when the source intentionally shares a namespace with
+    unrelated config keys.
     """
 
     def __init__(
@@ -411,34 +560,61 @@ class ConfSource:
     def convert(
         cls, item: str | list[str] | dict[str, str] | bool, target: type[Any] | Any
     ) -> object:
-        target, _ = _process_annotated(target)
-        raw_target = _get_target_raw_type(target)
+        target, _ = process_annotated(target)
+        raw_target = get_target_raw_type(target)
         if dataclasses.is_dataclass(raw_target):
             msg = f"Array of dataclasses are not supported in configuration settings ({raw_target})"
             raise TypeError(msg)
         if raw_target is list:
             if isinstance(item, list):
-                return [cls.convert(i, _get_inner_type(target)) for i in item]
+                return [cls.convert(i, get_inner_type(target)) for i in item]
             if isinstance(item, (dict, bool)):
                 msg = f"Expected {target}, got {type(item)}"
                 raise TypeError(msg)
             return [
-                cls.convert(i.strip(), _get_inner_type(target)) for i in item.split(";")
+                cls.convert(i.strip(), get_inner_type(target)) for i in item.split(";")
             ]
         if raw_target is dict:
-            assert not isinstance(item, (str, list, bool))
-            return {k: cls.convert(v, _get_inner_type(target)) for k, v in item.items()}
-        if _is_union_type(raw_target):
-            args = {_get_target_raw_type(t): t for t in get_args(target)}
+            if isinstance(item, (str, list, bool)):
+                msg = f"Expected {target}, got {type(item).__name__}"
+                raise TypeError(msg)
+            return {k: cls.convert(v, get_inner_type(target)) for k, v in item.items()}
+        if is_union_type(raw_target):
+            args = {get_target_raw_type(t): t for t in get_args(target)}
+            # A str+list union (e.g. cmake.build-type) takes a single string or
+            # a list. The preferred way to pass a list is to repeat the option
+            # (``-Ccmake.build-type=A -Ccmake.build-type=B``), which the backend
+            # delivers as a real list (handled by the ``str in args`` branch
+            # below). A ``;``-separated string is also accepted, matching a
+            # plain List[str] field.
+            if str in args and list in args and isinstance(item, str) and ";" in item:
+                return [
+                    cls.convert(i.strip(), get_inner_type(args[list]))
+                    for i in item.split(";")
+                ]
             if str in args:
                 return item
             if dict in args and isinstance(item, dict):
                 return {
-                    k: cls.convert(v, _get_inner_type(args[dict]))
+                    k: cls.convert(v, get_inner_type(args[dict]))
                     for k, v in item.items()
                 }
             if list in args and isinstance(item, list):
-                return [cls.convert(i, _get_inner_type(args[list])) for i in item]
+                return [cls.convert(i, get_inner_type(args[list])) for i in item]
+            # pip/uv/build deliver plain strings for ``-Cwheel.packages=...``;
+            # split them like a list (or as a dict if they contain ``=``),
+            # mirroring EnvSource and the plain-list branch above.
+            if isinstance(item, str):
+                if dict in args and "=" in item:
+                    items = (i.strip().split("=", 1) for i in item.split(";"))
+                    return {
+                        k: cls.convert(v, get_inner_type(args[dict])) for k, v in items
+                    }
+                if list in args:
+                    return [
+                        cls.convert(i.strip(), get_inner_type(args[list]))
+                        for i in item.split(";")
+                    ]
             msg = f"Can't convert into {target}"
             raise TypeError(msg)
         if isinstance(item, (list, dict)):
@@ -447,8 +623,8 @@ class ConfSource:
         if raw_target is bool:
             return item if isinstance(item, bool) else _process_bool(item)
         if raw_target is Literal:
-            if item not in get_args(_process_union(target)):
-                msg = f"{item!r} not in {get_args(_process_union(target))!r}"
+            if item not in get_args(process_union(target)):
+                msg = f"{item!r} not in {get_args(process_union(target))!r}"
                 raise TypeError(msg)
             return item
         if callable(raw_target):
@@ -463,17 +639,32 @@ class ConfSource:
             keys = keystr.replace("-", "_").split(".")[len(self.prefixes) :]
             try:
                 outer_option = _dig_fields(options, *keys[:-1])
-            except KeyError:
+            except (KeyError, TypeError):
+                # KeyError: an intermediate field does not exist.
+                # TypeError: an intermediate field is a dict (or other
+                # non-dataclass), so anything nested under it is free-form and
+                # cannot be a dataclass field.
+                if _under_dict_field(options, keys[:-1]):
+                    continue
                 yield ".".join(keystr.split(".")[:-1])
                 continue
             if dataclasses.is_dataclass(outer_option):
                 try:
-                    _dig_fields(outer_option, keys[-1])
+                    field_type = _dig_fields(outer_option, keys[-1])
                 except KeyError:
                     yield keystr
                     continue
-            if _get_target_raw_type(outer_option) is dict:
+                # A dict-valued field is only read via subkeys
+                # (``cmake.define.FOO=1``); a bare scalar assignment
+                # (``cmake.define=FOO=1``) is silently dropped, so flag it.
+                if get_target_raw_type(field_type) is dict:
+                    yield keystr
                 continue
+            if get_target_raw_type(outer_option) is dict:
+                continue
+            # Neither a dataclass field nor a dict: the final key cannot be a
+            # valid nested option (e.g. ``cmake.args.extra``).
+            yield keystr
 
     def all_option_names(self, target: type[Any]) -> Iterator[str]:
         for names in _nested_dataclass_to_names(target):
@@ -481,7 +672,32 @@ class ConfSource:
             yield ".".join((*self.prefixes, *dash_names))
 
 
-class TOMLSource:
+class TOMLSource(Source):
+    """
+    Source backed by a nested TOML mapping.
+
+    After applying any constructor prefixes, ``self.settings`` is the nested
+    table for that subtree. ``get_item`` returns the native TOML value found at
+    the requested field path, and ``convert`` turns that TOML value into the
+    target dataclass field type.
+
+    Example::
+
+        source = TOMLSource(
+            "tool",
+            "scikit-build",
+            settings={
+                "tool": {
+                    "scikit-build": {
+                        "wheel": {"packages": ["src/example"]},
+                    }
+                }
+            },
+        )
+
+        assert source.get_item("wheel", "packages", is_dict=False) == ["src/example"]
+    """
+
     def __init__(self, *prefixes: str, settings: Mapping[str, Any]) -> None:
         self.prefixes = prefixes
         self.settings = _dig_not_strict(settings, *prefixes)
@@ -511,8 +727,8 @@ class TOMLSource:
         """
         Convert an ``item`` from TOML into a ``target`` type.
         """
-        target, annotations = _process_annotated(target)
-        raw_target = _get_target_raw_type(target)
+        target, annotations = process_annotated(target)
+        raw_target = get_target_raw_type(target)
         if dataclasses.is_dataclass(raw_target) and isinstance(raw_target, type):
             fields = dataclasses.fields(raw_target)
             values = ((k.replace("-", "_"), v) for k, v in item.items())
@@ -526,34 +742,37 @@ class TOMLSource:
             if not isinstance(item, list):
                 msg = f"Expected {target}, got {type(item).__name__}"
                 raise TypeError(msg)
-            return [cls.convert(it, _get_inner_type(target)) for it in item]
+            return [cls.convert(it, get_inner_type(target)) for it in item]
         if raw_target is dict:
             if not isinstance(item, dict):
                 msg = f"Expected {target}, got {type(item).__name__}"
                 raise TypeError(msg)
             if annotations == ("EnvVar",):
+                resolved = ((k, _dict_with_envvar(v)) for k, v in item.items())
                 return {
-                    k: cls.convert(_dict_with_envvar(v), _get_inner_type(target))
-                    for k, v in item.items()
-                    if _dict_with_envvar(v) is not None
+                    k: cls.convert(rv, get_inner_type(target))
+                    for k, rv in resolved
+                    if rv is not None
                 }
-            return {k: cls.convert(v, _get_inner_type(target)) for k, v in item.items()}
+            return {k: cls.convert(v, get_inner_type(target)) for k, v in item.items()}
         if raw_target is Any:
             return item
-        if _is_union_type(raw_target):
-            args = {_get_target_raw_type(t): t for t in get_args(target)}
+        if is_union_type(raw_target):
+            args = {get_target_raw_type(t): t for t in get_args(target)}
             if type(item) in args:
                 if isinstance(item, dict):
                     return {
-                        k: cls.convert(v, _get_inner_type(args[dict]))
+                        k: cls.convert(v, get_inner_type(args[dict]))
                         for k, v in item.items()
                     }
                 if isinstance(item, list):
-                    return [cls.convert(i, _get_inner_type(args[list])) for i in item]
+                    return [cls.convert(i, get_inner_type(args[list])) for i in item]
                 return item
+            msg = f"Expected {target}, got {type(item).__name__}"
+            raise TypeError(msg)
         if raw_target is Literal:
-            if item not in get_args(_process_union(target)):
-                msg = f"{item!r} not in {get_args(_process_union(target))!r}"
+            if item not in get_args(process_union(target)):
+                msg = f"{item!r} not in {get_args(process_union(target))!r}"
                 raise TypeError(msg)
             return item
         if callable(raw_target):
@@ -595,8 +814,33 @@ class SourceChain:
 
     def convert_target(self, target: type[T], *prefixes: str) -> T:
         """
-        Given a dataclass type, create an object of that dataclass filled
-        with the values in the sources.
+        Build a dataclass instance from the chained sources.
+
+        For each field, this first asks each source whether it has a native
+        value for the current path. The first matching source returns that raw
+        value via ``get_item``, and that same source then normalizes it with
+        ``convert`` into the dataclass field type. Nested dataclasses recurse
+        into ``convert_target``. Dict fields are special: later sources extend
+        the dict assembled so far instead of replacing it outright.
+
+        Example::
+
+            @dataclasses.dataclass
+            class Example:
+                tags: list[str] = dataclasses.field(default_factory=list)
+                defines: dict[str, str] = dataclasses.field(default_factory=dict)
+
+
+            chain = SourceChain(
+                EnvSource("EXAMPLE", env={"EXAMPLE_DEFINES": "A=1"}),
+                ConfSource(settings={"tags": ["from-conf"]}),
+                TOMLSource(settings={"tags": ["from-toml"], "defines": {"B": "2"}}),
+            )
+
+            settings = chain.convert_target(Example)
+
+            assert settings.tags == ["from-conf"]
+            assert settings.defines == {"A": "1", "B": "2"}
         """
 
         errors = []
@@ -613,7 +857,7 @@ class SourceChain:
                     errors.append(e)
                 continue
 
-            is_dict = _get_target_raw_type(field.type) is dict
+            is_dict = get_target_raw_type(field.type) is dict
 
             for source in self.sources:
                 if source.has_item(*prefixes, field.name, is_dict=is_dict):
@@ -628,6 +872,8 @@ class SourceChain:
                         break
 
                     if is_dict:
+                        # Dict sources merge by precedence: later matching sources
+                        # add missing keys without erasing higher-priority ones.
                         assert isinstance(tmp, dict), f"{field.name} must be a dict"
                         prep[field.name] = {**tmp, **prep.get(field.name, {})}
                         continue
@@ -657,9 +903,3 @@ class SourceChain:
     def unrecognized_options(self, options: object) -> Generator[str, None, None]:
         for source in self.sources:
             yield from source.unrecognized_options(options)
-
-
-if typing.TYPE_CHECKING:
-    _: Source = typing.cast("EnvSource", None)
-    _ = typing.cast("ConfSource", None)
-    _ = typing.cast("TOMLSource", None)

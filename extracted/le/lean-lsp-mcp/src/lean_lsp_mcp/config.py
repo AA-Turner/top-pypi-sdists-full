@@ -75,6 +75,30 @@ def max_open_files() -> int:
     return value
 
 
+PREWARM_FILES_ENV = "LEAN_MCP_PREWARM_FILES"
+
+
+def prewarm_files() -> list[str]:
+    """Project-relative Lean files to open/elaborate in the background at
+    server startup (comma-separated). Warmup overlaps the agent's first
+    reading/planning phase instead of landing on its first tool call."""
+    raw = os.environ.get(PREWARM_FILES_ENV, "")
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+SCRATCH_POOL_ENV = "LEAN_MCP_SCRATCH_SLOTS"
+
+
+def scratch_pool_size() -> int:
+    raw_value = os.environ.get(SCRATCH_POOL_ENV, "2")
+    try:
+        value = int(raw_value)
+    except ValueError:
+        logger.warning("Invalid %s=%s, defaulting to 2.", SCRATCH_POOL_ENV, raw_value)
+        return 2
+    return value if value >= 1 else 2
+
+
 # --- Build / logging ---
 def build_concurrency() -> str:
     mode = os.environ.get(BUILD_CONCURRENCY_ENV, "allow").strip().lower()
@@ -125,8 +149,36 @@ def loogle_headers_raw() -> str | None:
 
 
 # --- Remote search backends ---
+# Client-side limits for shared public services: tool -> (max requests, seconds).
+# Single source of truth: the @rate_limited decorators and the generated
+# INSTRUCTIONS text both read from here.
+RATE_LIMITS: dict[str, tuple[int, int]] = {
+    "leansearch": (90, 30),
+    "loogle": (3, 30),
+    "leanfinder": (10, 30),
+    "lean_state_search": (6, 30),
+    "hammer_premise": (6, 30),
+}
+
+STATE_SEARCH_REV_ENV = "LEAN_STATE_SEARCH_REV"
+DEFAULT_STATE_SEARCH_REV = "v4.22.0"
+
+LEANFINDER_URL_ENV = "LEAN_FINDER_URL"
+DEFAULT_LEANFINDER_URL = (
+    "https://bxrituxuhpc70w8w.us-east-1.aws.endpoints.huggingface.cloud"
+)
+
+
 def state_search_url() -> str:
     return os.environ.get(STATE_SEARCH_URL_ENV, DEFAULT_STATE_SEARCH_URL)
+
+
+def state_search_rev() -> str:
+    return os.environ.get(STATE_SEARCH_REV_ENV, DEFAULT_STATE_SEARCH_REV)
+
+
+def leanfinder_url() -> str:
+    return os.environ.get(LEANFINDER_URL_ENV, DEFAULT_LEANFINDER_URL)
 
 
 def hammer_url() -> str:
@@ -152,9 +204,20 @@ def repl_path() -> str | None:
     return os.environ.get(REPL_PATH_ENV)
 
 
+def _int_env(env_var: str, default: int) -> int:
+    raw_value = os.environ.get(env_var)
+    if raw_value is None:
+        return default
+    try:
+        return int(raw_value)
+    except ValueError:
+        logger.warning("Invalid %s=%s, defaulting to %d.", env_var, raw_value, default)
+        return default
+
+
 def repl_timeout() -> int:
-    return int(os.environ.get(REPL_TIMEOUT_ENV, "60"))
+    return _int_env(REPL_TIMEOUT_ENV, 60)
 
 
 def repl_mem_mb() -> int:
-    return int(os.environ.get(REPL_MEM_MB_ENV, "8192"))
+    return _int_env(REPL_MEM_MB_ENV, 8192)

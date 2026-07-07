@@ -637,8 +637,9 @@ pub fn append_deployment_extension_columns(
             });
         }
         let col = p_old + tail_idx;
+        let level_bits = gam_data::canonical_level_bits(f64::from_bits(extension.level_bits));
         for row in 0..n {
-            if data[[row, prediction_col]].to_bits() == extension.level_bits {
+            if gam_data::canonical_level_bits(data[[row, prediction_col]]) == level_bits {
                 out[[row, col]] = 1.0;
             }
         }
@@ -3725,14 +3726,14 @@ impl FittedModel {
     ///
     /// This is the whitelist the predict/`check` encode paths pass to
     /// [`UnseenCategoryPolicy::encode_unknown_for_columns`]. It intentionally
-    /// covers ONLY explicit random effects (`group(g)`/`re(g)`/`factor(g)` /
-    /// `s(g, bs="re")`). A bare categorical main effect (`+ g`) is auto-promoted
-    /// to a penalized random block internally but is a FIXED parametric factor:
-    /// an unseen level of it must reach the strict schema encode and raise a
-    /// `SchemaMismatchError` rather than be silently averaged to the factor's
-    /// centering point (#2102). Such terms carry `lenient_unseen == false` and
-    /// are excluded here so they hit the strict `UnseenCategoryPolicy::Error`
-    /// arm.
+    /// covers ONLY genuine random effects (`group(g)`/`re(g)`/`s(g, bs="re")`).
+    /// A FIXED categorical factor — a bare `+ g` OR an explicit `factor(g)` —
+    /// is auto-promoted to a penalized random block internally but is still a
+    /// fixed parametric factor: an unseen level of it must reach the strict
+    /// schema encode and raise a `SchemaMismatchError` rather than be silently
+    /// averaged to the factor's centering point (#2102/#2137). Such terms carry
+    /// `lenient_unseen == false` and are excluded here so they hit the strict
+    /// `UnseenCategoryPolicy::Error` arm.
     pub fn random_effect_group_columns(&self) -> HashSet<String> {
         let Some(training_headers) = self.training_headers.as_ref() else {
             return HashSet::new();
@@ -3746,6 +3747,68 @@ impl FittedModel {
                 if let Some(name) = training_headers.get(term.feature_col) {
                     out.insert(name.clone());
                 }
+            }
+        }
+        out
+    }
+
+    /// Frozen level vocabularies for FIXED-factor terms (`factor(g)` or a bare
+    /// `+ g`, i.e. `lenient_unseen == false`) whose feature column is *numeric*
+    /// in the data schema.
+    ///
+    /// A string factor is a `Categorical` schema column, so the strict schema
+    /// re-encode already rejects (and `check` reports) an out-of-vocabulary
+    /// label. A numeric-coded `factor(year)`, however, reaches the model as a
+    /// `Continuous`/`Binary` column with no categorical schema, so the encode
+    /// path has no level set to validate against — the unseen-level guard is
+    /// silently skipped (#2137). This exposes each such column's frozen numeric
+    /// vocabulary (canonical `f64` bit patterns, signed-zero/NaN normalized) so
+    /// the `check`/`predict` schema layer can enforce the same fixed-factor
+    /// contract the design operator (`build_random_effect_block`) enforces.
+    ///
+    /// Only terms with concrete `frozen_levels` (captured at fit) and the full
+    /// one-hot block (`!drop_first_level`, so the frozen set is the complete
+    /// training vocabulary) are returned, matching the operator's strict gate.
+    pub fn numeric_fixed_factor_vocabularies(&self) -> Vec<(String, HashSet<u64>)> {
+        let Some(training_headers) = self.training_headers.as_ref() else {
+            return Vec::new();
+        };
+        let Some(schema) = self.data_schema.as_ref() else {
+            return Vec::new();
+        };
+        let mut out = Vec::<(String, HashSet<u64>)>::new();
+        for spec in self.saved_term_specs() {
+            for term in &spec.random_effect_terms {
+                if term.lenient_unseen || term.drop_first_level {
+                    continue;
+                }
+                let Some(levels) = term.frozen_levels.as_ref() else {
+                    continue;
+                };
+                let Some(name) = training_headers.get(term.feature_col) else {
+                    continue;
+                };
+                // Skip string factors: they are Categorical in the schema and
+                // are already validated by the typed encode.
+                let is_numeric = schema
+                    .columns
+                    .iter()
+                    .find(|c| &c.name == name)
+                    .map(|c| {
+                        matches!(
+                            c.kind,
+                            ColumnKindTag::Continuous | ColumnKindTag::Binary
+                        )
+                    })
+                    .unwrap_or(false);
+                if !is_numeric {
+                    continue;
+                }
+                let vocab: HashSet<u64> = levels
+                    .iter()
+                    .map(|&b| gam_data::canonical_level_bits(f64::from_bits(b)))
+                    .collect();
+                out.push((name.clone(), vocab));
             }
         }
         out
@@ -4987,12 +5050,14 @@ mod tests {
         );
     }
 
-    /// #2102: a BARE categorical predictor (`y ~ g`) is a FIXED parametric
-    /// factor. An unseen level in a prediction frame must reach the strict
-    /// schema encode and raise a `SchemaMismatch` — it must NOT be silently
-    /// mapped to the factor's centering point (the across-level average). Only
-    /// an EXPLICIT random effect (`group(g)`/`re(g)`/`factor(g)`) is eligible
-    /// for the lenient held-out-group policy, and it must stay lenient.
+    /// #2102/#2137: a FIXED categorical factor — a bare `y ~ g` or an explicit
+    /// `y ~ factor(g)` — must reach the strict schema encode and raise a
+    /// `SchemaMismatch` on an unseen level; it must NOT be silently mapped to
+    /// the factor's centering point (the across-level average). Only a genuine
+    /// random effect (`group(g)`/`re(g)`/`s(g, bs="re")`) is eligible for the
+    /// lenient held-out-group policy, and it must stay lenient. `factor(g)`
+    /// shared the `group()`/`re()` parse arm and so wrongly inherited the
+    /// lenient policy (#2137); it is now lowered as the fixed factor it is.
     ///
     /// This drives the real predict/`check` encode contract: it derives the
     /// lenient whitelist from `random_effect_group_columns()` exactly as the
@@ -5090,14 +5155,36 @@ mod tests {
             "expected an unseen-level schema mismatch naming the level, got: {err}"
         );
 
-        // Explicit random effect: stays lenient (held-out group → population mean).
-        let grouped = model_for("y ~ group(g)");
+        // Explicit `factor(g)` is a FIXED categorical factor (#2137): it must
+        // behave exactly like the bare `+ g` above — strict on unseen levels,
+        // NOT whitelisted for lenient encoding — even though it shares the
+        // penalized-categorical materialization with `group(g)`.
+        let factor = model_for("y ~ factor(g)");
         assert!(
-            grouped.random_effect_group_columns().contains("g"),
-            "explicit group(g) must remain lenient on unseen levels (held-out-group policy)"
+            !factor.random_effect_group_columns().contains("g"),
+            "factor(g) is a FIXED categorical factor; it must NOT be whitelisted for lenient \
+             unseen-level encoding (#2137)"
         );
-        encode_level(&grouped, "TYPO")
-            .expect("explicit group(g) tolerates unseen levels by contract");
+        encode_level(&factor, "a").expect("a seen level must still encode for factor(g)");
+        let factor_err = encode_level(&factor, "TYPO")
+            .expect_err("an unseen factor(g) level must raise a schema mismatch (#2137)");
+        assert!(
+            factor_err.contains("unseen level"),
+            "expected an unseen-level schema mismatch naming the level, got: {factor_err}"
+        );
+
+        // Genuine random effects stay lenient (held-out group → population mean):
+        // group(g), its re(g) alias, and the mgcv s(g, bs="re") spelling.
+        for formula in ["y ~ group(g)", "y ~ re(g)", "y ~ s(g, bs=\"re\")"] {
+            let grouped = model_for(formula);
+            assert!(
+                grouped.random_effect_group_columns().contains("g"),
+                "`{formula}` is a random effect; it must remain lenient on unseen levels \
+                 (held-out-group policy)"
+            );
+            encode_level(&grouped, "TYPO")
+                .unwrap_or_else(|err| panic!("`{formula}` must tolerate an unseen level, got: {err}"));
+        }
     }
 
     #[test]

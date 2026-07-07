@@ -16,7 +16,7 @@ from __future__ import annotations
     Do not edit the class manually.
 """  # noqa: E501
 
-__version__ = "0.193.0"
+__version__ = "0.194.0"
 
 import importlib
 from typing import TYPE_CHECKING
@@ -55,6 +55,7 @@ if TYPE_CHECKING:
 
     # import models into sdk package
     from daytona_api_client_async.models.account_provider import AccountProvider
+    from daytona_api_client_async.models.admin_create_organization import AdminCreateOrganization
     from daytona_api_client_async.models.admin_create_runner import AdminCreateRunner
     from daytona_api_client_async.models.admin_get_webhook_status200_response import AdminGetWebhookStatus200Response
     from daytona_api_client_async.models.announcement import Announcement
@@ -123,6 +124,7 @@ if TYPE_CHECKING:
     from daytona_api_client_async.models.keyboard_type_request import KeyboardTypeRequest
     from daytona_api_client_async.models.list_branch_response import ListBranchResponse
     from daytona_api_client_async.models.list_sandboxes_response import ListSandboxesResponse
+    from daytona_api_client_async.models.list_secrets_response import ListSecretsResponse
     from daytona_api_client_async.models.log_entry import LogEntry
     from daytona_api_client_async.models.lsp_completion_params import LspCompletionParams
     from daytona_api_client_async.models.lsp_document_request import LspDocumentRequest
@@ -278,6 +280,7 @@ _DYNAMIC_IMPORTS: dict[str, str] = {
     "ApiException": "daytona_api_client_async.exceptions",
     # models
     "AccountProvider": "daytona_api_client_async.models.account_provider",
+    "AdminCreateOrganization": "daytona_api_client_async.models.admin_create_organization",
     "AdminCreateRunner": "daytona_api_client_async.models.admin_create_runner",
     "AdminGetWebhookStatus200Response": "daytona_api_client_async.models.admin_get_webhook_status200_response",
     "Announcement": "daytona_api_client_async.models.announcement",
@@ -346,6 +349,7 @@ _DYNAMIC_IMPORTS: dict[str, str] = {
     "KeyboardTypeRequest": "daytona_api_client_async.models.keyboard_type_request",
     "ListBranchResponse": "daytona_api_client_async.models.list_branch_response",
     "ListSandboxesResponse": "daytona_api_client_async.models.list_sandboxes_response",
+    "ListSecretsResponse": "daytona_api_client_async.models.list_secrets_response",
     "LogEntry": "daytona_api_client_async.models.log_entry",
     "LspCompletionParams": "daytona_api_client_async.models.lsp_completion_params",
     "LspDocumentRequest": "daytona_api_client_async.models.lsp_document_request",
@@ -515,6 +519,7 @@ __all__ = [
     "VolumesApi",
     "WebhooksApi",
     "AccountProvider",
+    "AdminCreateOrganization",
     "AdminCreateRunner",
     "AdminGetWebhookStatus200Response",
     "Announcement",
@@ -583,6 +588,7 @@ __all__ = [
     "KeyboardTypeRequest",
     "ListBranchResponse",
     "ListSandboxesResponse",
+    "ListSecretsResponse",
     "LogEntry",
     "LspCompletionParams",
     "LspDocumentRequest",

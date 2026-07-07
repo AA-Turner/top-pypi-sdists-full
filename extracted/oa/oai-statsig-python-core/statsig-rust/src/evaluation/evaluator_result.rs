@@ -28,6 +28,8 @@ use crate::statsig_types_raw::{
 use crate::user::StatsigUserInternal;
 use crate::{EvaluationDetails, LayerEvaluationOptions};
 
+const LAUNCHED_GROUP_RULE_ID: &str = "launchedGroup";
+
 #[derive(Default, Debug)]
 pub struct EvaluatorResult {
     pub name: Option<InternedString>,
@@ -54,6 +56,14 @@ pub struct EvaluatorResult {
     pub parameter_rule_ids: Option<HashMap<InternedString, InternedString>>,
 }
 
+fn get_is_user_in_experiment(result: &EvaluatorResult) -> bool {
+    result.is_experiment_group
+        && result
+            .rule_id
+            .as_ref()
+            .is_none_or(|rule_id| rule_id.as_str() != LAUNCHED_GROUP_RULE_ID)
+}
+
 pub fn result_to_gate_raw<'a>(
     gate_name: &'a str,
     eval_details: &'a EvaluationDetails,
@@ -72,8 +82,16 @@ pub fn result_to_gate_raw<'a>(
 }
 
 pub fn result_to_gate_eval(gate_name: &str, result: &mut EvaluatorResult) -> GateEvaluation {
+    let name = get_exposure_name_if_not_hashed(gate_name, &result.name);
+    result_to_gate_eval_with_name(name, result)
+}
+
+pub fn result_to_gate_eval_with_name(
+    gate_name: InternedString,
+    result: &mut EvaluatorResult,
+) -> GateEvaluation {
     GateEvaluation {
-        base: result_to_base_eval(gate_name, result),
+        base: result_to_base_eval_with_name(gate_name, result),
         id_type: result.id_type.take(),
         value: result.bool_value,
     }
@@ -156,6 +174,15 @@ pub fn result_to_experiment_eval(
     spec_entity: Option<&str>,
     result: &mut EvaluatorResult,
 ) -> ExperimentEvaluation {
+    let name = get_exposure_name_if_not_hashed(experiment_name, &result.name);
+    result_to_experiment_eval_with_name(name, spec_entity, result)
+}
+
+pub fn result_to_experiment_eval_with_name(
+    experiment_name: InternedString,
+    spec_entity: Option<&str>,
+    result: &mut EvaluatorResult,
+) -> ExperimentEvaluation {
     let (id_type, is_device_based) = get_id_type_info(result.id_type.as_ref());
 
     let mut is_experiment_active = None;
@@ -163,11 +190,11 @@ pub fn result_to_experiment_eval(
 
     if spec_entity.is_none_or(|s| s == "experiment") {
         is_experiment_active = Some(result.is_experiment_active);
-        is_user_in_experiment = Some(result.is_experiment_group);
+        is_user_in_experiment = Some(get_is_user_in_experiment(result));
     }
 
     ExperimentEvaluation {
-        base: result_to_base_eval(experiment_name, result),
+        base: result_to_base_eval_with_name(experiment_name, result),
         id_type: Some(id_type),
         is_device_based,
         value: get_json_value(result),
@@ -196,7 +223,7 @@ pub fn result_to_experiment_eval_v2(
     if let Some(spec_entity) = spec_entity {
         if spec_entity == "experiment" {
             is_experiment_active = Some(result.is_experiment_active);
-            is_user_in_experiment = Some(result.is_experiment_group);
+            is_user_in_experiment = Some(get_is_user_in_experiment(result));
         }
     }
 
@@ -232,7 +259,7 @@ pub fn result_to_experiment_eval_init_v2(
     if let Some(spec_entity) = spec_entity {
         if spec_entity == "experiment" {
             is_experiment_active = Some(result.is_experiment_active);
-            is_user_in_experiment = Some(result.is_experiment_group);
+            is_user_in_experiment = Some(get_is_user_in_experiment(result));
         }
     }
 
@@ -300,6 +327,14 @@ pub fn result_to_layer_raw<'a>(
 }
 
 pub fn result_to_layer_eval(layer_name: &str, result: &mut EvaluatorResult) -> LayerEvaluation {
+    let name = get_exposure_name_if_not_hashed(layer_name, &result.name);
+    result_to_layer_eval_with_name(name, result)
+}
+
+pub fn result_to_layer_eval_with_name(
+    layer_name: InternedString,
+    result: &mut EvaluatorResult,
+) -> LayerEvaluation {
     let mut allocated_experiment_name = None;
     let mut is_experiment_active = None;
     let mut is_user_in_experiment = None;
@@ -308,7 +343,7 @@ pub fn result_to_layer_eval(layer_name: &str, result: &mut EvaluatorResult) -> L
         if !config_delegate.is_empty() {
             allocated_experiment_name = Some(config_delegate.clone());
             is_experiment_active = Some(result.is_experiment_active);
-            is_user_in_experiment = Some(result.is_experiment_group);
+            is_user_in_experiment = Some(get_is_user_in_experiment(result));
         }
     }
 
@@ -316,7 +351,7 @@ pub fn result_to_layer_eval(layer_name: &str, result: &mut EvaluatorResult) -> L
     let undelegated_sec_expos = std::mem::take(&mut result.undelegated_secondary_exposures);
 
     LayerEvaluation {
-        base: result_to_base_eval(layer_name, result),
+        base: result_to_base_eval_with_name(layer_name, result),
         value: get_json_value(result),
         is_device_based,
         group_name: result.group_name.take(),
@@ -358,7 +393,7 @@ pub fn result_to_layer_eval_v2(
         if !config_delegate.is_empty() {
             allocated_experiment_name = Some(config_delegate.clone());
             is_experiment_active = Some(result.is_experiment_active);
-            is_user_in_experiment = Some(result.is_experiment_group);
+            is_user_in_experiment = Some(get_is_user_in_experiment(result));
         }
     }
 
@@ -395,7 +430,7 @@ pub fn result_to_layer_eval_init_v2(
         if !config_delegate.is_empty() {
             allocated_experiment_name = Some(config_delegate.clone());
             is_experiment_active = Some(result.is_experiment_active);
-            is_user_in_experiment = Some(result.is_experiment_group);
+            is_user_in_experiment = Some(get_is_user_in_experiment(result));
         }
     }
 
@@ -451,10 +486,18 @@ pub fn result_to_dynamic_config_eval(
     dynamic_config_name: &str,
     result: &mut EvaluatorResult,
 ) -> DynamicConfigEvaluation {
+    let name = get_exposure_name_if_not_hashed(dynamic_config_name, &result.name);
+    result_to_dynamic_config_eval_with_name(name, result)
+}
+
+pub fn result_to_dynamic_config_eval_with_name(
+    dynamic_config_name: InternedString,
+    result: &mut EvaluatorResult,
+) -> DynamicConfigEvaluation {
     let (id_type, is_device_based) = get_id_type_info(result.id_type.as_ref());
 
     DynamicConfigEvaluation {
-        base: result_to_base_eval(dynamic_config_name, result),
+        base: result_to_base_eval_with_name(dynamic_config_name, result),
         id_type: Some(id_type),
         is_device_based,
         value: get_json_value(result),
@@ -550,11 +593,17 @@ fn get_exposure_name_if_not_hashed(
 }
 
 fn result_to_base_eval(spec_name: &str, result: &mut EvaluatorResult) -> BaseEvaluation {
+    let name = get_exposure_name_if_not_hashed(spec_name, &result.name);
+    result_to_base_eval_with_name(name, result)
+}
+
+fn result_to_base_eval_with_name(
+    name: InternedString,
+    result: &mut EvaluatorResult,
+) -> BaseEvaluation {
     let rule_id = create_suffixed_rule_id(result.rule_id.as_ref(), result.rule_id_suffix);
 
     let exposure_info = result_to_extra_exposure_info(result);
-
-    let name = get_exposure_name_if_not_hashed(spec_name, &result.name);
 
     BaseEvaluation {
         name,

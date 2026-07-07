@@ -9,6 +9,7 @@ from .raw_client import AsyncRawV2Client, RawV2Client
 
 if typing.TYPE_CHECKING:
     from .apps.client import AppsClient, AsyncAppsClient
+    from .components.client import AsyncComponentsClient, ComponentsClient
 
 
 class V2Client:
@@ -16,6 +17,7 @@ class V2Client:
         self._raw_client = RawV2Client(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
         self._apps: typing.Optional[AppsClient] = None
+        self._components: typing.Optional[ComponentsClient] = None
 
     @property
     def with_raw_response(self) -> RawV2Client:
@@ -36,12 +38,21 @@ class V2Client:
             self._apps = AppsClient(client_wrapper=self._client_wrapper)
         return self._apps
 
+    @property
+    def components(self):
+        if self._components is None:
+            from .components.client import ComponentsClient  # noqa: E402
+
+            self._components = ComponentsClient(client_wrapper=self._client_wrapper)
+        return self._components
+
 
 class AsyncV2Client:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._raw_client = AsyncRawV2Client(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
         self._apps: typing.Optional[AsyncAppsClient] = None
+        self._components: typing.Optional[AsyncComponentsClient] = None
 
     @property
     def with_raw_response(self) -> AsyncRawV2Client:
@@ -61,3 +72,11 @@ class AsyncV2Client:
 
             self._apps = AsyncAppsClient(client_wrapper=self._client_wrapper)
         return self._apps
+
+    @property
+    def components(self):
+        if self._components is None:
+            from .components.client import AsyncComponentsClient  # noqa: E402
+
+            self._components = AsyncComponentsClient(client_wrapper=self._client_wrapper)
+        return self._components

@@ -221,6 +221,31 @@ class Geocif:
         self.min_years_per_region = self.parser.getint(
             "ML", "min_years_per_region", fallback=5
         )
+
+        # Per-region [min_year, max_year] filter applied ONLY to df_train seen by
+        # ML models (catboost, tabpfn, cubist, etc.). Baseline models (null, trend,
+        # trend_all) always see the full self.df_train — they need historical
+        # context to compute means/slopes. Useful when a region has a structural
+        # regime shift (e.g., UNODC Afghan-poppy Southern/South-Western split in
+        # 2019) and you want ML to fit on the recent regime while baselines keep
+        # full history. Config format (INI, but Python literal): a dict-string,
+        # e.g.  ml_year_range_per_region = {"Southern": [2019, 2100]}
+        # Empty / missing → no filter.
+        import ast as _ast
+        _raw_yr_range = self.parser.get(
+            "ML", "ml_year_range_per_region", fallback=""
+        ).strip()
+        try:
+            self.ml_year_range_per_region = (
+                _ast.literal_eval(_raw_yr_range) if _raw_yr_range else {}
+            )
+        except Exception as _e:  # noqa: BLE001
+            self.logger.warning(
+                f"Failed to parse [ML] ml_year_range_per_region "
+                f"({_raw_yr_range!r}): {_e}. Defaulting to empty (no filter)."
+            )
+            self.ml_year_range_per_region = {}
+
         # Populated by _prepare_train_test_split when target_mode == region_anomaly.
         self._region_target_means: dict = {}
         # Cache for region_anomaly "skipping ..." warning dedup — only log
@@ -2555,6 +2580,7 @@ class Geocif:
         df = self._remove_last_month_data(df)
         df = self._update_column_names(df)
         df = self._add_engineered_features(df)
+        df = self._add_project_static_features(df)
         df = self._add_region_clusters(df)
         
         return df
@@ -2803,7 +2829,46 @@ class Geocif:
             df = fe.compute_analogous_yield(
                 df, self.all_seasons_with_yield, self.number_median_years, self.target
             )
-        
+
+        return df
+
+    def _add_project_static_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Project-specific static per-region features (one static value per region, invariant over year/DOY).
+
+        Gated by ``[ML] use_irrigation_feature`` (default False). When True,
+        injects a categorical ``irrigation_status`` column
+        ({irrigated, mixed, rainfed, unknown}) from
+        ``{dir_metadata}/poppy_irrigation.csv``, left-joined on Region.
+
+        Currently only wired for the ``poppy`` project (its geocif.txt sets
+        the flag True and ships the accompanying CSV), but the flag is generic —
+        any project that provides a matching CSV can opt in.
+        """
+        if not self.parser.getboolean("ML", "use_irrigation_feature", fallback=False):
+            return df
+
+        irrig_path = Path(self.parser.get("PATHS", "dir_metadata")) / "poppy_irrigation.csv"
+        if not irrig_path.exists():
+            self.logger.warning(f"poppy irrigation CSV not found at {irrig_path}; skipping static feature join")
+            return df
+
+        irrig = pd.read_csv(irrig_path)[["ADM1_NAME", "irrigation_status"]].rename(
+            columns={"ADM1_NAME": "Region"}
+        )
+        before = len(df)
+        df = df.merge(irrig, on="Region", how="left")
+        n_missing = df["irrigation_status"].isna().sum()
+        if n_missing:
+            missing_regs = sorted(df.loc[df["irrigation_status"].isna(), "Region"].dropna().unique().tolist())
+            self.logger.warning(
+                f"irrigation_status is NaN for {n_missing}/{before} rows "
+                f"(regions with no CSV match: {missing_regs}); filling with 'unknown'"
+            )
+            df["irrigation_status"] = df["irrigation_status"].fillna("unknown")
+        self.logger.info(
+            f"poppy: joined irrigation_status onto {before} rows "
+            f"(unique values: {sorted(df['irrigation_status'].unique().tolist())})"
+        )
         return df
 
     def _add_region_clusters(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -4128,7 +4193,14 @@ class Geocif:
         )
 
         df_region_train, df_region_test = self._prepare_region_data(region_id)
-        
+
+        # For ML models only, apply per-region [min_year, max_year] restriction
+        # (config: [ML] ml_year_range_per_region). Baseline models (null, trend,
+        # trend_all) skip this — they read self.df_train unfiltered inside
+        # predict() so they retain full historical context for their statistics.
+        if self.ml_model and self.ml_year_range_per_region:
+            df_region_train = self._apply_ml_year_range_filter(df_region_train)
+
         if df_region_train.empty:
             self.logger.warning(f"No training data for region {region_id}")
             return
@@ -4224,6 +4296,55 @@ class Geocif:
                 )
             self.analogous_year_yield_as_feature = True
 
+    def _apply_ml_year_range_filter(self, df_region_train: pd.DataFrame) -> pd.DataFrame:
+        """Drop training rows outside [min_year, max_year] per region.
+
+        Applied ONLY to df_region_train used by ML models (catboost, tabpfn,
+        cubist). Baseline models (null, trend, trend_all) skip this because
+        they read ``self.df_train`` directly inside ``predict()`` and need the
+        full history to compute means / theil-sen slopes.
+
+        Config: ``[ML] ml_year_range_per_region = {"Region1": [2019, 2100], ...}``
+        Empty dict / missing key → no filter (returns df unchanged).
+        """
+        if not self.ml_year_range_per_region:
+            return df_region_train
+        if "Region" not in df_region_train.columns or "Harvest Year" not in df_region_train.columns:
+            return df_region_train
+
+        df = df_region_train
+        drop_mask_total = pd.Series(False, index=df.index)
+        summary = []
+        for region, yr_range in self.ml_year_range_per_region.items():
+            try:
+                y_min, y_max = int(yr_range[0]), int(yr_range[1])
+            except (TypeError, ValueError, IndexError):
+                continue
+            years = df["Harvest Year"].astype("Int64")
+            drop_mask = (
+                (df["Region"] == region)
+                & ((years < y_min) | (years > y_max))
+            )
+            n_drop = int(drop_mask.sum())
+            if n_drop > 0:
+                drop_mask_total = drop_mask_total | drop_mask
+                summary.append(f"{region}: -{n_drop} rows (kept [{y_min},{y_max}])")
+        if not drop_mask_total.any():
+            return df
+
+        # Dedup log across regions/folds within a run.
+        cache_key = (
+            self.country,
+            self.crop,
+            frozenset(summary),
+        )
+        if getattr(self, "_last_year_range_drop", None) != cache_key:
+            self.logger.info(
+                f"ml_year_range_per_region: {'; '.join(summary)}"
+            )
+            self._last_year_range_drop = cache_key
+        return df[~drop_mask_total].copy()
+
     def _prepare_region_data(self, region_id: int) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Prepare training and test data for a specific region."""
         mask_train = self.df_train["Region_ID"] == region_id
@@ -4243,10 +4364,25 @@ class Geocif:
 
     def _get_common_columns(self) -> List[str]:
         """Get list of common columns needed for training/testing."""
+        # cat_features that are NOT already in fixed_columns and ARE present
+        # on df_train survive here. fixed_columns already carries Region /
+        # Harvest Year / Country / ... — adding them again would produce
+        # duplicate columns in _extract_region_subset (df[fixed + common])
+        # and break downstream groupby('Region') with "not 1-dimensional".
+        # Purpose: keep project-static categorical features (e.g.
+        # `irrigation_status` from _add_project_static_features) alive
+        # through the per-region column-whitelist so predict()'s slicing on
+        # selected_features + cat_features doesn't KeyError.
+        fixed_set = set(getattr(self, "fixed_columns", []))
+        cat_cols_present = [
+            c for c in getattr(self, "cat_features", [])
+            if c in self.df_train.columns and c not in fixed_set
+        ]
         common_columns = (
             [self.target, self.target_class]
             + self.statistics_columns
             + self.feature_names
+            + cat_cols_present
             + [f"Median {self.target}"]
             + [f"Median {self.target} (2018-2022)"]
             + [f"Median {self.target} (2013-2017)"]

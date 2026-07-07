@@ -12,13 +12,14 @@ classifiers = [
     "Topic :: Home Automation",
 ]
 dependencies = [
-    "esphome-device-builder-frontend==0.1.214",
+    "esphome-device-builder-frontend==0.1.216",
     "aiohttp>=3.9.0",
     "aiohttp-asyncmdnsresolver>=0.1.1",
     "colorlog>=6.8.0",
     "cryptography>=42.0.2",
     "fnv-hash-fast>=2.0.0",
     "ifaddr>=0.2.0",
+    "icmplib>=3.0.4",
     "mashumaro>=3.13",
     "orjson>=3.9.0",
     "pyyaml>=6.0",
@@ -34,7 +35,7 @@ maintainers = [
 name = "esphome-device-builder"
 readme = "README.md"
 requires-python = ">=3.12"
-version = "1.1.0"
+version = "1.2.0"
 
 [project.optional-dependencies]
 esphome = [
@@ -232,7 +233,7 @@ known-first-party = [
 
 [tool.codespell]
 skip = "*.json,*/definitions/*"
-ignore-words-list = "commitish,hass,emac"
+ignore-words-list = "commitish,hass,emac,unparseable"
 
 [tool.mypy]
 check_untyped_defs = true

@@ -7,6 +7,7 @@ from django.core.files import File as DjangoFile
 from django.test.testcases import TestCase
 
 from filer.settings import IMAGE_EXTENSIONS
+from filer.utils.filer_easy_thumbnails import thumbnail_to_original_filename
 from filer.utils.loader import load_object
 from filer.utils.zip import unzip
 from tests.helpers import create_image
@@ -68,7 +69,30 @@ class ZippingTestCase(TestCase):
 
 class MimeTypesTestCase(TestCase):
     def test_mime_types_known(self):
-        """Ensure that for all IMAGE_EXTENSIONS the mime types can be identified"""
+        """Ensure that for all IMAGE_EXTENSIONS the MIME types can be identified"""
         for ext in IMAGE_EXTENSIONS:
             self.assertIsNotNone(mimetypes.guess_type(f"file{ext}")[0],
                                  f"Mime type for extension {ext} unknown")
+
+
+class ThumbnailToOriginalFilenameTestCase(TestCase):
+    def test_no_separator_returns_none(self):
+        self.assertIsNone(thumbnail_to_original_filename("foo.jpg"))
+
+    def test_normal_thumbnail_name(self):
+        self.assertEqual(
+            thumbnail_to_original_filename("foo.jpg__200x200_q85.jpg"),
+            "foo.jpg",
+        )
+
+    def test_multiple_separators_returns_part_before_last(self):
+        self.assertEqual(
+            thumbnail_to_original_filename("a__b.jpg__200x200.jpg"),
+            "a__b.jpg",
+        )
+
+    def test_leading_separator_returns_empty_string(self):
+        self.assertEqual(
+            thumbnail_to_original_filename("__opts.jpg"),
+            "",
+        )

@@ -28,7 +28,7 @@ if sys.platform == 'win32':
 elif is_musl:
     lib_m = 'c'
 
-class TestFunction(object):
+class TestFunction:
     Backend = CTypesBackend
 
     def test_sin(self):
@@ -280,6 +280,7 @@ class TestFunction(object):
         res = ffi.C.strlen(p)
         assert res == 5
 
+    @pytest.mark.thread_unsafe(reason="Mutates process-global libc stdout pointer")
     def test_write_variable(self):
         if not sys.platform.startswith('linux') or _is_musl:
             pytest.skip("probably no symbol 'stdout' in the lib")
@@ -306,9 +307,9 @@ class TestFunction(object):
         q = ffi.C.strchr(p, ord('w'))
         assert ffi.string(q) == b"world!"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="no 'inet_ntoa'")
+    @pytest.mark.thread_unsafe(reason="inet_ntoa returns a globally shared static buffer on some systems")
     def test_function_with_struct_argument(self):
-        if sys.platform == 'win32':
-            pytest.skip("no 'inet_ntoa'")
         if (self.Backend is CTypesBackend and
             '__pypy__' in sys.builtin_module_names):
             pytest.skip("ctypes limitation on pypy")
@@ -337,18 +338,18 @@ class TestFunction(object):
     def test_fputs_custom_FILE(self):
         if self.Backend is CTypesBackend:
             pytest.skip("FILE not supported with the ctypes backend")
-        filename = str(udir.join('fputs_custom_FILE'))
+        temp_file = udir / 'fputs_custom_FILE'
         ffi = FFI(backend=self.Backend())
         ffi.cdef("int fputs(const char *, FILE *);")
         needs_dlopen_none()
         C = ffi.dlopen(None)
-        with open(filename, 'wb') as f:
+        with temp_file.open('wb') as f:
             f.write(b'[')
             C.fputs(b"hello from custom file", f)
             f.write(b'][')
             C.fputs(b"some more output", f)
             f.write(b']')
-        with open(filename, 'rb') as f:
+        with temp_file.open('rb') as f:
             res = f.read()
         assert res == b'[hello from custom file][some more output]'
 
@@ -430,7 +431,7 @@ class TestFunction(object):
             # Ref cycle: callback -> lambda (closure) -> container -> callback
             return callback
 
-        class Data(object):
+        class Data:
             pass
         ffi = FFI(backend=self.Backend())
         data = Data()

@@ -1,27 +1,58 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.errors",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.program_search",
+    f"{__spec__.parent}.sysconfig",
+    "re",
+    "shlex",
+    "subprocess",
+    "sysconfig",
+}
+
 import re
+import shlex
 import subprocess
 import sys
 import sysconfig
-from typing import TYPE_CHECKING
 
 from .._logging import logger
 from ..errors import NinjaNotFoundError
 from ..program_search import best_program, get_make_programs, get_ninja_programs
 from .sysconfig import get_cmake_platform
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Mapping, MutableMapping
+    from collections.abc import Collection, Iterable, Mapping, MutableMapping
 
     from ..cmake import CMake
     from ..settings.skbuild_model import NinjaSettings
 
-__all__ = ["set_environment_for_gen"]
+__all__ = ["parse_generator", "set_environment_for_gen"]
 
 
 def __dir__() -> list[str]:
     return __all__
+
+
+def parse_generator(args: Iterable[str]) -> str | None:
+    """
+    Extract the generator from a sequence of CMake arguments, handling both the
+    joined ``-GNinja`` and the two-token ``-G Ninja`` forms. Returns the last
+    generator specified, or None if no ``-G`` is present.
+    """
+    result: str | None = None
+    expecting_value = False
+    for arg in args:
+        if expecting_value:
+            result = arg.strip()
+            expecting_value = False
+        elif arg == "-G":
+            expecting_value = True
+        elif arg.startswith("-G"):
+            result = arg[2:].strip()
+    return result
 
 
 def parse_help_default(txt: str) -> str | None:
@@ -60,12 +91,12 @@ def get_default(cmake: CMake) -> str | None:
     """
     Returns the computed default for the current platform.
     """
-    generator = get_default_from_cmake(cmake)
-
     # Non-MSVC Windows platforms require Ninja
     is_msvc_platform = sysconfig.get_platform().startswith("win")
     if sys.platform.startswith("win") and not is_msvc_platform:
         return "Ninja"
+
+    generator = get_default_from_cmake(cmake)
 
     # Try Ninja if it is available, even if make is CMake default
     if generator == "Unix Makefiles":
@@ -74,11 +105,29 @@ def get_default(cmake: CMake) -> str | None:
     return generator
 
 
+def _strip_flags(compiler: str) -> str:
+    """
+    Keep only the leading non-flag tokens of a sysconfig compiler string
+    (e.g. a compiler wrapper such as "ccache gcc"), stopping at the first
+    flag-like token (starting with "-"). Tokens after that point are dropped
+    even if they don't start with "-" themselves, since they may be a flag's
+    value argument (e.g. "arm64" in "-arch arm64") rather than a wrapper.
+    """
+    tokens = []
+    for tok in shlex.split(compiler):
+        if tok.startswith("-"):
+            break
+        tokens.append(tok)
+    return " ".join(tokens)
+
+
 def set_environment_for_gen(
     generator: str | None,
     cmake: CMake,
     env: MutableMapping[str, str],
     ninja_settings: NinjaSettings,
+    *,
+    env_managed_keys: Collection[str] = (),
 ) -> Mapping[str, str]:
     """
     This function modifies the environment as needed to safely set a generator.
@@ -109,22 +158,31 @@ def set_environment_for_gen(
         env.setdefault("CMAKE_GENERATOR_PLATFORM", get_cmake_platform(env))
         return {}
 
-    # Set Python's recommended CC and CXX if not already set by the user
-    if "CC" not in env:
+    # Set Python's recommended CC and CXX if not already set by the user. Only
+    # leading non-flag tokens (the compiler, plus any wrapper such as "ccache
+    # gcc") are kept; sysconfig may append flags (e.g. "c++ -pthread"), which
+    # would otherwise leak into tools like autotools sub-builds. CMake adds
+    # any flags it needs itself. See #1330. Trailing flags are dropped but a
+    # leading wrapper is preserved, since CMake understands multi-word CC/CXX
+    # values (the second word becomes CMAKE_<LANG>_COMPILER_ARG1). See #1417.
+    # A key the user manages via the ``env`` table is left alone (even when it
+    # resolves to nothing), letting CMake pick the compiler from ``PATH`` for
+    # projects whose compiler probes break on the sysconfig compiler. See #1367.
+    if "CC" not in env and "CC" not in env_managed_keys:
         cc = sysconfig.get_config_var("CC")
         if cc:
-            env["CC"] = cc
+            env["CC"] = _strip_flags(cc)
 
-    if "CXX" not in env:
+    if "CXX" not in env and "CXX" not in env_managed_keys:
         cxx = sysconfig.get_config_var("CXX")
         if cxx:
-            env["CXX"] = cxx
+            env["CXX"] = _strip_flags(cxx)
 
-    if (generator or "Ninja") == "Ninja":
+    if "Ninja" in (generator or "Ninja"):
         ninja = best_program(get_ninja_programs(), version=ninja_settings.version)
 
         if ninja is not None:
-            env.setdefault("CMAKE_GENERATOR", "Ninja")
+            env.setdefault("CMAKE_GENERATOR", generator or "Ninja")
             logger.debug("CMAKE_GENERATOR: Using ninja: {}", ninja.path)
             return {"CMAKE_MAKE_PROGRAM": str(ninja.path)}
 

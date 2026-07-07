@@ -1,5 +1,6 @@
 use crate::{
-    evaluation::evaluator_value::MemoizedEvaluatorValue, unwrap_or_return,
+    evaluation::evaluator_value::MemoizedEvaluatorValue,
+    specs_response::spec_types::ConditionOperator, unwrap_or_return,
     user::user_value::UserValueRef,
 };
 use chrono::Duration;
@@ -7,7 +8,7 @@ use chrono::Duration;
 pub(crate) fn compare_time(
     left: UserValueRef<'_>,
     right: &MemoizedEvaluatorValue,
-    op: &str,
+    op: ConditionOperator,
 ) -> bool {
     let raw_left_ts = unwrap_or_return!(left.timestamp_value().or(left.int_value()), false);
     let left_ts = to_millis(raw_left_ts);
@@ -21,9 +22,9 @@ pub(crate) fn compare_time(
     );
 
     match op {
-        "before" => left_ts < right_ts,
-        "after" => left_ts > right_ts,
-        "on" => {
+        ConditionOperator::Before => left_ts < right_ts,
+        ConditionOperator::After => left_ts > right_ts,
+        ConditionOperator::On => {
             Duration::milliseconds(left_ts).num_days()
                 == Duration::milliseconds(right_ts).num_days()
         }
@@ -48,6 +49,7 @@ fn to_millis(ts: i64) -> i64 {
 #[cfg(test)]
 mod tests {
     use crate::evaluation::comparisons::compare_time;
+    use crate::specs_response::spec_types::ConditionOperator;
     use crate::user::user_value::UserValue;
     use crate::{dyn_value, test_only_make_eval_value, DynamicValue};
     use chrono::Utc;
@@ -62,7 +64,11 @@ mod tests {
         let left = DynamicValue::for_timestamp_evaluation(now);
         let right = test_only_make_eval_value!(now + 1);
 
-        assert!(compare_time((&left).into(), &right, "before"));
+        assert!(compare_time(
+            (&left).into(),
+            &right,
+            ConditionOperator::Before
+        ));
     }
 
     #[test]
@@ -71,7 +77,11 @@ mod tests {
         let left = DynamicValue::for_timestamp_evaluation(now + 1);
         let right = test_only_make_eval_value!(now);
 
-        assert!(compare_time((&left).into(), &right, "after"));
+        assert!(compare_time(
+            (&left).into(),
+            &right,
+            ConditionOperator::After
+        ));
     }
 
     #[test]
@@ -80,7 +90,7 @@ mod tests {
         assert!(compare_time(
             (&create_str_value("2023-01-01T00:00:00Z")).into(),
             &test_eval_value,
-            "before"
+            ConditionOperator::Before
         ));
     }
 
@@ -90,7 +100,7 @@ mod tests {
         assert!(compare_time(
             (&create_str_value("2023-01-01 00:00:00")).into(),
             &test_eval_value,
-            "before"
+            ConditionOperator::Before
         ));
     }
 
@@ -100,7 +110,7 @@ mod tests {
         assert!(compare_time(
             (&create_str_value("2023-01-01")).into(),
             &test_eval_value,
-            "before"
+            ConditionOperator::Before
         ));
     }
 
@@ -109,7 +119,11 @@ mod tests {
         let test_eval_value = test_only_make_eval_value!(1780286400000_i64); // 2026-06-01T04:00:00Z
         let left = UserValue::from_string("2026-05-30");
 
-        assert!(compare_time((&left).into(), &test_eval_value, "before"));
+        assert!(compare_time(
+            (&left).into(),
+            &test_eval_value,
+            ConditionOperator::Before
+        ));
     }
 
     #[test]
@@ -118,7 +132,7 @@ mod tests {
         assert!(compare_time(
             (&create_str_value("2023-01-01 00:00:00Z")).into(),
             &test_eval_value,
-            "before"
+            ConditionOperator::Before
         ));
     }
 
@@ -128,7 +142,7 @@ mod tests {
         assert!(compare_time(
             (&create_str_value("1672531200000")).into(), // 2023-01-01
             &test_eval_value,                            // 2023-01-02
-            "before"
+            ConditionOperator::Before
         ));
     }
 
@@ -138,7 +152,7 @@ mod tests {
         assert!(compare_time(
             (&create_str_value("2023-01-01T00:00:00Z")).into(),
             &test_eval_value, // 2023-01-02
-            "before"
+            ConditionOperator::Before
         ));
     }
 
@@ -148,7 +162,7 @@ mod tests {
         assert!(!compare_time(
             (&create_str_value("invalid-date")).into(),
             &test_eval_value,
-            "before"
+            ConditionOperator::Before
         ));
     }
 }

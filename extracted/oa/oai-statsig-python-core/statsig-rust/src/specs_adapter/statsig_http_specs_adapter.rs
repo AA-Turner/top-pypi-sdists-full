@@ -6,6 +6,7 @@ use crate::observability::sdk_errors_observer::ErrorBoundaryEvent;
 use crate::sdk_diagnostics::diagnostics::ContextType;
 use crate::sdk_diagnostics::marker::{ActionType, KeyType, Marker, StepType};
 use crate::specs_adapter::{SpecsAdapter, SpecsUpdate, SpecsUpdateListener};
+use crate::specs_response::spec_types::SpecsResponseNoUpdates;
 use crate::statsig_err::StatsigErr;
 use crate::statsig_metadata::StatsigMetadata;
 use crate::utils::get_api_from_url;
@@ -68,6 +69,50 @@ impl NetworkSyncOutcome {
     fn as_bool(&self) -> bool {
         matches!(self, Self::Success)
     }
+}
+
+enum ConfigSyncResponseType {
+    Delta,
+    Full,
+    NoUpdate,
+    NetworkError,
+}
+
+impl ConfigSyncResponseType {
+    fn from_response_data(data: &mut ResponseData) -> Self {
+        if is_true_header(data, "x-cache-hit") {
+            return Self::NoUpdate;
+        }
+
+        if data.get_header_ref("x-deltas-used").is_some() {
+            return Self::Delta;
+        }
+
+        let response_type = match data.deserialize_into::<SpecsResponseNoUpdates>() {
+            Ok(response) if !response.has_updates => Self::NoUpdate,
+            _ => Self::Full,
+        };
+        let _ = data.rewind();
+        response_type
+    }
+
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Delta => "delta",
+            Self::Full => "full",
+            Self::NoUpdate => "no_update",
+            Self::NetworkError => "network_error",
+        }
+    }
+}
+
+fn is_true_header(data: &ResponseData, key: &str) -> bool {
+    data.get_header_ref(key)
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+}
+
+fn is_process_success(result: &Result<(), StatsigErr>) -> bool {
+    result.is_ok()
 }
 // OB client -- END
 
@@ -332,9 +377,14 @@ impl StatsigHttpSpecsAdapter {
 
         let sync_start_ms = Utc::now().timestamp_millis() as u64;
         let mut deltas_used = self.use_deltas_next_request.load(Ordering::SeqCst);
-        let response = self
+        let mut response = self
             .fetch_specs_from_network(current_specs_info.clone(), trigger)
             .await;
+        let mut response_type = response
+            .as_mut()
+            .map_or(ConfigSyncResponseType::NetworkError, |response| {
+                ConfigSyncResponseType::from_response_data(&mut response.data)
+            });
         let (mut source_api, mut response_format, mut network_success) = match &response {
             Ok(response) => (
                 response.loggable_api.clone(),
@@ -360,7 +410,12 @@ impl StatsigHttpSpecsAdapter {
             log_d!(TAG, "Falling back to DCS CDN");
             let fallback_args = self.get_request_args(&current_specs_info, trigger);
             deltas_used = fallback_args.deltas_enabled;
-            let response = self.handle_fallback_request(fallback_args).await;
+            let mut response = self.handle_fallback_request(fallback_args).await;
+            response_type = response
+                .as_mut()
+                .map_or(ConfigSyncResponseType::NetworkError, |response| {
+                    ConfigSyncResponseType::from_response_data(&mut response.data)
+                });
             match &response {
                 Ok(response) => {
                     source_api = response.loggable_api.clone();
@@ -382,7 +437,7 @@ impl StatsigHttpSpecsAdapter {
             result = self.process_spec_data(response).await;
         }
 
-        let process_success = !matches!(result.as_ref(), Err(StatsigErr::NetworkError(_)));
+        let process_success = is_process_success(&result);
         log_config_sync_overall_latency(
             &self.ops_stats,
             sync_start_ms,
@@ -395,6 +450,7 @@ impl StatsigHttpSpecsAdapter {
                 .err()
                 .map_or_else(String::new, |e| e.to_string()),
             deltas_used,
+            response_type.as_str(),
         );
 
         result
@@ -699,6 +755,16 @@ mod tests {
     }
 
     #[test]
+    fn test_checksum_failure_is_not_process_success() {
+        let result = Err(StatsigErr::ChecksumFailure(
+            "simulated checksum failure".to_string(),
+        ));
+
+        assert!(!is_process_success(&result));
+        assert!(is_process_success(&Ok(())));
+    }
+
+    #[test]
     fn test_fallback_uses_openai_cdn_for_non_default_specs_url() {
         let options = StatsigOptions {
             fallback_to_statsig_api: Some(true),
@@ -711,6 +777,67 @@ mod tests {
         );
 
         assert_eq!(adapter.fallback_url.as_deref(), Some(DEFAULT_SPECS_URL));
+    }
+
+    #[test]
+    fn test_config_sync_response_type_delta() {
+        let mut headers = HashMap::new();
+        headers.insert("x-deltas-used".to_string(), "true".to_string());
+        let mut data = ResponseData::from_bytes_with_headers(
+            b"{\"has_updates\": false}".to_vec(),
+            Some(headers),
+        );
+
+        let response_type = ConfigSyncResponseType::from_response_data(&mut data);
+
+        assert_eq!(response_type.as_str(), "delta");
+    }
+
+    #[test]
+    fn test_config_sync_response_type_no_update() {
+        let mut data = ResponseData::from_bytes(b"{\"has_updates\": false}".to_vec());
+
+        let response_type = ConfigSyncResponseType::from_response_data(&mut data);
+
+        assert_eq!(response_type.as_str(), "no_update");
+        let response = data.deserialize_into::<SpecsResponseNoUpdates>().unwrap();
+        assert!(!response.has_updates);
+    }
+
+    #[test]
+    fn test_config_sync_response_type_no_update_with_delta_header() {
+        let mut headers = HashMap::new();
+        headers.insert("x-cache-hit".to_string(), "true".to_string());
+        headers.insert("x-deltas-used".to_string(), "true".to_string());
+        let mut data = ResponseData::from_bytes_with_headers(
+            b"{\"has_updates\": false}".to_vec(),
+            Some(headers),
+        );
+
+        let response_type = ConfigSyncResponseType::from_response_data(&mut data);
+
+        assert_eq!(response_type.as_str(), "no_update");
+    }
+
+    #[test]
+    fn test_config_sync_response_type_full() {
+        let mut data = ResponseData::from_bytes(b"{\"has_updates\": true}".to_vec());
+
+        let response_type = ConfigSyncResponseType::from_response_data(&mut data);
+
+        assert_eq!(response_type.as_str(), "full");
+    }
+
+    #[test]
+    fn test_config_sync_response_type_full_for_non_json_payload() {
+        let mut data = ResponseData::from_bytes(vec![0, 1, 2]);
+
+        let response_type = ConfigSyncResponseType::from_response_data(&mut data);
+
+        assert_eq!(response_type.as_str(), "full");
+        let mut first_byte = [1];
+        data.get_stream_mut().read_exact(&mut first_byte).unwrap();
+        assert_eq!(first_byte, [0]);
     }
 
     #[test]

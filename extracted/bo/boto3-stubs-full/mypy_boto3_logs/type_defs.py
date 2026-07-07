@@ -55,6 +55,7 @@ from .literals import (
     ScheduleTypeType,
     StandardUnitType,
     StateType,
+    StorageTierType,
     SuppressionStateType,
     SuppressionTypeType,
     SuppressionUnitType,
@@ -240,6 +241,7 @@ __all__ = (
     "GetScheduledQueryHistoryResponseTypeDef",
     "GetScheduledQueryRequestTypeDef",
     "GetScheduledQueryResponseTypeDef",
+    "GetStorageTierPolicyResponseTypeDef",
     "GetTransformerRequestTypeDef",
     "GetTransformerResponseTypeDef",
     "GrokTypeDef",
@@ -359,6 +361,8 @@ __all__ = (
     "PutResourcePolicyRequestTypeDef",
     "PutResourcePolicyResponseTypeDef",
     "PutRetentionPolicyRequestTypeDef",
+    "PutStorageTierPolicyRequestTypeDef",
+    "PutStorageTierPolicyResponseTypeDef",
     "PutSubscriptionFilterRequestTypeDef",
     "PutSyslogConfigurationRequestTypeDef",
     "PutTransformerRequestTypeDef",
@@ -1504,6 +1508,10 @@ class PutRetentionPolicyRequestTypeDef(TypedDict):
     retentionInDays: int
 
 
+class PutStorageTierPolicyRequestTypeDef(TypedDict):
+    storageTier: StorageTierType
+
+
 class PutSubscriptionFilterRequestTypeDef(TypedDict):
     logGroupName: str
     filterName: str
@@ -1787,6 +1795,12 @@ class GetLookupTableResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetStorageTierPolicyResponseTypeDef(TypedDict):
+    storageTier: StorageTierType
+    lastUpdatedTime: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListLogAnomalyDetectorsResponseTypeDef(TypedDict):
     anomalyDetectors: list[AnomalyDetectorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1829,6 +1843,12 @@ class PutIntegrationResponseTypeDef(TypedDict):
 
 class PutQueryDefinitionResponseTypeDef(TypedDict):
     queryDefinitionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutStorageTierPolicyResponseTypeDef(TypedDict):
+    storageTier: StorageTierType
+    lastUpdatedTime: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 

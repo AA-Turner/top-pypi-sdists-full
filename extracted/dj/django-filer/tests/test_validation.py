@@ -1,15 +1,17 @@
+import io
 import json
 import os
 
 import django.core
 from django.apps import apps
+from PIL import Image
 from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
 from django.utils.crypto import get_random_string
 
 from filer.models import File, Folder
-from filer.validation import FileValidationError, validate_upload, sanitize_svg
+from filer.validation import FileValidationError, sanitize_svg, strip_exif, validate_svg, validate_upload
 from tests.helpers import create_superuser
 
 
@@ -57,9 +59,14 @@ stroke="#004400"/>
         self.assertEqual(File.objects.count(), 0)
 
     def test_svg_upload_fails(self):
+        config = apps.get_app_config("filer")
+        svg_validation = config.FILE_VALIDATORS["image/svg+xml"]
+        config.FILE_VALIDATORS["image/svg+xml"] = [validate_svg]
+
         for attack, expected_files in [
             ("""<a href="javascript: alert('ing');">test</a>""", 0),
             ('<script>alert(document.domain);</script>', 0),
+            ('&#x3c;script>alert(document.domain);</script>', 0),
             ("""<circle onclick="console.log('test')" cx="300" cy="225" r="100" fill="red"/>""", 0),
             ("", 1)
         ]:
@@ -86,6 +93,8 @@ stroke="#004400"/>
             if expected_files == 0:
                 self.assertContains(response, "Rejected due to potential cross site scripting vulnerability")
             self.assertEqual(File.objects.count(), n + expected_files)
+
+        config.FILE_VALIDATORS["image/svg+xml"] = svg_validation
 
     def test_deny_validator(self):
         from filer.validation import deny
@@ -120,10 +129,29 @@ stroke="#004400"/>
             "text/html",
         )
 
+    def test_browser_rendered_xml_formats_denied(self):
+        # Formats that a browser may render and execute JavaScript from must be
+        # rejected by default, just like text/html.
+        for mime_type in (
+            "application/xhtml+xml",
+            "application/xml",
+            "text/xml",
+            "application/xslt+xml",
+        ):
+            with self.assertRaises(FileValidationError):
+                validate_upload("test-file", None, self.superuser, mime_type)
+
+    def test_svg_validator_rejects_non_svg_file(self):
+        non_svg_content = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01'
+        file_obj = io.BytesIO(non_svg_content)
+
+        with self.assertRaisesRegex(
+            FileValidationError,
+            "Rejected due to incompatible format",
+        ):
+            sanitize_svg("test_file.svg", file_obj, self.superuser, "image/svg+xml")
+
     def test_svg_sanitizer(self):
-        config = apps.get_app_config("filer")
-        svg_validation = config.FILE_VALIDATORS["image/svg+xml"]
-        config.FILE_VALIDATORS["image/svg+xml"] = [sanitize_svg]
         for attack, disallowed in [
             ("""<a href="javascript: alert('ing');">test</a>""", "javascript:"),
             ('<script>alert(document.domain);</script>', "alert"),
@@ -148,12 +176,135 @@ stroke="#004400"/>
                     'jsessionid': self.client.session.session_key
                 }
                 response = self.client.post(url, post_data)
-            file_id = json.loads(response.content.decode("utf-8"))["file_id"]
+            result = json.loads(response.content.decode("utf-8"))
+            file_id = result["file_id"]
             img = File.objects.get(pk=file_id)
             content = img.file.file.read().decode("utf-8")
             self.assertNotIn(disallowed, content)
 
-        config.FILE_VALIDATORS["image/svg+xml"] = svg_validation
+    def _jpeg_with_exif(self):
+        image = Image.new("RGB", (8, 8), color=(255, 0, 0))
+        exif = image.getexif()
+        exif[0x010F] = "DjangoFiler"  # Make
+        exif[0x0110] = "TestCamera"  # Model
+        exif[0x8298] = "Copyright (c) nobody"  # Copyright
+
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG", exif=exif.tobytes(), quality=88)
+        buffer.seek(0)
+        return buffer
+
+    def test_strip_exif_removes_metadata(self):
+        source = self._jpeg_with_exif()
+        self.assertTrue(Image.open(source).getexif(), "fixture must contain EXIF")
+        source.seek(0)
+
+        strip_exif("photo.jpg", source, self.superuser, "image/jpeg")
+
+        stripped = Image.open(source)
+        self.assertEqual(stripped.format, "JPEG")
+        self.assertEqual(stripped.size, (8, 8))
+        self.assertFalse(stripped.getexif())
+        self.assertNotIn("exif", stripped.info)
+
+    def test_strip_exif_webp_removes_metadata(self):
+        image = Image.new("RGB", (8, 8), color=(0, 0, 255))
+        exif = image.getexif()
+        exif[0x010F] = "DjangoFiler"  # Make
+        buffer = io.BytesIO()
+        image.save(buffer, format="WEBP", exif=exif.tobytes())
+        buffer.seek(0)
+
+        # Sanity check: the fixture really carries EXIF.
+        self.assertTrue(Image.open(buffer).getexif(), "fixture must contain EXIF")
+        buffer.seek(0)
+
+        strip_exif("photo.webp", buffer, self.superuser, "image/webp")
+
+        stripped = Image.open(buffer)
+        self.assertEqual(stripped.format, "WEBP")
+        self.assertEqual(stripped.size, (8, 8))
+        self.assertFalse(stripped.getexif())
+        self.assertNotIn("exif", stripped.info)
+
+    def test_strip_exif_preserves_progressive_jpeg(self):
+        image = Image.new("RGB", (8, 8), color=(0, 0, 255))
+        exif = image.getexif()
+        exif[0x010F] = "DjangoFiler"  # Make -- forces a re-encode
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG", exif=exif.tobytes(), progressive=True)
+        buffer.seek(0)
+
+        # Sanity check: the fixture really is progressive.
+        self.assertTrue(Image.open(buffer).info.get("progression"))
+        buffer.seek(0)
+
+        strip_exif("photo.jpg", buffer, self.superuser, "image/jpeg")
+
+        stripped = Image.open(buffer)
+        self.assertFalse(stripped.getexif())  # EXIF gone
+        self.assertTrue(stripped.info.get("progression"))  # still progressive
+
+    def test_strip_exif_preserves_icc_profile(self):
+        # A minimal but valid ICC profile blob (sRGB) generated by Pillow.
+        from PIL import ImageCms
+
+        srgb = ImageCms.createProfile("sRGB")
+        icc_bytes = ImageCms.ImageCmsProfile(srgb).tobytes()
+
+        image = Image.new("RGB", (8, 8), color=(255, 0, 0))
+        exif = image.getexif()
+        exif[0x010F] = "DjangoFiler"  # Make -- forces a re-encode
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG", exif=exif.tobytes(), icc_profile=icc_bytes)
+        buffer.seek(0)
+
+        strip_exif("photo.jpg", buffer, self.superuser, "image/jpeg")
+
+        stripped = Image.open(buffer)
+        self.assertFalse(stripped.getexif())  # EXIF gone
+        self.assertEqual(stripped.info.get("icc_profile"), icc_bytes)  # ICC kept
+
+    def test_strip_exif_noop_without_metadata(self):
+        image = Image.new("RGB", (4, 4), color=(0, 128, 0))
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        original = buffer.getvalue()
+        buffer.seek(0)
+
+        strip_exif("plain.png", buffer, self.superuser, "image/png")
+
+        self.assertEqual(buffer.getvalue(), original)
+
+    def test_strip_exif_removes_png_text_chunks(self):
+        from PIL import PngImagePlugin
+
+        image = Image.new("RGB", (4, 4), color=(0, 128, 0))
+        info = PngImagePlugin.PngInfo()
+        info.add_text("Author", "Jane Doe")
+        info.add_text("Comment", "secret location")
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG", pnginfo=info)
+        buffer.seek(0)
+
+        # Sanity check: the fixture really carries text metadata.
+        self.assertTrue(Image.open(buffer).text)
+        buffer.seek(0)
+
+        strip_exif("tagged.png", buffer, self.superuser, "image/png")
+
+        stripped = Image.open(buffer)
+        self.assertEqual(stripped.format, "PNG")
+        self.assertEqual(stripped.size, (4, 4))
+        self.assertFalse(stripped.text)
+
+    def test_strip_exif_rejects_non_image(self):
+        garbage = io.BytesIO(b"this is definitely not an image")
+        with self.assertRaisesRegex(
+            FileValidationError,
+            "Rejected due to incompatible format",
+        ):
+            strip_exif("notes.txt", garbage, self.superuser, "image/jpeg")
 
 
 class TestWhitelist(TestCase):

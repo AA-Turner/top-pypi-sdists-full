@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pynautobot
-Version: 3.1.0
+Version: 3.1.1
 Summary: Nautobot API client library
 License: Apache-2.0
 License-File: LICENSE

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testit-adapter-pytest
-Version: 4.2.10
+Version: 4.3.0.post580
 Summary: Pytest adapter for Test IT
 Home-page: https://github.com/testit-tms/adapters-python/
 Author: Integration team
@@ -16,7 +16,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: pytest
 Requires-Dist: pytest-xdist
 Requires-Dist: attrs
-Requires-Dist: testit-python-commons==4.2.10
+Requires-Dist: testit-python-commons==4.3.0.post580
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

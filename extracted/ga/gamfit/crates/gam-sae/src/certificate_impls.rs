@@ -15,7 +15,10 @@ use gam_problem::topology_certificates::{Certificate, Claim, Evidence, Verdict};
 
 use crate::encode::EncodeResult;
 use crate::identifiability::ResidualGaugeReport;
-use crate::manifold::{CertificateInputs, CoordinateFidelityCertificate, GlobalOptimalityVerdict};
+use crate::manifold::{
+    CertificateInputs, CoordinateFidelityCertificate, GlobalOptimalityVerdict,
+    TopologyPersistenceCertificate,
+};
 
 /// Helper: insert a scalar only when finite, else record it as text "n/a" so the
 /// evidence is explicit about a missing quantity (never a silent 0.0).
@@ -203,6 +206,9 @@ impl<'a> Certificate for CoordinateFidelityCertificate<'a> {
         let mut max_raw_max = f64::NEG_INFINITY;
         let mut max_uniformity = f64::NEG_INFINITY;
         let mut min_p = f64::INFINITY;
+        let mut support_masses = Vec::new();
+        let mut effective_ns = Vec::new();
+        let mut support_esses = Vec::new();
         let mut worst = "unavailable";
 
         for atom in self.atoms.iter().flatten() {
@@ -231,6 +237,9 @@ impl<'a> Certificate for CoordinateFidelityCertificate<'a> {
             if atom.uniformity_p_value.is_finite() {
                 min_p = min_p.min(atom.uniformity_p_value);
             }
+            support_masses.push(atom.support_mass);
+            effective_ns.push(atom.effective_n);
+            support_esses.push(atom.support_ess);
         }
 
         e.insert("atom_count", self.atoms.len().into());
@@ -243,6 +252,9 @@ impl<'a> Certificate for CoordinateFidelityCertificate<'a> {
         put_finite(&mut e, "max_raw_arclength_defect_max", max_raw_max);
         put_finite(&mut e, "max_uniformity_statistic", max_uniformity);
         put_finite(&mut e, "min_uniformity_p_value", min_p);
+        e.insert("support_mass", support_masses.into());
+        e.insert("effective_n", effective_ns.into());
+        e.insert("support_ess", support_esses.into());
         e
     }
 
@@ -255,6 +267,101 @@ impl<'a> Certificate for CoordinateFidelityCertificate<'a> {
             }
         }
         if saw_eligible {
+            Verdict::Certified
+        } else {
+            Verdict::Unavailable
+        }
+    }
+}
+
+// ── 8. Persistent-homology topology audit (reviewer F3) ───────────────────────
+
+impl<'a> Certificate for TopologyPersistenceCertificate<'a> {
+    fn claim(&self) -> Claim {
+        Claim::new(
+            "topology-persistence",
+            "each audited SAE atom's assigned-row image has persistent homology \
+             consistent with the raced topology: measured Betti numbers and loop \
+             evidence are exposed, and any disagreement is marked contested rather \
+             than trusted silently",
+        )
+    }
+
+    fn evidence(&self) -> Evidence {
+        let mut e = Evidence::new();
+        let mut audited = 0_usize;
+        let mut contested = 0_usize;
+        let mut max_h1 = f64::NEG_INFINITY;
+        let mut max_h2 = f64::NEG_INFINITY;
+        let mut betti0 = Vec::new();
+        let mut betti1 = Vec::new();
+        let mut betti2 = Vec::new();
+        let mut expected_betti0 = Vec::new();
+        let mut expected_betti1 = Vec::new();
+        let mut expected_betti2 = Vec::new();
+        let mut support_sizes = Vec::new();
+        let mut support_masses = Vec::new();
+        let mut effective_ns = Vec::new();
+        let mut support_esses = Vec::new();
+        let mut null_pvalues = Vec::new();
+        let mut spikein_powers = Vec::new();
+
+        for atom in self.atoms.iter().flatten() {
+            audited += 1;
+            if atom.contested {
+                contested += 1;
+            }
+            if atom.dominant_h1_persistence.is_finite() {
+                max_h1 = max_h1.max(atom.dominant_h1_persistence);
+            }
+            if atom.dominant_h2_persistence.is_finite() {
+                max_h2 = max_h2.max(atom.dominant_h2_persistence);
+            }
+            betti0.push(atom.measured_betti.b0 as f64);
+            betti1.push(atom.measured_betti.b1 as f64);
+            betti2.push(atom.measured_betti.b2.unwrap_or(0) as f64);
+            expected_betti0.push(atom.expected_betti.b0 as f64);
+            expected_betti1.push(atom.expected_betti.b1 as f64);
+            expected_betti2.push(atom.expected_betti.b2.unwrap_or(0) as f64);
+            support_sizes.push(atom.support_size as f64);
+            support_masses.push(atom.support_mass);
+            effective_ns.push(atom.effective_n);
+            support_esses.push(atom.support_ess);
+            if let Some(calibration) = &atom.null_calibration {
+                null_pvalues.push(calibration.null_pvalue);
+                spikein_powers.push(calibration.spikein_power);
+            }
+        }
+
+        e.insert("atom_count", self.atoms.len().into());
+        e.insert("audited_atoms", audited.into());
+        e.insert("contested_atoms", contested.into());
+        e.insert("measured_betti0", betti0.into());
+        e.insert("measured_betti1", betti1.into());
+        e.insert("measured_betti2", betti2.into());
+        e.insert("expected_betti0", expected_betti0.into());
+        e.insert("expected_betti1", expected_betti1.into());
+        e.insert("expected_betti2", expected_betti2.into());
+        e.insert("support_size", support_sizes.into());
+        e.insert("support_mass", support_masses.into());
+        e.insert("effective_n", effective_ns.into());
+        e.insert("support_ess", support_esses.into());
+        e.insert("null_pvalue", null_pvalues.into());
+        e.insert("spikein_power", spikein_powers.into());
+        put_finite(&mut e, "max_dominant_h1_persistence", max_h1);
+        put_finite(&mut e, "max_dominant_h2_persistence", max_h2);
+        e
+    }
+
+    fn verdict(&self) -> Verdict {
+        let mut saw_audited = false;
+        for atom in self.atoms.iter().flatten() {
+            saw_audited = true;
+            if atom.contested {
+                return Verdict::Insufficient;
+            }
+        }
+        if saw_audited {
             Verdict::Certified
         } else {
             Verdict::Unavailable

@@ -267,6 +267,119 @@ fn routing_is_gamma_invariant() {
 }
 
 #[test]
+fn splitting_dynamics_theorem_group_l2_kills_splitting_gradient() {
+    fn group_l2_penalty(blocks: &[&[f64]], lambda: f64) -> f64 {
+        lambda
+            * blocks
+                .iter()
+                .map(|block| block.iter().map(|value| value * value).sum::<f64>().sqrt())
+                .sum::<f64>()
+    }
+
+    fn l1_penalty(values: &[f64], lambda: f64) -> f64 {
+        lambda * values.iter().map(|value| value.abs()).sum::<f64>()
+    }
+
+    fn log2_choose(n: usize, k: usize) -> f64 {
+        assert!(k <= n, "cannot choose {k} items from {n}");
+        let kk = k.min(n - k);
+        (1..=kk)
+            .map(|i| ((n + 1 - i) as f64 / i as f64).ln())
+            .sum::<f64>()
+            / std::f64::consts::LN_2
+    }
+
+    let lambda = 0.17f64;
+    let block_code = [3.0f64, -4.0, 12.0];
+    let rotation = [
+        [0.6f64, -0.8, 0.0],
+        [0.8f64, 0.6, 0.0],
+        [0.0f64, 0.0, -1.0],
+    ];
+    let rotated = [
+        rotation[0][0] * block_code[0]
+            + rotation[0][1] * block_code[1]
+            + rotation[0][2] * block_code[2],
+        rotation[1][0] * block_code[0]
+            + rotation[1][1] * block_code[1]
+            + rotation[1][2] * block_code[2],
+        rotation[2][0] * block_code[0]
+            + rotation[2][1] * block_code[1]
+            + rotation[2][2] * block_code[2],
+    ];
+
+    let penalty_before = group_l2_penalty(&[&block_code], lambda);
+    let penalty_after = group_l2_penalty(&[&rotated], lambda);
+    assert!(
+        (penalty_before - penalty_after).abs() <= 1.0e-12 * (1.0 + penalty_before.abs()),
+        "group-l2 penalty must be O(b)-invariant: {penalty_before} vs {penalty_after}"
+    );
+
+    let block_reconstruction = block_code;
+    let singleton_reconstruction = [block_code[0], block_code[1], block_code[2]];
+    for coordinate in 0..block_reconstruction.len() {
+        assert!(
+            (block_reconstruction[coordinate] - singleton_reconstruction[coordinate]).abs()
+                <= f64::EPSILON,
+            "block and singleton decompositions must have equal reconstruction"
+        );
+    }
+
+    let n_blocks = 11usize;
+    let active_blocks = 1usize;
+    let block_size = block_code.len();
+    let selection_weight = 0.04f64;
+    let block_selection_bits = log2_choose(n_blocks, active_blocks);
+    let split_selection_bits = log2_choose(n_blocks * block_size, active_blocks * block_size);
+    assert!(
+        split_selection_bits > block_selection_bits,
+        "atom-level split support catalogue must cost more bits"
+    );
+
+    let block_sparsity = group_l2_penalty(&[&block_code], lambda);
+    let split_sparsity = l1_penalty(&block_code, lambda);
+    assert!(
+        split_sparsity > block_sparsity,
+        "lasso singleton split must cost more than group-l2 for a multi-axis block"
+    );
+
+    let block_cost = block_sparsity + selection_weight * block_selection_bits;
+    let split_cost = split_sparsity + selection_weight * split_selection_bits;
+    assert!(
+        split_cost > block_cost,
+        "splitting one block into singleton atoms must strictly raise equal-fit cost: \
+         block {block_cost}, split {split_cost}"
+    );
+}
+
+#[test]
+fn near_orthogonal_row_is_orphaned_by_gate_floor() {
+    let (n_blocks, b, p, k) = (2usize, 2usize, 4usize, 2usize);
+    let mut decoder = Array2::<f32>::zeros((n_blocks * b, p));
+    decoder[[0, 0]] = 1.0;
+    decoder[[1, 1]] = 1.0;
+    decoder[[2, 0]] = std::f32::consts::FRAC_1_SQRT_2;
+    decoder[[2, 1]] = std::f32::consts::FRAC_1_SQRT_2;
+    decoder[[3, 0]] = -std::f32::consts::FRAC_1_SQRT_2;
+    decoder[[3, 1]] = std::f32::consts::FRAC_1_SQRT_2;
+
+    let mut x = Array2::<f32>::zeros((1, p));
+    x[[0, 2]] = 1.0;
+
+    let codes = route_and_code_all(x.view(), decoder.view(), 1.0, n_blocks, b, k, 1, 1);
+    assert_eq!(codes.len(), 1);
+    let code = &codes[0];
+    assert!(
+        code.gates.iter().all(|gate| *gate == 0.0),
+        "orthogonal rows should carry only padded zero gates"
+    );
+    assert!(
+        code.codes.iter().all(|value| *value == 0.0),
+        "orthogonal rows should not populate any block code"
+    );
+}
+
+#[test]
 fn planted_block_subspaces_recovered() {
     let (p, b, n_blocks) = (8usize, 2usize, 3usize);
     let planted = planted_frames(p, n_blocks, b);
@@ -281,6 +394,7 @@ fn planted_block_subspaces_recovered() {
         block_tile: 8,
         frame_ridge: 1.0e-9,
         aux_k: 3,
+        matryoshka_prefix: false,
         tolerance: 1.0e-10,
     };
     let fit = fit_block_sparse_dictionary(x.view(), &config).expect("block fit");
@@ -335,6 +449,7 @@ fn fitted_block_frames_are_orthonormal() {
         block_tile: 8,
         frame_ridge: 1.0e-9,
         aux_k: 2,
+        matryoshka_prefix: false,
         tolerance: 1.0e-9,
     };
     let fit = fit_block_sparse_dictionary(x.view(), &config).expect("block fit");
@@ -371,6 +486,7 @@ fn utilization_and_stable_rank_reported() {
         block_tile: 8,
         frame_ridge: 1.0e-9,
         aux_k: 2,
+        matryoshka_prefix: false,
         tolerance: 1.0e-9,
     };
     let fit = fit_block_sparse_dictionary(x.view(), &config).expect("block fit");
@@ -402,6 +518,82 @@ fn utilization_and_stable_rank_reported() {
         max_sr > 1.2,
         "a block spanning a genuine 2D subspace should report stable rank > 1.2, got {max_sr}"
     );
+}
+
+#[test]
+fn matryoshka_prefix_losses_are_monotone_and_match_truncated_readout() {
+    let (p, b, n_blocks) = (8usize, 2usize, 4usize);
+    let planted = planted_frames(p, n_blocks, b);
+    let x = planted_data(&planted, n_blocks, b, p, 160);
+    let config = BlockSparseConfig {
+        n_blocks,
+        block_size: b,
+        block_topk: 1,
+        max_epochs: 30,
+        minibatch: 64,
+        block_tile: 8,
+        frame_ridge: 1.0e-9,
+        aux_k: 2,
+        matryoshka_prefix: true,
+        tolerance: 1.0e-9,
+    };
+    let fit = fit_block_sparse_dictionary(x.view(), &config).expect("block fit");
+
+    assert_eq!(
+        fit.matryoshka_prefix_losses
+            .iter()
+            .map(|&(k, _)| k)
+            .collect::<Vec<_>>(),
+        vec![2, 4, 8],
+        "MATRYOSHKA-PREFIX ladder must be log-spaced block-aligned atom prefixes"
+    );
+    for pair in fit.matryoshka_prefix_losses.windows(2) {
+        assert!(
+            pair[1].1 <= pair[0].1 + 1.0e-8,
+            "prefix losses must be monotone non-increasing: {:?}",
+            fit.matryoshka_prefix_losses
+        );
+    }
+
+    let mut independent_best = f64::INFINITY;
+    for &(k_atoms, stored_loss) in fit.matryoshka_prefix_losses.iter() {
+        let prefix_decoder = fit.decoder.slice(ndarray::s![0..k_atoms, ..]);
+        let (blocks, gates, codes) = block_sparse_dictionary_transform(
+            x.view(),
+            prefix_decoder,
+            fit.gamma,
+            b,
+            fit.block_topk,
+            config.block_tile,
+        )
+        .expect("truncated prefix transform");
+        assert_eq!(gates.nrows(), x.nrows(), "truncated prefix gate row count");
+        let recon =
+            reconstruct_block_sparse_rows(prefix_decoder, blocks.view(), codes.view(), b)
+                .expect("truncated prefix reconstruction");
+        let mut loss = 0.0f64;
+        for i in 0..x.nrows() {
+            for c in 0..x.ncols() {
+                let r = x[[i, c]] as f64 - recon[[i, c]] as f64;
+                loss += r * r;
+            }
+        }
+        loss /= x.nrows() as f64;
+        independent_best = independent_best.min(loss);
+
+        let read_loss = fit
+            .read_loss_at_prefix(k_atoms)
+            .expect("stored prefix loss must be readable");
+        assert!(
+            (read_loss - stored_loss).abs() <= 1.0e-12,
+            "accessor must return the stored prefix loss at K={k_atoms}"
+        );
+        assert!(
+            (read_loss - independent_best).abs() <= 1.0e-5 * (1.0 + independent_best.abs()),
+            "single nested fit loss at K={k_atoms} must match independently truncated readout: \
+             stored {read_loss}, independent {independent_best}"
+        );
+    }
 }
 
 #[test]

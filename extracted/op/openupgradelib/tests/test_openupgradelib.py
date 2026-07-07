@@ -1,3 +1,4 @@
+import json
 import os
 import unittest
 from io import StringIO
@@ -205,6 +206,54 @@ class TestOpenupgradelib(unittest.TestCase):
                 invalid_filter[field] = self.env.ref("base.user_admin")
         openupgrade.disable_invalid_filters(self.env)
         self.assertFalse(invalid_filter.active)
+
+    def test_update_module_names(self):
+        old = "dummy_module"
+        new = "renamed_module"
+        Mod = self.env["ir.module.module"]
+        # Dummy module is installed
+        Mod.update_list()
+        dummy_module = Mod.search([("name", "=", old)])
+        self.assertTrue(dummy_module, "Dummy module not found")
+        dummy_module.button_immediate_install()
+        self.assertEqual(dummy_module.state, "installed", "Dummy module not installed")
+        # Rename dummy module using namespec
+        openupgrade.update_module_names(self.cr, {old: new}.items())
+        dummy_module = Mod.search([("name", "=", old)])
+        renamed_module = Mod.search([("name", "=", new)])
+        self.assertFalse(dummy_module)
+        self.assertTrue(renamed_module)
+        # Ensure invalid JSON raises an error
+        with mock.patch.dict(
+            os.environ,
+            {"OPENUPGRADE_RENAMED_MODULES": "Invalid Json"},
+            clear=True,
+        ):
+            with self.assertRaises(ValueError):
+                openupgrade.update_module_names(
+                    self.cr, {}.items(), environment_namespec=True
+                )
+        # Rename dummy module back into original name using namespec
+        with mock.patch.dict(
+            os.environ,
+            {"OPENUPGRADE_RENAMED_MODULES": json.dumps({new: old})},
+            clear=True,
+        ):
+            openupgrade.update_module_names(
+                self.cr, {}.items(), environment_namespec=True
+            )
+        dummy_module = Mod.search([("name", "=", old)])
+        renamed_module = Mod.search([("name", "=", new)])
+        self.assertTrue(dummy_module)
+        self.assertFalse(renamed_module)
+        # Merge dummy module into base
+        openupgrade.update_module_names(
+            self.cr, {old: "base"}.items(), merge_modules=True
+        )
+        dummy_module = Mod.search([("name", "=", new)])
+        renamed_module = Mod.search([("name", "=", old)])
+        self.assertFalse(dummy_module)
+        self.assertFalse(renamed_module)
 
     def tearDown(self):
         super().tearDown()

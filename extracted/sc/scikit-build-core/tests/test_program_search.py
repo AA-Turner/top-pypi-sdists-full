@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ from packaging.version import Version
 
 from scikit_build_core.program_search import (
     best_program,
+    get_cmake_program,
     get_cmake_programs,
     get_ninja_programs,
 )
@@ -49,14 +51,6 @@ def test_get_cmake_programs_all(monkeypatch, fp):
         [cmake3_path, "-E", "capabilities"],
         stdout='{"version":{"string":"3.19.0"}}',
     )
-    fp.register(
-        ["lipo", "-info", cmake_path],
-        stdout="Architectures in the fat file: ... are: x86_64 arm64",
-    )
-    fp.register(
-        ["lipo", "-info", cmake3_path],
-        stdout="Architectures in the fat file: ... are: x86_64 arm64",
-    )
     programs = list(get_cmake_programs(module=False))
     assert len(programs) == 2
     assert programs[0].path.name == "cmake3"
@@ -79,14 +73,6 @@ def test_get_ninja_programs_all(monkeypatch, fp):
     ninja_build_path = Path("ninja-build")
     fp.register([ninja_path, "--version"], stdout="1.10.1.git.kitware.jobserver-1")
     fp.register([ninja_build_path, "--version"], stdout="1.8.2")
-    fp.register(
-        ["lipo", "-info", ninja_path],
-        stdout="Architectures in the fat file: ... are: x86_64 arm64",
-    )
-    fp.register(
-        ["lipo", "-info", ninja_build_path],
-        stdout="Architectures in the fat file: ... are: x86_64 arm64",
-    )
     programs = list(get_ninja_programs(module=False))
     assert len(programs) == 2
     assert programs[0].path.name == "ninja-build"
@@ -110,14 +96,6 @@ def test_get_cmake_programs_malformed(monkeypatch, fp, caplog):
     cmake3_path = Path("cmake3")
     fp.register([cmake_path, "-E", "capabilities"], stdout="scrambled output\n")
     fp.register([cmake3_path, "-E", "capabilities"], stdout="{}")
-    fp.register(
-        ["lipo", "-info", cmake_path],
-        stdout="Architectures in the fat file: ... are: x86_64 arm64",
-    )
-    fp.register(
-        ["lipo", "-info", cmake3_path],
-        stdout="Architectures in the fat file: ... are: x86_64 arm64",
-    )
     programs = list(get_cmake_programs(module=False))
     assert caplog.records
     assert "Could not determine CMake version" in str(caplog.records[0].msg)
@@ -140,3 +118,29 @@ def test_get_cmake_programs_malformed(monkeypatch, fp, caplog):
 
     best_3_20 = best_program(programs, version=SpecifierSet(">=3.20"))
     assert best_3_20 is None
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        subprocess.TimeoutExpired(["cmake"], 1),
+        PermissionError("nope"),
+    ],
+)
+def test_get_cmake_program_fallback_exception(monkeypatch, fp, caplog, exc):
+    # If `cmake -E capabilities` fails, the `--version` fallback runs inside the
+    # except handler. A TimeoutExpired/PermissionError raised there must be
+    # handled (yielding Program(path, None)), not propagate out and abort search.
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr("shutil.which", lambda x: x)
+    cmake_path = Path("cmake")
+
+    def raises(_process):
+        raise exc
+
+    fp.register([cmake_path, "-E", "capabilities"], returncode=1)
+    fp.register([cmake_path, "--version"], callback=raises)
+
+    program = get_cmake_program(cmake_path)
+    assert program.path == cmake_path
+    assert program.version is None

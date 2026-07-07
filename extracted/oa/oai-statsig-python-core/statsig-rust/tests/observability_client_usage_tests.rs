@@ -482,7 +482,54 @@ async fn test_config_propagation_dist_recorded() {
     assert_ne!(found_value, 0.0);
     assert_eq!(tags.get("source"), Some(&"Network".to_string()));
     assert_eq!(tags.get("sdk_key"), Some(&SDK_KEY.to_string()));
+    assert_eq!(tags.get("response_type"), Some(&"full".to_string()));
     assert!(tags.contains_key("lcut"));
+}
+
+#[tokio::test]
+#[serial]
+async fn test_config_no_update_records_response_type() {
+    let obs_client = Arc::new(MockObservabilityClient {
+        calls: Mutex::new(Vec::new()),
+    });
+
+    let (mock_scrapi, statsig) = setup(&obs_client).await;
+    statsig.initialize().await.unwrap();
+
+    mock_scrapi.clear_stubs().await;
+    mock_scrapi
+        .stub(EndpointStub {
+            method: Method::GET,
+            response: StubData::String("{\"has_updates\": false}".to_string()),
+            ..EndpointStub::with_endpoint(Endpoint::DownloadConfigSpecs)
+        })
+        .await;
+
+    let deadline = Instant::now() + Duration::from_secs(1);
+    let mut found_no_update = false;
+    while Instant::now() < deadline {
+        {
+            let calls = obs_client.calls.lock().unwrap();
+            found_no_update = calls.iter().any(|call| match call {
+                RecordedCall::Increment(metric_name, _, Some(tags)) => {
+                    metric_name == "statsig.sdk.config_no_update"
+                        && tags.get("response_type").map(String::as_str) == Some("no_update")
+                }
+                _ => false,
+            });
+        }
+
+        if found_no_update {
+            break;
+        }
+
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
+    assert!(
+        found_no_update,
+        "Expected config_no_update to include response_type=no_update"
+    );
 }
 
 #[tokio::test]

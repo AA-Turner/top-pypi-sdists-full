@@ -11367,86 +11367,58 @@ class CreateLiveTranscodeTemplateRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TemplateName: 模板名称，例： 900p 仅支持字母和数字的组合。
-长度限制：
-  标准转码：1-10个字符
-  极速高清转码：3-10个字符
+        :param _TemplateName: <p>模板名称，例： 900p 仅支持字母和数字的组合。<br>长度限制：<br>  标准转码：1-10个字符<br>  极速高清转码：3-10个字符</p>
         :type TemplateName: str
-        :param _VideoBitrate: 视频码率。范围：0kbps - 8000kbps。
-0为保持原始码率。
-注: 转码模板有码率唯一要求，最终保存的码率可能与输入码率有所差别。
+        :param _VideoBitrate: <p>视频码率。范围：0kbps - 8000kbps。<br>0为保持原始码率。<br>注: 转码模板有码率唯一要求，最终保存的码率可能与输入码率有所差别。</p>
         :type VideoBitrate: int
-        :param _Acodec: 音频编码：aac，默认aac。
-注意：当前该参数未生效，待后续支持！
+        :param _Acodec: <p>音频编码：aac，默认aac。<br>注意：当前该参数未生效，待后续支持！</p>
         :type Acodec: str
-        :param _AudioBitrate: 音频码率，默认0。
-范围：0-500。
+        :param _AudioBitrate: <p>音频码率，默认0。<br>范围：0-500。</p>
         :type AudioBitrate: int
-        :param _Vcodec: 视频编码：h264/h265/origin，默认origin。
-
-origin: 保持原始编码格式
+        :param _Vcodec: <p>视频编码：h264/h265/origin，默认origin。</p><p>origin: 保持原始编码格式</p>
         :type Vcodec: str
-        :param _Description: 模板描述。
+        :param _Description: <p>模板描述。</p>
         :type Description: str
-        :param _NeedVideo: 是否保留视频，0：否，1：是。默认1。
+        :param _NeedVideo: <p>是否保留视频，0：否，1：是。默认1。</p>
         :type NeedVideo: int
-        :param _Width: 宽，默认0。
-范围[0-3000]
-数值必须是2的倍数，0是原始宽度
+        :param _Width: <p>宽，默认0。<br>范围[0-3000]<br>数值必须是2的倍数，0是原始宽度</p>
         :type Width: int
-        :param _NeedAudio: 是否保留音频，0：否，1：是。默认1。
+        :param _NeedAudio: <p>是否保留音频，0：否，1：是。默认1。</p>
         :type NeedAudio: int
-        :param _Height: 高，默认0。
-范围[0-3000]
-数值必须是2的倍数，0是原始高度。
-极速高清模板（AiTransCode = 1 的时候）必须传。
+        :param _Height: <p>高，默认0。<br>范围[0-3000]<br>数值必须是2的倍数，0是原始高度。<br>极速高清模板（AiTransCode = 1 的时候）必须传。</p>
         :type Height: int
-        :param _Fps: 帧率，默认0。
-范围0-60fps
+        :param _Fps: <p>帧率，默认0。<br>范围0-60fps</p>
         :type Fps: int
-        :param _Gop: 关键帧间隔，单位：秒。
-默认原始的间隔
-范围1-6
+        :param _Gop: <p>关键帧间隔，单位：秒。<br>默认原始的间隔<br>范围1-6</p>
         :type Gop: int
-        :param _Rotate: 旋转角度，默认0。
-可取值：0，90，180，270
+        :param _Rotate: <p>旋转角度，默认0。<br>可取值：0，90，180，270</p>
         :type Rotate: int
-        :param _Profile: 编码质量：
-baseline/main/high。默认baseline
+        :param _Profile: <p>编码质量：<br>baseline/main/high。默认baseline</p>
         :type Profile: str
-        :param _BitrateToOrig: 当设置的码率>原始码率时，是否以原始码率为准。
-0：否， 1：是
-默认 0。
+        :param _BitrateToOrig: <p>当设置的码率&gt;原始码率时，是否以原始码率为准。<br>0：否， 1：是<br>默认 0。</p>
         :type BitrateToOrig: int
-        :param _HeightToOrig: 当设置的高度>原始高度时，是否以原始高度为准。
-0：否， 1：是
-默认 0。
+        :param _HeightToOrig: <p>当设置的高度&gt;原始高度时，是否以原始高度为准。<br>0：否， 1：是<br>默认 0。</p>
         :type HeightToOrig: int
-        :param _FpsToOrig: 当设置的帧率>原始帧率时，是否以原始帧率为准。
-0：否， 1：是
-默认 0。
+        :param _FpsToOrig: <p>当设置的帧率&gt;原始帧率时，是否以原始帧率为准。<br>0：否， 1：是<br>默认 0。</p>
         :type FpsToOrig: int
-        :param _AiTransCode: 是否是极速高清模板，0：否，1：是。默认0。
+        :param _AiTransCode: <p>是否是极速高清模板，0：否，1：是。默认0。</p>
         :type AiTransCode: int
-        :param _AdaptBitratePercent: 极速高清视频码率压缩比。
-极速高清目标码率=VideoBitrate * (1-AdaptBitratePercent)
-
-取值范围：0.0到0.5
+        :param _AdaptBitratePercent: <p>极速高清视频码率压缩比。<br>极速高清目标码率=VideoBitrate * (1-AdaptBitratePercent)</p><p>取值范围：0.0 到 0.5<br>智能降码：0.5 到 0.9。</p>
         :type AdaptBitratePercent: float
-        :param _ShortEdgeAsHeight: 是否以短边作为高度，0：否，1：是。默认0。
+        :param _ShortEdgeAsHeight: <p>是否以短边作为高度，0：否，1：是。默认0。</p>
         :type ShortEdgeAsHeight: int
-        :param _DRMType: DRM 加密类型，可选值：fairplay、normalaes、widevine。
-不传递或者为空字符串，清空之前的DRM配置。
+        :param _DRMType: <p>DRM 加密类型，可选值：fairplay、normalaes、widevine。<br>不传递或者为空字符串，清空之前的DRM配置。</p>
         :type DRMType: str
-        :param _DRMTracks: DRM 加密项，可选值：AUDIO、SD、HD、UHD1、UHD2，后四个为一组，同组中的内容只能选一个。
-不传递或者为空字符串，清空之前的DRM配置。
+        :param _DRMTracks: <p>DRM 加密项，可选值：AUDIO、SD、HD、UHD1、UHD2，后四个为一组，同组中的内容只能选一个。<br>不传递或者为空字符串，清空之前的DRM配置。</p>
         :type DRMTracks: str
-        :param _IsAdaptiveBitRate: 是否创建自适应码率，默认值 0。
-0：否。
-1：是。
+        :param _IsAdaptiveBitRate: <p>是否创建自适应码率，默认值 0。<br>0：否。<br>1：是。</p>
         :type IsAdaptiveBitRate: int
-        :param _AdaptiveChildren: 自适应码率，子转码模板信息，当 IsAdaptiveBitRate 为 1 时有效。
+        :param _AdaptiveChildren: <p>自适应码率，子转码模板信息，当 IsAdaptiveBitRate 为 1 时有效。</p>
         :type AdaptiveChildren: list of ChildTemplateInfo
+        :param _AudienceDrivenTranscode: <p>是否智能降码，1 表示智能降码。如果设置了智能降码，AiTransCode  = 1、Height = 0、VideoBitrate = 0、AdaptBitratePercent、AudienceThreshold 必须传递。</p>
+        :type AudienceDrivenTranscode: int
+        :param _AudienceThreshold: <p>智能降码人数阈值，当 AudienceDrivenTranscode = 1 时需要传递。</p><p>取值范围：[100, 1000000]</p>
+        :type AudienceThreshold: int
         """
         self._TemplateName = None
         self._VideoBitrate = None
@@ -11472,13 +11444,12 @@ baseline/main/high。默认baseline
         self._DRMTracks = None
         self._IsAdaptiveBitRate = None
         self._AdaptiveChildren = None
+        self._AudienceDrivenTranscode = None
+        self._AudienceThreshold = None
 
     @property
     def TemplateName(self):
-        r"""模板名称，例： 900p 仅支持字母和数字的组合。
-长度限制：
-  标准转码：1-10个字符
-  极速高清转码：3-10个字符
+        r"""<p>模板名称，例： 900p 仅支持字母和数字的组合。<br>长度限制：<br>  标准转码：1-10个字符<br>  极速高清转码：3-10个字符</p>
         :rtype: str
         """
         return self._TemplateName
@@ -11489,9 +11460,7 @@ baseline/main/high。默认baseline
 
     @property
     def VideoBitrate(self):
-        r"""视频码率。范围：0kbps - 8000kbps。
-0为保持原始码率。
-注: 转码模板有码率唯一要求，最终保存的码率可能与输入码率有所差别。
+        r"""<p>视频码率。范围：0kbps - 8000kbps。<br>0为保持原始码率。<br>注: 转码模板有码率唯一要求，最终保存的码率可能与输入码率有所差别。</p>
         :rtype: int
         """
         return self._VideoBitrate
@@ -11502,8 +11471,7 @@ baseline/main/high。默认baseline
 
     @property
     def Acodec(self):
-        r"""音频编码：aac，默认aac。
-注意：当前该参数未生效，待后续支持！
+        r"""<p>音频编码：aac，默认aac。<br>注意：当前该参数未生效，待后续支持！</p>
         :rtype: str
         """
         return self._Acodec
@@ -11514,8 +11482,7 @@ baseline/main/high。默认baseline
 
     @property
     def AudioBitrate(self):
-        r"""音频码率，默认0。
-范围：0-500。
+        r"""<p>音频码率，默认0。<br>范围：0-500。</p>
         :rtype: int
         """
         return self._AudioBitrate
@@ -11526,9 +11493,7 @@ baseline/main/high。默认baseline
 
     @property
     def Vcodec(self):
-        r"""视频编码：h264/h265/origin，默认origin。
-
-origin: 保持原始编码格式
+        r"""<p>视频编码：h264/h265/origin，默认origin。</p><p>origin: 保持原始编码格式</p>
         :rtype: str
         """
         return self._Vcodec
@@ -11539,7 +11504,7 @@ origin: 保持原始编码格式
 
     @property
     def Description(self):
-        r"""模板描述。
+        r"""<p>模板描述。</p>
         :rtype: str
         """
         return self._Description
@@ -11550,7 +11515,7 @@ origin: 保持原始编码格式
 
     @property
     def NeedVideo(self):
-        r"""是否保留视频，0：否，1：是。默认1。
+        r"""<p>是否保留视频，0：否，1：是。默认1。</p>
         :rtype: int
         """
         return self._NeedVideo
@@ -11561,9 +11526,7 @@ origin: 保持原始编码格式
 
     @property
     def Width(self):
-        r"""宽，默认0。
-范围[0-3000]
-数值必须是2的倍数，0是原始宽度
+        r"""<p>宽，默认0。<br>范围[0-3000]<br>数值必须是2的倍数，0是原始宽度</p>
         :rtype: int
         """
         return self._Width
@@ -11574,7 +11537,7 @@ origin: 保持原始编码格式
 
     @property
     def NeedAudio(self):
-        r"""是否保留音频，0：否，1：是。默认1。
+        r"""<p>是否保留音频，0：否，1：是。默认1。</p>
         :rtype: int
         """
         return self._NeedAudio
@@ -11585,10 +11548,7 @@ origin: 保持原始编码格式
 
     @property
     def Height(self):
-        r"""高，默认0。
-范围[0-3000]
-数值必须是2的倍数，0是原始高度。
-极速高清模板（AiTransCode = 1 的时候）必须传。
+        r"""<p>高，默认0。<br>范围[0-3000]<br>数值必须是2的倍数，0是原始高度。<br>极速高清模板（AiTransCode = 1 的时候）必须传。</p>
         :rtype: int
         """
         return self._Height
@@ -11599,8 +11559,7 @@ origin: 保持原始编码格式
 
     @property
     def Fps(self):
-        r"""帧率，默认0。
-范围0-60fps
+        r"""<p>帧率，默认0。<br>范围0-60fps</p>
         :rtype: int
         """
         return self._Fps
@@ -11611,9 +11570,7 @@ origin: 保持原始编码格式
 
     @property
     def Gop(self):
-        r"""关键帧间隔，单位：秒。
-默认原始的间隔
-范围1-6
+        r"""<p>关键帧间隔，单位：秒。<br>默认原始的间隔<br>范围1-6</p>
         :rtype: int
         """
         return self._Gop
@@ -11624,8 +11581,7 @@ origin: 保持原始编码格式
 
     @property
     def Rotate(self):
-        r"""旋转角度，默认0。
-可取值：0，90，180，270
+        r"""<p>旋转角度，默认0。<br>可取值：0，90，180，270</p>
         :rtype: int
         """
         return self._Rotate
@@ -11636,8 +11592,7 @@ origin: 保持原始编码格式
 
     @property
     def Profile(self):
-        r"""编码质量：
-baseline/main/high。默认baseline
+        r"""<p>编码质量：<br>baseline/main/high。默认baseline</p>
         :rtype: str
         """
         return self._Profile
@@ -11648,9 +11603,7 @@ baseline/main/high。默认baseline
 
     @property
     def BitrateToOrig(self):
-        r"""当设置的码率>原始码率时，是否以原始码率为准。
-0：否， 1：是
-默认 0。
+        r"""<p>当设置的码率&gt;原始码率时，是否以原始码率为准。<br>0：否， 1：是<br>默认 0。</p>
         :rtype: int
         """
         return self._BitrateToOrig
@@ -11661,9 +11614,7 @@ baseline/main/high。默认baseline
 
     @property
     def HeightToOrig(self):
-        r"""当设置的高度>原始高度时，是否以原始高度为准。
-0：否， 1：是
-默认 0。
+        r"""<p>当设置的高度&gt;原始高度时，是否以原始高度为准。<br>0：否， 1：是<br>默认 0。</p>
         :rtype: int
         """
         return self._HeightToOrig
@@ -11674,9 +11625,7 @@ baseline/main/high。默认baseline
 
     @property
     def FpsToOrig(self):
-        r"""当设置的帧率>原始帧率时，是否以原始帧率为准。
-0：否， 1：是
-默认 0。
+        r"""<p>当设置的帧率&gt;原始帧率时，是否以原始帧率为准。<br>0：否， 1：是<br>默认 0。</p>
         :rtype: int
         """
         return self._FpsToOrig
@@ -11687,7 +11636,7 @@ baseline/main/high。默认baseline
 
     @property
     def AiTransCode(self):
-        r"""是否是极速高清模板，0：否，1：是。默认0。
+        r"""<p>是否是极速高清模板，0：否，1：是。默认0。</p>
         :rtype: int
         """
         return self._AiTransCode
@@ -11698,10 +11647,7 @@ baseline/main/high。默认baseline
 
     @property
     def AdaptBitratePercent(self):
-        r"""极速高清视频码率压缩比。
-极速高清目标码率=VideoBitrate * (1-AdaptBitratePercent)
-
-取值范围：0.0到0.5
+        r"""<p>极速高清视频码率压缩比。<br>极速高清目标码率=VideoBitrate * (1-AdaptBitratePercent)</p><p>取值范围：0.0 到 0.5<br>智能降码：0.5 到 0.9。</p>
         :rtype: float
         """
         return self._AdaptBitratePercent
@@ -11712,7 +11658,7 @@ baseline/main/high。默认baseline
 
     @property
     def ShortEdgeAsHeight(self):
-        r"""是否以短边作为高度，0：否，1：是。默认0。
+        r"""<p>是否以短边作为高度，0：否，1：是。默认0。</p>
         :rtype: int
         """
         return self._ShortEdgeAsHeight
@@ -11723,8 +11669,7 @@ baseline/main/high。默认baseline
 
     @property
     def DRMType(self):
-        r"""DRM 加密类型，可选值：fairplay、normalaes、widevine。
-不传递或者为空字符串，清空之前的DRM配置。
+        r"""<p>DRM 加密类型，可选值：fairplay、normalaes、widevine。<br>不传递或者为空字符串，清空之前的DRM配置。</p>
         :rtype: str
         """
         return self._DRMType
@@ -11735,8 +11680,7 @@ baseline/main/high。默认baseline
 
     @property
     def DRMTracks(self):
-        r"""DRM 加密项，可选值：AUDIO、SD、HD、UHD1、UHD2，后四个为一组，同组中的内容只能选一个。
-不传递或者为空字符串，清空之前的DRM配置。
+        r"""<p>DRM 加密项，可选值：AUDIO、SD、HD、UHD1、UHD2，后四个为一组，同组中的内容只能选一个。<br>不传递或者为空字符串，清空之前的DRM配置。</p>
         :rtype: str
         """
         return self._DRMTracks
@@ -11747,9 +11691,7 @@ baseline/main/high。默认baseline
 
     @property
     def IsAdaptiveBitRate(self):
-        r"""是否创建自适应码率，默认值 0。
-0：否。
-1：是。
+        r"""<p>是否创建自适应码率，默认值 0。<br>0：否。<br>1：是。</p>
         :rtype: int
         """
         return self._IsAdaptiveBitRate
@@ -11760,7 +11702,7 @@ baseline/main/high。默认baseline
 
     @property
     def AdaptiveChildren(self):
-        r"""自适应码率，子转码模板信息，当 IsAdaptiveBitRate 为 1 时有效。
+        r"""<p>自适应码率，子转码模板信息，当 IsAdaptiveBitRate 为 1 时有效。</p>
         :rtype: list of ChildTemplateInfo
         """
         return self._AdaptiveChildren
@@ -11768,6 +11710,28 @@ baseline/main/high。默认baseline
     @AdaptiveChildren.setter
     def AdaptiveChildren(self, AdaptiveChildren):
         self._AdaptiveChildren = AdaptiveChildren
+
+    @property
+    def AudienceDrivenTranscode(self):
+        r"""<p>是否智能降码，1 表示智能降码。如果设置了智能降码，AiTransCode  = 1、Height = 0、VideoBitrate = 0、AdaptBitratePercent、AudienceThreshold 必须传递。</p>
+        :rtype: int
+        """
+        return self._AudienceDrivenTranscode
+
+    @AudienceDrivenTranscode.setter
+    def AudienceDrivenTranscode(self, AudienceDrivenTranscode):
+        self._AudienceDrivenTranscode = AudienceDrivenTranscode
+
+    @property
+    def AudienceThreshold(self):
+        r"""<p>智能降码人数阈值，当 AudienceDrivenTranscode = 1 时需要传递。</p><p>取值范围：[100, 1000000]</p>
+        :rtype: int
+        """
+        return self._AudienceThreshold
+
+    @AudienceThreshold.setter
+    def AudienceThreshold(self, AudienceThreshold):
+        self._AudienceThreshold = AudienceThreshold
 
 
     def _deserialize(self, params):
@@ -11800,6 +11764,8 @@ baseline/main/high。默认baseline
                 obj = ChildTemplateInfo()
                 obj._deserialize(item)
                 self._AdaptiveChildren.append(obj)
+        self._AudienceDrivenTranscode = params.get("AudienceDrivenTranscode")
+        self._AudienceThreshold = params.get("AudienceThreshold")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -11817,7 +11783,7 @@ class CreateLiveTranscodeTemplateResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TemplateId: 模板Id。
+        :param _TemplateId: <p>模板Id。</p>
         :type TemplateId: int
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -11827,7 +11793,7 @@ class CreateLiveTranscodeTemplateResponse(AbstractModel):
 
     @property
     def TemplateId(self):
-        r"""模板Id。
+        r"""<p>模板Id。</p>
         :rtype: int
         """
         return self._TemplateId
@@ -30397,43 +30363,29 @@ class DomainInfo(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Name: 直播域名。
+        :param _Name: <p>直播域名。</p>
         :type Name: str
-        :param _Type: 域名类型:
-0: 推流。
-1: 播放。
+        :param _Type: <p>域名类型:<br>0: 推流。<br>1: 播放。</p>
         :type Type: int
-        :param _Status: 域名状态:
-0: 停用。
-1: 启用。
+        :param _Status: <p>域名状态:<br>0: 停用。<br>1: 启用。</p>
         :type Status: int
-        :param _CreateTime: 添加时间。
-注：此字段为北京时间（UTC+8时区）。
+        :param _CreateTime: <p>添加时间。<br>注：此字段为北京时间（UTC+8时区）。</p>
         :type CreateTime: str
-        :param _BCName: 是否有 CName 到固定规则域名:
-0: 否。
-1: 是。
+        :param _BCName: <p>是否有 CName 到固定规则域名:<br>0: 否。<br>1: 是。</p>
         :type BCName: int
-        :param _TargetDomain: cname 对应的域名。
+        :param _TargetDomain: <p>cname 对应的域名。</p>
         :type TargetDomain: str
-        :param _PlayType: 播放区域，只在 Type=1 时该参数有意义。
-1: 国内。
-2: 全球。
-3: 海外。
+        :param _PlayType: <p>播放区域，只在 Type=1 时该参数有意义。<br>1: 国内。<br>2: 全球。<br>3: 海外。</p>
         :type PlayType: int
-        :param _IsDelayLive: 是否慢直播:
-0: 普通直播。
-1: 慢直播。
+        :param _IsDelayLive: <p>是否慢直播:<br>0: 普通直播。<br>1: 慢直播。</p>
         :type IsDelayLive: int
-        :param _CurrentCName: 当前客户使用的 cname 信息。
+        :param _CurrentCName: <p>当前客户使用的 cname 信息。</p>
         :type CurrentCName: str
-        :param _RentTag: 失效参数，可忽略。
+        :param _RentTag: <p>失效参数，可忽略。</p>
         :type RentTag: int
-        :param _RentExpireTime: 失效参数，可忽略。
-注：此字段为北京时间（UTC+8时区）。
+        :param _RentExpireTime: <p>失效参数，可忽略。<br>注：此字段为北京时间（UTC+8时区）。</p>
         :type RentExpireTime: str
-        :param _IsMiniProgramLive: 0: 标准直播。
-1: 小程序直播。
+        :param _IsMiniProgramLive: <p>0: 标准直播。<br>1: 小程序直播。</p>
         :type IsMiniProgramLive: int
         """
         self._Name = None
@@ -30451,7 +30403,7 @@ class DomainInfo(AbstractModel):
 
     @property
     def Name(self):
-        r"""直播域名。
+        r"""<p>直播域名。</p>
         :rtype: str
         """
         return self._Name
@@ -30462,9 +30414,7 @@ class DomainInfo(AbstractModel):
 
     @property
     def Type(self):
-        r"""域名类型:
-0: 推流。
-1: 播放。
+        r"""<p>域名类型:<br>0: 推流。<br>1: 播放。</p>
         :rtype: int
         """
         return self._Type
@@ -30475,9 +30425,7 @@ class DomainInfo(AbstractModel):
 
     @property
     def Status(self):
-        r"""域名状态:
-0: 停用。
-1: 启用。
+        r"""<p>域名状态:<br>0: 停用。<br>1: 启用。</p>
         :rtype: int
         """
         return self._Status
@@ -30488,8 +30436,7 @@ class DomainInfo(AbstractModel):
 
     @property
     def CreateTime(self):
-        r"""添加时间。
-注：此字段为北京时间（UTC+8时区）。
+        r"""<p>添加时间。<br>注：此字段为北京时间（UTC+8时区）。</p>
         :rtype: str
         """
         return self._CreateTime
@@ -30500,9 +30447,7 @@ class DomainInfo(AbstractModel):
 
     @property
     def BCName(self):
-        r"""是否有 CName 到固定规则域名:
-0: 否。
-1: 是。
+        r"""<p>是否有 CName 到固定规则域名:<br>0: 否。<br>1: 是。</p>
         :rtype: int
         """
         return self._BCName
@@ -30513,7 +30458,7 @@ class DomainInfo(AbstractModel):
 
     @property
     def TargetDomain(self):
-        r"""cname 对应的域名。
+        r"""<p>cname 对应的域名。</p>
         :rtype: str
         """
         return self._TargetDomain
@@ -30524,10 +30469,7 @@ class DomainInfo(AbstractModel):
 
     @property
     def PlayType(self):
-        r"""播放区域，只在 Type=1 时该参数有意义。
-1: 国内。
-2: 全球。
-3: 海外。
+        r"""<p>播放区域，只在 Type=1 时该参数有意义。<br>1: 国内。<br>2: 全球。<br>3: 海外。</p>
         :rtype: int
         """
         return self._PlayType
@@ -30538,9 +30480,7 @@ class DomainInfo(AbstractModel):
 
     @property
     def IsDelayLive(self):
-        r"""是否慢直播:
-0: 普通直播。
-1: 慢直播。
+        r"""<p>是否慢直播:<br>0: 普通直播。<br>1: 慢直播。</p>
         :rtype: int
         """
         return self._IsDelayLive
@@ -30551,7 +30491,7 @@ class DomainInfo(AbstractModel):
 
     @property
     def CurrentCName(self):
-        r"""当前客户使用的 cname 信息。
+        r"""<p>当前客户使用的 cname 信息。</p>
         :rtype: str
         """
         return self._CurrentCName
@@ -30562,7 +30502,7 @@ class DomainInfo(AbstractModel):
 
     @property
     def RentTag(self):
-        r"""失效参数，可忽略。
+        r"""<p>失效参数，可忽略。</p>
         :rtype: int
         """
         return self._RentTag
@@ -30573,8 +30513,7 @@ class DomainInfo(AbstractModel):
 
     @property
     def RentExpireTime(self):
-        r"""失效参数，可忽略。
-注：此字段为北京时间（UTC+8时区）。
+        r"""<p>失效参数，可忽略。<br>注：此字段为北京时间（UTC+8时区）。</p>
         :rtype: str
         """
         return self._RentExpireTime
@@ -30585,8 +30524,7 @@ class DomainInfo(AbstractModel):
 
     @property
     def IsMiniProgramLive(self):
-        r"""0: 标准直播。
-1: 小程序直播。
+        r"""<p>0: 标准直播。<br>1: 小程序直播。</p>
         :rtype: int
         """
         return self._IsMiniProgramLive
@@ -36796,77 +36734,56 @@ class ModifyLiveTranscodeTemplateRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TemplateId: 模板 Id。
+        :param _TemplateId: <p>模板 Id。</p>
         :type TemplateId: int
-        :param _Vcodec: 视频编码：h264/h265/origin，默认origin。
-
-origin: 保持原始编码格式
+        :param _Vcodec: <p>视频编码：h264/h265/origin，默认origin。</p><p>origin: 保持原始编码格式</p>
         :type Vcodec: str
-        :param _Acodec: 音频编码：aac，默认aac。
-注意：当前该参数未生效，待后续支持！
+        :param _Acodec: <p>音频编码：aac，默认aac。<br>注意：当前该参数未生效，待后续支持！</p>
         :type Acodec: str
-        :param _AudioBitrate: 音频码率，默认0。
-范围：0-500。
+        :param _AudioBitrate: <p>音频码率，默认0。<br>范围：0-500。</p>
         :type AudioBitrate: int
-        :param _Description: 模板描述。
+        :param _Description: <p>模板描述。</p>
         :type Description: str
-        :param _VideoBitrate: 视频码率。范围：0kbps - 8000kbps。
-0为保持原始码率。
-注: 转码模板有码率唯一要求，最终保存的码率可能与输入码率有所差别。
+        :param _VideoBitrate: <p>视频码率。范围：0kbps - 8000kbps。<br>0为保持原始码率。<br>注: 转码模板有码率唯一要求，最终保存的码率可能与输入码率有所差别。</p>
         :type VideoBitrate: int
-        :param _Width: 宽。0-3000。
-数值必须是2的倍数，0是原始宽度
+        :param _Width: <p>宽。0-3000。<br>数值必须是2的倍数，0是原始宽度</p>
         :type Width: int
-        :param _NeedVideo: 是否保留视频，0：否，1：是。默认1。
+        :param _NeedVideo: <p>是否保留视频，0：否，1：是。默认1。</p>
         :type NeedVideo: int
-        :param _NeedAudio: 是否保留音频，0：否，1：是。默认1。
+        :param _NeedAudio: <p>是否保留音频，0：否，1：是。默认1。</p>
         :type NeedAudio: int
-        :param _Height: 高。0-3000。
-数值必须是2的倍数，0是原始宽度
+        :param _Height: <p>高。0-3000。<br>数值必须是2的倍数，0是原始宽度</p>
         :type Height: int
-        :param _Fps: 帧率，默认0。
-范围0-60
+        :param _Fps: <p>帧率，默认0。<br>范围0-60</p>
         :type Fps: int
-        :param _Gop: 关键帧间隔，单位：秒。
-范围2-6
+        :param _Gop: <p>关键帧间隔，单位：秒。<br>范围2-6</p>
         :type Gop: int
-        :param _Rotate: 旋转角度，默认0。
-可取值：0，90，180，270
+        :param _Rotate: <p>旋转角度，默认0。<br>可取值：0，90，180，270</p>
         :type Rotate: int
-        :param _Profile: 编码质量：
-baseline/main/high。
+        :param _Profile: <p>编码质量：<br>baseline/main/high。</p>
         :type Profile: str
-        :param _BitrateToOrig: 当设置的码率>原始码率时，是否以原始码率为准。
-0：否， 1：是
-默认 0。
+        :param _BitrateToOrig: <p>当设置的码率&gt;原始码率时，是否以原始码率为准。<br>0：否， 1：是<br>默认 0。</p>
         :type BitrateToOrig: int
-        :param _HeightToOrig: 当设置的高度>原始高度时，是否以原始高度为准。
-0：否， 1：是
-默认 0。
+        :param _HeightToOrig: <p>当设置的高度&gt;原始高度时，是否以原始高度为准。<br>0：否， 1：是<br>默认 0。</p>
         :type HeightToOrig: int
-        :param _FpsToOrig: 当设置的帧率>原始帧率时，是否以原始帧率为准。
-0：否， 1：是
-默认 0。
+        :param _FpsToOrig: <p>当设置的帧率&gt;原始帧率时，是否以原始帧率为准。<br>0：否， 1：是<br>默认 0。</p>
         :type FpsToOrig: int
-        :param _AdaptBitratePercent: 极速高清视频码率压缩比。
-极速高清目标码率=VideoBitrate * (1-AdaptBitratePercent)
-
-取值范围：0.0到0.5
+        :param _AdaptBitratePercent: <p>极速高清视频码率压缩比。<br>极速高清目标码率=VideoBitrate * (1-AdaptBitratePercent)</p><p>取值范围：0.0 到 0.5<br>智能降码：0.5 到 0.9</p>
         :type AdaptBitratePercent: float
-        :param _ShortEdgeAsHeight: 是否以短边作为高度，0：否，1：是。默认0。
+        :param _ShortEdgeAsHeight: <p>是否以短边作为高度，0：否，1：是。默认0。</p>
         :type ShortEdgeAsHeight: int
-        :param _DRMType: DRM 加密类型，可选值：fairplay、normalaes、widevine。
-不传递或者为空字符串，清空之前的DRM配置。
+        :param _DRMType: <p>DRM 加密类型，可选值：fairplay、normalaes、widevine。<br>不传递或者为空字符串，清空之前的DRM配置。</p>
         :type DRMType: str
-        :param _DRMTracks: DRM 加密项，可选值：AUDIO、SD、HD、UHD1、UHD2，后四个为一组，同组中的内容只能选一个。
-不传递或者为空字符串，清空之前的DRM配置。
+        :param _DRMTracks: <p>DRM 加密项，可选值：AUDIO、SD、HD、UHD1、UHD2，后四个为一组，同组中的内容只能选一个。<br>不传递或者为空字符串，清空之前的DRM配置。</p>
         :type DRMTracks: str
-        :param _IsAdaptiveBitRate: 是否创建自适应码率，默认值 0。
-0：否。
-1：是。
+        :param _IsAdaptiveBitRate: <p>是否创建自适应码率，默认值 0。<br>0：否。<br>1：是。</p>
         :type IsAdaptiveBitRate: int
-        :param _AdaptiveChildren: 自适应码率，子转码模板信息，当 IsAdaptiveBitRate 为 1 时有效。
+        :param _AdaptiveChildren: <p>自适应码率，子转码模板信息，当 IsAdaptiveBitRate 为 1 时有效。</p>
         :type AdaptiveChildren: list of ChildTemplateInfo
+        :param _AudienceDrivenTranscode: <p>是否智能降码，1 表示智能降码。</p>
+        :type AudienceDrivenTranscode: int
+        :param _AudienceThreshold: <p>智能降码人数阈值，当 AudienceDrivenTranscode = 1 时生效。  取值范围：[100, 1000000]。</p>
+        :type AudienceThreshold: int
         """
         self._TemplateId = None
         self._Vcodec = None
@@ -36891,10 +36808,12 @@ baseline/main/high。
         self._DRMTracks = None
         self._IsAdaptiveBitRate = None
         self._AdaptiveChildren = None
+        self._AudienceDrivenTranscode = None
+        self._AudienceThreshold = None
 
     @property
     def TemplateId(self):
-        r"""模板 Id。
+        r"""<p>模板 Id。</p>
         :rtype: int
         """
         return self._TemplateId
@@ -36905,9 +36824,7 @@ baseline/main/high。
 
     @property
     def Vcodec(self):
-        r"""视频编码：h264/h265/origin，默认origin。
-
-origin: 保持原始编码格式
+        r"""<p>视频编码：h264/h265/origin，默认origin。</p><p>origin: 保持原始编码格式</p>
         :rtype: str
         """
         return self._Vcodec
@@ -36918,8 +36835,7 @@ origin: 保持原始编码格式
 
     @property
     def Acodec(self):
-        r"""音频编码：aac，默认aac。
-注意：当前该参数未生效，待后续支持！
+        r"""<p>音频编码：aac，默认aac。<br>注意：当前该参数未生效，待后续支持！</p>
         :rtype: str
         """
         return self._Acodec
@@ -36930,8 +36846,7 @@ origin: 保持原始编码格式
 
     @property
     def AudioBitrate(self):
-        r"""音频码率，默认0。
-范围：0-500。
+        r"""<p>音频码率，默认0。<br>范围：0-500。</p>
         :rtype: int
         """
         return self._AudioBitrate
@@ -36942,7 +36857,7 @@ origin: 保持原始编码格式
 
     @property
     def Description(self):
-        r"""模板描述。
+        r"""<p>模板描述。</p>
         :rtype: str
         """
         return self._Description
@@ -36953,9 +36868,7 @@ origin: 保持原始编码格式
 
     @property
     def VideoBitrate(self):
-        r"""视频码率。范围：0kbps - 8000kbps。
-0为保持原始码率。
-注: 转码模板有码率唯一要求，最终保存的码率可能与输入码率有所差别。
+        r"""<p>视频码率。范围：0kbps - 8000kbps。<br>0为保持原始码率。<br>注: 转码模板有码率唯一要求，最终保存的码率可能与输入码率有所差别。</p>
         :rtype: int
         """
         return self._VideoBitrate
@@ -36966,8 +36879,7 @@ origin: 保持原始编码格式
 
     @property
     def Width(self):
-        r"""宽。0-3000。
-数值必须是2的倍数，0是原始宽度
+        r"""<p>宽。0-3000。<br>数值必须是2的倍数，0是原始宽度</p>
         :rtype: int
         """
         return self._Width
@@ -36978,7 +36890,7 @@ origin: 保持原始编码格式
 
     @property
     def NeedVideo(self):
-        r"""是否保留视频，0：否，1：是。默认1。
+        r"""<p>是否保留视频，0：否，1：是。默认1。</p>
         :rtype: int
         """
         return self._NeedVideo
@@ -36989,7 +36901,7 @@ origin: 保持原始编码格式
 
     @property
     def NeedAudio(self):
-        r"""是否保留音频，0：否，1：是。默认1。
+        r"""<p>是否保留音频，0：否，1：是。默认1。</p>
         :rtype: int
         """
         return self._NeedAudio
@@ -37000,8 +36912,7 @@ origin: 保持原始编码格式
 
     @property
     def Height(self):
-        r"""高。0-3000。
-数值必须是2的倍数，0是原始宽度
+        r"""<p>高。0-3000。<br>数值必须是2的倍数，0是原始宽度</p>
         :rtype: int
         """
         return self._Height
@@ -37012,8 +36923,7 @@ origin: 保持原始编码格式
 
     @property
     def Fps(self):
-        r"""帧率，默认0。
-范围0-60
+        r"""<p>帧率，默认0。<br>范围0-60</p>
         :rtype: int
         """
         return self._Fps
@@ -37024,8 +36934,7 @@ origin: 保持原始编码格式
 
     @property
     def Gop(self):
-        r"""关键帧间隔，单位：秒。
-范围2-6
+        r"""<p>关键帧间隔，单位：秒。<br>范围2-6</p>
         :rtype: int
         """
         return self._Gop
@@ -37036,8 +36945,7 @@ origin: 保持原始编码格式
 
     @property
     def Rotate(self):
-        r"""旋转角度，默认0。
-可取值：0，90，180，270
+        r"""<p>旋转角度，默认0。<br>可取值：0，90，180，270</p>
         :rtype: int
         """
         return self._Rotate
@@ -37048,8 +36956,7 @@ origin: 保持原始编码格式
 
     @property
     def Profile(self):
-        r"""编码质量：
-baseline/main/high。
+        r"""<p>编码质量：<br>baseline/main/high。</p>
         :rtype: str
         """
         return self._Profile
@@ -37060,9 +36967,7 @@ baseline/main/high。
 
     @property
     def BitrateToOrig(self):
-        r"""当设置的码率>原始码率时，是否以原始码率为准。
-0：否， 1：是
-默认 0。
+        r"""<p>当设置的码率&gt;原始码率时，是否以原始码率为准。<br>0：否， 1：是<br>默认 0。</p>
         :rtype: int
         """
         return self._BitrateToOrig
@@ -37073,9 +36978,7 @@ baseline/main/high。
 
     @property
     def HeightToOrig(self):
-        r"""当设置的高度>原始高度时，是否以原始高度为准。
-0：否， 1：是
-默认 0。
+        r"""<p>当设置的高度&gt;原始高度时，是否以原始高度为准。<br>0：否， 1：是<br>默认 0。</p>
         :rtype: int
         """
         return self._HeightToOrig
@@ -37086,9 +36989,7 @@ baseline/main/high。
 
     @property
     def FpsToOrig(self):
-        r"""当设置的帧率>原始帧率时，是否以原始帧率为准。
-0：否， 1：是
-默认 0。
+        r"""<p>当设置的帧率&gt;原始帧率时，是否以原始帧率为准。<br>0：否， 1：是<br>默认 0。</p>
         :rtype: int
         """
         return self._FpsToOrig
@@ -37099,10 +37000,7 @@ baseline/main/high。
 
     @property
     def AdaptBitratePercent(self):
-        r"""极速高清视频码率压缩比。
-极速高清目标码率=VideoBitrate * (1-AdaptBitratePercent)
-
-取值范围：0.0到0.5
+        r"""<p>极速高清视频码率压缩比。<br>极速高清目标码率=VideoBitrate * (1-AdaptBitratePercent)</p><p>取值范围：0.0 到 0.5<br>智能降码：0.5 到 0.9</p>
         :rtype: float
         """
         return self._AdaptBitratePercent
@@ -37113,7 +37011,7 @@ baseline/main/high。
 
     @property
     def ShortEdgeAsHeight(self):
-        r"""是否以短边作为高度，0：否，1：是。默认0。
+        r"""<p>是否以短边作为高度，0：否，1：是。默认0。</p>
         :rtype: int
         """
         return self._ShortEdgeAsHeight
@@ -37124,8 +37022,7 @@ baseline/main/high。
 
     @property
     def DRMType(self):
-        r"""DRM 加密类型，可选值：fairplay、normalaes、widevine。
-不传递或者为空字符串，清空之前的DRM配置。
+        r"""<p>DRM 加密类型，可选值：fairplay、normalaes、widevine。<br>不传递或者为空字符串，清空之前的DRM配置。</p>
         :rtype: str
         """
         return self._DRMType
@@ -37136,8 +37033,7 @@ baseline/main/high。
 
     @property
     def DRMTracks(self):
-        r"""DRM 加密项，可选值：AUDIO、SD、HD、UHD1、UHD2，后四个为一组，同组中的内容只能选一个。
-不传递或者为空字符串，清空之前的DRM配置。
+        r"""<p>DRM 加密项，可选值：AUDIO、SD、HD、UHD1、UHD2，后四个为一组，同组中的内容只能选一个。<br>不传递或者为空字符串，清空之前的DRM配置。</p>
         :rtype: str
         """
         return self._DRMTracks
@@ -37148,9 +37044,7 @@ baseline/main/high。
 
     @property
     def IsAdaptiveBitRate(self):
-        r"""是否创建自适应码率，默认值 0。
-0：否。
-1：是。
+        r"""<p>是否创建自适应码率，默认值 0。<br>0：否。<br>1：是。</p>
         :rtype: int
         """
         return self._IsAdaptiveBitRate
@@ -37161,7 +37055,7 @@ baseline/main/high。
 
     @property
     def AdaptiveChildren(self):
-        r"""自适应码率，子转码模板信息，当 IsAdaptiveBitRate 为 1 时有效。
+        r"""<p>自适应码率，子转码模板信息，当 IsAdaptiveBitRate 为 1 时有效。</p>
         :rtype: list of ChildTemplateInfo
         """
         return self._AdaptiveChildren
@@ -37169,6 +37063,28 @@ baseline/main/high。
     @AdaptiveChildren.setter
     def AdaptiveChildren(self, AdaptiveChildren):
         self._AdaptiveChildren = AdaptiveChildren
+
+    @property
+    def AudienceDrivenTranscode(self):
+        r"""<p>是否智能降码，1 表示智能降码。</p>
+        :rtype: int
+        """
+        return self._AudienceDrivenTranscode
+
+    @AudienceDrivenTranscode.setter
+    def AudienceDrivenTranscode(self, AudienceDrivenTranscode):
+        self._AudienceDrivenTranscode = AudienceDrivenTranscode
+
+    @property
+    def AudienceThreshold(self):
+        r"""<p>智能降码人数阈值，当 AudienceDrivenTranscode = 1 时生效。  取值范围：[100, 1000000]。</p>
+        :rtype: int
+        """
+        return self._AudienceThreshold
+
+    @AudienceThreshold.setter
+    def AudienceThreshold(self, AudienceThreshold):
+        self._AudienceThreshold = AudienceThreshold
 
 
     def _deserialize(self, params):
@@ -37200,6 +37116,8 @@ baseline/main/high。
                 obj = ChildTemplateInfo()
                 obj._deserialize(item)
                 self._AdaptiveChildren.append(obj)
+        self._AudienceDrivenTranscode = params.get("AudienceDrivenTranscode")
+        self._AudienceThreshold = params.get("AudienceThreshold")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -44903,87 +44821,65 @@ class TemplateInfo(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Vcodec: 视频编码：h264/h265/origin，默认h264。
-
-origin: 保持原始编码格式
+        :param _Vcodec: <p>视频编码：h264/h265/origin，默认h264。</p><p>origin: 保持原始编码格式</p>
         :type Vcodec: str
-        :param _VideoBitrate: 视频码率。范围：0kbps - 8000kbps。
-0为保持原始码率。
-注: 转码模板有码率唯一要求，最终保存的码率可能与输入码率有所差别。
+        :param _VideoBitrate: <p>视频码率。范围：0kbps - 8000kbps。<br>0为保持原始码率。<br>注: 转码模板有码率唯一要求，最终保存的码率可能与输入码率有所差别。</p>
         :type VideoBitrate: int
-        :param _Acodec: 音频编码：aac，默认aac。
-注意：当前该参数未生效，待后续支持！
+        :param _Acodec: <p>音频编码：aac，默认aac。<br>注意：当前该参数未生效，待后续支持！</p>
         :type Acodec: str
-        :param _AudioBitrate: 音频码率。取值范围：0kbps - 500kbps。
-默认0。
+        :param _AudioBitrate: <p>音频码率。取值范围：0kbps - 500kbps。<br>默认0。</p>
         :type AudioBitrate: int
-        :param _Width: 宽，默认0。
-范围[0-3000]
-数值必须是2的倍数，0是原始宽度
+        :param _Width: <p>宽，默认0。<br>范围[0-3000]<br>数值必须是2的倍数，0是原始宽度</p>
         :type Width: int
-        :param _Height: 高，默认0。
-范围[0-3000]
-数值必须是2的倍数，0是原始宽度
+        :param _Height: <p>高，默认0。<br>范围[0-3000]<br>数值必须是2的倍数，0是原始宽度</p>
         :type Height: int
-        :param _Fps: 帧率，默认0。
-范围0-60fps
+        :param _Fps: <p>帧率，默认0。<br>范围0-60fps</p>
         :type Fps: int
-        :param _Gop: 关键帧间隔，单位：秒。
-默认原始的间隔
-范围2-6
+        :param _Gop: <p>关键帧间隔，单位：秒。<br>默认原始的间隔<br>范围2-6</p>
         :type Gop: int
-        :param _Rotate: 旋转角度，默认0。
-可取值：0，90，180，270
+        :param _Rotate: <p>旋转角度，默认0。<br>可取值：0，90，180，270</p>
         :type Rotate: int
-        :param _Profile: 编码质量：
-baseline/main/high。默认baseline
+        :param _Profile: <p>编码质量：<br>baseline/main/high。默认baseline</p>
         :type Profile: str
-        :param _BitrateToOrig: 当设置的码率>原始码率时，是否以原始码率为准。
-0：否， 1：是
-默认 0。
+        :param _BitrateToOrig: <p>当设置的码率&gt;原始码率时，是否以原始码率为准。<br>0：否， 1：是<br>默认 0。</p>
         :type BitrateToOrig: int
-        :param _HeightToOrig: 当设置的高度>原始高度时，是否以原始高度为准。
-0：否， 1：是
-默认 0。
+        :param _HeightToOrig: <p>当设置的高度&gt;原始高度时，是否以原始高度为准。<br>0：否， 1：是<br>默认 0。</p>
         :type HeightToOrig: int
-        :param _FpsToOrig: 当设置的帧率>原始帧率时，是否以原始帧率为准。
-0：否， 1：是
-默认 0。
+        :param _FpsToOrig: <p>当设置的帧率&gt;原始帧率时，是否以原始帧率为准。<br>0：否， 1：是<br>默认 0。</p>
         :type FpsToOrig: int
-        :param _NeedVideo: 是否保留视频。0：否，1：是。
+        :param _NeedVideo: <p>是否保留视频。0：否，1：是。</p>
         :type NeedVideo: int
-        :param _NeedAudio: 是否保留音频。0：否，1：是。
+        :param _NeedAudio: <p>是否保留音频。0：否，1：是。</p>
         :type NeedAudio: int
-        :param _TemplateId: 模板 ID。
+        :param _TemplateId: <p>模板 ID。</p>
         :type TemplateId: int
-        :param _TemplateName: 模板名称。
+        :param _TemplateName: <p>模板名称。</p>
         :type TemplateName: str
-        :param _Description: 模板描述。
+        :param _Description: <p>模板描述。</p>
         :type Description: str
-        :param _AiTransCode: 是否是极速高清模板，0：否，1：是。默认0。
+        :param _AiTransCode: <p>是否是极速高清模板，0：否，1：是。默认0。</p>
         :type AiTransCode: int
-        :param _AdaptBitratePercent: 极速高清视频码率压缩比。
-极速高清目标码率=VideoBitrate * (1-AdaptBitratePercent)
-
-取值范围：0.0到0.5
+        :param _AdaptBitratePercent: <p>极速高清视频码率压缩比。<br>极速高清目标码率=VideoBitrate * (1-AdaptBitratePercent)</p><p>取值范围：0.0到0.5</p>
         :type AdaptBitratePercent: float
-        :param _ShortEdgeAsHeight: 是否以短边作为高度，0：否，1：是。默认0。
+        :param _ShortEdgeAsHeight: <p>是否以短边作为高度，0：否，1：是。默认0。</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type ShortEdgeAsHeight: int
-        :param _DRMType: DRM 加密类型，可选值：fairplay、normalaes、widevine。
+        :param _DRMType: <p>DRM 加密类型，可选值：fairplay、normalaes、widevine。</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type DRMType: str
-        :param _DRMTracks: DRM 加密项，多个用|分割，可选值：AUDIO、SD、HD、UHD1、UHD2，后四个为一组，同组中的内容只能选一个。
+        :param _DRMTracks: <p>DRM 加密项，多个用|分割，可选值：AUDIO、SD、HD、UHD1、UHD2，后四个为一组，同组中的内容只能选一个。</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type DRMTracks: str
-        :param _IsAdaptiveBitRate: 是否创建自适应码率，默认值 0。
-0：否。
-1：是。
+        :param _IsAdaptiveBitRate: <p>是否创建自适应码率，默认值 0。<br>0：否。<br>1：是。</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type IsAdaptiveBitRate: int
-        :param _AdaptiveChildren: 自适应码率，子转码模板信息，当 IsAdaptiveBitRate 为 1 时有效。
+        :param _AdaptiveChildren: <p>自适应码率，子转码模板信息，当 IsAdaptiveBitRate 为 1 时有效。</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type AdaptiveChildren: list of ChildTemplateInfo
+        :param _AudienceDrivenTranscode: <p>是否按需转码，0 否，1 是。</p>
+        :type AudienceDrivenTranscode: int
+        :param _AudienceThreshold: <p>按需转码人数阈值。</p>
+        :type AudienceThreshold: int
         """
         self._Vcodec = None
         self._VideoBitrate = None
@@ -45010,12 +44906,12 @@ baseline/main/high。默认baseline
         self._DRMTracks = None
         self._IsAdaptiveBitRate = None
         self._AdaptiveChildren = None
+        self._AudienceDrivenTranscode = None
+        self._AudienceThreshold = None
 
     @property
     def Vcodec(self):
-        r"""视频编码：h264/h265/origin，默认h264。
-
-origin: 保持原始编码格式
+        r"""<p>视频编码：h264/h265/origin，默认h264。</p><p>origin: 保持原始编码格式</p>
         :rtype: str
         """
         return self._Vcodec
@@ -45026,9 +44922,7 @@ origin: 保持原始编码格式
 
     @property
     def VideoBitrate(self):
-        r"""视频码率。范围：0kbps - 8000kbps。
-0为保持原始码率。
-注: 转码模板有码率唯一要求，最终保存的码率可能与输入码率有所差别。
+        r"""<p>视频码率。范围：0kbps - 8000kbps。<br>0为保持原始码率。<br>注: 转码模板有码率唯一要求，最终保存的码率可能与输入码率有所差别。</p>
         :rtype: int
         """
         return self._VideoBitrate
@@ -45039,8 +44933,7 @@ origin: 保持原始编码格式
 
     @property
     def Acodec(self):
-        r"""音频编码：aac，默认aac。
-注意：当前该参数未生效，待后续支持！
+        r"""<p>音频编码：aac，默认aac。<br>注意：当前该参数未生效，待后续支持！</p>
         :rtype: str
         """
         return self._Acodec
@@ -45051,8 +44944,7 @@ origin: 保持原始编码格式
 
     @property
     def AudioBitrate(self):
-        r"""音频码率。取值范围：0kbps - 500kbps。
-默认0。
+        r"""<p>音频码率。取值范围：0kbps - 500kbps。<br>默认0。</p>
         :rtype: int
         """
         return self._AudioBitrate
@@ -45063,9 +44955,7 @@ origin: 保持原始编码格式
 
     @property
     def Width(self):
-        r"""宽，默认0。
-范围[0-3000]
-数值必须是2的倍数，0是原始宽度
+        r"""<p>宽，默认0。<br>范围[0-3000]<br>数值必须是2的倍数，0是原始宽度</p>
         :rtype: int
         """
         return self._Width
@@ -45076,9 +44966,7 @@ origin: 保持原始编码格式
 
     @property
     def Height(self):
-        r"""高，默认0。
-范围[0-3000]
-数值必须是2的倍数，0是原始宽度
+        r"""<p>高，默认0。<br>范围[0-3000]<br>数值必须是2的倍数，0是原始宽度</p>
         :rtype: int
         """
         return self._Height
@@ -45089,8 +44977,7 @@ origin: 保持原始编码格式
 
     @property
     def Fps(self):
-        r"""帧率，默认0。
-范围0-60fps
+        r"""<p>帧率，默认0。<br>范围0-60fps</p>
         :rtype: int
         """
         return self._Fps
@@ -45101,9 +44988,7 @@ origin: 保持原始编码格式
 
     @property
     def Gop(self):
-        r"""关键帧间隔，单位：秒。
-默认原始的间隔
-范围2-6
+        r"""<p>关键帧间隔，单位：秒。<br>默认原始的间隔<br>范围2-6</p>
         :rtype: int
         """
         return self._Gop
@@ -45114,8 +44999,7 @@ origin: 保持原始编码格式
 
     @property
     def Rotate(self):
-        r"""旋转角度，默认0。
-可取值：0，90，180，270
+        r"""<p>旋转角度，默认0。<br>可取值：0，90，180，270</p>
         :rtype: int
         """
         return self._Rotate
@@ -45126,8 +45010,7 @@ origin: 保持原始编码格式
 
     @property
     def Profile(self):
-        r"""编码质量：
-baseline/main/high。默认baseline
+        r"""<p>编码质量：<br>baseline/main/high。默认baseline</p>
         :rtype: str
         """
         return self._Profile
@@ -45138,9 +45021,7 @@ baseline/main/high。默认baseline
 
     @property
     def BitrateToOrig(self):
-        r"""当设置的码率>原始码率时，是否以原始码率为准。
-0：否， 1：是
-默认 0。
+        r"""<p>当设置的码率&gt;原始码率时，是否以原始码率为准。<br>0：否， 1：是<br>默认 0。</p>
         :rtype: int
         """
         return self._BitrateToOrig
@@ -45151,9 +45032,7 @@ baseline/main/high。默认baseline
 
     @property
     def HeightToOrig(self):
-        r"""当设置的高度>原始高度时，是否以原始高度为准。
-0：否， 1：是
-默认 0。
+        r"""<p>当设置的高度&gt;原始高度时，是否以原始高度为准。<br>0：否， 1：是<br>默认 0。</p>
         :rtype: int
         """
         return self._HeightToOrig
@@ -45164,9 +45043,7 @@ baseline/main/high。默认baseline
 
     @property
     def FpsToOrig(self):
-        r"""当设置的帧率>原始帧率时，是否以原始帧率为准。
-0：否， 1：是
-默认 0。
+        r"""<p>当设置的帧率&gt;原始帧率时，是否以原始帧率为准。<br>0：否， 1：是<br>默认 0。</p>
         :rtype: int
         """
         return self._FpsToOrig
@@ -45177,7 +45054,7 @@ baseline/main/high。默认baseline
 
     @property
     def NeedVideo(self):
-        r"""是否保留视频。0：否，1：是。
+        r"""<p>是否保留视频。0：否，1：是。</p>
         :rtype: int
         """
         return self._NeedVideo
@@ -45188,7 +45065,7 @@ baseline/main/high。默认baseline
 
     @property
     def NeedAudio(self):
-        r"""是否保留音频。0：否，1：是。
+        r"""<p>是否保留音频。0：否，1：是。</p>
         :rtype: int
         """
         return self._NeedAudio
@@ -45199,7 +45076,7 @@ baseline/main/high。默认baseline
 
     @property
     def TemplateId(self):
-        r"""模板 ID。
+        r"""<p>模板 ID。</p>
         :rtype: int
         """
         return self._TemplateId
@@ -45210,7 +45087,7 @@ baseline/main/high。默认baseline
 
     @property
     def TemplateName(self):
-        r"""模板名称。
+        r"""<p>模板名称。</p>
         :rtype: str
         """
         return self._TemplateName
@@ -45221,7 +45098,7 @@ baseline/main/high。默认baseline
 
     @property
     def Description(self):
-        r"""模板描述。
+        r"""<p>模板描述。</p>
         :rtype: str
         """
         return self._Description
@@ -45232,7 +45109,7 @@ baseline/main/high。默认baseline
 
     @property
     def AiTransCode(self):
-        r"""是否是极速高清模板，0：否，1：是。默认0。
+        r"""<p>是否是极速高清模板，0：否，1：是。默认0。</p>
         :rtype: int
         """
         return self._AiTransCode
@@ -45243,10 +45120,7 @@ baseline/main/high。默认baseline
 
     @property
     def AdaptBitratePercent(self):
-        r"""极速高清视频码率压缩比。
-极速高清目标码率=VideoBitrate * (1-AdaptBitratePercent)
-
-取值范围：0.0到0.5
+        r"""<p>极速高清视频码率压缩比。<br>极速高清目标码率=VideoBitrate * (1-AdaptBitratePercent)</p><p>取值范围：0.0到0.5</p>
         :rtype: float
         """
         return self._AdaptBitratePercent
@@ -45257,7 +45131,7 @@ baseline/main/high。默认baseline
 
     @property
     def ShortEdgeAsHeight(self):
-        r"""是否以短边作为高度，0：否，1：是。默认0。
+        r"""<p>是否以短边作为高度，0：否，1：是。默认0。</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: int
         """
@@ -45269,7 +45143,7 @@ baseline/main/high。默认baseline
 
     @property
     def DRMType(self):
-        r"""DRM 加密类型，可选值：fairplay、normalaes、widevine。
+        r"""<p>DRM 加密类型，可选值：fairplay、normalaes、widevine。</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -45281,7 +45155,7 @@ baseline/main/high。默认baseline
 
     @property
     def DRMTracks(self):
-        r"""DRM 加密项，多个用|分割，可选值：AUDIO、SD、HD、UHD1、UHD2，后四个为一组，同组中的内容只能选一个。
+        r"""<p>DRM 加密项，多个用|分割，可选值：AUDIO、SD、HD、UHD1、UHD2，后四个为一组，同组中的内容只能选一个。</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -45293,9 +45167,7 @@ baseline/main/high。默认baseline
 
     @property
     def IsAdaptiveBitRate(self):
-        r"""是否创建自适应码率，默认值 0。
-0：否。
-1：是。
+        r"""<p>是否创建自适应码率，默认值 0。<br>0：否。<br>1：是。</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: int
         """
@@ -45307,7 +45179,7 @@ baseline/main/high。默认baseline
 
     @property
     def AdaptiveChildren(self):
-        r"""自适应码率，子转码模板信息，当 IsAdaptiveBitRate 为 1 时有效。
+        r"""<p>自适应码率，子转码模板信息，当 IsAdaptiveBitRate 为 1 时有效。</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: list of ChildTemplateInfo
         """
@@ -45316,6 +45188,28 @@ baseline/main/high。默认baseline
     @AdaptiveChildren.setter
     def AdaptiveChildren(self, AdaptiveChildren):
         self._AdaptiveChildren = AdaptiveChildren
+
+    @property
+    def AudienceDrivenTranscode(self):
+        r"""<p>是否按需转码，0 否，1 是。</p>
+        :rtype: int
+        """
+        return self._AudienceDrivenTranscode
+
+    @AudienceDrivenTranscode.setter
+    def AudienceDrivenTranscode(self, AudienceDrivenTranscode):
+        self._AudienceDrivenTranscode = AudienceDrivenTranscode
+
+    @property
+    def AudienceThreshold(self):
+        r"""<p>按需转码人数阈值。</p>
+        :rtype: int
+        """
+        return self._AudienceThreshold
+
+    @AudienceThreshold.setter
+    def AudienceThreshold(self, AudienceThreshold):
+        self._AudienceThreshold = AudienceThreshold
 
 
     def _deserialize(self, params):
@@ -45349,6 +45243,8 @@ baseline/main/high。默认baseline
                 obj = ChildTemplateInfo()
                 obj._deserialize(item)
                 self._AdaptiveChildren.append(obj)
+        self._AudienceDrivenTranscode = params.get("AudienceDrivenTranscode")
+        self._AudienceThreshold = params.get("AudienceThreshold")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

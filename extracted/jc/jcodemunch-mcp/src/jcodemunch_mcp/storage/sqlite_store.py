@@ -819,7 +819,54 @@ class SQLiteIndexStore:
 
         For each changed/new file: stores its symbols, hash, and metadata.
         For each deleted file: stores a 'delete' marker.
+
+        v1.108.105: serialised via the ``indexwrite`` lock (audit V9), so a
+        branch-delta write can't interleave with a concurrent full/incremental
+        reindex of the same .db from another process.
         """
+        db_path = self._db_path(owner, name)
+        if not db_path.exists():
+            return
+
+        from . import process_locks
+        lock_target = f"{owner}/{name}"
+        storage_root = str(self.base_path)
+        with process_locks.held(
+            "indexwrite", lock_target, storage_root, wait_seconds=60.0
+        ) as got_lock:
+            if not got_lock:
+                detail = process_locks.current_holder_diagnostic(
+                    "indexwrite", lock_target, storage_root,
+                )
+                raise RuntimeError(
+                    f"Could not acquire index-write lock for {lock_target} "
+                    f"after 60s{detail}"
+                )
+            self._save_branch_delta_locked(
+                owner, name, branch, changed_files, new_files, deleted_files,
+                new_symbols, raw_files, git_head, base_head, file_hashes,
+                file_mtimes, file_languages, file_summaries, file_imports,
+            )
+
+    def _save_branch_delta_locked(
+        self,
+        owner: str,
+        name: str,
+        branch: str,
+        changed_files: list[str],
+        new_files: list[str],
+        deleted_files: list[str],
+        new_symbols: list["Symbol"],
+        raw_files: dict[str, str],
+        git_head: str = "",
+        base_head: str = "",
+        file_hashes: Optional[dict[str, str]] = None,
+        file_mtimes: Optional[dict[str, int]] = None,
+        file_languages: Optional[dict[str, str]] = None,
+        file_summaries: Optional[dict[str, str]] = None,
+        file_imports: Optional[dict[str, list[dict]]] = None,
+    ) -> None:
+        """Inner body of save_branch_delta; runs under the indexwrite lock."""
         db_path = self._db_path(owner, name)
         if not db_path.exists():
             return
@@ -1356,36 +1403,45 @@ class SQLiteIndexStore:
             if cached is not None:
                 return cached
 
-        conn = self._connect(db_path)
         try:
-            meta = self._read_meta(conn)
-            if not meta:
-                return None
-
+            conn = self._connect(db_path)
             try:
-                stored_version = int(meta.get("index_version", "0"))
-            except (TypeError, ValueError):
-                logger.warning("Corrupt index version for %s/%s", owner, name)
-                return None
-            if stored_version > cast(int, _INDEX_VERSION):
-                logger.warning("Index version %d > current %d for %s/%s", stored_version, _INDEX_VERSION, owner, name)
-                return None
+                meta = self._read_meta(conn)
+                if not meta:
+                    return None
 
-            symbol_rows = conn.execute("SELECT * FROM symbols").fetchall()
-            file_rows = conn.execute("SELECT * FROM files").fetchall()
+                try:
+                    stored_version = int(meta.get("index_version", "0"))
+                except (TypeError, ValueError):
+                    logger.warning("Corrupt index version for %s/%s", owner, name)
+                    return None
+                if stored_version > cast(int, _INDEX_VERSION):
+                    logger.warning("Index version %d > current %d for %s/%s", stored_version, _INDEX_VERSION, owner, name)
+                    return None
 
-            index = self._build_index_from_rows(meta, symbol_rows, file_rows, owner, name)
+                symbol_rows = conn.execute("SELECT * FROM symbols").fetchall()
+                file_rows = conn.execute("SELECT * FROM files").fetchall()
 
-            # Warn if call references were not migrated (v7→v8 case)
-            if meta.get("call_refs_missing") == "1":
-                logger.warning(
-                    "Index %s/%s was migrated from v7 which did not store call references. "
-                    "get_call_hierarchy and get_impact_preview will use text heuristics. "
-                    "Run 'jcodemunch-mcp index-folder' to re-index for AST-based call graphs.",
-                    owner, name,
-                )
-        finally:
-            conn.close()
+                index = self._build_index_from_rows(meta, symbol_rows, file_rows, owner, name)
+
+                # Warn if call references were not migrated (v7→v8 case)
+                if meta.get("call_refs_missing") == "1":
+                    logger.warning(
+                        "Index %s/%s was migrated from v7 which did not store call references. "
+                        "get_call_hierarchy and get_impact_preview will use text heuristics. "
+                        "Run 'jcodemunch-mcp index-folder' to re-index for AST-based call graphs.",
+                        owner, name,
+                    )
+            finally:
+                conn.close()
+        except sqlite3.DatabaseError:
+            # A corrupt DB must not raise a raw traceback out of a retrieval
+            # tool (audit V9b). Return None; callers routed through
+            # load_repo_index_or_error then fall through to inspect_index, which
+            # reports sqlite_corrupt + a re-index hint. Mirrors inspect_index's
+            # own DatabaseError guard.
+            logger.debug("Corrupt SQLite index at %s; treating as unloadable", db_path, exc_info=True)
+            return None
 
         # If a branch is requested, compose the delta on top of the base
         if branch:
@@ -1540,8 +1596,61 @@ class SQLiteIndexStore:
         file_blob_shas: Optional[dict[str, str]] = None,
         file_hashes: Optional[dict[str, str]] = None,
         file_mtimes: Optional[dict[str, int]] = None,
+        package_names: Optional[list[str]] = None,
     ) -> Optional["CodeIndex"]:
-        """Incrementally update an existing index (delta write)."""
+        """Incrementally update an existing index (delta write).
+
+        v1.108.105: serialised against concurrent writers via the ``indexwrite``
+        lock, mirroring save_index (audit V9). A watcher delta and a manual full
+        reindex from another process both touch the same .db; without the lock
+        their DELETE/INSERT batches can interleave and corrupt the index.
+        """
+        db_path = self._db_path(owner, name)
+        if not db_path.exists():
+            return None
+
+        from . import process_locks
+        lock_target = f"{owner}/{name}"
+        storage_root = str(self.base_path)
+        with process_locks.held(
+            "indexwrite", lock_target, storage_root, wait_seconds=60.0
+        ) as got_lock:
+            if not got_lock:
+                detail = process_locks.current_holder_diagnostic(
+                    "indexwrite", lock_target, storage_root,
+                )
+                raise RuntimeError(
+                    f"Could not acquire index-write lock for {lock_target} "
+                    f"after 60s{detail}"
+                )
+            return self._incremental_save_locked(
+                owner, name, changed_files, new_files, deleted_files,
+                new_symbols, raw_files, languages, git_head, file_summaries,
+                file_languages, imports, context_metadata, file_blob_shas,
+                file_hashes, file_mtimes, package_names,
+            )
+
+    def _incremental_save_locked(
+        self,
+        owner: str,
+        name: str,
+        changed_files: list[str],
+        new_files: list[str],
+        deleted_files: list[str],
+        new_symbols: list[Symbol],
+        raw_files: dict[str, str],
+        languages: Optional[dict[str, int]] = None,
+        git_head: str = "",
+        file_summaries: Optional[dict[str, str]] = None,
+        file_languages: Optional[dict[str, str]] = None,
+        imports: Optional[dict[str, list[dict]]] = None,
+        context_metadata: Optional[dict] = None,
+        file_blob_shas: Optional[dict[str, str]] = None,
+        file_hashes: Optional[dict[str, str]] = None,
+        file_mtimes: Optional[dict[str, int]] = None,
+        package_names: Optional[list[str]] = None,
+    ) -> Optional["CodeIndex"]:
+        """Inner body of incremental_save; runs under the indexwrite lock."""
         db_path = self._db_path(owner, name)
         if not db_path.exists():
             return None
@@ -1631,6 +1740,16 @@ class SQLiteIndexStore:
                 conn.execute(
                     "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
                     ("context_metadata", json.dumps(context_metadata)),
+                )
+            # Refresh the published-package registry entry when the caller
+            # recomputed it (e.g. a manifest was added/renamed). Without this a
+            # delta write left the old package_names in meta, so cross-repo
+            # features saw a stale registry until the next full reindex (audit
+            # W7). None = caller didn't recompute → preserve the existing value.
+            if package_names is not None:
+                conn.execute(
+                    "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
+                    ("package_names", json.dumps(package_names)),
                 )
 
             # Recompute languages from files table
@@ -1732,6 +1851,13 @@ class SQLiteIndexStore:
                             sym["_tf"] = old_sym["_tf"]
                         if "_dl" in old_sym:
                             sym["_dl"] = old_sym["_dl"]
+
+        # Keep the returned/cached index consistent with the meta write above.
+        # The fast (patch) path carries package_names from the old cached index,
+        # so an in-place refresh here is needed; the cold path already rebuilt it
+        # from the freshly-written meta, so this is a harmless no-op there.
+        if package_names is not None:
+            index.package_names = list(package_names)
 
         # Pre-warm cache so the next load_index() is instant
         # Touch .db mtime BEFORE caching so the cached mtime matches what

@@ -69,10 +69,10 @@ use crate::statsig_types_raw::{DynamicConfigRaw, ExperimentRaw, FeatureGateRaw, 
 use crate::user::StatsigUserInternal;
 use crate::utils::get_loggable_sdk_key;
 use crate::{
-    dyn_value, log_d, log_e, log_w, read_lock_or_else, ClientInitResponseOptions,
-    GCIRResponseFormat, IdListsAdapter, InitializeDetails, ObservabilityClient,
-    OpsStatsEventObserver, OverrideAdapter, SpecsAdapter, SpecsInfo, SpecsSource,
-    SpecsUpdateListener, StatsigHttpIdListsAdapter, StatsigLocalOverrideAdapter, StatsigUser,
+    dyn_value, log_d, log_e, log_w, ClientInitResponseOptions, GCIRResponseFormat, IdListsAdapter,
+    InitializeDetails, ObservabilityClient, OpsStatsEventObserver, OverrideAdapter, SpecsAdapter,
+    SpecsInfo, SpecsSource, SpecsUpdateListener, StatsigHttpIdListsAdapter,
+    StatsigLocalOverrideAdapter, StatsigUser,
 };
 use crate::{
     log_error_to_statsig_and_console,
@@ -178,8 +178,11 @@ impl Drop for Statsig {
 
 impl Statsig {
     pub fn new(sdk_key: &str, options: Option<Arc<StatsigOptions>>) -> Self {
-        let statsig_runtime = StatsigRuntime::get_runtime();
         let options = options.map(|o| o.validate_and_fix()).unwrap_or_default();
+        let statsig_runtime = StatsigRuntime::get_runtime_with_options(
+            options.sdk_runtime_thread_count,
+            options.runtime_thread_start_callback.clone(),
+        );
 
         initialize_output_logger(
             &options.output_log_level,
@@ -262,7 +265,7 @@ impl Statsig {
             event_logging_adapter,
             event_logger,
             #[cfg(feature = "ffi-support")]
-            delayed_exposure_store: Arc::new(DelayedExposureStore::new()),
+            delayed_exposure_store: Arc::new(DelayedExposureStore::new(ops_stats.clone())),
             id_lists_adapter,
             statsig_runtime,
             ops_stats,
@@ -524,21 +527,18 @@ impl Statsig {
         user_internal: &StatsigUserInternal<'_, '_>,
         options: &ClientInitResponseOptions,
     ) -> InitializeResponse {
-        let data = read_lock_or_else!(self.spec_store.data, {
-            log_error_to_statsig_and_console!(
-                &self.ops_stats,
-                TAG,
-                StatsigErr::LockFailure(
-                    "Failed to acquire read lock for spec store data".to_string()
-                )
-            );
-            return InitializeResponse::blank(user_internal.clone());
-        });
+        let data = self.spec_store.load_data();
+        let plan = data.gcir_evaluation_plan(&self.hashing);
 
         let mut context = self.create_gcir_eval_context(user_internal, &data, options);
 
-        match GCIRFormatter::generate_v1_format(&mut context, options) {
-            Ok(response) => response,
+        match GCIRFormatter::generate_v1_format_with_plan(&mut context, options, plan) {
+            Ok(mut response) => {
+                if response.has_updates {
+                    response.time = data.lcut();
+                }
+                response
+            }
             Err(e) => {
                 log_error_to_statsig_and_console!(
                     &self.ops_stats,
@@ -572,33 +572,48 @@ impl Statsig {
         user_internal: &StatsigUserInternal<'_, '_>,
         options: &ClientInitResponseOptions,
     ) -> String {
-        let data = read_lock_or_else!(self.spec_store.data, {
-            log_error_to_statsig_and_console!(
-                &self.ops_stats,
-                TAG,
-                StatsigErr::LockFailure(
-                    "Failed to acquire read lock for spec store data".to_string()
-                )
-            );
-            return String::new();
-        });
+        let data = self.spec_store.load_data();
 
         let mut context = self.create_gcir_eval_context(user_internal, &data, options);
+        let response_lcut = data.lcut();
 
         match options.response_format {
             Some(GCIRResponseFormat::InitializeWithSecondaryExposureMapping) => self
                 .stringify_gcir_response(
-                    GCIRFormatter::generate_v2_format(&mut context, options),
+                    GCIRFormatter::generate_v2_format(&mut context, options).map(|mut response| {
+                        if response.has_updates {
+                            response.time = response_lcut;
+                        }
+                        response
+                    }),
                     || InitializeEvaluationsResponse::blank(user_internal.clone()),
                 ),
             Some(GCIRResponseFormat::InitializeV2) => self.stringify_gcir_response(
-                GCIRFormatter::generate_init_v2_format(&mut context, options),
+                GCIRFormatter::generate_init_v2_format(&mut context, options).map(
+                    |mut response| {
+                        if response.has_updates {
+                            response.time = response_lcut;
+                        }
+                        response
+                    },
+                ),
                 || InitializeV2Response::blank(user_internal.clone()),
             ),
-            _ => self.stringify_gcir_response(
-                GCIRFormatter::generate_v1_format(&mut context, options),
-                || InitializeResponse::blank(user_internal.clone()),
-            ),
+            _ => {
+                let plan = data.gcir_evaluation_plan(&self.hashing);
+
+                self.stringify_gcir_response(
+                    GCIRFormatter::generate_v1_format_with_plan(&mut context, options, plan).map(
+                        |mut response| {
+                            if response.has_updates {
+                                response.time = response_lcut;
+                            }
+                            response
+                        },
+                    ),
+                    || InitializeResponse::blank(user_internal.clone()),
+                )
+            }
         }
     }
 }
@@ -932,29 +947,14 @@ impl Statsig {
         self.event_logger
             .increment_non_exposure_checks(parameter_store_name);
 
-        let data = read_lock_or_else!(self.spec_store.data, {
-            log_error_to_statsig_and_console!(
-                self.ops_stats.clone(),
-                TAG,
-                StatsigErr::LockFailure(
-                    "Failed to acquire read lock for spec store data".to_string()
-                )
-            );
-            return ParameterStore {
-                name: parameter_store_name.to_string(),
-                parameters: HashMap::new(),
-                details: EvaluationDetails::unrecognized_no_data(),
-                options,
-                _statsig_ref: self,
-            };
-        });
+        let data = self.spec_store.load_data();
 
         if let Some(user) = user {
             if let Some((override_result, parameters)) =
                 self.get_parameter_store_override(user, parameter_store_name)
             {
                 let details = EvaluationDetails::recognized_but_overridden(
-                    data.values.time,
+                    data.lcut(),
                     data.time_received_at,
                     override_result.override_reason.unwrap_or("Override"),
                     override_result.version,
@@ -970,7 +970,7 @@ impl Statsig {
             }
         }
 
-        let stores = &data.values.param_stores;
+        let stores = &data.snapshot.param_stores;
         let store = match stores {
             Some(stores) => stores.get(&store_name_intern),
             None => {
@@ -979,7 +979,7 @@ impl Statsig {
                     parameters: HashMap::new(),
                     details: EvaluationDetails::unrecognized(
                         &data.source,
-                        data.values.time,
+                        data.lcut(),
                         data.time_received_at,
                     ),
                     options,
@@ -993,7 +993,7 @@ impl Statsig {
                 parameters: store.parameters.clone(),
                 details: EvaluationDetails::recognized(
                     &data.source,
-                    data.values.time,
+                    data.lcut(),
                     data.time_received_at,
                     &EvaluatorResult::default(),
                 ),
@@ -1005,7 +1005,7 @@ impl Statsig {
                 parameters: HashMap::new(),
                 details: EvaluationDetails::unrecognized(
                     &data.source,
-                    data.values.time,
+                    data.lcut(),
                     data.time_received_at,
                 ),
                 options,
@@ -1072,21 +1072,12 @@ impl Statsig {
     ) -> Vec<CMABRankedGroup> {
         self.event_logger.increment_non_exposure_checks(cmab_name);
 
-        let data = read_lock_or_else!(self.spec_store.data, {
-            log_error_to_statsig_and_console!(
-                self.ops_stats.clone(),
-                TAG,
-                StatsigErr::LockFailure(
-                    "Failed to acquire read lock for spec store data".to_string()
-                )
-            );
-            return vec![];
-        });
+        let data = self.spec_store.load_data();
         let user_internal = self.internalize_user(user);
         let mut context = self.create_standard_eval_context(
             &user_internal,
             &data,
-            data.values.app_id.as_ref(),
+            data.snapshot.app_id.as_ref(),
             self.override_adapter.as_ref(),
             true,
         );
@@ -1677,33 +1668,16 @@ impl Statsig {
     where
         P: Fn(&Rule) -> bool,
     {
-        let data = read_lock_or_else!(self.spec_store.data, {
-            log_error_to_statsig_and_console!(
-                self.ops_stats.clone(),
-                TAG,
-                StatsigErr::LockFailure(
-                    "Failed to acquire read lock for spec store data".to_string()
-                )
-            );
-            return result_factory(
-                None,
-                None,
-                EvaluationDetails::error("Failed to acquire read lock for spec store data"),
-            );
-        });
+        let data = self.spec_store.load_data();
 
         let experiment_name = InternedString::from_str_ref(experiment_name);
-        let experiment = data.values.dynamic_configs.get(&experiment_name);
+        let experiment = data.snapshot.dynamic_configs.get(&experiment_name);
 
         let Some(exp) = experiment else {
             return result_factory(
                 None,
                 None,
-                EvaluationDetails::unrecognized(
-                    &data.source,
-                    data.values.time,
-                    data.time_received_at,
-                ),
+                EvaluationDetails::unrecognized(&data.source, data.lcut(), data.time_received_at),
             );
         };
 
@@ -1718,7 +1692,7 @@ impl Statsig {
                 Some(rule),
                 EvaluationDetails::recognized_without_eval_result(
                     &data.source,
-                    data.values.time,
+                    data.lcut(),
                     data.time_received_at,
                 ),
             );
@@ -1727,7 +1701,7 @@ impl Statsig {
         result_factory(
             None,
             None,
-            EvaluationDetails::unrecognized(&data.source, data.values.time, data.time_received_at),
+            EvaluationDetails::unrecognized(&data.source, data.lcut(), data.time_received_at),
         )
     }
 }
@@ -3030,8 +3004,8 @@ impl Statsig {
     ) -> EvaluatorContext<'a> {
         EvaluatorContext::new(
             user_internal,
-            &data.values,
-            IdListResolution::MapLookup(&data.id_lists),
+            &data.snapshot,
+            IdListResolution::MapLookup(data.id_lists.as_ref()),
             &self.hashing,
             app_id,
             override_adapter,
@@ -3047,7 +3021,7 @@ impl Statsig {
         data: &'a SpecStoreData,
         options: &'a ClientInitResponseOptions,
     ) -> EvaluatorContext<'a> {
-        let app_id = select_app_id_for_gcir(options, &data.values, &self.hashing);
+        let app_id = select_app_id_for_gcir(options, &data.snapshot, &self.hashing);
         let override_adapter = match options.include_local_overrides {
             Some(true) => self.override_adapter.as_ref(),
             _ => None,
@@ -3055,8 +3029,8 @@ impl Statsig {
 
         EvaluatorContext::new(
             user_internal,
-            &data.values,
-            IdListResolution::MapLookup(&data.id_lists),
+            &data.snapshot,
+            IdListResolution::MapLookup(data.id_lists.as_ref()),
             &self.hashing,
             app_id,
             override_adapter,
@@ -3090,16 +3064,7 @@ impl Statsig {
         disable_exposure_logging: Option<bool>,
         include_local_override: bool,
     ) -> (EvaluationDetails, Option<EvaluatorResult>) {
-        let data = read_lock_or_else!(self.spec_store.data, {
-            log_error_to_statsig_and_console!(
-                &self.ops_stats,
-                TAG,
-                StatsigErr::LockFailure(
-                    "Failed to acquire read lock for spec store data".to_string()
-                )
-            );
-            return (EvaluationDetails::unrecognized_no_data(), None);
-        });
+        let data = self.spec_store.load_data();
 
         let override_adapter = if include_local_override {
             self.override_adapter.as_ref()
@@ -3110,7 +3075,7 @@ impl Statsig {
         let mut context = self.create_standard_eval_context(
             user_internal,
             &data,
-            data.values.app_id.as_ref(),
+            data.snapshot.app_id.as_ref(),
             override_adapter,
             disable_exposure_logging.unwrap_or(false),
         );
@@ -3138,21 +3103,12 @@ impl Statsig {
         spec_type: &SpecType,
         disable_exposure_logging: Option<bool>,
     ) -> T {
-        let data = read_lock_or_else!(self.spec_store.data, {
-            log_error_to_statsig_and_console!(
-                &self.ops_stats,
-                TAG,
-                StatsigErr::LockFailure(
-                    "Failed to acquire read lock for spec store data".to_string()
-                )
-            );
-            return make_empty_result(EvaluationDetails::unrecognized_no_data());
-        });
+        let data = self.spec_store.load_data();
 
         let mut context = self.create_standard_eval_context(
             user_internal,
             &data,
-            data.values.app_id.as_ref(),
+            data.snapshot.app_id.as_ref(),
             self.override_adapter.as_ref(),
             disable_exposure_logging.unwrap_or(false),
         );
@@ -3181,14 +3137,14 @@ impl Statsig {
         if recognition == Recognition::Unrecognized {
             return Ok(EvaluationDetails::unrecognized(
                 &spec_store_data.source,
-                spec_store_data.values.time,
+                spec_store_data.lcut(),
                 spec_store_data.time_received_at,
             ));
         }
 
         if let Some(reason) = ctx.result.override_reason {
             return Ok(EvaluationDetails::recognized_but_overridden(
-                spec_store_data.values.time,
+                spec_store_data.lcut(),
                 spec_store_data.time_received_at,
                 reason,
                 ctx.result.version,
@@ -3197,7 +3153,7 @@ impl Statsig {
 
         Ok(EvaluationDetails::recognized(
             &spec_store_data.source,
-            spec_store_data.values.time,
+            spec_store_data.lcut(),
             spec_store_data.time_received_at,
             &ctx.result,
         ))
@@ -3339,11 +3295,9 @@ impl Statsig {
     }
 
     fn set_default_environment_from_server(&self) {
-        let data = read_lock_or_else!(self.spec_store.data, {
-            return;
-        });
+        let data = self.spec_store.load_data();
 
-        if let Some(default_env) = data.values.default_environment.as_ref() {
+        if let Some(default_env) = data.snapshot.default_environment.as_ref() {
             let env_map = HashMap::from([("tier".to_string(), dyn_value!(default_env.as_str()))]);
 
             match self

@@ -23,6 +23,7 @@ from aigie.tracing.trace_state import (
     is_inside_traced_run,
     open_ambient,
 )
+from aigie.tracing.workflow_root import WorkflowRoot
 
 if TYPE_CHECKING:
     from aigie.tracing.execution_state import ExecutionState
@@ -46,6 +47,7 @@ class LangChainTraceBoundary:
         _root_run_id: str | None
         _trace_id: str | None
         _ambient_token: Any
+        _workflow_root: WorkflowRoot | None
 
     def _note_start(
         self,
@@ -119,8 +121,9 @@ class LangChainTraceBoundary:
     # ------------------------------------------------------------------
 
     def open_workflow_span(self, *, input: Any, span_id: str | None = None) -> None:
-        # The workflow span IS the trace root: span_id == trace_id so the
-        # finalized root carries trace identity (no separate trace event).
+        # The workflow span IS the trace root (span_id == trace_id). The shared
+        # WorkflowRoot owns the span mechanics; this boundary keeps the LangChain
+        # extras: ExecutionState bookkeeping + the execution-plan metadata.
         if input is None:
             # Backstop: a root with no input shows blank "user input" in the UI.
             # Structurally prevented for callback-driven integrations (the base
@@ -130,25 +133,17 @@ class LangChainTraceBoundary:
                 "no user input",
                 self.framework_name,
             )
-        from aigie.context_manager import merge_metadata, merge_tags
+        from aigie.context_manager import merge_tags
 
-        metadata = merge_metadata(
-            {
-                "chain_type": "workflow",
-                "framework": self.framework_name,
-                "type": self.framework_name,
-            }
-        )
         tags = merge_tags()
-        self.spans.open_span(
-            run_id=self._WORKFLOW_RUN_ID,
-            parent_run_id=None,
-            name=self._workflow_name,
-            span_type="workflow",
+        self._workflow_root = WorkflowRoot(
+            self.spans,
+            self._workflow_name,
+            trace_id=span_id or current_trace_id(),  # type: ignore[arg-type]
+            framework=self.framework_name,
             input=input,
-            metadata=metadata,
             extras={"tags": tags} if tags else None,
-            span_id=span_id or current_trace_id(),
+            run_id=self._WORKFLOW_RUN_ID,
         )
         self._execution.start_span(
             name=self._workflow_name, span_type="workflow", at=datetime.now(timezone.utc)
@@ -165,14 +160,11 @@ class LangChainTraceBoundary:
             self._execution.end_span(
                 name=self._workflow_name, status="error", at=now, error_message=str(error)
             )
-            self.spans.fail_span(
-                run_id=self._WORKFLOW_RUN_ID, error=error, metadata_updates=metadata_updates
-            )
         else:
             self._execution.end_span(name=self._workflow_name, status="success", at=now)
-            self.spans.close_span(
-                run_id=self._WORKFLOW_RUN_ID, output=output, metadata_updates=metadata_updates
-            )
+        root = getattr(self, "_workflow_root", None)
+        if root is not None:
+            root.close(output=output, error=error, metadata_updates=metadata_updates)
 
     def _root_metadata_updates(self, status: str) -> dict[str, Any]:
         metadata: dict[str, Any] = {

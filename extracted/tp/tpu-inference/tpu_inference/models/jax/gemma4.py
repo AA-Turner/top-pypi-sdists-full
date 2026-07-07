@@ -33,11 +33,13 @@ from tpu_inference.layers.common.sharding import ShardingAxisName
 from tpu_inference.layers.jax import JaxModule
 from tpu_inference.layers.jax.embed import JaxEmbed
 from tpu_inference.layers.jax.linear import (JaxEinsum, JaxLinear, JaxLmHead,
-                                             JaxMergedColumnParallelLinear)
+                                             JaxMergedColumnParallelLinear,
+                                             JaxQKVParallelLinear)
 from tpu_inference.layers.jax.moe.moe import JaxMoE
 from tpu_inference.layers.jax.norm import JaxRmsNorm
 from tpu_inference.layers.jax.pp_utils import PPMissingLayer, make_layers
-from tpu_inference.layers.jax.rope_interface import apply_rope
+from tpu_inference.layers.jax.rope_interface import (apply_rope,
+                                                     normalize_rope_scaling)
 from tpu_inference.layers.vllm.quantization.configs import VllmQuantConfig
 from tpu_inference.logger import init_logger
 from tpu_inference.models.common.kv_share import compute_kv_share_map
@@ -286,8 +288,11 @@ class Gemma4Attention(JaxModule):
             rope_parameters = rope_parameters[self.layer_type]
             self.rope_theta = rope_parameters.get(
                 "rope_theta", getattr(config, "rope_theta", 10000.0))
-            self.rope_scaling = rope_parameters.get(
-                "rope_scaling", getattr(config, "rope_scaling", None))
+            rope_scaling = rope_parameters.get(
+                "rope_scaling", None) or getattr(config, "rope_scaling", None)
+            if rope_scaling is None and "rope_type" in rope_parameters:
+                rope_scaling = rope_parameters
+            self.rope_scaling = normalize_rope_scaling(rope_scaling)
             self.rope_proportion = rope_parameters.get("partial_rotary_factor",
                                                        1.0)
         else:
@@ -335,47 +340,23 @@ class Gemma4Attention(JaxModule):
                            None) if _shard_kv_on_k else (None, None, "model")
         _kv_bias_spec = ("model", None) if _shard_kv_on_k else (None, "model")
 
-        self.q_proj = JaxEinsum(
-            "TD,DNH->TNH",
-            (self.hidden_size, self.num_heads, self.head_dim),
-            bias_shape=(self.num_heads,
-                        self.head_dim) if config.attention_bias else None,
-            param_dtype=dtype,
-            kernel_init=nnx.with_partitioning(init_fn, (None, "model", None)),
-            bias_init=nnx.with_partitioning(init_fn, ("model", None))
-            if config.attention_bias else None,
-            rngs=rng,
-            quant_config=quant_config,
-            prefix=prefix + ".q_proj",
-        )
-        self.q_norm = JaxRmsNorm(
-            self.head_dim,
-            epsilon=self.rms_norm_eps,
-            param_dtype=dtype,
-            scale_init=nnx.with_partitioning(init_fn, (None, )),
-            rngs=rng,
-            quant_config=quant_config,
-            prefix=prefix + ".q_norm",
-        )
-
-        self.k_proj = JaxEinsum(
-            "TD,DKH->TKH",
-            (self.hidden_size, self.num_kv_heads, self.head_dim),
-            bias_shape=(self.num_kv_heads,
-                        self.head_dim) if config.attention_bias else None,
-            param_dtype=dtype,
-            kernel_init=nnx.with_partitioning(init_fn, _kv_kernel_spec),
-            bias_init=nnx.with_partitioning(init_fn, _kv_bias_spec)
-            if config.attention_bias else None,
-            rngs=rng,
-            quant_config=quant_config,
-            prefix=prefix + ".k_proj",
-        )
-        # --- Shared KV Projection Logic ---
-        if use_k_eq_v:
-            self.v_proj = None
-        else:
-            self.v_proj = JaxEinsum(
+        if use_k_eq_v:  # TODO: Add QKV fusion logic for k == v case.
+            self.qkv_proj = None
+            self.q_proj = JaxEinsum(
+                "TD,DNH->TNH",
+                (self.hidden_size, self.num_heads, self.head_dim),
+                bias_shape=(self.num_heads,
+                            self.head_dim) if config.attention_bias else None,
+                param_dtype=dtype,
+                kernel_init=nnx.with_partitioning(init_fn,
+                                                  (None, "model", None)),
+                bias_init=nnx.with_partitioning(init_fn, ("model", None))
+                if config.attention_bias else None,
+                rngs=rng,
+                quant_config=quant_config,
+                prefix=prefix + ".q_proj",
+            )
+            self.k_proj = JaxEinsum(
                 "TD,DKH->TKH",
                 (self.hidden_size, self.num_kv_heads, self.head_dim),
                 bias_shape=(self.num_kv_heads,
@@ -386,8 +367,34 @@ class Gemma4Attention(JaxModule):
                 if config.attention_bias else None,
                 rngs=rng,
                 quant_config=quant_config,
-                prefix=prefix + ".v_proj",
+                prefix=prefix + ".k_proj",
             )
+            self.v_proj = None
+        else:
+            self.qkv_proj = JaxQKVParallelLinear(
+                hidden_size=self.hidden_size,
+                num_heads=self.num_heads,
+                num_kv_heads=self.num_kv_heads,
+                head_dim=self.head_dim,
+                use_bias=config.attention_bias,
+                dtype=dtype,
+                rngs=rng,
+                quant_config=quant_config,
+                prefix=prefix,
+            )
+            self.q_proj = None
+            self.k_proj = None
+            self.v_proj = None
+
+        self.q_norm = JaxRmsNorm(
+            self.head_dim,
+            epsilon=self.rms_norm_eps,
+            param_dtype=dtype,
+            scale_init=nnx.with_partitioning(init_fn, (None, )),
+            rngs=rng,
+            quant_config=quant_config,
+            prefix=prefix + ".q_norm",
+        )
 
         self.k_norm = JaxRmsNorm(
             self.head_dim,
@@ -414,7 +421,7 @@ class Gemma4Attention(JaxModule):
             (self.num_heads, self.head_dim, self.hidden_size),
             bias_shape=(self.hidden_size, ) if config.attention_bias else None,
             param_dtype=dtype,
-            kernel_init=nnx.with_partitioning(init_fn, (None, "model", None)),
+            kernel_init=nnx.with_partitioning(init_fn, ("model", None, None)),
             bias_init=nnx.with_partitioning(init_fn, (None, ))
             if config.attention_bias else None,
             rngs=rng,
@@ -452,13 +459,13 @@ class Gemma4Attention(JaxModule):
         attention_metadata: AttentionMetadata,
     ) -> Tuple[jax.Array, jax.Array]:
         md = attention_metadata
-        k = self.k_proj(x)
-        if self.v_proj is None:
-            v = k
+        if self.qkv_proj is not None:
+            q, k, v = self.qkv_proj(x)
         else:
-            v = self.v_proj(x)
-        # q: (T, N, H)
-        q = self.q_proj(x)
+            k = self.k_proj(x)
+            v = k
+            # q: (T, N, H)
+            q = self.q_proj(x)
         # Q norm (always applied)
         q = self.q_norm(q)
 
@@ -1032,7 +1039,17 @@ class Gemma4Model(JaxModule):
 
 
 class Gemma4ForCausalLM(JaxModule, LoadableWithIterator):
-    packed_modules_mapping = {"gate_up_proj": ["gate_proj", "up_proj"]}
+    packed_modules_mapping = {
+        "qkv_proj": [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+        ],
+        "gate_up_proj": [
+            "gate_proj",
+            "up_proj",
+        ],
+    }
     WeightLoader = StandardWeightLoader
 
     def __init__(self, vllm_config: VllmConfig, rng_key: jax.Array,

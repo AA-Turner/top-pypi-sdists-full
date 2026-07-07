@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit_build_core
-Version: 0.12.2
+Version: 1.0.0
 Summary: Build backend for CMake based projects
 Project-URL: Changelog, https://scikit-build-core.readthedocs.io/en/latest/changelog.html
 Project-URL: Discussions, https://github.com/orgs/scikit-build/discussions
@@ -10,7 +10,7 @@ Project-URL: Issues, https://github.com/scikit-build/scikit-build-core/issues
 Author-email: Henry Schreiner <henryfs@princeton.edu>
 License-Expression: Apache-2.0
 License-File: LICENSE
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
@@ -24,6 +24,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading :: 4 - Resilient
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Build Tools
@@ -35,7 +36,13 @@ Requires-Dist: packaging>=23.2
 Requires-Dist: pathspec>=0.12.0
 Requires-Dist: tomli>=1.2.2; python_version < '3.11'
 Requires-Dist: typing-extensions>=4; python_version < '3.11'
-Provides-Extra: pyproject
+Provides-Extra: hatchling
+Requires-Dist: hatchling>=1.24; extra == 'hatchling'
+Provides-Extra: setuptools
+Requires-Dist: setuptools>=43; (python_version < '3.9') and extra == 'setuptools'
+Requires-Dist: setuptools>=45; (python_version == '3.9') and extra == 'setuptools'
+Requires-Dist: setuptools>=49; (python_version >= '3.10' and python_version < '3.12') and extra == 'setuptools'
+Requires-Dist: setuptools>=66.1; (python_version >= '3.12') and extra == 'setuptools'
 Provides-Extra: wheel-free-setuptools
 Requires-Dist: setuptools>=70.1; (python_version >= '3.8') and extra == 'wheel-free-setuptools'
 Provides-Extra: wheels
@@ -108,10 +115,10 @@ features over classic Scikit-build:
 - Support for writing out to extra wheel folders (scripts, headers, data)
 - Support for selecting install components and build targets
 - Dedicated entrypoints for module and prefix directories
-- Several integrated dynamic metadata plugins (proposing standardized support
-  soon)
-- Experimental editable mode support, with optional experimental auto rebuilds
-  on import and optional in-place mode
+- Several integrated dynamic metadata plugins, supporting the cross-backend
+  `[[tool.dynamic-metadata]]` standard
+- Editable mode support, with optional experimental auto rebuilds on import and
+  optional in-place mode
 - Supports WebAssembly (Emscripten/[Pyodide](https://pyodide.org)).
 - Supports [free-threaded Python 3.13+](https://py-free-threading.github.io).
 
@@ -120,28 +127,25 @@ The following limitations are present compared to classic scikit-build:
 - The minimum supported CMake is 3.15
 - The minimum supported Python is 3.8 (3.7+ for 0.10.x and older)
 
-Some known missing features that will be developed soon:
+A few limitations remain (covered in detail in the docs):
 
-- Wheels are not fully reproducible yet (nor are they in most others systems,
-  including setuptools)
-- Several editable mode caveats (mentioned in the docs).
+- Wheel reproducibility is opt-in (`wheel.reproducible`)
+- Editable install rebuild mode has some caveats.
 
-Other backends are also planned:
+Other backends are also available:
 
-- Setuptools integration highly experimental
-- Hatchling plugin highly experimental
+- Setuptools integration (use the `[setuptools]` extra)
+- Hatchling plugin (use the `[hatchling]` extra)
 
-The recommended interface is the native pyproject builder. There is also a WIP
-setuptools-based interface that is being developed to provide a transition path
-for classic scikit-build, and a WIP Hatchling plugin. Both might be moved to
-standalone packages in the future.
+The recommended interface is the native pyproject builder. There is also a
+setuptools-based interface that provides a transition path for classic
+scikit-build, and a Hatchling plugin.
 
 > [!WARNING]
 >
-> Only the pyproject-based builder should be used; the setuptools backend is
-> experimental and likely to move to a separate package before being declared
-> stable, and internal API is still being solidified. A future version of this
-> package will support creating new build extensions.
+> The setuptools and hatchling backends might move to standalone packages in the
+> future, so depend on them via the `scikit-build-core[setuptools]` and
+> `scikit-build-core[hatchling]` extras to stay protected if they do.
 
 ## Example
 
@@ -166,29 +170,33 @@ the minimum to get started.
 An example `CMakeLists.txt`:
 
 ```cmake
-cmake_minimum_required(VERSION 3.15...3.30)
-project(${SKBUILD_PROJECT_NAME} LANGUAGES C)
+cmake_minimum_required(VERSION 3.15...4.3)
+project(scikit_build_simplest LANGUAGES C)
 
 find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
 
 Python_add_library(_module MODULE src/module.c WITH_SOABI)
-install(TARGETS _module DESTINATION ${SKBUILD_PROJECT_NAME})
+install(TARGETS _module DESTINATION scikit_build_simplest)
 ```
 
-Scikit-build-core will backport FindPython from CMake 3.26.1 to older versions
-of Python, and will handle PyPy for you if you are building from PyPy. You will
-need to install everything you want into the full final path inside site-modules
-(so you will usually prefix everything by the package name).
+The `install(DESTINATION ...)` is relative to site-packages, so the `_module`
+extension above lands at `scikit_build_simplest/_module.*` when the package is
+`pip install`ed. Scikit-build-core will backport FindPython from CMake 3.26.1 to
+older versions of Python, and will handle PyPy for you if you are building from
+PyPy. You will need to install everything you want into the full final path
+inside site-packages (so you will usually prefix everything by the package name)
+-- including any `__init__.py`, which CMake can place alongside the extension
+with `install(FILES src/__init__.py DESTINATION scikit_build_simplest)`.
 
-More examples are in the
+The [Getting started guide][getting-started] walks through a complete package
+step by step. More examples are in the
 [tests/packages](https://github.com/scikit-build/scikit-build-core/tree/main/tests/packages).
 
 ## Configuration
 
-All configuration options can be placed in `pyproject.toml`, passed via
-`-C`/`--config-setting` in build or `-C`/`--config-settings` in `pip` , or set
-as environment variables. `tool.scikit-build` is used in toml, `skbuild.` for
-`-C` options, or `SKBUILD_*` for environment variables.
+All configuration options can be placed in `pyproject.toml`, passed via `-C` in
+pip, uv, and build, or set as environment variables. `tool.scikit-build` is used
+in toml, `skbuild.` for `-C` options, or `SKBUILD_*` for environment variables.
 
 For a full reference and explanation of the variables see the [online
 documentation][conf-ref]
@@ -247,6 +255,12 @@ sdist.reproducible = true
 # If set to True, CMake will be run before building the SDist.
 sdist.cmake = false
 
+# Force-include files into the SDist.
+sdist.force-include = {}
+
+# Which symlinks to resolve in the SDist, storing the target's contents instead.
+sdist.resolve-symlinks = "all"
+
 # A list of packages to auto-copy into the wheel.
 wheel.packages = ["src/<package>", "python/<package>", "<package>"]
 
@@ -274,6 +288,12 @@ wheel.exclude = []
 # The build tag to use for the wheel. If empty, no build tag is used.
 wheel.build-tag = ""
 
+# Force-include files into the wheel.
+wheel.force-include = {}
+
+# Try to build a reproducible wheel.
+wheel.reproducible = false
+
 # If CMake is less than this value, backport a copy of FindPython.
 backport.find-python = "3.26.1"
 
@@ -285,6 +305,9 @@ editable.verbose = true
 
 # Rebuild the project when the package is imported.
 editable.rebuild = false
+
+# Install rebuildable editables into this tree (a newer alternative to ``editable.rebuild``).
+editable.rebuild-dir = ""
 
 # Extra args to pass directly to the builder in the build step.
 build.tool-args = []
@@ -300,6 +323,9 @@ build.requires = []
 
 # The components to install.
 install.components = []
+
+# Build targets to run during the install step via ``cmake --build --target``.
+install.targets = []
 
 # Whether to strip the binaries.
 install.strip = true
@@ -327,6 +353,9 @@ search.site-packages = true
 
 # List dynamic metadata fields and hook locations in this table.
 metadata = {}
+
+# A table of environment variables to set for the CMake subprocesses.
+env = {}
 
 # Strictly check all config options.
 strict-config = true
@@ -381,7 +410,7 @@ those of the author(s) and do not necessarily reflect the views of the National
 Science Foundation.
 
 <!-- prettier-ignore-start -->
-[OAC-2209877]:              https://www.nsf.gov/awardsearch/showAward?AWD_ID=2209877&HistoricalAwards=false
+[OAC-2209877]:              https://www.nsf.gov/awardsearch/show-award/?AWD_ID=2209877&HistoricalAwards=false
 [actions-badge]:            https://github.com/scikit-build/scikit-build-core/actions/workflows/ci.yml/badge.svg
 [actions-link]:             https://github.com/scikit-build/scikit-build-core/actions
 [cmeel]:                    https://github.com/cmake-wheel/cmeel
@@ -395,6 +424,7 @@ Science Foundation.
 [download-badge]:           https://static.pepy.tech/badge/scikit-build-core/month
 [download-link]:            https://pepy.tech/project/scikit-build-core
 [enscons]:                  https://pypi.org/project/enscons
+[getting-started]:          https://scikit-build-core.readthedocs.io/en/latest/guide/getting_started.html
 [github-discussions-badge]: https://img.shields.io/static/v1?label=Discussions&message=Ask&color=blue&logo=github
 [github-discussions-link]:  https://github.com/orgs/scikit-build/discussions
 [hatchling]:                https://hatch.pypa.io/latest

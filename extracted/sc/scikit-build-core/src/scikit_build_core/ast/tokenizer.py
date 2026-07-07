@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+__lazy_modules__ = {"re"}
+
 import dataclasses
 import enum
 import re
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from .._logging import rich_print
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Generator
 
@@ -26,7 +28,7 @@ TOKEN_EXPRS = {
     "BRACKET_QUOTE": r"\[(?P<bq1>=*)\[(?s:.)*?\](?P=bq1)\]",
     "OPEN_PAREN": r"\(",
     "CLOSE_PAREN": r"\)",
-    "LEGACY": r'\b\w+=[^\s"()$\\]*(?:"[^"\\]*"[^\s"()$\\]*)*|"(?:[^"\\]*(?:\\.[^"\\]*)*)*"',
+    "LEGACY": r'\b\w+=[^\s"()$\\]*(?:"[^"\\]*"[^\s"()$\\]*)*',
     "UNQUOTED": r"(?:\\.|[^\s()#\"\\])+",
 }
 

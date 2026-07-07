@@ -70,6 +70,7 @@ class TrinoSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIngestP
         name: Optional[str] = None,
         engine_args: Optional[Dict[str, Any]] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
+        permission_tags: list[str] | None = None,
     ):
         try:
             import trino
@@ -121,7 +122,9 @@ class TrinoSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIngestP
         # Setting the isolation level on the engine, instead of the connection, avoids
         # a DBAPI statement to reset the transactional level back to the default before returning the
         # connection to the pool
-        BaseSQLSource.__init__(self, name=name, engine_args=engine_args, async_engine_args=None)
+        BaseSQLSource.__init__(
+            self, name=name, engine_args=engine_args, async_engine_args=None, permission_tags=permission_tags
+        )
 
     def get_sqlglot_dialect(self) -> str | None:
         return "trino"

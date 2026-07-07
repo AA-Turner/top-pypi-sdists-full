@@ -115,6 +115,11 @@ impl OpsStatsForInstance {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn subscribe_for_test(&self) -> broadcast::Receiver<OpsStatsEvent> {
+        self.sender.subscribe()
+    }
+
     pub fn log(&self, event: OpsStatsEvent) {
         match self.sender.send(event) {
             Ok(_) => {}

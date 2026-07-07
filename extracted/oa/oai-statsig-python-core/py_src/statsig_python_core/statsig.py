@@ -1,9 +1,13 @@
+import atexit
 import inspect
 import json
 import os
 from pathlib import Path
+from typing import Any, Callable, Optional
 from weakref import ref
+
 from statsig_python_core import (
+    BulkEvaluationOptions,
     DynamicConfigEvaluationOptions,
     ExperimentEvaluationOptions,
     FeatureGateEvaluationOptions,
@@ -14,10 +18,14 @@ from statsig_python_core import (
     notify_python_fork,
     notify_python_shutdown,
 )
-from typing import Any, Callable, Optional
+
 from .error_boundary import ErrorBoundary
+from .evaluation_cache import (
+    EvaluationCache,
+    _EvaluationCacheKeys,
+    _get_evaluation_cache,
+)
 from .statsig_types import DynamicConfig, FeatureGate, Experiment, Layer
-import atexit
 
 
 def handle_atexit():
@@ -71,12 +79,29 @@ def _setup_internal_sdk_configs_cache(instance: StatsigBasePy) -> None:
     )
 
 
+def _setup_evaluation_cache(
+    instance: StatsigBasePy, cache: Optional[EvaluationCache]
+) -> None:
+    setattr(instance, "_evaluation_cache", cache)
+
+
+def _get_cache_for_call(
+    instance: StatsigBasePy,
+) -> tuple[Optional[EvaluationCache], Optional[_EvaluationCacheKeys]]:
+    cache = getattr(instance, "_evaluation_cache", None)
+    if cache is None:
+        return None, None
+    return cache, cache._keys_for_call()
+
+
 class Statsig(StatsigBasePy):
     _statsig_shared_instance = None
 
     def __new__(cls, sdk_key: str, options: Optional[StatsigOptions] = None):
+        cache = _get_evaluation_cache(options)
         instance = super().__new__(cls, sdk_key, options)
         _setup_internal_sdk_configs_cache(instance)
+        _setup_evaluation_cache(instance, cache)
         ErrorBoundary.wrap(instance)
         return instance
 
@@ -102,8 +127,10 @@ class Statsig(StatsigBasePy):
                 "Statsig shared instance already exists. Call Statsig.remove_shared() before creating a new instance."
             )
 
+        cache = _get_evaluation_cache(options)
         cls._statsig_shared_instance = super().__new__(cls, sdk_key, options)
         _setup_internal_sdk_configs_cache(cls._statsig_shared_instance)
+        _setup_evaluation_cache(cls._statsig_shared_instance, cache)
         return cls._statsig_shared_instance
 
     @classmethod
@@ -147,7 +174,15 @@ class Statsig(StatsigBasePy):
         name: str,
         options: Optional[DynamicConfigEvaluationOptions] = None,
     ) -> DynamicConfig:
-        raw = super()._INTERNAL_get_dynamic_config(user, name, options)
+        cache, cache_keys = _get_cache_for_call(self)
+        raw = super()._INTERNAL_get_dynamic_config(
+            user,
+            name,
+            options,
+            cache_keys,
+        )
+        if cache is not None:
+            cache._consume_result(raw, cache_keys)
         return DynamicConfig(name, raw)
 
     def get_experiment(
@@ -156,12 +191,16 @@ class Statsig(StatsigBasePy):
         name: str,
         options: Optional[ExperimentEvaluationOptions] = None,
     ) -> Experiment:
+        cache, cache_keys = _get_cache_for_call(self)
         raw = super()._INTERNAL_get_experiment(
             user,
             name,
             options,
             self._get_experiment_exposure_metadata(name),
+            cache_keys,
         )
+        if cache is not None:
+            cache._consume_result(raw, cache_keys)
         return Experiment(name, raw)
 
     def manually_log_experiment_exposure(
@@ -194,7 +233,10 @@ class Statsig(StatsigBasePy):
         name: str,
         options: Optional[LayerEvaluationOptions] = None,
     ) -> Layer:
-        raw = super()._INTERNAL_get_layer(user, name, options)
+        cache, cache_keys = _get_cache_for_call(self)
+        raw = super()._INTERNAL_get_layer(user, name, options, cache_keys)
+        if cache is not None:
+            cache._consume_result(raw, cache_keys)
         exposure = raw.get("__exposure") if isinstance(raw, dict) else None
 
         def exposure_func(param: str):
@@ -211,6 +253,27 @@ class Statsig(StatsigBasePy):
             name,
             raw,
         )
+
+    def bulk_evaluate(
+        self,
+        user: StatsigUser,
+        options: Optional[BulkEvaluationOptions] = None,
+    ) -> dict:
+        cache, cache_keys = _get_cache_for_call(self)
+        raw = super()._INTERNAL_bulk_evaluate(user, options, cache_keys)
+        if cache is not None:
+            for category in (
+                "dynamic_configs",
+                "experiments",
+                "layer_configs",
+            ):
+                evaluations = raw.get(category, {})
+                if not isinstance(evaluations, dict):
+                    continue
+                for evaluation in evaluations.values():
+                    if isinstance(evaluation, dict):
+                        cache._consume_result(evaluation, cache_keys)
+        return raw
 
     def _is_exposure_callsite_module_ignored(self, module_name: str) -> bool:
         return module_name.startswith(
@@ -267,9 +330,7 @@ class Statsig(StatsigBasePy):
             return None
         return self._get_exposure_callsite_metadata()
 
-    def _get_layer_exposure_metadata(
-        self, layer_name: str
-    ) -> Optional[dict[str, Any]]:
+    def _get_layer_exposure_metadata(self, layer_name: str) -> Optional[dict[str, Any]]:
         if not self._sdk_config_enabled(
             f"{_LAYER_EXPOSURE_CALLSITE_SDK_CONFIG_PREFIX}{layer_name}"
         ):

@@ -1,18 +1,17 @@
 from django.db.models import FloatField, Func, Value
 from .. import Vector, HalfVector, SparseVector
+from typing import Any
 
 
 class DistanceBase(Func):
-    output_field = FloatField()
+    output_field = FloatField()  # type: ignore
 
-    def __init__(self, expression, vector, **extra):
+    def __init__(self, expression: Any, vector: Any, /, **extra: Any) -> None:
         if not hasattr(vector, 'resolve_expression'):
-            if isinstance(vector, HalfVector):
-                vector = Value(HalfVector._to_db(vector))
-            elif isinstance(vector, SparseVector):
-                vector = Value(SparseVector._to_db(vector))
-            else:
-                vector = Value(Vector._to_db(vector))
+            if isinstance(vector, (Vector, HalfVector, SparseVector)):
+                vector = Value(vector.to_text())
+            elif vector is not None:
+                vector = Value(Vector(vector).to_text())
 
             # prevent error with unhashable types
             self._constructor_args = ((expression, vector), extra)
@@ -21,9 +20,9 @@ class DistanceBase(Func):
 
 
 class BitDistanceBase(Func):
-    output_field = FloatField()
+    output_field = FloatField()  # type: ignore
 
-    def __init__(self, expression, vector, **extra):
+    def __init__(self, expression: Any, vector: Any, /, **extra: Any) -> None:
         if not hasattr(vector, 'resolve_expression'):
             vector = Value(vector)
         super().__init__(expression, vector, **extra)

@@ -36,6 +36,7 @@ class MySQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIngestP
         engine_args: Optional[Dict[str, Any]] = None,
         async_engine_args: Optional[Dict[str, Any]] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
+        permission_tags: list[str] | None = None,
     ):
         self._use_mysql_connector = env_var_bool("CHALK_USE_MYSQL_CONNECTOR_DRIVER")
 
@@ -86,7 +87,13 @@ class MySQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIngestP
         # connection to the pool
         engine_args.setdefault("isolation_level", os.environ.get("CHALK_SQL_ISOLATION_LEVEL", "AUTOCOMMIT"))
         async_engine_args.setdefault("isolation_level", os.environ.get("CHALK_SQL_ISOLATION_LEVEL", "AUTOCOMMIT"))
-        BaseSQLSource.__init__(self, name=name, engine_args=engine_args, async_engine_args=async_engine_args)
+        BaseSQLSource.__init__(
+            self,
+            name=name,
+            engine_args=engine_args,
+            async_engine_args=async_engine_args,
+            permission_tags=permission_tags,
+        )
 
     kind = SQLSourceKind.mysql
 

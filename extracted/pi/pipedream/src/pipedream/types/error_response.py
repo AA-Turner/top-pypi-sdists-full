@@ -10,10 +10,8 @@ class ErrorResponse(UniversalBaseModel):
     """
     The standard Connect error envelope: `{ "error": "<message>" }`.
 
-    Registered under its own name (`ErrorResponse`) with no `title`, so it does
-    not collide or attempt to merge with the node proxy fragment's `ConnectError`
-    envelope. (Merging the two into one shared SDK error type is deferred — see
-    the v2 apps spec being validated against the existing Fern setup first.)
+    Registered under its own name (`ErrorResponse`) with no `title` so Fern does
+    not attempt to merge it with a similarly-shaped envelope from another spec.
     """
 
     error: str

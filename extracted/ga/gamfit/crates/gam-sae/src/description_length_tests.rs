@@ -3,9 +3,83 @@
 //! exactly, and the criterion-bits reconciliation invariant must hold.
 
 use super::{
-    Crossover, DescriptionLength, Featurizer, ScoreRow, crossover_firings, reverse_water_filling,
-    scalar_rate_bits, score, selection_bits,
+    Crossover, DescriptionLength, Featurizer, ScoreRow, bar_birth_threshold_nats,
+    bar_supports_birth, circle_coding_gain_bits, circle_shape_const_bits, crossover_firings,
+    curved_coding_gain_bits, evidence_per_log_persistence, kappa_coding_gain_detector,
+    reverse_water_filling, scalar_rate_bits, score, selection_bits,
 };
+use crate::atom_codes::SparseAtomCodes;
+
+#[test]
+fn circle_gain_matches_closed_form() {
+    use std::f64::consts::PI;
+    let a = 1.7;
+    let delta = 0.05;
+    let got = circle_coding_gain_bits(a, delta);
+    let expected = 0.5 * (3.0 * a * a / (PI * PI * delta * delta)).log2();
+    assert!((got - expected).abs() < 1e-12, "got {got} expected {expected}");
+}
+
+#[test]
+fn general_gain_with_circle_shape_const_equals_circle_gain() {
+    // D − d = 1 for the circle; feeding its shape constant into the general
+    // formula must reproduce the exact circle gain.
+    let a = 2.3;
+    let delta = 0.02;
+    let c = circle_shape_const_bits(a);
+    let general = curved_coding_gain_bits(2.0, 1.0, delta, c);
+    let circle = circle_coding_gain_bits(a, delta);
+    assert!(
+        (general - circle).abs() < 1e-12,
+        "general {general} vs circle {circle}"
+    );
+}
+
+#[test]
+fn codimension_dividend_is_half_log_per_direction() {
+    let delta = 0.1;
+    let one = curved_coding_gain_bits(3.0, 2.0, delta, 0.0);
+    let two = curved_coding_gain_bits(4.0, 2.0, delta, 0.0);
+    let per_dir = 0.5 * (1.0 / (delta * delta)).log2();
+    assert!((one - per_dir).abs() < 1e-12);
+    assert!((two - 2.0 * per_dir).abs() < 1e-12);
+}
+
+#[test]
+fn no_gain_without_codimension() {
+    assert_eq!(curved_coding_gain_bits(3.0, 3.0, 0.1, 5.0), 0.0);
+    assert_eq!(curved_coding_gain_bits(2.0, 3.0, 0.1, 5.0), 0.0);
+    assert_eq!(circle_coding_gain_bits(0.0, 0.1), 0.0);
+}
+
+#[test]
+fn bar_threshold_matches_formula_and_gates_correctly() {
+    let delta_d_eff = 4.0;
+    let n_eff = std::f64::consts::E.powf(3.0); // ln = 3
+    let codim = 2.0;
+    let thr = bar_birth_threshold_nats(delta_d_eff, n_eff, codim);
+    // ½·4·3 / (n_eff·2) = 3/n_eff.
+    let expected = 3.0 / n_eff;
+    assert!((thr - expected).abs() < 1e-12, "thr {thr} expected {expected}");
+
+    let birth = 1.0;
+    let death_pass = (thr * 1.01).exp();
+    let death_fail = (thr * 0.99).exp();
+    assert!(bar_supports_birth(birth, death_pass, delta_d_eff, n_eff, codim));
+    assert!(!bar_supports_birth(birth, death_fail, delta_d_eff, n_eff, codim));
+}
+
+#[test]
+fn exchange_rate_is_neff_times_codim() {
+    assert_eq!(evidence_per_log_persistence(128.0, 3.0), 384.0);
+}
+
+#[test]
+fn kappa_detector_zero_only_at_gaussian_anchor() {
+    assert_eq!(kappa_coding_gain_detector(2.0), 0.0);
+    assert!(kappa_coding_gain_detector(1.0) > 0.0); // super-Gaussian gate
+    assert!(kappa_coding_gain_detector(1.5) > 0.0); // sub-Gaussian circle
+}
 
 fn feat(
     name: &str,
@@ -30,6 +104,7 @@ fn feat(
         n_firings,
         g_dict,
         k_active,
+        support_entropy_bits: None,
     }
 }
 
@@ -166,4 +241,109 @@ fn criterion_bits_reconcile_no_parallel_accounting() {
     // The invariant a REML-fitted atom's surface must satisfy.
     assert!(dl.reconciles_with_criterion(v, 1e-9));
     assert!(!dl.reconciles_with_criterion(v + 10.0 * LN_2, 1.0)); // a 10-bit drift is caught
+}
+
+/// A strongly-structured TILING dictionary: each token activates a contiguous
+/// run of adjacent atoms, so which atoms fire is highly predictable (adjacent
+/// atoms co-fire). Two accounting facts the reviewer required must hold:
+///
+///  1. the empirical support entropy `H(S)` (Chow–Liu tree bits) is FAR below the
+///     combinatorial worst case `log₂ C(G, k̄)` — the uniform price overpays this
+///     dictionary, so charging it would let the MDL comparison argue with itself;
+///  2. charging the tiling baseline `H(S)` instead of the combinatorial price
+///     lowers its selection cost, which SHRINKS a richer chart's reported MDL gap
+///     over it — the direction the math says (the overpay was inflating the win).
+fn tiling_codes(n: usize, g: usize, run: usize, seed: u64) -> SparseAtomCodes {
+    // A tiling dictionary of `g/run` disjoint tiles, each a contiguous block of
+    // `run` adjacent atoms that fires as a UNIT; every token activates exactly one
+    // tile (chosen deterministically). Within a tile the atoms are perfectly
+    // co-firing, so the pairwise (Chow–Liu tree) model captures the support
+    // structure almost exactly — the predictable adjacent-atom co-firing the
+    // reviewer's correction is about — while the uniform combinatorial price still
+    // charges `log₂ C(G, run)` as if every `run`-subset were possible.
+    let n_tiles = g / run;
+    let mut codes = SparseAtomCodes::empty(n, g);
+    let mut state = seed | 1;
+    for row in 0..n {
+        // A cheap LCG step just to spread the tile choices deterministically.
+        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        let tile = (state >> 33) as usize % n_tiles;
+        for off in 0..run {
+            codes.row_mut(row).assign(tile * run + off, 1.0);
+        }
+    }
+    codes
+}
+
+#[test]
+fn tiling_support_entropy_undercuts_combinatorial_and_shrinks_gap() {
+    let (n, g, run) = (4000usize, 48usize, 3usize);
+    let codes = tiling_codes(n, g, run, 0xC0FFEE);
+    let se = codes.support_entropy();
+
+    // The run is exactly `run` atoms wide on every row.
+    assert!(
+        (se.mean_support - run as f64).abs() < 1e-9,
+        "mean support {} should equal the run width {run}",
+        se.mean_support
+    );
+    // Chow–Liu bounds: 0 ≤ H(S) ≤ independent ≤ (not necessarily) combinatorial,
+    // but for a PREDICTABLE tiling H(S) must be WELL below the combinatorial price.
+    assert!(se.tree_bits <= se.independent_bits + 1e-9);
+    assert!(
+        se.tree_bits < 0.6 * se.combinatorial_bits,
+        "tiling H(S)={} must be far below combinatorial log2 C(G,k̄)={}",
+        se.tree_bits,
+        se.combinatorial_bits
+    );
+
+    // The reviewer's comparison: a TILING SAE baseline (large G, k>1 co-firing —
+    // the block, which the combinatorial price overpays) versus a single-atom
+    // manifold CHART that reads one coordinate (g_dict = 1, k = 1 → ~zero
+    // selection cost, no redundant support to price). Only the tiling block
+    // carries the empirical H(S); the chart's selection price is 0 either way.
+    let block = feat(
+        "tiling-block", "block", &[1.0, 0.5, 0.5], 64, 0.5, 3.0, n as i64, n as i64, g as i64, run as i64,
+    );
+    let chart = feat(
+        "manifold-chart", "chart", &[1.2], 160, 0.55, 3.0, n as i64, n as i64, 1, 1,
+    );
+    let delta2 = 0.4;
+
+    // Combinatorial accounting (no support entropy attached): the block pays the
+    // full log₂ C(G, k) selection price.
+    let xo_comb = crossover_firings(&block, &chart, delta2, None);
+
+    // Entropy-corrected accounting: charge the tiling block its true H(S).
+    let block_h = block.clone().with_support_entropy(&codes);
+    let xo_h = crossover_firings(&block_h, &chart, delta2, None);
+
+    // The reviewer's worst-case line is preserved unchanged.
+    assert!(
+        (xo_h.selection_bits_delta_combinatorial - xo_comb.selection_bits_delta).abs() < 1e-9,
+        "combinatorial delta must be reported alongside and match the uncorrected run"
+    );
+
+    // The correction lowered the block's selection cost, so the block frees FEWER
+    // selection bits per firing to the chart (`Δsel` drops): the chart's per-firing
+    // advantage shrinks.
+    assert!(
+        xo_h.selection_bits_delta < xo_comb.selection_bits_delta - 1e-6,
+        "entropy correction must reduce the block→chart selection delta: {} !< {}",
+        xo_h.selection_bits_delta,
+        xo_comb.selection_bits_delta
+    );
+
+    // Direction of the reported gap: `f*` is the firing count above which the
+    // chart's total DL beats the block's. Charging the tiling baseline its true
+    // (cheaper) selection price makes the chart pay for its extra decoder params
+    // over more firings — `f*` RISES (the chart wins later), i.e. the previously
+    // inflated MDL gap shrinks. Both configs free coefficients here so f* is finite.
+    assert!(xo_comb.f_star.is_finite() && xo_h.f_star.is_finite());
+    assert!(
+        xo_h.f_star > xo_comb.f_star + 1e-6,
+        "entropy correction must shrink the chart's advantage (f* rises): {} !> {}",
+        xo_h.f_star,
+        xo_comb.f_star
+    );
 }

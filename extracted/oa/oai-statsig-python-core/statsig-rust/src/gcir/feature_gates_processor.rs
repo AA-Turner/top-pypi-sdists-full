@@ -10,6 +10,7 @@ use crate::{
         evaluator_context::EvaluatorContext,
         evaluator_result::{
             result_to_gate_eval, result_to_gate_eval_init_v2, result_to_gate_eval_v2,
+            result_to_gate_eval_with_name,
         },
         secondary_exposure_key::SecondaryExposureKey,
     },
@@ -19,7 +20,9 @@ use crate::{
 };
 
 use super::{
-    gcir_process_iter::gcir_process_iter, stringify_sec_exposures::stringify_sec_exposures,
+    evaluation_plan::GcirEvaluationPlan,
+    gcir_process_iter::{gcir_process_iter, gcir_process_plan},
+    stringify_sec_exposures::stringify_sec_exposures,
 };
 
 pub(crate) fn get_gate_evaluations(
@@ -42,6 +45,31 @@ pub(crate) fn get_gate_evaluations(
         sec_expo_hash_memo,
         &context.specs_data.feature_gates,
         get_gate_spec_type,
+        factory,
+    )
+}
+
+pub(crate) fn get_gate_evaluations_with_plan(
+    context: &mut EvaluatorContext,
+    options: &ClientInitResponseOptions,
+    sec_expo_hash_memo: &mut HashMap<InternedString, InternedString>,
+    plan: &GcirEvaluationPlan,
+) -> Result<HashMap<InternedString, GateEvaluation>, StatsigErr> {
+    let factory = |_: &str, hashed_name: &InternedString, ctx: &mut EvaluatorContext| {
+        let mut res = result_to_gate_eval_with_name(hashed_name.clone(), &mut ctx.result);
+
+        if options.remove_id_type.unwrap_or(false) {
+            res.id_type = None
+        }
+        res
+    };
+
+    gcir_process_plan(
+        context,
+        options,
+        sec_expo_hash_memo,
+        &context.specs_data.feature_gates,
+        &plan.feature_gates,
         factory,
     )
 }

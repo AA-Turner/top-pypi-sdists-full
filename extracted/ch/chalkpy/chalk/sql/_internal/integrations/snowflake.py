@@ -249,6 +249,7 @@ class SnowflakeSourceImpl(BaseSQLSource):
         engine_args: Optional[dict[str, Any]] = None,
         executor: Optional[concurrent.futures.ThreadPoolExecutor] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
+        permission_tags: list[str] | None = None,
     ):
         try:
             import snowflake.connector  # noqa
@@ -324,7 +325,9 @@ class SnowflakeSourceImpl(BaseSQLSource):
         engine_args.setdefault("max_overflow", 60)
         engine_args.setdefault("connect_args", connect_args)
 
-        BaseSQLSource.__init__(self, name=name, engine_args=engine_args, async_engine_args={})
+        BaseSQLSource.__init__(
+            self, name=name, engine_args=engine_args, async_engine_args={}, permission_tags=permission_tags
+        )
 
     kind = SQLSourceKind.snowflake
 

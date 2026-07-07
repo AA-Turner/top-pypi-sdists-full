@@ -4,6 +4,8 @@ import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
+from ...types.app_response import AppResponse
+from ...types.facets_response import FacetsResponse
 from ...types.list_response import ListResponse
 from .raw_client import AsyncRawAppsClient, RawAppsClient
 
@@ -109,7 +111,7 @@ class AppsClient:
         )
         return _response.data
 
-    def facets(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Any:
+    def facets(self, *, request_options: typing.Optional[RequestOptions] = None) -> FacetsResponse:
         """
         Mirrors `V1::AppsController#v2_facets` (`AppTypesenseSearch.facets`):
         returns `{ data: { category_name: [...], auth_type: [...] } }`.
@@ -121,7 +123,7 @@ class AppsClient:
 
         Returns
         -------
-        typing.Any
+        FacetsResponse
             Facet values keyed by field under `data`
 
         Examples
@@ -138,7 +140,7 @@ class AppsClient:
         _response = self._raw_client.facets(request_options=request_options)
         return _response.data
 
-    def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Any:
+    def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> AppResponse:
         """
         Looks up a single app by hashid (e.g. `app_abc123`) or name_slug (e.g. `github`).
         If the value starts with `app_` it is treated as a hashid and matched against
@@ -154,7 +156,7 @@ class AppsClient:
 
         Returns
         -------
-        typing.Any
+        AppResponse
             The app, under `data`
 
         Examples
@@ -283,7 +285,7 @@ class AsyncAppsClient:
         )
         return _response.data
 
-    async def facets(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Any:
+    async def facets(self, *, request_options: typing.Optional[RequestOptions] = None) -> FacetsResponse:
         """
         Mirrors `V1::AppsController#v2_facets` (`AppTypesenseSearch.facets`):
         returns `{ data: { category_name: [...], auth_type: [...] } }`.
@@ -295,7 +297,7 @@ class AsyncAppsClient:
 
         Returns
         -------
-        typing.Any
+        FacetsResponse
             Facet values keyed by field under `data`
 
         Examples
@@ -320,7 +322,7 @@ class AsyncAppsClient:
         _response = await self._raw_client.facets(request_options=request_options)
         return _response.data
 
-    async def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Any:
+    async def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> AppResponse:
         """
         Looks up a single app by hashid (e.g. `app_abc123`) or name_slug (e.g. `github`).
         If the value starts with `app_` it is treated as a hashid and matched against
@@ -336,7 +338,7 @@ class AsyncAppsClient:
 
         Returns
         -------
-        typing.Any
+        AppResponse
             The app, under `data`
 
         Examples

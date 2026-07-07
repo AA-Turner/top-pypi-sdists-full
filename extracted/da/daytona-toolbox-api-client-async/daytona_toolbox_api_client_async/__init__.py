@@ -15,7 +15,7 @@ from __future__ import annotations
     Do not edit the class manually.
 """  # noqa: E501
 
-__version__ = "0.193.0"
+__version__ = "0.194.0"
 
 import importlib
 from typing import TYPE_CHECKING
@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from daytona_toolbox_api_client_async.api.port_api import PortApi
     from daytona_toolbox_api_client_async.api.process_api import ProcessApi
     from daytona_toolbox_api_client_async.api.server_api import ServerApi
+    from daytona_toolbox_api_client_async.api.system_api import SystemApi
     # import ApiClient
     from daytona_toolbox_api_client_async.api_response import ApiResponse
     from daytona_toolbox_api_client_async.api_client import ApiClient
@@ -72,15 +73,25 @@ if TYPE_CHECKING:
     from daytona_toolbox_api_client_async.models.file_status import FileStatus
     from daytona_toolbox_api_client_async.models.files_download_request import FilesDownloadRequest
     from daytona_toolbox_api_client_async.models.find_accessibility_nodes_request import FindAccessibilityNodesRequest
+    from daytona_toolbox_api_client_async.models.git_add_remote_request import GitAddRemoteRequest
     from daytona_toolbox_api_client_async.models.git_add_request import GitAddRequest
+    from daytona_toolbox_api_client_async.models.git_authenticate_request import GitAuthenticateRequest
     from daytona_toolbox_api_client_async.models.git_branch_request import GitBranchRequest
     from daytona_toolbox_api_client_async.models.git_checkout_request import GitCheckoutRequest
     from daytona_toolbox_api_client_async.models.git_clone_request import GitCloneRequest
     from daytona_toolbox_api_client_async.models.git_commit_info import GitCommitInfo
     from daytona_toolbox_api_client_async.models.git_commit_request import GitCommitRequest
     from daytona_toolbox_api_client_async.models.git_commit_response import GitCommitResponse
+    from daytona_toolbox_api_client_async.models.git_config_response import GitConfigResponse
+    from daytona_toolbox_api_client_async.models.git_configure_user_request import GitConfigureUserRequest
     from daytona_toolbox_api_client_async.models.git_delete_branch_request import GitDeleteBranchRequest
-    from daytona_toolbox_api_client_async.models.git_repo_request import GitRepoRequest
+    from daytona_toolbox_api_client_async.models.git_init_request import GitInitRequest
+    from daytona_toolbox_api_client_async.models.git_pull_request import GitPullRequest
+    from daytona_toolbox_api_client_async.models.git_push_request import GitPushRequest
+    from daytona_toolbox_api_client_async.models.git_remote import GitRemote
+    from daytona_toolbox_api_client_async.models.git_reset_request import GitResetRequest
+    from daytona_toolbox_api_client_async.models.git_restore_request import GitRestoreRequest
+    from daytona_toolbox_api_client_async.models.git_set_config_request import GitSetConfigRequest
     from daytona_toolbox_api_client_async.models.git_status import GitStatus
     from daytona_toolbox_api_client_async.models.initialize_request import InitializeRequest
     from daytona_toolbox_api_client_async.models.interpreter_context import InterpreterContext
@@ -91,6 +102,7 @@ if TYPE_CHECKING:
     from daytona_toolbox_api_client_async.models.list_branch_response import ListBranchResponse
     from daytona_toolbox_api_client_async.models.list_contexts_response import ListContextsResponse
     from daytona_toolbox_api_client_async.models.list_recordings_response import ListRecordingsResponse
+    from daytona_toolbox_api_client_async.models.list_remotes_response import ListRemotesResponse
     from daytona_toolbox_api_client_async.models.lsp_completion_params import LspCompletionParams
     from daytona_toolbox_api_client_async.models.lsp_document_request import LspDocumentRequest
     from daytona_toolbox_api_client_async.models.lsp_location import LspLocation
@@ -132,6 +144,7 @@ if TYPE_CHECKING:
     from daytona_toolbox_api_client_async.models.start_recording_request import StartRecordingRequest
     from daytona_toolbox_api_client_async.models.status import Status
     from daytona_toolbox_api_client_async.models.stop_recording_request import StopRecordingRequest
+    from daytona_toolbox_api_client_async.models.system_metrics import SystemMetrics
     from daytona_toolbox_api_client_async.models.user_home_dir_response import UserHomeDirResponse
     from daytona_toolbox_api_client_async.models.window_info import WindowInfo
     from daytona_toolbox_api_client_async.models.windows_response import WindowsResponse
@@ -148,6 +161,7 @@ _DYNAMIC_IMPORTS: dict[str, str] = {
     "PortApi": "daytona_toolbox_api_client_async.api.port_api",
     "ProcessApi": "daytona_toolbox_api_client_async.api.process_api",
     "ServerApi": "daytona_toolbox_api_client_async.api.server_api",
+    "SystemApi": "daytona_toolbox_api_client_async.api.system_api",
     # ApiClient
     "ApiResponse": "daytona_toolbox_api_client_async.api_response",
     "ApiClient": "daytona_toolbox_api_client_async.api_client",
@@ -188,15 +202,25 @@ _DYNAMIC_IMPORTS: dict[str, str] = {
     "FileStatus": "daytona_toolbox_api_client_async.models.file_status",
     "FilesDownloadRequest": "daytona_toolbox_api_client_async.models.files_download_request",
     "FindAccessibilityNodesRequest": "daytona_toolbox_api_client_async.models.find_accessibility_nodes_request",
+    "GitAddRemoteRequest": "daytona_toolbox_api_client_async.models.git_add_remote_request",
     "GitAddRequest": "daytona_toolbox_api_client_async.models.git_add_request",
+    "GitAuthenticateRequest": "daytona_toolbox_api_client_async.models.git_authenticate_request",
     "GitBranchRequest": "daytona_toolbox_api_client_async.models.git_branch_request",
     "GitCheckoutRequest": "daytona_toolbox_api_client_async.models.git_checkout_request",
     "GitCloneRequest": "daytona_toolbox_api_client_async.models.git_clone_request",
     "GitCommitInfo": "daytona_toolbox_api_client_async.models.git_commit_info",
     "GitCommitRequest": "daytona_toolbox_api_client_async.models.git_commit_request",
     "GitCommitResponse": "daytona_toolbox_api_client_async.models.git_commit_response",
+    "GitConfigResponse": "daytona_toolbox_api_client_async.models.git_config_response",
+    "GitConfigureUserRequest": "daytona_toolbox_api_client_async.models.git_configure_user_request",
     "GitDeleteBranchRequest": "daytona_toolbox_api_client_async.models.git_delete_branch_request",
-    "GitRepoRequest": "daytona_toolbox_api_client_async.models.git_repo_request",
+    "GitInitRequest": "daytona_toolbox_api_client_async.models.git_init_request",
+    "GitPullRequest": "daytona_toolbox_api_client_async.models.git_pull_request",
+    "GitPushRequest": "daytona_toolbox_api_client_async.models.git_push_request",
+    "GitRemote": "daytona_toolbox_api_client_async.models.git_remote",
+    "GitResetRequest": "daytona_toolbox_api_client_async.models.git_reset_request",
+    "GitRestoreRequest": "daytona_toolbox_api_client_async.models.git_restore_request",
+    "GitSetConfigRequest": "daytona_toolbox_api_client_async.models.git_set_config_request",
     "GitStatus": "daytona_toolbox_api_client_async.models.git_status",
     "InitializeRequest": "daytona_toolbox_api_client_async.models.initialize_request",
     "InterpreterContext": "daytona_toolbox_api_client_async.models.interpreter_context",
@@ -207,6 +231,7 @@ _DYNAMIC_IMPORTS: dict[str, str] = {
     "ListBranchResponse": "daytona_toolbox_api_client_async.models.list_branch_response",
     "ListContextsResponse": "daytona_toolbox_api_client_async.models.list_contexts_response",
     "ListRecordingsResponse": "daytona_toolbox_api_client_async.models.list_recordings_response",
+    "ListRemotesResponse": "daytona_toolbox_api_client_async.models.list_remotes_response",
     "LspCompletionParams": "daytona_toolbox_api_client_async.models.lsp_completion_params",
     "LspDocumentRequest": "daytona_toolbox_api_client_async.models.lsp_document_request",
     "LspLocation": "daytona_toolbox_api_client_async.models.lsp_location",
@@ -248,6 +273,7 @@ _DYNAMIC_IMPORTS: dict[str, str] = {
     "StartRecordingRequest": "daytona_toolbox_api_client_async.models.start_recording_request",
     "Status": "daytona_toolbox_api_client_async.models.status",
     "StopRecordingRequest": "daytona_toolbox_api_client_async.models.stop_recording_request",
+    "SystemMetrics": "daytona_toolbox_api_client_async.models.system_metrics",
     "UserHomeDirResponse": "daytona_toolbox_api_client_async.models.user_home_dir_response",
     "WindowInfo": "daytona_toolbox_api_client_async.models.window_info",
     "WindowsResponse": "daytona_toolbox_api_client_async.models.windows_response",
@@ -289,6 +315,7 @@ __all__ = [
     "PortApi",
     "ProcessApi",
     "ServerApi",
+    "SystemApi",
     "AccessibilityBounds",
     "AccessibilityInvokeRequest",
     "AccessibilityNodeRequest",
@@ -318,15 +345,25 @@ __all__ = [
     "FileStatus",
     "FilesDownloadRequest",
     "FindAccessibilityNodesRequest",
+    "GitAddRemoteRequest",
     "GitAddRequest",
+    "GitAuthenticateRequest",
     "GitBranchRequest",
     "GitCheckoutRequest",
     "GitCloneRequest",
     "GitCommitInfo",
     "GitCommitRequest",
     "GitCommitResponse",
+    "GitConfigResponse",
+    "GitConfigureUserRequest",
     "GitDeleteBranchRequest",
-    "GitRepoRequest",
+    "GitInitRequest",
+    "GitPullRequest",
+    "GitPushRequest",
+    "GitRemote",
+    "GitResetRequest",
+    "GitRestoreRequest",
+    "GitSetConfigRequest",
     "GitStatus",
     "InitializeRequest",
     "InterpreterContext",
@@ -337,6 +374,7 @@ __all__ = [
     "ListBranchResponse",
     "ListContextsResponse",
     "ListRecordingsResponse",
+    "ListRemotesResponse",
     "LspCompletionParams",
     "LspDocumentRequest",
     "LspLocation",
@@ -378,6 +416,7 @@ __all__ = [
     "StartRecordingRequest",
     "Status",
     "StopRecordingRequest",
+    "SystemMetrics",
     "UserHomeDirResponse",
     "WindowInfo",
     "WindowsResponse",

@@ -22,6 +22,7 @@ import { client } from "openapi/requests/services.gen";
 
 // Dynamically set the base URL for XHR requests based on the meta tag.
 let base = document.querySelector("head>base")?.getAttribute("href") ?? "";
+
 if (base.endsWith("/")) {
   base = base.slice(0, -1);
 }

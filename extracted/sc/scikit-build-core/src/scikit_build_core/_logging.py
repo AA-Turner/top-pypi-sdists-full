@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__ = {"contextlib", "platform", "typing"}
+
 import contextlib
 import dataclasses
 import enum
@@ -9,8 +11,11 @@ import os
 import platform
 import sys
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Literal, NoReturn
+from typing import Any, Literal, NoReturn
 
+from . import __version__
+
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -19,8 +24,6 @@ if TYPE_CHECKING:
     StrMapping = Mapping[str, "Style"]
 else:
     StrMapping = Mapping
-
-from . import __version__
 
 __all__ = [
     "LEVEL_VALUE",
@@ -119,8 +122,9 @@ def colors() -> bool:
     # Pip reroutes sys.stdout, so FORCE_COLOR is required there
     if os.environ.get("FORCE_COLOR", ""):
         return True
-    # Avoid ValueError: I/O operation on closed file
-    with contextlib.suppress(ValueError):
+    # sys.stdout can be None (e.g. pythonw / embedded interpreters); avoid
+    # AttributeError as well as ValueError: I/O operation on closed file.
+    with contextlib.suppress(ValueError, AttributeError):
         # Assume sys.stderr is similar to sys.stdout
         isatty = sys.stdout.isatty()
         if isatty and not sys.platform.startswith("win"):

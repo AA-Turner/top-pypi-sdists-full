@@ -17,6 +17,9 @@ if sys.platform == 'linux':
     except ImportError:
         pass
 
+is_ios = sys.platform == 'ios'
+
+
 def _setup_path():
     import os, sys
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -63,7 +66,7 @@ def _assert_unraisable(error_type: type[Exception] | None, message: str = '', tr
 # ____________________________________________________________
 
 import sys
-assert __version__ == "2.0.0", ("This test_c.py file is for testing a version"
+assert __version__ == "2.1.0", ("This test_c.py file is for testing a version"
                                      " of cffi that differs from the one that we"
                                      " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -72,7 +75,7 @@ if sys.version_info < (3,):
     mandatory_u_prefix = 'u'
     bytechr = chr
     bitem2bchr = lambda x: x
-    class U(object):
+    class U:
         def __add__(self, other):
             return eval('u'+repr(other).replace(r'\\u', r'\u')
                                        .replace(r'\\U', r'\U'))
@@ -457,7 +460,7 @@ def test_reading_pointer_to_pointer():
     assert p[0] is not None
     assert p[0] == cast(BVoidP, 0)
     assert p[0] == cast(BCharP, 0)
-    assert p[0] != None
+    assert p[0] is not None
     assert repr(p[0]) == "<cdata 'int *' NULL>"
     p[0] = q
     assert p[0] != cast(BVoidP, 0)
@@ -492,12 +495,12 @@ def test_no_len_on_nonarray():
 def test_cmp_none():
     p = new_primitive_type("int")
     x = cast(p, 42)
-    assert (x == None) is False
-    assert (x != None) is True
+    assert (x is None) is False
+    assert (x is not None) is True
     assert (x == ["hello"]) is False
     assert (x != ["hello"]) is True
     y = cast(p, 0)
-    assert (y == None) is False
+    assert (y is None) is False
 
 def test_invalid_indexing():
     p = new_primitive_type("int")
@@ -1230,6 +1233,11 @@ def test_cannot_pass_struct_with_array_of_length_0():
     BFunc2 = new_function_type((BInt,), BStruct, False)
     pytest.raises(NotImplementedError, cast(BFunc2, 123), 123)
 
+@pytest.mark.xfail(
+    is_ios,
+    reason="For an unknown reason f(1, cast(BInt, 42)) returns 36792864",
+    raises=AssertionError,
+)
 def test_call_function_9():
     BInt = new_primitive_type("int")
     BFunc9 = new_function_type((BInt,), BInt, True)    # vararg
@@ -1362,6 +1370,7 @@ def test_write_variable():
     pytest.raises(ValueError, ll.write_variable, BVoidP, "stderr", stderr)
 
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 def test_callback():
     BInt = new_primitive_type("int")
     def make_callback():
@@ -1378,6 +1387,7 @@ def test_callback():
     assert str(e.value) == "'int(*)(int)' expects 1 arguments, got 0"
 
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 @pytest.mark.thread_unsafe("mocks sys.unraiseablehook")
 def test_callback_exception():
     def check_value(x):
@@ -1435,6 +1445,7 @@ def test_callback_exception():
         assert ff(bigvalue) == -42
 
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 def test_callback_return_type():
     for rettype in ["signed char", "short", "int", "long", "long long",
                     "unsigned char", "unsigned short", "unsigned int",
@@ -1455,6 +1466,7 @@ def test_callback_return_type():
         assert f(max - 1) == max
         assert f(max) == 42
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 def test_a_lot_of_callbacks():
     BIGNUM = 10000
     if 'PY_DOT_PY' in globals(): BIGNUM = 100   # tests on py.py
@@ -1470,6 +1482,7 @@ def test_a_lot_of_callbacks():
     for i, f in enumerate(flist):
         assert f(-142) == -142 + i
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 def test_callback_receiving_tiny_struct():
     BSChar = new_primitive_type("signed char")
     BInt = new_primitive_type("int")
@@ -1485,6 +1498,7 @@ def test_callback_receiving_tiny_struct():
     n = f(p[0])
     assert n == -42
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 def test_callback_returning_tiny_struct():
     BSChar = new_primitive_type("signed char")
     BInt = new_primitive_type("int")
@@ -1502,6 +1516,7 @@ def test_callback_returning_tiny_struct():
     assert s.a == -10
     assert s.b == -30
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 def test_callback_receiving_struct():
     BSChar = new_primitive_type("signed char")
     BInt = new_primitive_type("int")
@@ -1518,6 +1533,7 @@ def test_callback_receiving_struct():
     n = f(p[0])
     assert n == 42
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 def test_callback_returning_struct():
     BSChar = new_primitive_type("signed char")
     BInt = new_primitive_type("int")
@@ -1537,6 +1553,7 @@ def test_callback_returning_struct():
     assert s.a == -10
     assert s.b == 1E-42
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 def test_callback_receiving_big_struct():
     BInt = new_primitive_type("int")
     BStruct = new_struct_type("struct foo")
@@ -1561,6 +1578,7 @@ def test_callback_receiving_big_struct():
     n = f(p[0])
     assert n == 42
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 def test_callback_returning_big_struct():
     BInt = new_primitive_type("int")
     BStruct = new_struct_type("struct foo")
@@ -1586,6 +1604,7 @@ def test_callback_returning_big_struct():
     for i, name in enumerate("abcdefghij"):
         assert getattr(s, name) == 13 - i
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 def test_callback_returning_void():
     BVoid = new_void_type()
     BFunc = new_function_type((), BVoid, False)
@@ -1694,6 +1713,7 @@ def test_enum_overflow():
                     pytest.raises(OverflowError, new_enum_type,
                                    "foo", ("AA",), (testcase,), BPrimitive)
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 def test_callback_returning_enum():
     BInt = new_primitive_type("int")
     BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20), BInt)
@@ -1710,6 +1730,7 @@ def test_callback_returning_enum():
     assert f(20) == 20
     assert f(21) == 21
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 def test_callback_returning_enum_unsigned():
     BInt = new_primitive_type("int")
     BUInt = new_primitive_type("unsigned int")
@@ -1727,6 +1748,7 @@ def test_callback_returning_enum_unsigned():
     assert f(20) == 20
     assert f(21) == 21
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 def test_callback_returning_char():
     BInt = new_primitive_type("int")
     BChar = new_primitive_type("char")
@@ -1741,6 +1763,7 @@ def _hacked_pypy_uni4():
     pyuni4 = {1: True, 2: False}[len(u+'\U00012345')]
     return 'PY_DOT_PY' in globals() and not pyuni4
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 def test_callback_returning_wchar_t():
     BInt = new_primitive_type("int")
     BWChar = new_primitive_type("wchar_t")
@@ -2310,6 +2333,8 @@ def _test_wchar_variant(typename):
     assert str(q) == repr(q)
     pytest.raises(RuntimeError, string, q)
     #
+    if is_ios:
+        return  # cannot allocate executable memory for the callback() below
     def cb(p):
         assert repr(p).startswith("<cdata '%s *' 0x" % typename)
         return len(string(p))
@@ -2546,6 +2571,7 @@ def test_errno():
     f(); f()
     assert get_errno() == 95
 
+@pytest.mark.skipif(is_ios, reason="Cannot allocate executable memory on iOS")
 def test_errno_callback():
     if globals().get('PY_DOT_PY'):
         pytest.skip("cannot run this test on py.py (e.g. fails on Windows)")
@@ -2991,11 +3017,16 @@ def test_string_assignment_to_byte_array():
 # XXX hack
 if sys.version_info >= (3,):
     try:
-        import posix, io
-        posix.fdopen = io.open
+        import posix
+        posix.fdopen = open
     except ImportError:
         pass   # win32
 
+@pytest.mark.skipif(
+    is_ios,
+    reason="For an unknown reason fscanf() doesn't read anything on 3.14"
+           " and crashes on 3.13 (that's why it's not an xfail)",
+)
 def test_FILE():
     if sys.platform == "win32":
         pytest.skip("testing FILE not implemented")
@@ -3291,7 +3322,7 @@ def test_new_handle_cycle():
     import gc
     import _weakref
     BVoidP = new_pointer_type(new_void_type())
-    class A(object):
+    class A:
         pass
     o = A()
     o.cycle = newp_handle(BVoidP, o)
@@ -3335,15 +3366,14 @@ def _test_bitfield_details(flag):
             assert raw == b'A\xE3\x9B\x9D'
         else:
             raise AssertionError("bad flag")
+    elif flag & SF_MSVC_BITFIELDS:
+        assert raw == b'A\x00\x00\x00\x00\x00\xC77\x9D\x00\x00\x00'
+    elif flag & SF_GCC_LITTLE_ENDIAN:
+        assert raw == b'A\xC77\x9D'
+    elif flag & SF_GCC_BIG_ENDIAN:
+        assert raw == b'A\x9B\xE3\x9D'
     else:
-        if flag & SF_MSVC_BITFIELDS:
-            assert raw == b'A\x00\x00\x00\x00\x00\xC77\x9D\x00\x00\x00'
-        elif flag & SF_GCC_LITTLE_ENDIAN:
-            assert raw == b'A\xC77\x9D'
-        elif flag & SF_GCC_BIG_ENDIAN:
-            assert raw == b'A\x9B\xE3\x9D'
-        else:
-            raise AssertionError("bad flag")
+        raise AssertionError("bad flag")
     #
     BStruct = new_struct_type("struct foo2")
     complete_struct_or_union(BStruct, [('a', BChar, -1),
@@ -3818,7 +3848,7 @@ def test_from_buffer_more_cases():
                 return
             if expected_for_memoryview is not None:
                 expected = expected_for_memoryview
-        class X(object):
+        class X:
             pass
         _testbuff(X, methods)
         bufobj = X()
@@ -4149,8 +4179,8 @@ def test_unpack():
     for typename in ["wchar_t", "char16_t", "char32_t"]:
         BWChar = new_primitive_type(typename)
         BArray = new_array_type(new_pointer_type(BWChar), 10)   # wchar_t[10]
-        p = newp(BArray, u"abc\x00def")
-        assert unpack(p, 10) == u"abc\x00def\x00\x00\x00"
+        p = newp(BArray, "abc\x00def")
+        assert unpack(p, 10) == "abc\x00def\x00\x00\x00"
 
     for typename, samples in [
             ("uint8_t",  [0, 2**8-1]),

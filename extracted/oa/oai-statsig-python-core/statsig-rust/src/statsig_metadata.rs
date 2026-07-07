@@ -11,7 +11,7 @@ lazy_static! {
 }
 
 /// Canonical SDK release version embedded in shared-core metadata.
-pub const SDK_VERSION: &str = "0.24.1";
+pub const SDK_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const TAG: &str = stringify!(StatsigMetadata);
 

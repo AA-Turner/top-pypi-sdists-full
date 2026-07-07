@@ -4,11 +4,12 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .app_document import AppDocument
 from .apps_page_info import AppsPageInfo
 
 
 class ListResponse(UniversalBaseModel):
-    data: typing.List[typing.Any]
+    data: typing.List[AppDocument]
     page_info: AppsPageInfo
 
     if IS_PYDANTIC_V2:

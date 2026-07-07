@@ -4,14 +4,14 @@ use crate::{
     id_lists_adapter::{IdListMetadata, IdListUpdate},
     unwrap_or_noop,
 };
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 #[derive(Clone, Serialize)]
 pub struct IdList {
     pub metadata: IdListMetadata,
 
     #[serde(skip_serializing)]
-    pub ids: HashSet<String>,
+    pub ids: Arc<HashSet<String>>,
 }
 
 impl IdList {
@@ -21,7 +21,7 @@ impl IdList {
 
         Self {
             metadata: local_metadata,
-            ids: HashSet::new(),
+            ids: Arc::new(HashSet::new()),
         }
     }
 
@@ -36,6 +36,7 @@ impl IdList {
         }
 
         let changeset_data = unwrap_or_noop!(&update.raw_changeset);
+        let ids = Arc::make_mut(&mut self.ids);
 
         for change in changeset_data.lines() {
             let trimmed = change.trim();
@@ -48,10 +49,10 @@ impl IdList {
 
             match op {
                 Some('+') => {
-                    self.ids.insert(id.to_string());
+                    ids.insert(id.to_string());
                 }
                 Some('-') => {
-                    self.ids.remove(id);
+                    ids.remove(id);
                 }
                 _ => continue,
             }
@@ -63,6 +64,44 @@ impl IdList {
     fn update_metadata(&mut self, metadata: IdListMetadata) {
         self.metadata = metadata;
         self.metadata.size = 0;
-        self.ids.clear();
+        self.ids = Arc::new(HashSet::new());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn metadata() -> IdListMetadata {
+        IdListMetadata {
+            name: "employees".to_string(),
+            url: "https://example.com/employees".to_string(),
+            file_id: Some("file-1".to_string()),
+            size: 0,
+            creation_time: 1,
+        }
+    }
+
+    #[test]
+    fn cloned_list_copies_ids_only_when_updated() {
+        let mut original = IdList::new(metadata());
+        original.apply_update(IdListUpdate {
+            raw_changeset: Some("+alice".to_string()),
+            new_metadata: metadata(),
+        });
+
+        let mut updated = original.clone();
+        assert!(Arc::ptr_eq(&original.ids, &updated.ids));
+
+        updated.apply_update(IdListUpdate {
+            raw_changeset: Some("+bob".to_string()),
+            new_metadata: metadata(),
+        });
+
+        assert!(!Arc::ptr_eq(&original.ids, &updated.ids));
+        assert!(original.ids.contains("alice"));
+        assert!(!original.ids.contains("bob"));
+        assert!(updated.ids.contains("alice"));
+        assert!(updated.ids.contains("bob"));
     }
 }

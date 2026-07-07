@@ -4,6 +4,7 @@ import os
 import shutil
 import sys
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Literal
 
@@ -11,6 +12,15 @@ _HOME = Path.home()
 
 Action = Literal["created", "updated", "unchanged", "not-found", "removed", "error", "skipped"]
 Mode = Literal["install", "uninstall"]
+
+
+class IntegrationType(str, Enum):
+    """Identifier for one of semble's install/uninstall integrations."""
+
+    MCP = "mcp"
+    INSTRUCTIONS = "instructions"
+    SUBAGENT = "subagent"
+
 
 SEMBLE_START = "<!-- SEMBLE_START -->"
 SEMBLE_END = "<!-- SEMBLE_END -->"
@@ -192,6 +202,15 @@ AGENTS: list[AgentTarget] = [
         mcp=McpConfig(_HOME / ".codex" / "config.toml", "mcp_servers", _STDIO_SERVER_CONFIG, format="toml"),
         instructions_path=_HOME / ".codex" / "AGENTS.md",
         subagent_path=_HOME / ".codex" / "agents" / "semble-search.toml",
+    ),
+    AgentTarget(
+        id="zcode",
+        display_name="ZCode",
+        binary=None,
+        config_dir=_HOME / ".zcode",
+        mcp=McpConfig(_HOME / ".zcode" / "cli" / "config.json", "mcp.servers", _STDIO_SERVER_CONFIG),
+        instructions_path=_HOME / ".zcode" / "AGENTS.md",
+        subagent_path=_HOME / ".zcode" / "agents" / "semble-search.md",
     ),
     AgentTarget(
         id="vscode",

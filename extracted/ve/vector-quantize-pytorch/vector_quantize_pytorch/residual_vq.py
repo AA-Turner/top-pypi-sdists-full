@@ -12,6 +12,7 @@ from torch.nn import Module, ModuleList
 
 import torch.distributed as dist
 from vector_quantize_pytorch.vector_quantize_pytorch import VectorQuantize
+from vector_quantize_pytorch.vector_quantize_pytorch import directional_reparam
 
 from einops import rearrange, repeat, reduce, pack, unpack
 
@@ -172,6 +173,7 @@ class ResidualVQ(Module):
         codebook_size: int | tuple[int, ...],
         codebook_dim = None,
         shared_codebook = False,
+        diveq = False,
         heads = 1,
         quantize_dropout = False,
         quantize_dropout_cutoff_index = 0,
@@ -214,6 +216,21 @@ class ResidualVQ(Module):
                 manual_in_place_optimizer_update = True
             )
 
+        # whether to use directional reparameterization (DiVeQ) method to learn the codebook
+        # figure 1. https://openreview.net/forum?id=KRVnpTbx7R
+
+        self.diveq = diveq
+
+        # set ema_update to False if using DiVeQ for updating the codebook
+
+        if self.diveq:
+            vq_kwargs.update(
+                ema_update = False,
+                learnable_codebook = True,
+                route_gradients_to_input = False,
+                commitment_weight = 0.
+            )
+
         # take care of maybe different codebook sizes across depth
 
         codebook_sizes = cast_tuple(codebook_size, num_quantizers)
@@ -244,9 +261,11 @@ class ResidualVQ(Module):
 
         self.vq_is_ema_updating = first(self.layers).ema_update
 
+        assert not (self.vq_is_ema_updating and self.diveq), 'Only one of ema_update or self.diveq must be used for updating the codebook'
+
         # gradient related - how much can one layer influence the previous
 
-        self.quant_grad_frac = quant_grad_frac
+        self.quant_grad_frac = quant_grad_frac if not diveq else 1.
 
         # beam size
 
@@ -471,7 +490,7 @@ class ResidualVQ(Module):
 
             # vector quantize forward
 
-            quantized, *rest = vq(
+            quantized, embed_indices, loss = vq(
                 residual,
                 mask = mask,
                 indices = layer_indices,
@@ -484,11 +503,9 @@ class ResidualVQ(Module):
             # cross entropy loss for some old paper
 
             if return_loss:
-                ce_loss = first(rest)
+                ce_loss = first(embed_indices)
                 ce_losses.append(ce_loss)
                 continue
-
-            embed_indices, loss = rest
 
             # handle expanding first residual if doing beam search
 
@@ -564,27 +581,29 @@ class ResidualVQ(Module):
             else:
                 all_losses = reduce(all_losses, '... l -> l', 'mean')
 
-            # handle updating ema
+            # handle updating codebook usage and ema
 
             if self.training:
                 for vq, layer_input, indices in zip(self.layers, all_residuals.unbind(dim = -2), all_indices.unbind(dim = -1)): # in the case of quantize dropout, zip will terminate with the shorter sequence, which should be all_residuals
 
-                    if self.vq_is_ema_updating:
-                        vq.update_ema_indices(layer_input, indices, mask = mask)
-
-                    batch_samples = layer_input[mask] if exists(mask) else layer_input
-                    vq.expire_codes_(batch_samples)
+                    vq.update_indices(layer_input, indices, mask = mask)
 
         # if shared codebook, update ema only at end
 
         if self.training and self.shared_codebook:
 
             shared_layer = first(self.layers)
-            shared_layer._codebook.update_ema()
-            shared_layer.update_in_place_optimizer()
+            if self.vq_is_ema_updating:
+                shared_layer._codebook.update_ema()
+                shared_layer.update_in_place_optimizer()
 
             all_codes_for_expire = rearrange(all_residuals, '... n l d -> ... (n l) d')
             shared_layer.expire_codes_(all_codes_for_expire)
+
+        # handle diveq
+
+        if self.diveq:
+            quantized_out = directional_reparam(x, quantized_out)
 
         # project out, if needed
 
@@ -599,12 +618,14 @@ class ResidualVQ(Module):
 
         ret = (quantized_out, all_indices, all_losses)
 
-        if return_all_codes:
-            # whether to return all codes from all codebooks across layers
-            all_codes = self.get_codes_from_indices(all_indices)
+        if not return_all_codes:
+            return ret
 
-            # will return all codes in shape (quantizer, batch, sequence length, codebook dimension)
-            ret = (*ret, all_codes)
+        # whether to return all codes from all codebooks across layers
+        all_codes = self.get_codes_from_indices(all_indices)
+
+        # will return all codes in shape (quantizer, batch, sequence length, codebook dimension)
+        ret = (*ret, all_codes)
 
         return ret
 

@@ -72,7 +72,14 @@ class BaseEvaluation:
         exposure_func: Optional[Callable] = None,
     ) -> Any:
         res = value.get(key, None)
-        if fallback is not None and not isinstance(fallback, type(res)):
+        compatible_container_types = (
+            isinstance(fallback, dict) and isinstance(res, dict)
+        ) or (isinstance(fallback, list) and isinstance(res, list))
+        if (
+            fallback is not None
+            and not isinstance(fallback, type(res))
+            and not compatible_container_types
+        ):
             _log_error(
                 tag,
                 f"Type mismatch - '{self.name}.{key}'. Expected {type(fallback)}, got {type(res)}",
@@ -112,7 +119,8 @@ class BaseConfigEvaluation(BaseEvaluation):
     def __init__(self, name: str, data: dict, tag: str):
         self.__tag = tag
         super().__init__(name, data)
-        self.value = data.get("value") or {}
+        value = data.get("value")
+        self.value = value if isinstance(value, dict) else {}
 
     def get_value(self) -> dict:
         return self.value
@@ -188,7 +196,8 @@ class Layer(BaseEvaluation):
             super().__init__(name, data)
             self.group_name = data.get("groupName")
             self.allocated_experiment_name = data.get("allocatedExperimentName")
-            self.__value = data.get("value") or {}
+            value = data.get("value")
+            self.__value = value if isinstance(value, dict) else {}
             self.__exposure_func = exposure_func
         except Exception as error:
             super().__init__(name, {})

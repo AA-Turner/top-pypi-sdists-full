@@ -13,6 +13,42 @@ use super::*;
 // Gershgorin majorizer helpers it calls are include!'d into construction, so import them.
 use super::construction::{active_softmax_gershgorin_majorizer_entry, softmax_majorizer_log_mean};
 
+/// #2144 — PSD Loewner majorizer of the raw IBP assignment-prior diagonal
+/// curvature `raw = w·(s'·J² + s·c)` at one logit slot, for the low-rank-metric
+/// PD-repair path.
+///
+/// The exact IBP column-`k` Hessian block is `H_p = w·s'·J Jᵀ + diag(w·s·c)`,
+/// with both the rank-one coefficient `w·s' = cross_row_d[k]` and the concrete
+/// second-jacobian diagonal `w·s·c` possibly NEGATIVE (`s'` is the not-sign-
+/// definite empirical-mass score derivative; `s·c` flips past the inflection of
+/// the binary-concrete map). Under a low-rank whitening metric the whitened data
+/// Gauss-Newton block is rank-deficient and cannot dominate that negative
+/// curvature, so the per-row `H_tt` and the cross-row Woodbury capacitance
+/// `C = I + D·Uᵀ H₀'⁻¹ U` go non-PD and the undamped evidence log-det is
+/// undefined. Clamp each piece to its positive part — exactly the MM/Loewner
+/// pattern ARD (`max(V'',0)`) and softmax (Gershgorin `D ⪰ H`) already use — so
+/// the assembled column block is `max(w·s',0)·J Jᵀ + diag(max(w·s·c,0)) ⪰ 0`.
+///
+/// The Woodbury source's `d_k` is clamped to the SAME `max(w·s',0)`, so the
+/// self-term downdate (`d_k·J²`) and the rank-one re-add differentiate one
+/// operator: `H₀'` keeps `max(w·s·c,0)` on its diagonal and the capacitance's
+/// `D = max(w·s',0) ⪰ 0` makes `C ⪰ I`. Majorizing a FIXED prior's curvature
+/// only conditions the Newton step / the Laplace normalizer — the gradient
+/// (which sets the stationary point) is untouched.
+pub(super) fn ibp_psd_majorized_hdiag(
+    channels: &IbpHessianDiagThirdChannels,
+    row: usize,
+    k_atoms: usize,
+    atom: usize,
+    raw_hdiag: f64,
+) -> f64 {
+    let j = channels.z_jac[row * k_atoms + atom];
+    let d = channels.cross_row_d[atom]; // w·s'_k, the rank-one self coefficient
+    let self_term = d * j * j; // w·s'·J², the cross-row rank-one self curvature
+    let diag_score_c = raw_hdiag - self_term; // w·s·c, the concrete-jacobian diagonal
+    d.max(0.0) * j * j + diag_score_c.max(0.0)
+}
+
 impl SaeManifoldTerm {
     /// Assemble the enlarged `(logits, t)` row-local Arrow-Schur system.
     ///
@@ -148,14 +184,26 @@ impl SaeManifoldTerm {
         // assembly chokepoint as the smoothness Gram, so the repulsion's
         // gradient/curvature (assembled below) and its value (read by the
         // line-search `penalized_objective_total`) share one frozen gate.
-        self.refresh_decoder_repulsion_gate();
-        // #1625 — freeze the SEPARATION barrier's normalized-coactivation `q_jk`
-        // at the same chokepoint. The barrier weights its decoder-shape repulsion
-        // by the routing coactivation, but its gradient treats that weight as a
-        // constant; recomputing it from the trial logits in the line-search value
-        // desyncs value vs gradient in the logit block and stalls the inner solve
-        // (#1625). Freezing it here makes value/gradient/curvature consistent.
-        self.refresh_barrier_coactivation_gate();
+        //
+        // #1801 — EXCEPT under a streaming fit, which freezes both collapse-
+        // prevention gates ONCE per outer iteration from the FULL resident routing
+        // and carries them onto every chunk (`streaming_gates_frozen`). The gates'
+        // per-pair strength `μ_jk` inverts the coactivation-weighted design Grams
+        // `G_j`, which are near-singular on a single small chunk, so a per-chunk
+        // refresh makes `μ_jk = γ/(1−γ)` blow up as `γ→1` and the reduced β-Newton
+        // step depend on `chunk_size`. Skipping the per-chunk refresh here keeps the
+        // carried global gate, so the streaming fit is chunk-size invariant (pinned
+        // by `sae_streaming_arrow_schur_contract::streaming_full_fit_is_chunk_size_invariant`).
+        if !self.streaming_gates_frozen {
+            self.refresh_decoder_repulsion_gate();
+            // #1625 — freeze the SEPARATION barrier's normalized-coactivation `q_jk`
+            // at the same chokepoint. The barrier weights its decoder-shape repulsion
+            // by the routing coactivation, but its gradient treats that weight as a
+            // constant; recomputing it from the trial logits in the line-search value
+            // desyncs value vs gradient in the logit block and stalls the inner solve
+            // (#1625). Freezing it here makes value/gradient/curvature consistent.
+            self.refresh_barrier_coactivation_gate();
+        }
         let n = self.n_obs();
         let p = self.output_dim();
         let k_atoms = self.k_atoms();
@@ -323,6 +371,24 @@ impl SaeManifoldTerm {
                     // all K atoms were retained and the per-token block ballooned to
                     // `K·(1+d)` — the bug pinned by
                     // `sae_streaming_arrow_schur_contract::per_token_block_dim_is_independent_of_k_at_fixed_active`.)
+                    // PRICED (#2071), with the exact-gradient alternative stated.
+                    // `from_jumprelu` drops atoms whose contribution ≤ cutoff · (max
+                    // contribution). Gated-off atoms have `a_{n,k}` EXACTLY 0, so
+                    // ANY cutoff in `(0, min_active_contribution]` drops precisely the
+                    // gated-off set and the assembled gradient is EXACT. `1e-3`
+                    // additionally drops ACTIVE atoms whose coupling is < 0.1 % of the
+                    // row's peak — this is the gradient approximation, traded for a
+                    // per-token block bounded at `k_active·(1+d)` even when many atoms
+                    // sit just above the JumpReLU threshold with tiny mass.
+                    // Exact-gradient alternative: a numerical-zero cutoff (~a few ULP,
+                    // dropping only the exact zeros) makes the gradient exact but lets
+                    // the block grow to the FULL above-threshold set, whose size near
+                    // the threshold is not bounded independently of that near-threshold
+                    // population — a memory/exactness design choice at K = 32k scale,
+                    // not a free tuning dial, so it is left priced pending that
+                    // validation. What breaks at 10×: `1e-2` drops couplings up to 1 %
+                    // of peak (coarser gradient, smaller block); `1e-4` retains more
+                    // near-threshold atoms (finer gradient, larger block).
                     const JUMPRELU_RELATIVE_CUTOFF: f64 = 1.0e-3;
                     let gates = self.assignment.assignments();
                     let contribution = gates.mapv(f64::abs);
@@ -431,14 +497,18 @@ impl SaeManifoldTerm {
         // #972 / #977 T1: engage the FACTORED Grassmann-coordinate β-tier when
         // any atom has an active decoder frame. The closed-form factorization
         // `Φᵀ(G ⊗ I_p)Φ = G ⊗ (U_iᵀU_j)` is EXACT only for the isotropic
-        // likelihood; under an active whitening metric (`whitens_likelihood()`,
-        // only `WhitenedStructured`) the per-row output factor would be
-        // `U_iᵀ M_n U_j` and does NOT factor out of the basis Gram, so we fall
-        // back to the full-`B` path there (frames + whitening is out of scope —
-        // see #974). The common Euclidean / OutputFisher / no-metric case factors
-        // cleanly. When `frames_engaged` is false, EVERY β-tier object below is
-        // assembled bit-for-bit as the historical full-`B` path.
-        let frames_engaged = self.any_frame_active() && !whitens_likelihood;
+        // likelihood; under an active whitening metric (`whitens_likelihood()`)
+        // the per-row output factor is `U_iᵀ M_n U_j` and does NOT factor out of
+        // the basis Gram. #974 closes that gap: when `whitens_likelihood`, the
+        // factored data-fit β-Hessian is built as the exact per-row sandwich
+        // `Σ_n Φ_nᵀ M_n Φ_n` ([`WhitenedFactoredFrameOp`]) and the cross-block
+        // `H_tβ` slab is whitened at write time (`L_i M_n J_β^framed`), so frames
+        // now engage under whitening too — the memory-wall fix on the production
+        // (whitened) composed path. The isotropic Euclidean / OutputFisher /
+        // no-metric case keeps the separable `G ⊗ (U_iᵀU_j)` operator bit-for-bit.
+        // When `frames_engaged` is false, every β-tier object below is assembled
+        // bit-for-bit as the historical full-`B` path.
+        let frames_engaged = self.any_frame_active();
         // #1407: fixed-decoder mode skips the entire β decoder tier (G/gb/htbeta
         // operator/hbb/β-penalties); only per-row htt/gt are produced.
         let fixed_decoder = self.fixed_decoder_assembly;
@@ -536,6 +606,32 @@ impl SaeManifoldTerm {
             Some(metric) if whitens_likelihood => metric.metric_rank(),
             _ => p,
         };
+        // #974 — a genuinely rank-deficient whitening metric (`rank < p`, e.g. an
+        // `s`-probe BehavioralFisher sketch with `s < p`). In that regime the
+        // per-row t-block Gauss-Newton curvature `H_tt = J_t Mₙ J_tᵀ` is
+        // rank-limited: in directions where the reconstruction Jacobian row lies
+        // in the metric's null space it carries NO data curvature, so the
+        // (indefinite) assignment/ARD prior curvature — which the full-rank
+        // isotropic data curvature normally dominates — is exposed and can drive
+        // the evidence-mode `H_tt` Cholesky slightly non-PD. This flag gates the
+        // spectral-deflation opt-in for that block below; the identity-metric
+        // (`rank == p`) and no-metric paths keep `low_rank_whiten == false` and
+        // are bit-for-bit unchanged.
+        let low_rank_whiten = whitens_likelihood && w_dim < p;
+        // #2144 — under a low-rank whitening metric, PSD-majorize the IBP
+        // assignment-prior curvature (see `ibp_psd_majorized_hdiag`) so the per-row
+        // `H_tt` and the cross-row Woodbury capacitance stay PD and the undamped
+        // evidence log-det is defined. `None` on every non-IBP mode (the third
+        // channels only exist for IBP-MAP) and whenever the metric is full-rank, so
+        // the identity/no-metric assembly is bit-identical.
+        // RAW channels: `ibp_psd_majorized_hdiag` and the source-`d` clamp below do
+        // the max(·,0) themselves from the raw `w·s'`/`w·s·c`, so this must be the
+        // un-majorized channel set.
+        let ibp_majorizer = if low_rank_whiten {
+            ibp_assignment_third_channels(&self.assignment, rho, false)?
+        } else {
+            None
+        };
         // Data-fit Gauss-Newton β-Hessian is block-diagonal across the `p`
         // output channels and identical in each: with the flat β layout
         // `β[μ·p + oc] = B[μ, oc]` (μ enumerating (atom, basis_col)) the GN
@@ -595,6 +691,10 @@ impl SaeManifoldTerm {
             pub(crate) g_blocks: SaeGBlocks,
             pub(crate) kron_a_phi: Option<Vec<(usize, f64)>>,
             pub(crate) kron_jac: Option<Vec<f64>>,
+            /// #974 per-row active support `(atom, basis, a·φ)` for the whitened
+            /// factored β-Hessian operator. `Some` only on the frames+whitening
+            /// path; `None` (and never allocated) otherwise.
+            pub(crate) frame_support: Option<Vec<(usize, usize, f64)>>,
         }
 
         // Per-row scratch reused across all rows a rayon worker processes
@@ -685,6 +785,15 @@ impl SaeManifoldTerm {
         let mut g_blocks: SaeGBlocks = std::collections::BTreeMap::new();
         let mut kron_a_phi: Vec<Vec<(usize, f64)>> = Vec::with_capacity(n);
         let mut kron_jac: Vec<Vec<f64>> = Vec::with_capacity(n);
+        // #974 whitened-frames per-row support `(atom, basis, a·φ)`, collected in
+        // ascending row order for the `WhitenedFactoredFrameOp`. Stays empty off
+        // the frames+whitening path.
+        let mut frame_support_rows: Vec<Vec<(usize, usize, f64)>> =
+            if frames_engaged && whitens_likelihood {
+                Vec::with_capacity(n)
+            } else {
+                Vec::new()
+            };
         let mut chunk_start = 0usize;
         while chunk_start < n {
             let chunk_end = (chunk_start + assembly_chunk_rows).min(n);
@@ -1052,7 +1161,18 @@ impl SaeManifoldTerm {
                                                 *scale,
                                             );
                                     }
-                                    _ => block.htt[[j, j]] += assignment_hdiag[assignment_base + k],
+                                    _ => {
+                                        let raw = assignment_hdiag[assignment_base + k];
+                                        // #2144: PSD-majorize the IBP diagonal under a
+                                        // low-rank whitening metric (no-op otherwise).
+                                        let val = match ibp_majorizer.as_ref() {
+                                            Some(ch) => {
+                                                ibp_psd_majorized_hdiag(ch, row, k_atoms, k, raw)
+                                            }
+                                            None => raw,
+                                        };
+                                        block.htt[[j, j]] += val;
+                                    }
                                 }
                             }
                         } else {
@@ -1101,8 +1221,16 @@ impl SaeManifoldTerm {
                                 }
                             } else {
                                 for free_idx in 0..assignment_dim {
-                                    block.htt[[free_idx, free_idx]] +=
-                                        assignment_hdiag[assignment_base + free_idx];
+                                    let raw = assignment_hdiag[assignment_base + free_idx];
+                                    // #2144: PSD-majorize the IBP diagonal under a
+                                    // low-rank whitening metric (no-op otherwise).
+                                    let val = match ibp_majorizer.as_ref() {
+                                        Some(ch) => ibp_psd_majorized_hdiag(
+                                            ch, row, k_atoms, free_idx, raw,
+                                        ),
+                                        None => raw,
+                                    };
+                                    block.htt[[free_idx, free_idx]] += val;
                                 }
                             }
                         }
@@ -1270,6 +1398,29 @@ impl SaeManifoldTerm {
                                 }
                             }
                             if frames_engaged {
+                                // #974: under whitening the frames cross-block is
+                                // `H_tβ = L_i M_n J_β^framed`, so whiten each t-row's
+                                // p-vector `L_i[c, :] ← M_n L_i[c, :]` ONCE per row
+                                // before projecting through the frames below. Off the
+                                // whitening path this is `None` and the raw
+                                // `local_jac_row` is used bit-for-bit.
+                                let ljr_white: Option<Array2<f64>> = if whitens_likelihood {
+                                    let metric = self
+                                        .row_metric
+                                        .as_ref()
+                                        .expect("whitens_likelihood ⇒ metric present");
+                                    let mut w = Array2::<f64>::zeros((q_row, p));
+                                    for c in 0..q_row {
+                                        let rowvec = local_jac_row.row(c).to_owned();
+                                        let mr = metric.apply_metric_row(row, rowvec.view());
+                                        for j in 0..p {
+                                            w[[c, j]] = mr[j];
+                                        }
+                                    }
+                                    Some(w)
+                                } else {
+                                    None
+                                };
                                 for &atom_idx in row_active {
                                     let atom = &self.atoms[atom_idx];
                                     let m = atom.basis_size();
@@ -1293,7 +1444,11 @@ impl SaeManifoldTerm {
                                                 .as_slice_mut()
                                                 .expect("htbeta row is contiguous");
                                             for out_col in 0..p {
-                                                let value = local_jac_row[[c, out_col]] * w;
+                                                let ljr = match &ljr_white {
+                                                    Some(w_jac) => w_jac[[c, out_col]],
+                                                    None => local_jac_row[[c, out_col]],
+                                                };
+                                                let value = ljr * w;
                                                 frame_projection.accumulate_output_project(
                                                     atom_idx, c_base, out_col, value, hrow_slice,
                                                 );
@@ -1339,6 +1494,25 @@ impl SaeManifoldTerm {
                         } else {
                             (None, None)
                         };
+                        // #974 whitened-frames support: flatten `weighted_phi`
+                        // (atom, per-basis a·φ) into `(atom, basis, weight)` for
+                        // the per-row `Φ_nᵀ M_n Φ_n` operator. Built only on the
+                        // frames+whitening path (else `None`, never allocated).
+                        let frame_support = if frames_engaged && whitens_likelihood && !fixed_decoder
+                        {
+                            let mut sup: Vec<(usize, usize, f64)> =
+                                Vec::with_capacity(weighted_phi.iter().map(|(_, w)| w.len()).sum());
+                            for (atom_idx, wphi) in weighted_phi.iter() {
+                                for (basis_col, &w) in wphi.iter().enumerate() {
+                                    if w != 0.0 {
+                                        sup.push((*atom_idx, basis_col, w));
+                                    }
+                                }
+                            }
+                            Some(sup)
+                        } else {
+                            None
+                        };
                         Ok(SaeAssemblyRow {
                             row,
                             block,
@@ -1346,6 +1520,7 @@ impl SaeManifoldTerm {
                             g_blocks,
                             kron_a_phi,
                             kron_jac,
+                            frame_support,
                         })
                         }) // #1557 with_nested_parallel
                     },
@@ -1397,6 +1572,10 @@ impl SaeManifoldTerm {
                             .expect("full-B SAE row assembly must return local Jacobian rows"),
                     );
                 }
+                if let Some(sup) = row_result.frame_support {
+                    // Ascending row arrival ⇒ `frame_support[row]` aligns to `row`.
+                    frame_support_rows.push(sup);
+                }
                 sys.rows[row] = row_result.block;
             }
             chunk_start = chunk_end;
@@ -1435,7 +1614,15 @@ impl SaeManifoldTerm {
                     }
                 }
             }
-            if let Some(deflation) = self.row_gauge_deflation_for_layout(row_layout.as_ref()) {
+            if let Some(deflation) = self
+                .row_gauge_deflation_for_layout(row_layout.as_ref())
+                .or_else(|| {
+                    // #974 — see the main-path site: enable spectral discovery of
+                    // the rank-deficient-metric-null `H_tt` directions on the
+                    // fixed-decoder path too. No-op when the metric is full-rank.
+                    low_rank_whiten.then(|| ArrowRowGaugeDeflation::new(vec![Vec::new(); n]))
+                })
+            {
                 sys.set_row_gauge_deflation(deflation);
             }
             self.last_row_layout = row_layout;
@@ -1612,20 +1799,46 @@ impl SaeManifoldTerm {
                 Arc::from(std::mem::take(&mut kron_jac).into_boxed_slice());
             Some((a_phi_shared, jac_shared))
         };
+        // #974 likelihood-whitening: the per-row output metric `M_n = U_n U_nᵀ`
+        // installed when the fit whitens the reconstruction likelihood
+        // (`BehavioralFisher` / `WhitenedStructured`). Threaded into the
+        // matrix-free cross-block and β-Gram operators so they carry the SAME
+        // metric the residual/gradient (`error_metric`) and the t-block
+        // (`jac_white`, `htt = J M Jᵀ`) already apply — closing the isotropic
+        // `G ⊗ I_p` / raw-`L` Hessian gap. `None` on the isotropic path, where
+        // every operator apply stays bit-for-bit the historical path.
+        let output_metric: Option<gam_problem::RowMetric> = if whitens_likelihood {
+            self.row_metric.clone()
+        } else {
+            None
+        };
+        // Hoisted so the whitening branch of the β-tier install below can build
+        // the whitened β-Gram operator from the SAME `SaeKroneckerRows`
+        // (support + metric) the cross-block operator uses.
+        let mut whitened_gram_kron: Option<Arc<SaeKroneckerRows>> = None;
         if !frames_engaged {
             let (a_phi_shared, jac_shared) = device_rows
                 .clone()
                 .expect("non-frames path always populates device_rows");
-            let kron = Arc::new(SaeKroneckerRows::new(p, a_phi_shared, jac_shared));
+            let kron = Arc::new(
+                SaeKroneckerRows::new(p, a_phi_shared, jac_shared)
+                    .with_output_metric(output_metric.clone()),
+            );
+            if whitens_likelihood {
+                whitened_gram_kron = Some(Arc::clone(&kron));
+            }
             let kron_t = Arc::clone(&kron);
             let p_dim = p;
             sys.set_row_htbeta_operator(
                 move |row_idx, x, out| {
-                    // out = L_i · (J_β · x). Allocate a length-p scratch buffer
-                    // for the intermediate decoded-output vector; both factors
-                    // overwrite their output buffers (`apply_jbeta` zeroes
+                    // out = L_i · M_n · (J_β · x). Allocate a length-p scratch
+                    // buffer for the intermediate decoded-output vector; both
+                    // factors overwrite their output buffers (`apply_jbeta` zeroes
                     // before accumulating, `apply_l` writes per-row), so no
-                    // pre-zeroing of `u_p`/`out` is needed.
+                    // pre-zeroing of `u_p`/`out` is needed. #974: the metric
+                    // `M_n` is applied to the p-space intermediate — a no-op on
+                    // the isotropic path (`M_n = I_p`), giving the exact whitened
+                    // cross-block `H_tβ = L_i M_n J_β` where whitening is active.
                     let out_slice = out.as_slice_mut().expect("out is always standard-layout");
                     let mut u_p = vec![0.0_f64; p_dim];
                     if let Some(xs) = x.as_slice() {
@@ -1634,13 +1847,17 @@ impl SaeManifoldTerm {
                         let x_vec: Vec<f64> = x.iter().copied().collect();
                         kron.apply_jbeta(row_idx, &x_vec, &mut u_p);
                     }
+                    kron.apply_output_metric_row(row_idx, &mut u_p);
                     kron.apply_l(row_idx, &u_p, out_slice);
                 },
                 move |row_idx, v, out| {
-                    // out += J_βᵀ · (Lᵀ · v). `apply_l_t` accumulates into a
+                    // out += J_βᵀ · M_n · (Lᵀ · v). `apply_l_t` accumulates into a
                     // zero-initialised length-p buffer to produce the p-vector
-                    // `Lᵀ v`; `scatter_jbeta_t` then adds φ_i[s] · u_p[j] into
-                    // the length-K β accumulator at each active `(s, j)`.
+                    // `Lᵀ v`; #974 applies the (symmetric) metric `M_n` to it —
+                    // a no-op isotropically — so the transpose is
+                    // `H_βt = J_βᵀ M_n Lᵀ = H_tβᵀ`; `scatter_jbeta_t` then adds
+                    // φ_i[s] · (M_n Lᵀ v)[j] into the length-K β accumulator at
+                    // each active `(s, j)`.
                     let out_slice = out.as_slice_mut().expect("out is always standard-layout");
                     let mut u_p = vec![0.0_f64; p_dim];
                     if let Some(vs) = v.as_slice() {
@@ -1649,6 +1866,7 @@ impl SaeManifoldTerm {
                         let v_vec: Vec<f64> = v.iter().copied().collect();
                         kron_t.apply_l_t(row_idx, &v_vec, &mut u_p);
                     }
+                    kron_t.apply_output_metric_row(row_idx, &mut u_p);
                     kron_t.scatter_jbeta_t(row_idx, &u_p, out_slice);
                 },
             );
@@ -1755,26 +1973,61 @@ impl SaeManifoldTerm {
             // basis Gram `g_blocks` is unchanged; only the output factor is the
             // per-pair frame overlap (`I_{r_k}` within a framed atom, `I_p` for
             // un-framed).
-            let mut frame_blocks: Vec<FactoredFrameGBlock> = Vec::with_capacity(g_blocks.len());
-            for ((atom_i, atom_j), data) in g_blocks.into_iter() {
-                if data.iter().all(|&v| v == 0.0) {
-                    continue;
+            // #974: under a likelihood-whitening metric the separable
+            // `G_{ij} ⊗ (U_iᵀU_j)` is WRONG (the per-row `U_iᵀ M_n U_j` does not
+            // factor out of the basis Gram). Build the exact per-row sandwich
+            // `Σ_n Φ_nᵀ M_n Φ_n` ([`WhitenedFactoredFrameOp`]) instead, and drop
+            // the device frame blocks (the device PCG kernel assumes the isotropic
+            // frame Gram → CPU fallback). Off the whitening path the separable
+            // isotropic operator is built bit-for-bit as before.
+            let (data_op, device_frame_blocks): (
+                Arc<dyn BetaPenaltyOp>,
+                Option<Vec<FactoredFrameGBlock>>,
+            ) = if whitens_likelihood {
+                let metric = self
+                    .row_metric
+                    .clone()
+                    .expect("whitens_likelihood ⇒ metric present");
+                let support: Arc<[Vec<(usize, usize, f64)>]> =
+                    Arc::from(std::mem::take(&mut frame_support_rows).into_boxed_slice());
+                let wop = WhitenedFactoredFrameOp::new(
+                    p,
+                    border_dim,
+                    off_c.clone(),
+                    ranks.clone(),
+                    basis_sizes.clone(),
+                    frame_projection.frames_owned(),
+                    support,
+                    metric,
+                );
+                (Arc::new(wop), None)
+            } else {
+                let mut frame_blocks: Vec<FactoredFrameGBlock> =
+                    Vec::with_capacity(g_blocks.len());
+                for ((atom_i, atom_j), data) in g_blocks.into_iter() {
+                    if data.iter().all(|&v| v == 0.0) {
+                        continue;
+                    }
+                    // `W_{ij} = U_iᵀ U_j` from the precomputed per-atom frames.
+                    let w = self.frame_cross_factor(atom_i, atom_j);
+                    frame_blocks.push(FactoredFrameGBlock {
+                        atom_i,
+                        atom_j,
+                        g: data,
+                        w,
+                    });
                 }
-                // `W_{ij} = U_iᵀ U_j` from the precomputed per-atom frames.
-                let w = self.frame_cross_factor(atom_i, atom_j);
-                frame_blocks.push(FactoredFrameGBlock {
-                    atom_i,
-                    atom_j,
-                    g: data,
-                    w,
-                });
-            }
-            // #1017/#1026 — snapshot the factored data-fit blocks for the
-            // frames-engaged device PCG BEFORE `FactoredFrameKroneckerOp::new`
-            // consumes them. Cheap clone (co-occurring blocks only).
-            let device_frame_blocks = frame_blocks.clone();
-            let data_op =
-                FactoredFrameKroneckerOp::new(ranks.clone(), basis_sizes.clone(), frame_blocks)?;
+                // #1017/#1026 — snapshot the factored data-fit blocks for the
+                // frames-engaged device PCG BEFORE `FactoredFrameKroneckerOp::new`
+                // consumes them. Cheap clone (co-occurring blocks only).
+                let device_frame_blocks = frame_blocks.clone();
+                let op = FactoredFrameKroneckerOp::new(
+                    ranks.clone(),
+                    basis_sizes.clone(),
+                    frame_blocks,
+                )?;
+                (Arc::new(op) as Arc<dyn BetaPenaltyOp>, Some(device_frame_blocks))
+            };
 
             // Smooth penalty in factored space: `λ S_k ⊗ I_{r_k}` at `off_C[k]`.
             let mut ops: Vec<Arc<dyn BetaPenaltyOp>> = Vec::with_capacity(self.atoms.len() + 2);
@@ -1787,7 +2040,7 @@ impl SaeManifoldTerm {
                     k: border_dim,
                 }));
             }
-            ops.push(Arc::new(data_op));
+            ops.push(data_op);
             // Analytic Beta-tier penalty: project the dense full-`B` `hbb` block
             // `Φᵀ hbb Φ` into the factored space. Only present when a Beta-tier
             // penalty actually wrote `hbb` (else `hbb` is all-zero and the dense
@@ -1847,20 +2100,54 @@ impl SaeManifoldTerm {
             // `crate::frames::build_framed_device_sae_data`.
             let has_dense_beta_penalty =
                 beta_penalty_assembly.dense_written || beta_penalty_assembly.deferred_factored;
+            // #974: `device_frame_blocks` is `None` on the whitening path (the
+            // device kernel assumes the isotropic frame Gram), forcing the CPU
+            // reduced-Schur matvec which routes `H_ββ` through the metric-aware
+            // `WhitenedFactoredFrameOp` and `H_tβ` through the whitened `htbeta`
+            // slab. On the isotropic path it is `Some`, keeping the device PCG.
             if !has_dense_beta_penalty {
-                let device =
-                    crate::frames::build_framed_device_sae_data(crate::frames::FramedDeviceArgs {
-                        p,
-                        border_dim,
-                        border_offsets: off_c.as_slice(),
-                        ranks: ranks.as_slice(),
-                        basis_sizes: basis_sizes.as_slice(),
-                        smooth_scaled_s: &smooth_scaled_s,
-                        frame_blocks: device_frame_blocks,
-                        rows: &sys.rows,
-                    });
-                sys.set_device_sae_pcg_data(device);
+                if let Some(device_frame_blocks) = device_frame_blocks {
+                    let device = crate::frames::build_framed_device_sae_data(
+                        crate::frames::FramedDeviceArgs {
+                            p,
+                            border_dim,
+                            border_offsets: off_c.as_slice(),
+                            ranks: ranks.as_slice(),
+                            basis_sizes: basis_sizes.as_slice(),
+                            smooth_scaled_s: &smooth_scaled_s,
+                            frame_blocks: device_frame_blocks,
+                            rows: &sys.rows,
+                        },
+                    );
+                    sys.set_device_sae_pcg_data(device);
+                }
             }
+        } else if whitens_likelihood {
+            // #974 whitening (non-frames): the collapsed `G ⊗ I_p` factorization
+            // is invalid because the data-fit GN β-Hessian is `Σ_n (φ_n φ_nᵀ) ⊗ M_n`
+            // with a per-row output metric `M_n`, which does NOT factor out of the
+            // basis Gram. Install the matrix-free `WhitenedRowGramPenaltyOp` (per-row
+            // gather → apply `M_n` → scatter, sharing the cross-block's
+            // `SaeKroneckerRows` support + metric) instead of the isotropic
+            // `SparseBlockKroneckerPenaltyOp`, and DO NOT install the device SAE PCG
+            // data: the device kernel (`DeviceSaePcgData`) hard-codes the `G ⊗ I_p`
+            // gather and the raw `local_jac` cross-block, so it cannot represent the
+            // per-row metric. Declining it routes the solve to the CPU row-procedural
+            // reduced-Schur matvec, which drives `H_tβ` through the metric-aware
+            // `sys.htbeta_matvec` closure, `H_ββ` through `sys.effective_penalty_op()`
+            // (this op), and the t-block through the already-metric-aware per-row
+            // `htt`. `g_blocks` (the isotropic collapsed Gram) is intentionally
+            // unused here.
+            sys.set_block_offsets(self.beta_block_offsets());
+            let gram_kron = whitened_gram_kron
+                .expect("whitening non-frames path always populates whitened_gram_kron");
+            let mut ops: Vec<Arc<dyn BetaPenaltyOp>> = smooth_ops;
+            ops.push(Arc::new(WhitenedRowGramPenaltyOp::new(gram_kron, beta_dim)));
+            if beta_penalty_assembly.dense_written {
+                ops.push(Arc::new(DensePenaltyOp(sys.hbb.clone())));
+            }
+            sys.set_penalty_op(Arc::new(CompositePenaltyOp { k: beta_dim, ops }));
+            self.reclaim_border_hbb_workspace(&mut sys);
         } else {
             let (device_a_phi, device_local_jac) =
                 device_rows.expect("full-beta SAE PCG rows are cloned before row operator install");
@@ -1932,7 +2219,22 @@ impl SaeManifoldTerm {
             sys.set_penalty_op(Arc::new(CompositePenaltyOp { k: beta_dim, ops }));
             self.reclaim_border_hbb_workspace(&mut sys);
         }
-        if let Some(deflation) = self.row_gauge_deflation_for_layout(row_layout.as_ref()) {
+        if let Some(deflation) = self
+            .row_gauge_deflation_for_layout(row_layout.as_ref())
+            .or_else(|| {
+                // #974 — enable evidence-mode spectral discovery of the
+                // metric-null / indefinite quotient directions a rank-deficient
+                // whitening metric creates in `H_tt`, even for Euclidean atoms
+                // that supply no rotation/phase gauge (so `row_gauge_deflation_
+                // for_layout` returns `None`). An empty per-row gauge routes the
+                // factor through the spectral-deflation path
+                // (`allow_spectral_deflation`), which deflates such a genuine flat
+                // direction to unit stiffness (`log 1 = 0`, ρ-independent, so the
+                // evidence value and its ρ-adjoint stay consistent) instead of
+                // refusing the block. No-op when the metric is full-rank.
+                low_rank_whiten.then(|| ArrowRowGaugeDeflation::new(vec![Vec::new(); n]))
+            })
+        {
             sys.set_row_gauge_deflation(deflation);
         }
         // #1038 IBP cross-row Woodbury source. The exact IBP Hessian has the
@@ -1963,7 +2265,7 @@ impl SaeManifoldTerm {
         //     `active_atoms[row]`, so `global_t_index = sys.row_offsets[i] + pos`.
         //     Both pin the `U`-column convention bit-for-bit to the consumer's
         //     `ibp_logit_sites`/`row_vars_for_cache_row` slot mapping.
-        if let Some(channels) = ibp_assignment_third_channels(&self.assignment, rho)? {
+        if let Some(channels) = ibp_assignment_third_channels(&self.assignment, rho, false)? {
             let mut entries: Vec<(usize, usize, f64)> = Vec::with_capacity(n * k_atoms);
             for row in 0..n {
                 let start = row * k_atoms;
@@ -1991,9 +2293,21 @@ impl SaeManifoldTerm {
                     }
                 }
             }
+            // #2144: under a low-rank whitening metric, clamp the rank-one
+            // coefficient `d_k = w·s'_k` to its positive part — the SAME
+            // `max(w·s',0)` the per-row diagonal majorizer (`ibp_psd_majorized_hdiag`)
+            // uses. The source's `d` drives BOTH the self-term downdate and the
+            // rank-one re-add, so the clamped `d` keeps `H₀'`'s diagonal at
+            // `max(w·s·c,0) ⪰ 0` and the capacitance `C = I + D·Uᵀ H₀'⁻¹ U ⪰ I`
+            // PD — one operator. Full-rank / no-metric paths keep the exact `d`.
+            let d = if low_rank_whiten {
+                channels.cross_row_d.mapv(|x| x.max(0.0))
+            } else {
+                channels.cross_row_d.clone()
+            };
             let source = IbpCrossRowSource {
                 r: k_atoms,
-                d: channels.cross_row_d.clone(),
+                d,
                 entries,
             };
             sys.set_ibp_cross_row_source(source);

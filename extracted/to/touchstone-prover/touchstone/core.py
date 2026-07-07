@@ -5446,6 +5446,27 @@ def _gen_symexec(fn, args, z3args, ctx):
     return args, z3args, [(z3.BoolVal(True), tuple(yields))], traps, z3.BoolVal(False)
 
 
+def _is_catchall_handler(h):
+    """An except handler that catches EVERY exception -- a bare `except:`, or `except Exception` /
+    `except BaseException`. The value engine's traps are untyped, so only a catch-all provably catches them
+    all; a typed handler (except ZeroDivisionError) cannot be matched to a specific trap and stays havoc'd."""
+    if h.type is None:
+        return True
+    return isinstance(h.type, ast.Name) and h.type.id in ("Exception", "BaseException")
+
+
+def _names_read(stmts):
+    """Names read (Load context) anywhere in the statements, not descending into a nested function/class body."""
+    read = set()
+    for s in stmts:
+        for n in ast.walk(s):
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)) and n is not s:
+                break
+            if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load):
+                read.add(n.id)
+    return read
+
+
 def _stmt_assigned_names(stmts):
     """Names that appear as a Store target anywhere in `stmts`, plus nested def/class names, not descending
     into a nested function/lambda/class body. These are the variables a loop body may rewrite, so the
@@ -6279,13 +6300,36 @@ def symexec(src: str, ctx: Ctx, argvals=None, param_kinds=None):
                     walk(s.orelse, he, p)
                     nxt.append((he, p))
                 elif isinstance(s, ast.Try) and _TRAPFREE:
-                    for sub in [s.body, s.orelse, s.finalbody] + [h.body for h in s.handlers]:
-                        walk(sub, e, p)                       # every block is reachable: each must be trap free
-                    ctx.havoc = True
-                    he = dict(e)
-                    for nm in _stmt_assigned_names([s]):      # where an exception fired is uncertain: havoc
-                        he[nm] = _havoc_val(e.get(nm), nm)
-                    nxt.append((he, p))
+                    # A try / except with a SINGLE catch-all handler, no finally, whose handler reads no name the
+                    # body assigns (so the pre-try env is a sound view for the handler): model the recovery
+                    # exactly. The body's traps are CAUGHT, so the body returns / falls through on its NON-trapping
+                    # inputs and the handler runs on the trapping ones -- `try: return 10 // x except: return 0`
+                    # proves `result >= 0`. Anything else (a typed handler whose trap the untyped engine cannot
+                    # match, a finally, multiple handlers, or a handler that reads body-assigned state) stays
+                    # havoc'd -- sound but UNKNOWN.
+                    if (len(s.handlers) == 1 and _is_catchall_handler(s.handlers[0]) and not s.finalbody
+                            and not (_names_read(s.handlers[0].body) & _stmt_assigned_names(s.body))):
+                        sr, sn, st_ = len(rets), len(none_list), len(ctx.traps)
+                        body_falls = walk(s.body, e, p)
+                        caught = list(ctx.traps[st_:])        # the body's traps, all caught by the catch-all
+                        tc = z3.Or(*caught) if caught else z3.BoolVal(False)
+                        del ctx.traps[st_:]
+                        ntc = z3.Not(tc)
+                        for _i in range(sr, len(rets)):       # a body return fired only where nothing trapped
+                            rets[_i] = (z3.And(rets[_i][0], ntc), rets[_i][1])
+                        for _i in range(sn, len(none_list)):
+                            none_list[_i] = z3.And(none_list[_i], ntc)
+                        for fe, fp in body_falls:             # a clean body fall-through runs the else, else continues
+                            nxt += (walk(s.orelse, fe, z3.And(fp, ntc)) if s.orelse else [(fe, z3.And(fp, ntc))])
+                        nxt += walk(s.handlers[0].body, e, z3.And(p, tc))   # the handler runs on the trapping paths
+                    else:
+                        for sub in [s.body, s.orelse, s.finalbody] + [h.body for h in s.handlers]:
+                            walk(sub, e, p)                   # every block is reachable: each must be trap free
+                        ctx.havoc = True
+                        he = dict(e)
+                        for nm in _stmt_assigned_names([s]):  # where an exception fired is uncertain: havoc
+                            he[nm] = _havoc_val(e.get(nm), nm)
+                        nxt.append((he, p))
                 elif _TRAPFREE and BEST_EFFORT:             # an unmodeled statement: havoc the names it assigns (lower trust)
                     _best_effort_assume()
                     e2 = dict(e)

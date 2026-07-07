@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esphome-device-builder
-Version: 1.1.0
+Version: 1.2.0
 Summary: ESPHome Device Builder
 Author-email: The ESPHome Authors <esphome@openhomefoundation.org>
 Maintainer-email: Open Home Foundation <esphome@openhomefoundation.org>
@@ -20,13 +20,14 @@ Classifier: Topic :: Home Automation
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: esphome-device-builder-frontend==0.1.214
+Requires-Dist: esphome-device-builder-frontend==0.1.216
 Requires-Dist: aiohttp>=3.9.0
 Requires-Dist: aiohttp-asyncmdnsresolver>=0.1.1
 Requires-Dist: colorlog>=6.8.0
 Requires-Dist: cryptography>=42.0.2
 Requires-Dist: fnv-hash-fast>=2.0.0
 Requires-Dist: ifaddr>=0.2.0
+Requires-Dist: icmplib>=3.0.4
 Requires-Dist: mashumaro>=3.13
 Requires-Dist: orjson>=3.9.0
 Requires-Dist: pyyaml>=6.0

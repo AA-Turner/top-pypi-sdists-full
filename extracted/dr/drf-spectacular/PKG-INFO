@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: drf-spectacular
-Version: 0.29.0
+Version: 0.30.0
 Summary: Sane and flexible OpenAPI 3 schema generation for Django REST framework
 Author-email: "T. Franzel" <tfranzel@gmail.com>
 License-Expression: BSD-3-Clause
@@ -19,6 +19,7 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Natural Language :: English
@@ -35,7 +36,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development :: Code Generators
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: Django>=2.2
@@ -57,7 +58,7 @@ drf-spectacular
 
 |build-status| |codecov| |docs| |pypi-version| |pypi-dl|
 
-Sane and flexible `OpenAPI`_ (`3.0.3`_ & `3.1`_) schema generation for `Django REST framework`_.
+Sane and flexible `OpenAPI`_ (`3.0.3`_, `3.1`_ & `3.2`_) schema generation for `Django REST framework`_.
 
 This project has 3 goals:
     1. Extract as much schema information from DRF as possible.
@@ -102,6 +103,7 @@ Features
         - `djangorestframework-dataclasses <https://github.com/oxan/djangorestframework-dataclasses>`_
         - `django-rest-framework-gis <https://github.com/openwisp/django-rest-framework-gis>`_
         - `Pydantic (>=2.0) <https://github.com/pydantic/pydantic>`_
+        - `django-rest-knox <https://github.com/jazzband/django-rest-knox>`_
 
 
 For more information visit the `documentation <https://drf-spectacular.readthedocs.io/>`_.
@@ -114,9 +116,9 @@ Provided by `T. Franzel <https://github.com/tfranzel>`_. `Licensed under 3-Claus
 Requirements
 ------------
 
--  Python >= 3.7
--  Django (2.2, 3.2, 4.0, 4.1, 4.2, 5.0, 5.1, 5.2)
--  Django REST Framework (3.10.3, 3.11, 3.12, 3.13, 3.14, 3.15, 3.16)
+-  Python >= 3.8
+-  Django (3.2, 4.0, 4.1, 4.2, 5.0, 5.1, 5.2, 6.0)
+-  Django REST Framework (3.12, 3.13, 3.14, 3.15, 3.16, 3.17)
 
 Installation
 ------------
@@ -347,6 +349,7 @@ globally, and then simply run:
 .. _OpenAPI: https://swagger.io/
 .. _3.0.3: https://spec.openapis.org/oas/v3.0.3
 .. _3.1: https://spec.openapis.org/oas/v3.1.0
+.. _3.2: https://spec.openapis.org/oas/v3.2.0
 .. _tox: https://tox.wiki/
 .. _drf-spectacular-sidecar: https://github.com/tfranzel/drf-spectacular-sidecar
 

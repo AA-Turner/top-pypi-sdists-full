@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 import datetime
-from typing import Any, Callable, Dict, List, Optional, Union, cast
+from typing import Any, Callable, Dict, Iterator, List, Optional, Union, cast
 
 import pandas as pd
 
@@ -163,6 +163,32 @@ def _get_converter_for_schema(schema_entry: Optional[JdbcResultSchemaEntry]) -> 
     return None
 
 
+def get_parsed_jdbc_data_records_iter(
+    records: List[List[Any]], columns: List[str], result_schema: Optional[List[JdbcResultSchemaEntry]]
+) -> Iterator[List[Any]]:
+    """Generate parsed JDBC data records from a list of lists of values."""
+    if result_schema is None:
+        yield from records
+        return
+
+    schema_by_name = {entry.name: entry for entry in result_schema}
+    converters = {}
+    for idx, column_name in enumerate(columns):
+        schema_entry = schema_by_name.get(column_name)
+        if schema_entry is None:
+            continue
+        converter = _get_converter_for_schema(schema_entry)
+        if converter is not None:
+            converters[idx] = converter
+
+    if not converters:
+        yield from records
+        return
+
+    for row in records:
+        yield [converters[idx](value) if idx in converters else value for idx, value in enumerate(row)]
+
+
 class JdbcPreviewData(BaseJdbcPreviewData):
     """
     Data preview. Contains columns, records, and optional result schema.
@@ -178,26 +204,7 @@ class JdbcPreviewData(BaseJdbcPreviewData):
         -------
         pandas.DataFrame
         """
-        if not self.result_schema:
-            return pd.DataFrame(self.records, columns=self.columns)
-
-        schema_by_name = {entry.name: entry for entry in self.result_schema}
-        converters = {}
-        for idx, column_name in enumerate(self.columns):
-            schema_entry = schema_by_name.get(column_name)
-            if schema_entry is None:
-                continue
-            converter = _get_converter_for_schema(schema_entry)
-            if converter is not None:
-                converters[idx] = converter
-
-        if not converters:
-            return pd.DataFrame(self.records, columns=self.columns)
-
-        parsed_records = (
-            [converters[idx](value) if idx in converters else value for idx, value in enumerate(row)]
-            for row in self.records
-        )
+        parsed_records = tuple(get_parsed_jdbc_data_records_iter(self.records, self.columns, self.result_schema))
         return pd.DataFrame(parsed_records, columns=self.columns)
 
 

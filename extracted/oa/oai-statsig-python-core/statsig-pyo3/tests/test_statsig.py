@@ -1,8 +1,36 @@
-from statsig_python_core import Statsig, StatsigOptions, StatsigUser
+from statsig_python_core import Statsig, StatsigOptions, StatsigUser, notify_python_fork
 from pytest_httpserver import HTTPServer
 import json
+import threading
 from utils import get_test_data_resource
 import pytest
+
+
+def test_runtime_thread_start_callback_runs_on_each_statsig_worker():
+    notify_python_fork()
+    callback_thread_ids = []
+    callback_lock = threading.Lock()
+    callbacks_complete = threading.Event()
+
+    def on_thread_start():
+        with callback_lock:
+            callback_thread_ids.append(threading.get_ident())
+            if len(callback_thread_ids) == 2:
+                callbacks_complete.set()
+
+    statsig = Statsig(
+        "secret-key",
+        StatsigOptions(
+            sdk_runtime_thread_count=2,
+            runtime_thread_start_callback=on_thread_start,
+        ),
+    )
+
+    assert callbacks_complete.wait(timeout=5)
+    assert len(set(callback_thread_ids)) == 2
+
+    del statsig
+    notify_python_fork()
 
 
 @pytest.fixture

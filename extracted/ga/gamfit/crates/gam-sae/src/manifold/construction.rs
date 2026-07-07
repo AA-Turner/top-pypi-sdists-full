@@ -1,6 +1,44 @@
 use super::*;
 use gam_math::jet_scalar::JetScalar;
 
+// ── Theorem K: the rank charge is a RUNNING COMPLEXITY λ(n) ──────────────────
+//
+// The birth/death evidence charge on an atom is not an ad-hoc penalty; it is one
+// evaluation of the running (marginal-likelihood) complexity
+//
+//     λ(n) := d(−log Z_n) / d(log n),
+//
+// the local slope of the log marginal likelihood in log sample size. Watanabe's
+// singular-learning theory says −log Z_n = n·L_n(ŵ) + λ·log n + o(log n), so λ IS
+// the coefficient of log n in the evidence. Theorem K observes that the THREE
+// quantities this code juggles are the SAME object λ evaluated in three regimes:
+//
+//   • HARD rank (n → ∞ limit, atom well above the noise edge): every resolved
+//     decoder direction is a regular parameter, λ → ½·rank_eff·basis_edf = ½·d_eff.
+//     This is the shipped default (`rank_charge_evidence`, hard MP count).
+//   • WBIC SOFT count (finite n, atom NEAR the Marchenko–Pastur edge): a direction
+//     only fractionally resolved contributes a fraction of ½, λ = ½·rank_soft·basis_edf
+//     with rank_soft = Σ_j μ_j/(μ_j+e) the tempered (β=1/log n) count. This is the
+//     opt-in `soft_rank_charge` ledger below (Theorem K, `wbic_audit`).
+//   • RLCT (SINGULAR truth, a symmetry orbit or a null atom): λ drops below ½·d
+//     to the real log-canonical threshold. The null atom (truth B*=0) has λ=½ from
+//     the amplitude singularity of a²‖B‖² — see the veto in `reml_criterion`.
+//
+// Soft → hard away from the edge (every sigmoid → 1) and soft → RLCT at singular
+// truths (sigmoids → 0), so the single ledger `λ(n_eff)·ln n_eff` interpolates all
+// three regimes continuously. The log-scale is the OCCUPANCY-corrected `ln n_eff`
+// (Fisher information actually accumulated by a gated atom), never the global row
+// count — see the #2a inert-row axiom in `reml_criterion`.
+//
+// GATING: the soft ledger is an OPT-IN alternative to the shipped hard charge,
+// selected by the persisted per-fit flag `SaeManifoldTerm::soft_rank_charge`
+// (default false ⇒ bit-for-bit historical hard path). The flag is the SINGLE source
+// of truth: it is carried across clones (including stagewise per-birth clones) and
+// therefore propagates correctly into rayon worker threads during parallel folds —
+// a thread-local scope would silently fail to apply in worker threads, so it is
+// deliberately NOT used. Effect only when `rank_charge_evidence` is also on (the
+// soft coefficient substitutes for the hard one INSIDE that branch).
+
 /// #9 streaming rank-charge inputs, accumulated in a SINGLE pass through
 /// [`SaeManifoldTerm::streaming_exact_arrow_log_det`] when `rank_charge_evidence`
 /// is on: the coordinate-block log-det `log_det_tt` (= 2·`htt_half`; the part the
@@ -150,6 +188,7 @@ impl SaeManifoldTerm {
             quotient_scale: false,
             cone_atom_recovery: false,
             rank_charge_evidence: false,
+            soft_rank_charge: false,
             data_row_reseed: false,
             // SAC — the collapse-guard stack is armed by default; the stagewise
             // K=1 lane disarms it explicitly (see the field docs on term.rs).
@@ -170,6 +209,10 @@ impl SaeManifoldTerm {
             best_cocollapse_incumbent: None,
             decoder_repulsion_gate: None,
             barrier_coactivation_gate: None,
+            // #1801 — default false: the dense/full-batch assembly refreshes the
+            // collapse-prevention gates per assembly (bit-for-bit historical). The
+            // streaming fit driver re-arms this to freeze them once globally.
+            streaming_gates_frozen: false,
             hybrid_split_report: None,
             atom_inner_fits: None,
             oos_linear_images: None,
@@ -923,6 +966,20 @@ impl SaeManifoldTerm {
         self.rank_charge_evidence
     }
 
+    /// Theorem K — set the per-fit WBIC SOFT rank-charge ledger opt-in (typed kwarg,
+    /// no env lever). Default false ⇒ historical hard path bit-for-bit. Only has
+    /// effect when `rank_charge_evidence` is also on. Persisted per-fit config,
+    /// carried across clones (including stagewise per-birth clones) and across rayon
+    /// worker threads — the field is the single source of truth.
+    pub fn set_soft_rank_charge(&mut self, enabled: bool) {
+        self.soft_rank_charge = enabled;
+    }
+
+    /// Theorem K — read the per-fit WBIC soft rank-charge ledger opt-in.
+    pub fn soft_rank_charge(&self) -> bool {
+        self.soft_rank_charge
+    }
+
     /// #2023 C4 — install a Tier-0 shared mean μ (the manifold analogue of
     /// [`crate::tiered::Tier0Mean`]). Once set, [`Self::try_fitted_with_rho`] adds
     /// μ back to the assembled per-atom reconstruction, so the atoms only ever
@@ -1032,11 +1089,84 @@ impl SaeManifoldTerm {
         // persisted there) and calls the SAME core — so the criterion is identical.
         let mut grams = self.empty_decoder_gram_accumulator();
         self.accumulate_decoder_gram(&mut grams);
-        let assignments = self.assignment.assignments();
-        let n_eff: Vec<f64> = (0..self.k_atoms())
-            .map(|k| assignments.column(k).iter().map(|&a| a * a).sum())
-            .collect();
+        let n_eff = self.per_atom_effective_sample_size();
         self.rank_dof_from_grams(&grams, &n_eff, rho, dispersion_r)
+    }
+
+    /// Per-atom effective sample size `N_eff,k = Σ_i w_{ik}²` read through the
+    /// shared [`SupportMeasure`] — the occupancy-aware Fisher information a gated
+    /// atom k actually accumulates. This is the honest BIC/Laplace log-sample-size
+    /// for the #2a rank charge (NOT the global row count `n_obs`): a row on which
+    /// atom k's support is OFF contributes `w²=0`, so appending such rows leaves
+    /// `N_eff,k` — and hence atom k's charge — unchanged (inert-row invariance).
+    /// Matches the `ri.n_eff` the #9 streaming log-det pass accumulates.
+    pub(crate) fn per_atom_effective_sample_size(&self) -> Vec<f64> {
+        (0..self.k_atoms())
+            .map(|k| {
+                SupportMeasure::from_assignment(&self.assignment, k)
+                    .map(|support| support.fisher_n())
+                    .expect("term assignment shape must match atom count")
+            })
+            .collect()
+    }
+
+    /// Theorem K WBIC SOFT learning coefficient `λ_k = ½·rank_soft_k·basis_edf_k` per
+    /// atom, from the PRE-ACCUMULATED per-atom Grams (the streaming twin of
+    /// [`Self::per_atom_soft_learning_coefficient`], as `rank_dof_from_grams` is the
+    /// twin of the dense hard path). `rank_soft_k = Σ_j μ_{kj}/(μ_{kj}+e_k)` is the
+    /// tempered (β=1/log n) count on atom k's occupancy-corrected reconstruction
+    /// spectrum `μ = sv(diag(√λ)·Uᵀ·D)²/N_eff` against the SAME Marchenko–Pastur edge
+    /// `e = R·(1+√(p/N_eff))²` the hard count thresholds on. It is bit-consistent with
+    /// the hard `d_eff` (`rank_dof_from_grams`) — both come from one
+    /// [`super::wbic_audit::recon_spectrum`], whose `rank_hard·basis_edf` matches
+    /// `realised_rank_charge_dof` — so the two ledgers agree away from the edge
+    /// (μ≫e ⇒ rank_soft→rank_hard) and the soft one is strictly smaller near it.
+    pub(crate) fn soft_learning_coefficient_from_grams(
+        &self,
+        grams: &[Array2<f64>],
+        n_eff: &[f64],
+        rho: &SaeManifoldRho,
+        dispersion_r: f64,
+    ) -> Result<Vec<f64>, String> {
+        let lam = rho.lambda_smooth_vec();
+        let r_floor = if dispersion_r.is_finite() && dispersion_r > 0.0 {
+            dispersion_r
+        } else {
+            f64::MIN_POSITIVE
+        };
+        let p_out = self.output_dim() as f64;
+        let mut out = Vec::with_capacity(self.k_atoms());
+        for k in 0..self.k_atoms() {
+            let n_eff_k = n_eff.get(k).copied().unwrap_or(0.0);
+            let lam_k = lam.get(k).copied().unwrap_or(0.0);
+            let spec = super::wbic_audit::recon_spectrum(
+                &grams[k],
+                &self.atoms[k].decoder_coefficients,
+                n_eff_k,
+                p_out,
+                r_floor,
+                lam_k,
+                Some(&self.atoms[k].smooth_penalty),
+            )
+            .map_err(|e| format!("soft_learning_coefficient_from_grams: atom {k}: {e}"))?;
+            out.push(spec.learning_coefficient());
+        }
+        Ok(out)
+    }
+
+    /// Dense twin of [`Self::soft_learning_coefficient_from_grams`]: materialise the
+    /// per-atom Grams from `self` and return the WBIC soft learning coefficient `λ_k`.
+    /// Used only when the per-fit `soft_rank_charge` flag is on, so the extra Gram pass is off
+    /// the shipped hot path.
+    pub(crate) fn per_atom_soft_learning_coefficient(
+        &self,
+        rho: &SaeManifoldRho,
+        dispersion_r: f64,
+    ) -> Result<Vec<f64>, String> {
+        let mut grams = self.empty_decoder_gram_accumulator();
+        self.accumulate_decoder_gram(&mut grams);
+        let n_eff = self.per_atom_effective_sample_size();
+        self.soft_learning_coefficient_from_grams(&grams, &n_eff, rho, dispersion_r)
     }
 
     /// Shared rank-charge DOF core (#11): `d_eff_k = rank_eff_k · basis_edf_k` from the
@@ -1216,7 +1346,7 @@ impl SaeManifoldTerm {
         }
         let metric = self.diagnostic_metric()?;
         let atom_two_lens =
-            crate::inference::atom_lens::atom_two_lens(self, &metric, assignments_override);
+            crate::inference::atom_lens::atom_two_lens(self, &metric, assignments_override)?;
 
         let (certificate_model, streamed_curvature) =
             self.to_residual_gauge_model(metric, per_atom_ard_variances, isometry_pin_active)?;
@@ -1290,6 +1420,14 @@ impl SaeManifoldTerm {
             .map(|atom_idx| atom_coordinate_fidelity(self, atom_idx))
             .collect::<Result<Vec<_>, _>>()?;
 
+        // Reviewer-F3 persistent-homology topology audit (one entry per atom,
+        // `None` for caller-supplied or under-sampled atoms). A pure read of the
+        // fitted decoder image and shared soft support measure; never gated by a flag and
+        // feeds nothing back into the loss/criterion.
+        let topology_persistence = (0..self.k_atoms())
+            .map(|atom_idx| atom_topology_persistence(self, atom_idx))
+            .collect::<Vec<_>>();
+
         Ok(SaeManifoldFitDiagnostics {
             atom_two_lens,
             residual_gauge,
@@ -1301,6 +1439,7 @@ impl SaeManifoldTerm {
             },
             atom_inference,
             coordinate_fidelity,
+            topology_persistence,
         })
     }
 
@@ -1308,8 +1447,9 @@ impl SaeManifoldTerm {
     ///
     /// `assignments` is supplied by the payload assembly site so top-k projection,
     /// when requested, is reflected in coverage/frequency and in the tangent
-    /// spectra. The active threshold is shared with the atom lens so all
-    /// assignment-support diagnostics agree on what "active" means.
+    /// spectra. Each atom's support is read through [`SupportMeasure`] so the
+    /// trust scores use the same occupancy/effective-N convention as coordinate
+    /// fidelity, persistence, and rank charge.
     pub fn trust_diagnostics_report(
         &self,
         assignments: ArrayView2<'_, f64>,
@@ -1326,36 +1466,23 @@ impl SaeManifoldTerm {
             return Err("trust_diagnostics_report: assignments must be finite".to_string());
         }
         let metric = self.diagnostic_metric()?;
-        let active_threshold = crate::inference::atom_lens::SAE_TRUST_ACTIVE_MASS_FLOOR;
         let mut atoms = Vec::with_capacity(k_atoms);
         let mut atom_trust = Vec::with_capacity(k_atoms);
         for (atom_idx, atom) in self.atoms.iter().enumerate() {
-            let mut active_token_count = 0usize;
-            let mut activation_sum = 0.0_f64;
-            for row in 0..n {
-                let mass = assignments[[row, atom_idx]];
-                activation_sum += mass;
-                if mass > active_threshold {
-                    active_token_count += 1;
-                }
-            }
+            let support = SupportMeasure::from_assignment_matrix(assignments, atom_idx)?;
+            let active_token_count = support.positive_rows().len();
             let coverage = if n > 0 {
-                active_token_count as f64 / n as f64
+                support.ess() / n as f64
             } else {
                 0.0
             };
             let activation_frequency = if n > 0 {
-                activation_sum / n as f64
+                support.mass() / n as f64
             } else {
                 0.0
             };
             let (sigma_min_tangent, sigma_max_tangent) = self
-                .atom_tangent_spectrum_from_assignments(
-                    atom_idx,
-                    assignments,
-                    &metric,
-                    active_threshold,
-                )?;
+                .atom_tangent_spectrum_from_assignments(atom_idx, &support, &metric)?;
             let tangent_condition_score = if sigma_max_tangent > 0.0 {
                 (sigma_min_tangent / sigma_max_tangent).clamp(0.0, 1.0)
             } else {
@@ -1376,6 +1503,9 @@ impl SaeManifoldTerm {
                 tangent_condition_score,
                 coverage,
                 activation_frequency,
+                support_mass: support.mass(),
+                effective_n: support.fisher_n(),
+                support_ess: support.ess(),
                 untyped: matches!(atom.basis_kind, SaeAtomBasisKind::Precomputed(_)),
                 active_token_count,
             });
@@ -1386,9 +1516,8 @@ impl SaeManifoldTerm {
     pub(crate) fn atom_tangent_spectrum_from_assignments(
         &self,
         atom_idx: usize,
-        assignments: ArrayView2<'_, f64>,
+        support: &SupportMeasure,
         metric: &gam_problem::RowMetric,
-        active_threshold: f64,
     ) -> Result<(f64, f64), String> {
         let atom = &self.atoms[atom_idx];
         let d = atom.latent_dim;
@@ -1396,12 +1525,20 @@ impl SaeManifoldTerm {
         if d == 0 || p == 0 {
             return Ok((0.0, 0.0));
         }
+        if support.len() != self.n_obs() || support.atom_idx() != atom_idx {
+            return Err(format!(
+                "atom_tangent_spectrum_from_assignments: support atom/rows ({}, {}) != ({atom_idx}, {})",
+                support.atom_idx(),
+                support.len(),
+                self.n_obs()
+            ));
+        }
         let mut gram = Array2::<f64>::zeros((d, d));
         let mut active_mass_sum = 0.0_f64;
         let mut jac_row = vec![0.0_f64; p * d];
         for row in 0..self.n_obs() {
-            let mass = assignments[[row, atom_idx]];
-            if !(mass > active_threshold) {
+            let mass = support.weight(row);
+            if !(mass > 0.0) {
                 continue;
             }
             active_mass_sum += mass;
@@ -1572,6 +1709,7 @@ impl SaeManifoldTerm {
                     | SaeAtomBasisKind::Duchon
                     | SaeAtomBasisKind::EuclideanPatch
                     | SaeAtomBasisKind::Poincare
+                    | SaeAtomBasisKind::FiniteSet
                     | SaeAtomBasisKind::Precomputed(_),
                     _,
                 ) => AtomTopology::EuclideanPatch { latent_dim: d },
@@ -1941,7 +2079,7 @@ impl SaeManifoldTerm {
         &self,
         registry: &AnalyticPenaltyRegistry,
     ) -> Result<(), String> {
-        let mut row_block_penalty_present = false;
+        let mut non_composing_row_block: Option<&str> = None;
         for penalty in &registry.penalties {
             if penalty.tier() != PenaltyTier::Psi {
                 continue;
@@ -1978,22 +2116,32 @@ impl SaeManifoldTerm {
                     penalty.name()
                 ));
             }
-            row_block_penalty_present = true;
+            // A row-block penalty that composes over heterogeneous coord dims
+            // (per-atom-additive, dim-adaptive: ScadMcp / Sparsity / native ARD /
+            // Isometry) dispatches cleanly on a mixed dictionary, so it never
+            // forces a uniform `atom_dim`. Only the fixed-`d` structural
+            // penalties (BlockOrthogonality, TopK/JumpReLU, row-precision) do.
+            if !sae_row_block_penalty_composes_over_heterogeneous_coord_dims(penalty) {
+                non_composing_row_block = Some(penalty.name());
+            }
         }
-        if row_block_penalty_present {
+        if let Some(offender) = non_composing_row_block {
             let mut dims = self.assignment.coords.iter().map(|c| c.latent_dim());
             if let Some(first) = dims.next() {
                 if let Some(mismatch) = dims.find(|d| *d != first) {
                     return Err(format!(
-                        "SAE-manifold term refuses row-block analytic penalty: \
+                        "SAE-manifold term refuses row-block analytic penalty {offender:?}: \
                          atoms have heterogeneous coord latent dims (saw {first} \
-                         and {mismatch}). Row-block penalties (ARD, \
-                         BlockOrthogonality, ...) target the unified \"t\" \
-                         latent block whose declared `d` matches one shape; \
-                         per-atom dispatch with mixed `d_k` would silently \
-                         truncate or expand axes. Configure all atoms with the \
-                         same `atom_dim`, or split the row-block penalty into \
-                         per-atom descriptors keyed to per-atom latent blocks"
+                         and {mismatch}). This penalty carries a fixed per-axis \
+                         structure bound to one shared `d` (BlockOrthogonality \
+                         reshapes to `(n_eff × d)` and groups axes; TopK/JumpReLU \
+                         hold per-axis thresholds; the row-precision priors hold a \
+                         `(n_eff × d × d)` stack), so per-atom dispatch with mixed \
+                         `d_k` would silently truncate or expand axes. Configure all \
+                         atoms with the same `atom_dim`, or drop this penalty. \
+                         (Dim-adaptive row-block penalties — ScadMcp, Sparsity, \
+                         native ARD, Isometry — compose on a mixed dictionary and \
+                         are admitted.)"
                     ));
                 }
             }
@@ -2001,31 +2149,44 @@ impl SaeManifoldTerm {
         Ok(())
     }
 
-    /// Up-front cross-check (issue #2098, SPEC-8): a heterogeneous-`d_atom`
-    /// dictionary is incompatible with any row-block "t"-block analytic penalty
-    /// (isometry / native ARD / SCAD-MCP coord sparsity / block-orthogonality).
+    /// Up-front cross-check (issue #2098, SPEC-8; F6): a heterogeneous-`d_atom`
+    /// dictionary is compatible with the *dim-adaptive* row-block "t"-block
+    /// penalties (native ARD / SCAD-MCP coord sparsity / sparsity / isometry) but
+    /// incompatible with the *fixed-`d` structural* ones (block-orthogonality,
+    /// TopK/JumpReLU, row-precision priors).
     ///
-    /// The row-block penalties target the UNIFIED "t" latent block, whose width
-    /// is a single shape shared by every atom; with heterogeneous per-atom coord
-    /// dims the arrow-Schur assembler cannot dispatch a shared-width row-block
-    /// penalty per atom without silently truncating or padding axes. The engine
-    /// self-protects here so the incompatibility surfaces as a direct, actionable
-    /// error at the FFI boundary rather than as a deep `RemlConvergenceError`
-    /// mid-REML (the failure mode [`Self::validate_analytic_penalty_registry`]
-    /// otherwise produces during `assemble_arrow_schur`).
+    /// The dim-adaptive penalties are per-atom-additive and read each atom's own
+    /// `d_k` (`ScadMcp`/`Sparsity` iterate the flat block element-wise; native
+    /// ARD sums per atom over `d_k` axes with a per-atom `log_ard[k]`; isometry
+    /// is rebuilt per atom by `corrected_isometry_penalty`), so the arrow-Schur
+    /// assembler dispatches them cleanly across mixed dims and the Laplace/REML
+    /// evidence — itself a per-atom sum — stays exact with no padding or
+    /// truncation (see
+    /// [`sae_row_block_penalty_composes_over_heterogeneous_coord_dims`]). The
+    /// structural penalties carry a fixed per-axis shape bound to one shared `d`
+    /// (reshape to `(n_eff × d)`, per-axis thresholds, a `(n_eff × d × d)`
+    /// precision stack) and cannot dispatch on mixed dims without silently
+    /// truncating or padding axes.
     ///
-    /// Two penalty sources are covered so the check cannot be bypassed:
-    /// * REGISTRY row-block penalties, detected via
-    ///   [`sae_penalty_is_row_block_supported`] on the Psi-tier descriptors; and
-    /// * NATIVE ARD, which rides the separate `native_ard_enabled` FFI flag and
-    ///   is NOT a registry descriptor, so the registry validator alone cannot
-    ///   see the heterogeneous + `ard_per_atom`-only case.
+    /// The engine self-protects here so a genuine incompatibility surfaces as a
+    /// direct, actionable error at the FFI boundary rather than as a deep
+    /// `RemlConvergenceError` mid-REML (the failure mode
+    /// [`Self::validate_analytic_penalty_registry`] otherwise produces during
+    /// `assemble_arrow_schur`).
+    ///
+    /// Native ARD rides the separate `native_ard_enabled` FFI flag rather than a
+    /// registry descriptor, but because it composes it is admitted on a mixed
+    /// dictionary; only a NON-composing REGISTRY penalty triggers the refusal.
     ///
     /// Homogeneous coord dims (including `K == 1`) always pass, as does a
-    /// heterogeneous dictionary that carries no conflicting penalty.
+    /// heterogeneous dictionary that carries only composing penalties.
     pub fn validate_heterogeneous_atom_compatibility(
         &self,
         registry: Option<&AnalyticPenaltyRegistry>,
+        // Retained for FFI signature stability and self-documentation. Post-F6 it
+        // no longer gates: native ARD composes over heterogeneous coord dims
+        // (`ard_value` is a per-atom sum over `d_k`), so it is admitted whether or
+        // not it is enabled — only a NON-composing registry penalty refuses.
         native_ard_enabled: bool,
     ) -> Result<(), String> {
         // Per-atom coord latent dims via the same accessor the registry
@@ -2038,30 +2199,50 @@ impl SaeManifoldTerm {
             // Homogeneous coord dims: every row-block penalty dispatches cleanly.
             return Ok(());
         };
-        // A registry row-block coord penalty is exactly a Psi-tier descriptor
-        // accepted by `sae_penalty_is_row_block_supported` (the same predicate
-        // `validate_analytic_penalty_registry` uses to gate the "t" row block).
-        let registry_row_block = registry.is_some_and(|reg| {
-            reg.penalties.iter().any(|penalty| {
-                penalty.tier() == PenaltyTier::Psi && sae_penalty_is_row_block_supported(penalty)
+        // Native ARD (the `native_ard_enabled` flag) composes over heterogeneous
+        // coord dims: `ard_value` sums per atom over `d_k` axes with a per-atom
+        // `log_ard[k]` of length `d_k`, so a mixed dictionary is its native shape
+        // and it never forces a uniform `atom_dim`. Only the fixed-`d` structural
+        // REGISTRY penalties do — detect them via the composability predicate.
+        let non_composing = registry.and_then(|reg| {
+            reg.penalties.iter().find(|penalty| {
+                penalty.tier() == PenaltyTier::Psi
+                    && sae_penalty_is_row_block_supported(penalty)
+                    && !sae_row_block_penalty_composes_over_heterogeneous_coord_dims(penalty)
             })
         });
-        if !(registry_row_block || native_ard_enabled) {
+        let Some(offender) = non_composing else {
             return Ok(());
-        }
+        };
         Err(format!(
-            "SAE-manifold fit refuses a row-block analytic penalty on heterogeneous \
-             atom coordinate dims (saw {first} and {mismatch}): the row-block penalties \
-             (isometry, native ARD, SCAD-MCP coord sparsity, block-orthogonality) target \
-             the unified \"t\" latent block whose declared `d` matches a single shape, so \
-             mixed per-atom coordinate dims cannot be dispatched (they would silently \
-             truncate or pad axes). Either configure a uniform atom_dim for all atoms, or \
-             disable the conflicting penalties (isometry / ard / scad-mcp / block-orthogonality)."
+            "SAE-manifold fit refuses row-block analytic penalty {:?} on heterogeneous \
+             atom coordinate dims (saw {first} and {mismatch}): this penalty carries a \
+             fixed per-axis structure bound to one shared `d` (BlockOrthogonality reshapes \
+             to `(n_eff × d)` and groups axes; TopK/JumpReLU hold per-axis thresholds; the \
+             row-precision priors hold a `(n_eff × d × d)` stack), so mixed per-atom \
+             coordinate dims cannot be dispatched (they would silently truncate or pad axes). \
+             Either configure a uniform atom_dim for all atoms, or drop this penalty. The \
+             dim-adaptive row-block penalties — SCAD-MCP, sparsity, native ARD, isometry — \
+             compose on a mixed dictionary and are admitted (native ARD enabled here: {}).",
+            offender.name(),
+            native_ard_enabled
         ))
     }
 
     pub fn output_dim(&self) -> usize {
         self.atoms[0].output_dim()
+    }
+
+    /// gam#2144 — `true` when a rank-deficient whitening metric (`metric_rank < p`)
+    /// is installed, so the assembly PSD-majorizes the IBP curvature. The
+    /// θ-adjoint / ρ-trace contractions read this to differentiate the SAME
+    /// majorized operator the evidence log-det factors. `false` (bit-identical
+    /// legacy path) for the identity metric (`rank == p`) or no metric.
+    pub(crate) fn ibp_low_rank_whiten(&self) -> bool {
+        let p = self.output_dim();
+        self.row_metric
+            .as_ref()
+            .is_some_and(|m| m.whitens_likelihood() && m.metric_rank() < p)
     }
 
     pub fn beta_dim(&self) -> usize {
@@ -3629,10 +3810,11 @@ impl SaeManifoldTerm {
     /// only accelerates/co-adapts the inner solve, it never replaces the
     /// stationary point.
     ///
-    /// Returns the number of (row, atom) coords actually warm-started (the
-    /// certified-prediction count), for instrumentation / tests. A first-build
-    /// dictionary with no usable charts simply warm-starts nothing and returns 0
-    /// (the cold path is byte-for-byte unchanged).
+    /// Returns the number of ROWS actually warm-started — rows that carried a
+    /// certified prediction AND cleared the per-row acceptance guard — for
+    /// instrumentation / tests. A first-build dictionary with no usable charts, or
+    /// an already-converged one whose seeds are all rejected, simply warm-starts
+    /// nothing and returns 0 (the inner state is left byte-for-byte unchanged).
     pub fn warm_start_latents_from_amortized_encoder(
         &mut self,
         target: ArrayView2<'_, f64>,
@@ -3645,16 +3827,42 @@ impl SaeManifoldTerm {
         }
         let amplitudes = self.fitted_assignment_amplitudes(rho)?;
         let encodes = self.amortized_encode_target(target, amplitudes.view())?;
-        let mut warm_started = 0usize;
+        let p = self.output_dim();
+        // Per-row reconstruction squared error BEFORE any seed is applied. The
+        // amortized encoder is an approximate inverse: on a not-yet-converged
+        // dictionary its certified rows accelerate the inner solve, but against an
+        // ALREADY-converged (per-row optimal) dictionary a seed can only move a
+        // coord off its optimum. Adopting such a seed would corrupt a good inner
+        // state — precisely the regression the warm-start contract forbids ("changes
+        // basin entry, not root"). So each certified seed is applied under a per-row
+        // acceptance guard: a row keeps the encoder coord only if it does not worsen
+        // that row's reconstruction. This makes the warm-start a monotone operation
+        // on the reconstruction objective (post-warm per-row SSE ≤ pre-warm), so
+        // recovery can never regress, while still adopting every seed that helps.
+        let row_sse = |fitted: &Array2<f64>, row: usize| -> f64 {
+            let mut acc = 0.0_f64;
+            for col in 0..p {
+                let r = target[[row, col]] - fitted[[row, col]];
+                acc += r * r;
+            }
+            acc
+        };
+        let pre_fitted = self.try_fitted_for_rho(rho)?;
+        let pre_sse: Vec<f64> = (0..n).map(|row| row_sse(&pre_fitted, row)).collect();
+
+        // Snapshot the pre-warm coords so a rejected row can be reverted exactly.
+        let orig_coords: Vec<Array2<f64>> = (0..k_atoms)
+            .map(|atom_idx| self.assignment.coords[atom_idx].as_matrix())
+            .collect();
+        // Tentatively apply every certified seed, then accept/reject per row.
+        let mut candidate_rows: Vec<bool> = vec![false; n];
         for atom_idx in 0..k_atoms {
             let d = self.atoms[atom_idx].latent_dim;
             if d == 0 {
                 continue;
             }
             let result = &encodes[atom_idx];
-            // Start from the atom's CURRENT coords so uncertified rows are left
-            // exactly as they were; overwrite only the certified predictions.
-            let mut coords = self.assignment.coords[atom_idx].as_matrix();
+            let mut coords = orig_coords[atom_idx].clone();
             if coords.dim() != (n, d) {
                 return Err(format!(
                     "warm_start_latents_from_amortized_encoder: atom {atom_idx} coords {:?} != (n={n}, d={d})",
@@ -3668,7 +3876,7 @@ impl SaeManifoldTerm {
                 for axis in 0..d {
                     coords[[row, axis]] = result.coords[[row, axis]];
                 }
-                warm_started += 1;
+                candidate_rows[row] = true;
             }
             // `as_matrix` lays coords out row-major (`[[row, axis]]`), exactly the
             // `values[row*d + axis]` order `set_flat` expects, so a plain
@@ -3676,9 +3884,44 @@ impl SaeManifoldTerm {
             let flat = Array1::from_iter(coords.iter().copied());
             self.assignment.coords[atom_idx].set_flat(flat.view());
         }
-        // The basis caches must follow the freshly-seeded coords so the next
-        // inner solve evaluates Φ at the warm-started t̂, not the stale coords.
+        // The basis caches must follow the freshly-seeded coords so the fit (and the
+        // acceptance check just below) evaluates Φ at the warm-started t̂.
         self.refresh_basis_from_current_coords()?;
+
+        // Reject the seed on any row that got worse, reverting ALL of that row's atom
+        // coords to the snapshot. Reconstruction couples atoms within a row, so the
+        // accept/reject decision is per row, not per (row, atom).
+        let post_fitted = self.try_fitted_for_rho(rho)?;
+        let accepted: Vec<bool> = (0..n)
+            .map(|row| candidate_rows[row] && row_sse(&post_fitted, row) <= pre_sse[row] + 1.0e-12)
+            .collect();
+        let mut reverted_any = false;
+        for atom_idx in 0..k_atoms {
+            let d = self.atoms[atom_idx].latent_dim;
+            if d == 0 {
+                continue;
+            }
+            let mut coords = self.assignment.coords[atom_idx].as_matrix();
+            let mut changed = false;
+            for row in 0..n {
+                if candidate_rows[row] && !accepted[row] {
+                    for axis in 0..d {
+                        coords[[row, axis]] = orig_coords[atom_idx][[row, axis]];
+                    }
+                    changed = true;
+                }
+            }
+            if changed {
+                let flat = Array1::from_iter(coords.iter().copied());
+                self.assignment.coords[atom_idx].set_flat(flat.view());
+                reverted_any = true;
+            }
+        }
+        if reverted_any {
+            self.refresh_basis_from_current_coords()?;
+        }
+
+        let warm_started = accepted.iter().filter(|&&a| a).count();
         Ok(warm_started)
     }
 
@@ -4563,6 +4806,42 @@ impl SaeManifoldTerm {
         )
     }
 
+    /// [`Self::reml_criterion_with_cache`] priced with the Theorem K WBIC SOFT rank
+    /// charge instead of the hard MP count — the OPT-IN unified running-complexity
+    /// ledger `Σ_k λ_k(N_eff,k)·ln N_eff,k`, `λ_k = ½·rank_soft_k·basis_edf_k`. Only
+    /// changes the value when `rank_charge_evidence` is already on (the soft coefficient
+    /// substitutes for the hard one INSIDE that branch); with the flag off it is
+    /// bit-identical to the historical path. Convenience wrapper that evaluates the
+    /// soft ledger for THIS call only, restoring the persisted `soft_rank_charge` flag
+    /// afterward (use [`Self::set_soft_rank_charge`] to make it stick across a whole
+    /// fit / its clones). Reduces to `reml_criterion_with_cache` away from the MP edge
+    /// (soft→hard) and is strictly smaller for atoms near it (soft<hard) — the finite-n
+    /// Watanabe correction.
+    pub fn reml_criterion_with_cache_soft_charge(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+        registry: Option<&AnalyticPenaltyRegistry>,
+        inner_max_iter: usize,
+        learning_rate: f64,
+        ridge_ext_coord: f64,
+        ridge_beta: f64,
+    ) -> Result<(f64, SaeManifoldLoss, ArrowFactorCache), String> {
+        let prev_soft = self.soft_rank_charge;
+        self.soft_rank_charge = true;
+        let out = self.reml_criterion_with_cache(
+            target,
+            rho,
+            registry,
+            inner_max_iter,
+            learning_rate,
+            ridge_ext_coord,
+            ridge_beta,
+        );
+        self.soft_rank_charge = prev_soft;
+        out
+    }
+
     pub(crate) fn reml_criterion_with_cache_refine_policy(
         &mut self,
         target: ArrayView2<'_, f64>,
@@ -4707,7 +4986,6 @@ impl SaeManifoldTerm {
             // invariant, so it accepts a real rank-2 circle and neutralises a
             // vanishing atom — but does NOT distinguish clean-vs-blend (producer's
             // job).
-            let n_obs = self.n_obs() as f64;
             // Noise floor R = residual dispersion φ (per-fit, noise-relative — NOT a
             // hardcoded/self-relative floor). If it cannot be computed the vanishing-
             // atom detection silently degrades (R→0 keeps rank_eff≈rank), so surface
@@ -4723,6 +5001,11 @@ impl SaeManifoldTerm {
                 }
             };
             let d_eff = self.per_atom_realised_rank_dof(rho, disp)?;
+            // Occupancy-aware effective sample size N_eff,k = Σ_i a_{ik}², the #2a
+            // per-atom BIC log-scale (same quantity `per_atom_realised_rank_dof` uses
+            // internally for the MP edge; recomputed here — a cheap Σa² — to price the
+            // charge in the same currency).
+            let n_eff = self.per_atom_effective_sample_size();
             // #5 VETO — categorical Laplace-VALIDITY condition (blend-null null-license
             // fix, recov matrix 12484591): an atom with rank_eff==0 (⟺ d_eff==0)
             // reconstructs NOTHING. Its Laplace evidence is not "small" — it is INVALID:
@@ -4738,10 +5021,56 @@ impl SaeManifoldTerm {
             // β-Schur decoder-curvature block (assemble_arrow_schur) so a vanishing β
             // doesn't drive its Schur log-det → −∞; deferred (touches the shipped Schur
             // path); the birth-gate veto here is the guard.
+            //
+            // #2b — RLCT justification (why the veto is a VALIDITY condition, not a
+            // heuristic): the null atom (truth B*=0) sits at a singularity of the model
+            // — the product form a²‖B‖² makes the Fisher information degenerate there —
+            // and singular learning theory gives it real log-canonical threshold (RLCT)
+            // λ=½: the leading zeta pole of ∫(a²‖B‖²)^s comes from the amplitude at s=½,
+            // independent of M,p,d. So the null's asymptotic evidence cost is only
+            // ½·ln n per e-fold, and NO Θ(log n) rank charge can separate a null birth
+            // from a real one AT the singular point. The categorical veto (v→+∞ when
+            // rank_eff==0) is therefore the only valid way to keep the degenerate class
+            // unbirthable; a finite penalty could not.
             if d_eff.iter().any(|&de| de == 0.0) {
                 f64::INFINITY
             } else {
-                let rank_charge: f64 = d_eff.iter().map(|&de| 0.5 * de * n_obs.ln()).sum();
+                // #2a — occupancy-aware BIC/Laplace scale. The per-atom charge is
+                // ½·d_eff,k·ln(N_eff,k), NOT ½·d_eff,k·ln(n_obs): N_eff,k = Σ_i a_{ik}²
+                // is the Fisher information a GATED atom actually accumulates, so it is
+                // the honest effective sample size for atom k's Laplace volume. Using
+                // the global n_obs over-charges atom k by ½·d_eff,k·ln(n_obs/N_eff,k)
+                // — biased worst against the sparse, selective atoms an SAE exists to
+                // find, and it manufactures a spurious asymmetry in fusion/fission.
+                // AXIOM (inert-row invariance): appending rows on which atom k's gate is
+                // OFF changes neither its likelihood nor its curvature, so it must not
+                // change atom k's charge. ln(N_eff,k) satisfies this (those rows add 0
+                // to Σa²); ln(n_obs) violates it. The ln floor at N_eff,k=1 keeps the
+                // log non-negative for a barely-occupied atom (rank_eff>0 ⇒ N_eff,k>0,
+                // and the d_eff==0 veto above already removes the empty case).
+                //
+                // Theorem K: the per-atom coefficient of ln N_eff,k is the running
+                // complexity λ_k(N_eff,k). By default it is the HARD limit ½·d_eff,k
+                // (every above-edge direction a full regular parameter). Under an opt-in
+                // `soft_rank_charge` flag it is the finite-n WBIC SOFT coefficient
+                // λ_k = ½·rank_soft_k·basis_edf_k, which reduces to ½·d_eff,k away from
+                // the MP edge (μ≫e) and shrinks toward the RLCT near it — the same veto
+                // still fires on the hard rank_eff==0 (an atom the soft count also sends
+                // to λ→0, but the categorical veto is the validity guard, not a small λ).
+                let rank_charge: f64 = if self.soft_rank_charge {
+                    let lambda = self.per_atom_soft_learning_coefficient(rho, disp)?;
+                    lambda
+                        .iter()
+                        .zip(n_eff.iter())
+                        .map(|(&lam, &ne)| lam * ne.max(1.0).ln())
+                        .sum()
+                } else {
+                    d_eff
+                        .iter()
+                        .zip(n_eff.iter())
+                        .map(|(&de, &ne)| 0.5 * de * ne.max(1.0).ln())
+                        .sum()
+                };
                 // htt_half = the coordinate-block part of ½log|H| = Σ_i Σ_j ln diag(L_i)
                 // (= ½·Σ_i log|H_tt^(i)|; `arrow_log_det_from_cache` doubles this into
                 // `log_det`). Subtracting it removes the per-row coordinate log-det.
@@ -5035,63 +5364,15 @@ impl SaeManifoldTerm {
                 .sum::<f64>()
                 + sys.gb.iter().map(|&v| v * v).sum::<f64>();
             let grad_norm = grad_norm_sq.sqrt();
-            // Quotient KKT-gradient (#1117): the raw joint gradient retains a
-            // persistent small component in the chart-gauge orbit and the
-            // rank-deficient decoder β-null even at a stationary fit, so the raw
-            // grad gate never clears on a rank-deficient circle and the inner
-            // refine loop crawls until the (large) progress budget dies — the
-            // 2-min stall. Measure the gradient on the SAME identified quotient
-            // the step gate already uses: a fit whose only remaining gradient
-            // lives in those flat directions is stationary on the quotient, so
-            // ranking the Laplace criterion there is correct. The dense per-row
-            // g_t is laid into the `n·q` coordinate layout the gauge basis spans;
-            // non-dense/heterogeneous systems fall back to the raw norm.
-            let quotient_grad_norm = {
-                let n = self.n_obs();
-                let q = self.assignment.row_block_dim();
-                let dense_len = n.saturating_mul(q);
-                let mut grad_ext_coord = Array1::<f64>::zeros(dense_len);
-                let mut dense_layout_ok = sys.rows.len() == n;
-                if dense_layout_ok {
-                    for (row_idx, row) in sys.rows.iter().enumerate() {
-                        let base = sys.row_offsets[row_idx];
-                        let di = sys.row_dims[row_idx];
-                        if base + di > dense_len || row.gt.len() < di {
-                            dense_layout_ok = false;
-                            break;
-                        }
-                        for axis in 0..di {
-                            grad_ext_coord[base + axis] = row.gt[axis];
-                        }
-                    }
-                }
-                if dense_layout_ok {
-                    self.quotient_gradient_norm_sq(
-                        grad_ext_coord.view(),
-                        sys.gb.view(),
-                        grad_norm_sq,
-                        &rho_fixed.lambda_smooth_vec(),
-                    )
-                    .map(|v| v.sqrt())
-                    .unwrap_or(grad_norm)
-                } else {
-                    grad_norm
-                }
-            };
+            let lambda_smooth = rho_fixed.lambda_smooth_vec();
+            let quotient_grad_norm =
+                self.quotient_gradient_norm_from_system(&sys, grad_norm_sq, &lambda_smooth);
             let iterate_scale = self.inner_iterate_scale();
-            // Relative parameter-step tolerance for Δ (well-conditioned charts)
-            // and a scaled KKT-gradient tolerance. Convergence is accepted on
-            // EITHER a small KKT gradient OR a small undamped Newton step: SAE
-            // manifold fits contain gauge-like coordinate/decoder directions (the
-            // circle's rotation gauge, decoder column-space rotations) where the
-            // shared-block Hessian is near-singular, so the undamped step can stay
-            // large in that flat direction even at a genuine stationary point; the
-            // gradient, which is not amplified by the inverse, recognises it. With
-            // the isometry Gauss-Newton block now a coherent PSD pullback (no
-            // indefinite Schur pivot), the inner solve reaches true stationarity,
-            // so the gradient tolerance is a standard relative KKT residual rather
-            // than the 0.1.154-regression band-aid (3e-3) that masked the
-            // non-convergence the indefinite curvature caused.
+            // Relative parameter-step tolerance for diagnostics and a scaled
+            // KKT-gradient tolerance for stationarity. Convergence is accepted
+            // only on raw or quotient gradient stationarity; the Newton step is
+            // kept in diagnostics because it can collapse along the chart gauge
+            // before the quotient residual is small.
             let step_tolerance = SAE_MANIFOLD_INNER_STEP_REL_TOL * iterate_scale;
             let grad_tolerance = SAE_MANIFOLD_INNER_GRAD_REL_TOL * iterate_scale;
             if !grad_norm_sq.is_finite() {
@@ -5231,13 +5512,10 @@ impl SaeManifoldTerm {
                     }
                 };
             // The Laplace normaliser ½log|H| is only the correct REML criterion at
-            // the inner optimum (t̂, β̂). Convergence is judged by EITHER a small
-            // gradient (KKT stationarity) OR a small undamped Newton step; the
-            // solve is only rejected as non-converged when BOTH are large, i.e.
-            // the iterate is neither stationary nor about to move negligibly. That
-            // disjunction is what keeps an ill-conditioned-but-stationary fit
-            // (small g, large Δ) from being rejected while still refusing to rank
-            // an off-optimum Laplace criterion that is genuinely mid-flight.
+            // the inner optimum (t̂, β̂). Convergence is judged only by raw or
+            // quotient KKT stationarity. The quotient Newton step is diagnostic:
+            // on K=1 near-isotropic clouds it can vanish along the chart gauge
+            // while the objective remains non-stationary.
             let step_norm_sq: f64 = delta_t.iter().map(|&v| v * v).sum::<f64>()
                 + delta_beta.iter().map(|&v| v * v).sum::<f64>();
             if !step_norm_sq.is_finite() {
@@ -5252,19 +5530,10 @@ impl SaeManifoldTerm {
                 delta_t.view(),
                 delta_beta.view(),
                 step_norm_sq,
-                &rho_fixed.lambda_smooth_vec(),
+                &lambda_smooth,
             )?;
             let quotient_step_norm = quotient_step_norm_sq.sqrt();
-            // Converge on ANY of: the raw KKT gradient (well-conditioned fit),
-            // the QUOTIENT KKT gradient (#1117 — rank-deficient fit whose only
-            // residual gradient is gauge/null flat-direction crawl), or the
-            // quotient Newton step. The quotient-gradient disjunct is what lets
-            // a rank-deficient K=1 circle terminate in budget instead of crawling
-            // the weakly-identified valley until the refine budget dies.
-            if grad_norm <= grad_tolerance
-                || quotient_grad_norm <= grad_tolerance
-                || quotient_step_norm <= step_tolerance
-            {
+            if grad_norm <= grad_tolerance || quotient_grad_norm <= grad_tolerance {
                 return Ok(cache);
             }
             let refine_limit = Self::refine_iteration_limit(
@@ -5281,10 +5550,11 @@ impl SaeManifoldTerm {
                 // (gradient / quotient-step norms and tolerances) to the caller.
                 return Err(format!(
                     "SaeManifoldTerm::reml_criterion: inner solve did not converge at fixed ρ; \
-                     neither the KKT gradient ‖g‖={grad_norm:.6e} (tol {grad_tolerance:.6e}) nor \
-                     the quotient Newton step ‖Π⊥gauge Δ‖={quotient_step_norm:.6e} \
-                     (raw ‖Δ‖={step_norm:.6e}, tol {step_tolerance:.6e}) met \
-                     tolerance after {total_inner_iter} inner iterations. Refusing to rank an \
+                     neither the KKT gradient ‖g‖={grad_norm:.6e} nor the quotient KKT gradient \
+                     ‖Π⊥gauge g‖={quotient_grad_norm:.6e} met tolerance {grad_tolerance:.6e}; \
+                     quotient Newton step ‖Π⊥gauge Δ‖={quotient_step_norm:.6e} \
+                     (raw ‖Δ‖={step_norm:.6e}, step tol {step_tolerance:.6e}) is diagnostic only \
+                     after {total_inner_iter} inner iterations. Refusing to rank an \
                      off-optimum Laplace criterion."
                 ));
             }
@@ -5347,7 +5617,30 @@ impl SaeManifoldTerm {
                 if let Ok((_dt, _db, stationary_cache)) =
                     solve_arrow_newton_step_with_options(&stationary_sys, 0.0, 0.0, options)
                 {
-                    return Ok(stationary_cache);
+                    let stationary_grad_norm_sq: f64 = stationary_sys
+                        .rows
+                        .iter()
+                        .map(|row| row.gt.iter().map(|&v| v * v).sum::<f64>())
+                        .sum::<f64>()
+                        + stationary_sys.gb.iter().map(|&v| v * v).sum::<f64>();
+                    let stationary_grad_norm = stationary_grad_norm_sq.sqrt();
+                    let stationary_quotient_grad_norm = self.quotient_gradient_norm_from_system(
+                        &stationary_sys,
+                        stationary_grad_norm_sq,
+                        &lambda_smooth,
+                    );
+                    if stationary_grad_norm <= grad_tolerance
+                        || stationary_quotient_grad_norm <= grad_tolerance
+                    {
+                        return Ok(stationary_cache);
+                    }
+                    return Err(format!(
+                        "SaeManifoldTerm::reml_criterion: objective stalled but the stalled \
+                         point is not stationary (‖g‖={stationary_grad_norm:.6e}, \
+                         ‖Π⊥gauge g‖={stationary_quotient_grad_norm:.6e}, \
+                         tol {grad_tolerance:.6e}); refusing to rank an off-optimum \
+                         Laplace criterion"
+                    ));
                 }
                 // Stagnated AND the undamped factor still fails: this is the
                 // numerical fixed point of the inner solve under rank-deficient
@@ -5821,7 +6114,6 @@ impl SaeManifoldTerm {
             // `rank_dof_from_grams` MP hard count as the dense path off the
             // chunk-accumulated Grams. The β/Schur block (the ‖B‖-independent part
             // of log_det) is untouched — bit-identical dense↔streaming by design.
-            let n_obs = self.n_obs() as f64;
             let disp = match self.reconstruction_dispersion(&loss, &converged_cache, rho) {
                 Ok(phi) => phi,
                 Err(e) => {
@@ -5841,7 +6133,29 @@ impl SaeManifoldTerm {
             if d_eff.iter().any(|&de| de == 0.0) {
                 f64::INFINITY
             } else {
-                let rank_charge: f64 = d_eff.iter().map(|&de| 0.5 * de * n_obs.ln()).sum();
+                // #2a occupancy-aware scale (see the dense `reml_criterion` for the full
+                // rationale + inert-row axiom + RLCT veto justification): charge atom k
+                // ½·d_eff,k·ln(N_eff,k), N_eff,k = Σ_i a_{ik}² (here `ri.n_eff`, the same
+                // effective sample size chunk-accumulated for the MP edge), NOT the
+                // global n_obs. Bit-identical to the dense path by design — including the
+                // Theorem K soft ledger: under the `soft_rank_charge` flag the coefficient of
+                // ln N_eff,k is the WBIC soft λ_k off the SAME `ri.grams`/`ri.n_eff` the
+                // dense path derives from `self`, so dense↔streaming stay identical.
+                let rank_charge: f64 = if self.soft_rank_charge {
+                    let lambda =
+                        self.soft_learning_coefficient_from_grams(&ri.grams, &ri.n_eff, rho, disp)?;
+                    lambda
+                        .iter()
+                        .zip(ri.n_eff.iter())
+                        .map(|(&lam, &ne)| lam * ne.max(1.0).ln())
+                        .sum()
+                } else {
+                    d_eff
+                        .iter()
+                        .zip(ri.n_eff.iter())
+                        .map(|(&de, &ne)| 0.5 * de * ne.max(1.0).ln())
+                        .sum()
+                };
                 let htt_half = 0.5 * ri.log_det_tt;
                 loss.total() + extra_penalty_energy + (0.5 * log_det - htt_half + rank_charge)
                     - occam
@@ -5919,7 +6233,7 @@ impl SaeManifoldTerm {
             // correction. The IBP cross-row term additionally needs
             // `log det(I_R + D Uᵀ H₀'⁻¹ U)`, which has no matrix-free route yet, so
             // it keeps refusing (loudly, pointing at the dense resident path).
-            if ibp_assignment_third_channels(&self.assignment, rho)?.is_some() {
+            if ibp_assignment_third_channels(&self.assignment, rho, false)?.is_some() {
                 return Err(format!(
                     "SaeManifoldTerm::streaming_exact_arrow_log_det: predicted dense reduced Schur \
                      {} bytes exceeds budget {} bytes and the exact cross-row IBP Woodbury evidence \
@@ -5950,7 +6264,9 @@ impl SaeManifoldTerm {
                 full_chunk.accumulate_decoder_gram(&mut ri.grams);
                 let asg = full_chunk.assignment.assignments();
                 for k in 0..ri.n_eff.len() {
-                    ri.n_eff[k] += asg.column(k).iter().map(|&a| a * a).sum::<f64>();
+                    let support = SupportMeasure::from_assignment_matrix(asg.view(), k)
+                        .expect("streaming full-rank chunk assignment shape must match atoms");
+                    ri.n_eff[k] += support.fisher_n();
                 }
             }
             // Full penalty (`penalty_scale = 1.0`): one chunk carries the whole
@@ -6036,7 +6352,9 @@ impl SaeManifoldTerm {
                 chunk.accumulate_decoder_gram(&mut ri.grams);
                 let asg = chunk.assignment.assignments();
                 for k in 0..ri.n_eff.len() {
-                    ri.n_eff[k] += asg.column(k).iter().map(|&a| a * a).sum::<f64>();
+                    let support = SupportMeasure::from_assignment_matrix(asg.view(), k)
+                        .expect("streaming chunk assignment shape must match atoms");
+                    ri.n_eff[k] += support.fisher_n();
                 }
             }
             let z_chunk = target.slice(s![start..end, ..]);
@@ -6380,7 +6698,7 @@ impl SaeManifoldTerm {
             }
             return Ok(0.5 * trace);
         }
-        let hdiag = assignment_prior_log_strength_hdiag(&self.assignment, rho)?;
+        let mut hdiag = assignment_prior_log_strength_hdiag(&self.assignment, rho)?;
         if hdiag.is_empty() {
             return Ok(0.0);
         }
@@ -6427,7 +6745,9 @@ impl SaeManifoldTerm {
         // un-downdated full block. For non-IBP modes `ibp_assignment_third_channels`
         // returns `None`, there is no Woodbury source, and `self_curv` is
         // identically 0 (the deflated block IS the full block).
-        let cross_channels = ibp_assignment_third_channels(&self.assignment, rho)?;
+        // RAW channels: the `w·s·c` diagonal split needs the un-clamped `w·s'`, so
+        // build raw and apply the gam#2144 majorization here.
+        let mut cross_channels = ibp_assignment_third_channels(&self.assignment, rho, false)?;
         let learnable_alpha = matches!(
             self.assignment.mode,
             AssignmentMode::IBPMap {
@@ -6435,6 +6755,31 @@ impl SaeManifoldTerm {
                 ..
             }
         );
+        // gam#2144: under low-rank whitening the assembled `H` carries the
+        // PSD-majorized IBP curvature (`ibp_psd_majorized_hdiag` + clamped Woodbury
+        // `d`). Differentiate the SAME operator: overwrite the per-slot diagonal
+        // with its majorizer and clamp the rank-one coefficient (`cross_row_d`, and
+        // its learnable-α derivative) to `max(·,0)`. `self_curv`, the diagonal
+        // trace, and the cross-row off-diagonal pass all read these, so the whole
+        // ρ-trace stays on the majorized operator. No-op (bit-identical) otherwise.
+        if self.ibp_low_rank_whiten() {
+            if let Some(ch) = cross_channels.as_mut() {
+                for row in 0..self.n_obs() {
+                    for atom in 0..k_atoms {
+                        let slot = row * k_atoms + atom;
+                        hdiag[slot] = super::construction_arrow_schur_assembly::ibp_psd_majorized_hdiag(
+                            ch, row, k_atoms, atom, hdiag[slot],
+                        );
+                    }
+                }
+                for k in 0..k_atoms {
+                    if ch.cross_row_d[k] < 0.0 {
+                        ch.cross_row_d[k] = 0.0;
+                        ch.cross_row_d_logalpha[k] = 0.0;
+                    }
+                }
+            }
+        }
         let self_curv = |row: usize, atom: usize| -> f64 {
             let Some(ch) = cross_channels.as_ref() else {
                 return 0.0;
@@ -6782,6 +7127,24 @@ impl SaeManifoldTerm {
         acc
     }
 
+    fn deflated_unit_stiffening_contraction(d_mat: &Array2<f64>, dirs: &[Array1<f64>]) -> f64 {
+        let q = d_mat.nrows();
+        let mut acc = 0.0_f64;
+        for v in dirs {
+            for a in 0..q {
+                let va = if a < v.len() { v[a] } else { 0.0 };
+                if va == 0.0 {
+                    continue;
+                }
+                for b in 0..q {
+                    let vb = if b < v.len() { v[b] } else { 0.0 };
+                    acc += va * vb * d_mat[[a, b]];
+                }
+            }
+        }
+        acc
+    }
+
     /// #1417: exact `½ tr(H⁻¹ ∂H_data/∂logα)` for LEARNABLE IBP alpha.
     ///
     /// The forward assignment is `a_ik = σ(ℓ_ik/τ)·π_k(α)` with the #614
@@ -6886,9 +7249,12 @@ impl SaeManifoldTerm {
                     &mut jet_window,
                 )?;
             }
-            let jets = jet_window
+            let mut jets = jet_window
                 .pop_front()
                 .expect("jet window must be non-empty");
+            if self.ibp_low_rank_whiten() {
+                self.whiten_logdet_row_jets_for_low_rank_metric(row, &mut jets)?;
+            }
             // Atom index (k-weight) of each local t-var.
             let var_atom: Vec<usize> = jets
                 .vars
@@ -7482,6 +7848,78 @@ impl SaeManifoldTerm {
         Ok(SaeArrowVector { t, beta })
     }
 
+    fn whiten_logdet_metric_vec(
+        metric: &gam_problem::RowMetric,
+        row: usize,
+        p: usize,
+        values: &mut Vec<f64>,
+    ) -> Result<(), String> {
+        if values.len() != p {
+            return Err(format!(
+                "logdet_theta_adjoint: row jet channel length {} != output dim {p}",
+                values.len()
+            ));
+        }
+        let rank = metric.metric_rank();
+        let mut whitened = vec![0.0_f64; rank];
+        for rank_col in 0..rank {
+            let mut acc = 0.0_f64;
+            for out_col in 0..p {
+                acc += metric.factor_entry(row, out_col, rank_col) * values[out_col];
+            }
+            whitened[rank_col] = acc;
+        }
+        *values = whitened;
+        Ok(())
+    }
+
+    fn whiten_logdet_row_jets_for_low_rank_metric(
+        &self,
+        row: usize,
+        jets: &mut SaeRowJets,
+    ) -> Result<(), String> {
+        let metric = self
+            .row_metric
+            .as_ref()
+            .ok_or_else(|| "logdet_theta_adjoint: low-rank whitening metric absent".to_string())?;
+        let p = self.output_dim();
+        for first in jets.first.iter_mut() {
+            Self::whiten_logdet_metric_vec(metric, row, p, first)?;
+        }
+        for second_row in jets.second.iter_mut() {
+            for second in second_row.iter_mut() {
+                Self::whiten_logdet_metric_vec(metric, row, p, second)?;
+            }
+        }
+        for beta in jets.beta.iter_mut() {
+            Self::whiten_logdet_metric_vec(metric, row, p, beta)?;
+        }
+        for beta_deriv_row in jets.beta_deriv.iter_mut() {
+            for beta_deriv in beta_deriv_row.iter_mut() {
+                Self::whiten_logdet_metric_vec(metric, row, p, beta_deriv)?;
+            }
+        }
+        for beta_l_deriv_row in jets.beta_l_deriv.iter_mut() {
+            for beta_l_deriv in beta_l_deriv_row.iter_mut() {
+                Self::whiten_logdet_metric_vec(metric, row, p, beta_l_deriv)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn softmax_data_weight_product_logit_factor(
+        assignments: &[f64],
+        atom_a: usize,
+        atom_b: usize,
+        atom_w: usize,
+        inv_tau: f64,
+    ) -> f64 {
+        let a_w = assignments[atom_w];
+        let left = if atom_w == atom_a { 1.0 } else { 0.0 } - a_w;
+        let right = if atom_w == atom_b { 1.0 } else { 0.0 } - a_w;
+        (left + right) * inv_tau
+    }
+
     pub(crate) fn logdet_theta_adjoint(
         &self,
         rho: &SaeManifoldRho,
@@ -7543,7 +7981,14 @@ impl SaeManifoldTerm {
         // `logit_curvature`) contracts the `∂/∂ℓ_w (d_k·J_ik·J_jk)` rank-one
         // derivative — so value, logdet, ρ-trace, and θ-adjoint all differentiate
         // the one operator `H = H₀ + Σ_k d_k u_k u_kᵀ`.
-        let ibp_channels = ibp_assignment_third_channels(&self.assignment, rho)?;
+        // gam#2144: under a low-rank whitening metric the assembly PSD-majorizes
+        // the IBP curvature, so the θ-adjoint must differentiate the MAJORIZED
+        // channels (clamped `cross_row_d`, gated `cross_row_dd`/`m_channel`/
+        // `local_logit_third`) and the majorized diagonal — else the outer-REML
+        // gradient desyncs from the majorized evidence log-det. Bit-identical
+        // (`false`) on the identity/no-metric path.
+        let majorize_ibp = self.ibp_low_rank_whiten();
+        let ibp_channels = ibp_assignment_third_channels(&self.assignment, rho, majorize_ibp)?;
         let k_atoms = self.k_atoms();
         // #1038 softmax entropy: the dense per-row entropy Hessian written into
         // `block.htt` has off-diagonal logit terms whose θ-derivative the adjoint
@@ -7572,9 +8017,18 @@ impl SaeManifoldTerm {
             }
             _ => None,
         };
-        // Per active logit position: (row i, column k, global t-index,
-        // (H⁻¹)_ik,ik) — the inputs to the IBP cross-row empirical-`M_k` channel.
-        let mut ibp_logit_sites: Vec<(usize, usize, usize, f64)> = Vec::new();
+        // Per active logit site: row, atom, global t-index, raw selected-inverse
+        // diagonal. The raw diagonal drives the empirical-M contraction and the
+        // cross-row Woodbury self-subtraction. Daleckii-Krein row-deflation
+        // corrections are applied only in the row-local `dh_mat` contractions.
+        #[derive(Clone, Copy)]
+        struct IbpLogitSite {
+            row: usize,
+            atom: usize,
+            t_index: usize,
+            raw_diag: f64,
+        }
+        let mut ibp_logit_sites: Vec<IbpLogitSite> = Vec::new();
 
         // #1557 — reuse one K-sized scratch row across all N rows (alias-free).
         let mut assignments = Array1::<f64>::zeros(self.k_atoms());
@@ -7603,9 +8057,12 @@ impl SaeManifoldTerm {
                     &mut jet_window,
                 )?;
             }
-            let jets = jet_window
+            let mut jets = jet_window
                 .pop_front()
                 .expect("jet window must be non-empty");
+            if majorize_ibp {
+                self.whiten_logdet_row_jets_for_low_rank_metric(row, &mut jets)?;
+            }
 
             // #932 FRONT C: row-local Takahashi on the plain arrow; per-row
             // full-system `solve` loop under gauge / cross-row Woodbury.
@@ -7634,12 +8091,18 @@ impl SaeManifoldTerm {
                 (inv_vv, inv_vbeta)
             };
 
-            // Record each active logit's column, global t-index, and
-            // selected-inverse diagonal (H⁻¹)_ik,ik for the IBP cross-row pass.
+            // Record each active logit's column, global t-index, and raw
+            // selected-inverse diagonal for the IBP cross-row passes.
             if ibp_channels.is_some() {
                 for (pos, var) in jets.vars.iter().enumerate() {
                     if let SaeLocalRowVar::Logit { atom } = *var {
-                        ibp_logit_sites.push((row, atom, base + pos, inv_vv[[pos, pos]]));
+                        let raw_diag = inv_vv[[pos, pos]];
+                        ibp_logit_sites.push(IbpLogitSite {
+                            row,
+                            atom,
+                            t_index: base + pos,
+                            raw_diag,
+                        });
                     }
                 }
             }
@@ -7693,6 +8156,24 @@ impl SaeManifoldTerm {
                 .deflation_row_spectra
                 .get(row)
                 .and_then(Option::as_ref);
+            let softmax_kept_inv_vv = if !defl_dirs.is_empty() && softmax_adjoint_row.is_some() {
+                let mut kept = inv_vv.clone();
+                for v in defl_dirs {
+                    for a in 0..q {
+                        let va = if a < v.len() { v[a] } else { 0.0 };
+                        if va == 0.0 {
+                            continue;
+                        }
+                        for b in 0..q {
+                            let vb = if b < v.len() { v[b] } else { 0.0 };
+                            kept[[a, b]] -= va * vb;
+                        }
+                    }
+                }
+                Some(kept)
+            } else {
+                None
+            };
             for w in 0..q {
                 let mut gamma = 0.0_f64;
                 // The active logit `w` differentiates against; `None` unless this
@@ -7704,11 +8185,26 @@ impl SaeManifoldTerm {
                         }
                         _ => None,
                     };
-                let mut dh_mat = Array2::<f64>::zeros((q, q));
+                let mut deflated_base_dh_mat = Array2::<f64>::zeros((q, q));
                 for a in 0..q {
                     for b in 0..q {
-                        let mut dh = sae_dot(&jets.second[a][w], &jets.first[b])
-                            + sae_dot(&jets.first[a], &jets.second[b][w]);
+                        let mut dh = match (softmax_d_dw, jets.vars[a], jets.vars[b]) {
+                            (
+                                Some((a_soft, _m, _scale, inv_tau, atom_w)),
+                                SaeLocalRowVar::Coord { atom: atom_a, .. },
+                                SaeLocalRowVar::Coord { atom: atom_b, .. },
+                            ) => {
+                                let h_ab = sae_dot(&jets.first[a], &jets.first[b]);
+                                h_ab
+                                    * Self::softmax_data_weight_product_logit_factor(
+                                        a_soft, atom_a, atom_b, atom_w, inv_tau,
+                                    )
+                            }
+                            _ => {
+                                sae_dot(&jets.second[a][w], &jets.first[b])
+                                    + sae_dot(&jets.first[a], &jets.second[b][w])
+                            }
+                        };
                         // `∂D/∂z_w` is diagonal, so it contributes only when the two
                         // logit slots are the SAME atom (`atom_a == atom_b`).
                         if let (
@@ -7739,17 +8235,81 @@ impl SaeManifoldTerm {
                                 _ => 0.0,
                             };
                         }
-                        dh_mat[[a, b]] = dh;
-                        gamma += inv_vv[[b, a]] * dh;
+                        let mut deflated_base_dh = dh;
+                        // #2144: the row factor that spectral deflation conditions is
+                        // the IBP no-self base `H0'`, because
+                        // `solve_arrow_newton_step_with_options` downdates the
+                        // row-local `d_k J_ik^2` self curvature before factoring and
+                        // re-adds the full rank-one column through Woodbury. The trace
+                        // above still contracts the derivative of the full diagonal
+                        // against the full selected inverse; only the Daleckii-Krein
+                        // deflation-map correction must see the derivative of the
+                        // actually deflated row block. Therefore remove just the
+                        // direct-local derivative of the downdated IBP self term from
+                        // the matrix passed to `deflation_block_correction`. The
+                        // empirical-M and off-row Woodbury channels remain in their
+                        // existing passes.
+                        if let (
+                            Some(channels),
+                            SaeLocalRowVar::Logit { atom: diag_atom },
+                            SaeLocalRowVar::Logit { atom: wrt_atom },
+                        ) = (ibp_channels.as_ref(), jets.vars[a], jets.vars[w])
+                        {
+                            if a == b && diag_atom == wrt_atom {
+                                let idx = row * k_atoms + diag_atom;
+                                deflated_base_dh -= 2.0
+                                    * channels.cross_row_d[diag_atom]
+                                    * channels.z_jac[idx]
+                                    * channels.logit_curvature[idx];
+                            }
+                        }
+                        deflated_base_dh_mat[[a, b]] = deflated_base_dh;
+                        // gam#2156: softmax-logit traces differentiate the same
+                        // undamped evidence operator exposed by
+                        // `ArrowFactorCache::arrow_log_det` and
+                        // `arrow_log_det_from_cache`. For deflated rows, contract
+                        // the softmax logit t-t derivative against the kept
+                        // selected inverse `(H⁻¹)_tt - Σ_i v_i v_iᵀ`; the
+                        // Daleckii-Krein correction below then supplies the
+                        // remaining `DΦ` rotation term. Non-deflated rows keep the
+                        // exact old contraction path.
+                        let inv_entry = if let (Some(kept), Some(_)) =
+                            (softmax_kept_inv_vv.as_ref(), softmax_d_dw)
+                        {
+                            kept[[b, a]]
+                        } else {
+                            inv_vv[[b, a]]
+                        };
+                        gamma += inv_entry * dh;
                     }
                 }
                 if !defl_dirs.is_empty() {
-                    gamma -= Self::deflation_block_correction(
-                        &inv_vv,
-                        &dh_mat,
-                        defl_dirs,
-                        defl_spectrum,
-                    );
+                    // Low-rank IBP metric channels already arrive as the symmetric
+                    // Daleckii-Krein derivative of the metric block. Applying the
+                    // generic row-deflation correction here patches the same
+                    // active-null pairs a second time.
+                    if !majorize_ibp {
+                        let correction = Self::deflation_block_correction(
+                            &inv_vv,
+                            &deflated_base_dh_mat,
+                            defl_dirs,
+                            defl_spectrum,
+                        );
+                        if softmax_d_dw.is_some() {
+                            // The direct softmax-logit contraction above already
+                            // removed the unit-stiffening block `Σ_i v_i v_iᵀ`.
+                            // Subtract only the residual DK deflation-map term:
+                            // `tr(inv_vv·(D-DΦ[D])) - Σ_i v_iᵀDv_i`, i.e. the
+                            // z-derivative/rotation of the deflation map.
+                            gamma -= correction
+                                - Self::deflated_unit_stiffening_contraction(
+                                    &deflated_base_dh_mat,
+                                    defl_dirs,
+                                );
+                        } else {
+                            gamma -= correction;
+                        }
+                    }
                 }
                 for a in 0..q {
                     for (beta_pos, channel) in border.iter().enumerate() {
@@ -7803,17 +8363,24 @@ impl SaeManifoldTerm {
         // tr(H⁻¹ ∂H/∂ℓ_wk) on that shared branch:
         //   Γ_wk += [ Σ_i (H⁻¹)_ik,ik · ∂_M H_ik ] · J_wk = C_k · J_wk,
         // where ∂_M H_ik = `m_channel[i*K+k]` and J_wk = `z_jac[w*K+k]`. The
-        // row-local direct-`z` channel was already added inline above, so this
-        // pass adds only the cross-row remainder (it spans `w ≠ i` and the
-        // self-row M_k self-coupling, which the row-local primitive deliberately
-        // omits to avoid double-counting).
+        // row-local direct-`z` channel was already added inline above; this pass
+        // owns the empirical-mass branch, with the Daleckii-Krein subtraction below
+        // restricted to the Woodbury-downdated no-self base.
         if let Some(channels) = ibp_channels.as_ref() {
+            // gam#2144: contract the empirical-M diagonal channel against the raw
+            // selected-inverse diagonal only. The row-local `dh_mat` pass has already
+            // applied the Daleckii-Krein derivative of the deflated row block; adding
+            // another per-slot DK patch here counts the active-null cross pairs a
+            // second time. The Woodbury pass below owns the rank-one off-row
+            // derivative.
             let mut col_coeff = vec![0.0_f64; k_atoms];
-            for &(row, atom, _t_index, inv_diag) in &ibp_logit_sites {
-                col_coeff[atom] += inv_diag * channels.m_channel[row * k_atoms + atom];
+            for site in &ibp_logit_sites {
+                let idx = site.row * k_atoms + site.atom;
+                col_coeff[site.atom] += site.raw_diag * channels.m_channel[idx];
             }
-            for &(row, atom, t_index, _inv_diag) in &ibp_logit_sites {
-                gamma_t[t_index] += col_coeff[atom] * channels.z_jac[row * k_atoms + atom];
+            for site in &ibp_logit_sites {
+                let idx = site.row * k_atoms + site.atom;
+                gamma_t[site.t_index] += col_coeff[site.atom] * channels.z_jac[idx];
             }
 
             // #1416 / #1641: the EXACT cross-row Woodbury derivative of Γ. The
@@ -7875,9 +8442,13 @@ impl SaeManifoldTerm {
             // with `uᵀGu = Σ_i J_ik·(Gu)_i`, `(Gu) = x_k = H⁻¹ u_k` from one solve,
             // and `G_ii` the per-site selected-inverse diagonal.
             let total_t = cache.delta_t_len();
+            // The Woodbury pass reconstructs the off-diagonal `(H⁻¹)_ij` from the
+            // deflated solve `x_k = H⁻¹ u_k` and subtracts the `i=j` self term; the
+            // self term must use the RAW deflated diagonal (matching `x_k`), NOT the
+            // Daleckii–Krein-corrected diagonal the `M_k` pass uses.
             let mut col_sites: Vec<Vec<(usize, usize, f64)>> = vec![Vec::new(); k_atoms];
-            for &(row, atom, t_index, inv_diag) in &ibp_logit_sites {
-                col_sites[atom].push((row, t_index, inv_diag));
+            for site in &ibp_logit_sites {
+                col_sites[site.atom].push((site.row, site.t_index, site.raw_diag));
             }
             // Hoisted RHS scratch: fill only this column's active slots, solve,
             // then clear exactly those slots — no per-column total_t zeroing.

@@ -419,8 +419,25 @@ def add_statistics(
 
         def _resolve_season_filter(season_num):
             """Pick the hvstat season_name for a given CID season number."""
-            # Per-country override: Kenya Maize hvstat uses "Annual" rows;
-            # Long/Short are not the canonical season labels for that crop.
+            # Per-country config override: [<country>] hvstat_season_override
+            # in countries.txt. Value is a single season_name that MUST exist
+            # in the hvstat file (e.g., "Annual", "Long", "Short", "Meher"...).
+            # If unset or the given name isn't in available_seasons, falls
+            # through to the legacy hardcoded / PRIMARY/SECONDARY_SEASON_NAMES
+            # resolution. Applies to every CID Season (both s=1 and s=2 use
+            # the same override — one override per country/crop for now).
+            if parser is not None:
+                country_key = country.lower().replace(" ", "_")
+                if parser.has_option(country_key, "hvstat_season_override"):
+                    override = parser.get(country_key, "hvstat_season_override").strip()
+                    if override in available_seasons:
+                        return [override]
+                    # else: fall through with a note the value didn't match.
+                    # (No warning here — logged once by add_statistics caller.)
+
+            # Legacy hardcoded fallback for Kenya Maize (retained so runs with
+            # no override key keep their previous behavior). Prefer the config
+            # override above for any new deployment.
             if country == "Kenya" and crop == "Maize" and "Annual" in available_seasons:
                 return ["Annual"]
             if season_num == 1:

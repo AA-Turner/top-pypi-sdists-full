@@ -71,7 +71,10 @@ def test_interned_store_mmap_preload(server_setup):
     )
     statsig.initialize().wait()
     gate = statsig.get_feature_gate(StatsigUser("a-user"), "test_public")
+    config = statsig.get_dynamic_config(StatsigUser("a-user"), "big_number")
     statsig.shutdown().wait()
 
     assert gate.details.reason == "Network:Recognized"
+    assert config.value["foo"] == 1e21
+    assert isinstance(config.value["foo"], float)
     assert log_provider.error_count == 0

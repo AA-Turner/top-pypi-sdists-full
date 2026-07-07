@@ -36,11 +36,31 @@ def normalize_url(url: bytes | str | None) -> str | None:
     # If the URL is not a string, return None
     if isinstance(parsed, ParseResultBytes):
         return None
-    if "[" not in parsed.netloc and parsed.netloc.count(":") > 1:
-        net_location = parsed.netloc.split(":", 3)
-        net_location.pop()
-        return urlunparse(parsed._replace(netloc=":".join(net_location)))
+    # Split off any ``user:pass@`` userinfo so its colon is not mistaken for a
+    # duplicated-port colon -- otherwise a valid ``user:pass@host:port`` URL
+    # would lose its port (e.g. snapshot URIs that embed credentials).
+    userinfo, sep, hostport = parsed.netloc.rpartition("@")
+    if "[" not in hostport and hostport.count(":") > 1:
+        host_parts = hostport.split(":")
+        host_parts.pop()
+        new_hostport = ":".join(host_parts)
+        return urlunparse(parsed._replace(netloc=f"{userinfo}{sep}{new_hostport}"))
     return url
+
+
+def bracket_host(host: str) -> str:
+    """Wrap a bare IPv6 literal in brackets for safe use in a URL netloc.
+
+    Hostnames, IPv4 addresses, and already-bracketed IPv6 literals are returned
+    unchanged. A bare IPv6 literal (it contains two or more ``:``) must be
+    bracketed before a ``:port`` suffix is appended, otherwise ``urlparse``
+    cannot tell the address colons from the port separator and rejects the URL.
+    A single colon signals a non-IPv6 value such as ``host:port`` or a
+    scheme-prefixed host, which is left untouched.
+    """
+    if host.startswith("[") or host.count(":") < 2:
+        return host
+    return f"[{host}]"
 
 
 def replace_host_port(url: str | None, host: str, port: int) -> str | None:
@@ -63,13 +83,7 @@ def replace_host_port(url: str | None, host: str, port: int) -> str | None:
     parsed = urlparse(url)
     if isinstance(parsed, ParseResultBytes):
         return url
-    if host.startswith("["):
-        bracketed = host
-    elif ":" in host:
-        bracketed = f"[{host}]"
-    else:
-        bracketed = host
-    return urlunparse(parsed._replace(netloc=f"{bracketed}:{port}"))
+    return urlunparse(parsed._replace(netloc=f"{bracket_host(host)}:{port}"))
 
 
 def extract_subcodes_as_strings(subcodes: Any) -> list[str]:

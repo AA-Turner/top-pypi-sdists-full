@@ -128,6 +128,7 @@ class AthenaSourceImpl(BaseSQLSource):
         engine_args: Dict[str, Any] | None = None,
         executor: Optional[concurrent.futures.ThreadPoolExecutor] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
+        permission_tags: list[str] | None = None,
     ):
         try:
             import pyathena
@@ -175,7 +176,9 @@ class AthenaSourceImpl(BaseSQLSource):
         engine_args.setdefault("max_overflow", 60)
         engine_args.setdefault("connect_args", {"s3_staging_dir": s3_staging_dir})
 
-        BaseSQLSource.__init__(self, name=name, engine_args=engine_args, async_engine_args={})
+        BaseSQLSource.__init__(
+            self, name=name, engine_args=engine_args, async_engine_args={}, permission_tags=permission_tags
+        )
 
     def _pyathena_connection(self) -> AthenaConnection:
         try:
@@ -1170,7 +1173,7 @@ class AthenaSourceImpl(BaseSQLSource):
 
         # Wrap the original query in a subquery
         wrapped_sql = f"""
-SELECT {', '.join(select_items)}
+SELECT {", ".join(select_items)}
 FROM (
 {sql}
 ) AS _chalk_timestamp_cast_subquery

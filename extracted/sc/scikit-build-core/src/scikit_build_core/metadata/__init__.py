@@ -2,11 +2,20 @@ from __future__ import annotations
 
 import typing
 
-if typing.TYPE_CHECKING:
-    from collections.abc import Callable
+TYPE_CHECKING = False
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
+    from typing import Any
 
 
-__all__: list[str] = ["_ALL_FIELDS", "_process_dynamic_metadata"]
+__all__: list[str] = [
+    "_ALL_FIELDS",
+    "_EXTENDABLE_FIELDS",
+    "_SCALAR_FIELDS",
+    "_process_dynamic_metadata",
+    "_require_field",
+]
 
 
 # Name is not dynamically settable, so not in this list
@@ -44,6 +53,10 @@ _LIST_DICT_FIELDS = frozenset(
     ]
 )
 
+# Single-value fields: a later entry replaces the value rather than extending
+# it, and PEP 808 forbids giving them both statically and dynamically.
+_SCALAR_FIELDS = _STR_FIELDS | frozenset(["readme"])
+
 # "dynamic" and "name" can't be set or requested
 _ALL_FIELDS = (
     _STR_FIELDS
@@ -59,10 +72,35 @@ _ALL_FIELDS = (
     )
 )
 
+# Fields PEP 808 allows to be given statically in [project] *and* listed in
+# dynamic, so a provider may add to the static portion: everything except the
+# scalar fields, which hold a single value and so cannot be extended.
+_EXTENDABLE_FIELDS = _ALL_FIELDS - _SCALAR_FIELDS
+
 T = typing.TypeVar(
     "T",
     bound="str | list[str] | list[dict[str, str]] | dict[str, str] | dict[str, list[str]] | dict[str, dict[str, str]]",
 )
+
+
+def _require_field(
+    settings: Mapping[str, Any], *, default: str | None = None
+) -> tuple[str, dict[str, Any]]:
+    """Split the target ``field`` out of new-style (0.3) plugin settings.
+
+    The ``[[tool.dynamic-metadata]]`` table has no field key of its own, so a
+    single-value plugin names its target through a ``field`` setting. Returns the
+    field name and the remaining settings (``field`` removed) to forward to the
+    bundled legacy hook. ``default`` supplies the field for a fixed-target plugin
+    (e.g. ``setuptools_scm`` only sets ``version``).
+    """
+    field: Any = settings.get("field", default)
+    if not isinstance(field, str):
+        # Usually a *missing* setting (None), not a wrong type, so not TypeError.
+        msg = "This plugin requires a 'field' setting naming the target field"
+        raise RuntimeError(msg)  # noqa: TRY004
+    rest = {k: v for k, v in settings.items() if k != "field"}
+    return field, rest
 
 
 def _process_dynamic_metadata(field: str, action: Callable[[str], str], result: T) -> T:
@@ -89,11 +127,11 @@ def _process_dynamic_metadata(field: str, action: Callable[[str], str], result: 
         return {action(k): action(v) for k, v in result.items()}  # type: ignore[arg-type, return-value]
     if field in _LIST_DICT_FIELDS:
         if not isinstance(result, list) or not all(
-            isinstance(k, str) and isinstance(v, str)
+            isinstance(d, dict)
+            and all(isinstance(k, str) and isinstance(v, str) for k, v in d.items())  # type: ignore[redundant-expr]
             for d in result
-            for k, v in d.items()  # type: ignore[union-attr]
         ):
-            msg = f"Field {field!r} must be a dictionary of strings"
+            msg = f"Field {field!r} must be a list of dictionaries of strings"
             raise RuntimeError(msg)
         return [{k: action(v) for k, v in d.items()} for d in result]  # type: ignore[union-attr, return-value]
     if field == "entry-points":
@@ -110,9 +148,12 @@ def _process_dynamic_metadata(field: str, action: Callable[[str], str], result: 
         }  # type: ignore[return-value]
     if field == "optional-dependencies":
         if not isinstance(result, dict) or not all(
-            isinstance(v, list) for v in result.values()
+            isinstance(v, list) and all(isinstance(r, str) for r in v)
+            for v in result.values()
         ):
-            msg = "Field 'optional-dependencies' must be a dictionary of lists"
+            msg = (
+                "Field 'optional-dependencies' must be a dictionary of lists of strings"
+            )
             raise RuntimeError(msg)
         return {k: [action(r) for r in v] for k, v in result.items()}  # type: ignore[return-value]
 

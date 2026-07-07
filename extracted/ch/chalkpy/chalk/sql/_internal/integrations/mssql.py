@@ -43,6 +43,7 @@ class MSSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIngestP
         engine_args: Optional[Dict[str, Any]] = None,
         async_engine_args: Optional[Dict[str, Any]] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
+        permission_tags: list[str] | None = None,
     ):
         try:
             import pyodbc
@@ -115,7 +116,13 @@ class MSSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIngestP
         engine_args.setdefault("isolation_level", os.environ.get("CHALK_SQL_ISOLATION_LEVEL", "AUTOCOMMIT"))
         async_engine_args.setdefault("isolation_level", os.environ.get("CHALK_SQL_ISOLATION_LEVEL", "AUTOCOMMIT"))
 
-        BaseSQLSource.__init__(self, name=name, engine_args=engine_args, async_engine_args=async_engine_args)
+        BaseSQLSource.__init__(
+            self,
+            name=name,
+            engine_args=engine_args,
+            async_engine_args=async_engine_args,
+            permission_tags=permission_tags,
+        )
 
         # Register event listener for managed identity token injection
         if not self.client_id and not self.user:

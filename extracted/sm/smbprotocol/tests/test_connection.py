@@ -987,7 +987,11 @@ class TestConnection:
             assert len(connection.salt) == 32
             assert connection.sequence_window["low"] == 1
             assert connection.sequence_window["high"] == 2
-            assert connection.client_security_mode == SecurityMode.SMB2_NEGOTIATE_SIGNING_ENABLED
+            assert (
+                connection.client_security_mode == SecurityMode.SMB2_NEGOTIATE_SIGNING_REQUIRED
+                if connection.server_security_mode & SecurityMode.SMB2_NEGOTIATE_SIGNING_REQUIRED
+                else SecurityMode.SMB2_NEGOTIATE_SIGNING_ENABLED
+            )
             assert connection.supports_encryption
 
             if connection.server_security_mode & SecurityMode.SMB2_NEGOTIATE_SIGNING_REQUIRED:
@@ -1109,6 +1113,16 @@ class TestConnection:
         # Second timeout: close connection
         assert mock_disconnect.call_count == 1
         with pytest.raises(SMBConnectionClosed):
+            connection.receive(None)
+
+    def test_receive_from_worker_thread_raises(self, mocker):
+        # receive() on the worker thread would wait for an event only the worker can set.
+        connection = Connection(uuid.uuid4(), "server", 445, True)
+        fake_worker = mocker.MagicMock()
+        fake_worker.ident = threading.get_ident()
+        connection._t_worker = fake_worker
+
+        with pytest.raises(SMBException, match="self-deadlock"):
             connection.receive(None)
 
     def test_verify_fail_no_session(self, smb_real):

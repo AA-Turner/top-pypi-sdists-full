@@ -1,39 +1,121 @@
+use arc_swap::ArcSwap;
 use chrono::Utc;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, MutexGuard};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
+use std::time::Instant;
 
 use crate::data_store_interface::{DataStoreCacheKeys, DataStoreTrait, RequestPath};
 use crate::evaluation::evaluator::SpecType;
+use crate::gcir::evaluation_plan::GcirEvaluationPlan;
 use crate::global_configs::GlobalConfigs;
+use crate::hashing::HashUtil;
 use crate::id_lists_adapter::{IdList, IdListsUpdateListener};
 use crate::interned_string::InternedString;
+use crate::macros::LOCK_TIMEOUT;
 use crate::networking::ResponseData;
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
 use crate::observability::ops_stats::{OpsStatsForInstance, OPS_STATS};
 use crate::observability::sdk_errors_observer::ErrorBoundaryEvent;
 use crate::sdk_event_emitter::{SdkEvent, SdkEventEmitter};
-use crate::specs_response::proto_specs::deserialize_protobuf;
+use crate::specs_response::proto_specs::{deserialize_protobuf_for_store, ProtobufUpdate};
 use crate::specs_response::spec_types::{SpecsResponseFull, SpecsResponseNoUpdates};
 use crate::utils::{get_loggable_sdk_key, try_release_unused_heap_memory};
 use crate::{
-    log_d, log_e, log_error_to_statsig_and_console, log_w, read_lock_or_else, write_lock_or_else,
-    SpecsFormat, SpecsInfo, SpecsSource, SpecsUpdate, SpecsUpdateListener, StatsigErr,
-    StatsigOptions, StatsigRuntime,
+    log_d, log_e, log_error_to_statsig_and_console, log_w, SpecsFormat, SpecsInfo, SpecsSource,
+    SpecsUpdate, SpecsUpdateListener, StatsigErr, StatsigOptions, StatsigRuntime,
 };
 
+#[derive(Clone)]
 pub struct SpecStoreData {
     pub source: SpecsSource,
     pub source_api: Option<String>,
     pub time_received_at: Option<u64>,
-    pub values: Arc<SpecsResponseFull>,
-    pub id_lists: HashMap<String, IdList>,
+    pub snapshot: Arc<SpecsResponseFull>,
+    pub id_lists: Arc<HashMap<String, IdList>>,
+    pub gcir_evaluation_plan: Arc<OnceLock<GcirEvaluationPlan>>,
+    sync_cursor: ConfigSyncCursor,
+}
+
+#[derive(Clone, Default)]
+struct ConfigSyncCursor {
+    lcut: u64,
+    checksum: Option<String>,
+}
+
+impl SpecStoreData {
+    pub(crate) fn gcir_evaluation_plan(&self, hashing: &HashUtil) -> &GcirEvaluationPlan {
+        self.gcir_evaluation_plan
+            .get_or_init(|| GcirEvaluationPlan::new(self.snapshot.as_ref(), hashing))
+    }
+
+    pub(crate) fn lcut(&self) -> u64 {
+        self.sync_cursor.lcut
+    }
+
+    fn checksum(&self) -> Option<&str> {
+        self.sync_cursor.checksum.as_deref()
+    }
+}
+
+fn cursor_is_stale_or_duplicate(data: &SpecStoreData, lcut: u64, checksum: &str) -> bool {
+    lcut < data.lcut() || (lcut == data.lcut() && data.checksum() == Some(checksum))
+}
+
+fn proto_response_lcut(data: &ResponseData) -> Option<u64> {
+    data.get_header_ref("x-since-time")?.parse().ok()
+}
+
+fn proto_response_matches_cursor(data: &ResponseData, current: &SpecStoreData) -> bool {
+    let Some(lcut) = proto_response_lcut(data) else {
+        return false;
+    };
+    let Some(checksum) = data.get_header_ref("x-checksum") else {
+        return false;
+    };
+
+    lcut == current.lcut() && current.checksum() == Some(checksum)
 }
 
 const TAG: &str = stringify!(SpecStore);
+const RESPONSE_TYPE_TAG: &str = "response_type";
+const DELTAS_USED_HEADER: &str = "x-deltas-used";
+
+#[derive(Clone, Copy)]
+enum ConfigResponseType {
+    Delta,
+    Full,
+    NoUpdate,
+}
+
+impl ConfigResponseType {
+    fn from_applied_response_data(data: &ResponseData) -> Self {
+        if data.get_header_ref(DELTAS_USED_HEADER).is_some() {
+            Self::Delta
+        } else {
+            Self::Full
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Delta => "delta",
+            Self::Full => "full",
+            Self::NoUpdate => "no_update",
+        }
+    }
+}
+
+const CONFIG_PROTO_UPDATE_COUNT_METRIC: &str = "config_proto_update.count";
+const CONFIG_PROTO_UPDATE_LATENCY_METRIC: &str = "config_proto_update.latency";
+const CONFIG_PROTO_UPDATE_OUTCOME_TAG: &str = "outcome";
+const CONFIG_PROTO_UPDATE_CURSOR_ONLY: &str = "cursor_only";
+const CONFIG_PROTO_UPDATE_DUPLICATE: &str = "duplicate";
+const CONFIG_PROTO_UPDATE_MATERIALIZED: &str = "materialized";
 
 pub struct SpecStore {
-    pub data: Arc<RwLock<SpecStoreData>>,
+    data: ArcSwap<SpecStoreData>,
+    update_lock: Mutex<()>,
 
     data_store_keys: DataStoreCacheKeys,
     data_store: Option<Arc<dyn DataStoreTrait>>,
@@ -64,13 +146,16 @@ impl SpecStore {
 
         SpecStore {
             data_store_keys: DataStoreCacheKeys::from_selected_key(&data_store_key),
-            data: Arc::new(RwLock::new(SpecStoreData {
-                values: Arc::new(SpecsResponseFull::default()),
+            data: ArcSwap::from_pointee(SpecStoreData {
+                snapshot: Arc::new(SpecsResponseFull::default()),
                 time_received_at: None,
                 source: SpecsSource::Uninitialized,
                 source_api: None,
-                id_lists: HashMap::new(),
-            })),
+                id_lists: Arc::new(HashMap::new()),
+                gcir_evaluation_plan: Arc::new(OnceLock::new()),
+                sync_cursor: ConfigSyncCursor::default(),
+            }),
+            update_lock: Mutex::new(()),
             event_emitter,
             data_store,
             statsig_runtime,
@@ -81,23 +166,26 @@ impl SpecStore {
     }
 
     pub fn set_source(&self, source: SpecsSource) {
-        let mut locked_data = write_lock_or_else!(self.data, {
-            log_e!(TAG, "Failed to acquire write lock: Failed to lock data");
-            return;
-        });
+        {
+            let Some(_update_guard) = self.try_lock_for_update("set_source") else {
+                return;
+            };
 
-        locked_data.source = source;
-        log_d!(TAG, "Source Changed ({:?})", locked_data.source);
+            let mut next_data = self.load_data().as_ref().clone();
+            next_data.source = source.clone();
+            self.publish_data(next_data);
+        }
+
+        log_d!(TAG, "Source Changed ({:?})", source);
     }
 
     pub fn get_current_values(&self) -> Option<SpecsResponseFull> {
-        let data = read_lock_or_else!(self.data, {
-            log_e!(TAG, "Failed to acquire read lock: Failed to lock data");
-            return None;
-        });
-
-        let json = serde_json::to_string(data.values.as_ref()).ok()?;
-        serde_json::from_str::<SpecsResponseFull>(&json).ok()
+        let data = self.load_data();
+        let json = serde_json::to_string(data.snapshot.as_ref()).ok()?;
+        let mut values = serde_json::from_str::<SpecsResponseFull>(&json).ok()?;
+        values.time = data.lcut();
+        values.checksum = data.sync_cursor.checksum.clone();
+        Some(values)
     }
 
     pub fn get_fields_used_for_entity(
@@ -105,21 +193,11 @@ impl SpecStore {
         entity_name: &str,
         entity_type: SpecType,
     ) -> Vec<String> {
-        let data = read_lock_or_else!(self.data, {
-            log_error_to_statsig_and_console!(
-                &self.ops_stats,
-                TAG,
-                StatsigErr::LockFailure(
-                    "Failed to acquire read lock for spec store data".to_string()
-                )
-            );
-            return vec![];
-        });
-
+        let data = self.load_data();
         let entities = match entity_type {
-            SpecType::Gate => &data.values.feature_gates,
-            SpecType::DynamicConfig | SpecType::Experiment => &data.values.dynamic_configs,
-            SpecType::Layer => &data.values.layer_configs,
+            SpecType::Gate => &data.snapshot.feature_gates,
+            SpecType::DynamicConfig | SpecType::Experiment => &data.snapshot.dynamic_configs,
+            SpecType::Layer => &data.snapshot.layer_configs,
             SpecType::ParameterStore => return vec![],
         };
 
@@ -140,19 +218,9 @@ impl SpecStore {
         top_level_key: &str,
         entity_type: &str,
     ) -> Vec<String> {
-        let data = read_lock_or_else!(self.data, {
-            log_error_to_statsig_and_console!(
-                &self.ops_stats,
-                TAG,
-                StatsigErr::LockFailure(
-                    "Failed to acquire read lock for spec store data".to_string()
-                )
-            );
-            return vec![];
-        });
-
+        let data = self.load_data();
         if top_level_key == "param_stores" {
-            match &data.values.param_stores {
+            match &data.snapshot.param_stores {
                 Some(param_stores) => {
                     return param_stores
                         .keys()
@@ -164,9 +232,9 @@ impl SpecStore {
         }
 
         let values = match top_level_key {
-            "feature_gates" => &data.values.feature_gates,
-            "dynamic_configs" => &data.values.dynamic_configs,
-            "layer_configs" => &data.values.layer_configs,
+            "feature_gates" => &data.snapshot.feature_gates,
+            "dynamic_configs" => &data.snapshot.dynamic_configs,
+            "layer_configs" => &data.snapshot.layer_configs,
             _ => {
                 log_e!(TAG, "Invalid top level key: {}", top_level_key);
                 return vec![];
@@ -185,56 +253,130 @@ impl SpecStore {
     }
 
     pub fn set_values(&self, mut specs_update: SpecsUpdate) -> Result<(), StatsigErr> {
-        // Updating the spec store is a three step process that interacts with the SpecStoreData lock:
-        // 1. Prep (Read Lock). Deserialize the new data and compare it to the current values.
-        // 2. Apply (Write Lock). Update the spec store with the new values.
-        // 3. Notify (No Lock). Emit SDK events from the owned apply snapshot and update the data store.
+        let update_started_at = Instant::now();
+        // Updating the spec store is a three step process:
+        // 1. Prep (serialized writer path). Deserialize and compare to the current snapshot.
+        // 2. Apply (serialized writer path). Publish a new immutable snapshot.
+        // 3. Notify (no writer lock). Emit SDK events and update the data store.
+        let locked_result = {
+            let Some(_update_guard) = self.try_lock_for_update("set_values") else {
+                return Err(StatsigErr::LockFailure(
+                    "Failed to acquire spec store update lock for set_values".to_string(),
+                ));
+            };
 
-        // --- Prep ---
+            let prep_result = self.specs_update_prep(&mut specs_update)?;
 
-        let prep_result = self.specs_update_prep(&mut specs_update).map_err(|e| {
+            match prep_result {
+                PrepResult::HasUpdates(next_values, response_format, is_delta) => {
+                    let apply_result = self.specs_update_apply(next_values, &specs_update)?;
+                    Ok(LockedSetValuesResult::Applied(
+                        response_format,
+                        apply_result,
+                        ConfigResponseType::from_applied_response_data(&specs_update.data),
+                        is_delta,
+                    ))
+                }
+                PrepResult::CursorOnly { lcut, checksum } => {
+                    self.specs_cursor_update_apply(lcut, checksum, &specs_update);
+                    Ok(LockedSetValuesResult::NoSemanticUpdate(
+                        specs_update.source.clone(),
+                        specs_update.source_api.clone(),
+                        ConfigResponseType::Delta,
+                    ))
+                }
+                PrepResult::CurrentValuesNewer => Ok(LockedSetValuesResult::CurrentValuesNewer),
+                PrepResult::Duplicate => Ok(LockedSetValuesResult::Duplicate),
+                PrepResult::NoUpdates => Ok(LockedSetValuesResult::NoSemanticUpdate(
+                    specs_update.source.clone(),
+                    specs_update.source_api.clone(),
+                    ConfigResponseType::NoUpdate,
+                )),
+            }
+        }
+        .map_err(|e: StatsigErr| {
             log_error_to_statsig_and_console!(self.ops_stats, TAG, e);
             e
         })?;
 
-        let (next_values, response_format) = match prep_result {
-            PrepResult::HasUpdates(next_values, response_format) => (next_values, response_format),
-            PrepResult::CurrentValuesNewer => return Ok(()),
-            PrepResult::NoUpdates => {
-                self.ops_stats_log_no_update(specs_update.source, specs_update.source_api);
+        let (response_format, apply_result, response_type, is_delta) = match locked_result {
+            LockedSetValuesResult::Applied(
+                response_format,
+                apply_result,
+                response_type,
+                is_delta,
+            ) => {
+                if is_delta {
+                    self.ops_stats_log_proto_update(CONFIG_PROTO_UPDATE_MATERIALIZED);
+                }
+                (response_format, apply_result, response_type, is_delta)
+            }
+            LockedSetValuesResult::NoSemanticUpdate(source, source_api, response_type) => {
+                if matches!(response_type, ConfigResponseType::Delta) {
+                    self.ops_stats_log_proto_update(CONFIG_PROTO_UPDATE_CURSOR_ONLY);
+                    self.ops_stats_log_proto_update_latency(
+                        CONFIG_PROTO_UPDATE_CURSOR_ONLY,
+                        update_started_at.elapsed().as_secs_f64() * 1000.0,
+                    );
+                }
+                self.ops_stats_log_no_update(source, source_api, response_type);
+                return Ok(());
+            }
+            LockedSetValuesResult::CurrentValuesNewer => return Ok(()),
+            LockedSetValuesResult::Duplicate => {
+                self.ops_stats_log_proto_update(CONFIG_PROTO_UPDATE_DUPLICATE);
                 return Ok(());
             }
         };
-
-        // --- Apply ---
-
-        let apply_result = self
-            .specs_update_apply(next_values, &specs_update)
-            .map_err(|e| {
-                log_error_to_statsig_and_console!(self.ops_stats, TAG, e);
-                e
-            })?;
 
         try_release_unused_heap_memory();
 
         // --- Notify ---
 
-        self.specs_update_notify(response_format, specs_update, apply_result)
+        let notify_result = self
+            .specs_update_notify(response_format, response_type, specs_update, apply_result)
             .map_err(|e| {
                 log_error_to_statsig_and_console!(self.ops_stats, TAG, e);
                 e
-            })?;
+            });
 
-        Ok(())
+        if is_delta {
+            self.ops_stats_log_proto_update_latency(
+                CONFIG_PROTO_UPDATE_MATERIALIZED,
+                update_started_at.elapsed().as_secs_f64() * 1000.0,
+            );
+        }
+
+        notify_result
     }
 }
 
 // -------------------------------------------------------------------------------------------- [ Private ]
 
 enum PrepResult {
-    HasUpdates(Box<SpecsResponseFull>, SpecsFormat),
+    HasUpdates(Box<SpecsResponseFull>, SpecsFormat, bool),
+    CursorOnly { lcut: u64, checksum: String },
+    Duplicate,
     NoUpdates,
     CurrentValuesNewer,
+}
+
+enum LockedSetValuesResult {
+    Applied(SpecsFormat, ApplyResult, ConfigResponseType, bool),
+    NoSemanticUpdate(SpecsSource, Option<String>, ConfigResponseType),
+    Duplicate,
+    CurrentValuesNewer,
+}
+
+enum DeserializedSpecs {
+    Materialized {
+        values: Box<SpecsResponseFull>,
+        is_delta: bool,
+    },
+    CursorOnly {
+        lcut: u64,
+        checksum: String,
+    },
 }
 
 struct ApplyResult {
@@ -253,39 +395,76 @@ struct SpecUpdateNotification {
 }
 
 impl SpecStore {
+    pub(crate) fn load_data(&self) -> Arc<SpecStoreData> {
+        self.data.load_full()
+    }
+
+    fn publish_data(&self, data: SpecStoreData) {
+        self.data.store(Arc::new(data));
+    }
+
+    fn try_lock_for_update(&self, operation: &str) -> Option<MutexGuard<'_, ()>> {
+        match self.update_lock.try_lock_for(LOCK_TIMEOUT) {
+            Some(guard) => Some(guard),
+            None => {
+                log_e!(
+                    TAG,
+                    "Failed to acquire spec store update lock for {}",
+                    operation
+                );
+                None
+            }
+        }
+    }
+
     fn specs_update_prep(&self, specs_update: &mut SpecsUpdate) -> Result<PrepResult, StatsigErr> {
         if specs_update.has_updates == Some(false) {
             return Ok(PrepResult::NoUpdates);
         }
 
         let response_format = self.get_spec_response_format(specs_update);
+        let read_data = self.load_data();
+        if matches!(response_format, SpecsFormat::Protobuf)
+            && proto_response_lcut(&specs_update.data).is_some_and(|lcut| lcut < read_data.lcut())
+        {
+            return Ok(PrepResult::CurrentValuesNewer);
+        }
+        if matches!(response_format, SpecsFormat::Protobuf)
+            && proto_response_matches_cursor(&specs_update.data, &read_data)
+        {
+            return Ok(PrepResult::Duplicate);
+        }
+        let current_snapshot = &read_data.snapshot;
 
-        let read_data = read_lock_or_else!(self.data, {
-            let msg = "Failed to acquire read lock for extract_response_from_update";
-            log_e!(TAG, "{}", msg);
-            return Err(StatsigErr::LockFailure(msg.to_string()));
-        });
-
-        let current_values = &read_data.values;
-
-        // First, try a Full Specs Response deserialization
+        // First, try a full or delta specs response deserialization
         let first_deserialize_result =
-            self.deserialize_specs_data(current_values, &response_format, &mut specs_update.data);
+            self.deserialize_specs_data(current_snapshot, &response_format, &mut specs_update.data);
 
         let first_deserialize_error = match first_deserialize_result {
-            Ok(next_values) => {
+            Ok(DeserializedSpecs::Materialized {
+                values: next_values,
+                is_delta,
+            }) => {
                 if self.are_current_values_newer(&read_data, &next_values) {
                     return Ok(PrepResult::CurrentValuesNewer);
                 }
 
                 if next_values.has_updates {
                     return Ok(PrepResult::HasUpdates(
-                        Box::new(next_values),
+                        next_values,
                         response_format,
+                        is_delta,
                     ));
                 }
 
                 None
+            }
+            Ok(DeserializedSpecs::CursorOnly { lcut, checksum }) => {
+                if cursor_is_stale_or_duplicate(&read_data, lcut, &checksum) {
+                    return Ok(PrepResult::CurrentValuesNewer);
+                }
+
+                return Ok(PrepResult::CursorOnly { lcut, checksum });
             }
             Err(e) => Some(e),
         };
@@ -323,16 +502,15 @@ impl SpecStore {
         // DANGER: try_update_global_configs contains its own locks
         self.try_update_global_configs(&next_values);
 
-        let mut data = write_lock_or_else!(self.data, {
-            let msg = "Failed to acquire write lock for swap_current_with_next";
-            log_e!(TAG, "{}", msg);
-            return Err(StatsigErr::LockFailure(msg.to_string()));
-        });
-
-        let prev_source = std::mem::replace(&mut data.source, specs_update.source.clone());
-        let prev_lcut = data.values.time;
+        let data = self.load_data();
+        let prev_source = data.source.clone();
+        let prev_lcut = data.lcut();
         let time_received_at = Utc::now().timestamp_millis() as u64;
         let values: Arc<SpecsResponseFull> = Arc::from(next_values);
+        let sync_cursor = ConfigSyncCursor {
+            lcut: values.time,
+            checksum: values.checksum.clone(),
+        };
         let notification = SpecUpdateNotification {
             source: specs_update.source.clone(),
             source_api: specs_update.source_api.clone(),
@@ -344,10 +522,15 @@ impl SpecStore {
             values: values.clone(),
         };
 
-        data.values = values;
-        data.time_received_at = Some(time_received_at);
-        data.source_api = specs_update.source_api.clone();
-        drop(data);
+        self.publish_data(SpecStoreData {
+            source: specs_update.source.clone(),
+            source_api: specs_update.source_api.clone(),
+            time_received_at: Some(time_received_at),
+            snapshot: values,
+            id_lists: data.id_lists.clone(),
+            gcir_evaluation_plan: Arc::new(OnceLock::new()),
+            sync_cursor,
+        });
 
         Ok(ApplyResult {
             prev_source,
@@ -357,9 +540,23 @@ impl SpecStore {
         })
     }
 
+    fn specs_cursor_update_apply(&self, lcut: u64, checksum: String, specs_update: &SpecsUpdate) {
+        let data = self.load_data();
+        let mut next_data = data.as_ref().clone();
+        next_data.source = specs_update.source.clone();
+        next_data.source_api = specs_update.source_api.clone();
+        next_data.time_received_at = Some(Utc::now().timestamp_millis() as u64);
+        next_data.sync_cursor = ConfigSyncCursor {
+            lcut,
+            checksum: Some(checksum),
+        };
+        self.publish_data(next_data);
+    }
+
     fn specs_update_notify(
         &self,
         response_format: SpecsFormat,
+        response_type: ConfigResponseType,
         specs_update: SpecsUpdate,
         apply_result: ApplyResult,
     ) -> Result<(), StatsigErr> {
@@ -399,6 +596,7 @@ impl SpecStore {
             &prev_source,
             source_api,
             response_format,
+            response_type,
         );
 
         Ok(())
@@ -406,25 +604,39 @@ impl SpecStore {
 
     fn deserialize_specs_data(
         &self,
-        current_values: &SpecsResponseFull,
+        current_snapshot: &SpecsResponseFull,
         response_format: &SpecsFormat,
         response_data: &mut ResponseData,
-    ) -> Result<SpecsResponseFull, StatsigErr> {
-        let mut next_values = SpecsResponseFull::default();
+    ) -> Result<DeserializedSpecs, StatsigErr> {
+        let mut next_values = Box::new(SpecsResponseFull::default());
 
-        let parse_result = match response_format {
-            SpecsFormat::Protobuf => deserialize_protobuf(
-                &self.ops_stats,
-                current_values,
-                &mut next_values,
-                response_data,
-            ),
-            SpecsFormat::Json => response_data.deserialize_in_place(&mut next_values),
-        };
-
-        match parse_result {
-            Ok(()) => Ok(next_values),
-            Err(e) => Err(e),
+        match response_format {
+            SpecsFormat::Protobuf => {
+                let update = deserialize_protobuf_for_store(
+                    &self.ops_stats,
+                    current_snapshot,
+                    next_values.as_mut(),
+                    response_data,
+                )?;
+                match update {
+                    ProtobufUpdate::Materialized { is_delta } => {
+                        Ok(DeserializedSpecs::Materialized {
+                            values: next_values,
+                            is_delta,
+                        })
+                    }
+                    ProtobufUpdate::CursorOnly { lcut, checksum } => {
+                        Ok(DeserializedSpecs::CursorOnly { lcut, checksum })
+                    }
+                }
+            }
+            SpecsFormat::Json => {
+                response_data.deserialize_in_place(next_values.as_mut())?;
+                Ok(DeserializedSpecs::Materialized {
+                    values: next_values,
+                    is_delta: false,
+                })
+            }
         }
     }
 
@@ -545,11 +757,10 @@ impl SpecStore {
         data: &SpecStoreData,
         next_values: &SpecsResponseFull,
     ) -> bool {
-        let curr_values = &data.values;
-        let curr_checksum = curr_values.checksum.as_deref().unwrap_or_default();
+        let curr_checksum = data.checksum().unwrap_or_default();
         let new_checksum = next_values.checksum.as_deref().unwrap_or_default();
 
-        let cached_time_is_newer = curr_values.time > 0 && curr_values.time > next_values.time;
+        let cached_time_is_newer = data.lcut() > 0 && data.lcut() > next_values.time;
         let checksums_match = !curr_checksum.is_empty() && curr_checksum == new_checksum;
 
         if cached_time_is_newer || checksums_match {
@@ -558,9 +769,9 @@ impl SpecStore {
                 "Received values for [time: {}, checksum: {}], but currently has values for [time: {}, checksum: {}]. Ignoring values.",
                 next_values.time,
                 new_checksum,
-                curr_values.time,
+                data.lcut(),
                 curr_checksum,
-                );
+            );
             return true;
         }
 
@@ -630,7 +841,12 @@ async fn write_specs_to_data_store(
 // -------------------------------------------------------------------------------------------- [ OpsStats Helpers ]
 
 impl SpecStore {
-    fn ops_stats_log_no_update(&self, source: SpecsSource, source_api: Option<String>) {
+    fn ops_stats_log_no_update(
+        &self,
+        source: SpecsSource,
+        source_api: Option<String>,
+        response_type: ConfigResponseType,
+    ) {
         log_d!(TAG, "No Updates");
         self.ops_stats.log(ObservabilityEvent::new_event(
             MetricType::Increment,
@@ -639,7 +855,35 @@ impl SpecStore {
             Some(HashMap::from([
                 ("source".to_string(), source.to_string()),
                 ("source_api".to_string(), source_api.unwrap_or_default()),
+                (
+                    RESPONSE_TYPE_TAG.to_string(),
+                    response_type.as_str().to_string(),
+                ),
             ])),
+        ));
+    }
+
+    fn ops_stats_log_proto_update(&self, outcome: &str) {
+        self.ops_stats.log(ObservabilityEvent::new_event(
+            MetricType::Increment,
+            CONFIG_PROTO_UPDATE_COUNT_METRIC.to_string(),
+            1.0,
+            Some(HashMap::from([(
+                CONFIG_PROTO_UPDATE_OUTCOME_TAG.to_string(),
+                outcome.to_string(),
+            )])),
+        ));
+    }
+
+    fn ops_stats_log_proto_update_latency(&self, outcome: &str, duration_ms: f64) {
+        self.ops_stats.log(ObservabilityEvent::new_event(
+            MetricType::Dist,
+            CONFIG_PROTO_UPDATE_LATENCY_METRIC.to_string(),
+            duration_ms,
+            Some(HashMap::from([(
+                CONFIG_PROTO_UPDATE_OUTCOME_TAG.to_string(),
+                outcome.to_string(),
+            )])),
         ));
     }
 
@@ -652,6 +896,7 @@ impl SpecStore {
         prev_source: &SpecsSource,
         source_api: Option<String>,
         response_format: SpecsFormat,
+        response_type: ConfigResponseType,
     ) {
         let delay = (Utc::now().timestamp_millis() as u64).saturating_sub(lcut);
         log_d!(TAG, "Updated ({:?})", source);
@@ -674,6 +919,10 @@ impl SpecStore {
                     "response_format".to_string(),
                     Into::<&str>::into(&response_format).to_string(),
                 ),
+                (
+                    RESPONSE_TYPE_TAG.to_string(),
+                    response_type.as_str().to_string(),
+                ),
             ])),
         ));
     }
@@ -687,22 +936,10 @@ impl SpecsUpdateListener for SpecStore {
     }
 
     fn get_current_specs_info(&self) -> SpecsInfo {
-        let data = read_lock_or_else!(self.data, {
-            log_e!(
-                TAG,
-                "Failed to acquire read lock for get_current_specs_info"
-            );
-            return SpecsInfo {
-                lcut: None,
-                checksum: None,
-                source: SpecsSource::Error,
-                source_api: None,
-            };
-        });
-
+        let data = self.load_data();
         SpecsInfo {
-            lcut: Some(data.values.time),
-            checksum: data.values.checksum.clone(),
+            lcut: Some(data.lcut()),
+            checksum: data.sync_cursor.checksum.clone(),
             source: data.source.clone(),
             source_api: data.source_api.clone(),
         }
@@ -715,14 +952,7 @@ impl IdListsUpdateListener for SpecStore {
     fn get_current_id_list_metadata(
         &self,
     ) -> HashMap<String, crate::id_lists_adapter::IdListMetadata> {
-        let data = read_lock_or_else!(self.data, {
-            let err = StatsigErr::LockFailure(
-                "Failed to acquire read lock for id list metadata".to_string(),
-            );
-            log_error_to_statsig_and_console!(self.ops_stats, TAG, err);
-            return HashMap::new();
-        });
-
+        let data = self.load_data();
         data.id_lists
             .iter()
             .map(|(key, list)| (key.clone(), list.metadata.clone()))
@@ -733,28 +963,82 @@ impl IdListsUpdateListener for SpecStore {
         &self,
         updates: HashMap<String, crate::id_lists_adapter::IdListUpdate>,
     ) {
-        let mut data = write_lock_or_else!(self.data, {
-            let err = StatsigErr::LockFailure(
-                "Failed to acquire write lock for did_receive_id_list_updates".to_string(),
-            );
-            log_error_to_statsig_and_console!(self.ops_stats, TAG, err);
-
+        let Some(_update_guard) = self.try_lock_for_update("did_receive_id_list_updates") else {
             return;
-        });
+        };
+
+        let data = self.load_data();
+        let mut id_lists = data.id_lists.as_ref().clone();
 
         // delete any id_lists that are not in the updates
-        data.id_lists.retain(|name, _| updates.contains_key(name));
+        id_lists.retain(|name, _| updates.contains_key(name));
 
         for (list_name, update) in updates {
-            if let Some(entry) = data.id_lists.get_mut(&list_name) {
+            if let Some(entry) = id_lists.get_mut(&list_name) {
                 // update existing
                 entry.apply_update(update);
             } else {
                 // add new
                 let mut list = IdList::new(update.new_metadata.clone());
                 list.apply_update(update);
-                data.id_lists.insert(list_name, list);
+                id_lists.insert(list_name, list);
             }
         }
+
+        let mut next_data = data.as_ref().clone();
+        next_data.id_lists = Arc::new(id_lists);
+        self.publish_data(next_data);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ConfigResponseType, ConfigSyncCursor, SpecStoreData, DELTAS_USED_HEADER};
+    use crate::hashing::HashUtil;
+    use crate::networking::ResponseData;
+    use crate::specs_response::spec_types::SpecsResponseFull;
+    use crate::SpecsSource;
+    use std::collections::HashMap;
+    use std::sync::{Arc, OnceLock};
+
+    #[test]
+    fn applied_response_type_uses_delta_header() {
+        let delta_data = ResponseData::from_bytes_with_headers(
+            Vec::new(),
+            Some(HashMap::from([(
+                DELTAS_USED_HEADER.to_string(),
+                "true".to_string(),
+            )])),
+        );
+        let full_data = ResponseData::from_bytes(Vec::new());
+
+        assert_eq!(
+            ConfigResponseType::from_applied_response_data(&delta_data).as_str(),
+            "delta"
+        );
+        assert_eq!(
+            ConfigResponseType::from_applied_response_data(&full_data).as_str(),
+            "full"
+        );
+    }
+
+    #[test]
+    fn spec_store_data_reuses_gcir_evaluation_plan_cache_across_clones() {
+        let data = SpecStoreData {
+            source: SpecsSource::Network,
+            source_api: Some("/v2/download_config_specs".to_string()),
+            time_received_at: Some(1),
+            snapshot: Arc::new(SpecsResponseFull::default()),
+            id_lists: Arc::new(HashMap::new()),
+            gcir_evaluation_plan: Arc::new(OnceLock::new()),
+            sync_cursor: ConfigSyncCursor::default(),
+        };
+        let hashing = HashUtil::new();
+
+        let first = data.gcir_evaluation_plan(&hashing);
+        let cloned = data.clone();
+        let second = cloned.gcir_evaluation_plan(&hashing);
+
+        assert!(std::ptr::eq(first, second));
     }
 }

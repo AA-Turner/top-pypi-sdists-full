@@ -43,6 +43,7 @@ class DynamoDBSourceImpl(BaseSQLSource):
         endpoint_override: str | None = None,
         engine_args: Dict[str, Any] | None = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
+        permission_tags: list[str] | None = None,
     ):
         try:
             import boto3
@@ -108,7 +109,9 @@ class DynamoDBSourceImpl(BaseSQLSource):
         # # Dynamo defaults to ReadWrite, but Chalk only reads data from dynamo.
         # eargs.setdefault("read_only", True)
 
-        BaseSQLSource.__init__(self, name=name, engine_args=eargs, async_engine_args={})
+        BaseSQLSource.__init__(
+            self, name=name, engine_args=eargs, async_engine_args={}, permission_tags=permission_tags
+        )
 
     def get_engine(self) -> "Engine":
         try:

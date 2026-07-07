@@ -1,25 +1,28 @@
+from psycopg import BaseConnection
+from psycopg.abc import Buffer
 from psycopg.adapt import Dumper
 from psycopg.pq import Format
+from psycopg.types import TypeInfo
+from typing import Any
 from .. import Bit
 
 
 class BitDumper(Dumper):
-
     format = Format.TEXT
 
-    def dump(self, obj):
-        return Bit._to_db(obj).encode('utf8')
+    def dump(self, obj: Bit) -> Buffer | None:
+        return obj.to_text().encode('utf8')
 
 
 class BitBinaryDumper(BitDumper):
-
     format = Format.BINARY
 
-    def dump(self, obj):
-        return Bit._to_db_binary(obj)
+    def dump(self, obj: Bit) -> Buffer | None:
+        return obj.to_binary()
 
 
-def register_bit_info(context, info):
+def register_bit_info(context: BaseConnection[Any], info: TypeInfo | None, /) -> None:
+    assert info is not None
     info.register(context)
 
     # add oid to anonymous class for set_types

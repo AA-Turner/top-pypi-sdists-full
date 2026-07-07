@@ -31,7 +31,7 @@ dependencies = [
   "orjson",
   "aiohttp",
 ]
-keywords = ["crypto", "trading", "kraken", "exchange", "api", "sdk", "kraken crypto asset exchange", "automation",]
+keywords = ["crypto", "trading", "kraken", "exchange", "api", "sdk", "automation"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Framework :: AsyncIO",
@@ -92,6 +92,10 @@ asyncio_default_fixture_loop_scope = "function"
 markers = [
   "wip: Used to run a specific test by hand.",
   "flaky: Flaky tests",
+  # Test-type axis (orthogonal to the domain markers below).
+  "unit: Offline test — no network, no API keys, deterministic.",
+  "integration: Live test hitting the Kraken REST/Websocket API.",
+  "e2e: End-to-end test driving the CLI binary / full auth flows.",
   "spot: Spot endpoint.",
   "xstocks: Spot xStocks endpoint.",
   "spot_auth: Private Spot endpoint.",
@@ -276,6 +280,7 @@ task-tags = ["todo", "TODO", "fixme", "FIXME"]
   "S101",     # assert use
   "S110",     # try-catch-pass without logging
   "T201",     # print
+  "PLW0717",  # too-many-statements-in-try-clause
 ]
 "examples/*.ipynb" = [
   "CPY001", # copyright
@@ -294,6 +299,8 @@ task-tags = ["todo", "TODO", "fixme", "FIXME"]
   "TID252",   # ban relative imports
   "PLR0904",  # too many public methods
   "ANN401",   # Use of typing.Any
+  "RUF076",   # pytest-fixture-autouse
+  "FBT001",   # boolean-type-hint-positional-argument
 ]
 
 [tool.ruff.lint.flake8-copyright]

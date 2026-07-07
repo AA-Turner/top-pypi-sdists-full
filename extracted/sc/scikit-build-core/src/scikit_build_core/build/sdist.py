@@ -1,57 +1,59 @@
 # pylint: disable=duplicate-code
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "contextlib",
+    "copy",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._reproducible",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.settings.skbuild_read_settings",
+    f"{__spec__.parent}._file_processor",
+    f"{__spec__.parent}._init",
+    f"{__spec__.parent}._pathutil",
+    f"{__spec__.parent}.generate",
+    f"{__spec__.parent}.metadata",
+    f"{__spec__.parent}.wheel",
+    "gzip",
+    "io",
+    "packaging",
+    "packaging.utils",
+    "pathlib",
+    "pathspec",
+    "tarfile",
+}
+
 import contextlib
 import copy
 import gzip
 import io
-import os
 import tarfile
 from pathlib import Path
 
+import pathspec
 from packaging.utils import canonicalize_name
 
 from .. import __version__
 from .._compat import tomllib
-from .._logging import rich_print
+from .._logging import rich_print, rich_warning
+from .._reproducible import get_reproducible_epoch, normalize_file_permissions
 from ..settings.skbuild_read_settings import SettingsReader
-from ._file_processor import each_unignored_file
+from ._file_processor import each_unignored_file, symlink_escapes
 from ._init import setup_logging
+from ._pathutil import iter_force_include
 from .generate import generate_file_contents
 from .metadata import get_standard_metadata
 from .wheel import _build_wheel_impl
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 __all__ = ["build_sdist"]
 
 
 def __dir__() -> list[str]:
     return __all__
-
-
-def get_reproducible_epoch() -> int:
-    """
-    Return an integer representing the integer number of seconds since the Unix epoch.
-
-    If the `SOURCE_DATE_EPOCH` environment variable is set, use that value. Otherwise,
-    always return `1667997441`.
-    """
-    return int(os.environ.get("SOURCE_DATE_EPOCH", "1667997441"))
-
-
-def normalize_file_permissions(st_mode: int) -> int:
-    """
-    Normalize the permission bits in the st_mode field from stat to 644/755
-    Popular VCSs only track whether a file is executable or not. The exact
-    permissions can vary on systems with different umasks. Normalising
-    to 644 (non executable) or 755 (executable) makes builds more reproducible.
-
-    Taken from https://github.com/pypa/flit/blob/6a2a8c6462e49f584941c667b70a6f48a7b3f9ab/flit_core/flit_core/common.py#L257
-    """
-    # Set 644 permissions, leaving higher bits of st_mode unchanged
-    new_mode = (st_mode | 0o644) & ~0o133
-    if st_mode & 0o100:
-        new_mode |= 0o111  # Executable: 644 -> 755
-    return new_mode
 
 
 def normalize_tar_info(tar_info: tarfile.TarInfo) -> tarfile.TarInfo:
@@ -87,6 +89,43 @@ def add_bytes_to_tar(
         tar.addfile(tarinfo, bio)
 
 
+def add_path_to_tar(
+    tar: tarfile.TarFile,
+    filepath: Path,
+    arcname: Path,
+    *,
+    tar_filter: Callable[[tarfile.TarInfo], tarfile.TarInfo],
+) -> None:
+    """
+    Add ``filepath`` to ``tar`` at ``arcname``, applying ``tar_filter`` for
+    reproducibility normalization.
+
+    ``tar.dereference`` (``sdist.resolve-symlinks = "all"``) makes ``tar.add``
+    stat through symlinks; a dangling symlink then raises ``FileNotFoundError``
+    instead of being archived (#1417). Fall back to storing the symlink itself
+    in that case, matching the pre-1.0 behavior, and warn. The same applies to
+    a symlink resolving to a directory: the only ones that reach here are loop
+    symlinks pruned from the walk, and dereferencing one would recurse forever.
+    """
+    if (
+        tar.dereference
+        and filepath.is_symlink()
+        and (not filepath.exists() or filepath.is_dir())
+    ):
+        rich_warning(
+            f"{filepath} is a symlink that can't be resolved (dangling, or a "
+            "directory symlink loop); storing it as a symlink instead. Set "
+            'sdist.resolve-symlinks = "none" to silence this warning.'
+        )
+        tar.dereference = False
+        try:
+            tar.add(filepath, arcname=arcname, filter=tar_filter)
+        finally:
+            tar.dereference = True
+    else:
+        tar.add(filepath, arcname=arcname, filter=tar_filter)
+
+
 def build_sdist(
     sdist_directory: str,
     config_settings: dict[str, list[str] | str] | None = None,
@@ -109,10 +148,8 @@ def build_sdist(
     reproducible = settings.sdist.reproducible
     timestamp = get_reproducible_epoch() if reproducible else None
 
-    metadata = get_standard_metadata(pyproject, settings)
-    # Using deepcopy here because of a bug in pyproject-metadata
-    # https://github.com/FFY00/python-pyproject-metadata/pull/49
-    pkg_info = bytes(copy.deepcopy(metadata).as_rfc822())
+    metadata = get_standard_metadata(pyproject, settings, build_state="sdist")
+    pkg_info = bytes(metadata.as_rfc822())
 
     # Names must be normalized per PEP 625
     sdist_name = canonicalize_name(metadata.name).replace("-", "_")
@@ -127,8 +164,8 @@ def build_sdist(
     for gen in settings.generate:
         if gen.location == "source":
             contents = generate_file_contents(gen, metadata)
-            gen.path.write_text(contents)
-            settings.sdist.include.append(str(gen.path))
+            gen.path.write_text(contents, encoding="utf-8")
+            settings.sdist.include.append(gen.path.as_posix())
 
     sdist_dir.mkdir(parents=True, exist_ok=True)
     with contextlib.ExitStack() as stack:
@@ -137,8 +174,15 @@ def build_sdist(
                 sdist_dir / filename, mode="wb", compresslevel=9, mtime=timestamp
             )
         )
+        resolve_symlinks = settings.sdist.resolve_symlinks
+        assert resolve_symlinks is not None
         tar = stack.enter_context(
-            tarfile.TarFile(fileobj=gzip_container, mode="w", format=tarfile.PAX_FORMAT)
+            tarfile.TarFile(
+                fileobj=gzip_container,
+                mode="w",
+                format=tarfile.PAX_FORMAT,
+                dereference=resolve_symlinks == "all",
+            )
         )
         assert settings.sdist.inclusion_mode is not None
         paths = sorted(
@@ -148,13 +192,55 @@ def build_sdist(
                 exclude=settings.sdist.exclude,
                 build_dir=settings.build_dir,
                 mode=settings.sdist.inclusion_mode,
+                resolve_symlinks=resolve_symlinks,
+                yield_loop_symlinks=True,
             )
         )
         for filepath in paths:
-            tar.add(
-                filepath,
+            # In "external" mode, a file symlink pointing outside the project
+            # is stored dereferenced: add its target under the link's name.
+            # A dangling one can't be resolved, so store it as-is and warn.
+            name = filepath
+            if (
+                resolve_symlinks == "external"
+                and filepath.is_symlink()
+                and symlink_escapes(filepath)
+            ):
+                if filepath.exists():
+                    name = filepath.resolve()
+                else:
+                    rich_warning(
+                        f"{filepath} is a dangling symlink pointing outside the "
+                        "project; storing it as a symlink instead of resolving it."
+                    )
+            add_path_to_tar(
+                tar,
+                name,
                 arcname=srcdirname / filepath,
-                filter=normalize_tar_info if reproducible else lambda x: x,
+                tar_filter=normalize_tar_info if reproducible else lambda x: x,
+            )
+
+        # A force-included file is forced in; a force-included directory's
+        # members stay subject to sdist.exclude (mirrors wheel.force-include).
+        sdist_exclude_spec = pathspec.GitIgnoreSpec.from_lines(settings.sdist.exclude)
+        forced = []
+        for source, dest in settings.sdist.force_include.items():
+            source_is_file = Path(source).expanduser().is_file()
+            for src_file, target in iter_force_include(source, dest, Path(srcdirname)):
+                if not source_is_file and sdist_exclude_spec.match_file(
+                    target.relative_to(srcdirname)
+                ):
+                    continue
+                forced.append((src_file, target))
+        # Sort by archive name so the tar member order (and thus the reproducible
+        # .tar.gz bytes) does not depend on filesystem ordering for directories.
+        forced.sort(key=lambda pair: pair[1])
+        for src_file, target in forced:
+            add_path_to_tar(
+                tar,
+                src_file,
+                arcname=target,
+                tar_filter=normalize_tar_info if reproducible else lambda x: x,
             )
 
         add_bytes_to_tar(

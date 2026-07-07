@@ -167,6 +167,7 @@ from .type_defs import (
     GetScheduledQueryHistoryResponseTypeDef,
     GetScheduledQueryRequestTypeDef,
     GetScheduledQueryResponseTypeDef,
+    GetStorageTierPolicyResponseTypeDef,
     GetTransformerRequestTypeDef,
     GetTransformerResponseTypeDef,
     ListAggregateLogGroupSummariesRequestTypeDef,
@@ -218,6 +219,8 @@ from .type_defs import (
     PutResourcePolicyRequestTypeDef,
     PutResourcePolicyResponseTypeDef,
     PutRetentionPolicyRequestTypeDef,
+    PutStorageTierPolicyRequestTypeDef,
+    PutStorageTierPolicyResponseTypeDef,
     PutSubscriptionFilterRequestTypeDef,
     PutSyslogConfigurationRequestTypeDef,
     PutTransformerRequestTypeDef,
@@ -1046,6 +1049,14 @@ class CloudWatchLogsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#get_scheduled_query_history)
         """
 
+    def get_storage_tier_policy(self) -> GetStorageTierPolicyResponseTypeDef:
+        """
+        Returns the storage tier policy for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_storage_tier_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#get_storage_tier_policy)
+        """
+
     def get_transformer(
         self, **kwargs: Unpack[GetTransformerRequestTypeDef]
     ) -> GetTransformerResponseTypeDef:
@@ -1337,6 +1348,16 @@ class CloudWatchLogsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_retention_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#put_retention_policy)
+        """
+
+    def put_storage_tier_policy(
+        self, **kwargs: Unpack[PutStorageTierPolicyRequestTypeDef]
+    ) -> PutStorageTierPolicyResponseTypeDef:
+        """
+        Sets the storage tier policy for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_storage_tier_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#put_storage_tier_policy)
         """
 
     def put_subscription_filter(

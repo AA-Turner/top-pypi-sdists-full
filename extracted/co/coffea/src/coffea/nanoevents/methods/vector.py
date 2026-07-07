@@ -48,12 +48,13 @@ import numbers
 import awkward
 import numpy
 import vector
-from dask_awkward import dask_method
 from vector.backends.awkward import (
     MomentumAwkward2D,
     MomentumAwkward3D,
     MomentumAwkward4D,
 )
+
+from coffea.util import dask_method
 
 # TODO: add this back in when there is an actual plan to only use scikit-hep vector
 # from coffea.util import deprecate
@@ -403,7 +404,7 @@ class LorentzVector(MomentumAwkward4D):
     def absolute(self):
         """Magnitude of this Lorentz vector
 
-        Alias for `mass`
+        Alias for ``mass``
         """
         return self.mass
 
@@ -579,7 +580,7 @@ class LorentzVector(MomentumAwkward4D):
 class PtEtaPhiMLorentzVector(LorentzVector):
     """A Lorentz vector using pseudorapidity and mass
 
-    This mixin class requires the parent class to provide items ``pt``, ``eta``, ``phi``, and `mass`.
+    This mixin class requires the parent class to provide items ``pt``, ``eta``, ``phi``, and ``mass``.
     Some additional properties are overridden for performance
     """
 
@@ -587,7 +588,7 @@ class PtEtaPhiMLorentzVector(LorentzVector):
     def multiply(self, other):
         """Multiply this vector by a scalar elementwise using ``x``, ``y``, ``z``, and ``t`` components
 
-        In reality, this directly adjusts ``pt``, ``eta``, ``phi`` and `mass` for performance
+        In reality, this directly adjusts ``pt``, ``eta``, ``phi`` and ``mass`` for performance
         """
         absother = abs(other)
         return awkward.zip(

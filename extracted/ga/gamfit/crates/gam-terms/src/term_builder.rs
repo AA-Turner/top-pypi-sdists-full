@@ -271,7 +271,7 @@ fn encoded_levels_for_column(ds: &Dataset, col: ColIdx) -> Vec<(u64, String)> {
     let mut seen = BTreeSet::<u64>::new();
     for value in ds.values.column(col.get()) {
         if value.is_finite() {
-            seen.insert(value.to_bits());
+            seen.insert(gam_data::canonical_level_bits(*value));
         }
     }
     let schema_levels = ds
@@ -423,7 +423,10 @@ pub fn build_termspec(
                     coefficient_max: None,
                 });
             }
-            ParsedTerm::RandomEffect { name } => {
+            ParsedTerm::RandomEffect {
+                name,
+                lenient_unseen,
+            } => {
                 let col = resolve_col(col_map, name)?;
                 random_terms.push(RandomEffectTermSpec {
                     name: name.clone(),
@@ -431,10 +434,14 @@ pub fn build_termspec(
                     drop_first_level: false,
                     penalized: true,
                     frozen_levels: None,
-                    // An EXPLICIT random effect (`group(g)`/`re(g)`/`factor(g)` /
-                    // `s(g, bs="re")`) deliberately tolerates unseen levels: a
-                    // held-out group is shrunk to the population mean (#2102).
-                    lenient_unseen: true,
+                    // Unseen-level policy is fixed by the wrapper the user wrote
+                    // (`formula_dsl`): a genuine random effect
+                    // (`group(g)`/`re(g)`/`s(g, bs="re")`) shrinks a held-out
+                    // group to the population mean and so tolerates unseen
+                    // levels; a fixed `factor(g)`, like a bare `+ g` categorical
+                    // main effect, must reject an unseen level rather than
+                    // collapse onto the centering point (#2137/#2102).
+                    lenient_unseen: *lenient_unseen,
                 });
             }
             ParsedTerm::Smooth {
@@ -538,7 +545,7 @@ pub fn build_termspec(
                             // a spurious extra smoothing parameter).
                             let penalized_group_owner_present =
                                 terms.iter().any(|other| match other {
-                                    ParsedTerm::RandomEffect { name } => name == &by_name,
+                                    ParsedTerm::RandomEffect { name, .. } => name == &by_name,
                                     ParsedTerm::Linear {
                                         name,
                                         explicit: false,
@@ -670,7 +677,7 @@ pub fn build_termspec(
                     terms.iter().any(|other| match other {
                         ParsedTerm::Linear { name, .. }
                         | ParsedTerm::BoundedLinear { name, .. }
-                        | ParsedTerm::RandomEffect { name } => name == target,
+                        | ParsedTerm::RandomEffect { name, .. } => name == target,
                         _ => false,
                     })
                 };
@@ -2641,9 +2648,13 @@ pub fn build_smooth_basis(
         "curvature" => {
             // Constant-curvature (M_κ) geodesic-kernel smooth (#944): the
             // κ-generic sibling of the intrinsic S² smooth above. The feature
-            // columns are κ-stereographic chart coordinates; `kappa=` is the
-            // fixed sectional curvature (default 0 = flat), and the geometry
+            // columns are κ-stereographic chart coordinates and the geometry
             // comes from `geometry::constant_curvature::ConstantCurvature`.
+            // `kappa=` follows the mgcv-`sp=` convention (gam#2152): an EXPLICIT
+            // value is a FIXED sectional curvature that selects the geometry
+            // (`Sᵈ` for κ>0, `ℝᵈ` for κ=0, `Hᵈ` for κ<0) and is honoured verbatim
+            // by the fit; OMITTING `kappa=` leaves κ free for the #944/#1464
+            // outer ψ-coordinate estimation, seeded at the flat default 0.
             validate_known_options(
                 "curvature",
                 options,
@@ -2664,7 +2675,13 @@ pub fn build_smooth_basis(
                     "__by_col",
                 ],
             )?;
-            let kappa = option_f64(options, "kappa").unwrap_or(0.0);
+            // `kappa=` follows the mgcv-`sp=` convention: an EXPLICIT value pins
+            // the sectional curvature (fixed geometry, honoured verbatim by the
+            // fit — gam#2152); an OMITTED `kappa=` leaves κ free for the
+            // #944/#1464 outer estimation, seeded at the flat default 0.
+            let kappa_opt = option_f64(options, "kappa");
+            let kappa_fixed = kappa_opt.is_some();
+            let kappa = kappa_opt.unwrap_or(0.0);
             if !kappa.is_finite() {
                 return Err("curvature smooth requires a finite kappa".to_string());
             }
@@ -2689,6 +2706,7 @@ pub fn build_smooth_basis(
                         num_centers: centers,
                     },
                     kappa,
+                    kappa_fixed,
                     // 0.0 sentinel = κ-independent auto initialization in the
                     // basis builder (median chart center spacing, doubled).
                     length_scale,

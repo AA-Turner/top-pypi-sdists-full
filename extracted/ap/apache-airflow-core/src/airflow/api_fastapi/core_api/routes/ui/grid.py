@@ -99,12 +99,12 @@ def _get_latest_serdag(dag_id, session):
 def _get_serdag(
     dag_bag: DBDagBag,
     dag_id: str,
-    dag_version_id: UUID | None,
+    dag_version_id: UUID | str | None,
     session: Session,
 ) -> SerializedDAG | None:
     """Resolve the serialized Dag for a grid TI summary via the shared (cached) ``DBDagBag``."""
     if dag_version_id is not None:
-        serdag = dag_bag._get_dag(dag_version_id, session=session)
+        serdag = dag_bag.get_dag(dag_version_id, session=session)
         if serdag is None:
             log.error("No serialized dag found", dag_id=dag_id, version_id=dag_version_id)
         return serdag
@@ -115,7 +115,7 @@ def _get_serdag(
     )
     if oldest_version_id is None:
         return None
-    serdag = dag_bag._get_dag(oldest_version_id, session=session)
+    serdag = dag_bag.get_dag(oldest_version_id, session=session)
     if serdag is None:
         log.error("No serialized dag found", dag_id=dag_id, version_id=oldest_version_id)
     return serdag
@@ -359,12 +359,11 @@ def _build_ti_summaries(
     session: Session,
     *,
     dag_bag: DBDagBag,
-    serdag: SerializedDAG | None = None,
-    serdag_cache: dict[Any, SerializedDAG | None] | None = None,
 ) -> dict[str, Any] | None:
     ti_details: dict[str, GridNodeAgg] = {}
     dag_version_id = None
     for ti in task_instances:
+        # this is a simplification - we account for structure based on the first task
         dag_version_id = dag_version_id or ti.dag_version_id
         summary = ti_details.get(ti.task_id)
         if summary is None:
@@ -377,13 +376,8 @@ def _build_ti_summaries(
         )
     if not ti_details:
         return None
-    if serdag is None:
-        if serdag_cache is not None:
-            if dag_version_id not in serdag_cache:
-                serdag_cache[dag_version_id] = _get_serdag(dag_bag, dag_id, dag_version_id, session)
-            serdag = serdag_cache[dag_version_id]
-        else:
-            serdag = _get_serdag(dag_bag, dag_id, dag_version_id, session)
+
+    serdag = _get_serdag(dag_bag, dag_id, dag_version_id, session)
     if TYPE_CHECKING:
         assert serdag
 
@@ -468,12 +462,11 @@ def get_grid_ti_summaries_stream(
     """
 
     def _generate() -> Generator[str, None, None]:
-        serdag_cache: dict[Any, SerializedDAG | None] = {}
-
         # Each iteration opens and closes its own DB session so the connection is
         # released between yields.  This prevents a slow client from holding a
         # database connection open for the entire stream duration.
         # See https://github.com/apache/airflow/issues/65010.
+
         for run_id in run_ids or []:
             with create_session(scoped=False) as session:
                 tis = session.execute(
@@ -497,7 +490,6 @@ def get_grid_ti_summaries_stream(
                     tis,
                     session,
                     dag_bag=dag_bag,
-                    serdag_cache=serdag_cache,
                 )
             if summary is None:
                 continue

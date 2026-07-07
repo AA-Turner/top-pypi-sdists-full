@@ -43,13 +43,6 @@ __all__ = [
     "retry_decorator",
     "RetryContext",
     "GraphRetryContext",
-    # Session management
-    "LangGraphSessionContext",
-    "langgraph_session",
-    "get_session_context",
-    "set_session_context",
-    "get_or_create_session_context",
-    "clear_session_context",
 ]
 
 
@@ -145,32 +138,6 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
 
         return GraphRetryContext
 
-    # Session management
-    if name == "LangGraphSessionContext":
-        from aigie.integrations.langgraph.session import LangGraphSessionContext
-
-        return LangGraphSessionContext
-    if name == "langgraph_session":
-        from aigie.integrations.langgraph.session import langgraph_session
-
-        return langgraph_session
-    if name == "get_session_context":
-        from aigie.integrations.langgraph.session import get_session_context
-
-        return get_session_context
-    if name == "set_session_context":
-        from aigie.integrations.langgraph.session import set_session_context
-
-        return set_session_context
-    if name == "get_or_create_session_context":
-        from aigie.integrations.langgraph.session import get_or_create_session_context
-
-        return get_or_create_session_context
-    if name == "clear_session_context":
-        from aigie.integrations.langgraph.session import clear_session_context
-
-        return clear_session_context
-
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 
@@ -187,14 +154,6 @@ if TYPE_CHECKING:
         with_timeout_and_retry,
     )
     from aigie.integrations.langgraph.config import LangGraphConfig
-    from aigie.integrations.langgraph.session import (
-        LangGraphSessionContext,
-        clear_session_context,
-        get_or_create_session_context,
-        get_session_context,
-        langgraph_session,
-        set_session_context,
-    )
     from aigie.integrations.langgraph.utils import (
         calculate_state_diff,
         extract_edge_name,

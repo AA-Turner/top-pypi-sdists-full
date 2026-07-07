@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: nagisa
-Version: 0.2.12
+Version: 0.3.0
 Summary: A Japanese tokenizer based on recurrent neural networks
-Home-page: https://github.com/taishi-i/nagisa
-Download-URL: https://github.com/taishi-i/nagisa/archive/0.2.12.tar.gz
-Author: Taishi Ikeda
-Author-email: taishi.ikeda.0323@gmail.com
+Author-email: Taishi Ikeda <taishi.ikeda.0323@gmail.com>
 License: MIT License
-Platform: Unix
+Project-URL: Homepage, https://github.com/taishi-i/nagisa
+Project-URL: Repository, https://github.com/taishi-i/nagisa
+Project-URL: Documentation, https://nagisa.readthedocs.io/en/latest/
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: Japanese
 Classifier: Programming Language :: Python :: 2.7
@@ -30,19 +29,11 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: six
 Requires-Dist: numpy
-Requires-Dist: DyNet38
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: license
+Requires-Dist: DyNet38; python_version >= "3.8"
+Requires-Dist: DyNet; python_version < "3.8"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
 Dynamic: license-file
-Dynamic: platform
-Dynamic: requires-dist
-Dynamic: summary
 
 <p align="center"><img width="50%" src="/nagisa/data/nagisa_logo.png" /></p>
 

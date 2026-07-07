@@ -1154,6 +1154,42 @@ mod tests {
         .expect_err("surface formula should reject another reserved z coordinate");
         assert!(err.contains("reserves z column 'z3'"));
     }
+
+    /// Extract the single `RandomEffect` term's unseen-level policy from a
+    /// one-term formula, panicking if the term is not a random-effect block.
+    fn random_effect_lenient_unseen(formula: &str) -> bool {
+        let parsed = parse_formula(formula).expect("parse random-effect formula");
+        let re = parsed
+            .terms
+            .iter()
+            .find_map(|t| match t {
+                ParsedTerm::RandomEffect { lenient_unseen, .. } => Some(*lenient_unseen),
+                _ => None,
+            });
+        re.unwrap_or_else(|| panic!("{formula} did not lower to a RandomEffect term"))
+    }
+
+    #[test]
+    fn factor_wrapper_is_strict_on_unseen_levels_while_group_re_are_lenient() {
+        // Regression for #2137 (sibling of #2102): `factor(g)` is a FIXED
+        // categorical factor (R `factor()` / patsy `C()`), so an out-of-vocabulary
+        // level at predict is a schema mismatch that must raise — NOT be shrunk to
+        // the centering point. `group(g)`/`re(g)`/`s(g, bs="re")` are genuine
+        // random effects that tolerate a held-out group (→ population mean). The
+        // parse arm once hardcoded `lenient_unseen: true` for all four wrappers,
+        // so `factor(g)` silently averaged an unseen level. Pin the per-wrapper
+        // policy at the parse layer, where the whole distinction now lives.
+        assert!(
+            !random_effect_lenient_unseen("y ~ factor(g)"),
+            "factor(g) is a fixed categorical factor: strict (lenient_unseen=false) on unseen levels"
+        );
+        for lenient in ["y ~ group(g)", "y ~ re(g)", "y ~ s(g, bs=re)"] {
+            assert!(
+                random_effect_lenient_unseen(lenient),
+                "{lenient} is a genuine random effect: lenient (lenient_unseen=true) on unseen levels"
+            );
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1258,6 +1294,17 @@ pub enum ParsedTerm {
     },
     RandomEffect {
         name: String,
+        /// Unseen-level policy, fixed at parse time by the wrapper the user
+        /// wrote. `group(g)`/`re(g)`/`s(g, bs="re")` are genuine **random
+        /// effects**: a held-out group is shrunk to the population mean, so an
+        /// unseen level at predict is tolerated (`true`). `factor(g)` is a
+        /// **fixed** categorical factor (R `factor()` / patsy `C()`
+        /// convention): like a bare `+ g` categorical main effect, an unseen
+        /// level is a schema mismatch that must raise rather than collapse onto
+        /// the factor's centering point (`false`, #2137/#2102). Both wrappers
+        /// share the penalized-categorical materialization; only this policy
+        /// distinguishes them, so seen-level fits are identical.
+        lenient_unseen: bool,
     },
     Smooth {
         label: String,
@@ -1309,7 +1356,7 @@ pub fn parsed_term_column_names(
         match term {
             ParsedTerm::Linear { name, .. }
             | ParsedTerm::BoundedLinear { name, .. }
-            | ParsedTerm::RandomEffect { name } => {
+            | ParsedTerm::RandomEffect { name, .. } => {
                 out.insert(name.clone());
             }
             ParsedTerm::Smooth { vars, options, .. } => {
@@ -1337,7 +1384,7 @@ pub fn parsed_terms_reference_column(terms: &[ParsedTerm], column_name: &str) ->
     terms.iter().any(|term| match term {
         ParsedTerm::Linear { name, .. }
         | ParsedTerm::BoundedLinear { name, .. }
-        | ParsedTerm::RandomEffect { name } => name == column_name,
+        | ParsedTerm::RandomEffect { name, .. } => name == column_name,
         ParsedTerm::Smooth { vars, options, .. } => {
             vars.iter().any(|var| var == column_name)
                 || options.get("by").is_some_and(|by| by == column_name)
@@ -1486,6 +1533,18 @@ pub fn require_likelihood_spec_supports_joint_wiggle(
     }
 }
 
+/// Family-agnostic capability of the joint link-wiggle machinery: which base
+/// inverse links a monotone warp can be fit over AND reconstructed from at
+/// predict time. Every state-less standard link qualifies — the warp fit and
+/// its saved-model reconstruction evaluate the base inverse link purely through
+/// the generic `inverse_link_jet_for_inverse_link` jet dispatch, which carries
+/// LogLog and Cauchit exactly as it does Logit/Probit/CLogLog. LogLog/Cauchit
+/// were previously omitted, so a binomial `flexible(loglog)`/`flexible(cauchit)`
+/// fit that this-gate-agnostically *converged* (see
+/// `binomial_inverse_link_supports_joint_wiggle`) then failed at predict when
+/// `FittedModel::saved_link_wiggle` re-checked the saved link here (#2155). The
+/// state-bearing links (SAS/BetaLogistic/Mixture/LatentCLogLog) carry fitted
+/// warp/skew state of their own and are intentionally excluded.
 pub const fn inverse_link_supports_joint_wiggle(link: &InverseLink) -> bool {
     matches!(
         link,
@@ -1494,6 +1553,8 @@ pub const fn inverse_link_supports_joint_wiggle(link: &InverseLink) -> bool {
             | InverseLink::Standard(StandardLink::Logit)
             | InverseLink::Standard(StandardLink::Probit)
             | InverseLink::Standard(StandardLink::CLogLog)
+            | InverseLink::Standard(StandardLink::LogLog)
+            | InverseLink::Standard(StandardLink::Cauchit)
     )
 }
 
@@ -1508,12 +1569,25 @@ pub fn require_inverse_link_supports_joint_wiggle(
     }
 }
 
+/// Which binomial base links the joint link-wiggle (flexible-link) solver can
+/// fit. All five standard binomial probability links qualify: the wiggle kernel
+/// (`BinomialMeanWiggleFamily`) evaluates the base inverse link purely through
+/// the generic `inverse_link_jet_for_inverse_link` dispatch, which carries full
+/// jets for LogLog and Cauchit exactly as it does for Logit/Probit/CLogLog — so
+/// `flexible(loglog)` / `flexible(cauchit)` fit through the same machinery
+/// (#2155). Previously this gate listed only logit/probit/cloglog while the
+/// permissive parse gate `linkname_supports_joint_wiggle` admitted loglog/cauchit,
+/// so the config was accepted then aborted deep in the solver. The state-bearing
+/// links (SAS/BetaLogistic/Mixture/LatentCLogLog) and identity/log stay out: the
+/// warp is defined only over a fixed state-less base probability link.
 pub const fn binomial_inverse_link_supports_joint_wiggle(link: &InverseLink) -> bool {
     matches!(
         link,
         InverseLink::Standard(StandardLink::Logit)
             | InverseLink::Standard(StandardLink::Probit)
             | InverseLink::Standard(StandardLink::CLogLog)
+            | InverseLink::Standard(StandardLink::LogLog)
+            | InverseLink::Standard(StandardLink::Cauchit)
     )
 }
 
@@ -1526,7 +1600,7 @@ pub fn require_binomial_inverse_link_supports_joint_wiggle(
     } else {
         Err(FormulaDslError::IncompatibleTerm {
             reason: format!(
-                "{context} does not support identity, log, latent-cloglog, SAS, BetaLogistic, or Mixture links; wiggle is only available for jointly fitted logit/probit/cloglog links"
+                "{context} does not support identity, log, latent-cloglog, SAS, BetaLogistic, or Mixture links; wiggle is only available for jointly fitted standard binomial probability links (logit/probit/cloglog/loglog/cauchit)"
             ),
         }
         .into())
@@ -2555,8 +2629,17 @@ pub fn parse_term(raw: &str) -> Result<ParsedTerm, String> {
                     }
                     .into());
                 }
+                // `factor(g)` is a FIXED categorical factor (R `factor()` /
+                // patsy `C()`): it forces categorical encoding of the column
+                // but, like a bare `+ g` main effect, is strict on unseen
+                // levels. `group(g)`/`re(g)` are genuine random effects that
+                // shrink a held-out group to the population mean, so they
+                // tolerate unseen levels. Both share the penalized-categorical
+                // block; only the unseen policy differs (#2137/#2102).
+                let lenient_unseen = name != "factor";
                 return Ok(ParsedTerm::RandomEffect {
                     name: vars[0].clone(),
+                    lenient_unseen,
                 });
             }
             "tensor" | "interaction" | "te" => {
@@ -2661,8 +2744,11 @@ pub fn parse_term(raw: &str) -> Result<ParsedTerm, String> {
                     .as_deref()
                     == Some("re");
                 if bs_is_re && vars.len() == 1 {
+                    // `s(g, bs="re")` is a genuine random effect: lenient on
+                    // unseen levels (held-out group → population mean).
                     return Ok(ParsedTerm::RandomEffect {
                         name: vars[0].clone(),
+                        lenient_unseen: true,
                     });
                 }
                 if matches!(name.as_str(), "cyclic" | "periodic" | "cc" | "cp") {

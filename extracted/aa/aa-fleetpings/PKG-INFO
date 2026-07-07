@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aa-fleetpings
-Version: 4.0.0
+Version: 4.0.1
 Summary: Fleet Ping Tool for Alliance Auth supporting pings via webhooks to Discord.
 Project-URL: Changelog, https://github.com/ppfeufer/aa-fleetpings/blob/master/CHANGELOG.md
 Project-URL: Codecov, https://codecov.io/gh/ppfeufer/aa-fleetpings
@@ -699,9 +699,10 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
-Requires-Python: <3.14,>=3.10
+Requires-Python: <3.15,>=3.10
 Requires-Dist: allianceauth<6,>=5
 Requires-Dist: dhooks-lite>=0.6.1
 Provides-Extra: tests-allianceauth-latest
@@ -809,7 +810,7 @@ Make sure you're in the virtual environment (venv) of your Alliance Auth install
 Then install the latest version:
 
 ```bash
-pip install aa-fleetpings==4.0.0
+pip install aa-fleetpings==4.0.1
 ```
 
 #### Step 2: Update Your AA Settings<a name="step-2-update-your-aa-settings"></a>
@@ -838,7 +839,7 @@ Continue with the [common setup](#common-setup-steps) steps below.
 Add the app to your `conf/requirements.txt`:
 
 ```text
-aa-fleetpings==4.0.0
+aa-fleetpings==4.0.1
 ```
 
 #### Step 2: Update Your AA Settings<a name="step-2-update-your-aa-settings-1"></a>
@@ -895,7 +896,7 @@ Then run the following commands from your AA project directory (the one that
 contains `manage.py`).
 
 ```bash
-pip install aa-fleetpings==4.0.0
+pip install aa-fleetpings==4.0.1
 
 python manage.py collectstatic
 python manage.py migrate
@@ -908,7 +909,7 @@ Finally, restart your AA supervisor services.
 To update your existing installation of AA Fleet Pings, all you need to do is to update the respective line in your `conf/requirements.txt` file to the latest version.
 
 ```text
-aa-fleetpings==4.0.0
+aa-fleetpings==4.0.1
 ```
 
 Now rebuild your containers:

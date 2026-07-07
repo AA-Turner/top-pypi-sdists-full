@@ -26,7 +26,11 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListBillingViewsPaginator, ListSourceViewsForBillingViewPaginator
+from .paginator import (
+    GetCreditAllocationHistoryPaginator,
+    ListBillingViewsPaginator,
+    ListSourceViewsForBillingViewPaginator,
+)
 from .type_defs import (
     AssociateSourceViewsRequestTypeDef,
     AssociateSourceViewsResponseTypeDef,
@@ -36,8 +40,14 @@ from .type_defs import (
     DeleteBillingViewResponseTypeDef,
     DisassociateSourceViewsRequestTypeDef,
     DisassociateSourceViewsResponseTypeDef,
+    GetBillingPreferencesRequestTypeDef,
+    GetBillingPreferencesResponseTypeDef,
     GetBillingViewRequestTypeDef,
     GetBillingViewResponseTypeDef,
+    GetCreditAllocationHistoryRequestTypeDef,
+    GetCreditAllocationHistoryResponseTypeDef,
+    GetCreditsRequestTypeDef,
+    GetCreditsResponseTypeDef,
     GetResourcePolicyRequestTypeDef,
     GetResourcePolicyResponseTypeDef,
     ListBillingViewsRequestTypeDef,
@@ -46,8 +56,10 @@ from .type_defs import (
     ListSourceViewsForBillingViewResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    RedeemCreditsRequestTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateBillingPreferencesRequestTypeDef,
     UpdateBillingViewRequestTypeDef,
     UpdateBillingViewResponseTypeDef,
 )
@@ -149,6 +161,16 @@ class BillingClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#disassociate_source_views)
         """
 
+    def get_billing_preferences(
+        self, **kwargs: Unpack[GetBillingPreferencesRequestTypeDef]
+    ) -> GetBillingPreferencesResponseTypeDef:
+        """
+        Retrieves billing preferences for the specified feature.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_billing_preferences.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#get_billing_preferences)
+        """
+
     def get_billing_view(
         self, **kwargs: Unpack[GetBillingViewRequestTypeDef]
     ) -> GetBillingViewResponseTypeDef:
@@ -157,6 +179,26 @@ class BillingClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_billing_view.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#get_billing_view)
+        """
+
+    def get_credit_allocation_history(
+        self, **kwargs: Unpack[GetCreditAllocationHistoryRequestTypeDef]
+    ) -> GetCreditAllocationHistoryResponseTypeDef:
+        """
+        Returns the per-billing-month allocation history for credits applied to an
+        Amazon Web Services account's bills.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_credit_allocation_history.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#get_credit_allocation_history)
+        """
+
+    def get_credits(self, **kwargs: Unpack[GetCreditsRequestTypeDef]) -> GetCreditsResponseTypeDef:
+        """
+        Returns the list of Amazon Web Services account credits for the specified
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_credits.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#get_credits)
         """
 
     def get_resource_policy(
@@ -201,6 +243,15 @@ class BillingClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#list_tags_for_resource)
         """
 
+    def redeem_credits(self, **kwargs: Unpack[RedeemCreditsRequestTypeDef]) -> dict[str, Any]:
+        """
+        Redeems an Amazon Web Services promotional credit code on behalf of the calling
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/redeem_credits.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#redeem_credits)
+        """
+
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         An API operation for adding one or more tags (key-value pairs) to a resource.
@@ -217,6 +268,16 @@ class BillingClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#untag_resource)
         """
 
+    def update_billing_preferences(
+        self, **kwargs: Unpack[UpdateBillingPreferencesRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates billing preferences for the specified feature.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/update_billing_preferences.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#update_billing_preferences)
+        """
+
     def update_billing_view(
         self, **kwargs: Unpack[UpdateBillingViewRequestTypeDef]
     ) -> UpdateBillingViewResponseTypeDef:
@@ -225,6 +286,17 @@ class BillingClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/update_billing_view.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#update_billing_view)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_credit_allocation_history"]
+    ) -> GetCreditAllocationHistoryPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

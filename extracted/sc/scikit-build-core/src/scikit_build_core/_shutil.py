@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+__lazy_modules__ = {f"{__spec__.parent}._logging", "subprocess", "typing"}
+
 import dataclasses
 import os
-import stat
 import subprocess
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
 from ._logging import logger
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
@@ -84,17 +86,3 @@ class Run:
         if k in self._prev_env and k not in self.env:
             return "-"
         return " "
-
-
-def _fix_all_permissions(directory: str) -> None:
-    """
-    Makes sure the write permission is set. Only run this on Windows.
-    """
-    with os.scandir(directory) as it:
-        for entry in it:
-            if entry.is_dir():
-                _fix_all_permissions(entry.path)
-                continue
-            mode = stat.S_IMODE(entry.stat().st_mode)
-            if not mode & stat.S_IWRITE:
-                os.chmod(entry.path, mode | stat.S_IWRITE)  # noqa: PTH101

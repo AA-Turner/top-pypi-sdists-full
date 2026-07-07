@@ -31,12 +31,20 @@ from smp.os_management import (
 )
 
 from smpclient import SMPClient
-from smpclient.exceptions import SMPBadSequence, SMPUploadError
+from smpclient.exceptions import SMPBadSequence, SMPUploadError, SMPValidationException
 from smpclient.generics import error, error_v1, error_v2, success
 from smpclient.requests.file_management import FileDownload, FileUpload
 from smpclient.requests.image_management import ImageUploadWrite
 from smpclient.requests.os_management import ResetWrite
-from smpclient.transport.serial import SMPSerialTransport
+from smpclient.transport.serial import (
+    BufferParams,
+    BufferSize,
+    SMPSerialRawTransport,
+    SMPSerialTransport,
+)
+
+FRAME_OVERHEAD = smppacket.FRAME_LENGTH_STRUCT.size + smppacket.CRC16_STRUCT.size
+"""The SMP serial frame's 2-byte length + 2-byte CRC16 that share the decoded buffer."""
 
 
 class SMPMockTransport:
@@ -47,10 +55,18 @@ class SMPMockTransport:
         self.disconnect = AsyncMock()
         self.send = AsyncMock()
         self.receive = AsyncMock()
-        self.mtu = PropertyMock()
-        self.max_unencoded_size = PropertyMock()
         self._smp_server_transport_buffer_size: int | None = None
         self.initialize = AsyncMock()
+        self._mtu = 0
+        self._max_unencoded_size = 0
+
+    @property
+    def mtu(self) -> int:
+        return self._mtu
+
+    @property
+    def max_unencoded_size(self) -> int:
+        return self._max_unencoded_size
 
     async def send_and_receive(self, data: bytes) -> bytes:
         await self.send(data)
@@ -155,15 +171,34 @@ async def test_request() -> None:
 
 
 @pytest.mark.asyncio
+async def test_request_unparseable_frame() -> None:
+    """A frame matching none of the Response/ErrorV1/ErrorV2 types raises with diagnostics."""
+    m = SMPMockTransport()
+    s = SMPClient(m, "address")
+
+    req = ResetWrite()
+    # A frame from a different group/command can be parsed as none of `ResetWrite`'s types.
+    m.receive.return_value = ImageUploadWriteResponse(sequence=req.header.sequence, off=0).BYTES
+
+    with pytest.raises(SMPValidationException) as exc_info:
+        await s.request(req)
+
+    assert req._Response.__name__ in exc_info.value.msg
+    assert "Header:" in exc_info.value.details
+    assert "Frame:" in exc_info.value.details
+    assert req._ErrorV1.__name__ in exc_info.value.details
+    assert req._ErrorV2.__name__ in exc_info.value.details
+
+
+@pytest.mark.asyncio
 async def test_upload() -> None:
     m = SMPMockTransport()
     s = SMPClient(m, "address", 2.5)
 
     s.request = AsyncMock()  # type: ignore
 
-    # refer to: https://docs.python.org/3/library/unittest.mock.html#unittest.mock.PropertyMock
-    type(m).mtu = PropertyMock(return_value=498)
-    type(m).max_unencoded_size = PropertyMock(return_value=498)
+    m._mtu = 498
+    m._max_unencoded_size = 498
 
     chunk_size = 415  # max chunk given MTU
 
@@ -313,12 +348,16 @@ async def test_upload_hello_world_bin_encoded(
         pytest.skip("The line buffer size is too small")
 
     m = SMPSerialTransport(
-        max_smp_encoded_frame_size=max_smp_encoded_frame_size,
-        line_length=line_length,
-        line_buffers=line_buffers,
+        fragmentation_strategy=BufferParams(
+            line_length=line_length,
+            line_buffers=line_buffers,
+        )
     )
     s = SMPClient(m, "address")
-    assert s._transport.mtu == max_smp_encoded_frame_size
+    # MTU is line_length * line_buffers, which may be <= max_smp_encoded_frame_size
+    # due to integer division
+    assert s._transport.mtu == line_length * line_buffers
+    assert s._transport.mtu <= max_smp_encoded_frame_size
 
     packets: list[bytes] = []
 
@@ -366,15 +405,61 @@ async def test_upload_hello_world_bin_encoded(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("mtu", [128, 256, 512, 1024, 2048, 4096, 8192])
+async def test_upload_hello_world_bin_raw(mtu: int) -> None:
+    with open(
+        str(Path("tests", "fixtures", "zephyr-v3.5.0-2795-g28ff83515d", "hello_world.signed.bin")),
+        'rb',
+    ) as f:
+        image = f.read()
+
+    m = SMPSerialRawTransport(mtu=mtu)
+    s = SMPClient(m, "address")
+    assert s._transport.mtu == mtu
+    assert s._transport.max_unencoded_size == mtu, "The raw transport has no encoding overhead"
+
+    packets: list[bytes] = []
+
+    def mock_write(data: bytes) -> int:
+        """Accumulate the raw packets in the global `packets`."""
+        packets.append(data)
+        return len(data)
+
+    s._transport._conn.write = mock_write  # type: ignore
+
+    async def mock_request(
+        request: ImageUploadWrite, timeout_s: float = 120.000
+    ) -> ImageUploadWriteResponse:
+        # call the real send method (with write mocked) but don't bother with receive
+        # this provides coverage for the MTU-limited chunking done by SMPClient.upload
+        await s._transport.send(request.BYTES)
+        return ImageUploadWrite._Response.get_default()(off=request.off + len(request.data))  # type: ignore # noqa
+
+    s.request = mock_request  # type: ignore
+
+    # `out_waiting` is a property on the real Serial class - scope the patch so it
+    # restores cleanly when the test finishes.
+    with patch.object(type(s._transport._conn), 'out_waiting', 0):  # type: ignore
+        async for _ in s.upload(image):
+            pass
+
+    # Each captured write is one complete SMP message [header][payload], no decoding needed.
+    reconstructed_image = bytearray([])
+    for packet in packets:
+        reconstructed_image.extend(ImageUploadWriteRequest.loads(packet).data)
+
+    assert reconstructed_image == image
+
+
+@pytest.mark.asyncio
 async def test_upload_file() -> None:
     m = SMPMockTransport()
     s = SMPClient(m, "address", 2.5)
 
     s.request = AsyncMock()  # type: ignore
 
-    # refer to: https://docs.python.org/3/library/unittest.mock.html#unittest.mock.PropertyMock
-    type(m).mtu = PropertyMock(return_value=498)
-    type(m).max_unencoded_size = PropertyMock(return_value=498)
+    m._mtu = 498
+    m._max_unencoded_size = 498
 
     chunk_size = 455  # max chunk given MTU
 
@@ -544,12 +629,16 @@ async def test_file_upload_test_encoded(max_smp_encoded_frame_size: int, line_bu
         pytest.skip("The line buffer size is too small")
 
     m = SMPSerialTransport(
-        max_smp_encoded_frame_size=max_smp_encoded_frame_size,
-        line_length=line_length,
-        line_buffers=line_buffers,
+        fragmentation_strategy=BufferParams(
+            line_length=line_length,
+            line_buffers=line_buffers,
+        )
     )
     s = SMPClient(m, "address")
-    assert s._transport.mtu == max_smp_encoded_frame_size
+    # MTU is line_length * line_buffers, which may be <= max_smp_encoded_frame_size
+    # due to integer division
+    assert s._transport.mtu == line_length * line_buffers
+    assert s._transport.mtu <= max_smp_encoded_frame_size
 
     packets: list[bytes] = []
 
@@ -603,9 +692,8 @@ async def test_download_file() -> None:
 
     s.request = AsyncMock()  # type: ignore
 
-    # refer to: https://docs.python.org/3/library/unittest.mock.html#unittest.mock.PropertyMock
-    type(m).mtu = PropertyMock(return_value=498)
-    type(m).max_unencoded_size = PropertyMock(return_value=498)
+    m._mtu = 498
+    m._max_unencoded_size = 498
 
     data = bytes([i % 255 for i in range(4097)])
     s.request.side_effect = [
@@ -891,3 +979,41 @@ async def test_download_file_error_not_first() -> None:
     with pytest.raises(SMPUploadError) as e:
         await s.download_file("test.txt")
     assert e.value.args[0].err.rc == FS_MGMT_ERR.FILE_WRITE_FAILED
+
+
+@pytest.mark.parametrize(
+    "buf_size, encoded_frame_size", [(384, 527), (512, 702), (1024, 1404), (2048, 2801)]
+)
+def test_maximize_upload_packet_fills_decoded_buffer(
+    buf_size: int, encoded_frame_size: int
+) -> None:
+    """`_maximize_upload_packet` fills `max_unencoded_size` for image AND file uploads.
+
+    Filling the decoded reassembly buffer (`buf_size - 4`) is the whole point of the
+    maximizer: the resulting SMP message base64-encodes to a frame ~1.37x `buf_size` on
+    the wire -- larger than the buffer, which the server decodes incrementally as the
+    lines arrive. The unified generic handles both `ImageUploadWrite` and `FileUpload`.
+    """
+    client = SMPClient(
+        SMPSerialTransport(fragmentation_strategy=BufferSize(buf_size=buf_size)),
+        "address",
+    )
+    max_unencoded_size = client._transport.max_unencoded_size
+    assert max_unencoded_size == buf_size - FRAME_OVERHEAD
+
+    image = b"\xa5" * (4 * buf_size)  # plenty of source so the packet is never a short final
+    image_packet = client._maximize_upload_packet(
+        ImageUploadWrite(off=0, data=b"", image=0, len=len(image), sha=sha256(image).digest()),
+        image,
+    )
+    file_packet = client._maximize_upload_packet(
+        FileUpload(name="/lfs1/firmware.bin", off=0, data=b"", len=len(image)), image
+    )
+    for maximized in (image_packet, file_packet):
+        # the maximizer fills the decoded reassembly buffer exactly
+        assert len(maximized.BYTES) == max_unencoded_size
+
+        # ... so the encoded frame on the wire is ~1.37x buf_size -- bigger than the buffer
+        on_wire = b"".join(smppacket.encode(maximized.BYTES, line_length=128))
+        assert len(on_wire) == encoded_frame_size
+        assert len(on_wire) > buf_size

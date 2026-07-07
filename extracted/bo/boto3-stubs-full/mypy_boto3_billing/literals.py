@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_billing.literals import BillingViewStatusReasonType
+    from mypy_boto3_billing.literals import ApplicationTypeType
 
-    data: BillingViewStatusReasonType = "AGGREGATE_SOURCE"
+    data: ApplicationTypeType = "AFTER_DISCOUNTS"
     ```
 """
 
@@ -23,20 +23,38 @@ else:
 
 
 __all__ = (
+    "ApplicationTypeType",
+    "BillingFeatureFilterNameType",
+    "BillingFeatureType",
     "BillingServiceName",
     "BillingViewStatusReasonType",
     "BillingViewStatusType",
     "BillingViewTypeType",
+    "CreditSharingTypeType",
+    "CreditStatusType",
     "DimensionType",
+    "GetCreditAllocationHistoryPaginatorName",
     "ListBillingViewsPaginatorName",
     "ListSourceViewsForBillingViewPaginatorName",
     "PaginatorName",
+    "PreferenceValueType",
     "ResourceServiceName",
     "SearchOptionType",
     "ServiceName",
 )
 
 
+ApplicationTypeType = Literal["AFTER_DISCOUNTS", "BEFORE_CROSS_SERVICE_DISCOUNTS"]
+BillingFeatureFilterNameType = Literal["PREFERENCE_KEY"]
+BillingFeatureType = Literal[
+    "BILLING_ALERTS",
+    "CREDIT_LEVEL_SHARING",
+    "CREDIT_PREFERENCE_OPTIONS",
+    "CREDIT_SHARING",
+    "CREDIT_SHARING_HISTORY",
+    "RI_SHARING",
+    "RI_SHARING_HISTORY",
+]
 BillingViewStatusReasonType = Literal[
     "AGGREGATE_SOURCE",
     "CYCLIC_DEPENDENCY",
@@ -51,9 +69,13 @@ BillingViewStatusType = Literal["CREATING", "HEALTHY", "UNHEALTHY", "UPDATING"]
 BillingViewTypeType = Literal[
     "BILLING_GROUP", "BILLING_TRANSFER", "BILLING_TRANSFER_SHOWBACK", "CUSTOM", "PRIMARY"
 ]
+CreditSharingTypeType = Literal["COST_CATEGORY_RULE", "CUSTOM", "DEFAULT", "DISABLED"]
+CreditStatusType = Literal["DISABLED", "ENABLED"]
 DimensionType = Literal["LINKED_ACCOUNT"]
+GetCreditAllocationHistoryPaginatorName = Literal["get_credit_allocation_history"]
 ListBillingViewsPaginatorName = Literal["list_billing_views"]
 ListSourceViewsForBillingViewPaginatorName = Literal["list_source_views_for_billing_view"]
+PreferenceValueType = Literal["DISABLED", "ENABLED"]
 SearchOptionType = Literal["STARTS_WITH"]
 BillingServiceName = Literal["billing"]
 ServiceName = Literal[
@@ -485,4 +507,6 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_billing_views", "list_source_views_for_billing_view"]
+PaginatorName = Literal[
+    "get_credit_allocation_history", "list_billing_views", "list_source_views_for_billing_view"
+]

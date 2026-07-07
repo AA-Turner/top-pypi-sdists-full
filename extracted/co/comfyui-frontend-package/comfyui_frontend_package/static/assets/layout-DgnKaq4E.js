@@ -1,0 +1,2 @@
+import{t as e}from"./src-AV5bI-tk.js";var t=e([`not-disabled:bg-component-node-widget-background`,`not-disabled:text-component-node-foreground`,`[[readonly]]:bg-component-node-widget-background-disabled`,`border-none`,`rounded-lg`]);export{t};
+//# sourceMappingURL=layout-DgnKaq4E.js.map

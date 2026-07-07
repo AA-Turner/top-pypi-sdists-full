@@ -92,6 +92,7 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
         engine_args: Optional[Dict[str, Any]] = None,
         async_engine_args: Optional[Dict[str, Any]] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
+        permission_tags: list[str] | None = None,
     ):
         try:
             import psycopg  # Used for the async driver
@@ -163,7 +164,13 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
         # connection to the pool
         engine_args.setdefault("isolation_level", os.environ.get("CHALK_SQL_ISOLATION_LEVEL", "AUTOCOMMIT"))
         async_engine_args.setdefault("isolation_level", os.environ.get("CHALK_SQL_ISOLATION_LEVEL", "AUTOCOMMIT"))
-        BaseSQLSource.__init__(self, name=name, engine_args=engine_args, async_engine_args=async_engine_args)
+        BaseSQLSource.__init__(
+            self,
+            name=name,
+            engine_args=engine_args,
+            async_engine_args=async_engine_args,
+            permission_tags=permission_tags,
+        )
 
     def get_sqlglot_dialect(self) -> str | None:
         return "postgres"

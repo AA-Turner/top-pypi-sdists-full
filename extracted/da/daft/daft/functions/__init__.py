@@ -105,7 +105,22 @@ from .similarity import (
 )
 
 from .image_file_ import image_file_metadata, decode_image_file
-from .file_ import file, file_path, file_size, file_exists, video_file, audio_file, image_file, guess_mime_type
+from .hdf5 import (
+    hdf5_attrs,
+    hdf5_keys,
+    hdf5_metadata,
+)
+from .file_ import (
+    file,
+    file_path,
+    file_size,
+    file_exists,
+    video_file,
+    audio_file,
+    image_file,
+    hdf5_file,
+    guess_mime_type,
+)
 
 from .image import (
     resize,
@@ -426,6 +441,10 @@ __all__ = [
     "hamming_distance",
     "hamming_distance_str",
     "hash",
+    "hdf5_attrs",
+    "hdf5_file",
+    "hdf5_keys",
+    "hdf5_metadata",
     "hour",
     "hypot",
     "ilike",

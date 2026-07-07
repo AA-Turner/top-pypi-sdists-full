@@ -424,6 +424,14 @@ class ChatDaemon:
                                 try:
                                     reply = group_responder.respond(msg)
                                     if reply:
+                                        # Prefix with the agent's name so the group
+                                        # shows WHO replied (the app doesn't render
+                                        # the per-message sender label reliably).
+                                        _who = group_cfg.agent.capitalize()
+                                        if not reply.lstrip().lower().startswith(
+                                            (_who.lower(), f"**{_who.lower()}")
+                                        ):
+                                            reply = f"{_who}: {reply}"
                                         from .daemon_proxy_groups import load_group
 
                                         gid = (msg.thread_id or msg.recipient).replace(
@@ -443,20 +451,24 @@ class ChatDaemon:
                                                 transport=None,
                                                 history=history,
                                             )
+                                            from .daemon_proxy_groups import (
+                                                local_deliver_to_agent,
+                                            )
                                             from .models import ChatMessage
 
                                             for member in grp.members:
                                                 if member.identity_uri == identity:
                                                     continue
+                                                fanout_msg = ChatMessage(
+                                                    sender=identity,
+                                                    recipient=member.identity_uri,
+                                                    content=reply,
+                                                    thread_id=gid,
+                                                )
+                                                if local_deliver_to_agent(fanout_msg):
+                                                    continue
                                                 try:
-                                                    transport.send_message(
-                                                        ChatMessage(
-                                                            sender=identity,
-                                                            recipient=member.identity_uri,
-                                                            content=reply,
-                                                            thread_id=gid,
-                                                        )
-                                                    )
+                                                    transport.send_message(fanout_msg)
                                                 except Exception as fanout_exc:
                                                     logger.warning(
                                                         "group fan-out to %s failed: %s",

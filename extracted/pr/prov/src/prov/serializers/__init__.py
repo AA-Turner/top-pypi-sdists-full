@@ -22,28 +22,43 @@ class Serializer(ABC):
     """PROV document to serialise."""
 
     def __init__(self, document: ProvDocument | None = None):
-        """
-        Constructor.
+        """Create a serializer bound to a document.
 
-        :param document: Document to serialize.
+        Args:
+            document: Document this serializer will serialize, or
+                deserialize into. May be ``None`` when only deserialization
+                (which produces its own new document) is needed.
         """
         self.document = document
 
     @abstractmethod
     def serialize(self, stream: io.IOBase, **args: Any) -> None:
-        """
-        Abstract method for serializing.
+        """Serialize ``self.document`` and write it to a stream.
 
-        :param stream: Stream object to serialize the document into.
+        Subclasses implement this to encode the bound document and write the
+        result to ``stream``.
+
+        Args:
+            stream: Stream to write the serialized document into.
+            **args: Format-specific serialization options, passed through by
+                subclasses.
         """
         pass  # pragma: no cover -- abstract body, never executed directly
 
     @abstractmethod
     def deserialize(self, stream: io.IOBase, **args: Any) -> ProvDocument:
-        """
-        Abstract method for deserializing.
+        """Read and parse a document from a stream.
 
-        :param stream: Stream object to deserialize the document from.
+        Subclasses implement this to parse ``stream`` and build a new
+        :class:`~prov.model.ProvDocument` from it.
+
+        Args:
+            stream: Stream to deserialize the document from.
+            **args: Format-specific deserialization options, passed through
+                by subclasses.
+
+        Returns:
+            The deserialized :class:`~prov.model.ProvDocument`.
         """
         pass  # pragma: no cover -- abstract body, never executed directly
 
@@ -62,23 +77,63 @@ class Registry:
 
     @staticmethod
     def load_serializers() -> None:
-        """Loads all available serializers into the registry."""
+        """Load all serializers whose optional dependencies are installed.
+
+        ``json`` and ``provn`` have no optional dependencies and are always
+        registered. ``rdf`` (needs ``rdflib``) and ``xml`` (needs ``lxml``)
+        are registered only if their extra is installed, so that ``import
+        prov`` and JSON/PROV-N work in a minimal install; requesting an
+        unavailable format then raises an informative :class:`DoNotExist`
+        (see :func:`get`) rather than a bare ``ModuleNotFoundError``.
+
+        The insertion order is kept as ``json, rdf, provn, xml`` (the
+        historic order when all extras are present) because
+        :func:`prov.read`'s format auto-detection iterates
+        ``Registry.serializers`` in order and several tests
+        (``test_read_auto_detects_rdf``,
+        ``test_read_auto_detect_of_xml_hits_uncaught_rdf_syntax_error``,
+        ``test_read_on_unparseable_content_raises_bad_syntax``) pin the
+        exact candidate tried second.
+        """
         from prov.serializers.provjson import ProvJSONSerializer
         from prov.serializers.provn import ProvNSerializer
-        from prov.serializers.provrdf import ProvRDFSerializer
-        from prov.serializers.provxml import ProvXMLSerializer
 
-        Registry.serializers = {
+        serializers: dict[str, type[Serializer]] = {
             "json": ProvJSONSerializer,
-            "rdf": ProvRDFSerializer,
-            "provn": ProvNSerializer,
-            "xml": ProvXMLSerializer,
         }
+        try:
+            from prov.serializers.provrdf import ProvRDFSerializer
+        except ImportError:  # pragma: no cover -- rdflib (rdf extra) absent; covered by the minimal-install CI job
+            pass
+        else:
+            serializers["rdf"] = ProvRDFSerializer
+        serializers["provn"] = ProvNSerializer
+        try:
+            from prov.serializers.provxml import ProvXMLSerializer
+        except ImportError:  # pragma: no cover -- lxml (xml extra) absent; covered by the minimal-install CI job
+            pass
+        else:
+            serializers["xml"] = ProvXMLSerializer
+        Registry.serializers = serializers
+
+
+#: Formats provided by optional extras, used to build the DoNotExist message
+#: in :func:`get` when the corresponding dependency is not installed.
+_OPTIONAL_FORMAT_EXTRAS = {"rdf": "rdf", "xml": "xml"}
 
 
 def get(format_name: str) -> type[Serializer]:
-    """
-    Returns the serializer class for the specified format. Raises a DoNotExist
+    """Return the serializer class registered for a format.
+
+    Args:
+        format_name: Registry key, e.g. ``"json"``, ``"xml"``, ``"rdf"``,
+            ``"provn"``.
+
+    Returns:
+        The :class:`Serializer` subclass for the format.
+
+    Raises:
+        DoNotExist: If no serializer is registered under ``format_name``.
     """
     # Lazily initialize the list of serializers to avoid cyclic imports
     if Registry.serializers is None:
@@ -88,6 +143,14 @@ def get(format_name: str) -> type[Serializer]:
     try:
         return serializers[format_name]
     except KeyError as e:
+        extra = _OPTIONAL_FORMAT_EXTRAS.get(format_name)
+        # The informative-message branch is reachable only when the optional
+        # extra is absent; the minimal-install CI job exercises it.
+        if extra is not None:  # pragma: no cover
+            raise DoNotExist(
+                f'Serializer for the "{format_name}" format requires the '
+                f'"{extra}" extra; install it with: pip install "prov[{extra}]"'
+            ) from e
         raise DoNotExist(
             f'No serializer available for the format "{format_name}"'
         ) from e

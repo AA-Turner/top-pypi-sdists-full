@@ -12,7 +12,9 @@ import scikit_build_core.settings.skbuild_overrides
 from scikit_build_core.settings.skbuild_overrides import regex_match
 from scikit_build_core.settings.skbuild_read_settings import SettingsReader
 
-if typing.TYPE_CHECKING:
+TYPE_CHECKING = False
+
+if TYPE_CHECKING:
     from pytest_subprocess import FakeProcess
 
 
@@ -21,6 +23,17 @@ class VersionInfo(typing.NamedTuple):
     minor: int
     micro: int
     releaselevel: str = "final"
+
+
+@pytest.fixture(autouse=True)
+def _no_entrypoint_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Several tests here patch sys.version_info to exercise override matching.
+    # That patch must not reach the version-sensitive entry-point metadata shim
+    # via config-provider discovery, which is unrelated to override resolution.
+    monkeypatch.setattr(
+        "scikit_build_core.settings.skbuild_read_settings.load_config_providers",
+        lambda **_: [],
+    )
 
 
 def test_disallow_hardcoded(
@@ -68,6 +81,43 @@ def test_disallow_hardcoded(
     assert exc.value.code == 7
     out, _ = capsys.readouterr()
     assert "is not allowed to be hard-coded in the pyproject.toml file" in out
+
+
+def test_override_only_allowed_dynamically(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """override_only fields are allowed via config-settings / env vars (#1261)."""
+    caplog.set_level(logging.WARNING)
+    pyproject_toml = tmp_path / "pyproject.toml"
+    pyproject_toml.write_text(
+        dedent(
+            """\
+            [tool.scikit-build]
+            strict-config = true
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    # Via PEP 517 config-settings
+    settings_reader = SettingsReader.from_file(
+        pyproject_toml,
+        {"cmake.toolchain-file": "foo.cmake", "wheel.tags": "cp312-abi3-win_amd64"},
+        state="wheel",
+    )
+    settings_reader.validate_may_exit()
+    assert settings_reader.settings.cmake.toolchain_file == Path("foo.cmake")
+    assert settings_reader.settings.wheel.tags == ["cp312-abi3-win_amd64"]
+    assert not [r for r in caplog.records if "hard-coded" in str(r.msg)]
+
+    # Via environment variables
+    monkeypatch.setenv("SKBUILD_CMAKE_TOOLCHAIN_FILE", "bar.cmake")
+    settings_reader = SettingsReader.from_file(pyproject_toml, {}, state="wheel")
+    settings_reader.validate_may_exit()
+    assert settings_reader.settings.cmake.toolchain_file == Path("bar.cmake")
+    assert not [r for r in caplog.records if "hard-coded" in str(r.msg)]
 
 
 @pytest.mark.parametrize("python_version", ["3.9", "3.10"])
@@ -593,7 +643,7 @@ def test_skbuild_overrides_inherit(inherit: str, tmp_path: Path):
             f"""\
             [tool.scikit-build]
             cmake.args = ["a", "b"]
-            cmake.targets = ["a", "b"]
+            build.targets = ["a", "b"]
             wheel.packages = ["a", "b"]
             wheel.license-files = ["a.txt", "b.txt"]
             wheel.exclude = ["x", "y"]
@@ -603,14 +653,14 @@ def test_skbuild_overrides_inherit(inherit: str, tmp_path: Path):
             [[tool.scikit-build.overrides]]
             if.state = "wheel"
             inherit.cmake.args = "{inherit}"
-            inherit.cmake.targets = "{inherit}"
+            inherit.build.targets = "{inherit}"
             inherit.wheel.packages = "{inherit}"
             inherit.wheel.license-files = "{inherit}"
             inherit.wheel.exclude = "{inherit}"
             inherit.install.components = "{inherit}"
             inherit.cmake.define = "{inherit}"
             cmake.args = ["c", "d"]
-            cmake.targets = ["c", "d"]
+            build.targets = ["c", "d"]
             wheel.packages = ["c", "d"]
             wheel.license-files = ["c.txt", "d.txt"]
             wheel.exclude = ["xx", "yy"]
@@ -626,7 +676,7 @@ def test_skbuild_overrides_inherit(inherit: str, tmp_path: Path):
 
     if inherit == "none":
         assert settings.cmake.args == ["c", "d"]
-        assert settings.cmake.targets == ["c", "d"]
+        assert settings.build.targets == ["c", "d"]
         assert settings.wheel.packages == ["c", "d"]
         assert settings.wheel.license_files == ["c.txt", "d.txt"]
         assert settings.wheel.exclude == ["xx", "yy"]
@@ -634,7 +684,7 @@ def test_skbuild_overrides_inherit(inherit: str, tmp_path: Path):
         assert settings.cmake.define == {"b": "X", "c": "C"}
     elif inherit == "append":
         assert settings.cmake.args == ["a", "b", "c", "d"]
-        assert settings.cmake.targets == ["a", "b", "c", "d"]
+        assert settings.build.targets == ["a", "b", "c", "d"]
         assert settings.wheel.packages == ["a", "b", "c", "d"]
         assert settings.wheel.license_files == ["a.txt", "b.txt", "c.txt", "d.txt"]
         assert settings.wheel.exclude == ["x", "y", "xx", "yy"]
@@ -642,12 +692,144 @@ def test_skbuild_overrides_inherit(inherit: str, tmp_path: Path):
         assert settings.cmake.define == {"a": "A", "b": "X", "c": "C"}
     elif inherit == "prepend":
         assert settings.cmake.args == ["c", "d", "a", "b"]
-        assert settings.cmake.targets == ["c", "d", "a", "b"]
+        assert settings.build.targets == ["c", "d", "a", "b"]
         assert settings.wheel.packages == ["c", "d", "a", "b"]
         assert settings.wheel.license_files == ["c.txt", "d.txt", "a.txt", "b.txt"]
         assert settings.wheel.exclude == ["xx", "yy", "x", "y"]
         assert settings.install.components == ["c", "d", "a", "b"]
         assert settings.cmake.define == {"a": "A", "b": "B", "c": "C"}
+
+
+@pytest.mark.parametrize("inherit", ["none", "append", "prepend"])
+def test_skbuild_overrides_inherit_force_include(inherit: str, tmp_path: Path):
+    """Free-form dicts (force-include, whose keys are file paths with dots and
+    slashes) follow the same inherit rules as cmake.define: append/prepend merge
+    the base and override tables, while none replaces the base outright."""
+    pyproject_toml = tmp_path / "pyproject.toml"
+    pyproject_toml.write_text(
+        dedent(
+            f"""\
+            [tool.scikit-build.sdist.force-include]
+            "a/b.txt" = "A"
+            "c.d.txt" = "B"
+
+            [tool.scikit-build.wheel.force-include]
+            "a/b.txt" = "A"
+            "c.d.txt" = "B"
+
+            [[tool.scikit-build.overrides]]
+            if.state = "wheel"
+            inherit.sdist.force-include = "{inherit}"
+            inherit.wheel.force-include = "{inherit}"
+            sdist.force-include."c.d.txt" = "X"
+            sdist.force-include."e/f.txt" = "C"
+            wheel.force-include."c.d.txt" = "X"
+            wheel.force-include."e/f.txt" = "C"
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    settings = SettingsReader.from_file(pyproject_toml, state="wheel").settings
+
+    if inherit == "none":
+        # The whole table is replaced; the base "a/b.txt" entry is dropped.
+        expected = {"c.d.txt": "X", "e/f.txt": "C"}
+    elif inherit == "append":
+        # Merged, with the override winning the "c.d.txt" conflict.
+        expected = {"a/b.txt": "A", "c.d.txt": "X", "e/f.txt": "C"}
+    else:  # prepend
+        # Merged, with the base winning the "c.d.txt" conflict.
+        expected = {"a/b.txt": "A", "c.d.txt": "B", "e/f.txt": "C"}
+
+    assert settings.sdist.force_include == expected
+    assert settings.wheel.force_include == expected
+
+
+def test_skbuild_overrides_force_include_default_replaces(tmp_path: Path):
+    """Without an inherit entry the override replaces the whole force-include
+    table rather than merging into it (the default mode is "none")."""
+    pyproject_toml = tmp_path / "pyproject.toml"
+    pyproject_toml.write_text(
+        dedent(
+            """\
+            [tool.scikit-build.wheel.force-include]
+            "a/b.txt" = "A"
+            "c.d.txt" = "B"
+
+            [[tool.scikit-build.overrides]]
+            if.state = "wheel"
+            wheel.force-include."e/f.txt" = "C"
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    settings = SettingsReader.from_file(pyproject_toml, state="wheel").settings
+    assert settings.wheel.force_include == {"e/f.txt": "C"}
+
+
+def test_skbuild_overrides_inherit_with_scalar_key(tmp_path: Path):
+    """An override mixing inherit.<table>.<key> with a top-level scalar key
+    must not crash (previously asserted the whole inherit table was empty)."""
+    pyproject_toml = tmp_path / "pyproject.toml"
+    pyproject_toml.write_text(
+        dedent(
+            """\
+            [tool.scikit-build]
+            cmake.args = ["a", "b"]
+
+            [[tool.scikit-build.overrides]]
+            if.state = "wheel"
+            inherit.cmake.args = "append"
+            build-dir = "mybuild"
+            cmake.args = ["c", "d"]
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    settings_reader = SettingsReader.from_file(pyproject_toml, state="wheel")
+    settings = settings_reader.settings
+    assert settings.cmake.args == ["a", "b", "c", "d"]
+    assert settings.build_dir == "mybuild"
+
+
+def test_skbuild_overrides_in_extra_settings(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+):
+    """An override-only field set via an [[overrides]] block in extra_settings
+    must validate just like the equivalent override in pyproject.toml (#1261)."""
+    caplog.set_level(logging.WARNING)
+    pyproject_toml = tmp_path / "pyproject.toml"
+    pyproject_toml.write_text(
+        dedent(
+            """\
+            [tool.scikit-build]
+            strict-config = true
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    extra_settings = {
+        "overrides": [
+            {
+                "if": {"state": "wheel"},
+                "wheel": {"tags": ["cp312-abi3-win_amd64"]},
+            }
+        ]
+    }
+
+    settings_reader = SettingsReader.from_file(
+        pyproject_toml,
+        state="wheel",
+        extra_settings=extra_settings,
+    )
+    settings_reader.validate_may_exit()
+    assert settings_reader.settings.wheel.tags == ["cp312-abi3-win_amd64"]
+    assert not [r for r in caplog.records if "hard-coded" in str(r.msg)]
 
 
 @pytest.mark.parametrize("from_sdist", [True, False])
@@ -763,10 +945,6 @@ def test_system_cmake(
         fp.register(
             [Path("cmake/path"), "-E", "capabilities"],
             stdout=f'{{"version":{{"string": "{cmake_version}"}}}}',
-        )
-        fp.register(
-            ["lipo", "-info", Path("cmake/path")],
-            stdout="Non-fat file: cmake/path is architecture: arm64",
         )
 
     pyproject_toml = tmp_path / "pyproject.toml"
@@ -973,3 +1151,36 @@ def test_skbuild_overrides_matched_version_if_any_match(
 
     with pytest.raises(TypeError, match="not_real"):
         SettingsReader.from_file(pyproject_toml)
+
+
+@pytest.mark.parametrize("from_sdist", [True, False])
+def test_skbuild_overrides_force_include_from_sdist(
+    from_sdist: bool, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """wheel.force-include entries merge across a from-sdist override (the
+    documented recipe for redirecting an external source to its vendored copy)."""
+    monkeypatch.chdir(tmp_path)
+    pyproject_toml = tmp_path / "pyproject.toml"
+    pyproject_toml.write_text(
+        dedent(
+            """\
+            [[tool.scikit-build.overrides]]
+            if.from-sdist = false
+            wheel.force-include."../outside.txt" = "pkg/blob.txt"
+
+            [[tool.scikit-build.overrides]]
+            if.from-sdist = true
+            wheel.force-include."vendored/blob.txt" = "pkg/blob.txt"
+            """
+        ),
+        encoding="utf-8",
+    )
+    if from_sdist:
+        (tmp_path / "PKG-INFO").write_text("Metadata-Version: 2.1\nName: pkg\n")
+
+    settings = SettingsReader.from_file(pyproject_toml, state="wheel").settings
+
+    if from_sdist:
+        assert settings.wheel.force_include == {"vendored/blob.txt": "pkg/blob.txt"}
+    else:
+        assert settings.wheel.force_include == {"../outside.txt": "pkg/blob.txt"}

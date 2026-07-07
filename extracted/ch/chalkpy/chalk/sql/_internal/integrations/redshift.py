@@ -151,6 +151,7 @@ class RedshiftSourceImpl(BaseSQLSource):
         s3_bucket: Optional[str] = None,
         executor: Optional[ThreadPoolExecutor] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
+        permission_tags: list[str] | None = None,
     ):
         try:
             import boto3
@@ -209,7 +210,9 @@ class RedshiftSourceImpl(BaseSQLSource):
         # a DBAPI statement to reset the transactional level back to the default before returning the
         # connection to the pool
         engine_args.setdefault("isolation_level", os.environ.get("CHALK_SQL_ISOLATION_LEVEL", "AUTOCOMMIT"))
-        BaseSQLSource.__init__(self, name=name, engine_args=engine_args, async_engine_args={})
+        BaseSQLSource.__init__(
+            self, name=name, engine_args=engine_args, async_engine_args={}, permission_tags=permission_tags
+        )
 
     @property
     def s3_bucket(self):

@@ -14,6 +14,7 @@ use statsig_rust::{
     evaluation::evaluator_context::{EvaluatorContext, IdListResolution},
     gcir::gcir_formatter::GCIRFormatter,
     hashing::HashUtil,
+    interned_string::InternedString,
     specs_response::spec_types::SpecsResponseFull,
     user::{
         fast_statsig_user::{FastStatsigUser, FastUserData, FastUserUnitIDMap},
@@ -35,7 +36,7 @@ fn test_gcir() {
 
     let gate = response
         .feature_gates
-        .get("test_public")
+        .get(&InternedString::from_str_ref("test_public"))
         .expect("should have a gate");
 
     assert!(gate.value);
@@ -72,7 +73,7 @@ fn test_id_list_resolution_via_callback() {
     let response = generate_response(&specs_data, IdListResolution::Callback(&id_lists_callback));
     let gate = response
         .feature_gates
-        .get("test_id_list")
+        .get(&InternedString::from_str_ref("test_id_list"))
         .expect("should have a gate");
 
     assert!(gate.value);

@@ -1700,6 +1700,112 @@ mod tests {
         assert_relative_eq!(dev, expected, epsilon = 1e-12, max_relative = 1e-12);
     }
 
+    /// Regression for issue #2126: `calculate_deviance` for a Gamma family must
+    /// report the conventional **unscaled** deviance `D = 2·Σ wᵢ·d(yᵢ, μᵢ)` —
+    /// exactly like Poisson/Binomial/NB/Beta and R/mgcv/statsmodels — and must
+    /// NOT multiply the unit deviance by the fitted shape (≈ 1/φ̂), which would
+    /// report the scaled deviance `D/φ̂` instead. The bug only manifests when the
+    /// shape differs from 1, so this pins a likelihood with an explicit
+    /// `FixedGammaShape { shape = 4.0 }`: the reported deviance must equal the
+    /// shape-free value and must be strictly different from `shape · D`.
+    #[test]
+    pub(crate) fn gamma_deviance_is_unscaled_ignoring_shape() {
+        let y = array![2.0, 5.0, 1.5];
+        let mu = array![1.0, 4.0, 2.0];
+        let w = array![1.5, 0.75, 1.0];
+        let shape = 4.0_f64;
+        let likelihood = GlmLikelihoodSpec {
+            spec: LikelihoodSpec::new(
+                ResponseFamily::Gamma,
+                InverseLink::Standard(StandardLink::Log),
+            ),
+            scale: gam_problem::LikelihoodScaleMetadata::FixedGammaShape { shape },
+        };
+        // Sanity: the likelihood really does carry a non-unit shape, so the old
+        // scaled-deviance code path (× shape) would have been exercised.
+        assert_eq!(likelihood.gamma_shape(), Some(shape));
+
+        let dev = calculate_deviance(y.view(), &mu, &likelihood, w.view());
+
+        let sum_unit: f64 = w
+            .iter()
+            .zip(y.iter())
+            .zip(mu.iter())
+            .map(|((&wi, &yi), &mui)| {
+                let ratio = yi / mui;
+                wi * (ratio - 1.0 - ratio.ln())
+            })
+            .sum();
+        let unscaled = 2.0 * sum_unit;
+
+        // The reported deviance is the unscaled 2·Σ w·d(y, μ) ...
+        assert_relative_eq!(dev, unscaled, epsilon = 1e-12, max_relative = 1e-9);
+        // ... and is NOT the shape-scaled deviance (this is the #2126 assertion:
+        // the old code returned `shape * unscaled`, which for shape = 4 differs).
+        assert!(
+            (dev - shape * unscaled).abs() > 1e-6,
+            "Gamma deviance must be unscaled, not scaled by shape={shape}: \
+             dev={dev}, unscaled={unscaled}, scaled={}",
+            shape * unscaled
+        );
+    }
+
+    /// Regression for issue #2131 (sibling of #2126): `calculate_deviance` for a
+    /// Tweedie family must report the conventional **unscaled** deviance
+    /// `D = 2·Σ wᵢ·d(yᵢ, μᵢ)` — exactly like Poisson/Binomial/NB/Beta and Gamma
+    /// (post-#2126) and R/mgcv/statsmodels — and must NOT divide the unit
+    /// deviance by the dispersion `φ`, which would report the scaled deviance
+    /// `D/φ̂` instead. The bug only manifests when `φ ≠ 1`, so this pins a
+    /// likelihood with an explicit `FixedDispersion { phi = 0.25 }`: the reported
+    /// deviance must equal the φ-free value and must be strictly different from
+    /// `D/φ` (= 4·D here).
+    #[test]
+    pub(crate) fn tweedie_deviance_is_unscaled_ignoring_phi() {
+        let y = array![2.0, 5.0, 1.5];
+        let mu = array![1.0, 4.0, 2.0];
+        let w = array![1.5, 0.75, 1.0];
+        let p = 1.5_f64;
+        let phi = 0.25_f64;
+        let likelihood = GlmLikelihoodSpec {
+            spec: LikelihoodSpec::new(
+                ResponseFamily::Tweedie { p },
+                InverseLink::Standard(StandardLink::Log),
+            ),
+            scale: gam_problem::LikelihoodScaleMetadata::FixedDispersion { phi },
+        };
+        // Sanity: the likelihood really does carry a non-unit dispersion, so the
+        // old scaled-deviance code path (÷ φ) would have been exercised.
+        assert_eq!(likelihood.fixed_phi(), Some(phi));
+
+        let dev = calculate_deviance(y.view(), &mu, &likelihood, w.view());
+
+        // Unscaled reference: 2·Σ wᵢ·d(yᵢ, μᵢ) with the Tweedie unit deviance
+        // `d = y^{2-p}/((1-p)(2-p)) - y·μ^{1-p}/(1-p) + μ^{2-p}/(2-p)`.
+        let sum_unit: f64 = w
+            .iter()
+            .zip(y.iter())
+            .zip(mu.iter())
+            .map(|((&wi, &yi), &mui)| {
+                let unit = yi.powf(2.0 - p) / ((1.0 - p) * (2.0 - p))
+                    - yi * mui.powf(1.0 - p) / (1.0 - p)
+                    + mui.powf(2.0 - p) / (2.0 - p);
+                wi * unit
+            })
+            .sum();
+        let unscaled = 2.0 * sum_unit;
+
+        // The reported deviance is the unscaled 2·Σ w·d(y, μ) ...
+        assert_relative_eq!(dev, unscaled, epsilon = 1e-12, max_relative = 1e-9);
+        // ... and is NOT the φ-scaled deviance (this is the #2131 assertion: the
+        // old code returned `unscaled / φ`, which for φ = 0.25 differs by ×4).
+        assert!(
+            (dev - unscaled / phi).abs() > 1e-6,
+            "Tweedie deviance must be unscaled, not scaled by 1/φ (φ={phi}): \
+             dev={dev}, unscaled={unscaled}, scaled={}",
+            unscaled / phi
+        );
+    }
+
     #[test]
     pub(crate) fn gamma_log_observed_curvature_matches_shape_one_closed_form() {
         let eta = array![0.2, -0.4];

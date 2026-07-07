@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlmesh
-Version: 0.235.4
+Version: 0.236.0
 Summary: Next-generation data transformation framework
 Author: SQLMesh Contributors
 License:                                  Apache License
@@ -218,7 +218,6 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: astor
 Requires-Dist: click
 Requires-Dist: croniter
 Requires-Dist: duckdb!=0.10.3,>=0.10.0
@@ -245,6 +244,8 @@ Provides-Extra: azuresql
 Requires-Dist: pymssql; extra == "azuresql"
 Provides-Extra: azuresql-odbc
 Requires-Dist: pyodbc>=5.0.0; extra == "azuresql-odbc"
+Provides-Extra: azuresql-mssql-python
+Requires-Dist: mssql-python>=1.1.0; python_version >= "3.10" and extra == "azuresql-mssql-python"
 Provides-Extra: bigquery
 Requires-Dist: google-cloud-bigquery[pandas]; extra == "bigquery"
 Requires-Dist: google-cloud-bigquery-storage; extra == "bigquery"
@@ -253,7 +254,7 @@ Requires-Dist: bigframes>=1.32.0; extra == "bigframes"
 Provides-Extra: clickhouse
 Requires-Dist: clickhouse-connect; extra == "clickhouse"
 Provides-Extra: databricks
-Requires-Dist: databricks-sql-connector[pyarrow]; extra == "databricks"
+Requires-Dist: databricks-sql-connector[pyarrow]>=4.2.6; extra == "databricks"
 Provides-Extra: dev
 Requires-Dist: agate; extra == "dev"
 Requires-Dist: beautifulsoup4; extra == "dev"
@@ -283,6 +284,7 @@ Requires-Dist: pydantic; extra == "dev"
 Requires-Dist: PyAthena[Pandas]; extra == "dev"
 Requires-Dist: PyGithub>=2.6.0; extra == "dev"
 Requires-Dist: pyodbc>=5.0.0; extra == "dev"
+Requires-Dist: mssql-python>=1.1.0; python_version >= "3.10" and extra == "dev"
 Requires-Dist: pyperf; extra == "dev"
 Requires-Dist: pyspark~=3.5.0; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
@@ -310,6 +312,8 @@ Requires-Dist: dlt; extra == "dlt"
 Provides-Extra: duckdb
 Provides-Extra: fabric
 Requires-Dist: pyodbc>=5.0.0; extra == "fabric"
+Provides-Extra: fabric-mssql-python
+Requires-Dist: mssql-python>=1.1.0; python_version >= "3.10" and extra == "fabric-mssql-python"
 Provides-Extra: gcppostgres
 Requires-Dist: cloud-sql-python-connector[pg8000]>=1.8.0; extra == "gcppostgres"
 Provides-Extra: github
@@ -320,6 +324,8 @@ Provides-Extra: mssql
 Requires-Dist: pymssql; extra == "mssql"
 Provides-Extra: mssql-odbc
 Requires-Dist: pyodbc>=5.0.0; extra == "mssql-odbc"
+Provides-Extra: mssql-python
+Requires-Dist: mssql-python>=1.1.0; python_version >= "3.10" and extra == "mssql-python"
 Provides-Extra: mysql
 Requires-Dist: pymysql; extra == "mysql"
 Provides-Extra: mwaa

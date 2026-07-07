@@ -573,12 +573,14 @@ class TestDiffLocalComponent:
         assert "carol" in result["conflict_warning"]
         assert result["remote_updated_by"] == "carol"
 
-    @patch("servicenow_mcp.tools.sync_tools._batch_fetch_updated_on")
+    @patch("servicenow_mcp.tools.sync_tools._batch_fetch_updated_on_multi")
     def test_diff_directory_mode_scan(self, mock_batch, mock_config, mock_auth, download_root):
+        # Scan mode fuses ALL tables' timestamp reads into ONE multi call
+        # (issue #68 item 1) — pin that it is called exactly once.
         mock_batch.return_value = {
-            "wid-1": {"on": "2025-01-10 10:00:00", "by": "alice"},
-            "prov-1": {"on": "2025-01-10 10:00:00", "by": "alice"},
-            "si-1": {"on": "2025-01-10 10:00:00", "by": "alice"},
+            "sp_widget": {"wid-1": {"on": "2025-01-10 10:00:00", "by": "alice"}},
+            "sp_angular_provider": {"prov-1": {"on": "2025-01-10 10:00:00", "by": "alice"}},
+            "sys_script_include": {"si-1": {"on": "2025-01-10 10:00:00", "by": "alice"}},
         }
 
         result = diff_local_component(
@@ -588,15 +590,16 @@ class TestDiffLocalComponent:
         assert result["mode"] == "scan"
         assert result["summary"]["total"] >= 3
         assert "components" in result
+        mock_batch.assert_called_once()  # whole scan = one fused fetch
 
-    @patch("servicenow_mcp.tools.sync_tools._batch_fetch_updated_on")
+    @patch("servicenow_mcp.tools.sync_tools._batch_fetch_updated_on_multi")
     def test_diff_directory_mode_detects_remote_newer(
         self, mock_batch, mock_config, mock_auth, download_root
     ):
         mock_batch.return_value = {
-            "wid-1": {"on": "2025-01-20 12:00:00", "by": "bob"},  # newer than download
-            "prov-1": {"on": "2025-01-10 10:00:00", "by": "alice"},
-            "si-1": {"on": "2025-01-10 10:00:00", "by": "alice"},
+            "sp_widget": {"wid-1": {"on": "2025-01-20 12:00:00", "by": "bob"}},  # newer
+            "sp_angular_provider": {"prov-1": {"on": "2025-01-10 10:00:00", "by": "alice"}},
+            "sys_script_include": {"si-1": {"on": "2025-01-10 10:00:00", "by": "alice"}},
         }
 
         result = diff_local_component(
@@ -2380,3 +2383,38 @@ class TestDerivedDiffPushCoverage:
         for table, file_map in _derived_folder_field_maps().items():
             for filename, field in file_map.items():
                 assert filename == field_filename(field), (table, filename, field)
+
+
+# ---------------------------------------------------------------------------
+# sp_header_footer ↔ sp_widget field parity (v1.19.1)
+# ---------------------------------------------------------------------------
+# Headers/footers share sp_widget's five code fields. The old template+css-only
+# maps made server script/client_script/link invisible to download/diff/push,
+# forcing raw by-sys_id field writes. Pin parity in all three gates.
+
+
+def test_header_footer_sync_map_is_widget_parity() -> None:
+    from servicenow_mcp.tools.sync_tools import TABLE_FILE_FIELD_MAP, WIDGET_FILE_FIELD_MAP
+
+    assert TABLE_FILE_FIELD_MAP["sp_header_footer"] == WIDGET_FILE_FIELD_MAP
+
+
+def test_header_footer_editable_fields_are_widget_parity() -> None:
+    from servicenow_mcp.tools.portal_tools import PORTAL_COMPONENT_EDITABLE_FIELDS
+
+    assert (
+        PORTAL_COMPONENT_EDITABLE_FIELDS["sp_header_footer"]
+        == PORTAL_COMPONENT_EDITABLE_FIELDS["sp_widget"]
+    )
+
+
+def test_header_footer_download_fetches_all_code_fields() -> None:
+    from servicenow_mcp.tools.source_tools import SOURCE_CONFIG
+
+    assert set(SOURCE_CONFIG["sp_header_footer"]["source_fields"]) == {
+        "template",
+        "script",
+        "client_script",
+        "link",
+        "css",
+    }

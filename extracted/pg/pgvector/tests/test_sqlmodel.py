@@ -1,24 +1,30 @@
-import numpy as np
-from pgvector import HalfVector, SparseVector
+from pgvector import SparseVector
 from pgvector.sqlalchemy import VECTOR, HALFVEC, BIT, SPARSEVEC, avg, sum
+from pydantic import ConfigDict
 import pytest
 from sqlalchemy.exc import StatementError
-from sqlmodel import Field, Index, Session, SQLModel, create_engine, delete, select, text
-from typing import Any, Optional
+from sqlmodel import Field, Index, Session, SQLModel, col, create_engine, delete, select, text
 
 engine = create_engine('postgresql+psycopg2://localhost/pgvector_python_test')
 with Session(engine) as session:
-    session.exec(text('CREATE EXTENSION IF NOT EXISTS vector'))
+    # typing issue
+    # https://github.com/fastapi/sqlmodel/issues/909
+    # https://github.com/fastapi/sqlmodel/pull/1657
+    session.exec(text('CREATE EXTENSION IF NOT EXISTS vector'))  # type: ignore
 
 
 class Item(SQLModel, table=True):
-    __tablename__ = 'sqlmodel_item'
+    __tablename__ = 'sqlmodel_item'  # type: ignore
+    model_config = ConfigDict(arbitrary_types_allowed=True)  # type: ignore
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    embedding: Optional[Any] = Field(default=None, sa_type=VECTOR(3))
-    half_embedding: Optional[Any] = Field(default=None, sa_type=HALFVEC(3))
-    binary_embedding: Optional[Any] = Field(default=None, sa_type=BIT(3))
-    sparse_embedding: Optional[Any] = Field(default=None, sa_type=SPARSEVEC(3))
+    id: int | None = Field(default=None, primary_key=True)
+    # typing issue
+    # https://github.com/fastapi/sqlmodel/discussions/1228
+    # https://github.com/fastapi/sqlmodel/pull/1345
+    embedding: list[float] | None = Field(default=None, sa_type=VECTOR(3))  # type: ignore
+    half_embedding: list[float] | None = Field(default=None, sa_type=HALFVEC(3))  # type: ignore
+    binary_embedding: str | None = Field(default=None, sa_type=BIT(3))  # type: ignore
+    sparse_embedding: SparseVector | list[float] | None = Field(default=None, sa_type=SPARSEVEC(3))  # type: ignore
 
 
 SQLModel.metadata.drop_all(engine)
@@ -26,7 +32,7 @@ SQLModel.metadata.create_all(engine)
 
 index = Index(
     'sqlmodel_index',
-    Item.embedding,
+    col(Item.embedding),  # col() for typing
     postgresql_using='hnsw',
     postgresql_with={'m': 16, 'ef_construction': 64},
     postgresql_ops={'embedding': 'vector_l2_ops'}
@@ -34,7 +40,7 @@ index = Index(
 index.create(engine)
 
 
-def create_items():
+def create_items() -> None:
     with Session(engine) as session:
         session.add(Item(id=1, embedding=[1, 1, 1], half_embedding=[1, 1, 1], binary_embedding='000', sparse_embedding=SparseVector([1, 1, 1])))
         session.add(Item(id=2, embedding=[2, 2, 2], half_embedding=[2, 2, 2], binary_embedding='101', sparse_embedding=SparseVector([2, 2, 2])))
@@ -43,12 +49,12 @@ def create_items():
 
 
 class TestSqlmodel:
-    def setup_method(self):
+    def setup_method(self) -> None:
         with Session(engine) as session:
             session.exec(delete(Item))
             session.commit()
 
-    def test_orm(self):
+    def test_orm(self) -> None:
         item = Item(embedding=[1.5, 2, 3])
         item2 = Item(embedding=[4, 5, 6])
         item3 = Item()
@@ -65,173 +71,171 @@ class TestSqlmodel:
             assert items[0].id == 1
             assert items[1].id == 2
             assert items[2].id == 3
-            assert np.array_equal(items[0].embedding, np.array([1.5, 2, 3]))
-            assert items[0].embedding.dtype == np.float32
-            assert np.array_equal(items[1].embedding, np.array([4, 5, 6]))
-            assert items[1].embedding.dtype == np.float32
+            assert items[0].embedding == [1.5, 2, 3]
+            assert items[1].embedding == [4, 5, 6]
             assert items[2].embedding is None
 
-    def test_vector(self):
+    def test_vector(self) -> None:
         with Session(engine) as session:
             session.add(Item(id=1, embedding=[1, 2, 3]))
             session.commit()
-            item = session.get(Item, 1)
-            assert np.array_equal(item.embedding, np.array([1, 2, 3]))
+            item = session.get_one(Item, 1)
+            assert item.embedding == [1, 2, 3]
 
-    def test_vector_l2_distance(self):
+    def test_vector_l2_distance(self) -> None:
         create_items()
         with Session(engine) as session:
-            items = session.exec(select(Item).order_by(Item.embedding.l2_distance([1, 1, 1])))
+            items = session.exec(select(Item).order_by(col(Item.embedding).l2_distance([1, 1, 1])))  # type: ignore
             assert [v.id for v in items] == [1, 3, 2]
 
-    def test_vector_max_inner_product(self):
+    def test_vector_max_inner_product(self) -> None:
         create_items()
         with Session(engine) as session:
-            items = session.exec(select(Item).order_by(Item.embedding.max_inner_product([1, 1, 1])))
+            items = session.exec(select(Item).order_by(col(Item.embedding).max_inner_product([1, 1, 1])))  # type: ignore
             assert [v.id for v in items] == [2, 3, 1]
 
-    def test_vector_cosine_distance(self):
+    def test_vector_cosine_distance(self) -> None:
         create_items()
         with Session(engine) as session:
-            items = session.exec(select(Item).order_by(Item.embedding.cosine_distance([1, 1, 1])))
+            items = session.exec(select(Item).order_by(col(Item.embedding).cosine_distance([1, 1, 1])))  # type: ignore
             assert [v.id for v in items] == [1, 2, 3]
 
-    def test_vector_l1_distance(self):
+    def test_vector_l1_distance(self) -> None:
         create_items()
         with Session(engine) as session:
-            items = session.exec(select(Item).order_by(Item.embedding.l1_distance([1, 1, 1])))
+            items = session.exec(select(Item).order_by(col(Item.embedding).l1_distance([1, 1, 1])))  # type: ignore
             assert [v.id for v in items] == [1, 3, 2]
 
-    def test_halfvec(self):
+    def test_halfvec(self) -> None:
         with Session(engine) as session:
             session.add(Item(id=1, half_embedding=[1, 2, 3]))
             session.commit()
-            item = session.get(Item, 1)
-            assert item.half_embedding == HalfVector([1, 2, 3])
+            item = session.get_one(Item, 1)
+            assert item.half_embedding == [1, 2, 3]
 
-    def test_halfvec_l2_distance(self):
+    def test_halfvec_l2_distance(self) -> None:
         create_items()
         with Session(engine) as session:
-            items = session.exec(select(Item).order_by(Item.half_embedding.l2_distance([1, 1, 1])))
+            items = session.exec(select(Item).order_by(col(Item.half_embedding).l2_distance([1, 1, 1])))  # type: ignore
             assert [v.id for v in items] == [1, 3, 2]
 
-    def test_halfvec_max_inner_product(self):
+    def test_halfvec_max_inner_product(self) -> None:
         create_items()
         with Session(engine) as session:
-            items = session.exec(select(Item).order_by(Item.half_embedding.max_inner_product([1, 1, 1])))
+            items = session.exec(select(Item).order_by(col(Item.half_embedding).max_inner_product([1, 1, 1])))  # type: ignore
             assert [v.id for v in items] == [2, 3, 1]
 
-    def test_halfvec_cosine_distance(self):
+    def test_halfvec_cosine_distance(self) -> None:
         create_items()
         with Session(engine) as session:
-            items = session.exec(select(Item).order_by(Item.half_embedding.cosine_distance([1, 1, 1])))
+            items = session.exec(select(Item).order_by(col(Item.half_embedding).cosine_distance([1, 1, 1])))  # type: ignore
             assert [v.id for v in items] == [1, 2, 3]
 
-    def test_halfvec_l1_distance(self):
+    def test_halfvec_l1_distance(self) -> None:
         create_items()
         with Session(engine) as session:
-            items = session.exec(select(Item).order_by(Item.half_embedding.l1_distance([1, 1, 1])))
+            items = session.exec(select(Item).order_by(col(Item.half_embedding).l1_distance([1, 1, 1])))  # type: ignore
             assert [v.id for v in items] == [1, 3, 2]
 
-    def test_bit(self):
+    def test_bit(self) -> None:
         with Session(engine) as session:
             session.add(Item(id=1, binary_embedding='101'))
             session.commit()
-            item = session.get(Item, 1)
+            item = session.get_one(Item, 1)
             assert item.binary_embedding == '101'
 
-    def test_bit_hamming_distance(self):
+    def test_bit_hamming_distance(self) -> None:
         create_items()
         with Session(engine) as session:
-            items = session.exec(select(Item).order_by(Item.binary_embedding.hamming_distance('101')))
+            items = session.exec(select(Item).order_by(col(Item.binary_embedding).hamming_distance('101')))  # type: ignore
             assert [v.id for v in items] == [2, 3, 1]
 
-    def test_bit_jaccard_distance(self):
+    def test_bit_jaccard_distance(self) -> None:
         create_items()
         with Session(engine) as session:
-            items = session.exec(select(Item).order_by(Item.binary_embedding.jaccard_distance('101')))
+            items = session.exec(select(Item).order_by(col(Item.binary_embedding).jaccard_distance('101')))  # type: ignore
             assert [v.id for v in items] == [2, 3, 1]
 
-    def test_sparsevec(self):
+    def test_sparsevec(self) -> None:
         with Session(engine) as session:
             session.add(Item(id=1, sparse_embedding=[1, 2, 3]))
             session.commit()
-            item = session.get(Item, 1)
+            item = session.get_one(Item, 1)
             assert item.sparse_embedding == SparseVector([1, 2, 3])
 
-    def test_sparsevec_l2_distance(self):
+    def test_sparsevec_l2_distance(self) -> None:
         create_items()
         with Session(engine) as session:
-            items = session.exec(select(Item).order_by(Item.sparse_embedding.l2_distance([1, 1, 1])))
+            items = session.exec(select(Item).order_by(col(Item.sparse_embedding).l2_distance([1, 1, 1])))  # type: ignore
             assert [v.id for v in items] == [1, 3, 2]
 
-    def test_sparsevec_max_inner_product(self):
+    def test_sparsevec_max_inner_product(self) -> None:
         create_items()
         with Session(engine) as session:
-            items = session.exec(select(Item).order_by(Item.sparse_embedding.max_inner_product([1, 1, 1])))
+            items = session.exec(select(Item).order_by(col(Item.sparse_embedding).max_inner_product([1, 1, 1])))  # type: ignore
             assert [v.id for v in items] == [2, 3, 1]
 
-    def test_sparsevec_cosine_distance(self):
+    def test_sparsevec_cosine_distance(self) -> None:
         create_items()
         with Session(engine) as session:
-            items = session.exec(select(Item).order_by(Item.sparse_embedding.cosine_distance([1, 1, 1])))
+            items = session.exec(select(Item).order_by(col(Item.sparse_embedding).cosine_distance([1, 1, 1])))  # type: ignore
             assert [v.id for v in items] == [1, 2, 3]
 
-    def test_sparsevec_l1_distance(self):
+    def test_sparsevec_l1_distance(self) -> None:
         create_items()
         with Session(engine) as session:
-            items = session.exec(select(Item).order_by(Item.sparse_embedding.l1_distance([1, 1, 1])))
+            items = session.exec(select(Item).order_by(col(Item.sparse_embedding).l1_distance([1, 1, 1])))  # type: ignore
             assert [v.id for v in items] == [1, 3, 2]
 
-    def test_filter(self):
+    def test_filter(self) -> None:
         create_items()
         with Session(engine) as session:
-            items = session.exec(select(Item).filter(Item.embedding.l2_distance([1, 1, 1]) < 1))
+            items = session.exec(select(Item).filter(col(Item.embedding).l2_distance([1, 1, 1]) < 1))  # type: ignore
             assert [v.id for v in items] == [1]
 
-    def test_select(self):
+    def test_select(self) -> None:
         with Session(engine) as session:
             session.add(Item(embedding=[2, 3, 3]))
-            items = session.exec(select(Item.embedding.l2_distance([1, 1, 1]))).all()
+            items = session.exec(select(col(Item.embedding).l2_distance([1, 1, 1]))).all()  # type: ignore
             assert items[0] == 3
 
-    def test_vector_avg(self):
+    def test_vector_avg(self) -> None:
         with Session(engine) as session:
             res = session.exec(select(avg(Item.embedding))).first()
             assert res is None
             session.add(Item(embedding=[1, 2, 3]))
             session.add(Item(embedding=[4, 5, 6]))
             res = session.exec(select(avg(Item.embedding))).first()
-            assert np.array_equal(res, np.array([2.5, 3.5, 4.5]))
+            assert res == [2.5, 3.5, 4.5]
 
-    def test_vector_sum(self):
+    def test_vector_sum(self) -> None:
         with Session(engine) as session:
             res = session.exec(select(sum(Item.embedding))).first()
             assert res is None
             session.add(Item(embedding=[1, 2, 3]))
             session.add(Item(embedding=[4, 5, 6]))
             res = session.exec(select(sum(Item.embedding))).first()
-            assert np.array_equal(res, np.array([5, 7, 9]))
+            assert res == [5, 7, 9]
 
-    def test_halfvec_avg(self):
+    def test_halfvec_avg(self) -> None:
         with Session(engine) as session:
             res = session.exec(select(avg(Item.half_embedding))).first()
             assert res is None
             session.add(Item(half_embedding=[1, 2, 3]))
             session.add(Item(half_embedding=[4, 5, 6]))
             res = session.exec(select(avg(Item.half_embedding))).first()
-            assert res == HalfVector([2.5, 3.5, 4.5])
+            assert res == [2.5, 3.5, 4.5]
 
-    def test_halfvec_sum(self):
+    def test_halfvec_sum(self) -> None:
         with Session(engine) as session:
             res = session.exec(select(sum(Item.half_embedding))).first()
             assert res is None
             session.add(Item(half_embedding=[1, 2, 3]))
             session.add(Item(half_embedding=[4, 5, 6]))
             res = session.exec(select(sum(Item.half_embedding))).first()
-            assert res == HalfVector([5, 7, 9])
+            assert res == [5, 7, 9]
 
-    def test_bad_dimensions(self):
+    def test_bad_dimensions(self) -> None:
         item = Item(embedding=[1, 2])
         with Session(engine) as session:
             session.add(item)

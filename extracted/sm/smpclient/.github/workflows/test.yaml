@@ -14,21 +14,17 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v8.1.0
 
-      - run: uv run --python ${{ matrix.python-version }} task lint
-
-      - run: uv run --python ${{ matrix.python-version }} task typecheck
-
-      - run: uv run --python ${{ matrix.python-version }} task test
+      - run: uv run --python ${{ matrix.python-version }} camas
 
       - run: uv build
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-${{ matrix.os }}-${{ matrix.python-version }}
           path: |
@@ -80,11 +76,11 @@ jobs:
             expect-hci-firmware: pass
     name: transport-extras (${{ matrix.name }})
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v8.1.0
 
       - run: uv venv && uv pip install .${{ matrix.extras }}
 
@@ -126,8 +122,33 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v8.1.0
 
-      - run: uv run task coverage
+      - run: uv run camas coverage
+
+  integration:
+    name: integration (native_sim + qemu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v8.1.0
+
+      - run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-arm libc6:i386
+
+      - run: uv run camas test-integration
+
+      - name: Upload integration test logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          path: integration-tests.log
+          archive: false
+          if-no-files-found: warn

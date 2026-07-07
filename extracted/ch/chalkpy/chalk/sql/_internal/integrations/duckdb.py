@@ -30,6 +30,7 @@ class DuckDBSourceImpl(TableIngestMixIn, BaseSQLSource, SQLSourceWithTableIngest
         engine_args: Optional[Dict[str, Any]] = None,
         async_engine_args: Optional[Dict[str, Any]] = None,
         arrow_tables: dict[str, pa.Table] | None = None,
+        permission_tags: list[str] | None = None,
     ):
         try:
             import duckdb
@@ -51,7 +52,13 @@ class DuckDBSourceImpl(TableIngestMixIn, BaseSQLSource, SQLSourceWithTableIngest
         # connection to the pool
         engine_args.setdefault("isolation_level", os.environ.get("CHALK_SQL_ISOLATION_LEVEL", "AUTOCOMMIT"))
         async_engine_args.setdefault("isolation_level", os.environ.get("CHALK_SQL_ISOLATION_LEVEL", "AUTOCOMMIT"))
-        BaseSQLSource.__init__(self, name=name, engine_args=engine_args, async_engine_args=async_engine_args)
+        BaseSQLSource.__init__(
+            self,
+            name=name,
+            engine_args=engine_args,
+            async_engine_args=async_engine_args,
+            permission_tags=permission_tags,
+        )
         self.connection = duckdb.connect(":memory:")
         for table in arrow_tables:
             # must be defined here to make the duckdb craziness work.

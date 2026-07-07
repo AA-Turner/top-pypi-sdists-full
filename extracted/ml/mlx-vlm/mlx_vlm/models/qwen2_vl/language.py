@@ -2,8 +2,8 @@ from typing import Optional
 
 import mlx.core as mx
 import mlx.nn as nn
-from mlx_lm.models.activations import swiglu
 
+from ..activations import swiglu
 from ..base import (
     LanguageModelOutput,
     create_attention_mask,
@@ -355,6 +355,10 @@ class LanguageModel(nn.Module):
 
                     llm_pos_ids_list.append(t_index + st_idx)
 
+                if not llm_pos_ids_list:
+                    mrope_position_deltas.append(0)
+                    continue
+
                 llm_positions = mx.concatenate(llm_pos_ids_list, axis=1).reshape(3, -1)
                 compact_max_position = llm_positions.max()
                 padded_positions = [[1] * total_input_ids.shape[1] for _ in range(3)]
@@ -446,7 +450,11 @@ class LanguageModel(nn.Module):
         if position_ids is None and (rope_mask is None or rope_mask.ndim == 2):
             # Calculate RoPE index once per generation in the pre-fill stage only
             if (
-                (cache is not None and cache[0] is not None and (cache_offset == 0))
+                (
+                    cache is not None
+                    and cache[0] is not None
+                    and (cache_offsets is None and cache_offset == 0)
+                )
                 or self._rope_deltas is None
                 or cache is None
             ):
@@ -491,6 +499,15 @@ class LanguageModel(nn.Module):
                 position_ids = mx.arange(seq_length).reshape(1, -1)
                 position_ids = mx.broadcast_to(position_ids, (batch_size, seq_length))
                 position_ids = mx.add(position_ids, delta)
+                if (
+                    rope_deltas_kw is not None
+                    or self._position_ids is not None
+                    and self._position_ids.ndim == 3
+                ):
+                    position_ids = position_ids[None, ...]
+                    position_ids = mx.broadcast_to(
+                        position_ids, (3, batch_size, seq_length)
+                    )
 
         out = self.model(
             inputs, cache=cache, inputs_embeds=inputs_embeds, position_ids=position_ids

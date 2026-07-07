@@ -1,12 +1,28 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.builder.sysconfig",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.cmake",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.errors",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.resources",
+    "packaging",
+    "packaging.specifiers",
+    "packaging.tags",
+    "pathlib",
+    "platform",
+    "re",
+    "typing",
+}
+
 import dataclasses
 import os
 import platform
 import re
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 import packaging.tags
 from packaging.specifiers import SpecifierSet
@@ -26,6 +42,7 @@ def __dir__() -> list[str]:
     return __all__
 
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
@@ -458,10 +475,11 @@ def process_overrides(
                         passed_all=passed_all,
                         passed_any=passed_any,
                     )
-                    inherit_override_tmp = inherit_override or "none"
-                    if isinstance(inherit_override_tmp, dict):
-                        assert not inherit_override_tmp
+                    # ``inherit`` is keyed per-table; a non-dict top-level key
+                    # has no nested inherit entry, so any inherit for it must be
+                    # a plain string (e.g. for a list-valued top-level field).
+                    inherit_for_key = inherit_override.get(key, "none")
                     tool_skb[key] = inherit_join(
-                        value, tool_skb.get(key), inherit_override_tmp
+                        value, tool_skb.get(key), inherit_for_key
                     )
     return global_matched, overridden_items
